@@ -1,0 +1,1882 @@
+{
+  "aliases": {
+    "float32": "float",
+    "float64": "double",
+    "ident": "const char*",
+    "int32": "int32_t",
+    "int64": "int64_t"
+  },
+  "bases": [
+    "Method",
+    "Node"
+  ],
+  "definitions": [
+    {
+      "attributes": [],
+      "is_enum": true,
+      "name": "datatype",
+      "type": "sum",
+      "types": [
+        {
+          "fields": [],
+          "name": "DtByte"
+        },
+        {
+          "fields": [],
+          "name": "DtShort"
+        },
+        {
+          "fields": [],
+          "name": "DtInt"
+        },
+        {
+          "fields": [],
+          "name": "DtRef"
+        },
+        {
+          "fields": [],
+          "name": "DtChar"
+        },
+        {
+          "fields": [],
+          "name": "DtLong"
+        },
+        {
+          "fields": [],
+          "name": "DtFloat"
+        },
+        {
+          "fields": [],
+          "name": "DtDouble"
+        }
+      ]
+    },
+    {
+      "attributes": [],
+      "is_enum": true,
+      "name": "atype",
+      "type": "sum",
+      "types": [
+        {
+          "fields": [],
+          "name": "AtClass"
+        },
+        {
+          "fields": [],
+          "name": "AtBool"
+        },
+        {
+          "fields": [],
+          "name": "AtByte"
+        },
+        {
+          "fields": [],
+          "name": "AtShort"
+        },
+        {
+          "fields": [],
+          "name": "AtInt"
+        },
+        {
+          "fields": [],
+          "name": "AtRefArray"
+        },
+        {
+          "fields": [],
+          "name": "AtChar"
+        },
+        {
+          "fields": [],
+          "name": "AtLong"
+        },
+        {
+          "fields": [],
+          "name": "AtFloat"
+        },
+        {
+          "fields": [],
+          "name": "AtDouble"
+        }
+      ]
+    },
+    {
+      "attributes": [],
+      "is_enum": false,
+      "name": "method",
+      "type": "sum",
+      "types": [
+        {
+          "base": "ASTNode",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "name",
+              "type": "ident"
+            },
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "class_id",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "method_id",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "max_locals",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "entry",
+              "type": "node"
+            }
+          ],
+          "name": "Method"
+        }
+      ]
+    },
+    {
+      "attributes": [
+        {
+          "flag": "optional",
+          "name": "exc",
+          "type": "node"
+        }
+      ],
+      "is_enum": false,
+      "name": "node",
+      "type": "sum",
+      "types": [
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "value",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "data_type",
+              "type": "datatype"
+            }
+          ],
+          "name": "LoadConst"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "value",
+              "type": "int64"
+            }
+          ],
+          "name": "LoadLongConst"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "value",
+              "type": "float32"
+            }
+          ],
+          "name": "LoadFloatConst"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "value",
+              "type": "float64"
+            }
+          ],
+          "name": "LoadDoubleConst"
+        },
+        {
+          "base": "Node",
+          "fields": [],
+          "name": "LoadNull"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "slot",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "data_type",
+              "type": "datatype"
+            },
+            {
+              "flag": "optional",
+              "is_schema": true,
+              "name": "ref_type",
+              "type": "node"
+            }
+          ],
+          "name": "LoadLocal"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "data_type",
+              "type": "datatype"
+            },
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "class_id",
+              "type": "int32"
+            }
+          ],
+          "name": "LoadThis"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "class_id",
+              "type": "int32"
+            }
+          ],
+          "name": "LoadClass"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "class_id",
+              "type": "int32"
+            }
+          ],
+          "name": "CloneCopy"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "data_type",
+              "type": "datatype"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "left",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "right",
+              "type": "node"
+            }
+          ],
+          "name": "Add"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "data_type",
+              "type": "datatype"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "left",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "right",
+              "type": "node"
+            }
+          ],
+          "name": "Sub"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "data_type",
+              "type": "datatype"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "left",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "right",
+              "type": "node"
+            }
+          ],
+          "name": "Mul"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "data_type",
+              "type": "datatype"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "left",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "right",
+              "type": "node"
+            }
+          ],
+          "name": "Div"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "data_type",
+              "type": "datatype"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "left",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "right",
+              "type": "node"
+            }
+          ],
+          "name": "Rem"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "data_type",
+              "type": "datatype"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "operand",
+              "type": "node"
+            }
+          ],
+          "name": "Neg"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "data_type",
+              "type": "datatype"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "left",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "right",
+              "type": "node"
+            }
+          ],
+          "name": "And"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "data_type",
+              "type": "datatype"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "left",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "right",
+              "type": "node"
+            }
+          ],
+          "name": "Or"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "data_type",
+              "type": "datatype"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "left",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "right",
+              "type": "node"
+            }
+          ],
+          "name": "Xor"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "data_type",
+              "type": "datatype"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "left",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "right",
+              "type": "node"
+            }
+          ],
+          "name": "Shl"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "data_type",
+              "type": "datatype"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "left",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "right",
+              "type": "node"
+            }
+          ],
+          "name": "Shr"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "data_type",
+              "type": "datatype"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "left",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "right",
+              "type": "node"
+            }
+          ],
+          "name": "Ushr"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "data_type",
+              "type": "datatype"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "operand",
+              "type": "node"
+            }
+          ],
+          "name": "LogNot"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "operand",
+              "type": "node"
+            }
+          ],
+          "name": "S2B"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "operand",
+              "type": "node"
+            }
+          ],
+          "name": "S2I"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "operand",
+              "type": "node"
+            }
+          ],
+          "name": "I2S"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "operand",
+              "type": "node"
+            }
+          ],
+          "name": "I2B"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "operand",
+              "type": "node"
+            }
+          ],
+          "name": "I2C"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "operand",
+              "type": "node"
+            }
+          ],
+          "name": "I2L"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "operand",
+              "type": "node"
+            }
+          ],
+          "name": "I2F"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "operand",
+              "type": "node"
+            }
+          ],
+          "name": "I2D"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "operand",
+              "type": "node"
+            }
+          ],
+          "name": "L2I"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "operand",
+              "type": "node"
+            }
+          ],
+          "name": "L2F"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "operand",
+              "type": "node"
+            }
+          ],
+          "name": "L2D"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "operand",
+              "type": "node"
+            }
+          ],
+          "name": "F2I"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "operand",
+              "type": "node"
+            }
+          ],
+          "name": "F2L"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "operand",
+              "type": "node"
+            }
+          ],
+          "name": "F2D"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "operand",
+              "type": "node"
+            }
+          ],
+          "name": "D2I"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "operand",
+              "type": "node"
+            }
+          ],
+          "name": "D2L"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "operand",
+              "type": "node"
+            }
+          ],
+          "name": "D2F"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "operand",
+              "type": "node"
+            }
+          ],
+          "name": "MoveF2I"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "operand",
+              "type": "node"
+            }
+          ],
+          "name": "MoveI2F"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "operand",
+              "type": "node"
+            }
+          ],
+          "name": "MoveD2L"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "operand",
+              "type": "node"
+            }
+          ],
+          "name": "MoveL2D"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "operand",
+              "type": "node"
+            }
+          ],
+          "name": "F64Sqrt"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "operand",
+              "type": "node"
+            }
+          ],
+          "name": "F64Floor"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "operand",
+              "type": "node"
+            }
+          ],
+          "name": "F64Ceil"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "operand",
+              "type": "node"
+            }
+          ],
+          "name": "F64Nearest"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "left",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "right",
+              "type": "node"
+            }
+          ],
+          "name": "Eq"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "left",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "right",
+              "type": "node"
+            }
+          ],
+          "name": "Ne"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "left",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "right",
+              "type": "node"
+            }
+          ],
+          "name": "Lt"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "left",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "right",
+              "type": "node"
+            }
+          ],
+          "name": "Le"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "left",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "right",
+              "type": "node"
+            }
+          ],
+          "name": "Gt"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "left",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "right",
+              "type": "node"
+            }
+          ],
+          "name": "Ge"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "cls",
+              "type": "node"
+            }
+          ],
+          "name": "ClassInstantiable"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "cls",
+              "type": "node"
+            }
+          ],
+          "name": "ClassConstruct"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "class_id",
+              "type": "int32"
+            }
+          ],
+          "name": "New"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "obj",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "atype",
+              "type": "atype"
+            },
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "class_id",
+              "type": "int32"
+            }
+          ],
+          "name": "InstanceOf"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "obj",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "atype",
+              "type": "atype"
+            },
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "class_id",
+              "type": "int32"
+            }
+          ],
+          "name": "CheckCast"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "elem_type",
+              "type": "atype"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "size",
+              "type": "node"
+            }
+          ],
+          "name": "NewArray"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "class_id",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "size",
+              "type": "node"
+            },
+            {
+              "flag": "optional",
+              "is_schema": true,
+              "name": "elem_ref",
+              "type": "node"
+            }
+          ],
+          "name": "NewRefArray"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "data_type",
+              "type": "datatype"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "arr",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "index",
+              "type": "node"
+            },
+            {
+              "flag": "optional",
+              "is_schema": true,
+              "name": "elem_ref",
+              "type": "node"
+            }
+          ],
+          "name": "ArrayLoad"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "addr",
+              "type": "node"
+            }
+          ],
+          "name": "MemLoad8"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "arr",
+              "type": "node"
+            }
+          ],
+          "name": "ArrayLength"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "data_type",
+              "type": "datatype"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "obj",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "class_id",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "field_idx",
+              "type": "int32"
+            }
+          ],
+          "name": "GetField"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "data_type",
+              "type": "datatype"
+            },
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "class_id",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "field_idx",
+              "type": "int32"
+            }
+          ],
+          "name": "GetStatic"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "obj",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "class_id",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "method_idx",
+              "type": "int32"
+            },
+            {
+              "flag": "sequence",
+              "is_schema": true,
+              "name": "args",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "return_type",
+              "type": "datatype"
+            }
+          ],
+          "name": "InvokeVirtual"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "obj",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "class_id",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "method_idx",
+              "type": "int32"
+            },
+            {
+              "flag": "sequence",
+              "is_schema": true,
+              "name": "args",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "return_type",
+              "type": "datatype"
+            }
+          ],
+          "name": "InvokeSpecial"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "class_id",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "method_idx",
+              "type": "int32"
+            },
+            {
+              "flag": "sequence",
+              "is_schema": true,
+              "name": "args",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "return_type",
+              "type": "datatype"
+            }
+          ],
+          "name": "InvokeStatic"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "obj",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "class_id",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "method_idx",
+              "type": "int32"
+            },
+            {
+              "flag": "sequence",
+              "is_schema": true,
+              "name": "args",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "return_type",
+              "type": "datatype"
+            }
+          ],
+          "name": "InvokeInterface"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "slot",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "data_type",
+              "type": "datatype"
+            },
+            {
+              "flag": "optional",
+              "is_schema": true,
+              "name": "ref_type",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "value",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "next",
+              "type": "node"
+            }
+          ],
+          "name": "StoreLocal"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "value",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "is_void",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "next",
+              "type": "node"
+            }
+          ],
+          "name": "ExprEffect"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "data_type",
+              "type": "datatype"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "arr",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "index",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "value",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "next",
+              "type": "node"
+            },
+            {
+              "flag": "optional",
+              "is_schema": true,
+              "name": "elem_ref",
+              "type": "node"
+            }
+          ],
+          "name": "ArrayStore"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "data_type",
+              "type": "datatype"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "obj",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "class_id",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "field_idx",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "value",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "next",
+              "type": "node"
+            }
+          ],
+          "name": "PutField"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "obj",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "value",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "struct_class_id",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "next",
+              "type": "node"
+            }
+          ],
+          "name": "SetHeader"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "width",
+              "type": "datatype"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "dst",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "dst_off",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "src",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "src_off",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "len",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "next",
+              "type": "node"
+            }
+          ],
+          "name": "ArrayCopy"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "data_type",
+              "type": "datatype"
+            },
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "class_id",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "field_idx",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "value",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "next",
+              "type": "node"
+            }
+          ],
+          "name": "PutStatic"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "addr",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "value",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "next",
+              "type": "node"
+            }
+          ],
+          "name": "MemStore8"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "cond",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "on_true",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "on_false",
+              "type": "node"
+            }
+          ],
+          "name": "Branch"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "selector",
+              "type": "node"
+            },
+            {
+              "flag": "sequence",
+              "is_schema": true,
+              "name": "case_targets",
+              "type": "node"
+            },
+            {
+              "flag": "sequence",
+              "is_schema": false,
+              "name": "case_values",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "default_target",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "selector_type",
+              "type": "datatype"
+            }
+          ],
+          "name": "Switch"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "value",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "data_type",
+              "type": "datatype"
+            }
+          ],
+          "name": "Return"
+        },
+        {
+          "base": "Node",
+          "fields": [],
+          "name": "ReturnVoid"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "ref",
+              "type": "node"
+            }
+          ],
+          "name": "Throw"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "local_slot",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "catch_class_id",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "next",
+              "type": "node"
+            }
+          ],
+          "name": "ExceptionEntry"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "handler",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "next",
+              "type": "node"
+            }
+          ],
+          "name": "TryRegion"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "slot",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "delta",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "data_type",
+              "type": "datatype"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "value",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "next",
+              "type": "node"
+            }
+          ],
+          "name": "Inc"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "next",
+              "type": "node"
+            }
+          ],
+          "name": "Nop"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "class_id",
+              "type": "int32"
+            }
+          ],
+          "name": "ClassRef"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "class_id",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "dim",
+              "type": "int32"
+            }
+          ],
+          "name": "ArrayRef"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "width",
+              "type": "datatype"
+            },
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "dim",
+              "type": "int32"
+            }
+          ],
+          "name": "PrimArray"
+        }
+      ]
+    }
+  ],
+  "name": "sir"
+}

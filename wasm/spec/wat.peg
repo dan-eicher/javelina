@@ -1,0 +1,2248 @@
+// wat.peg — WebAssembly text format (§6) reader, compiled by pegc.
+//
+// Reference: WebAssembly Core Specification, Release 3.0, §6 "Text Format".
+// Goal: parse .wat into the SAME jav_module_t the binary reader (wasm.bbq)
+// produces, so the text and binary front-ends meet at one struct. The grammar
+// transcribes §6 directly: each construct is a production whose semantic action
+// fills the bbq struct — no intermediate table, the grammar carries it.
+//
+// Built incrementally, vertical-slice first. THIS increment: §6.6.2 type
+// definitions (singular func types) → the type section, exercising module /
+// type / functype / param / result / valtype + struct assembly end to end.
+// Symbolic $id resolution (forward refs need a resolve pass) and the §6.6
+// abbreviations are layered on from here.
+
+COMPILER Wat
+
+(.
+#include "jav_types.h"
+#include "jav_reader.h"            /* jav_func_body_read: bytes -> FuncBody tree */
+#include "bbq_arena.h"
+#include "bbq_vec.h"                /* stb-style growable vector (push/pop/len/free) */
+#include "yoctojc/toml/toml_doc.h"  /* the pinched TOML reader for instructions.toml */
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <math.h>
+
+/* Freeze a bbq_vec into a plain malloc'd {items,count} struct field, then free the
+ * vec. The jav_module_t arrays are the bbqc contract — jav_module_free does a plain
+ * free(items), which a bbq_vec's hidden len/cap header would corrupt — so growable
+ * building happens in a bbq_vec and the result is copied out into a plain array. */
+#define WAT_FREEZE(vec, field) do {                                          \
+    size_t n__ = bbq_vec_len(vec);                                           \
+    (field).count = n__;                                                     \
+    (field).items = malloc((n__ ? n__ : 1) * sizeof *(vec));                 \
+    if (n__) memcpy((field).items, (vec), n__ * sizeof *(vec));              \
+    bbq_vec_free(vec);                                                       \
+} while (0)
+
+/* Immediate shapes, in the order instructions.toml uses (the `shape` field). */
+enum { WSH_NONE, WSH_IDX, WSH_IDX2, WSH_I32, WSH_I64, WSH_F32, WSH_F64, WSH_HEAP,
+       WSH_LANE, WSH_V128, WSH_MEMARG, WSH_MEMLANE, WSH_BRTABLE, WSH_SELECTT,
+       WSH_BRONCAST, WSH_BLOCK, WSH_IF, WSH_TRYTABLE };
+
+/* Module index spaces with their own $id namespaces (§6.6.1). SP_N sizes the
+ * per-module table array; SP_LOCAL/SP_LABEL are FUNCTION-local spaces, resolved
+ * against separate per-func state, not the module array. */
+enum { SP_TYPE, SP_FUNC, SP_TABLE, SP_MEM, SP_GLOBAL, SP_TAG, SP_ELEM, SP_DATA, SP_N,
+       SP_LOCAL = SP_N, SP_LABEL };
+
+/* A resolved try_table catch clause (§5.4): kind 0 catch / 1 catch_ref (both carry a
+ * tag) / 2 catch_all / 3 catch_all_ref; all carry a (relative) label. */
+typedef struct { uint8_t kind; uint32_t tag, label; } wat_catch_t;
+
+/* ── Parse context (peg_state.user_data) ── */
+/* The growable buffers are bbq_vecs: each id-map is a bbq_vec of $id names (with the
+ * leading '$', NUL-terminated; NULL = an anonymous slot), indexed by bound index. */
+typedef struct {
+    bbq_arena arena;
+    jav_module_t* mod;          /* the result being built (malloc'd, freed by jav_module_free) */
+    int pass;                    /* 1 = collect $ids; 2 = build + resolve */
+    char** sp[SP_N];             /* per-module-space id-name vecs (DEFINED entities) */
+    char** sp_imp[SP_N];         /* imported-entity id vecs; their indices precede defs (§6.6) */
+    char** locals;               /* current func's locals (params ++ declared), reset per func */
+    char** labels;               /* current func's label STACK (push/pop per block), reset per func */
+    int bind_locals;             /* 1 inside a func (param/local bind ids), 0 in a bare type def */
+    jav_rec_type_t* ins;        /* §6.4.15 typeuse-inserted types (funcs + blocktypes), module-global;
+                                    appended after the explicit types at module end (a bbq_vec) */
+    jav_func_type_t* xtypes;    /* explicit (type) functypes, captured in pass 1 so an inline typeuse
+                                    can dedup against the FULL set (§6.4.15 smallest matching index) */
+    char*** type_fields;         /* §6.6.2 per-type struct field-name space (bbq_vec aligned with type
+                                    index; each entry a char** vec of field $ids, NULL=anon/non-struct) */
+    char** cur_fields;           /*   the struct currently being parsed accumulates here (pass 1), then */
+                                 /*   is handed off to type_fields at the type's wat_xtypes_capture. */
+    jav_export_t* iexports;     /* inline `(export "n")` clauses on definitions (§6.6), merged into
+                                    the export section at module end (a bbq_vec) */
+    jav_import_t* iimports;     /* ALL imports (explicit + inline-on-def) in source order (bbq_vec) */
+    int nimp[SP_N];              /* pass-2 per-kind import counter -> an import's index in its space */
+    int defs_seen;               /* pass 2: a func/table/memory/global/tag DEFINITION was built —
+                                    a later import is malformed (§6.6: imports precede defs) */
+    int el_is_funcidx;           /* §6.6.9 elemlist, shared by ElementField + inline-table-elem: */
+    jav_ref_type_t el_rtv;      /*   funcidx-form vs expr-form, the element reftype, and the two */
+    uint32_t* el_funcs;          /*   result bbq_vecs (funcidx list / elemexpr list). The CALLER */
+    jav_expr_t* el_exprs;       /*   takes ownership (WAT_FREEZE) and picks the binary variant. */
+    char* toml_src;              /* instructions.toml text (kept alive: toml strings point into it/arena) */
+    const toml_val_t* instr_arr; /* the [[instr]] array — mnemonic -> (opcode, shape) lookup */
+    bbq_write_ctx_t** wb_all;    /* emit-scratch pool: every buffer ever opened (bbq_vec) */
+    bbq_write_ctx_t** wb_free;   /*   the subset available for reuse (bbq_vec stack) */
+    jav_val_type_t* sc_vt[6];   /* ctx-rooted scratch vecs (see the SC_* macros): a failed */
+    jav_field_type_t* sc_fields;/* production abandons its scratch with no unwind hook, so */
+    jav_rec_member_t* sc_members;/* scratch lives in the ctx — re-entry frees the leftover, */
+    uint32_t* sc_idxs;           /* teardown (wat_scratch_free) reclaims whatever remains. */
+    jav_name_t* sc_enames;
+    jav_rec_type_t* as_types;   /* ── module ASSEMBLY state (the AS_* macros): the per-kind */
+    uint32_t* as_ftidx;          /* collection vecs the Wat root fills, then freezes into    */
+    jav_code_entry_t* as_entries;/* jav_module_t. Ctx-rooted for the same reason as the    */
+    jav_table_t* as_tables;     /* scratch vecs: a LATE rejection (import order, typeuse    */
+    jav_mem_entry_t* as_mems;   /* mismatch, …) abandons completed fields whose elements    */
+    jav_global_t* as_globals;   /* own deep payloads — wat_assembly_free deep-frees what    */
+    jav_export_t* as_exports;   /* was never consumed.                                      */
+    jav_elem_t* as_elems;
+    jav_data_t* as_datas;
+    jav_tag_type_t* as_tags;
+    jav_section_t* as_secs;
+} wat_ctx_t;
+
+#define CTX ((wat_ctx_t*)p->user_data)
+#define A   (&CTX->arena)
+
+static int wat_shape_id(const char* s) {
+    static const char* N[] = {"none","idx","idx2","i32","i64","f32","f64","heap","lane",
+        "v128","memarg","memlane","brtable","selectt","broncast","block","if","trytable"};
+    for (int i = 0; i < 18; i++) if (!strcmp(s, N[i])) return i;
+    return -1;
+}
+
+/* Load instructions.toml into the context (caller runs this before parsing). The
+ * grammar resolves each mnemonic against this spec-derived table — no hand list. */
+static int wat_load_instrs(wat_ctx_t* c, const char* path) {
+    FILE* f = fopen(path, "rb"); if (!f) return 0;
+    fseek(f, 0, SEEK_END); long n = ftell(f); fseek(f, 0, SEEK_SET);
+    c->toml_src = (char*)malloc((size_t)n);
+    if (fread(c->toml_src, 1, (size_t)n, f) != (size_t)n) { fclose(f); return 0; }
+    fclose(f);
+    toml_doc_t* doc = toml_parse(c->toml_src, (int)n, &c->arena);
+    if (toml_doc_has_errors(doc)) return 0;
+    c->instr_arr = toml_tbl_get(toml_doc_root(doc), "instr");
+    return c->instr_arr && c->instr_arr->type == TOML_VT_ARRAY;
+}
+
+/* An `operands` index-kind token -> the module index space a $id resolves against,
+ * or -1 for kinds that are function-local (localidx/labelidx), per-type (fieldidx),
+ * or not a $id at all (u32 counts) — those resolve numerically or in later passes. */
+static int wat_kind_space(const char* k) {
+    if (!strcmp(k, "funcidx"))   return SP_FUNC;
+    if (!strcmp(k, "typeidx"))   return SP_TYPE;
+    if (!strcmp(k, "tableidx"))  return SP_TABLE;
+    if (!strcmp(k, "memidx"))    return SP_MEM;
+    if (!strcmp(k, "globalidx")) return SP_GLOBAL;
+    if (!strcmp(k, "tagidx"))    return SP_TAG;
+    if (!strcmp(k, "elemidx"))   return SP_ELEM;
+    if (!strcmp(k, "dataidx"))   return SP_DATA;
+    if (!strcmp(k, "localidx"))  return SP_LOCAL;
+    if (!strcmp(k, "labelidx"))  return SP_LABEL;
+    return -1;
+}
+
+/* Resolve a text mnemonic (name,len — not NUL-terminated) -> opcode + shape +
+ * natural alignment (log2; -1 for non-memory ops) + the index space of each idx/
+ * idx2 operand (sp0/sp1; -1 if not a module-space index), read from `operands`. */
+static int wat_find_instr(wat_ctx_t* c, const char* name, int len,
+                          uint8_t* prefix, uint32_t* op, int* shape, int* align,
+                          int* sp0, int* sp1) {
+    if (!c->instr_arr) return 0;
+    for (int i = 0; i < c->instr_arr->u.array.count; i++) {
+        const toml_tbl_t* t = c->instr_arr->u.array.items[i]->u.table;
+        const char* nm; const char* sh; int64_t a, b;
+        if (!toml_val_as_string(toml_tbl_get(t, "name"), &nm)) continue;
+        if ((int)strlen(nm) != len || memcmp(nm, name, (size_t)len) != 0) continue;
+        toml_val_as_string(toml_tbl_get(t, "shape"), &sh);
+        const toml_val_t* opv = toml_tbl_get(t, "opcode");
+        if (opv->type == TOML_VT_INT) { *prefix = 0; toml_val_as_int(opv, &a); *op = (uint32_t)a; }
+        else { toml_val_as_int(opv->u.array.items[0], &a); toml_val_as_int(opv->u.array.items[1], &b);
+               *prefix = (uint8_t)a; *op = (uint32_t)b; }
+        *shape = wat_shape_id(sh);
+        const toml_val_t* alv = toml_tbl_get(t, "align");      /* memarg/memlane only */
+        int64_t al; *align = (alv && toml_val_as_int(alv, &al)) ? (int)al : -1;
+        *sp0 = *sp1 = -1;                                      /* idx/idx2 operand spaces */
+        const toml_val_t* ops = toml_tbl_get(t, "operands");
+        if (ops && ops->type == TOML_VT_ARRAY) {
+            const char* k;
+            if (ops->u.array.count >= 1 && toml_val_as_string(ops->u.array.items[0], &k)) *sp0 = wat_kind_space(k);
+            if (ops->u.array.count >= 2 && toml_val_as_string(ops->u.array.items[1], &k)) *sp1 = wat_kind_space(k);
+        }
+        return 1;
+    }
+    return 0;
+}
+
+/* log2 of a power-of-two byte alignment: align=4 (bytes) -> 2 (the stored exponent).
+ * Bounded so a non-power-of-two (callers reject those) can never shift past 63. */
+static uint32_t wat_ilog2(uint64_t x) { uint32_t e = 0; while (e < 64 && (1ull << e) < x) e++; return e; }
+
+/* ── §6.3 numeric values ──
+ * Lexical FORM ('_' placement, lowercase 0x, exponent shapes, §6.2.2 maximal
+ * munch) is the nat/snum/fnum/hexnat TOKENS' job; these convert a lexed span to
+ * a value and check what a lexer cannot: the RANGE of the consuming immediate
+ * (the same token is valid for i64.const and out of range for i32.const). */
+
+/* Integer value of a numeric token: skip '_', fold sign, range-check against
+ * `bits` — unsigned/positive < 2^bits, negative magnitude ≤ 2^(bits-1) (the
+ * iN.const range [-2^(N-1), 2^N-1], folded to two's complement). allow_sign=0
+ * is the pure-uN sites that share a signed token (e.g. a v128 integer lane list
+ * vs a lane index). A fractional/exponent tail means an fnum-shaped token at an
+ * integer site — also a range/shape failure. *ok = 0 on any of these. */
+static uint64_t wat_int_lit(peg_span s, int bits, int allow_sign, int* ok) {
+    const char* p = s.ptr; int len = (int)s.len, i = 0, neg = 0, ovf = 0;
+    uint64_t v = 0;
+    *ok = 0;
+    if (i < len && (p[i] == '+' || p[i] == '-')) {
+        if (!allow_sign) return 0;
+        neg = p[i] == '-'; i++;
+    }
+    int hex = (i + 1 < len && p[i] == '0' && p[i+1] == 'x');
+    if (hex) i += 2;
+    uint64_t base = hex ? 16u : 10u;
+    for (; i < len; i++) {
+        char c = p[i];
+        if (c == '_') continue;
+        int d = (c >= '0' && c <= '9') ? c - '0'
+              : (hex && c >= 'a' && c <= 'f') ? c - 'a' + 10
+              : (hex && c >= 'A' && c <= 'F') ? c - 'A' + 10 : -1;
+        if (d < 0) break;                                 /* float tail at an int site */
+        if (v > (UINT64_MAX - (uint64_t)d) / base) ovf = 1;
+        v = v * base + (uint64_t)d;
+    }
+    if (i != len || ovf) return 0;
+    if (bits < 64) {
+        uint64_t lim = 1ull << bits;
+        if (neg ? v > (lim >> 1) : v >= lim) return 0;
+    } else if (neg && v > 0x8000000000000000ull) return 0;
+    *ok = 1;
+    return neg ? (0ull - v) : v;
+}
+
+/* §6.3.2 nan payload (a hexnat token): 1 ≤ payload < 2^significand (23/52). */
+static int wat_nan_payload(peg_span s, int width, uint64_t* pay) {
+    int ok;
+    *pay = wat_int_lit(s, 64, 0, &ok);
+    if (!ok) return 0;
+    uint64_t sigtop = (width == 4) ? (1ull << 23) : (1ull << 52);
+    return *pay >= 1 && *pay < sigtop;
+}
+
+/* Float value of an fnum token → IEEE-754 bits (width 4 or 8): strip '_' and
+ * hand C's strtof/strtod the literal (hexfloats get an explicit p0 exponent,
+ * which C requires and §6.3.2 doesn't). A finite literal that ROUNDS to ±inf is
+ * out of the type's range. *ok = 0 on out-of-range. */
+static uint64_t wat_float_lit(peg_span s, int width, int* ok) {
+    char* buf = (char*)malloc((size_t)s.len + 4);         /* sans '_', + "p0" + NUL */
+    int bn = 0, hex = 0, has_p = 0;
+    uint64_t bits = 0;
+    *ok = 0;
+    for (int i = 0; i < (int)s.len; i++) {
+        char c = s.ptr[i];
+        if (c == '_') continue;
+        if (c == 'x') hex = 1;
+        if (hex && (c == 'p' || c == 'P')) has_p = 1;
+        buf[bn++] = c;
+    }
+    if (hex && !has_p) { buf[bn++] = 'p'; buf[bn++] = '0'; }
+    buf[bn] = '\0';
+    if (width == 4) {
+        float f = strtof(buf, NULL);
+        if (!isinf(f)) { uint32_t b32; memcpy(&b32, &f, 4); bits = b32; *ok = 1; }
+    } else {
+        double d = strtod(buf, NULL);
+        if (!isinf(d)) { memcpy(&bits, &d, 8); *ok = 1; }
+    }
+    free(buf);
+    return bits;
+}
+
+/* §6.3.2 assemble a float literal's IEEE-754 bit pattern into `width` (4 or 8) bytes.
+ * The grammar has already classified the token (inf / nan / nan:payload / plain), this
+ * packs the bits exactly — exp all-ones for inf/nan, canonical top mantissa bit or the
+ * given payload, sign applied — so f32/f64 const and f32x4/f64x2 lanes share one encoder.
+ * For a plain literal the sign is already folded into `d` (num includes it); neg only
+ * carries the explicit sign of an inf/nan token. */
+static uint64_t wat_float_bits(int width, int neg, int isinf, int isnan, int ispay, uint64_t pay, double d) {
+    if (width == 4) {
+        uint32_t b;
+        if (isinf)      b = 0x7F800000u;
+        else if (isnan) b = ispay ? (0x7F800000u | ((uint32_t)pay & 0x7FFFFFu)) : 0x7FC00000u;
+        else { float f = (float)d; memcpy(&b, &f, 4); }
+        if ((isinf || isnan) && neg) b |= 0x80000000u;
+        return b;
+    } else {
+        uint64_t b;
+        if (isinf)      b = 0x7FF0000000000000ull;
+        else if (isnan) b = ispay ? (0x7FF0000000000000ull | (pay & 0xFFFFFFFFFFFFFull)) : 0x7FF8000000000000ull;
+        else { memcpy(&b, &d, 8); }
+        if ((isinf || isnan) && neg) b |= 0x8000000000000000ull;
+        return b;
+    }
+}
+
+/* §6.4.1/6.4.5: a number type's text keyword -> its §5.3 binary head byte. */
+static jav_val_type_t wat_numtype(uint8_t head) {
+    jav_val_type_t t; t.head = head; t.ht.has_value = false;
+    memset(&t.ht.value, 0, sizeof t.ht.value);
+    return t;
+}
+
+/* Structural equality of value/function types, for §6.4.15 typeuse dedup. */
+static int wat_valtype_eq(const jav_val_type_t* a, const jav_val_type_t* b) {
+    if (a->head != b->head || a->ht.has_value != b->ht.has_value) return 0;
+    return !a->ht.has_value || a->ht.value.x == b->ht.value.x;
+}
+static int wat_functype_eq(const jav_func_type_t* a, const jav_func_type_t* b) {
+    if (a->param_count != b->param_count || a->result_count != b->result_count) return 0;
+    for (uint32_t i = 0; i < a->param_count; i++)
+        if (!wat_valtype_eq(&a->params.items[i], &b->params.items[i])) return 0;
+    for (uint32_t i = 0; i < a->result_count; i++)
+        if (!wat_valtype_eq(&a->results.items[i], &b->results.items[i])) return 0;
+    return 1;
+}
+
+/* §6.4.15 typeuse with an explicit `(type x)`: inline params/results, when
+ * given, must match the referenced type exactly. The type index space here is
+ * the explicit defs (xtypes, from pass 1; non-func entries are never-matching
+ * sentinels) followed by the implicitly-INSERTED func types so far (ins).
+ * WITHOUT an inline signature an out-of-range index is the VALIDATOR's verdict
+ * ("unknown type", assert_invalid) — the parse must succeed; WITH one, there is
+ * no type to match against, which the suite classes as malformed (func.wast).
+ * Only an unbound $id (the binder's domain) rejects elsewhere, in wat_resolve.
+ * Pass-2 only. */
+static int wat_typeuse_ok(wat_ctx_t* c, int64_t tidx, const jav_func_type_t* inline_ft) {
+    if (c->pass != 2 || !inline_ft) return 1;
+    int64_t nx = (int64_t)bbq_vec_len(c->xtypes);
+    if (tidx >= 0 && tidx < nx)
+        return wat_functype_eq(&c->xtypes[tidx], inline_ft);
+    if (tidx >= nx && tidx < nx + (int64_t)bbq_vec_len(c->ins))           /* an inserted func type */
+        return wat_functype_eq(&c->ins[tidx - nx].body.u.case_5, inline_ft);
+    return 0;                                             /* inline sig vs no such type */
+}
+
+/* The explicit-(type x) arm of a typeuse: CONSUMES the inline param/result
+ * scratch vecs (building the inline signature when nonempty) and checks
+ * conformance per wat_typeuse_ok. 1 = ok. */
+static int wat_typeuse_ref(wat_ctx_t* c, int64_t tidx,
+                           jav_val_type_t** ps, jav_val_type_t** rs) {
+    if (bbq_vec_len(*ps) || bbq_vec_len(*rs)) {
+        jav_func_type_t ft; memset(&ft, 0, sizeof ft);
+        WAT_FREEZE(*ps, ft.params);   ft.param_count  = (uint32_t)ft.params.count;
+        WAT_FREEZE(*rs, ft.results);  ft.result_count = (uint32_t)ft.results.count;
+        int m = wat_typeuse_ok(c, tidx, &ft);
+        free(ft.params.items); free(ft.results.items);
+        return m;
+    }
+    bbq_vec_free(*ps); bbq_vec_free(*rs);
+    return wat_typeuse_ok(c, tidx, NULL);
+}
+
+/* The param count of type index `tidx` (explicit xtypes, then inserted func types), or 0 if
+ * out of range — used to reserve the local-index slots of a func's params when they are given
+ * only via `(type $x)` (the §6.5.1 local space is params ++ locals; a named local declared after
+ * must be offset by the param count). */
+static uint32_t wat_type_nparams(wat_ctx_t* c, int64_t tidx) {
+    int64_t nx = (int64_t)bbq_vec_len(c->xtypes);
+    if (tidx >= 0 && tidx < nx) {
+        uint32_t pc = c->xtypes[tidx].param_count;   // non-func xtypes carry the 0xFFFFFFFF "never matches" sentinel
+        return pc == 0xFFFFFFFFu ? 0 : pc;           // a non-func type-use is the validator's verdict, not the parser's
+    }
+    if (tidx >= nx && tidx < nx + (int64_t)bbq_vec_len(c->ins)) return c->ins[tidx - nx].body.u.case_5.param_count;
+    return 0;
+}
+
+static uint8_t* wat_parse_string(peg_span s, size_t* outlen);   /* §6.3.4 (defined below) */
+
+/* §6.3.5 decode an identifier token to its canonical NAME bytes (NUL-terminated, caller
+ * frees): strip '$'; a quoted `$"…"` decodes the string (escapes, \HH, \u{…}), a plain
+ * `$idchars` is the idchars verbatim. So `$x` ≡ `$"x"` ≡ `$"\78"` (all name "x").
+ * Returns NULL/len 0 for an empty or non-id span (an anonymous slot); NULL with
+ * *outlen == SIZE_MAX for a MALFORMED id — an empty `$""` (§6.3.5: ids are
+ * non-empty), a bad escape, or invalid UTF-8 (an id is a name). */
+static char* wat_id_decode(peg_span s, size_t* outlen) {
+    if (!(s.len > 0 && s.ptr[0] == '$')) { *outlen = 0; return NULL; }
+    if (s.len >= 2 && s.ptr[1] == '"') {                  /* quoted: decode the "…" token */
+        peg_span q = s; q.ptr = s.ptr + 1; q.len = s.len - 1;
+        char* nm = (char*)wat_parse_string(q, outlen);
+        if (!nm || *outlen == 0) {
+            free(nm); *outlen = (size_t)-1; return NULL;  /* bad escape / empty identifier */
+        }
+        bbq_bytes_t b = { (const uint8_t*)nm, *outlen };
+        if (!jav_name_utf8_ok(b)) { free(nm); *outlen = (size_t)-1; return NULL; }
+        return nm;
+    }
+    size_t n = (size_t)s.len - 1;                         /* plain: idchars after '$' */
+    char* nm = (char*)malloc(n + 1); memcpy(nm, s.ptr + 1, n); nm[n] = '\0';
+    *outlen = n; return nm;
+}
+
+/* Push a $id's decoded name (NULL for an anonymous slot) onto a char* bbq_vec.
+ * 0 on a malformed id. */
+static int wat_name_push(char*** v, peg_span s) {
+    size_t len; char* nm = wat_id_decode(s, &len);
+    if (!nm && len == (size_t)-1) return 0;
+    bbq_vec_push(*v, nm);
+    return 1;
+}
+/* Index of an id span's decoded name in a char* bbq_vec, or -1 (also -1 for a
+ * malformed id — the reference cannot resolve). */
+static int wat_name_find(char** v, peg_span s) {
+    size_t qlen; char* q = wat_id_decode(s, &qlen);
+    if (!q && qlen == (size_t)-1) return -1;
+    int n = (int)bbq_vec_len(v); int found = -1;
+    for (int i = 0; i < n; i++)
+        if (v[i] && strlen(v[i]) == qlen && (qlen == 0 || !memcmp(v[i], q, qlen))) { found = i; break; }
+    free(q);
+    return found;
+}
+/* Bind a $id in a module index space (pass 1). 0 on a malformed id or a
+ * DUPLICATE binding — §6.6.1: no two ids in the same space may be equal
+ * (imports and definitions share the space). Anonymous slots always bind. */
+static int wat_space_bind(wat_ctx_t* c, char*** v, int space, peg_span s) {
+    if (s.len > 0 &&
+        (wat_name_find(c->sp[space], s) >= 0 || wat_name_find(c->sp_imp[space], s) >= 0))
+        return 0;
+    return wat_name_push(v, s);
+}
+static int wat_id_add(wat_ctx_t* c, int space, peg_span s)  { return wat_space_bind(c, &c->sp[space], space, s); }
+static int wat_imp_add(wat_ctx_t* c, int space, peg_span s) { return wat_space_bind(c, &c->sp_imp[space], space, s); }
+static int wat_import_space(uint8_t kind) {   /* extern kind byte -> index space */
+    return kind == 0 ? SP_FUNC : kind == 1 ? SP_TABLE : kind == 2 ? SP_MEM
+         : kind == 3 ? SP_GLOBAL : SP_TAG;
+}
+
+/* Clear the per-func local map and label stack (frees names, keeps capacity). */
+static void wat_func_reset(wat_ctx_t* c) {
+    for (int i = 0; i < (int)bbq_vec_len(c->locals); i++) free(c->locals[i]);
+    for (int i = 0; i < (int)bbq_vec_len(c->labels); i++) free(c->labels[i]);
+    bbq_vec_clear(c->locals); bbq_vec_clear(c->labels);
+}
+static void wat_label_pop(wat_ctx_t* c) {                          /* leave a block's scope */
+    if (bbq_vec_len(c->labels) > 0) free(bbq_vec_pop(c->labels));
+}
+
+/* §6.5.3: an id on `end`/`else` must repeat the construct's own label (an
+ * unlabeled construct admits no end/else id). Quoted and plain spellings
+ * compare by decoded NAME. */
+static int wat_endlabel_ok(peg_span blocklab, peg_span endlab) {
+    if (endlab.len == 0) return 1;
+    if (blocklab.len == 0) return 0;                      /* end $x on an unlabeled block */
+    size_t la, lb;
+    char* a = wat_id_decode(blocklab, &la);
+    char* b = wat_id_decode(endlab, &lb);
+    int eq = a && b && la == lb && memcmp(a, b, la) == 0;
+    free(a); free(b);
+    return eq;
+}
+
+/* Resolve a reference to an index. A numeric reference parses directly (any space).
+ * A $id resolves against the relevant map: SP_LABEL -> the label STACK as a RELATIVE
+ * index (innermost = 0, §6.5.1); SP_LOCAL -> the per-func local map; a module space ->
+ * c->sp[space]; -1 if unbound. In pass 1 the maps aren't complete, so $ids return 0
+ * (those emitted bytes are discarded). */
+static int64_t wat_resolve(wat_ctx_t* c, int space, peg_span s) {
+    if (!(s.len > 0 && s.ptr[0] == '$')) {                          /* numeric: uN u32 index */
+        int ok; uint64_t v = wat_int_lit(s, 32, 0, &ok);
+        return ok ? (int64_t)v : -1;
+    }
+    if (c->pass != 2) return 0;                                     /* pass 1: dummy */
+    if (space == SP_LABEL) {                                        /* relative, innermost = 0 */
+        size_t qlen; char* q = wat_id_decode(s, &qlen); int64_t r = -1;
+        int n = (int)bbq_vec_len(c->labels);
+        for (int i = n - 1; i >= 0; i--)
+            if (c->labels[i] && strlen(c->labels[i]) == qlen && (qlen == 0 || !memcmp(c->labels[i], q, qlen)))
+                { r = (n - 1) - i; break; }
+        free(q); return r;
+    }
+    if (space == SP_LOCAL) return wat_name_find(c->locals, s);
+    if (space >= 0 && space < SP_N) {                               /* imports precede defs (§6.6) */
+        int i = wat_name_find(c->sp_imp[space], s); if (i >= 0) return i;
+        int j = wat_name_find(c->sp[space], s);
+        return j >= 0 ? (int)bbq_vec_len(c->sp_imp[space]) + j : -1;
+    }
+    return -1;                                                      /* unbound / unsupported $id */
+}
+
+/* §6.6.2 resolve a struct field reference (struct.get/set fieldidx): a number is itself;
+ * a $id is looked up in the field-name space of the struct type identified by `tyref`. */
+static int64_t wat_resolve_field(wat_ctx_t* c, peg_span tyref, peg_span fref) {
+    if (!(fref.len > 0 && fref.ptr[0] == '$')) {                             /* numeric: uN u32 */
+        int ok; uint64_t v = wat_int_lit(fref, 32, 0, &ok);
+        return ok ? (int64_t)v : -1;
+    }
+    if (c->pass != 2) return 0;                                              /* pass 1: dummy */
+    int64_t ti = wat_resolve(c, SP_TYPE, tyref); if (ti < 0) return -1;
+    if (ti >= (int64_t)bbq_vec_len(c->type_fields)) return -1;
+    char** fields = c->type_fields[ti];
+    return fields ? wat_name_find(fields, fref) : -1;
+}
+
+/* Free the per-type field-name space (each entry a vec of malloc'd $id strings). */
+static void wat_type_fields_free(wat_ctx_t* c) {
+    for (int i = 0; i < (int)bbq_vec_len(c->type_fields); i++) {
+        for (int j = 0; j < (int)bbq_vec_len(c->type_fields[i]); j++) free(c->type_fields[i][j]);
+        bbq_vec_free(c->type_fields[i]);
+    }
+    bbq_vec_free(c->type_fields);
+    for (int j = 0; j < (int)bbq_vec_len(c->cur_fields); j++) free(c->cur_fields[j]);
+    bbq_vec_free(c->cur_fields);
+}
+
+/* §6.4.15 typeuse find-or-insert: return the smallest existing type index whose
+ * functype matches `ft` (over all explicit types ++ already-inserted), else append a
+ * new inserted type. Takes ownership of ft's arrays (frees them on a match). Only
+ * inserts in pass 2 (pass 1 discards, so a dummy 0 is fine). */
+static uint32_t wat_typeuse(wat_ctx_t* c, jav_func_type_t* ft) {
+    if (c->pass != 2) { free(ft->params.items); free(ft->results.items); return 0; }
+    int nx = (int)bbq_vec_len(c->xtypes), ni = (int)bbq_vec_len(c->ins);
+    for (int i = 0; i < nx; i++)
+        if (wat_functype_eq(&c->xtypes[i], ft)) {
+            free(ft->params.items); free(ft->results.items); return (uint32_t)i; }
+    for (int i = 0; i < ni; i++)
+        if (wat_functype_eq(&c->ins[i].body.u.case_5, ft)) {
+            free(ft->params.items); free(ft->results.items); return (uint32_t)(nx + i); }
+    jav_rec_type_t rt; memset(&rt, 0, sizeof rt);
+    rt.head = 0x60; rt.body.tag = 0x60; rt.body.u.case_5 = *ft;
+    bbq_vec_push(c->ins, rt);
+    return (uint32_t)(nx + ni);
+}
+
+/* Pass-1 capture of an explicit type into c->xtypes (one entry per type, so indices
+ * align). A singleton func comptype contributes its functype (so an inline typeuse can
+ * dedup against it); any other type (struct/array/sub) contributes a sentinel that can
+ * never match a function signature, and its parsed payload is freed. */
+static void wat_xtypes_capture(wat_ctx_t* c, int issub, jav_comp_type_t* ct, jav_sub_type_t* st) {
+    jav_func_type_t xt; memset(&xt, 0, sizeof xt);
+    if (!issub && ct->head == 0x60) xt = ct->body.u.case_2;       /* keep the functype */
+    else { xt.param_count = 0xFFFFFFFFu;                          /* sentinel: never matches */
+           if (issub) jav_sub_type_free(st); else jav_comp_type_free(ct); }
+    bbq_vec_push(c->xtypes, xt);
+    bbq_vec_push(c->type_fields, c->cur_fields);                  /* hand off this type's field names */
+    c->cur_fields = NULL;                                        /* (NULL for non-struct types) */
+}
+
+/* §6.4.15: a func type that is a member of a MULTI-member rec group has a defined type
+ * distinct from any standalone func (its closure carries the whole group), so an inline
+ * typeuse must not dedup against it. After a `(rec …)` of >1 member, re-mark the members
+ * captured since `base` as non-matchable sentinels (a singleton rec group stays matchable,
+ * being equivalent to the bare type). */
+static void wat_xtypes_seal_recgroup(wat_ctx_t* c, uint32_t base) {
+    uint32_t n = (uint32_t)bbq_vec_len(c->xtypes);
+    if (n - base <= 1) return;
+    for (uint32_t i = base; i < n; i++)
+        if (c->xtypes[i].param_count != 0xFFFFFFFFu) {
+            free(c->xtypes[i].params.items); free(c->xtypes[i].results.items);
+            memset(&c->xtypes[i], 0, sizeof c->xtypes[i]);
+            c->xtypes[i].param_count = 0xFFFFFFFFu;
+        }
+}
+
+/* Push a definition's collected inline-export names (§6.6) as exports with its index.
+ * The index is known only after the import clause, so names are collected then flushed. */
+static void wat_flush_exports(wat_ctx_t* c, jav_name_t* enames, uint8_t kind, uint32_t idx) {
+    for (int i = 0; i < (int)bbq_vec_len(enames); i++) {
+        jav_export_t e; memset(&e, 0, sizeof e);
+        e.name = enames[i]; e.kind = kind; e.idx = idx;
+        bbq_vec_push(c->iexports, e);
+    }
+    bbq_vec_free(enames);
+}
+
+/* Record an inline import (a definition written `(… (import "m" "n") …)`); returns the
+ * new entity's index in its space (imports precede definitions, in source order). */
+static uint32_t wat_inline_import(wat_ctx_t* c, jav_name_t mod, jav_name_t fld,
+                                  jav_extern_type_t desc, int space) {
+    jav_import_t im; memset(&im, 0, sizeof im);
+    im.module = mod; im.field = fld; im.desc = desc;
+    bbq_vec_push(c->iimports, im);
+    return (uint32_t)(c->nimp[space]++);
+}
+
+/* ── Emit-scratch pool ── */
+/* Instruction translation emits binary bytes into growable write buffers. The
+ * buffers are owned by the parse CONTEXT, not the production: pegc backtracking
+ * abandons a production's locals with no unwind hook, so a stack-owned growable
+ * buffer would leak on every backtracked alternative — and backtracks happen on
+ * VALID input (a bare folded offset, the end of a folded-if condition list, a
+ * passive segment's absent offset clause). open() hands out a pooled buffer;
+ * close() returns it for reuse on the success path. A buffer abandoned by a
+ * backtrack stays checked out until the next module-field boundary recycles the
+ * whole pool (no emit scratch is live across fields); wat_wbufs_free reclaims
+ * everything at teardown regardless. */
+static bbq_write_ctx_t* wat_wbuf_open(wat_ctx_t* c) {
+    bbq_write_ctx_t* w;
+    if (bbq_vec_len(c->wb_free)) { w = bbq_vec_pop(c->wb_free); w->pos = 0; }
+    else {
+        w = (bbq_write_ctx_t*)malloc(sizeof *w);
+        bbq_write_ctx_init_growable(w, 256);
+        bbq_write_set_endian(w, true);
+        bbq_vec_push(c->wb_all, w);
+    }
+    return w;
+}
+static void wat_wbuf_close(wat_ctx_t* c, bbq_write_ctx_t* w) { bbq_vec_push(c->wb_free, w); }
+static void wat_wbufs_recycle(wat_ctx_t* c) {
+    bbq_vec_clear(c->wb_free);
+    for (int i = 0; i < (int)bbq_vec_len(c->wb_all); i++) bbq_vec_push(c->wb_free, c->wb_all[i]);
+}
+static void wat_wbufs_free(wat_ctx_t* c) {
+    for (int i = 0; i < (int)bbq_vec_len(c->wb_all); i++) {
+        bbq_write_ctx_free(c->wb_all[i]); free(c->wb_all[i]);
+    }
+    bbq_vec_free(c->wb_all); bbq_vec_free(c->wb_free);
+}
+
+/* ── Ctx-rooted scratch vecs ──
+ * Same ownership rule as the write-buffer pool: a production's growable scratch
+ * cannot live in a stack local, because a failed alternative abandons the frame
+ * with no unwind hook. Each scratch vec is a ctx slot instead; the production
+ * frees any abandoned leftover on entry and consumes (freeze/free) on success.
+ * pegc's <…> output args only accept &ident, so the slots are reached through
+ * macros — the grammar passes `&SC_F_PARAMS`, C sees `&CTX->sc_vt[0]`.
+ * Slots by lifetime: F_* live across a module field (func/type/import/tag —
+ * fields never nest); I_* live across one instruction's typeuse (block/loop/if
+ * headers and call_indirect — a header cannot appear inside another's typeuse);
+ * SELT is select's result list (consumed immediately). */
+#define SC_F_PARAMS  (CTX->sc_vt[0])
+#define SC_F_RESULTS (CTX->sc_vt[1])
+#define SC_F_LOCALS  (CTX->sc_vt[2])
+#define SC_I_PARAMS  (CTX->sc_vt[3])
+#define SC_I_RESULTS (CTX->sc_vt[4])
+#define SC_SELT      (CTX->sc_vt[5])
+#define SC_FIELDS    (CTX->sc_fields)
+#define SC_MEMBERS   (CTX->sc_members)
+#define SC_IDXS      (CTX->sc_idxs)
+#define SC_ENAMES    (CTX->sc_enames)
+
+/* Inline-export names own their bytes until flushed; deep-free a leftover list. */
+static void wat_enames_clear(wat_ctx_t* c) {
+    for (int i = 0; i < (int)bbq_vec_len(c->sc_enames); i++)
+        free((void*)c->sc_enames[i].bytes.data);
+    bbq_vec_free(c->sc_enames);
+}
+
+static void wat_scratch_free(wat_ctx_t* c) {
+    for (int i = 0; i < 6; i++) bbq_vec_free(c->sc_vt[i]);
+    bbq_vec_free(c->sc_fields);
+    bbq_vec_free(c->sc_members);
+    bbq_vec_free(c->sc_idxs);
+    wat_enames_clear(c);
+}
+
+/* ── Module assembly slots ── */
+#define AS_TYPES   (CTX->as_types)
+#define AS_FTIDX   (CTX->as_ftidx)
+#define AS_ENTRIES (CTX->as_entries)
+#define AS_TABLES  (CTX->as_tables)
+#define AS_MEMS    (CTX->as_mems)
+#define AS_GLOBALS (CTX->as_globals)
+#define AS_EXPORTS (CTX->as_exports)
+#define AS_ELEMS   (CTX->as_elems)
+#define AS_DATAS   (CTX->as_datas)
+#define AS_TAGS    (CTX->as_tags)
+#define AS_SECS    (CTX->as_secs)
+
+/* Deep-free whatever assembly state a rejected pass-2 parse abandoned (elements
+ * own trees/bytes; the generated per-type frees release them). Consumed-on-
+ * success vecs are already NULL. Also covers the ctx-collected inline lists
+ * (ins / iexports / iimports), whose elements own payloads too. */
+static void wat_assembly_free(wat_ctx_t* c) {
+    for (int i = 0; i < (int)bbq_vec_len(c->as_types); i++)   jav_rec_type_free(&c->as_types[i]);
+    for (int i = 0; i < (int)bbq_vec_len(c->as_entries); i++) jav_code_entry_free(&c->as_entries[i]);
+    for (int i = 0; i < (int)bbq_vec_len(c->as_tables); i++)  jav_table_free(&c->as_tables[i]);
+    for (int i = 0; i < (int)bbq_vec_len(c->as_globals); i++) jav_global_free(&c->as_globals[i]);
+    for (int i = 0; i < (int)bbq_vec_len(c->as_exports); i++) jav_export_free(&c->as_exports[i]);
+    for (int i = 0; i < (int)bbq_vec_len(c->as_elems); i++)   jav_elem_free(&c->as_elems[i]);
+    for (int i = 0; i < (int)bbq_vec_len(c->as_datas); i++)   jav_data_free(&c->as_datas[i]);
+    for (int i = 0; i < (int)bbq_vec_len(c->as_secs); i++)    jav_section_free(&c->as_secs[i]);
+    bbq_vec_free(c->as_types); bbq_vec_free(c->as_ftidx); bbq_vec_free(c->as_entries);
+    bbq_vec_free(c->as_tables); bbq_vec_free(c->as_mems); bbq_vec_free(c->as_globals);
+    bbq_vec_free(c->as_exports); bbq_vec_free(c->as_elems); bbq_vec_free(c->as_datas);
+    bbq_vec_free(c->as_tags); bbq_vec_free(c->as_secs);
+    for (int i = 0; i < (int)bbq_vec_len(c->ins); i++)      jav_rec_type_free(&c->ins[i]);
+    for (int i = 0; i < (int)bbq_vec_len(c->iexports); i++) jav_export_free(&c->iexports[i]);
+    for (int i = 0; i < (int)bbq_vec_len(c->iimports); i++) jav_import_free(&c->iimports[i]);
+    bbq_vec_free(c->ins); bbq_vec_free(c->iexports); bbq_vec_free(c->iimports);
+}
+
+/* The `(i32.const 0)` offset expr that the §6.6.6 inline-table-elem abbreviation expands
+ * to. Emit + decode (the tree owns copies of any bytes). */
+/* §6.6.5/§6.6.6 the `(addrtype.const 0)` offset an active data/elem abbreviation
+ * generates; its const op matches the target memory/table addrtype (i64 vs i32). */
+static jav_expr_t wat_const0_expr(wat_ctx_t* c, int is64) {
+    bbq_write_ctx_t* w = wat_wbuf_open(c);
+    if (is64) { bbq_write_u8(w, 0x42); bbq_write_sleb128_i64(w, 0); }
+    else      { bbq_write_u8(w, 0x41); bbq_write_sleb128_i32(w, 0); }
+    bbq_write_u8(w, 0x0B);
+    bbq_ctx_t rc; bbq_ctx_init(&rc, w->data, w->pos);
+    jav_expr_t e; memset(&e, 0, sizeof e);
+    jav_expr_read(&rc, &e);
+    bbq_ctx_free(&rc);
+    wat_wbuf_close(c, w);
+    return e;
+}
+
+/* A `(ref.func idx) end` constant expression: the element an inline funcidx contributes
+ * when the table's reftype is a CONCRETE `(ref $t)`, where the funcref `(ref func)` of a
+ * bare funcidx list would not be <: the table type (§3.5.9). */
+static jav_expr_t wat_reffunc_expr(wat_ctx_t* c, uint32_t idx) {
+    bbq_write_ctx_t* w = wat_wbuf_open(c);
+    bbq_write_u8(w, 0xD2); bbq_write_uleb128_u32(w, idx); bbq_write_u8(w, 0x0B);
+    bbq_ctx_t rc; bbq_ctx_init(&rc, w->data, w->pos);
+    jav_expr_t e; memset(&e, 0, sizeof e);
+    jav_expr_read(&rc, &e);
+    bbq_ctx_free(&rc);
+    wat_wbuf_close(c, w);
+    return e;
+}
+
+static int wat_hexval(char c) {
+    return (c >= '0' && c <= '9') ? c - '0'
+         : (c >= 'a' && c <= 'f') ? c - 'a' + 10
+         : (c >= 'A' && c <= 'F') ? c - 'A' + 10 : -1;
+}
+
+/* §6.3.3/§6.3.4 decode a "…"-literal span (quotes included) into a malloc'd byte
+ * buffer; sets *outlen. Escapes: \t \n \r \" \' \\, \HH (a raw hex byte), and
+ * \u{hexnum} (a Unicode SCALAR — surrogates and values above U+10FFFF are
+ * malformed, as is any other escape shape). Returns NULL on a malformed escape.
+ * The decoded form is never longer than the source. */
+static uint8_t* wat_parse_string(peg_span s, size_t* outlen) {
+    const char* p = s.ptr; int len = (int)s.len, i = 1;   /* skip opening quote */
+    uint8_t* out = (uint8_t*)malloc((size_t)len + 1); size_t n = 0;
+    while (i < len - 1) {                                  /* stop before closing quote */
+        char c = p[i++];
+        if (c != '\\') {
+            /* §6.2.1 stringchar: RAW control characters are not source characters
+             * inside a literal — a literal TAB must be written \t. */
+            if ((uint8_t)c < 0x20 || (uint8_t)c == 0x7F) { free(out); return NULL; }
+            out[n++] = (uint8_t)c; continue;
+        }
+        if (i >= len - 1) { free(out); return NULL; }      /* dangling '\' */
+        char e = p[i++];
+        switch (e) {
+        case 't': out[n++] = 0x09; break;
+        case 'n': out[n++] = 0x0A; break;
+        case 'r': out[n++] = 0x0D; break;
+        case '"': out[n++] = 0x22; break;
+        case '\'': out[n++] = 0x27; break;
+        case '\\': out[n++] = 0x5C; break;
+        case 'u': {                                        /* \u{ hexnum } -> UTF-8 scalar */
+            if (i >= len - 1 || p[i] != '{') { free(out); return NULL; }
+            i++;
+            uint32_t cp = 0; int nd = 0, dig = 1;
+            for (; i < len - 1 && p[i] != '}'; i++) {
+                char h = p[i];
+                if (h == '_') {                            /* '_' strictly between digits */
+                    if (dig || i + 1 >= len - 1 || wat_hexval(p[i+1]) < 0) { free(out); return NULL; }
+                    dig = 1; continue;
+                }
+                int d = wat_hexval(h);
+                if (d < 0) { free(out); return NULL; }
+                if (cp <= 0x10FFFF) cp = cp * 16 + (uint32_t)d;   /* saturate past the max */
+                else cp = 0x110000;
+                nd++; dig = 0;
+            }
+            if (i >= len - 1 || !nd) { free(out); return NULL; }  /* no '}' or no digits */
+            i++;                                           /* skip '}' */
+            if (cp > 0x10FFFF || (cp >= 0xD800 && cp <= 0xDFFF)) { free(out); return NULL; }
+            if (cp < 0x80) out[n++] = (uint8_t)cp;
+            else if (cp < 0x800) { out[n++] = (uint8_t)(0xC0|(cp>>6)); out[n++] = (uint8_t)(0x80|(cp&0x3F)); }
+            else if (cp < 0x10000) { out[n++] = (uint8_t)(0xE0|(cp>>12)); out[n++] = (uint8_t)(0x80|((cp>>6)&0x3F)); out[n++] = (uint8_t)(0x80|(cp&0x3F)); }
+            else { out[n++] = (uint8_t)(0xF0|(cp>>18)); out[n++] = (uint8_t)(0x80|((cp>>12)&0x3F)); out[n++] = (uint8_t)(0x80|((cp>>6)&0x3F)); out[n++] = (uint8_t)(0x80|(cp&0x3F)); }
+            break;
+        }
+        default: {                                         /* \HH: exactly two hex digits */
+            int d1 = wat_hexval(e);
+            int d2 = (i < len - 1) ? wat_hexval(p[i]) : -1;
+            if (d1 < 0 || d2 < 0) { free(out); return NULL; }
+            i++;
+            out[n++] = (uint8_t)(d1 * 16 + d2);
+        }
+        }
+    }
+    out[n] = 0; *outlen = n;
+    return out;
+}
+
+static void report_parse_error(peg_state* p) {
+    if (p->furthest.pos)
+        fprintf(stderr, "%d:%d: error: parse failed\n", p->furthest.line, p->furthest.col);
+}
+.)
+
+CHARACTERS
+    digit    = '0'..'9' .
+    hexdig   = digit + 'a'..'f' + 'A'..'F' .
+    sign     = '+' + '-' .
+    epref    = 'e' + 'E' .
+    ppref    = 'p' + 'P' .
+    letter   = 'a'..'z' + 'A'..'Z' .
+    // §6.3.5 idchar set (symbols that may appear in keywords/ids/numbers).
+    symbol   = '!' + '#' + '$' + '%' + '&' + '\'' + '*' + '+' + '-' + '.'
+             + '/' + ':' + '<' + '=' + '>' + '?' + '@' + '\\' + '^' + '_'
+             + '`' + '|' + '~' .
+    idchar   = digit + letter + symbol .
+    // §6.2.2: tokens are separated by whitespace or parens — an idchar OR a
+    // quote glued to a token's tail makes one (reserved, malformed) token.
+    glue     = idchar + '"' .
+
+TOKENS
+    // A plain-instruction mnemonic: a maximal idchar run starting with a letter
+    // (`i32.add`, `local.get`, `br_table`). Resolved to (opcode, shape) against
+    // instructions.toml in the action — the grammar doesn't enumerate the 497.
+    atom = letter { idchar } !glue .
+    // §6.3.1/§6.3.2 numeric literals, spec-exact: '_' separators strictly between
+    // digits, lowercase 0x. The trailing !glue is §6.2.2 maximal munch: a longer
+    // idchar run (`1x`, `0$y`, `1__0`, `0x`, `1.0e1_`) is one RESERVED token — it
+    // must fail to lex, never split into number-plus-junk. The lexer owns the
+    // FORM; the consuming action checks only the VALUE range (the same token is
+    // valid for i64.const and out of range for i32.const).
+    // nat: unsigned (uN) — indices, limits, offsets, alignments, lane indices.
+    nat  = "0x" hexdig { [ '_' ] hexdig } !glue
+         | digit { [ '_' ] digit } !glue .
+    // snum: optionally signed (sN / the iN.const immediate).
+    snum = [ sign ] ( "0x" hexdig { [ '_' ] hexdig }
+                    | digit { [ '_' ] digit } ) !glue .
+    // fnum: a float NUMBER (plain integers included — they are valid floats):
+    // decimal with optional fraction / e-exponent, or 0x-hex with optional
+    // fraction / p-exponent (whose digits are DECIMAL). inf / nan / nan:0x… are
+    // matched by the grammar, not this token.
+    fnum = [ sign ]
+         ( "0x" hexdig { [ '_' ] hexdig } [ '.' [ hexdig { [ '_' ] hexdig } ] ]
+                [ ppref [ sign ] digit { [ '_' ] digit } ]
+         | digit { [ '_' ] digit } [ '.' [ digit { [ '_' ] digit } ] ]
+                [ epref [ sign ] digit { [ '_' ] digit } ] ) !glue .
+    // §6.3.2 nan payload: 0x-hexnum only.
+    hexnat = "0x" hexdig { [ '_' ] hexdig } !glue .
+    // §6.3.5 identifier: '$' then idchars, OR a quoted '$' '"'…'"' (any bytes, \-escapes,
+    // for names outside the idchar set). Disjoint from atom (letter-led) and num (digit/
+    // sign-led). Binders `(func $f …)` / refs `call $f`. The id's NAME (idchars, or the
+    // decoded string) is what resolves, so `$x` ≡ `$"x"` ≡ `$"\78"` (see wat_id_decode).
+    id   = '$' '"' { '\\' ANY | !'"' ANY } '"' !glue
+         | '$' idchar { idchar } !glue .
+    // §6.3.4 string: `"` … `"`, with `\` escapes (so `\"` doesn't end it). The bytes
+    // are decoded (escapes processed) by wat_parse_string. Quote-led, so disjoint.
+    string = '"' { '\\' ANY | !'"' ANY } '"' !glue .
+
+// §6.2.3 comments: line (;; … eol) and block ((; … ;), nestable).
+COMMENTS FROM ";;" TO "\n"
+COMMENTS FROM "(;" TO ";)" NESTED
+// §6.2.5 annotations `(@id … )`: skipped as white space — a balanced token sequence (generic
+// ()-nesting, string/comment aware). STRUCTURED ignores the TO delimiter (uses paren depth).
+COMMENTS FROM "(@" TO ")" STRUCTURED
+
+// §6.2.2 white space.
+IGNORE ' ' + '\t' + '\r' + '\n'
+
+PRODUCTIONS
+
+// §6.6 a module is `( module field* )`. Fields are collected, then assembled
+// into jav_module_t with sections in the prescribed binary order.
+Wat
+    (. uint32_t start_func = 0; int has_start = 0;   /* start section */
+       peg_span mid = {0,0};                   /* §6.6.13 optional module id — script-level, no struct field */
+       jav_section_t s; .)                    /* collection vecs = the ctx AS_* assembly slots */
+    = "(" "module" !glue
+      [ id<&mid> ]                                       /* §6.6.13 (module id? …) — bound at script level, ignored here */
+      { ( TypeField<&AS_TYPES>
+        | RecField<&AS_TYPES>
+        | ImportField
+        | FuncField<&AS_FTIDX, &AS_ENTRIES>
+        | TableField<&AS_TABLES, &AS_ELEMS>
+        | MemoryField<&AS_MEMS, &AS_DATAS>
+        | GlobalField<&AS_GLOBALS>
+        | ExportField<&AS_EXPORTS>
+        | ElementField<&AS_ELEMS>
+        | DataField<&AS_DATAS>
+        | TagField<&AS_TAGS>
+        | StartField<&start_func, &has_start> )
+        (. wat_wbufs_recycle(CTX); .) }                    /* no emit scratch is live across fields */
+      ")"
+      (. if (CTX->pass != 2) {                          /* pass 1 only collected $ids */
+             bbq_vec_free(AS_TYPES); bbq_vec_free(AS_FTIDX); bbq_vec_free(AS_ENTRIES);
+             bbq_vec_free(AS_TABLES); bbq_vec_free(AS_MEMS); bbq_vec_free(AS_GLOBALS);
+             bbq_vec_free(AS_EXPORTS); bbq_vec_free(AS_ELEMS); bbq_vec_free(AS_DATAS); bbq_vec_free(AS_TAGS);
+             bbq_vec_free(CTX->iimports); bbq_vec_free(CTX->iexports);
+             peg_skip(p); if (!peg_at_end(p)) { report_parse_error(p); return false; }
+             return true;
+         }
+         /* §6.4.15: inserted types (funcs + blocktypes) come after all explicit ones. */
+         for (int i = 0; i < (int)bbq_vec_len(CTX->ins); i++) bbq_vec_push(AS_TYPES, CTX->ins[i]);
+         bbq_vec_free(CTX->ins);
+         jav_module_t* m = CTX->mod;
+         m->magic = 0x6d736100u; m->version = 1u;
+         if (bbq_vec_len(AS_TYPES)) {                        /* type section (id 1) */
+             memset(&s, 0, sizeof s); s.id = 1; s.body.tag = 1;
+             WAT_FREEZE(AS_TYPES, s.body.u.case_1.types);
+             s.body.u.case_1.count = (uint32_t)s.body.u.case_1.types.count;
+             bbq_vec_push(AS_SECS, s);
+         } else bbq_vec_free(AS_TYPES);
+         if (bbq_vec_len(CTX->iimports)) {                /* import section (id 2) */
+             memset(&s, 0, sizeof s); s.id = 2; s.body.tag = 2;
+             WAT_FREEZE(CTX->iimports, s.body.u.case_2.imports);
+             s.body.u.case_2.count = (uint32_t)s.body.u.case_2.imports.count;
+             bbq_vec_push(AS_SECS, s);
+         } else bbq_vec_free(CTX->iimports);
+         if (bbq_vec_len(AS_FTIDX)) {                    /* function section (id 3) */
+             memset(&s, 0, sizeof s); s.id = 3; s.body.tag = 3;
+             WAT_FREEZE(AS_FTIDX, s.body.u.case_3.type_indices);
+             s.body.u.case_3.count = (uint32_t)s.body.u.case_3.type_indices.count;
+             bbq_vec_push(AS_SECS, s);
+         } else bbq_vec_free(AS_FTIDX);
+         if (bbq_vec_len(AS_TABLES)) {                       /* table section (id 4) */
+             memset(&s, 0, sizeof s); s.id = 4; s.body.tag = 4;
+             WAT_FREEZE(AS_TABLES, s.body.u.case_4.tables);
+             s.body.u.case_4.count = (uint32_t)s.body.u.case_4.tables.count;
+             bbq_vec_push(AS_SECS, s);
+         } else bbq_vec_free(AS_TABLES);
+         if (bbq_vec_len(AS_MEMS)) {                         /* memory section (id 5) */
+             memset(&s, 0, sizeof s); s.id = 5; s.body.tag = 5;
+             WAT_FREEZE(AS_MEMS, s.body.u.case_5.mems);
+             s.body.u.case_5.count = (uint32_t)s.body.u.case_5.mems.count;
+             bbq_vec_push(AS_SECS, s);
+         } else bbq_vec_free(AS_MEMS);
+         if (bbq_vec_len(AS_GLOBALS)) {                      /* global section (id 6) */
+             memset(&s, 0, sizeof s); s.id = 6; s.body.tag = 6;
+             WAT_FREEZE(AS_GLOBALS, s.body.u.case_6.globals);
+             s.body.u.case_6.count = (uint32_t)s.body.u.case_6.globals.count;
+             bbq_vec_push(AS_SECS, s);
+         } else bbq_vec_free(AS_GLOBALS);
+         for (int i = 0; i < (int)bbq_vec_len(CTX->iexports); i++)   /* merge inline (export …) */
+             bbq_vec_push(AS_EXPORTS, CTX->iexports[i]);
+         bbq_vec_free(CTX->iexports);
+         if (bbq_vec_len(AS_EXPORTS)) {                      /* export section (id 7) */
+             memset(&s, 0, sizeof s); s.id = 7; s.body.tag = 7;
+             WAT_FREEZE(AS_EXPORTS, s.body.u.case_7.exports);
+             s.body.u.case_7.count = (uint32_t)s.body.u.case_7.exports.count;
+             bbq_vec_push(AS_SECS, s);
+         } else bbq_vec_free(AS_EXPORTS);
+         if (has_start) {                                 /* start section (id 8) */
+             memset(&s, 0, sizeof s); s.id = 8; s.body.tag = 8;
+             s.body.u.case_8.func = start_func;
+             bbq_vec_push(AS_SECS, s);
+         }
+         if (bbq_vec_len(AS_ELEMS)) {                        /* element section (id 9) */
+             memset(&s, 0, sizeof s); s.id = 9; s.body.tag = 9;
+             WAT_FREEZE(AS_ELEMS, s.body.u.case_9.elems);
+             s.body.u.case_9.count = (uint32_t)s.body.u.case_9.elems.count;
+             bbq_vec_push(AS_SECS, s);
+         } else bbq_vec_free(AS_ELEMS);
+         if (bbq_vec_len(AS_ENTRIES)) {                      /* code section (id 10) */
+             memset(&s, 0, sizeof s); s.id = 10; s.body.tag = 10;
+             WAT_FREEZE(AS_ENTRIES, s.body.u.case_10.entries);
+             s.body.u.case_10.count = (uint32_t)s.body.u.case_10.entries.count;
+             bbq_vec_push(AS_SECS, s);
+         } else bbq_vec_free(AS_ENTRIES);
+         if (bbq_vec_len(AS_DATAS)) {                        /* data section (id 11) */
+             memset(&s, 0, sizeof s); s.id = 11; s.body.tag = 11;
+             WAT_FREEZE(AS_DATAS, s.body.u.case_11.datas);
+             s.body.u.case_11.count = (uint32_t)s.body.u.case_11.datas.count;
+             bbq_vec_push(AS_SECS, s);
+         } else bbq_vec_free(AS_DATAS);
+         if (bbq_vec_len(AS_TAGS)) {                         /* tag section (id 13) */
+             memset(&s, 0, sizeof s); s.id = 13; s.body.tag = 13;
+             WAT_FREEZE(AS_TAGS, s.body.u.case_13.tags);
+             s.body.u.case_13.count = (uint32_t)s.body.u.case_13.tags.count;
+             bbq_vec_push(AS_SECS, s);
+         } else bbq_vec_free(AS_TAGS);
+         WAT_FREEZE(AS_SECS, m->sections);
+         peg_skip(p);
+         if (!peg_at_end(p)) { report_parse_error(p); return false; } .)
+.
+
+// §6.6.7 function definition: `( func typeuse local* instr* )`. One text func
+// emits into THREE binary sections: its type (appended here, deduplication TODO),
+// a function-section typeidx, and a code-section FuncBody. The body is TRANSLATED
+// to binary bytes (locals vec + instruction encodings + 0x0B) and decoded back
+// via jav_func_body_read — so the bbq reader builds the tree (correct union
+// cases), and text→binary is one encoder. (locals declarations: next increment.)
+FuncField <. uint32_t** func_tidx, jav_code_entry_t** entries .>
+    (. jav_func_type_t ft; jav_name_t nm;
+       jav_name_t imod = {0}, ifld = {0}; int has_import = 0;
+       peg_span idsp = {0,0}, tref = {0,0}; int has_ref = 0;
+       bbq_write_ctx_t* w = NULL; .)
+    = "(" "func" !glue
+      (. w = wat_wbuf_open(CTX);                          /* func-body bytes: pooled, grows on demand */
+         bbq_vec_free(SC_F_PARAMS); bbq_vec_free(SC_F_RESULTS);   /* reclaim abandoned scratch */
+         bbq_vec_free(SC_F_LOCALS); wat_enames_clear(CTX);
+         wat_func_reset(CTX); CTX->bind_locals = 1; .)    /* fresh per-func local map + label stack */
+      [ id<&idsp> ]                                       /* §6.6.7 optional func $id */
+      { "(" "export" !glue Name<&nm> ")"               /* §6.6 inline export(s) — index deferred */
+          (. if (CTX->pass == 2) bbq_vec_push(SC_ENAMES, nm); else free((void*)nm.bytes.data); .)
+      | "(" "import" !glue Name<&imod> Name<&ifld> ")" (. if (CTX->pass == 2 && CTX->defs_seen) {              /* §6.6: imports precede definitions */
+             free((void*)imod.bytes.data); free((void*)ifld.bytes.data); wat_wbuf_close(CTX, w); return false; }
+             has_import = 1; .) }  /* §6.6 inline import */
+      (. if (CTX->pass == 1) { if (!(has_import ? wat_imp_add(CTX, SP_FUNC, idsp)
+                                                         : wat_id_add(CTX, SP_FUNC, idsp))) return false; } .)
+      [ "(" "type" !glue IdxRef<&tref> ")" (. has_ref = 1; .) ]   /* §6.4.15 typeuse */
+      { Param<&SC_F_PARAMS> }                             /* params are locals 0.. */
+      { Result<&SC_F_RESULTS> }
+      (. /* §6.5.1: params given only via `(type $x)` still occupy the leading local-index slots, so a
+            named local declared after must be offset by the param count — reserve those slots here. */
+         if (has_ref && bbq_vec_len(SC_F_PARAMS) == 0) {
+             int64_t tr = wat_resolve(CTX, SP_TYPE, tref);
+             if (tr >= 0) { uint32_t np = wat_type_nparams(CTX, tr); peg_span anon = {0, 0};
+                 for (uint32_t i = 0; i < np; i++) if (!wat_name_push(&CTX->locals, anon)) return false; }
+         } .)
+      { Local<&SC_F_LOCALS> }                             /* then the declared locals */
+      (. jav_val_type_t* lvts = SC_F_LOCALS;             /* locals vec = run-length groups */
+         int nlv = (int)bbq_vec_len(lvts); uint32_t runs = 0;
+         for (int k = 0; k < nlv; ) {
+             int j = k + 1; while (j < nlv && wat_valtype_eq(&lvts[k], &lvts[j])) j++;
+             runs++; k = j;
+         }
+         bbq_write_uleb128_u32(w, runs);
+         for (int k = 0; k < nlv; ) {
+             int j = k + 1; while (j < nlv && wat_valtype_eq(&lvts[k], &lvts[j])) j++;
+             bbq_write_uleb128_u32(w, (uint32_t)(j - k));
+             bbq_write_u8(w, lvts[k].head);
+             if (lvts[k].ht.has_value) bbq_write_sleb128_i64(w, lvts[k].ht.value.x);
+             k = j;
+         }
+         bbq_vec_free(SC_F_LOCALS); .)
+      { Instr<w> }
+      ")"
+      (. bbq_write_u8(w, 0x0B);                           /* expr terminator */
+         if (CTX->pass != 2) { bbq_vec_free(SC_F_PARAMS); bbq_vec_free(SC_F_RESULTS); wat_wbuf_close(CTX, w);
+             if (has_import) { free((void*)imod.bytes.data); free((void*)ifld.bytes.data); } return true; }
+         uint32_t tidx;
+         if (has_ref) {                                   /* (type $x): reuse that type, no fresh one */
+             int64_t r = wat_resolve(CTX, SP_TYPE, tref);
+             if (r < 0 || !wat_typeuse_ref(CTX, r, &SC_F_PARAMS, &SC_F_RESULTS)) {
+                 bbq_vec_free(SC_F_PARAMS); bbq_vec_free(SC_F_RESULTS);
+                 wat_wbuf_close(CTX, w); return false;
+             }
+             tidx = (uint32_t)r;
+         } else {                                         /* inline sig: §6.4.15 typeuse */
+             memset(&ft, 0, sizeof ft);
+             WAT_FREEZE(SC_F_PARAMS, ft.params);   ft.param_count  = (uint32_t)ft.params.count;
+             WAT_FREEZE(SC_F_RESULTS, ft.results); ft.result_count = (uint32_t)ft.results.count;
+             tidx = wat_typeuse(CTX, &ft);                 /* find-or-insert; takes ownership of arrays */
+         }
+         uint32_t myidx;
+         if (has_import) {                                 /* §6.6 the func is an import, not a def */
+             jav_extern_type_t d; memset(&d, 0, sizeof d);
+             d.kind = 0; d.body.tag = 0; d.body.u.case_0.x = tidx;
+             myidx = wat_inline_import(CTX, imod, ifld, d, SP_FUNC);  /* imports carry no body */
+         } else {
+             myidx = (uint32_t)(bbq_vec_len(CTX->sp_imp[SP_FUNC]) + bbq_vec_len(*func_tidx));
+             bbq_vec_push(*func_tidx, tidx);
+             CTX->defs_seen = 1;
+             jav_code_entry_t e; memset(&e, 0, sizeof e);
+             bbq_ctx_t rc; bbq_ctx_init(&rc, w->data, w->pos);   /* decode the scratch -> tree */
+             if (!jav_func_body_read(&rc, &e.body)) { bbq_ctx_free(&rc); wat_wbuf_close(CTX, w); return false; }
+             bbq_ctx_free(&rc);
+             /* the FuncBody tree owns copies of any bytes */
+             bbq_vec_push(*entries, e);
+         }
+         wat_wbuf_close(CTX, w);
+         wat_flush_exports(CTX, SC_ENAMES, 0, myidx);      /* §6.6 inline exports, now that the index is known */
+         SC_ENAMES = NULL; .)                              /* flush freed the vec */
+.
+
+// An instruction in a sequence: a folded S-expression (§6.5.11) or the linear form.
+Instr <. bbq_write_ctx_t* w .>
+    = FoldedInstr<w>
+    | LinearInstr<w>
+.
+
+// §6.5 a LINEAR plain/structured instruction: mnemonic (resolved against
+// instructions.toml) + its immediates, translated to the binary encoding. The op byte
+// is emitted here, then the looked-up `shape` is dispatched to a per-shape operand
+// sub-production. Each self-guards (returns false unless its shape matches) so the
+// ordered choice backtracks to the right one — a resolver, without pegc's (shadowed) IF.
+LinearInstr <. bbq_write_ctx_t* w .>
+    (. peg_span s; uint8_t prefix = 0; uint32_t op = 0;
+       int shape = -1, align = -1, sp0 = -1, sp1 = -1; .)
+    = atom<&s>
+      (. if (!wat_find_instr(CTX, s.ptr, (int)s.len, &prefix, &op, &shape, &align, &sp0, &sp1))
+             return false; .)                             /* unknown mnemonic */
+      [ &( "(" "result" )                                 /* `select (result t)` is the typed select */
+        (. if (op == 0x1b) { op = 0x1c; shape = WSH_SELECTT; } .) ]
+      (. if (shape != WSH_HEAP) {                          /* heap emits its own op (ref.test/cast: null-dependent) */
+           if (prefix) { bbq_write_u8(w, prefix); bbq_write_uleb128_u32(w, op); }
+           else        { bbq_write_u8(w, (uint8_t)op); }
+         } .)
+      ( CallIndirectOp<w, shape, sp0, sp1>
+      | IdxOp<w, shape, sp0, sp1>
+      | BrTableOp<w, shape>
+      | SelectTOp<w, shape>
+      | FloatOp<w, shape>
+      | MemArgOp<w, shape, align>
+      | RefNullOp<w, shape, op, prefix>
+      | RefCastOp<w, shape, op, prefix>
+      | V128ConstOp<w, shape, op>
+      | V128ShuffleOp<w, shape, op>
+      | BrOnCastOp<w, shape>
+      | BlockOp<w, shape>
+      | IfOp<w, shape>
+      | TryTableOp<w, shape>
+      | NumOp<w, shape>
+      )
+.
+
+// §6.5.11 folded plain instruction `( plaininstr foldedchild* )` ≡ `foldedchild*
+// plaininstr`: the children emit first, so the head is encoded into a temp buffer and
+// appended after them.
+FoldedPlain <. bbq_write_ctx_t* w .>
+    (. bbq_write_ctx_t* tw = wat_wbuf_open(CTX); .)
+    = LinearInstr<tw>
+      { Instr<w> }
+      (. for (size_t i = 0; i < tw->pos; i++) bbq_write_u8(w, tw->data[i]);    /* append deferred head */
+         wat_wbuf_close(CTX, tw); .)
+.
+
+// §6.5.11 folded instruction. block/loop: the linear block with `)` in place of `end`.
+// if: the condition folded-children emit first, then `if`+blocktype, then the
+// `(then …)`/`(else …)?` clauses. try_table: like linear but `)`-terminated. Else: a
+// folded plain instr. (Folding is pure sugar — same bytes as the linear expansion.)
+FoldedInstr <. bbq_write_ctx_t* w .>
+    (. peg_span lab = {0,0}; wat_catch_t* cats = NULL;
+       bbq_write_ctx_t* tw = NULL; .)
+    = "("
+      ( "block" !glue [ id<&lab> ]
+          (. bbq_write_u8(w, 0x02); if (!wat_name_push(&CTX->labels, lab)) return false; .)
+          BlockType<w> { Instr<w> }
+          (. bbq_write_u8(w, 0x0B); wat_label_pop(CTX); .)
+      | "loop" !glue [ id<&lab> ]
+          (. bbq_write_u8(w, 0x03); if (!wat_name_push(&CTX->labels, lab)) return false; .)
+          BlockType<w> { Instr<w> }
+          (. bbq_write_u8(w, 0x0B); wat_label_pop(CTX); .)
+      | "if" !glue [ id<&lab> ]
+          (. tw = wat_wbuf_open(CTX); .)
+          BlockType<tw>                                   /* blocktype deferred — condition emits first */
+          { FoldedInstr<w> }                              /* condition: folded instrs, before `if` */
+          (. if (!wat_name_push(&CTX->labels, lab)) return false;            /* if-label scopes then/else only */
+             bbq_write_u8(w, 0x04);
+             for (size_t i = 0; i < tw->pos; i++) bbq_write_u8(w, tw->data[i]);
+             wat_wbuf_close(CTX, tw); .)
+          "(" "then" !glue { Instr<w> } ")"
+          [ "(" "else" !glue (. bbq_write_u8(w, 0x05); .) { Instr<w> } ")" ]
+          (. bbq_write_u8(w, 0x0B); wat_label_pop(CTX); .)
+      | "try_table" !glue [ id<&lab> ]
+          (. bbq_write_u8(w, 0x1F); .)
+          BlockType<w>
+          { Catch<&cats> }
+          (. int nc = (int)bbq_vec_len(cats);
+             bbq_write_uleb128_u32(w, (uint32_t)nc);
+             for (int i = 0; i < nc; i++) {
+                 bbq_write_u8(w, cats[i].kind);
+                 if (cats[i].kind == 0 || cats[i].kind == 1) bbq_write_uleb128_u32(w, cats[i].tag);
+                 bbq_write_uleb128_u32(w, cats[i].label);
+             }
+             bbq_vec_free(cats); if (!wat_name_push(&CTX->labels, lab)) return false; .)
+          { Instr<w> }
+          (. bbq_write_u8(w, 0x0B); wat_label_pop(CTX); .)
+      | FoldedPlain<w>
+      )
+      ")"
+.
+
+// An index reference operand: a number or a $id. The span is resolved later by
+// wat_resolve against the operand's index space.
+IdxRef <. peg_span* out .>
+    = nat<out> | id<out> .
+
+// idx / idx2 — one or two index operands (call $f, local.get 3, call_indirect $t 0,
+// array.new_fixed $t 4). Each is resolved against its space (sp0/sp1 from the toml
+// `operands`): a module $id -> its index, a number -> itself. A $id in a not-yet-
+// supported space (local/label) resolves to -1 -> clean parse failure, never 0.
+// §6.5.3 call_indirect / return_call_indirect: `<tableidx>? <typeuse>`. Unlike a plain
+// idx2, the second "operand" is a §6.4.15 typeuse (`(type $x)` or an inline param/result
+// signature), and the tableidx is optional (default 0). Binary order is [typeidx, tableidx].
+// Self-guards on the operand KIND: an idx2 op with operands [typeidx, tableidx] is uniquely
+// call_indirect/return_call_indirect (struct.get is [typeidx, fieldidx], the bulk ops are
+// mem/table), so the dispatch falls through for every other idx2 op — no opcode/name hack.
+CallIndirectOp <. bbq_write_ctx_t* w, int shape, int sp0, int sp1 .>
+    (. peg_span tref = {0,0}, tyref = {0,0}; int has_tab = 0, has_ref = 0;
+       jav_func_type_t ft;
+       int sv = CTX->bind_locals; CTX->bind_locals = 0; .)   /* a typeuse's params are not locals */
+    = (. if (!(shape == WSH_IDX2 && sp0 == SP_TYPE && sp1 == SP_TABLE)) { CTX->bind_locals = sv; return false; }
+         bbq_vec_free(SC_I_PARAMS); bbq_vec_free(SC_I_RESULTS); .)   /* reclaim abandoned scratch */
+      [ IdxRef<&tref> (. has_tab = 1; .) ]                    /* optional tableidx (default 0) */
+      [ "(" "type" !glue IdxRef<&tyref> ")" (. has_ref = 1; .) ]
+      { BParam<&SC_I_PARAMS> } { Result<&SC_I_RESULTS> }   /* §6.5.5: this typeuse binds no ids */
+      (. CTX->bind_locals = sv;
+         uint32_t tidx;
+         if (has_ref) { int64_t r = wat_resolve(CTX, SP_TYPE, tyref);
+                        if (r < 0 || !wat_typeuse_ref(CTX, r, &SC_I_PARAMS, &SC_I_RESULTS)) {
+                            bbq_vec_free(SC_I_PARAMS); bbq_vec_free(SC_I_RESULTS); return false;
+                        }
+                        tidx = (uint32_t)r; }
+         else { memset(&ft, 0, sizeof ft);
+                WAT_FREEZE(SC_I_PARAMS, ft.params);  ft.param_count  = (uint32_t)ft.params.count;
+                WAT_FREEZE(SC_I_RESULTS, ft.results); ft.result_count = (uint32_t)ft.results.count;
+                tidx = wat_typeuse(CTX, &ft); }
+         uint32_t tab = 0;
+         if (has_tab) { int64_t t = wat_resolve(CTX, SP_TABLE, tref); if (t < 0) return false; tab = (uint32_t)t; }
+         bbq_write_uleb128_u32(w, tidx);                       /* binary: typeidx then tableidx */
+         bbq_write_uleb128_u32(w, tab); .)
+.
+
+IdxOp <. bbq_write_ctx_t* w, int shape, int sp0, int sp1 .>
+    (. peg_span r0 = {0,0}, r1 = {0,0}; int nr = 0; .)
+    = (. if (shape != WSH_IDX && shape != WSH_IDX2) return false; .)
+      [ IdxRef<&r0> (. nr = 1; .)
+        [ IdxRef<&r1> (. nr = 2; .) ] ]
+      (. /* §6.5.5/§6.5.6: memory & table indices are OPTIONAL in text, defaulting to 0
+            (`memory.copy` ≡ `memory.copy 0 0`, `memory.fill` ≡ `memory.fill 0`, …); and the
+            `init` ops REVERSE text vs binary order (text `memory.init <memidx> <dataidx>` →
+            binary `[dataidx, memidx]`). Classify by the operand index-space (sp0/sp1, from
+            the toml `operands`) — a memidx/tableidx operand is the omittable one. */
+         int opt0 = (sp0 == SP_MEM || sp0 == SP_TABLE);
+         int opt1 = (sp1 == SP_MEM || sp1 == SP_TABLE);
+         if (shape == WSH_IDX) {                            /* one index (req, or omittable if mem/table) */
+             uint32_t v = 0;
+             if (nr >= 1) { int64_t x = wat_resolve(CTX, sp0, r0); if (x < 0) return false; v = (uint32_t)x; }
+             else if (!opt0) return false;                  /* a non-mem/table idx is required */
+             if (nr > 1) return false;
+             bbq_write_uleb128_u32(w, v);
+         } else if (opt0 && sp1 == sp0) {                   /* copy: `op` | `op dst src`, same order, default 0 */
+             if (nr == 1) return false;
+             uint32_t a = 0, b = 0;
+             if (nr == 2) {
+                 int64_t x0 = wat_resolve(CTX, sp0, r0); if (x0 < 0) return false; a = (uint32_t)x0;
+                 int64_t x1 = wat_resolve(CTX, sp1, r1); if (x1 < 0) return false; b = (uint32_t)x1;
+             }
+             bbq_write_uleb128_u32(w, a); bbq_write_uleb128_u32(w, b);
+         } else if (opt1 && (sp0 == SP_DATA || sp0 == SP_ELEM)) {  /* init: text [mem/tab, data/elem] → binary [data/elem, mem/tab(0)] */
+             if (nr == 0) return false;
+             uint32_t req = 0, mt = 0;
+             if (nr == 2) {                                  /* both given: text r0=mem/tab (sp1), r1=data/elem (sp0) */
+                 int64_t xm = wat_resolve(CTX, sp1, r0); if (xm < 0) return false; mt  = (uint32_t)xm;
+                 int64_t xr = wat_resolve(CTX, sp0, r1); if (xr < 0) return false; req = (uint32_t)xr;
+             } else {                                        /* one given: the required data/elem idx; mem/tab = 0 */
+                 int64_t xr = wat_resolve(CTX, sp0, r0); if (xr < 0) return false; req = (uint32_t)xr;
+             }
+             bbq_write_uleb128_u32(w, req); bbq_write_uleb128_u32(w, mt);
+         } else {                                            /* normal idx2 (struct.get, array ops, call_indirect): both required, same order */
+             if (nr != 2) return false;
+             int64_t x0 = wat_resolve(CTX, sp0, r0); if (x0 < 0) return false; bbq_write_uleb128_u32(w, (uint32_t)x0);
+             int64_t x1 = (sp1 < 0) ? wat_resolve_field(CTX, r0, r1)   /* §6.6.2 fieldidx: per-type field $id space */
+                                    : wat_resolve(CTX, sp1, r1);
+             if (x1 < 0) return false; bbq_write_uleb128_u32(w, (uint32_t)x1);
+         } .)
+.
+
+// none / i32 / i64 / lane — integer (or no) immediates (idx/idx2 -> IdxOp).
+NumOp <. bbq_write_ctx_t* w, int shape .>
+    (. peg_span ns; int nv = 0; .)
+    = (. if (!(shape == WSH_NONE || shape == WSH_I32 ||
+               shape == WSH_I64 || shape == WSH_LANE)) return false; .)
+      { snum<&ns> (. nv++; .) }
+      (. int ok; uint64_t v;
+         switch (shape) {
+         case WSH_NONE: if (nv != 0) return false; break;
+         case WSH_I32:  if (nv != 1) return false;                /* iN.const: [-2^31, 2^32) */
+                        v = wat_int_lit(ns, 32, 1, &ok); if (!ok) return false;
+                        bbq_write_sleb128_i32(w, (int32_t)v); break;
+         case WSH_I64:  if (nv != 1) return false;
+                        v = wat_int_lit(ns, 64, 1, &ok); if (!ok) return false;
+                        bbq_write_sleb128_i64(w, (int64_t)v); break;
+         case WSH_LANE: if (nv != 1) return false;                /* laneidx: u8, unsigned */
+                        v = wat_int_lit(ns, 8, 0, &ok); if (!ok) return false;
+                        bbq_write_u8(w, (uint8_t)v); break;
+         } .)
+.
+
+// §6.5.6 memarg / memlane: optional offset=/align= (align defaults to the natural
+// alignment from the toml) + a lane index for memlane. memidx (multi-memory) is
+// deferred — bit 6 of align-flags stays clear.
+MemArgOp <. bbq_write_ctx_t* w, int shape, int align .>
+    (. peg_span r; peg_span pos[2]; int npos = 0;
+       int has_off = 0, has_al = 0; uint64_t off = 0; uint64_t al = 0; .)
+    = (. if (!(shape == WSH_MEMARG || shape == WSH_MEMLANE)) return false; .)
+      { "offset=" nat<&r> (. int ok; off = wat_int_lit(r, 64, 0, &ok);   /* §6.3.1: u64, no sign */
+                             if (!ok) return false; has_off = 1; .)
+      | "align="  nat<&r> (. int ok; al = wat_int_lit(r, 64, 0, &ok);    /* §6.3.1: u64, no sign */
+                             if (!ok) return false; has_al = 1;
+                             if (al == 0 || (al & (al - 1)) != 0) return false; .)   /* §6.5.6: power of two */
+      | IdxRef<&r>        (. if (npos < 2) pos[npos] = r; npos++; .) }  /* memidx and/or lane */
+      (. uint32_t memidx = 0; int64_t lane = 0;
+         if (shape == WSH_MEMARG) {                              /* [memidx] offset?/align? */
+             if (npos > 1) return false;
+             if (npos == 1) { int64_t m = wat_resolve(CTX, SP_MEM, pos[0]); if (m < 0) return false; memidx = (uint32_t)m; }
+         } else {                                                /* memlane: [memidx] … laneidx (last) */
+             if (npos < 1 || npos > 2) return false;
+             int lok; lane = (int64_t)wat_int_lit(pos[npos - 1], 8, 0, &lok);   /* laneidx: u8 */
+             if (!lok) return false;
+             if (npos == 2) { int64_t m = wat_resolve(CTX, SP_MEM, pos[0]); if (m < 0) return false; memidx = (uint32_t)m; }
+         }
+         uint32_t a = has_al ? wat_ilog2(al) : (uint32_t)align;
+         if (memidx != 0) a |= 0x40;                             /* §5.4.9 bit 6: a memidx follows */
+         bbq_write_uleb128_u32(w, a);
+         if (memidx != 0) bbq_write_uleb128_u32(w, memidx);
+         bbq_write_uleb128_u64(w, has_off ? off : 0);
+         if (shape == WSH_MEMLANE) bbq_write_u8(w, (uint8_t)lane); .)
+.
+
+// §6.5.3 br_table: a non-empty list of label indices; the binary is vec(labelidx)
+// then the default (the last one written).
+BrTableOp <. bbq_write_ctx_t* w, int shape .>
+    (. peg_span r; uint32_t* L = NULL; .)                  /* L is a bbq_vec of resolved labels */
+    = (. if (shape != WSH_BRTABLE) return false; .)
+      { IdxRef<&r> (. int64_t x = wat_resolve(CTX, SP_LABEL, r);
+                      if (x < 0) { bbq_vec_free(L); return false; }   /* unbound $label */
+                      uint32_t xx = (uint32_t)x; bbq_vec_push(L, xx); .) }
+      (. int nL = (int)bbq_vec_len(L);
+         if (nL < 1) { bbq_vec_free(L); return false; }    /* at least the default */
+         bbq_write_uleb128_u32(w, (uint32_t)(nL - 1));     /* table length */
+         for (int i = 0; i < nL - 1; i++) bbq_write_uleb128_u32(w, L[i]);
+         bbq_write_uleb128_u32(w, L[nL - 1]);              /* default */
+         bbq_vec_free(L); .)
+.
+
+// §6.5.2 select with explicit result types: vec(valtype).
+SelectTOp <. bbq_write_ctx_t* w, int shape .>
+    (. jav_val_type_t t; .)
+    = (. if (shape != WSH_SELECTT) return false;
+         bbq_vec_free(SC_SELT); .)                        /* reclaim abandoned scratch */
+      { "(" "result" !glue { ValType<&t> (. bbq_vec_push(SC_SELT, t); .) } ")" }   /* (result t*)* */
+      (. jav_val_type_t* ts = SC_SELT;
+         int nt = (int)bbq_vec_len(ts);
+         bbq_write_uleb128_u32(w, (uint32_t)nt);
+         for (int i = 0; i < nt; i++) {
+             bbq_write_u8(w, ts[i].head);
+             if (ts[i].ht.has_value) bbq_write_sleb128_i64(w, ts[i].ht.value.x);
+         }
+         bbq_vec_free(SC_SELT); .)
+.
+
+// §6.3.2 f32.const / f64.const: a float literal → 4/8 raw LE bytes. Decimal/hex
+// numbers go via strtod (sign included in the `num`); `inf`/`nan`/`nan:payload` carry
+// an optional leading sign and are assembled bit-exactly (exp all-ones; nan canonical =
+// the top mantissa bit, nan:N = mantissa N).
+FloatOp <. bbq_write_ctx_t* w, int shape .>
+    (. peg_span ns; int neg = 0, isinf = 0, isnan = 0, ispay = 0; uint64_t pay = 0; int fw;
+       uint64_t b = 0; int isnum = 0; .)
+    = (. if (shape != WSH_F32 && shape != WSH_F64) return false; fw = (shape == WSH_F32) ? 4 : 8; .)
+      ( fnum<&ns> (. isnum = 1; .)
+      | [ "+" | "-" (. neg = 1; .) ]
+        ( "inf" !glue (. isinf = 1; .)
+        | "nan" ( ":" hexnat<&ns> (. isnan = 1; ispay = 1;
+                                  if (!wat_nan_payload(ns, fw, &pay)) return false; .)
+                | !glue       (. isnan = 1; .) ) ) )
+      (. if (isnum) { int ok; b = wat_float_lit(ns, fw, &ok); if (!ok) return false; }
+         else b = wat_float_bits(fw, neg, isinf, isnan, ispay, pay, 0);
+         if (fw == 4) bbq_write_u32le(w, (uint32_t)b); else bbq_write_u64le(w, b); .)
+.
+
+// §6.6.2 type definition: `( type $id? comptype )` (singular; `(rec …)`, sub TODO).
+TypeField <. jav_rec_type_t** types .>
+    (. jav_rec_type_t rt; memset(&rt, 0, sizeof rt); peg_span idsp = {0,0};
+       jav_comp_type_t ct; memset(&ct, 0, sizeof ct);
+       jav_sub_type_t st; memset(&st, 0, sizeof st); uint8_t subhead = 0; int issub = 0; .)
+    = "(" "type" !glue
+      [ id<&idsp> ]                                       /* §6.6.2 optional type $id */
+      (. if (CTX->pass == 1 && !wat_id_add(CTX, SP_TYPE, idsp)) return false; .)
+      ( &( "(" "sub" ) SubTypeP<&st, &subhead> (. issub = 1; .)   /* §6.4.6 sub type */
+      | CompType<&ct> )                                          /* func/struct/array singleton */
+      ")"
+      (. if (CTX->pass == 1) { wat_xtypes_capture(CTX, issub, &ct, &st); return true; }
+         if (issub) {                                     /* singleton sub type */
+             rt.head = subhead; rt.body.tag = subhead;
+             if (subhead == 0x4F) rt.body.u.case_1 = st; else rt.body.u.case_2 = st;
+         } else {                                         /* singleton comptype (shorthand) */
+             rt.head = ct.head; rt.body.tag = ct.head;
+             if      (ct.head == 0x5E) rt.body.u.case_3 = ct.body.u.case_0;   /* array */
+             else if (ct.head == 0x5F) rt.body.u.case_4 = ct.body.u.case_1;   /* struct */
+             else                      rt.body.u.case_5 = ct.body.u.case_2;   /* func */
+         }
+         bbq_vec_push(*types, rt); .)
+.
+
+// §6.6.2 recursive type group: `( rec (type …)* )`. Each member binds its $id and is
+// stored as a jav_rec_member (sub or comptype shorthand); the group is one rec_type.
+RecMemberP <. jav_rec_member_t** members .>
+    (. jav_rec_member_t rm; memset(&rm, 0, sizeof rm); peg_span idsp = {0,0};
+       jav_comp_type_t ct; memset(&ct, 0, sizeof ct);
+       jav_sub_type_t st; memset(&st, 0, sizeof st); uint8_t subhead = 0; int issub = 0; .)
+    = "(" "type" !glue
+      [ id<&idsp> ]
+      (. if (CTX->pass == 1 && !wat_id_add(CTX, SP_TYPE, idsp)) return false; .)
+      ( &( "(" "sub" ) SubTypeP<&st, &subhead> (. issub = 1; .)
+      | CompType<&ct> )
+      ")"
+      (. if (CTX->pass == 1) { wat_xtypes_capture(CTX, issub, &ct, &st); return true; }
+         if (issub) { rm.head = subhead; rm.body.tag = subhead;
+                      if (subhead == 0x4F) rm.body.u.case_0 = st; else rm.body.u.case_1 = st; }
+         else { rm.head = ct.head; rm.body.tag = ct.head;
+                if      (ct.head == 0x5E) rm.body.u.case_2 = ct.body.u.case_0;   /* array */
+                else if (ct.head == 0x5F) rm.body.u.case_3 = ct.body.u.case_1;   /* struct */
+                else                      rm.body.u.case_4 = ct.body.u.case_2; } /* func */
+         bbq_vec_push(*members, rm); .)
+.
+
+RecField <. jav_rec_type_t** types .>
+    (. jav_rec_type_t rt; memset(&rt, 0, sizeof rt); uint32_t xbase = 0;
+       bbq_vec_free(SC_MEMBERS); .)                       /* reclaim abandoned scratch */
+    = "(" "rec" !glue
+      (. xbase = (uint32_t)bbq_vec_len(CTX->xtypes); .)   /* first member's xtypes slot */
+      { RecMemberP<&SC_MEMBERS> }
+      ")"
+      (. if (CTX->pass != 2) { wat_xtypes_seal_recgroup(CTX, xbase); bbq_vec_free(SC_MEMBERS); return true; }
+         rt.head = 0x4E; rt.body.tag = 0x4E;
+         WAT_FREEZE(SC_MEMBERS, rt.body.u.case_0.members);
+         rt.body.u.case_0.count = (uint32_t)rt.body.u.case_0.members.count;
+         bbq_vec_push(*types, rt); .)
+.
+
+// §6.4.5/§5.3.7 storage type: a value type, or a packed type (i8 0x78, i16 0x77).
+StorageTypeP <. jav_storage_type_t* out .>
+    (. jav_val_type_t v; .)
+    = "i8"  !glue (. memset(out, 0, sizeof *out); out->head = 0x78; .)
+    | "i16" !glue (. memset(out, 0, sizeof *out); out->head = 0x77; .)
+    | ValType<&v>   (. memset(out, 0, sizeof *out); out->head = v.head;
+                       out->ht.has_value = v.ht.has_value; out->ht.value = v.ht.value; .)
+.
+
+// §6.4.6 field type: storagetype or `(mut storagetype)` (mut 0x00 const / 0x01 var).
+FieldTypeP <. jav_field_type_t* out .>
+    (. jav_storage_type_t s; memset(&s, 0, sizeof s); .)
+    = "(" "mut" !glue StorageTypeP<&s> ")" (. out->storage = s; out->mut = 1; .)
+    | StorageTypeP<&s>                       (. out->storage = s; out->mut = 0; .)
+.
+
+// §6.6.2 `( field $id? fieldtype* )` — a struct field group. Each fieldtype is one field;
+// a named `(field $x ft)` binds $x to its position in the type's field space (CTX->cur_fields,
+// captured per-type in pass 1), anonymous fields push a NULL slot to keep positions aligned.
+FieldDecl <. jav_field_type_t** fields .>
+    (. jav_field_type_t ft; peg_span idsp = {0,0}, none = {0,0}; int fi = 0; .)
+    = "(" "field" !glue
+      [ id<&idsp> ]
+      { FieldTypeP<&ft> (. bbq_vec_push(*fields, ft);
+                           if (CTX->pass == 1) {
+                               peg_span fsp = fi == 0 ? idsp : none;
+                               if (fsp.len && wat_name_find(CTX->cur_fields, fsp) >= 0) return false;  /* duplicate field */
+                               if (!wat_name_push(&CTX->cur_fields, fsp)) return false;
+                           }
+                           fi++; .) }
+      ")"
+.
+
+// §6.4.6 composite type: `( func … ) | ( struct field* ) | ( array fieldtype )`
+// -> jav_comp_type (head + body union case_0 array / case_1 struct / case_2 func).
+CompType <. jav_comp_type_t* out .>
+    (. jav_field_type_t aft; memset(&aft, 0, sizeof aft);
+       bbq_vec_free(SC_F_PARAMS); bbq_vec_free(SC_F_RESULTS);   /* reclaim abandoned scratch */
+       bbq_vec_free(SC_FIELDS);
+       CTX->bind_locals = 0; .)
+    = "("
+      ( "func" !glue { Param<&SC_F_PARAMS> } { Result<&SC_F_RESULTS> }
+          (. memset(out, 0, sizeof *out); out->head = 0x60; out->body.tag = 0x60;
+             WAT_FREEZE(SC_F_PARAMS, out->body.u.case_2.params);   out->body.u.case_2.param_count  = (uint32_t)out->body.u.case_2.params.count;
+             WAT_FREEZE(SC_F_RESULTS, out->body.u.case_2.results); out->body.u.case_2.result_count = (uint32_t)out->body.u.case_2.results.count; .)
+      | "struct" !glue { FieldDecl<&SC_FIELDS> }
+          (. memset(out, 0, sizeof *out); out->head = 0x5F; out->body.tag = 0x5F;
+             WAT_FREEZE(SC_FIELDS, out->body.u.case_1.fields); out->body.u.case_1.field_count = (uint32_t)out->body.u.case_1.fields.count; .)
+      | "array" !glue FieldTypeP<&aft>
+          (. memset(out, 0, sizeof *out); out->head = 0x5E; out->body.tag = 0x5E; out->body.u.case_0.field = aft; .) )
+      ")"
+.
+
+// §6.4.6 sub type: `( sub final? typeidx* comptype )`. head 0x4F final / 0x50 open.
+SubTypeP <. jav_sub_type_t* out, uint8_t* head .>
+    (. peg_span sr; jav_comp_type_t ct;
+       bbq_vec_free(SC_IDXS); .)                          /* reclaim abandoned scratch */
+    = "(" "sub" !glue
+      (. *head = 0x50; .)
+      [ "final" !glue (. *head = 0x4F; .) ]
+      { IdxRef<&sr> (. int64_t s = wat_resolve(CTX, SP_TYPE, sr);
+                       if (s < 0) { bbq_vec_free(SC_IDXS); return false; }
+                       uint32_t ss = (uint32_t)s; bbq_vec_push(SC_IDXS, ss); .) }
+      CompType<&ct>
+      ")"
+      (. memset(out, 0, sizeof *out);
+         WAT_FREEZE(SC_IDXS, out->supers); out->super_count = (uint32_t)out->supers.count;
+         out->body = ct; .)
+.
+
+// §6.4.6 `( param $id? valtype* )`. With a $id, exactly one valtype, bound to that
+// id; without, zero or more anonymous valtypes. Binds into the per-func local map
+// when CTX->bind_locals (set inside a func; a bare type def leaves it 0).
+Param <. jav_val_type_t** list .>
+    (. jav_val_type_t t; peg_span idsp = {0,0}; .)
+    = "(" "param" !glue
+      ( id<&idsp> ValType<&t>
+        (. bbq_vec_push(*list, t);
+           if (CTX->bind_locals) {
+               if (idsp.len && wat_name_find(CTX->locals, idsp) >= 0) return false;   /* duplicate local */
+               if (!wat_name_push(&CTX->locals, idsp)) return false;
+           } .)
+      | { ValType<&t>
+          (. bbq_vec_push(*list, t);
+             if (CTX->bind_locals) {
+               if (idsp.len && wat_name_find(CTX->locals, idsp) >= 0) return false;   /* duplicate local */
+               if (!wat_name_push(&CTX->locals, idsp)) return false;
+           } .) } )  /* idsp empty -> anon */
+      ")"
+.
+
+// §6.5.3 block param: like Param, but binds NO id — a `$x` in a blocktype's
+// param is malformed (block params are stack values, not locals).
+BParam <. jav_val_type_t** list .>
+    (. jav_val_type_t t; .)
+    = "(" "param" !glue
+      { ValType<&t> (. bbq_vec_push(*list, t); .) }
+      ")"
+.
+
+// §6.4.6 `( result valtype* )` (results bind no identifiers).
+Result <. jav_val_type_t** list .>
+    (. jav_val_type_t t; .)
+    = "(" "result" !glue
+      { ValType<&t> (. bbq_vec_push(*list, t); .) }
+      ")"
+.
+
+// §6.6.7 `( local $id? valtype* )` — same shape as param, but feeds the func-body
+// locals vector and binds locals after the params in the same per-func space.
+Local <. jav_val_type_t** list .>
+    (. jav_val_type_t t; peg_span idsp = {0,0}; .)
+    = "(" "local" !glue
+      ( id<&idsp> ValType<&t>
+        (. bbq_vec_push(*list, t);
+           if (CTX->bind_locals) {
+               if (idsp.len && wat_name_find(CTX->locals, idsp) >= 0) return false;   /* duplicate local */
+               if (!wat_name_push(&CTX->locals, idsp)) return false;
+           } .)
+      | { ValType<&t>
+          (. bbq_vec_push(*list, t);
+             if (CTX->bind_locals) {
+               if (idsp.len && wat_name_find(CTX->locals, idsp) >= 0) return false;   /* duplicate local */
+               if (!wat_name_push(&CTX->locals, idsp)) return false;
+           } .) } )
+      ")"
+.
+
+// §6.4.5 value type: number, vector, or reference type. The reference shorthands
+// (funcref…) are the single abstract-heaptype byte; `(ref null? ht)` is the long form
+// (head 0x63 null / 0x64 non-null + the heaptype). The byte = wat_numtype's head.
+ValType <. jav_val_type_t* out .>
+    (. int64_t htv = 0; int nullable = 0; .)
+    = "i32" !glue (. *out = wat_numtype(0x7f); .)
+    | "i64" !glue (. *out = wat_numtype(0x7e); .)
+    | "f32" !glue (. *out = wat_numtype(0x7d); .)
+    | "f64" !glue (. *out = wat_numtype(0x7c); .)
+    | "v128" !glue (. *out = wat_numtype(0x7b); .)
+    | "funcref"       !glue (. *out = wat_numtype(0x70); .)
+    | "externref"     !glue (. *out = wat_numtype(0x6f); .)
+    | "anyref"        !glue (. *out = wat_numtype(0x6e); .)
+    | "eqref"         !glue (. *out = wat_numtype(0x6d); .)
+    | "i31ref"        !glue (. *out = wat_numtype(0x6c); .)
+    | "structref"     !glue (. *out = wat_numtype(0x6b); .)
+    | "arrayref"      !glue (. *out = wat_numtype(0x6a); .)
+    | "exnref"        !glue (. *out = wat_numtype(0x69); .)
+    | "nullref"       !glue (. *out = wat_numtype(0x71); .)
+    | "nullexternref" !glue (. *out = wat_numtype(0x72); .)
+    | "nullfuncref"   !glue (. *out = wat_numtype(0x73); .)
+    | "nullexnref"    !glue (. *out = wat_numtype(0x74); .)
+    | "(" "ref" !glue [ "null" !glue (. nullable = 1; .) ] HeapType<&htv> ")"
+      (. memset(out, 0, sizeof *out); out->head = nullable ? 0x63 : 0x64;
+         out->ht.has_value = true; out->ht.value.x = htv; .)
+.
+
+// §6.4.4 reference type as a jav_ref_type_t (table element type). Shorthand byte or
+// `(ref null? ht)` long form — same encoding as a reftype valtype, different struct.
+RefTypeVal <. jav_ref_type_t* out .>
+    (. jav_val_type_t v; .)
+    = ValType<&v>
+      (. memset(out, 0, sizeof *out); out->head = v.head;
+         out->ht.has_value = v.ht.has_value; out->ht.value = v.ht.value; .)
+.
+
+// §5.3.7 limits: an optional address-type (i32 default / i64), min, optional max.
+// flag bit0 = has_max, bit2 = 64-bit (shared/bit1 is rejected by the bbq reader).
+Limits <. jav_limits_t* out .>
+    (. peg_span ns; int is64 = 0; .)
+    = [ "i64" !glue (. is64 = 1; .) | "i32" !glue ]
+      nat<&ns> (. int ok; memset(out, 0, sizeof *out);
+                  out->min = wat_int_lit(ns, 64, 0, &ok); if (!ok) return false; .)
+      [ nat<&ns> (. int ok; out->flag |= 1; out->max.has_value = true;
+                    out->max.value = wat_int_lit(ns, 64, 0, &ok); if (!ok) return false; .) ]
+      (. if (is64) out->flag |= 4; .)
+.
+
+// A constant/init expression (§6.5): linear instrs + implicit end, built into a
+// jav_expr_t via the same emit→decode path as a func body (folded forms are the
+// separate §6.5.1 abbreviation). The emit buffer is pooled scratch (the decoded
+// tree owns copies of any bytes).
+Expr <. jav_expr_t* out .>
+    (. bbq_write_ctx_t* w = wat_wbuf_open(CTX); .)
+    = { Instr<w> }
+      (. bbq_write_u8(w, 0x0B);
+         if (CTX->pass != 2) { wat_wbuf_close(CTX, w); return true; }   /* pass 1: consumed, not decoded */
+         bbq_ctx_t rc; bbq_ctx_init(&rc, w->data, w->pos);   /* decode the scratch -> tree */
+         int ok = jav_expr_read(&rc, out);                  /* tree owns byte copies */
+         bbq_ctx_free(&rc);
+         wat_wbuf_close(CTX, w);
+         if (!ok) return false; .)
+.
+
+// §6.6 active-segment offset: the explicit `(offset expr)` or, as an abbreviation, a
+// single bare folded instruction. Either way → a jav_expr_t (emit instrs + 0x0B, decode).
+OffsetClause <. jav_expr_t* out .>
+    (. bbq_write_ctx_t* w = wat_wbuf_open(CTX); .)
+    = ( "(" "offset" !glue { Instr<w> } ")"
+      | FoldedInstr<w> )
+      (. bbq_write_u8(w, 0x0B);
+         if (CTX->pass != 2) { wat_wbuf_close(CTX, w); return true; }
+         bbq_ctx_t rc; bbq_ctx_init(&rc, w->data, w->pos);   /* decode the scratch -> tree */
+         int ok = jav_expr_read(&rc, out);                  /* tree owns byte copies */
+         bbq_ctx_free(&rc);
+         wat_wbuf_close(CTX, w);
+         if (!ok) return false; .)
+.
+
+// §5.3.4 abstract heaptype keyword -> its sleb value (the single-byte negative
+// encoding: func=0x70=-16, …), or a typeidx (positive). Returned, not emitted,
+// so callers (ref.null, reftype, br_on_cast) can place it in their byte order.
+HeapType <. int64_t* ht .>
+    (. peg_span ns; .)
+    = "func"     !glue (. *ht = -16; .)
+    | "extern"   !glue (. *ht = -17; .)
+    | "any"      !glue (. *ht = -18; .)
+    | "eq"       !glue (. *ht = -19; .)
+    | "i31"      !glue (. *ht = -20; .)
+    | "struct"   !glue (. *ht = -21; .)
+    | "array"    !glue (. *ht = -22; .)
+    | "exn"      !glue (. *ht = -23; .)
+    | "none"     !glue (. *ht = -15; .)
+    | "nofunc"   !glue (. *ht = -13; .)
+    | "noextern" !glue (. *ht = -14; .)
+    | "noexn"    !glue (. *ht = -12; .)
+    | nat<&ns>          (. int ok; uint64_t tv = wat_int_lit(ns, 32, 0, &ok);   /* concrete typeidx (u32) */
+                           if (!ok) return false; *ht = (int64_t)tv; .)
+    | id<&ns>           (. int64_t r = wat_resolve(CTX, SP_TYPE, ns);   /* concrete typeidx ($id) */
+                           if (r < 0) return false; *ht = r; .)
+.
+
+// §6.4.4 reference type -> (nullability, heaptype). `(ref null? ht)` long form or
+// an abbreviation (funcref = (ref null func), …). The heaptype value is the sleb;
+// nullability is consumed by the caller (br_on_cast flags, ref.test/cast subop).
+RefType <. int* nullable, int64_t* ht .>
+    = (. *nullable = 0; .)
+      ( "(" "ref" !glue [ "null" !glue (. *nullable = 1; .) ] HeapType<ht> ")"
+      | "funcref"       !glue (. *nullable = 1; *ht = -16; .)
+      | "externref"     !glue (. *nullable = 1; *ht = -17; .)
+      | "anyref"        !glue (. *nullable = 1; *ht = -18; .)
+      | "eqref"         !glue (. *nullable = 1; *ht = -19; .)
+      | "i31ref"        !glue (. *nullable = 1; *ht = -20; .)
+      | "structref"     !glue (. *nullable = 1; *ht = -21; .)
+      | "arrayref"      !glue (. *nullable = 1; *ht = -22; .)
+      | "exnref"        !glue (. *nullable = 1; *ht = -23; .)
+      | "nullref"       !glue (. *nullable = 1; *ht = -15; .)
+      | "nullfuncref"   !glue (. *nullable = 1; *ht = -13; .)
+      | "nullexternref" !glue (. *nullable = 1; *ht = -14; .)
+      | "nullexnref"    !glue (. *nullable = 1; *ht = -12; .) )
+.
+
+// §6.5 heap-shape ops. ref.null (op 0xD0): a bare heaptype. ref.test/ref.cast
+// (prefix 0xFB, base subop): a reftype whose nullability picks the subop (+0
+// non-null / +1 null) — decided after parsing the operand.
+// ref.null (op 0xD0, no prefix): a bare heaptype. (Separate top-level production
+// from RefCastOp because an inner-choice self-guard via `return false` exits the
+// whole production — the guard only works at the top level.)
+RefNullOp <. bbq_write_ctx_t* w, int shape, uint32_t op, uint8_t prefix .>
+    (. int64_t ht = 0; .)
+    = (. if (shape != WSH_HEAP || prefix != 0) return false; .)
+      HeapType<&ht>
+      (. bbq_write_u8(w, (uint8_t)op); bbq_write_sleb128_i64(w, ht); .)
+.
+
+// ref.test / ref.cast (prefix 0xFB, base subop): a reftype whose nullability picks
+// the subop (+0 non-null / +1 null), decided after parsing the operand.
+RefCastOp <. bbq_write_ctx_t* w, int shape, uint32_t op, uint8_t prefix .>
+    (. int nullable = 0; int64_t ht = 0; .)
+    = (. if (shape != WSH_HEAP || prefix == 0) return false; .)
+      RefType<&nullable, &ht>
+      (. bbq_write_u8(w, prefix);
+         bbq_write_uleb128_u32(w, op + (uint32_t)nullable);
+         bbq_write_sleb128_i64(w, ht); .)
+.
+
+// §6.5 br_on_cast / br_on_cast_fail (op emitted by Instr): castflags (null bits
+// of the two reftypes) + label + heaptype1 + heaptype2.
+BrOnCastOp <. bbq_write_ctx_t* w, int shape .>
+    (. peg_span ns; uint32_t label = 0; int n1 = 0, n2 = 0; int64_t h1 = 0, h2 = 0; .)
+    = (. if (shape != WSH_BRONCAST) return false; .)
+      IdxRef<&ns> (. int64_t r = wat_resolve(CTX, SP_LABEL, ns); if (r < 0) return false;  /* $label or num */
+                     label = (uint32_t)r; .)
+      RefType<&n1, &h1>
+      RefType<&n2, &h2>
+      (. bbq_write_u8(w, (uint8_t)(n1 | (n2 << 1)));
+         bbq_write_uleb128_u32(w, label);
+         bbq_write_sleb128_i64(w, h1);
+         bbq_write_sleb128_i64(w, h2); .)
+.
+
+// §6.5 v128.const (op 12): a shape keyword fixing lane width/count, then the
+// lanes packed into 16 LE bytes. i8x16.shuffle (op 13): 16 lane-index bytes.
+// v128.const (op 12): a shape keyword fixing lane width/count, then the lanes
+// packed into 16 LE bytes. (Separate production per the top-level-guard rule.)
+V128ConstOp <. bbq_write_ctx_t* w, int shape, uint32_t op .>
+    (. peg_span ns; uint64_t bits[16]; int nv = 0, count = 0, width = 0, isf = 0;
+       int neg = 0, isinf = 0, isnan = 0, ispay = 0, special = 0; uint64_t pay = 0; .)
+    = (. if (shape != WSH_V128 || op != 12) return false; .)
+      ( "i8x16" !glue (. count = 16; width = 1; .)
+      | "i16x8" !glue (. count = 8;  width = 2; .)
+      | "i32x4" !glue (. count = 4;  width = 4; .)
+      | "i64x2" !glue (. count = 2;  width = 8; .)
+      | "f32x4" !glue (. count = 4;  width = 4; isf = 1; .)
+      | "f64x2" !glue (. count = 2;  width = 8; isf = 1; .) )
+      { (. neg = isinf = isnan = ispay = special = 0; pay = 0; .)        /* §6.3.2 lane: float specials or num */
+        ( [ "+" | "-" (. neg = 1; .) ]                                    /* (inf/nan never matches an int lane) */
+          ( "inf" !glue (. isinf = 1; special = 1; .)
+          | "nan" ( ":" hexnat<&ns> (. isnan = 1; ispay = 1; special = 1;
+                                    if (!wat_nan_payload(ns, width, &pay)) return false; .)
+                  | !glue       (. isnan = 1; special = 1; .) ) )
+        | fnum<&ns> (. special = 0; .) )
+        (. if (special && !isf) return false;                            /* inf/nan in an integer lane is malformed */
+           int ok; uint64_t bv;
+           if (special)    bv = wat_float_bits(width, neg, isinf, isnan, ispay, pay, 0);
+           else if (isf) { bv = wat_float_lit(ns, width, &ok); if (!ok) return false; }
+           else          { bv = wat_int_lit(ns, width * 8, 1, &ok); if (!ok) return false; }
+           if (nv < 16) bits[nv] = bv;
+           nv++; .) }
+      (. if (nv != count) return false;
+         for (int i = 0; i < count; i++) switch (width) {
+           case 1: bbq_write_u8(w, (uint8_t)bits[i]); break;
+           case 2: bbq_write_u16le(w, (uint16_t)bits[i]); break;
+           case 4: bbq_write_u32le(w, (uint32_t)bits[i]); break;
+           case 8: bbq_write_u64le(w, bits[i]); break;
+         } .)
+.
+
+// i8x16.shuffle (op 13): 16 lane-index bytes.
+V128ShuffleOp <. bbq_write_ctx_t* w, int shape, uint32_t op .>
+    (. peg_span ns; uint64_t iv[16]; int nv = 0; .)
+    = (. if (shape != WSH_V128 || op != 13) return false; .)
+      { nat<&ns> (. int ok; uint64_t v = wat_int_lit(ns, 8, 0, &ok);    /* laneidx: u8 */
+                    if (!ok) return false;
+                    if (nv < 16) iv[nv] = v; nv++; .) }
+      (. if (nv != 16) return false;
+         for (int i = 0; i < 16; i++) bbq_write_u8(w, (uint8_t)iv[i]); .)
+.
+
+// §6.5.3 / §5.4 blocktype: empty -> 0x40; a single result valtype -> that valtype's
+// byte; otherwise (params, or >1 result, or a (type $x)) -> the typeidx as s33 (via
+// the §6.4.15 typeuse, so it dedups/inserts like a func sig). Block params are stack
+// values, NOT locals, so binding is suppressed while parsing them.
+BlockType <. bbq_write_ctx_t* w .>
+    (. jav_func_type_t ft;
+       peg_span tref = {0,0}; int has_ref = 0; int sv = CTX->bind_locals; CTX->bind_locals = 0;
+       bbq_vec_free(SC_I_PARAMS); bbq_vec_free(SC_I_RESULTS); .)   /* reclaim abandoned scratch */
+    = [ "(" "type" !glue IdxRef<&tref> ")" (. has_ref = 1; .) ]
+      { BParam<&SC_I_PARAMS> }
+      { Result<&SC_I_RESULTS> }
+      (. CTX->bind_locals = sv;
+         jav_val_type_t* rs = SC_I_RESULTS;
+         int np = (int)bbq_vec_len(SC_I_PARAMS), nr = (int)bbq_vec_len(rs);
+         if (has_ref) {
+             int64_t r = wat_resolve(CTX, SP_TYPE, tref);
+             if (r < 0 || !wat_typeuse_ref(CTX, r, &SC_I_PARAMS, &SC_I_RESULTS)) {
+                 bbq_vec_free(SC_I_PARAMS); bbq_vec_free(SC_I_RESULTS); return false;
+             }
+             bbq_write_sleb128_i64(w, r);
+         } else if (np == 0 && nr == 0) {
+             bbq_vec_free(SC_I_PARAMS); bbq_vec_free(SC_I_RESULTS);
+             bbq_write_u8(w, 0x40);                        /* empty */
+         } else if (np == 0 && nr == 1) {
+             bbq_write_u8(w, rs[0].head);                  /* single result valtype */
+             if (rs[0].ht.has_value) bbq_write_sleb128_i64(w, rs[0].ht.value.x);
+             bbq_vec_free(SC_I_PARAMS); bbq_vec_free(SC_I_RESULTS);
+         } else {                                          /* multi-value -> typeidx (s33) */
+             memset(&ft, 0, sizeof ft);
+             WAT_FREEZE(SC_I_PARAMS, ft.params);  ft.param_count  = (uint32_t)ft.params.count;
+             WAT_FREEZE(SC_I_RESULTS, ft.results); ft.result_count = (uint32_t)ft.results.count;
+             bbq_write_sleb128_i64(w, (int64_t)wat_typeuse(CTX, &ft));
+         } .)
+.
+
+// §6.5.3 block / loop (op emitted by Instr): `block $l? blocktype instr* end $l?`.
+// The label is pushed for the body (so brs inside resolve relatively) and popped at
+// end. The nested { Instr } stops at `end` (not a valid mnemonic) which we then match.
+BlockOp <. bbq_write_ctx_t* w, int shape .>
+    (. peg_span lab = {0,0}, elab = {0,0}; .)
+    = (. if (shape != WSH_BLOCK) return false; .)
+      [ id<&lab> ] (. if (!wat_name_push(&CTX->labels, lab)) return false; .)
+      BlockType<w>
+      { Instr<w> }
+      "end" !glue [ id<&elab> ]
+      (. if (!wat_endlabel_ok(lab, elab)) return false;   /* §6.5.3 mismatching label */
+         bbq_write_u8(w, 0x0B); wat_label_pop(CTX); .)
+.
+
+// §6.5.3 if (op emitted by Instr): `if $l? blocktype instr* (else id? instr*)? end id?`.
+IfOp <. bbq_write_ctx_t* w, int shape .>
+    (. peg_span lab = {0,0}, elab = {0,0}, xlab = {0,0}; .)
+    = (. if (shape != WSH_IF) return false; .)
+      [ id<&lab> ] (. if (!wat_name_push(&CTX->labels, lab)) return false; .)
+      BlockType<w>
+      { Instr<w> }
+      [ "else" !glue [ id<&elab> ]
+        (. if (!wat_endlabel_ok(lab, elab)) return false;  /* §6.5.3 mismatching label */
+           bbq_write_u8(w, 0x05); .) { Instr<w> } ]
+      "end" !glue [ id<&xlab> ]
+      (. if (!wat_endlabel_ok(lab, xlab)) return false;    /* §6.5.3 mismatching label */
+         bbq_write_u8(w, 0x0B); wat_label_pop(CTX); .)
+.
+
+// §6.5.3 try_table (op emitted by Instr): `try_table $l? blocktype catch* instr* end`.
+// Per §3 validation the catch labels resolve in the OUTER context — so the try_table's
+// own label is pushed only AFTER the catches, in scope for the body instrs alone.
+TryTableOp <. bbq_write_ctx_t* w, int shape .>
+    (. peg_span lab = {0,0}, elab = {0,0}; wat_catch_t* cats = NULL; .)
+    = (. if (shape != WSH_TRYTABLE) return false; .)
+      [ id<&lab> ]
+      BlockType<w>
+      { Catch<&cats> }
+      (. int nc = (int)bbq_vec_len(cats);
+         bbq_write_uleb128_u32(w, (uint32_t)nc);
+         for (int i = 0; i < nc; i++) {
+             bbq_write_u8(w, cats[i].kind);
+             if (cats[i].kind == 0 || cats[i].kind == 1) bbq_write_uleb128_u32(w, cats[i].tag);
+             bbq_write_uleb128_u32(w, cats[i].label);
+         }
+         bbq_vec_free(cats);
+         if (!wat_name_push(&CTX->labels, lab)) return false; .)             /* label in scope for the body only */
+      { Instr<w> }
+      "end" !glue [ id<&elab> ]
+      (. if (!wat_endlabel_ok(lab, elab)) return false;   /* §6.5.3 mismatching label */
+         bbq_write_u8(w, 0x0B); wat_label_pop(CTX); .)
+.
+
+// §6.5.3 catch clause -> a resolved wat_catch_t (tag in the module tag space, label
+// relative). Longest keywords first is unnecessary (`!glue` disambiguates) but clear.
+Catch <. wat_catch_t** out .>
+    (. wat_catch_t c; peg_span tg = {0,0}, lb = {0,0}; .)
+    = "(" (. memset(&c, 0, sizeof c); .)
+      ( "catch_ref"     !glue IdxRef<&tg> IdxRef<&lb> (. c.kind = 1; .)
+      | "catch_all_ref" !glue IdxRef<&lb>             (. c.kind = 3; .)
+      | "catch_all"     !glue IdxRef<&lb>             (. c.kind = 2; .)
+      | "catch"         !glue IdxRef<&tg> IdxRef<&lb> (. c.kind = 0; .) )
+      ")"
+      (. int64_t lbl = wat_resolve(CTX, SP_LABEL, lb); if (lbl < 0) return false;
+         c.label = (uint32_t)lbl;
+         if (c.kind == 0 || c.kind == 1) {
+             int64_t tag = wat_resolve(CTX, SP_TAG, tg); if (tag < 0) return false;
+             c.tag = (uint32_t)tag;
+         }
+         bbq_vec_push(*out, c); .)
+.
+
+// §6.3.5 a name -> jav_name_t. The decoded bytes are malloc'd and OWNED by the module:
+// jav_module_free frees them (the bbq C reader now copies bytes into owned storage too,
+// so text- and binary-built modules share one teardown — see bbq_read_bytes).
+Name <. jav_name_t* out .>
+    (. peg_span s; .)
+    = string<&s>
+      (. size_t blen; uint8_t* b = wat_parse_string(s, &blen);
+         if (!b) return false;                            /* §6.3.3 malformed escape */
+         out->count = (uint32_t)blen; out->bytes.data = b; out->bytes.length = blen;
+         if (!jav_name_utf8_ok(out->bytes)) {            /* §6.3.4: a name is valid UTF-8 */
+             free(b); memset(out, 0, sizeof *out); return false;
+         } .)
+.
+
+// §6.6.5 export: `( export name ( func|table|memory|global idx ) )`. kind 0/1/2/3; the
+// idx resolves in the matching space (func works now; table/mem/global once those land).
+ExportField <. jav_export_t** exports .>
+    (. jav_name_t nm; uint8_t kind = 0; int space = SP_FUNC; peg_span r = {0,0}; .)
+    = "(" "export" !glue
+      Name<&nm>
+      "(" ( "func"   !glue (. kind = 0; space = SP_FUNC;   .)
+          | "table"  !glue (. kind = 1; space = SP_TABLE;  .)
+          | "memory" !glue (. kind = 2; space = SP_MEM;    .)
+          | "global" !glue (. kind = 3; space = SP_GLOBAL; .)
+          | "tag"    !glue (. kind = 4; space = SP_TAG;    .) )
+        IdxRef<&r> ")"
+      ")"
+      (. if (CTX->pass != 2) { free((void*)nm.bytes.data); return true; }
+         int64_t idx = wat_resolve(CTX, space, r);
+         if (idx < 0) { free((void*)nm.bytes.data); return false; }
+         jav_export_t e; memset(&e, 0, sizeof e);
+         e.name = nm; e.kind = kind; e.idx = (uint32_t)idx;
+         bbq_vec_push(*exports, e); .)
+.
+
+// §6.6.4 start: `( start funcidx )`.
+StartField <. uint32_t* start_func, int* has_start .>
+    (. peg_span r = {0,0}; .)
+    = "(" "start" !glue IdxRef<&r> ")"
+      (. if (CTX->pass != 2) return true;
+         if (*has_start) return false;                    /* §6.6.16: at most one start */
+         int64_t idx = wat_resolve(CTX, SP_FUNC, r); if (idx < 0) return false;
+         *start_func = (uint32_t)idx; *has_start = 1; .)
+.
+
+// §6.6.8 memory: `( memory $id? limits )`.
+MemoryField <. jav_mem_entry_t** mems, jav_data_t** datas .>
+    (. jav_mem_entry_t m; memset(&m, 0, sizeof m); peg_span idsp = {0,0}; jav_name_t nm;
+       jav_name_t imod = {0}, ifld = {0}; int has_import = 0, has_inline_data = 0, is64 = 0;
+       jav_byte_vec_t bytes; memset(&bytes, 0, sizeof bytes); .)
+    = "(" "memory" !glue
+      (. wat_enames_clear(CTX); .)                       /* reclaim abandoned scratch */
+      [ id<&idsp> ]
+      { "(" "export" !glue Name<&nm> ")"               /* §6.6 inline export(s) — index deferred */
+          (. if (CTX->pass == 2) bbq_vec_push(SC_ENAMES, nm); else free((void*)nm.bytes.data); .)
+      | "(" "import" !glue Name<&imod> Name<&ifld> ")" (. if (CTX->pass == 2 && CTX->defs_seen) {              /* §6.6: imports precede definitions */
+             free((void*)imod.bytes.data); free((void*)ifld.bytes.data); return false; }
+             has_import = 1; .) }  /* §6.6 inline import */
+      (. if (CTX->pass == 1) { if (!(has_import ? wat_imp_add(CTX, SP_MEM, idsp)
+                                                         : wat_id_add(CTX, SP_MEM, idsp))) return false; } .)
+      ( [ "i64" !glue (. is64 = 1; .) | "i32" !glue ]   /* §6.6.5 inline-data: addrtype? (data b*) */
+        "(" "data" !glue DataString<&bytes> ")" (. has_inline_data = 1; .)
+      | Limits<&m.limits> )                                /* plain memtype: addrtype? limits */
+      ")"
+      (. if (CTX->pass != 2) { if (has_import) { free((void*)imod.bytes.data); free((void*)ifld.bytes.data); }
+             free((void*)bytes.bytes.data); return true; }
+         uint32_t myidx;
+         if (has_inline_data) {            /* §6.6.5: min=max=ceil(|b|/65536), fixed limits, addrtype flag */
+             uint64_t pages = ((uint64_t)bytes.count + 65535u) / 65536u;
+             m.limits.min = pages; m.limits.max.has_value = true; m.limits.max.value = pages;
+             m.limits.flag = (uint8_t)(1 | (is64 ? 4 : 0));
+         }
+         if (has_import) { jav_extern_type_t d; memset(&d, 0, sizeof d);
+             d.kind = 2; d.body.tag = 2; d.body.u.case_2 = m.limits;
+             myidx = wat_inline_import(CTX, imod, ifld, d, SP_MEM); }
+         else { myidx = (uint32_t)(bbq_vec_len(CTX->sp_imp[SP_MEM]) + bbq_vec_len(*mems)); bbq_vec_push(*mems, m); CTX->defs_seen = 1; }
+         if (has_inline_data) {            /* the generated active data: (data (memory myidx) (i32.const 0) b*) */
+             jav_data_t d; memset(&d, 0, sizeof d);
+             d.flag = 2; d.body.tag = 2; d.body.u.case_2.memidx = myidx;
+             d.body.u.case_2.offset = wat_const0_expr(CTX, is64); d.body.u.case_2.data = bytes;
+             bbq_vec_push(*datas, d);
+         }
+         wat_flush_exports(CTX, SC_ENAMES, 2, myidx); SC_ENAMES = NULL; .)
+.
+
+// §6.6.6 global: `( global $id? globaltype expr )`; globaltype = `(mut valtype)` | valtype.
+GlobalField <. jav_global_t** globals .>
+    (. jav_global_t g; memset(&g, 0, sizeof g); peg_span idsp = {0,0}; jav_name_t nm;
+       jav_name_t imod = {0}, ifld = {0}; int has_import = 0; .)
+    = "(" "global" !glue
+      (. wat_enames_clear(CTX); .)                       /* reclaim abandoned scratch */
+      [ id<&idsp> ]
+      { "(" "export" !glue Name<&nm> ")"               /* §6.6 inline export(s) — index deferred */
+          (. if (CTX->pass == 2) bbq_vec_push(SC_ENAMES, nm); else free((void*)nm.bytes.data); .)
+      | "(" "import" !glue Name<&imod> Name<&ifld> ")" (. if (CTX->pass == 2 && CTX->defs_seen) {              /* §6.6: imports precede definitions */
+             free((void*)imod.bytes.data); free((void*)ifld.bytes.data); return false; }
+             has_import = 1; .) }  /* §6.6 inline import */
+      (. if (CTX->pass == 1) { if (!(has_import ? wat_imp_add(CTX, SP_GLOBAL, idsp)
+                                                         : wat_id_add(CTX, SP_GLOBAL, idsp))) return false; } .)
+      ( "(" "mut" !glue ValType<&g.type.type> ")" (. g.type.mut = 1; .)
+      | ValType<&g.type.type>                        (. g.type.mut = 0; .) )
+      Expr<&g.init>                                    /* empty for an import (no init expr) */
+      ")"
+      (. if (CTX->pass != 2) { if (has_import) { free((void*)imod.bytes.data); free((void*)ifld.bytes.data); } return true; }
+         uint32_t myidx;
+         if (has_import) { jav_extern_type_t d; memset(&d, 0, sizeof d);
+             d.kind = 3; d.body.tag = 3; d.body.u.case_3.type = g.type.type; d.body.u.case_3.mut = g.type.mut;
+             myidx = wat_inline_import(CTX, imod, ifld, d, SP_GLOBAL); }
+         else { myidx = (uint32_t)(bbq_vec_len(CTX->sp_imp[SP_GLOBAL]) + bbq_vec_len(*globals)); bbq_vec_push(*globals, g); CTX->defs_seen = 1; }
+         wat_flush_exports(CTX, SC_ENAMES, 3, myidx); SC_ENAMES = NULL; .)
+.
+
+// §6.6.13 tag: `( tag $id? typeuse )` (attr 0 = exception); the typeuse -> a typeidx.
+TagField <. jav_tag_type_t** tags .>
+    (. jav_tag_type_t t; memset(&t, 0, sizeof t); peg_span idsp = {0,0}, tref = {0,0};
+       int has_ref = 0; jav_func_type_t ft;
+       jav_name_t nm; jav_name_t imod = {0}, ifld = {0}; int has_import = 0;
+       CTX->bind_locals = 0; .)
+    = "(" "tag" !glue
+      (. bbq_vec_free(SC_F_PARAMS); bbq_vec_free(SC_F_RESULTS);   /* reclaim abandoned scratch */
+         wat_enames_clear(CTX); .)
+      [ id<&idsp> ]
+      { "(" "export" !glue Name<&nm> ")"               /* §6.6 inline export(s) — index deferred */
+          (. if (CTX->pass == 2) bbq_vec_push(SC_ENAMES, nm); else free((void*)nm.bytes.data); .)
+      | "(" "import" !glue Name<&imod> Name<&ifld> ")" (. if (CTX->pass == 2 && CTX->defs_seen) {              /* §6.6: imports precede definitions */
+             free((void*)imod.bytes.data); free((void*)ifld.bytes.data); return false; }
+             has_import = 1; .) }  /* §6.6 inline import */
+      (. if (CTX->pass == 1) { if (!(has_import ? wat_imp_add(CTX, SP_TAG, idsp)
+                                                         : wat_id_add(CTX, SP_TAG, idsp))) return false; } .)
+      [ "(" "type" !glue IdxRef<&tref> ")" (. has_ref = 1; .) ]
+      { Param<&SC_F_PARAMS> } { Result<&SC_F_RESULTS> }
+      ")"
+      (. if (CTX->pass != 2) { bbq_vec_free(SC_F_PARAMS); bbq_vec_free(SC_F_RESULTS);
+             if (has_import) { free((void*)imod.bytes.data); free((void*)ifld.bytes.data); } return true; }
+         uint32_t tidx;
+         if (has_ref) { int64_t r = wat_resolve(CTX, SP_TYPE, tref);
+                        if (r < 0 || !wat_typeuse_ref(CTX, r, &SC_F_PARAMS, &SC_F_RESULTS)) {
+                            bbq_vec_free(SC_F_PARAMS); bbq_vec_free(SC_F_RESULTS); return false;
+                        }
+                        tidx = (uint32_t)r; }
+         else { memset(&ft, 0, sizeof ft);
+                WAT_FREEZE(SC_F_PARAMS, ft.params);  ft.param_count  = (uint32_t)ft.params.count;
+                WAT_FREEZE(SC_F_RESULTS, ft.results); ft.result_count = (uint32_t)ft.results.count;
+                tidx = wat_typeuse(CTX, &ft); }
+         uint32_t myidx;
+         if (has_import) { jav_extern_type_t d; memset(&d, 0, sizeof d);
+             d.kind = 4; d.body.tag = 4; d.body.u.case_4.attr = 0; d.body.u.case_4.type = tidx;
+             myidx = wat_inline_import(CTX, imod, ifld, d, SP_TAG); }
+         else { myidx = (uint32_t)(bbq_vec_len(CTX->sp_imp[SP_TAG]) + bbq_vec_len(*tags));
+                t.attr = 0; t.type = tidx; bbq_vec_push(*tags, t); CTX->defs_seen = 1; }
+         wat_flush_exports(CTX, SC_ENAMES, 4, myidx); SC_ENAMES = NULL; .)
+.
+
+// §6.6.9 table (plain form): `( table $id? tabletype )`, tabletype = addrtype? limits
+// reftype. (Inline-elem / import / export abbreviations are §6.6.9 sugar, orthogonal.)
+TableField <. jav_table_t** tables, jav_elem_t** elems .>
+    (. jav_table_t tb; memset(&tb, 0, sizeof tb); peg_span idsp = {0,0}; jav_name_t nm;
+       jav_name_t imod = {0}, ifld = {0};
+       jav_expr_t init; memset(&init, 0, sizeof init);
+       int has_import = 0, has_inline_elem = 0, has_init = 0, is64 = 0; .)
+    = "(" "table" !glue
+      (. wat_enames_clear(CTX); .)                       /* reclaim abandoned scratch */
+      [ id<&idsp> ]
+      { "(" "export" !glue Name<&nm> ")"               /* §6.6 inline export(s) — index deferred */
+          (. if (CTX->pass == 2) bbq_vec_push(SC_ENAMES, nm); else free((void*)nm.bytes.data); .)
+      | "(" "import" !glue Name<&imod> Name<&ifld> ")" (. if (CTX->pass == 2 && CTX->defs_seen) {              /* §6.6: imports precede definitions */
+             free((void*)imod.bytes.data); free((void*)ifld.bytes.data); return false; }
+             has_import = 1; .) }  /* §6.6 inline import */
+      (. if (CTX->pass == 1) { if (!(has_import ? wat_imp_add(CTX, SP_TABLE, idsp)
+                                                         : wat_id_add(CTX, SP_TABLE, idsp))) return false; } .)
+      ( [ "i64" !glue (. is64 = 1; .) | "i32" !glue ]   /* §6.6.6 inline-elem: addrtype? reftype (elem …) */
+        RefTypeVal<&tb.u.default_val.type.reftype>
+        "(" "elem" !glue ElemList ")" (. has_inline_elem = 1; .)
+      | Limits<&tb.u.default_val.type.limits>               /* plain tabletype: limits reftype [init-expr] */
+        RefTypeVal<&tb.u.default_val.type.reftype>
+        [ !")" Expr<&init> (. has_init = 1; .) ] )          /* §6.6.6 optional init expr (else ref.null) */
+      ")"
+      (. if (CTX->pass != 2) { if (has_import) { free((void*)imod.bytes.data); free((void*)ifld.bytes.data); }
+             bbq_vec_free(CTX->el_funcs); bbq_vec_free(CTX->el_exprs); return true; }
+         uint32_t myidx;
+         if (has_import) { jav_extern_type_t d; memset(&d, 0, sizeof d);
+             d.kind = 1; d.body.tag = 1;
+             d.body.u.case_1.reftype = tb.u.default_val.type.reftype;
+             d.body.u.case_1.limits  = tb.u.default_val.type.limits;
+             myidx = wat_inline_import(CTX, imod, ifld, d, SP_TABLE); }
+         else {
+             myidx = (uint32_t)(bbq_vec_len(CTX->sp_imp[SP_TABLE]) + bbq_vec_len(*tables));
+             if (has_inline_elem) {            /* §6.6.6: limits min=max=|elems|, addrtype flag */
+                 uint32_t n = CTX->el_is_funcidx ? (uint32_t)bbq_vec_len(CTX->el_funcs)
+                                                 : (uint32_t)bbq_vec_len(CTX->el_exprs);
+                 tb.u.default_val.type.limits.min = n;
+                 tb.u.default_val.type.limits.max.has_value = true;
+                 tb.u.default_val.type.limits.max.value = n;
+                 tb.u.default_val.type.limits.flag = (uint8_t)(1 | (is64 ? 4 : 0));
+             }
+             if (has_init) {                             /* §6.6.6 explicit init expr → the (0x40 0x00) init form */
+                 jav_table_type_t tt = tb.u.default_val.type;
+                 tb.tag = jav_table_case_0;
+                 tb.u.case_0.marker0 = 0x40; tb.u.case_0.marker1 = 0x00;
+                 tb.u.case_0.type = tt; tb.u.case_0.init = init;
+             } else {
+                 tb.tag = jav_table_default_val;        /* abbreviated form (init defaults to ref.null) */
+             }
+             bbq_vec_push(*tables, tb);
+             CTX->defs_seen = 1;
+             if (has_inline_elem) {            /* the generated active elem: (elem (table myidx) (i32.const 0) …) */
+                 jav_elem_t el; memset(&el, 0, sizeof el);
+                 /* §3.5.9: a bare funcidx list has element type (ref func); in a concrete
+                  * (ref $t) table that is not <: the table type, so emit the funcs as
+                  * (ref.func) exprs carrying the table's own reftype instead. */
+                 jav_ref_type_t trt = tb.u.default_val.type.reftype;
+                 int concrete_rt = (trt.head == 0x63 || trt.head == 0x64) && trt.ht.has_value && trt.ht.value.x >= 0;
+                 if (CTX->el_is_funcidx && !concrete_rt) {
+                     jav_idx_vec_t fv; memset(&fv, 0, sizeof fv);
+                     WAT_FREEZE(CTX->el_funcs, fv.idxs); fv.count = (uint32_t)fv.idxs.count; bbq_vec_free(CTX->el_exprs);
+                     el.flag = 2; el.body.tag = 2; el.body.u.case_2.table = myidx;
+                     el.body.u.case_2.offset = wat_const0_expr(CTX, is64); el.body.u.case_2.elemkind = 0;
+                     el.body.u.case_2.funcs = fv;
+                 } else if (CTX->el_is_funcidx) {  /* concrete table reftype: funcidxs → (ref.func) exprs */
+                     jav_expr_t* tmp = NULL;
+                     for (uint32_t fi = 0; fi < (uint32_t)bbq_vec_len(CTX->el_funcs); fi++)
+                         bbq_vec_push(tmp, wat_reffunc_expr(CTX, CTX->el_funcs[fi]));
+                     jav_expr_vec_t ev; memset(&ev, 0, sizeof ev);
+                     WAT_FREEZE(tmp, ev.exprs); ev.count = (uint32_t)ev.exprs.count;
+                     bbq_vec_free(CTX->el_funcs); bbq_vec_free(CTX->el_exprs);
+                     el.flag = 6; el.body.tag = 6; el.body.u.case_6.table = myidx;
+                     el.body.u.case_6.offset = wat_const0_expr(CTX, is64);
+                     el.body.u.case_6.reftype = trt; el.body.u.case_6.exprs = ev;
+                 } else {
+                     jav_expr_vec_t ev; memset(&ev, 0, sizeof ev);
+                     WAT_FREEZE(CTX->el_exprs, ev.exprs); ev.count = (uint32_t)ev.exprs.count; bbq_vec_free(CTX->el_funcs);
+                     el.flag = 6; el.body.tag = 6; el.body.u.case_6.table = myidx;
+                     el.body.u.case_6.offset = wat_const0_expr(CTX, is64);
+                     el.body.u.case_6.reftype = tb.u.default_val.type.reftype; el.body.u.case_6.exprs = ev;
+                 }
+                 bbq_vec_push(*elems, el);
+             }
+         }
+         wat_flush_exports(CTX, SC_ENAMES, 1, myidx); SC_ENAMES = NULL; .)
+.
+
+// §6.3.4 datastring: zero or more strings, concatenated into one byte vector (malloc'd,
+// OWNED by the module — jav_module_free frees it, like a Name).
+DataString <. jav_byte_vec_t* out .>
+    (. peg_span s; uint8_t* buf = NULL; .)               /* buf is a bbq_vec<uint8_t> */
+    = { string<&s> (. size_t bl; uint8_t* b = wat_parse_string(s, &bl);
+                      for (size_t i = 0; i < bl; i++) bbq_vec_push(buf, b[i]); free(b); .) }
+      (. size_t n = bbq_vec_len(buf);
+         uint8_t* plain = (uint8_t*)malloc(n ? n : 1); if (n) memcpy(plain, buf, n);
+         bbq_vec_free(buf);
+         out->count = (uint32_t)n; out->bytes.data = plain; out->bytes.length = n; .)
+.
+
+// §6.6.11 data: passive `( data $id? datastring )`, active `( data $id? (offset expr)
+// datastring )` (mem 0), or active explicit `( data $id? (memory memidx) (offset expr)
+// datastring )`. Offset uses the linear `(offset expr)` form (folded single-instr is sugar).
+DataField <. jav_data_t** datas .>
+    (. jav_data_t d; memset(&d, 0, sizeof d); peg_span idsp = {0,0}, mref = {0,0};
+       int has_mem = 0, has_off = 0;
+       jav_byte_vec_t bytes; memset(&bytes, 0, sizeof bytes);
+       jav_expr_t off; memset(&off, 0, sizeof off); .)
+    = "(" "data" !glue
+      [ id<&idsp> ]
+      (. if (CTX->pass == 1 && !wat_id_add(CTX, SP_DATA, idsp)) return false; .)
+      [ "(" "memory" !glue IdxRef<&mref> ")" (. has_mem = 1; .) ]
+      [ OffsetClause<&off> (. has_off = 1; .) ]            /* (offset expr) or a bare folded instr */
+      DataString<&bytes>
+      ")"
+      (. if (CTX->pass != 2) { free((void*)bytes.bytes.data); return true; }
+         if (!has_off) { d.flag = 1; d.body.tag = 1; d.body.u.case_1.data = bytes; }            /* passive */
+         else if (!has_mem) { d.flag = 0; d.body.tag = 0;                                       /* active mem 0 */
+             d.body.u.case_0.offset = off; d.body.u.case_0.data = bytes; }
+         else { int64_t mi = wat_resolve(CTX, SP_MEM, mref); if (mi < 0) return false;          /* active explicit */
+             d.flag = 2; d.body.tag = 2; d.body.u.case_2.memidx = (uint32_t)mi;
+             d.body.u.case_2.offset = off; d.body.u.case_2.data = bytes; }
+         bbq_vec_push(*datas, d); .)
+.
+
+// §6.6.9 elemexpr: `(item expr)` or, as an abbreviation, a single bare folded
+// instruction (e.g. `(ref.func $f)`). Either way → a jav_expr_t. Mirrors OffsetClause.
+ElemExpr <. jav_expr_t* out .>
+    (. bbq_write_ctx_t* w = wat_wbuf_open(CTX); .)
+    = ( "(" "item" !glue { Instr<w> } ")"
+      | FoldedInstr<w> )
+      (. bbq_write_u8(w, 0x0B);
+         if (CTX->pass != 2) { wat_wbuf_close(CTX, w); return true; }
+         bbq_ctx_t rc; bbq_ctx_init(&rc, w->data, w->pos);   /* decode the scratch -> tree */
+         int ok = jav_expr_read(&rc, out);                  /* tree owns byte copies */
+         bbq_ctx_free(&rc);
+         wat_wbuf_close(CTX, w);
+         if (!ok) return false; .)
+.
+
+// §6.6.9 elemlist: `func funcidx*` (funcref shorthand), `reftype elemexpr*`, or bare
+// `funcidx*` (compat → funcref). Shared by ElementField and the inline-table-elem
+// abbreviation; results land in CTX->el_{is_funcidx,rtv,funcs,exprs} (pegc's <…> args
+// only take &ident, so a multi-output production routes through ctx fields). The CALLER
+// takes ownership of the result vecs (WAT_FREEZE) and selects the binary variant.
+ElemList
+    (. CTX->el_is_funcidx = 0; CTX->el_funcs = NULL; CTX->el_exprs = NULL;
+       memset(&CTX->el_rtv, 0, sizeof CTX->el_rtv);
+       peg_span fr = {0,0}; jav_ref_type_t rtv; memset(&rtv, 0, sizeof rtv); jav_expr_t ie; .)
+    = ( "func" !glue { IdxRef<&fr>
+            (. int64_t x = wat_resolve(CTX, SP_FUNC, fr); if (x < 0) return false;
+               uint32_t xx = (uint32_t)x; bbq_vec_push(CTX->el_funcs, xx); .) }
+          (. CTX->el_is_funcidx = 1; .)
+      | RefTypeVal<&rtv> { ElemExpr<&ie> (. bbq_vec_push(CTX->el_exprs, ie); .) }
+          (. CTX->el_rtv = rtv; .)
+      | ElemExpr<&ie> (. bbq_vec_push(CTX->el_exprs, ie); .)   /* §6.6.6 bare elemexpr* (inline-table: */
+          { ElemExpr<&ie> (. bbq_vec_push(CTX->el_exprs, ie); .) }  /*   reftype comes from the table) */
+          (. CTX->el_is_funcidx = 0; CTX->el_rtv.head = 0x70; .)
+      | { IdxRef<&fr>
+            (. int64_t x = wat_resolve(CTX, SP_FUNC, fr); if (x < 0) return false;
+               uint32_t xx = (uint32_t)x; bbq_vec_push(CTX->el_funcs, xx); .) }
+          (. CTX->el_is_funcidx = 1; CTX->el_rtv.head = 0x70; .) )
+.
+
+// §6.6.10 elem: passive `(elem id? elemlist)`, active `(elem id? (table idx)? (offset
+// expr) elemlist)`, or declarative `(elem id? declare elemlist)`. elemlist (§6.6.9) is
+// `func funcidx*`, `reftype elemexpr*`, or bare funcidx* (compat) — parsed by ElemList.
+// The 8 binary variants are chosen from (mode, table, funcidx-vs-expr, funcref-ness).
+ElementField <. jav_elem_t** elems .>
+    (. jav_elem_t el; memset(&el, 0, sizeof el); peg_span idsp = {0,0}, tref = {0,0};
+       int is_declare = 0, has_table = 0, has_off = 0;
+       jav_expr_t off; memset(&off, 0, sizeof off); .)
+    = "(" "elem" !glue
+      [ id<&idsp> ]
+      (. if (CTX->pass == 1 && !wat_id_add(CTX, SP_ELEM, idsp)) return false; .)
+      [ "declare" !glue (. is_declare = 1; .) ]
+      [ "(" "table" !glue IdxRef<&tref> ")" (. has_table = 1; .) ]
+      [ OffsetClause<&off> (. has_off = 1; .) ]            /* (offset expr) or a bare folded instr */
+      ElemList                                             /* §6.6.9 → CTX->el_{is_funcidx,rtv,funcs,exprs} */
+      ")"
+      (. if (CTX->pass != 2) { bbq_vec_free(CTX->el_funcs); bbq_vec_free(CTX->el_exprs); return true; }
+         int is_funcidx = CTX->el_is_funcidx; jav_ref_type_t rtv = CTX->el_rtv;
+         jav_idx_vec_t fv; memset(&fv, 0, sizeof fv);
+         jav_expr_vec_t ev; memset(&ev, 0, sizeof ev);
+         if (is_funcidx) { WAT_FREEZE(CTX->el_funcs, fv.idxs); fv.count = (uint32_t)fv.idxs.count; bbq_vec_free(CTX->el_exprs); }
+         else            { WAT_FREEZE(CTX->el_exprs, ev.exprs); ev.count = (uint32_t)ev.exprs.count; bbq_vec_free(CTX->el_funcs); }
+         uint32_t tbl = 0;
+         if (has_table) { int64_t t = wat_resolve(CTX, SP_TABLE, tref); if (t < 0) return false; tbl = (uint32_t)t; }
+         int ff = (rtv.head == 0x70 && !rtv.ht.has_value);    /* element type is funcref */
+         if (is_declare) {
+             if (is_funcidx) { el.flag = 3; el.body.tag = 3; el.body.u.case_3.elemkind = 0; el.body.u.case_3.funcs = fv; }
+             else            { el.flag = 7; el.body.tag = 7; el.body.u.case_7.reftype = rtv; el.body.u.case_7.exprs = ev; }
+         } else if (has_off) {                                /* active */
+             if (is_funcidx) {
+                 if (has_table) { el.flag = 2; el.body.tag = 2; el.body.u.case_2.table = tbl;
+                                  el.body.u.case_2.offset = off; el.body.u.case_2.elemkind = 0; el.body.u.case_2.funcs = fv; }
+                 else           { el.flag = 0; el.body.tag = 0; el.body.u.case_0.offset = off; el.body.u.case_0.funcs = fv; }
+             } else if (!has_table && ff) { el.flag = 4; el.body.tag = 4; el.body.u.case_4.offset = off; el.body.u.case_4.exprs = ev; }
+             else { el.flag = 6; el.body.tag = 6; el.body.u.case_6.table = tbl; el.body.u.case_6.offset = off;
+                    el.body.u.case_6.reftype = rtv; el.body.u.case_6.exprs = ev; }
+         } else {                                             /* passive */
+             if (is_funcidx) { el.flag = 1; el.body.tag = 1; el.body.u.case_1.elemkind = 0; el.body.u.case_1.funcs = fv; }
+             else            { el.flag = 5; el.body.tag = 5; el.body.u.case_5.reftype = rtv; el.body.u.case_5.exprs = ev; }
+         }
+         bbq_vec_push(*elems, el); .)
+.
+
+// §6.6.3 import: `( import name name desc )`, desc one of func/table/memory/global/tag.
+// Each binds its id in the IMPORT id-space (sp_imp), whose indices precede definitions.
+ImportField
+    (. jav_import_t im; memset(&im, 0, sizeof im);
+       peg_span idsp = {0,0}, tref = {0,0}; int has_ref = 0, kind = -1;
+       jav_limits_t lim; memset(&lim, 0, sizeof lim);
+       jav_ref_type_t rtv; memset(&rtv, 0, sizeof rtv);
+       jav_val_type_t gvt; memset(&gvt, 0, sizeof gvt); uint8_t gmut = 0;
+       CTX->bind_locals = 0;
+       bbq_vec_free(SC_F_PARAMS); bbq_vec_free(SC_F_RESULTS); .)   /* reclaim abandoned scratch */
+    = "(" "import" !glue Name<&im.module> Name<&im.field>
+      (. if (CTX->pass == 2 && CTX->defs_seen) {          /* §6.6: imports precede definitions */
+             free((void*)im.module.bytes.data); free((void*)im.field.bytes.data); return false; } .)
+      "("
+      ( "func"   !glue [ id<&idsp> ] (. kind = 0; if (CTX->pass == 1 && !wat_imp_add(CTX, SP_FUNC, idsp)) return false; .)
+          [ "(" "type" !glue IdxRef<&tref> ")" (. has_ref = 1; .) ] { Param<&SC_F_PARAMS> } { Result<&SC_F_RESULTS> }
+      | "table"  !glue [ id<&idsp> ] (. kind = 1; if (CTX->pass == 1 && !wat_imp_add(CTX, SP_TABLE, idsp)) return false; .)
+          Limits<&lim> RefTypeVal<&rtv>
+      | "memory" !glue [ id<&idsp> ] (. kind = 2; if (CTX->pass == 1 && !wat_imp_add(CTX, SP_MEM, idsp)) return false; .)
+          Limits<&lim>
+      | "global" !glue [ id<&idsp> ] (. kind = 3; if (CTX->pass == 1 && !wat_imp_add(CTX, SP_GLOBAL, idsp)) return false; .)
+          ( "(" "mut" !glue ValType<&gvt> ")" (. gmut = 1; .) | ValType<&gvt> (. gmut = 0; .) )
+      | "tag"    !glue [ id<&idsp> ] (. kind = 4; if (CTX->pass == 1 && !wat_imp_add(CTX, SP_TAG, idsp)) return false; .)
+          [ "(" "type" !glue IdxRef<&tref> ")" (. has_ref = 1; .) ] { Param<&SC_F_PARAMS> } { Result<&SC_F_RESULTS> }
+      )
+      ")" ")"
+      (. if (CTX->pass != 2) { free((void*)im.module.bytes.data); free((void*)im.field.bytes.data);
+                               bbq_vec_free(SC_F_PARAMS); bbq_vec_free(SC_F_RESULTS); return true; }
+         im.desc.kind = (uint8_t)kind; im.desc.body.tag = kind;
+         if (kind == 0 || kind == 4) {                   /* func/tag: a typeidx via typeuse */
+             uint32_t tidx;
+             if (has_ref) { int64_t r = wat_resolve(CTX, SP_TYPE, tref);
+                            if (r < 0 || !wat_typeuse_ref(CTX, r, &SC_F_PARAMS, &SC_F_RESULTS)) {
+                                bbq_vec_free(SC_F_PARAMS); bbq_vec_free(SC_F_RESULTS); return false;
+                            }
+                            tidx = (uint32_t)r; }
+             else { jav_func_type_t ft; memset(&ft, 0, sizeof ft);
+                    WAT_FREEZE(SC_F_PARAMS, ft.params);  ft.param_count  = (uint32_t)ft.params.count;
+                    WAT_FREEZE(SC_F_RESULTS, ft.results); ft.result_count = (uint32_t)ft.results.count;
+                    tidx = wat_typeuse(CTX, &ft); }
+             if (kind == 0) im.desc.body.u.case_0.x = tidx;
+             else { im.desc.body.u.case_4.attr = 0; im.desc.body.u.case_4.type = tidx; }
+         } else if (kind == 1) { im.desc.body.u.case_1.reftype = rtv; im.desc.body.u.case_1.limits = lim; }
+         else if (kind == 2) { im.desc.body.u.case_2 = lim; }
+         else { im.desc.body.u.case_3.type = gvt; im.desc.body.u.case_3.mut = gmut; }
+         wat_inline_import(CTX, im.module, im.field, im.desc, wat_import_space(im.desc.kind)); .)
+.
+
+END Wat.

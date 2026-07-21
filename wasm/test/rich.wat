@@ -1,0 +1,11 @@
+(module
+  (import "env" "imf" (func (param i32) (result i32)))
+  (import "env" "img" (global i32))
+  (memory 1 4)
+  (table 2 funcref)
+  (global $g (mut i64) (i64.const 7))
+  (func (param i32 i32) (result i32) local.get 0 local.get 1 i32.add)
+  (func (result f64) f64.const 3.5)
+  (data (i32.const 0) "hi")
+  (elem (i32.const 0) func 1)
+  (export "add" (func 1)))

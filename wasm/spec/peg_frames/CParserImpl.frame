@@ -1,0 +1,311 @@
+-->parser_include
+
+-->runtime
+
+/* ── Init ────────────────────────────────────────────────── */
+
+PEG_INTERNAL void peg_init(peg_state* p, const char* input, int length) {
+    memset(p, 0, sizeof(*p));
+    p->input = input;
+    p->pos = input;
+    p->end = input + length;
+    p->line = 1;
+    p->col = 1;
+}
+
+/* ── Position ────────────────────────────────────────────── */
+
+PEG_INTERNAL int peg_line(const peg_state* p) { return p->line; }
+PEG_INTERNAL int peg_col(const peg_state* p) { return p->col; }
+PEG_INTERNAL bool peg_at_end(const peg_state* p) { return p->pos >= p->end; }
+PEG_INTERNAL const char* peg_pos(const peg_state* p) { return p->pos; }
+PEG_INTERNAL int peg_remaining(const peg_state* p) { return (int)(p->end - p->pos); }
+PEG_INTERNAL char peg_peek_char(const peg_state* p) { return p->pos < p->end ? *p->pos : '\0'; }
+
+/* ── Advance ─────────────────────────────────────────────── */
+
+PEG_INTERNAL void peg_advance(peg_state* p) {
+    if (p->pos >= p->end) return;
+    if (*p->pos == '\n') { p->line++; p->col = 1; }
+    else { p->col++; }
+    p->pos++;
+    if (p->pos > p->furthest.pos) {
+        p->furthest.pos = p->pos;
+        p->furthest.line = p->line;
+        p->furthest.col = p->col;
+    }
+}
+
+/* ── Save / Restore ──────────────────────────────────────── */
+
+PEG_INTERNAL peg_mark peg_save(const peg_state* p) {
+    peg_mark m = { p->pos, p->line, p->col };
+    return m;
+}
+
+PEG_INTERNAL void peg_restore(peg_state* p, peg_mark m) {
+    p->pos = m.pos;
+    p->line = m.line;
+    p->col = m.col;
+}
+
+/* ── Character matching ──────────────────────────────────── */
+
+PEG_INTERNAL bool peg_match_char(peg_state* p, char c) {
+    if (p->pos < p->end && *p->pos == c) {
+        peg_advance(p);
+        return true;
+    }
+    return false;
+}
+
+PEG_INTERNAL bool peg_match(peg_state* p, const char* str) {
+    int len = (int)strlen(str);
+    if (p->pos + len > p->end) return false;
+    if (memcmp(p->pos, str, (size_t)len) != 0) return false;
+    for (int i = 0; i < len; i++) peg_advance(p);
+    return true;
+}
+
+PEG_INTERNAL bool peg_match_charset(peg_state* p, bool (*fn)(char)) {
+    if (p->pos < p->end && fn(*p->pos)) {
+        peg_advance(p);
+        return true;
+    }
+    return false;
+}
+
+/* ── Lookahead (no consume) ──────────────────────────────── */
+
+PEG_INTERNAL bool peg_peek_at(const peg_state* p, const char* str) {
+    int len = (int)strlen(str);
+    if (p->pos + len > p->end) return false;
+    return memcmp(p->pos, str, (size_t)len) == 0;
+}
+
+PEG_INTERNAL bool peg_peek_at_char(const peg_state* p, char c) {
+    return p->pos < p->end && *p->pos == c;
+}
+
+PEG_INTERNAL bool peg_peek_charset(const peg_state* p, bool (*fn)(char)) {
+    return p->pos < p->end && fn(*p->pos);
+}
+
+/* ── Span (consume while charset matches) ────────────────── */
+
+PEG_INTERNAL void peg_span_chars(peg_state* p, bool (*fn)(char)) {
+    while (p->pos < p->end && fn(*p->pos))
+        peg_advance(p);
+}
+
+/* Scan forward to delimiter, capturing raw content as span. Skips
+   over C-style `//` line comments and `/` `*` ... `*` `/` block
+   comments — a delimiter inside a comment doesn't terminate the
+   scan. This matters for embedded code blocks like `(. ... .)`
+   where C source legitimately contains the close marker in `//`
+   comment text. */
+PEG_INTERNAL bool peg_scan_to(peg_state* p, const char* delim, peg_span* out) {
+    int dlen = (int)strlen(delim);
+    const char* start = p->pos;
+    while (p->pos + dlen <= p->end) {
+        if (p->pos + 1 < p->end && p->pos[0] == '/' && p->pos[1] == '/') {
+            while (p->pos < p->end && *p->pos != '\n') peg_advance(p);
+            continue;
+        }
+        if (p->pos + 1 < p->end && p->pos[0] == '/' && p->pos[1] == '*') {
+            peg_advance(p); peg_advance(p);
+            while (p->pos + 1 < p->end &&
+                   !(p->pos[0] == '*' && p->pos[1] == '/')) {
+                peg_advance(p);
+            }
+            if (p->pos + 1 < p->end) { peg_advance(p); peg_advance(p); }
+            continue;
+        }
+        if (memcmp(p->pos, delim, (size_t)dlen) == 0) {
+            out->ptr = start;
+            out->len = (int)(p->pos - start);
+            for (int i = 0; i < dlen; i++) peg_advance(p);
+            return true;
+        }
+        peg_advance(p);
+    }
+    return false;
+}
+
+/* ── Whitespace + comment skipping ───────────────────────── */
+
+PEG_INTERNAL void peg_set_whitespace(peg_state* p, bool (*fn)(char)) {
+    p->ws_fn = fn;
+}
+
+PEG_INTERNAL void peg_add_comment(peg_state* p, const char* open,
+                            const char* close, bool nested, bool structured) {
+    if (p->comment_count < PEG_MAX_COMMENTS) {
+        p->comments[p->comment_count].open = open;
+        p->comments[p->comment_count].close = close;
+        p->comments[p->comment_count].nested = nested;
+        p->comments[p->comment_count].structured = structured;
+        p->comment_count++;
+    }
+}
+
+/* A STRUCTURED skip element (e.g. WAT `(@id … )` annotations, §6.2.5): from `open`, walk to
+ * the matching close, counting GENERIC ()-nesting, but consuming string literals (with \-escapes)
+ * and inner line/block comments so their parens/quotes don't perturb the balance. The element is
+ * recognized only if an idchar or `"` follows `open` (an annotid) — a bare `(@)` or `(@ ` is left
+ * for the grammar to reject. Returns true (and advances past the close) iff it skipped one. */
+/* §6.2.1 a source character is illegal if it is an ASCII control char other than the three
+ * format-effectors (tab/LF/CR), or DEL — illegal even inside an annotation's token sequence. */
+static bool peg_illegal_src(unsigned char c) {
+    return (c < 0x20 && c != 0x09 && c != 0x0a && c != 0x0d) || c == 0x7f;
+}
+static int peg_hexval(unsigned char c) {
+    if (c >= '0' && c <= '9') return c - '0';
+    if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+    if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+    return -1;
+}
+/* §6.3.5 idchar: alphanumeric + a fixed punctuation set (the annotid is idchar+ or a name). */
+static bool peg_is_idchar(unsigned char c) {
+    if ((c >= '0' && c <= '9') || (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')) return true;
+    switch (c) {
+    case '!': case '#': case '$': case '%': case '&': case '\'': case '*': case '+':
+    case '-': case '.': case '/': case ':': case '<': case '=': case '>': case '?':
+    case '@': case '\\': case '^': case '_': case '`': case '|': case '~': return true;
+    default: return false;
+    }
+}
+PEG_INTERNAL bool peg_skip_structured(peg_state* p, const peg_comment_spec* spec) {
+    int open_len = (int)strlen(spec->open);
+    if (p->pos + open_len > p->end) return false;
+    if (memcmp(p->pos, spec->open, (size_t)open_len) != 0) return false;
+    char a = (p->pos + open_len < p->end) ? p->pos[open_len] : ' ';   /* §6.2.5 annotid = idchar+ | name */
+    if (!(a == '"' || peg_is_idchar((unsigned char)a))) return false;
+    peg_mark start = peg_save(p);                 /* a skip can't reject; on a malformed annotation,
+                                                   * restore + return false so the grammar chokes on `(@`. */
+    for (int i = 0; i < open_len; i++) peg_advance(p);
+    if (p->pos + 1 < p->end && p->pos[0] == '"' && p->pos[1] == '"') { peg_restore(p, start); return false; }  /* §6.2.5 empty annotation id */
+    int depth = 1;
+    while (p->pos < p->end && depth > 0) {
+        unsigned char c = (unsigned char)*p->pos;
+        if (c == '"') {                                  /* string literal: skip with \-escapes */
+            peg_advance(p);
+            int cont = 0;                                /* §6.3.3 expected UTF-8 continuation bytes */
+            while (p->pos < p->end && *p->pos != '"') {
+                unsigned char sc = (unsigned char)*p->pos;
+                if (sc < 0x20 || sc == 0x7f) { peg_restore(p, start); return false; }   /* raw control in a string → illegal */
+                int b = -1;                              /* the effective byte this position contributes (for UTF-8 check) */
+                if (sc == '\\' && p->pos + 1 < p->end) {
+                    unsigned char e = (unsigned char)p->pos[1];
+                    int h1 = peg_hexval(e), h2 = (p->pos + 2 < p->end) ? peg_hexval((unsigned char)p->pos[2]) : -1;
+                    if (h1 >= 0 && h2 >= 0) { b = (h1 << 4) | h2; peg_advance(p); peg_advance(p); }   /* \HH byte */
+                    else if (e == 'u') { while (p->pos < p->end && *p->pos != '}') peg_advance(p); b = -1; } /* \u{…} scalar (assume valid) */
+                    else { peg_advance(p); b = e; }      /* \t \n \r \" \' \\ → an ASCII byte */
+                    peg_advance(p);
+                } else { b = sc; peg_advance(p); }        /* raw byte (≥0x80 = UTF-8 multibyte) */
+                if (b >= 0) {                            /* run the UTF-8 state machine over effective bytes */
+                    if (cont > 0) { if (b < 0x80 || b > 0xbf) { peg_restore(p, start); return false; } cont--; }
+                    else if (b < 0x80) { /* ASCII */ }
+                    else if (b >= 0xc2 && b <= 0xdf) cont = 1;
+                    else if (b >= 0xe0 && b <= 0xef) cont = 2;
+                    else if (b >= 0xf0 && b <= 0xf4) cont = 3;
+                    else { peg_restore(p, start); return false; }   /* 0x80–0xc1, 0xf5–0xff lead → malformed UTF-8 */
+                }
+            }
+            if (cont != 0) { peg_restore(p, start); return false; }                 /* truncated UTF-8 sequence */
+            if (p->pos < p->end) peg_advance(p); else { peg_restore(p, start); return false; }  /* unterminated string */
+        } else if (c == ';' && p->pos + 1 < p->end && p->pos[1] == ';') {   /* line comment */
+            while (p->pos < p->end && *p->pos != '\n') peg_advance(p);
+        } else if (c == '(' && p->pos + 1 < p->end && p->pos[1] == ';') {   /* block comment (nested) */
+            int bd = 1; peg_advance(p); peg_advance(p);
+            while (p->pos < p->end && bd > 0) {
+                if (p->pos + 1 < p->end && p->pos[0] == '(' && p->pos[1] == ';') { bd++; peg_advance(p); peg_advance(p); }
+                else if (p->pos + 1 < p->end && p->pos[0] == ';' && p->pos[1] == ')') { bd--; peg_advance(p); peg_advance(p); }
+                else peg_advance(p);
+            }
+        } else if (c == '(') { depth++; peg_advance(p); }
+        else if (c == ')') { depth--; peg_advance(p); }
+        else if (peg_illegal_src(c) || c >= 0x80) { peg_restore(p, start); return false; }  /* control or non-ASCII outside a string → illegal */
+        else peg_advance(p);
+    }
+    if (depth != 0) { peg_restore(p, start); return false; }   /* unterminated annotation → reject */
+    return true;
+}
+
+PEG_INTERNAL bool peg_skip_comment(peg_state* p, const peg_comment_spec* spec) {
+    if (spec->structured) return peg_skip_structured(p, spec);
+    int open_len = (int)strlen(spec->open);
+    if (p->pos + open_len > p->end) return false;
+    if (memcmp(p->pos, spec->open, (size_t)open_len) != 0) return false;
+    for (int i = 0; i < open_len; i++) peg_advance(p);
+    int close_len = (int)strlen(spec->close);
+    /* A single-LF close is the line-comment idiom; a line ends at LF or CR (or CRLF),
+     * so such a comment terminates on a bare CR too — standard line-comment behavior. */
+    int line_close = (close_len == 1 && spec->close[0] == '\n');
+    int depth = 1;
+    while (p->pos < p->end && depth > 0) {
+        if (spec->nested && p->pos + open_len <= p->end &&
+            memcmp(p->pos, spec->open, (size_t)open_len) == 0) {
+            for (int i = 0; i < open_len; i++) peg_advance(p);
+            depth++;
+        } else if (line_close && (*p->pos == '\n' || *p->pos == '\r')) {
+            peg_advance(p);
+            depth--;
+        } else if (p->pos + close_len <= p->end &&
+                   memcmp(p->pos, spec->close, (size_t)close_len) == 0) {
+            for (int i = 0; i < close_len; i++) peg_advance(p);
+            depth--;
+        } else {
+            peg_advance(p);
+        }
+    }
+    return true;
+}
+
+PEG_INTERNAL void peg_skip(peg_state* p) {
+    for (;;) {
+        bool skipped = false;
+        while (p->pos < p->end && p->ws_fn && p->ws_fn(*p->pos)) {
+            peg_advance(p);
+            skipped = true;
+        }
+        bool found_comment = false;
+        for (int i = 0; i < p->comment_count; i++) {
+            if (peg_skip_comment(p, &p->comments[i])) {
+                found_comment = true;
+                break;
+            }
+        }
+        if (!found_comment && !skipped) break;
+    }
+}
+
+/* ── Error reporting ─────────────────────────────────────── */
+
+PEG_INTERNAL void peg_expected(peg_state* p, const char* what) {
+    if (p->error_count < PEG_MAX_ERRORS) {
+        peg_error* e = &p->errors[p->error_count++];
+        e->line = p->line;
+        e->col = p->col;
+        snprintf(e->message, PEG_ERROR_LEN, "expected %s", what);
+    }
+}
+
+PEG_INTERNAL void peg_error_msg(peg_state* p, const char* msg) {
+    if (p->error_count < PEG_MAX_ERRORS) {
+        peg_error* e = &p->errors[p->error_count++];
+        e->line = p->line;
+        e->col = p->col;
+        snprintf(e->message, PEG_ERROR_LEN, "%s", msg);
+    }
+}
+
+PEG_INTERNAL bool peg_has_errors(const peg_state* p) {
+    return p->error_count > 0;
+}
+
+-->skip_setup
+
+-->init_impl
+
+-->parse_implementations

@@ -1,0 +1,341 @@
+# javelina compiler — Java 1.0 (minus synchronized) -> WASM.
+# Built section by section on the BBQ toolchain (pegc/asdl/ddcgc/burgc/bbqc),
+# pointed at the BBQ build javelina itself uses. yoctojc is the faithful basis;
+# this tree is independent.
+
+CC      := clang
+CFLAGS  := -g -O0 -std=c11 -Wall -Wextra -MMD -MP
+
+# ── BBQ toolchain (the same build the engine uses) ──────────────────────────
+BBQ            := /home/dan/Source/BBQ
+PEGC           := $(BBQ)/build/pegc/pegc
+ASDL           := $(BBQ)/build/asdl/asdl
+BURGC          := $(BBQ)/build/burgc/burgc
+DDCGC          := $(BBQ)/build/ddcgc/ddcgc
+BBQC           := $(BBQ)/build/bbqc
+PEG_FRAMES     := $(BBQ)/pegc/backend/frames
+ASDL_TEMPLATES := $(BBQ)/asdl/templates
+PEGRT          := $(BBQ)/pegc/runtime
+RT             := $(BBQ)/backends/c/runtime
+CRT            := $(BBQ)/crt
+
+GEN := src/gen
+B   := build
+
+INCLUDES := -I$(GEN) -Isrc -I$(PEGRT) -I$(RT) -I$(CRT)
+
+# ── VM execution oracle ─────────────────────────────────────────────────────
+# The compiler's E-phase tests RUN the modules they assemble, in javelina's VM.
+# The test harness (test/exec.h) reaches the VM through the PUBLIC wasm.h ONLY;
+# these vars back that surface — the c-api sources are compiled here, the engine
+# objects are reused PREBUILT from the VM's own build (run `make -C ../wasm` if
+# stale). The object set mirrors the VM's `embed` link exactly.
+VM             := ../wasm
+JITRT          := $(BBQ)/jitterator/runtime
+VM_INCLUDES    := -I$(VM)/include -I$(VM)/src -I$(VM)/src/gen -I$(VM)/src/immix -I$(JITRT)
+VM_ENGINE_OBJS := $(VM)/build/interp.o $(VM)/build/jav_runtime.o $(VM)/build/gen_interp.o \
+                  $(VM)/build/validate.o $(VM)/build/jav_subtype.o $(VM)/build/jit_driver.o \
+                  $(VM)/build/bbq_arena.o $(VM)/build/immix_line_map.o $(VM)/build/immix_block.o \
+                  $(VM)/build/immix_block_allocator.o $(VM)/build/immix_space.o $(VM)/build/jav_gc.o
+# The shared owning reader+writer (what `water` uses): the compiler assembles a
+# jav_module_t and serializes via jav_module_write, decoding each func body via
+# jav_func_body_read (the spec-grammar gate). Single binary-layout authority.
+VM_RW_SRCS     := $(VM)/src/gen/jav_reader.c $(VM)/src/gen/jav_writer.c
+# c-api sources (compiled here) = wasm_capi + the c-lite load path (mirrors CLITE_SRCS).
+VM_CAPI_SRCS   := $(VM)/src/wasm_capi.c $(VM)/src/jav_load.c \
+                  $(VM)/src/jav_view_nav.c $(VM)/src/jav_module_index.c \
+                  $(VM)/src/jav_module_validate.c $(VM)/src/jav_instance.c \
+                  $(VM)/src/jav_extern.c $(VM)/src/jav_error.c $(VM)/src/jav_utf8.c \
+                  $(VM)/src/gen/jav_view_reader.c $(RT)/bbq_lite.c
+# Compiler-side support, minus the CRT pieces the VM objects/c-api already supply
+# (bbq_arena via VM_ENGINE_OBJS, bbq_htree via the c-api) to avoid duplicate syms.
+# Deferred (=) so SEMA_SRCS/DDCG_SRCS (defined later in this file) expand at use.
+EXEC_SRCS       = $(SEMA_SRCS) $(DDCG_SRCS) $(CLICK_SRCS) src/compiler/codegen_structured.c \
+                  src/compiler/wasm_types.c src/compiler/wasm_module.c \
+                  $(GEN)/codegen_matcher.c $(GEN)/java_parser.c $(CRT)/bbq_htree.c $(CRT)/bbq_hmap.c $(CRT)/bbq_buf.c
+
+# ── Generated frontend (section 1: parser) ──────────────────────────────────
+.PHONY: all generate-parser
+all: generate-parser
+
+generate-parser: $(GEN)/java_ast.h $(GEN)/java_parser.c
+
+$(GEN)/java_ast.h: grammar/Java.asdl
+	$(ASDL) -i grammar/Java.asdl -t $(ASDL_TEMPLATES)/c.inja -o $(GEN)/java_ast.h -l c
+
+# The SIR (IR) schema — its types header is shared with sema (the data_type/width
+# tags sema computes ARE the SIR's). The ddcg/codegen over it come later.
+# Uses a LOCAL fork of asdl's c.inja that also emits memoised deep-copy
+# (sir_node_copy) — the foundation the SIR→SIR optimizer passes clone with.
+# BBQ's shared template (and the java AST, which doesn't need copy) are untouched.
+SIR_TEMPLATE := grammar/templates/c.inja
+$(GEN)/sir_ast.h: grammar/sir.asdl $(SIR_TEMPLATE)
+	$(ASDL) -i grammar/sir.asdl -t $(SIR_TEMPLATE) -o $(GEN)/sir_ast.h -l c
+
+# ── Section 3: AST→SIR via ddcgc (compiler.ddcg consumes JSON sidecars
+# of the source AST + target IR; emits the dispatcher compiler_compile.{h,c}) ──
+DDCGC_LIB := $(BBQ)/ddcgc/lib
+$(GEN)/java.json: grammar/Java.asdl
+	$(ASDL) -i grammar/Java.asdl --json $(GEN)/java.json
+$(GEN)/sir.json: grammar/sir.asdl
+	$(ASDL) -i grammar/sir.asdl --json $(GEN)/sir.json
+$(GEN)/compiler_compile.h $(GEN)/compiler_compile.c &: grammar/compiler.ddcg $(GEN)/java.json $(GEN)/sir.json
+	$(DDCGC) -i grammar/compiler.ddcg -ast $(GEN)/java.json -ir $(GEN)/sir.json \
+	         -L $(DDCGC_LIB) -o $(GEN)/compiler_compile.h -lang c
+
+.PHONY: generate-ddcg
+generate-ddcg: $(GEN)/sir_ast.h $(GEN)/compiler_compile.c
+
+# ── Section 5: WASM emit authority — the opcode encodings the emitter writes are
+# generated from the VM's spec-derived opcode table (wasm/spec/instructions.toml),
+# NOT hand-rolled. One source of truth for the bytes; covers prefixed (0xFC/0xFD)
+# ops the dispatch-oriented opcodes.h collapses. Regenerate when the spec changes.
+WASM_INSTR_TOML := ../wasm/spec/instructions.toml
+$(GEN)/wasm_ops.h: $(WASM_INSTR_TOML) ../wasm/tools/gen_wasm_ops.py
+	python3 ../wasm/tools/gen_wasm_ops.py $(WASM_INSTR_TOML) > $@
+
+# ── Section 5: WASM backend — burgc tiles codegen_wasm.burg → matcher.
+# Routine regen is codegen-only; the slow --coverage tree-automaton gate runs
+# separately (make coverage-wasm) while the burg grammar is in flux.
+BURG_FRAMES := $(BBQ)/burgc/frames
+$(GEN)/codegen_matcher.h $(GEN)/codegen_matcher.c &: grammar/codegen_wasm.burg $(GEN)/sir.json $(BURGC)
+	$(BURGC) -i grammar/codegen_wasm.burg -asdl $(GEN)/sir.json -lang c -frames $(BURG_FRAMES) -o $(GEN)/codegen_matcher.h
+
+.PHONY: generate-codegen coverage-wasm
+generate-codegen: $(GEN)/codegen_matcher.c
+coverage-wasm: grammar/codegen_wasm.burg $(GEN)/sir.json
+	$(BURGC) -i grammar/codegen_wasm.burg -asdl $(GEN)/sir.json --coverage -lang c -frames $(BURG_FRAMES) -o $(B)/.cov.h
+
+DDCG_SRCS := src/compiler/compiler.c src/compiler/compiler_helpers.c $(GEN)/compiler_compile.c
+# Section 4: Click (SIR optimizer) — target-independent, runs on the unlowered SIR.
+CLICK_SRCS := src/compiler/sir_optimizer.c src/compiler/sir_op_gamma.c
+
+.PHONY: check-ddcg
+check-ddcg: generate-ddcg $(GEN)/java_ast.h | $(B)
+	@for f in $(DDCG_SRCS); do \
+	  echo "CC $$f"; \
+	  $(CC) $(CFLAGS) -Iinclude $(INCLUDES) -c $$f -o $(B)/$$(basename $$f .c).o || exit 1; \
+	done
+	@echo "ddcg closure: compiles"
+
+.PHONY: test-sir
+test-sir: generate-parser generate-ddcg | $(B)
+	@$(CC) $(CFLAGS) -Iinclude $(INCLUDES) test/test_sir.c $(SEMA_SRCS) $(DDCG_SRCS) $(CLICK_SRCS) \
+	    $(GEN)/java_parser.c $(CRT)/bbq_arena.c $(CRT)/bbq_htree.c $(CRT)/bbq_hmap.c $(CRT)/bbq_buf.c -lm -o $(B)/test_sir \
+	  && ./$(B)/test_sir && { echo "  PASS  test_sir"; } || { echo "  FAIL  test_sir"; exit 1; }
+
+.PHONY: test-lattice
+test-lattice: generate-parser | $(B)
+	@$(CC) $(CFLAGS) -Iinclude $(INCLUDES) test/test_lattice.c $(SEMA_SRCS) $(GEN)/java_parser.c \
+	    $(CRT)/bbq_arena.c $(CRT)/bbq_htree.c $(CRT)/bbq_hmap.c $(CRT)/bbq_buf.c -lm -o $(B)/test_lattice \
+	  && ./$(B)/test_lattice && { echo "  PASS  test_lattice"; } || { echo "  FAIL  test_lattice"; exit 1; }
+
+.PHONY: test-wasm-types
+test-wasm-types: generate-parser $(GEN)/sir_ast.h | $(B)
+	@$(CC) $(CFLAGS) -Iinclude $(INCLUDES) test/test_wasm_types.c \
+	    src/compiler/wasm_types.c $(SEMA_SRCS) \
+	    $(GEN)/java_parser.c $(CRT)/bbq_arena.c $(CRT)/bbq_htree.c $(CRT)/bbq_hmap.c $(CRT)/bbq_buf.c -lm -o $(B)/test_wasm_types \
+	  && ./$(B)/test_wasm_types && { echo "  PASS  test_wasm_types"; } || { echo "  FAIL  test_wasm_types"; exit 1; }
+
+.PHONY: test-gamma
+test-gamma: generate-parser generate-ddcg | $(B)
+	@$(CC) $(CFLAGS) -Iinclude $(INCLUDES) test/test_gamma.c $(CLICK_SRCS) $(SEMA_SRCS) \
+	    $(DDCG_SRCS) $(GEN)/java_parser.c \
+	    $(CRT)/bbq_arena.c $(CRT)/bbq_htree.c $(CRT)/bbq_hmap.c $(CRT)/bbq_buf.c -lm -o $(B)/test_gamma \
+	  && ./$(B)/test_gamma && { echo "  PASS  test_gamma"; } || { echo "  FAIL  test_gamma"; exit 1; }
+
+.PHONY: test-click-partition
+test-click-partition: generate-parser generate-ddcg | $(B)
+	@$(CC) $(CFLAGS) -Wno-parentheses-equality -Iinclude -Itest $(INCLUDES) test/test_click_partition.c test/unity.c \
+	    $(CLICK_SRCS) $(SEMA_SRCS) $(DDCG_SRCS) $(GEN)/java_parser.c \
+	    $(CRT)/bbq_arena.c $(CRT)/bbq_htree.c $(CRT)/bbq_hmap.c $(CRT)/bbq_buf.c -lm -o $(B)/test_click_partition \
+	  && ./$(B)/test_click_partition && { echo "  PASS  test_click_partition"; } \
+	  || { echo "  FAIL  test_click_partition"; exit 1; }
+
+# ── Section 2: sema closure (copied from yoctojc, JavaCard linking excised) ──
+SEMA_SRCS     := src/compiler/sema.c src/compiler/descriptor.c \
+                 src/compiler/type_lattice.c src/compiler/jtype_meta.c \
+                 src/compiler/analyses.c src/compiler/const_expr.c
+SEMA_INCLUDES := -Iinclude -Isrc -I$(RT) -I$(CRT)
+
+.PHONY: check-sema
+check-sema: $(GEN)/java_ast.h $(GEN)/sir_ast.h | $(B)
+	@for f in $(SEMA_SRCS); do \
+	  echo "CC $$f"; \
+	  $(CC) $(CFLAGS) $(SEMA_INCLUDES) -c $$f -o $(B)/$$(basename $$f .c).o || exit 1; \
+	done
+	@echo "sema closure: compiles"
+
+.PHONY: test-sema
+test-sema: $(GEN)/java_ast.h $(GEN)/java_parser.c $(GEN)/sir_ast.h | $(B)
+	@$(CC) $(CFLAGS) -Iinclude $(INCLUDES) test/test_sema.c $(SEMA_SRCS) \
+	    $(GEN)/java_parser.c $(CRT)/bbq_arena.c $(CRT)/bbq_htree.c $(CRT)/bbq_hmap.c $(CRT)/bbq_buf.c -lm -o $(B)/test_sema \
+	  && ./$(B)/test_sema && { echo "  PASS  test_sema"; } \
+	  || { echo "  FAIL  test_sema"; exit 1; }
+
+$(GEN)/java_parser.h $(GEN)/java_parser.c &: grammar/Java.peg $(GEN)/java_ast.h
+	$(PEGC) grammar/Java.peg -lang c -frames $(PEG_FRAMES) -o $(GEN)/
+
+# ── Tests (plain-C, exit-code based — javelina wasm/test convention) ────────
+# ── Shipped CLI: javelinac (Java → .wasm). Compile+serialize only, no VM engine —
+# the object set mirrors test_wasm_module (EXEC_SRCS + the shared reader/writer +
+# jav_utf8 + bbq_arena). Produces plugin/whole modules and, with --mode jre, the
+# jre.wasm runtime. ──
+.PHONY: javelinac
+javelinac: generate-parser generate-ddcg generate-codegen | $(B)
+	$(CC) $(CFLAGS) -Wno-parentheses-equality -Iinclude $(INCLUDES) $(VM_INCLUDES) \
+	    driver/javelinac.c $(EXEC_SRCS) $(VM_RW_SRCS) $(VM)/src/jav_utf8.c $(CRT)/bbq_arena.c -lm -o $(B)/javelinac
+
+# ── The jre.wasm runtime artifact: the prelude compiled once in RUNTIME mode. ──
+.PHONY: jre
+jre: javelinac
+	$(B)/javelinac --mode jre --libdir lib/java -o $(B)/jre.wasm
+	@echo "  built $(B)/jre.wasm ($$(wc -c < $(B)/jre.wasm) bytes)"
+
+# ── Shipped runner: javelina (load a plugin, link it against jre.wasm, run it).
+# The production embedder — VM through wasm.h ONLY (no compiler). Shares the host-
+# native floor (driver/host_io.h) with the test harness; supplies real std streams.
+# Reuses the VM's PREBUILT engine objects (run `make -C ../wasm` if stale). ──
+.PHONY: javelina
+javelina: | $(B)
+	$(CC) $(CFLAGS) -D_POSIX_C_SOURCE=200809L -Idriver -I$(RT) -I$(CRT) $(VM_INCLUDES) \
+	    driver/javelina.c $(VM_RW_SRCS) $(VM_CAPI_SRCS) $(CRT)/bbq_htree.c $(CRT)/bbq_hmap.c $(VM_ENGINE_OBJS) -lm -o $(B)/javelina
+
+# ── Both shipped binaries. ──
+.PHONY: tools
+tools: javelinac javelina jre
+
+# ── E7.1/E7.1a: CLI-level tests — the shipped binaries end-to-end (exit codes, diagnostics,
+# directory input, argv round-trip, System.exit, uncaught exceptions). The runner IS the harness. ──
+.PHONY: test-cli
+test-cli: javelinac javelina jre
+	@sh test/test_cli.sh
+
+# ── The optimization-level benchmark matrix (bench/bench.sh): javelinac -O off/on ×
+# javelina -nojit/-jit, measurement in pure Java (bench/java/Bench.java). `bench` runs full
+# scales and prints the comparison table — the measured numbers codegen decisions (optimizer
+# passes, burg rule costs) are priced against. `test-bench` is the same matrix at tiny scales,
+# checksum gate only — it runs in the suite so the benchmarks cannot silently rot. ──
+.PHONY: bench test-bench
+bench: javelinac javelina
+	@sh bench/bench.sh
+test-bench: javelinac javelina
+	@sh bench/bench.sh --quick
+
+.PHONY: test
+test: generate-parser generate-ddcg | $(B)
+	@pass=0; fail=0; \
+	$(CC) $(CFLAGS) $(INCLUDES) test/test_parse.c $(GEN)/java_parser.c $(CRT)/bbq_arena.c -o $(B)/test_parse \
+	  && $(B)/test_parse && { echo "  PASS  test_parse"; pass=$$((pass+1)); } \
+	  || { echo "  FAIL  test_parse"; fail=$$((fail+1)); }; \
+	$(CC) $(CFLAGS) -Iinclude $(INCLUDES) test/test_lattice.c $(SEMA_SRCS) $(GEN)/java_parser.c \
+	    $(CRT)/bbq_arena.c $(CRT)/bbq_htree.c $(CRT)/bbq_hmap.c $(CRT)/bbq_buf.c -lm -o $(B)/test_lattice \
+	  && ./$(B)/test_lattice >/dev/null && { echo "  PASS  test_lattice"; pass=$$((pass+1)); } \
+	  || { echo "  FAIL  test_lattice"; fail=$$((fail+1)); }; \
+	$(CC) $(CFLAGS) -Iinclude $(INCLUDES) test/test_sema.c $(SEMA_SRCS) $(GEN)/java_parser.c \
+	    $(CRT)/bbq_arena.c $(CRT)/bbq_htree.c $(CRT)/bbq_hmap.c $(CRT)/bbq_buf.c -lm -o $(B)/test_sema \
+	  && ./$(B)/test_sema >/dev/null && { echo "  PASS  test_sema"; pass=$$((pass+1)); } \
+	  || { echo "  FAIL  test_sema"; fail=$$((fail+1)); }; \
+	$(CC) $(CFLAGS) -Wno-parentheses-equality -Iinclude $(INCLUDES) test/test_sir.c $(SEMA_SRCS) $(DDCG_SRCS) $(CLICK_SRCS) \
+	    $(GEN)/java_parser.c $(CRT)/bbq_arena.c $(CRT)/bbq_htree.c $(CRT)/bbq_hmap.c $(CRT)/bbq_buf.c -lm -o $(B)/test_sir \
+	  && ./$(B)/test_sir >/dev/null && { echo "  PASS  test_sir"; pass=$$((pass+1)); } \
+	  || { echo "  FAIL  test_sir"; fail=$$((fail+1)); }; \
+	$(CC) $(CFLAGS) -Iinclude $(INCLUDES) test/test_gamma.c $(CLICK_SRCS) $(SEMA_SRCS) \
+	    $(DDCG_SRCS) $(GEN)/java_parser.c \
+	    $(CRT)/bbq_arena.c $(CRT)/bbq_htree.c $(CRT)/bbq_hmap.c $(CRT)/bbq_buf.c -lm -o $(B)/test_gamma \
+	  && ./$(B)/test_gamma >/dev/null && { echo "  PASS  test_gamma"; pass=$$((pass+1)); } \
+	  || { echo "  FAIL  test_gamma"; fail=$$((fail+1)); }; \
+	$(CC) $(CFLAGS) -Wno-parentheses-equality -Iinclude -Itest $(INCLUDES) test/test_click_partition.c test/unity.c \
+	    $(CLICK_SRCS) $(SEMA_SRCS) $(DDCG_SRCS) $(GEN)/java_parser.c \
+	    $(CRT)/bbq_arena.c $(CRT)/bbq_htree.c $(CRT)/bbq_hmap.c $(CRT)/bbq_buf.c -lm -o $(B)/test_click_partition \
+	  && ./$(B)/test_click_partition >/dev/null && { echo "  PASS  test_click_partition"; pass=$$((pass+1)); } \
+	  || { echo "  FAIL  test_click_partition"; fail=$$((fail+1)); }; \
+	$(CC) $(CFLAGS) -Wno-parentheses-equality $(INCLUDES) test/test_sir_copy.c $(CRT)/bbq_arena.c -o $(B)/test_sir_copy \
+	  && ./$(B)/test_sir_copy >/dev/null && { echo "  PASS  test_sir_copy"; pass=$$((pass+1)); } \
+	  || { echo "  FAIL  test_sir_copy"; fail=$$((fail+1)); }; \
+	$(CC) $(CFLAGS) -Iinclude -I$(CRT) -Isrc test/test_emit_wasm.c -o $(B)/test_emit_wasm \
+	  && ./$(B)/test_emit_wasm >/dev/null && { echo "  PASS  test_emit_wasm"; pass=$$((pass+1)); } \
+	  || { echo "  FAIL  test_emit_wasm"; fail=$$((fail+1)); }; \
+	$(CC) $(CFLAGS) -Wno-parentheses-equality -Iinclude $(INCLUDES) test/test_codegen_wasm.c $(GEN)/codegen_matcher.c \
+	    src/compiler/wasm_types.c $(SEMA_SRCS) $(CRT)/bbq_arena.c $(CRT)/bbq_htree.c $(CRT)/bbq_hmap.c $(CRT)/bbq_buf.c -lm -o $(B)/test_codegen_wasm \
+	  && ./$(B)/test_codegen_wasm >/dev/null && { echo "  PASS  test_codegen_wasm"; pass=$$((pass+1)); } \
+	  || { echo "  FAIL  test_codegen_wasm"; fail=$$((fail+1)); }; \
+	$(CC) $(CFLAGS) -Iinclude $(INCLUDES) test/test_structurer.c src/compiler/structurer.c \
+	    $(CRT)/bbq_arena.c $(CRT)/bbq_htree.c $(CRT)/bbq_hmap.c $(CRT)/bbq_buf.c -o $(B)/test_structurer \
+	  && ./$(B)/test_structurer >/dev/null && { echo "  PASS  test_structurer"; pass=$$((pass+1)); } \
+	  || { echo "  FAIL  test_structurer"; fail=$$((fail+1)); }; \
+	$(CC) $(CFLAGS) -Iinclude $(INCLUDES) test/test_transfer.c src/compiler/structurer.c \
+	    $(CRT)/bbq_arena.c $(CRT)/bbq_htree.c $(CRT)/bbq_hmap.c $(CRT)/bbq_buf.c -o $(B)/test_transfer \
+	  && ./$(B)/test_transfer >/dev/null && { echo "  PASS  test_transfer"; pass=$$((pass+1)); } \
+	  || { echo "  FAIL  test_transfer"; fail=$$((fail+1)); }; \
+	$(CC) $(CFLAGS) -Wno-parentheses-equality -Iinclude $(INCLUDES) test/test_codegen_method.c \
+	    src/compiler/codegen_wasm.c src/compiler/wasm_types.c $(GEN)/codegen_matcher.c $(SEMA_SRCS) $(DDCG_SRCS) $(CLICK_SRCS) \
+	    $(GEN)/java_parser.c $(CRT)/bbq_arena.c $(CRT)/bbq_htree.c $(CRT)/bbq_hmap.c $(CRT)/bbq_buf.c -lm -o $(B)/test_codegen_method \
+	  && ./$(B)/test_codegen_method >/dev/null && { echo "  PASS  test_codegen_method"; pass=$$((pass+1)); } \
+	  || { echo "  FAIL  test_codegen_method"; fail=$$((fail+1)); }; \
+	$(CC) $(CFLAGS) -Wno-parentheses-equality -Iinclude $(INCLUDES) test/test_scope_sidecar.c \
+	    $(SEMA_SRCS) $(DDCG_SRCS) $(GEN)/java_parser.c \
+	    $(CRT)/bbq_arena.c $(CRT)/bbq_htree.c $(CRT)/bbq_hmap.c $(CRT)/bbq_buf.c -lm -o $(B)/test_scope_sidecar \
+	  && ./$(B)/test_scope_sidecar >/dev/null && { echo "  PASS  test_scope_sidecar"; pass=$$((pass+1)); } \
+	  || { echo "  FAIL  test_scope_sidecar"; fail=$$((fail+1)); }; \
+	$(CC) $(CFLAGS) -Wno-parentheses-equality -Iinclude $(INCLUDES) test/test_codegen_structured.c \
+	    src/compiler/codegen_structured.c src/compiler/wasm_types.c $(GEN)/codegen_matcher.c $(SEMA_SRCS) $(DDCG_SRCS) \
+	    $(GEN)/java_parser.c $(CRT)/bbq_arena.c $(CRT)/bbq_htree.c $(CRT)/bbq_hmap.c $(CRT)/bbq_buf.c -lm -o $(B)/test_codegen_structured \
+	  && ./$(B)/test_codegen_structured >/dev/null && { echo "  PASS  test_codegen_structured"; pass=$$((pass+1)); } \
+	  || { echo "  FAIL  test_codegen_structured"; fail=$$((fail+1)); }; \
+	$(CC) $(CFLAGS) -Wno-parentheses-equality -Iinclude $(INCLUDES) test/test_control_audit.c \
+	    src/compiler/codegen_structured.c src/compiler/wasm_types.c $(GEN)/codegen_matcher.c $(SEMA_SRCS) $(DDCG_SRCS) \
+	    $(GEN)/java_parser.c $(CRT)/bbq_arena.c $(CRT)/bbq_htree.c $(CRT)/bbq_hmap.c $(CRT)/bbq_buf.c -lm -o $(B)/test_control_audit \
+	  && ./$(B)/test_control_audit && { echo "  PASS  test_control_audit"; pass=$$((pass+1)); } \
+	  || { echo "  FAIL  test_control_audit"; fail=$$((fail+1)); }; \
+	$(CC) $(CFLAGS) -Wno-parentheses-equality -Iinclude $(INCLUDES) $(VM_INCLUDES) test/test_wasm_module.c \
+	    src/compiler/wasm_module.c src/compiler/wasm_types.c src/compiler/codegen_structured.c $(GEN)/codegen_matcher.c $(SEMA_SRCS) $(DDCG_SRCS) $(CLICK_SRCS) \
+	    $(VM_RW_SRCS) $(VM)/src/jav_utf8.c \
+	    $(GEN)/java_parser.c $(CRT)/bbq_arena.c $(CRT)/bbq_htree.c $(CRT)/bbq_hmap.c $(CRT)/bbq_buf.c -lm -o $(B)/test_wasm_module \
+	  && ./$(B)/test_wasm_module >/dev/null && { echo "  PASS  test_wasm_module"; pass=$$((pass+1)); } \
+	  || { echo "  FAIL  test_wasm_module"; fail=$$((fail+1)); }; \
+	$(CC) $(CFLAGS) -Wno-parentheses-equality -Iinclude $(INCLUDES) test/test_wasm_types.c \
+	    src/compiler/wasm_types.c $(SEMA_SRCS) \
+	    $(GEN)/java_parser.c $(CRT)/bbq_arena.c $(CRT)/bbq_htree.c $(CRT)/bbq_hmap.c $(CRT)/bbq_buf.c -lm -o $(B)/test_wasm_types \
+	  && ./$(B)/test_wasm_types >/dev/null && { echo "  PASS  test_wasm_types"; pass=$$((pass+1)); } \
+	  || { echo "  FAIL  test_wasm_types"; fail=$$((fail+1)); }; \
+	$(CC) $(CFLAGS) -Wno-parentheses-equality -Iinclude $(INCLUDES) test/test_codegen_object.c \
+	    src/compiler/codegen_structured.c src/compiler/wasm_types.c $(GEN)/codegen_matcher.c $(SEMA_SRCS) $(DDCG_SRCS) \
+	    $(GEN)/java_parser.c $(CRT)/bbq_arena.c $(CRT)/bbq_htree.c $(CRT)/bbq_hmap.c $(CRT)/bbq_buf.c -lm -o $(B)/test_codegen_object \
+	  && ./$(B)/test_codegen_object >/dev/null && { echo "  PASS  test_codegen_object"; pass=$$((pass+1)); } \
+	  || { echo "  FAIL  test_codegen_object"; fail=$$((fail+1)); }; \
+	$(CC) $(CFLAGS) -Wno-parentheses-equality -Iinclude $(INCLUDES) test/test_click_backend.c \
+	    src/compiler/codegen_structured.c src/compiler/wasm_types.c $(GEN)/codegen_matcher.c \
+	    $(SEMA_SRCS) $(DDCG_SRCS) $(CLICK_SRCS) \
+	    $(GEN)/java_parser.c $(CRT)/bbq_arena.c $(CRT)/bbq_htree.c $(CRT)/bbq_hmap.c $(CRT)/bbq_buf.c -lm -o $(B)/test_click_backend \
+	  && ./$(B)/test_click_backend >/dev/null && { echo "  PASS  test_click_backend"; pass=$$((pass+1)); } \
+	  || { echo "  FAIL  test_click_backend"; fail=$$((fail+1)); }; \
+	$(CC) $(CFLAGS) -Wno-parentheses-equality -Iinclude -Itest -Idriver $(INCLUDES) $(VM_INCLUDES) \
+	    test/test_exec.c $(EXEC_SRCS) $(VM_RW_SRCS) $(VM_CAPI_SRCS) $(VM_ENGINE_OBJS) -lm -o $(B)/test_exec \
+	  && ./$(B)/test_exec >/dev/null && { echo "  PASS  test_exec"; pass=$$((pass+1)); } \
+	  || { echo "  FAIL  test_exec"; fail=$$((fail+1)); }; \
+	echo "compiler tests: $$pass passed, $$fail failed"; \
+	[ $$fail -eq 0 ]
+
+.PHONY: test-exec
+test-exec: generate-parser generate-ddcg generate-codegen | $(B)
+	$(CC) $(CFLAGS) -Wno-parentheses-equality -Iinclude -Itest -Idriver \
+	    $(INCLUDES) $(VM_INCLUDES) \
+	    test/test_exec.c $(EXEC_SRCS) $(VM_RW_SRCS) $(VM_CAPI_SRCS) $(VM_ENGINE_OBJS) -lm -o $(B)/test_exec \
+	  && ./$(B)/test_exec && { echo "  PASS  test_exec"; } || { echo "  FAIL  test_exec"; exit 1; }
+
+# The Click re-enable gate: the WHOLE exec corpus with the optimizer ON.
+.PHONY: test-exec-click
+test-exec-click: generate-parser generate-ddcg generate-codegen | $(B)
+	$(CC) $(CFLAGS) -Wno-parentheses-equality -Iinclude -Itest -Idriver \
+	    $(INCLUDES) $(VM_INCLUDES) \
+	    test/test_exec.c $(EXEC_SRCS) $(VM_RW_SRCS) $(VM_CAPI_SRCS) $(VM_ENGINE_OBJS) -lm -o $(B)/test_exec \
+	  && JAVELINA_CLICK=1 ./$(B)/test_exec && { echo "  PASS  test_exec (Click ON)"; } \
+	  || { echo "  FAIL  test_exec (Click ON)"; exit 1; }
+
+$(B):
+	mkdir -p $(B)
+
+.PHONY: clean
+clean:
+	rm -rf $(B) $(GEN)/java_ast.h $(GEN)/java_parser.c $(GEN)/java_parser.h

@@ -1,0 +1,538 @@
+# wasm.bbq — WebAssembly module container (binary format core).
+#
+# Reference: WebAssembly Core Specification, §5 "Binary Format". This reads the
+# module SKELETON — sections, function types, and raw code bodies. The
+# instruction stream inside each code body is decoded, validated and executed
+# downstream by the opgen-generated machine; this grammar is just the container,
+# the way classfile.bbq is the container for a JVM .class.
+#
+# Everything is little-endian, and every count/index/size is a ULEB128 varint
+# (the bbqc primitive added for exactly this). The fixed magic and version are
+# the only plain uint32s in the format.
+
+@endian little
+
+# ── Heap types (§5.3.3) ──────────────────────────────────────────────
+# A heaptype is a single s33: negative values are the abstract heap types
+# (exn 0x69 … noexn 0x74 — the canonical sleb of −23…−12), and non-negative
+# values are a typeidx. Read as one sleb so both forms round-trip byte-for-byte.
+HeapType = struct {
+    x: sleb64
+}
+
+# ── Value types (§5.3.5) = numtype | vectype | reftype ───────────────
+# One discriminant byte:
+#   0x7F i32, 0x7E i64, 0x7D f32, 0x7C f64 (numtype, §5.3.1); 0x7B v128 (§5.3.2);
+#   0x63 (ref null ht) / 0x64 (ref ht) — each followed by a heaptype (§5.3.4);
+#   0x69…0x74 — the abstract-heaptype reference shorthands (funcref = 0x70, …).
+# Any other byte is not a valtype and is rejected.
+ValType = struct {
+    head: uint8 where (head >= 0x7B && head <= 0x7F)
+                   || head == 0x63 || head == 0x64
+                   || (head >= 0x69 && head <= 0x74),
+    ht:   optional<HeapType> where head == 0x63 || head == 0x64
+}
+
+# ── Storage / field types (§5.3.7) ───────────────────────────────────
+# storagetype = valtype | packtype (0x77 i16, 0x78 i8). fieldtype adds the
+# mutability flag (mut, §5.3.7: 0x00 const, 0x01 var).
+StorageType = struct {
+    head: uint8 where (head >= 0x7B && head <= 0x7F)
+                   || head == 0x63 || head == 0x64
+                   || (head >= 0x69 && head <= 0x74)
+                   || head == 0x77 || head == 0x78,
+    ht:   optional<HeapType> where head == 0x63 || head == 0x64
+}
+
+FieldType = struct {
+    storage: StorageType,
+    mut:     uint8 where mut <= 1
+}
+
+# ── Composite types (§5.3.7) ─────────────────────────────────────────
+# The composite-type discriminant byte (0x5E array / 0x5F struct / 0x60 func) is
+# consumed by the enclosing entry; these are the payloads that follow it.
+ArrayType = struct {
+    field: FieldType
+}
+StructType = struct {
+    field_count: uleb128,
+    fields:      array<FieldType>[field_count]
+}
+FuncType = struct {
+    param_count:  uleb128,
+    params:       array<ValType>[param_count],
+    result_count: uleb128,
+    results:      array<ValType>[result_count]
+}
+
+# A composite type carrying its own discriminant byte (used inside a sub type).
+# The switch is the single source of valid discriminants — anything else is
+# rejected (fail-closed; no separate `where` list to drift out of sync).
+CompType = struct {
+    head: uint8,
+    body: switch(head) {
+        0x5E: ArrayType;
+        0x5F: StructType;
+        0x60: FuncType;
+        default: reject;
+    }
+}
+
+# ── Recursive / sub types (§5.3.8) ───────────────────────────────────
+# subtype: vec(typeidx) supertypes + a comptype. 0x4F = final, 0x50 = open;
+# the discriminant is consumed by the enclosing entry.
+SubType = struct {
+    super_count: uleb128,
+    supers:      array<uleb128>[super_count],
+    body:        CompType
+}
+
+# A recursive-group member: an explicit sub type (0x4F/0x50) or a bare comptype
+# shorthand (0x5E/0x5F/0x60 ⇒ sub final with no supertypes). Fail-closed.
+RecMember = struct {
+    head: uint8,
+    body: switch(head) {
+        0x4F: SubType;
+        0x50: SubType;
+        0x5E: ArrayType;
+        0x5F: StructType;
+        0x60: FuncType;
+        default: reject;
+    }
+}
+
+RecGroup = struct {
+    count:   uleb128,
+    members: array<RecMember>[count]
+}
+
+# A type-section entry (§5.5.4: type ::= rectype). 0x4E is an explicit recursive
+# group; any other leading byte is a singleton shorthand (a one-member rec group).
+# Fail-closed: an unknown leading byte is rejected, not silently skipped.
+RecType = struct {
+    head: uint8,
+    body: switch(head) {
+        0x4E: RecGroup;
+        0x4F: SubType;
+        0x50: SubType;
+        0x5E: ArrayType;
+        0x5F: StructType;
+        0x60: FuncType;
+        default: reject;
+    }
+}
+
+# ── Type section (id 1, §5.5.4): vec(rectype).
+TypeSection = struct {
+    count: uleb128,
+    types: array<RecType>[count]
+}
+
+# ══ Instructions (§5.4) ══════════════════════════════════════════════
+# The full instruction tree, shared by the binary reader (here) and the text
+# reader (pegc fills these SAME structs). Variants are named by immediate SHAPE,
+# not per-opcode — the `op` byte already names the instruction; the body holds its
+# raw operands. Opcode→shape mapping is taken from the reference decoder
+# (spec interpreter/binary/decode.ml). Unknown/reserved bytes are fail-closed.
+
+# Immediate-operand shapes ------------------------------------------------
+Empty   = struct { }                                    # no immediate
+IdxImm  = struct { x: uleb128 }                         # one index (any index space)
+Idx2Imm = struct { x: uleb128, y: uleb128 }             # two indices
+I32Imm  = struct { v: sleb32 }                          # i32.const
+I64Imm  = struct { v: sleb64 }                          # i64.const
+F32Imm  = struct { v: float32 }                         # f32.const (4 raw LE bytes)
+F64Imm  = struct { v: float64 }                         # f64.const (8 raw LE bytes)
+HeapImm = struct { ht: sleb64 }                         # heaptype s33 (ref.null / ref.test / ref.cast)
+LaneImm = struct { lane: uint8 }                        # SIMD extract/replace lane
+V128Imm = struct { bytes: bytes[16] }                   # v128.const / i8x16.shuffle
+
+# memarg (§5.4.5): align-flags + (memidx if flag bit 6) + offset. The flags
+# field must be < 2^7 — bit 6 selects an explicit memidx, bits 7+ are malformed.
+MemArg = struct {
+    align:  uleb128 where align < 0x80,
+    memidx: optional<uleb128> where (align & 0x40) != 0,
+    offset: uleb64                 # §5.4.5 offset is a u64 (memory64), not u32
+}
+MemLaneImm = struct { mem: MemArg, lane: uint8 }        # v128 load/store lane
+
+BrTable = struct {                                      # br_table: vec(labelidx) + default
+    count:          uleb128,
+    targets:        array<uleb128>[count],
+    default_target: uleb128
+}
+SelectT = struct {                                      # select t*: vec(valtype)
+    count: uleb128,
+    types: array<ValType>[count]
+}
+BrOnCast = struct {                                     # br_on_cast / br_on_cast_fail
+    flags: uint8,
+    label: uleb128,
+    ht1:   sleb64,
+    ht2:   sleb64
+}
+
+# Structured control: a body is instr* terminated by `end` (0x0B). `if` may carry
+# an `else` (0x05) arm. peek() is reliable because each Instr is fully consumed.
+# §5.3.3 blocktype: an s33 — 0x40 (-64) empty / a single-byte valtype / a non-negative
+# typeidx. The two reftype constructors 0x63 (ref null, sleb -29) / 0x64 (ref, sleb -28)
+# are EACH followed by a heaptype (so the blocktype is two LEBs, not one). Decoding bt as
+# a bare sleb64 dropped that trailing heaptype (it was mis-read as the next instruction).
+BlockType = struct {
+    bt: sleb64,
+    ht: optional<HeapType> where bt == -29 || bt == -28
+}
+Block = struct {                                        # block (0x02) / loop (0x03)
+    bt:     BlockType,
+    instrs: array<Instr>(none, until(peek() == 0x0B)),
+    end:    uint8 where end == 0x0B
+}
+ElseClause = struct {
+    marker: uint8 where marker == 0x05,
+    instrs: array<Instr>(none, until(peek() == 0x0B))
+}
+If = struct {                                           # if (0x04)
+    bt:        BlockType,
+    then_body: array<Instr>(none, until(peek() == 0x05 || peek() == 0x0B)),
+    else_body: optional<ElseClause> where peek() == 0x05,
+    end:       uint8 where end == 0x0B
+}
+Catch = struct {                                        # try_table catch clause (4 kinds)
+    kind:  uint8,
+    tag:   optional<uleb128> where kind == 0x00 || kind == 0x01,
+    label: uleb128
+}
+TryTable = struct {                                     # try_table (0x1F)
+    bt:      BlockType,
+    count:   uleb128,
+    catches: array<Catch>[count],
+    instrs:  array<Instr>(none, until(peek() == 0x0B)),
+    end:     uint8 where end == 0x0B
+}
+
+# Prefix sub-tables: read a u32 sub-opcode, then dispatch (fail-closed).
+MiscInstr = struct {                                    # 0xFC (bulk-memory / table / trunc_sat)
+    sub: uleb128,
+    body: switch(sub) {
+        0 .. 7:   Empty;        # i32/i64 trunc_sat_f*
+        8:        Idx2Imm;      # memory.init
+        9:        IdxImm;       # data.drop
+        10:       Idx2Imm;      # memory.copy
+        11:       IdxImm;       # memory.fill
+        12:       Idx2Imm;      # table.init
+        13:       IdxImm;       # elem.drop
+        14:       Idx2Imm;      # table.copy
+        15 .. 17: IdxImm;       # table.grow / table.size / table.fill
+        default:  reject;
+    }
+}
+GcInstr = struct {                                      # 0xFB (GC)
+    sub: uleb128,
+    body: switch(sub) {
+        0 .. 1:   IdxImm;       # struct.new / struct.new_default
+        2 .. 5:   Idx2Imm;      # struct.get / get_s / get_u / set
+        6 .. 7:   IdxImm;       # array.new / array.new_default
+        8 .. 10:  Idx2Imm;      # array.new_fixed / new_data / new_elem
+        11 .. 14: IdxImm;       # array.get / get_s / get_u / set
+        15:       Empty;        # array.len
+        16:       IdxImm;       # array.fill
+        17 .. 19: Idx2Imm;      # array.copy / init_data / init_elem
+        20 .. 23: HeapImm;      # ref.test / ref.test_null / ref.cast / ref.cast_null
+        24 .. 25: BrOnCast;     # br_on_cast / br_on_cast_fail
+        26 .. 30: Empty;        # any.convert_extern .. i31.get_u
+        default:  reject;
+    }
+}
+SimdInstr = struct {                                    # 0xFD (vector)
+    sub: uleb128,
+    body: switch(sub) {
+        0 .. 11:    MemArg;     # v128 loads / store
+        12 .. 13:   V128Imm;    # v128.const / i8x16.shuffle
+        14 .. 20:   Empty;
+        21 .. 34:   LaneImm;    # extract_lane / replace_lane
+        35 .. 83:   Empty;
+        84 .. 91:   MemLaneImm; # v128 load/store lane
+        92 .. 93:   MemArg;     # v128.load32_zero / load64_zero
+        94 .. 153:  Empty;
+        155 .. 161: Empty;
+        163 .. 164: Empty;
+        167 .. 174: Empty;
+        177:        Empty;
+        181 .. 186: Empty;
+        188 .. 193: Empty;
+        195 .. 196: Empty;
+        199 .. 206: Empty;
+        209:        Empty;
+        213 .. 225: Empty;
+        227 .. 237: Empty;
+        239 .. 275: Empty;      # incl. relaxed-SIMD (261..272)
+        default:    reject;
+    }
+}
+
+# An instruction: the opcode byte then its shape-typed immediate body.
+Instr = struct {
+    op: uint8,
+    body: switch(op) {
+        0x00 .. 0x01: Empty;     # unreachable, nop
+        0x02 .. 0x03: Block;     # block, loop
+        0x04:         If;
+        0x08:         IdxImm;    # throw
+        0x0a:         Empty;     # throw_ref
+        0x0c .. 0x0d: IdxImm;    # br, br_if
+        0x0e:         BrTable;
+        0x0f:         Empty;     # return
+        0x10:         IdxImm;    # call
+        0x11:         Idx2Imm;   # call_indirect
+        0x12:         IdxImm;    # return_call
+        0x13:         Idx2Imm;   # return_call_indirect
+        0x14 .. 0x15: IdxImm;    # call_ref, return_call_ref
+        0x1a .. 0x1b: Empty;     # drop, select
+        0x1c:         SelectT;   # select t*
+        0x1f:         TryTable;
+        0x20 .. 0x26: IdxImm;    # local/global/table get/set
+        0x28 .. 0x3e: MemArg;    # loads / stores
+        0x3f .. 0x40: IdxImm;    # memory.size, memory.grow
+        0x41:         I32Imm;
+        0x42:         I64Imm;
+        0x43:         F32Imm;
+        0x44:         F64Imm;
+        0x45 .. 0xc4: Empty;     # numeric (comparison / arithmetic / conversion)
+        0xd0:         HeapImm;   # ref.null
+        0xd1:         Empty;     # ref.is_null
+        0xd2:         IdxImm;    # ref.func
+        0xd3 .. 0xd4: Empty;     # ref.eq, ref.as_non_null
+        0xd5 .. 0xd6: IdxImm;    # br_on_null, br_on_non_null
+        0xfb:         GcInstr;
+        0xfc:         MiscInstr;
+        0xfd:         SimdInstr;
+        default:      reject;
+    }
+}
+
+# An expression (§5.4.9): instr* terminated by `end` (0x0B). The init-expr form
+# in global/element/data segments and the function body both end this way.
+Expr = struct {
+    instrs: array<Instr>(none, until(peek() == 0x0B)),
+    end:    uint8 where end == 0x0B
+}
+
+# Function body (§5.5.13): a vector of local declarations (run-length: a count
+# and a valtype) followed by the body expression. The code section keeps each
+# body as a raw, interval-bounded byte slice for the in-place interpreter; this
+# rule parses that same slice into the shared instruction tree on demand (the
+# representation the text reader produces), exactly like cap.bbq's MethodInfo.
+Locals = struct {
+    count: uleb128,
+    type:  ValType
+}
+# Named FuncBody (not Func) to avoid colliding with the interpreter's runtime
+# jav_func_t in src/jav_frame.h.
+FuncBody = struct {
+    local_count: uleb128,
+    locals:      array<Locals>[local_count],
+    body:        Expr
+}
+
+# ── Function section (id 3): vec(typeidx) — one type index per defined function.
+FunctionSection = struct {
+    count:        uleb128,
+    type_indices: array<uleb128>[count]
+}
+
+# ── Code section (id 10): vec(code). Each entry is its own byte size followed by
+# the function body (a vec(locals) then the instruction expr), parsed into the
+# shared FuncBody tree — the SAME representation the text reader produces, so text
+# and binary meet here and the writer re-serializes from one encoder. `size @rest`
+# bounds the tree parse to the entry's byte length.
+# (The VM loads via the c-lite zero-copy overlay, which records every field's
+# [start,end) interval natively — so the raw body span is the `body` node's own
+# interval; no synthesized offset markers needed.)
+CodeEntry = struct {
+    size:   uleb128 @rest,
+    body:   FuncBody
+}
+CodeSection = struct {
+    count:   uleb128,
+    entries: array<CodeEntry>[count]
+}
+
+# §5.2.4 name validation lives in a hand-written SHARED helper, src/jav_utf8.{c,h}: every
+# reader's name where-clause calls jav_name_utf8_ok, and it's shared across the binary, the
+# .wat text, and the c-lite readers (separate TUs), so it's ONE hand-written definition
+# (linked as jav_utf8.o) rather than the grammar's @source. @header just includes it so the
+# generated readers see the declaration.
+@header (.
+#include "jav_utf8.h"
+.)
+
+# ══ Type vocabulary for the descriptor/segment sections (§5.3) ════════
+# A reference type specifically (the valtype subset legal for tables/elements):
+# explicit (ref [null] ht) or an abstract-heaptype shorthand. Rejects num/vec.
+RefType = struct {
+    head: uint8 where head == 0x63 || head == 0x64 || (head >= 0x69 && head <= 0x74),
+    ht:   optional<HeapType> where head == 0x63 || head == 0x64
+}
+
+# limits (§5.3.9): flag byte — only bit 0 (has-max) and bit 2 (i64 index type)
+# are legal (the spec decoder requires flags & 0xFA == 0); min, then max if present.
+Limits = struct {
+    flag: uint8 where (flag & 0xFA) == 0,
+    min:  uleb64,
+    max:  optional<uleb64> where (flag & 0x01) != 0
+}
+GlobalType = struct {
+    type: ValType,
+    mut:  uint8 where mut <= 1
+}
+TableType = struct {
+    reftype: RefType,
+    limits:  Limits
+}
+TagType = struct {                                  # 0x00 attribute byte + typeidx
+    attr: uint8 where attr == 0x00,
+    type: uleb128
+}
+
+# A length-prefixed name (§5.2.4): vec(byte) that must be valid UTF-8 over
+# Unicode scalar values (the spec's `utf8` grammar; jav_name_utf8_ok above).
+Name    = struct { count: uleb128, bytes: bytes[count] } where jav_name_utf8_ok(bytes)
+ByteVec = struct { count: uleb128, bytes: bytes[count] }
+IdxVec  = struct { count: uleb128, idxs:  array<uleb128>[count] }
+ExprVec = struct { count: uleb128, exprs: array<Expr>[count] }
+
+# ── Import section (id 2, §5.5.5): vec(import). externtype = the import desc.
+ExternType = struct {
+    kind: uint8,
+    body: switch(kind) {
+        0x00: IdxImm;        # func: typeidx
+        0x01: TableType;
+        0x02: Limits;        # mem: memtype = limits
+        0x03: GlobalType;
+        0x04: TagType;
+        default: reject;
+    }
+}
+Import = struct {
+    module: Name,
+    field:  Name,
+    desc:   ExternType
+}
+ImportSection = struct { count: uleb128, imports: array<Import>[count] }
+
+# ── Table section (id 4, §5.5.7): vec(table). A table is a tabletype, or the
+# 0x40 0x00 form carrying an explicit init expr (the tabletype can't start 0x40).
+TablePlain = struct { type: TableType }
+TableInit  = struct {
+    marker0: uint8 where marker0 == 0x40,
+    marker1: uint8 where marker1 == 0x00,
+    type:    TableType,
+    init:    Expr
+}
+Table = switch(peek()) {
+    0x40:    TableInit;
+    default: TablePlain;
+}
+TableSection = struct { count: uleb128, tables: array<Table>[count] }
+
+# ── Memory section (id 5, §5.5.8): vec(memtype) — each a limits.
+MemEntry = struct { limits: Limits }
+MemorySection = struct { count: uleb128, mems: array<MemEntry>[count] }
+
+# ── Global section (id 6, §5.5.9): vec(global) — globaltype + init expr.
+Global = struct { type: GlobalType, init: Expr }
+GlobalSection = struct { count: uleb128, globals: array<Global>[count] }
+
+# ── Export section (id 7, §5.5.10): vec(export) — name + (kind byte, index).
+Export = struct {
+    name: Name,
+    kind: uint8 where kind <= 0x04,    # 0 func, 1 table, 2 mem, 3 global, 4 tag
+    idx:  uleb128
+}
+ExportSection = struct { count: uleb128, exports: array<Export>[count] }
+
+# ── Start section (id 8, §5.5.11): a single funcidx.
+StartSection = struct { func: uleb128 }
+
+# ── Element section (id 9, §5.5.12): vec(elem). The leading u32 flag selects one
+# of 8 segment forms (active/passive/declarative × funcidx-list/expr-list). Mode
+# helpers per the spec decoder: active = tableidx + offset expr; active_zero =
+# offset expr (table 0); passive/declarative carry no bytes; elemkind = 0x00.
+Elem0 = struct { offset: Expr, funcs: IdxVec }                                  # active table 0, funcref
+Elem1 = struct { elemkind: uint8 where elemkind == 0x00, funcs: IdxVec }        # passive
+Elem2 = struct { table: uleb128, offset: Expr,                                  # active explicit table
+                 elemkind: uint8 where elemkind == 0x00, funcs: IdxVec }
+Elem3 = struct { elemkind: uint8 where elemkind == 0x00, funcs: IdxVec }        # declarative
+Elem4 = struct { offset: Expr, exprs: ExprVec }                                 # active table 0, expr init
+Elem5 = struct { reftype: RefType, exprs: ExprVec }                             # passive
+Elem6 = struct { table: uleb128, offset: Expr, reftype: RefType, exprs: ExprVec } # active explicit
+Elem7 = struct { reftype: RefType, exprs: ExprVec }                            # declarative
+Elem = struct {
+    flag: uleb128,
+    body: switch(flag) {
+        0: Elem0; 1: Elem1; 2: Elem2; 3: Elem3;
+        4: Elem4; 5: Elem5; 6: Elem6; 7: Elem7;
+        default: reject;
+    }
+}
+ElementSection = struct { count: uleb128, elems: array<Elem>[count] }
+
+# ── Data section (id 11, §5.5.14): vec(data). Flag 0 active mem 0, 1 passive,
+# 2 active explicit memidx.
+Data0 = struct { offset: Expr, data: ByteVec }
+Data1 = struct { data: ByteVec }
+Data2 = struct { memidx: uleb128, offset: Expr, data: ByteVec }
+Data = struct {
+    flag: uleb128,
+    body: switch(flag) {
+        0: Data0; 1: Data1; 2: Data2;
+        default: reject;
+    }
+}
+DataSection = struct { count: uleb128, datas: array<Data>[count] }
+
+# ── Data count section (id 12, §5.5.15): a single u32.
+DataCountSection = struct { count: uleb128 }
+
+# ── Tag section (id 13, §5.5.16): vec(tagtype).
+TagSection = struct { count: uleb128, tags: array<TagType>[count] }
+
+# ── Custom section (id 0, §5.5.3): a name then uninterpreted bytes filling the
+# rest of the section. `data` uses the section-size interval (Section.size @rest).
+CustomSection = struct {
+    name: Name,
+    data: bytes[@remaining]
+}
+
+# ── A section (§5.5.2): id, payload byte size, payload. The size establishes a
+# `@rest` interval bounding the payload; each id parses its full structure within
+# it (fail-closed — an undefined section id is rejected, not skipped).
+Section = struct {
+    id:   uint8,
+    size: uleb128 @rest,
+    body: switch(id) {
+        0:  CustomSection;
+        1:  TypeSection;
+        2:  ImportSection;
+        3:  FunctionSection;
+        4:  TableSection;
+        5:  MemorySection;
+        6:  GlobalSection;
+        7:  ExportSection;
+        8:  StartSection;
+        9:  ElementSection;
+        10: CodeSection;
+        11: DataSection;
+        12: DataCountSection;
+        13: TagSection;
+        default: reject;
+    }
+}
+
+# ── Module (§5.5.1): magic "\0asm" (00 61 73 6D), version 1, then sections to EOF.
+Module = struct {
+    magic:    uint32 where magic == 0x6D736100,
+    version:  uint32 where version == 1,
+    sections: array<Section>(none, eof)
+}

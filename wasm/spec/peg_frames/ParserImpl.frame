@@ -1,0 +1,19 @@
+-->parser_include
+
+-->namespace_open
+
+void Parser::init(const char* input, int length) {
+    PegCursor::init(input, length);
+    setup_skip();
+}
+
+bool Parser::parse() {
+    skip();
+-->entry_call
+}
+
+-->skip_setup
+
+-->parse_implementations
+
+-->namespace_close

@@ -1,0 +1,4044 @@
+# WebAssembly 3.0 instruction opcode table.
+# GENERATED ONCE by tools/gen_instr_toml.py, joining the reference decoder
+# (interpreter/binary/decode.ml: opcode + shape) with the §7.10 Index of
+# Instructions (WebAssembly.pdf: canonical TEXT mnemonic), by opcode. This
+# file is the artifact; regenerate only when the spec changes. `name` is the
+# .wat text mnemonic. `operands` is the COMPLETE ordered immediate signature
+# (§5.4 binary format, its own vocabulary): index kinds (funcidx/typeidx/…),
+# blocktype, const types (i32/i64/f32/f64), memarg, laneidx, heaptype, castop,
+# byte^16 / laneidx^16, and vec(...) forms. `shape` is a coarse summary of it,
+# cross-checked against `operands`. `opcode` is a byte, or [prefix, sub] for
+# 0xFB/0xFC/0xFD. memarg/memlane entries also carry `align` = natural alignment
+# (log2), the default when the text format omits `align=` (from §6.5.6).
+# `type` is the instruction's typing from the §7.10 Type column, in the
+# spec's own notation (t/t1/t2 metavariables, stack-polymorphic t*);
+# cross-checked against valid.ml's typing arrows where those are
+# closed-form. `traps` is the COMPLETE set of execution-trap conditions,
+# extracted from the reference interpreter (eval.ml Trapping arms; numeric
+# ops via eval_num.ml dispatch into the ixx/fxx/convert raise sites;
+# reduction instructions inherit from the instructions they expand to),
+# spelled as the interpreter's trap messages. traps = [] means the spec
+# defines no trap for the instruction. Host resource exhaustion (call
+# depth) is not a trap and is not listed.
+# 497 instructions. else (0x05) / end (0x0B) excluded (terminators).
+
+[[instr]]
+name = "unreachable"
+opcode = 0x00
+shape = "none"
+operands = []
+type = "[t*1] -> [t*2]"
+traps = ["unreachable executed"]
+
+[[instr]]
+name = "nop"
+opcode = 0x01
+shape = "none"
+operands = []
+type = "[] -> []"
+traps = []
+
+[[instr]]
+name = "block"
+opcode = 0x02
+shape = "block"
+operands = ["blocktype"]
+type = "[t*1] -> [t*2]"
+traps = []
+
+[[instr]]
+name = "loop"
+opcode = 0x03
+shape = "block"
+operands = ["blocktype"]
+type = "[t*1] -> [t*2]"
+traps = []
+
+[[instr]]
+name = "if"
+opcode = 0x04
+shape = "if"
+operands = ["blocktype"]
+type = "[t*1 i32] -> [t*2]"
+traps = []
+
+[[instr]]
+name = "throw"
+opcode = 0x08
+shape = "idx"
+operands = ["tagidx"]
+type = "[t*1 t*x] -> [t*2]"
+traps = []
+
+[[instr]]
+name = "throw_ref"
+opcode = 0x0A
+shape = "none"
+operands = []
+type = "[t*1 exnref] -> [t*2]"
+traps = ["null exception reference"]
+
+[[instr]]
+name = "br"
+opcode = 0x0C
+shape = "idx"
+operands = ["labelidx"]
+type = "[t*1 t*] -> [t*2]"
+traps = []
+
+[[instr]]
+name = "br_if"
+opcode = 0x0D
+shape = "idx"
+operands = ["labelidx"]
+type = "[t* i32] -> [t*]"
+traps = []
+
+[[instr]]
+name = "br_table"
+opcode = 0x0E
+shape = "brtable"
+operands = ["vec(labelidx)", "labelidx"]
+type = "[t*1 t* i32] -> [t*2]"
+traps = []
+
+[[instr]]
+name = "return"
+opcode = 0x0F
+shape = "none"
+operands = []
+type = "[t*1 t*] -> [t*2]"
+traps = []
+
+[[instr]]
+name = "call"
+opcode = 0x10
+shape = "idx"
+operands = ["funcidx"]
+type = "[t*1] -> [t*2]"
+traps = []
+
+[[instr]]
+name = "call_indirect"
+opcode = 0x11
+shape = "idx2"
+operands = ["typeidx", "tableidx"]
+type = "[t*1 i32] -> [t*2]"
+traps = ["indirect call type mismatch", "undefined element", "uninitialized element"]
+
+[[instr]]
+name = "return_call"
+opcode = 0x12
+shape = "idx"
+operands = ["funcidx"]
+type = "[t*1] -> [t*2]"
+traps = []
+
+[[instr]]
+name = "return_call_indirect"
+opcode = 0x13
+shape = "idx2"
+operands = ["typeidx", "tableidx"]
+type = "[t*1 i32] -> [t*2]"
+traps = ["indirect call type mismatch", "undefined element", "uninitialized element"]
+
+[[instr]]
+name = "call_ref"
+opcode = 0x14
+shape = "idx"
+operands = ["typeidx"]
+type = "[t*1 (ref null x)] -> [t*2]"
+traps = ["null function reference"]
+
+[[instr]]
+name = "return_call_ref"
+opcode = 0x15
+shape = "idx"
+operands = ["typeidx"]
+type = "[t*1 (ref null x)] -> [t*2]"
+traps = ["null function reference"]
+
+[[instr]]
+name = "drop"
+opcode = 0x1A
+shape = "none"
+operands = []
+type = "[t] -> []"
+traps = []
+
+[[instr]]
+name = "select"
+opcode = 0x1B
+shape = "none"
+operands = []
+type = "[t t i32] -> [t]"
+traps = []
+
+[[instr]]
+name = "select"
+opcode = 0x1C
+shape = "selectt"
+operands = ["vec(valtype)"]
+type = "[t t i32] -> [t]"
+traps = []
+
+[[instr]]
+name = "try_table"
+opcode = 0x1F
+shape = "trytable"
+operands = ["blocktype", "vec(catch)"]
+type = "[t*1] -> [t*2]"
+traps = []
+
+[[instr]]
+name = "local.get"
+opcode = 0x20
+shape = "idx"
+operands = ["localidx"]
+type = "[] -> [t]"
+traps = []
+
+[[instr]]
+name = "local.set"
+opcode = 0x21
+shape = "idx"
+operands = ["localidx"]
+type = "[t] -> []"
+traps = []
+
+[[instr]]
+name = "local.tee"
+opcode = 0x22
+shape = "idx"
+operands = ["localidx"]
+type = "[t] -> [t]"
+traps = []
+
+[[instr]]
+name = "global.get"
+opcode = 0x23
+shape = "idx"
+operands = ["globalidx"]
+type = "[] -> [t]"
+traps = []
+
+[[instr]]
+name = "global.set"
+opcode = 0x24
+shape = "idx"
+operands = ["globalidx"]
+type = "[t] -> []"
+traps = []
+
+[[instr]]
+name = "table.get"
+opcode = 0x25
+shape = "idx"
+operands = ["tableidx"]
+type = "[at] -> [t]"
+traps = ["out of bounds table access"]
+
+[[instr]]
+name = "table.set"
+opcode = 0x26
+shape = "idx"
+operands = ["tableidx"]
+type = "[at t] -> []"
+traps = ["out of bounds table access"]
+
+[[instr]]
+name = "i32.load"
+opcode = 0x28
+shape = "memarg"
+operands = ["memarg"]
+align = 2
+type = "[at] -> [i32]"
+traps = ["out of bounds memory access"]
+
+[[instr]]
+name = "i64.load"
+opcode = 0x29
+shape = "memarg"
+operands = ["memarg"]
+align = 3
+type = "[at] -> [i64]"
+traps = ["out of bounds memory access"]
+
+[[instr]]
+name = "f32.load"
+opcode = 0x2A
+shape = "memarg"
+operands = ["memarg"]
+align = 2
+type = "[at] -> [f32]"
+traps = ["out of bounds memory access"]
+
+[[instr]]
+name = "f64.load"
+opcode = 0x2B
+shape = "memarg"
+operands = ["memarg"]
+align = 3
+type = "[at] -> [f64]"
+traps = ["out of bounds memory access"]
+
+[[instr]]
+name = "i32.load8_s"
+opcode = 0x2C
+shape = "memarg"
+operands = ["memarg"]
+align = 0
+type = "[at] -> [i32]"
+traps = ["out of bounds memory access"]
+
+[[instr]]
+name = "i32.load8_u"
+opcode = 0x2D
+shape = "memarg"
+operands = ["memarg"]
+align = 0
+type = "[at] -> [i32]"
+traps = ["out of bounds memory access"]
+
+[[instr]]
+name = "i32.load16_s"
+opcode = 0x2E
+shape = "memarg"
+operands = ["memarg"]
+align = 1
+type = "[at] -> [i32]"
+traps = ["out of bounds memory access"]
+
+[[instr]]
+name = "i32.load16_u"
+opcode = 0x2F
+shape = "memarg"
+operands = ["memarg"]
+align = 1
+type = "[at] -> [i32]"
+traps = ["out of bounds memory access"]
+
+[[instr]]
+name = "i64.load8_s"
+opcode = 0x30
+shape = "memarg"
+operands = ["memarg"]
+align = 0
+type = "[at] -> [i64]"
+traps = ["out of bounds memory access"]
+
+[[instr]]
+name = "i64.load8_u"
+opcode = 0x31
+shape = "memarg"
+operands = ["memarg"]
+align = 0
+type = "[at] -> [i64]"
+traps = ["out of bounds memory access"]
+
+[[instr]]
+name = "i64.load16_s"
+opcode = 0x32
+shape = "memarg"
+operands = ["memarg"]
+align = 1
+type = "[at] -> [i64]"
+traps = ["out of bounds memory access"]
+
+[[instr]]
+name = "i64.load16_u"
+opcode = 0x33
+shape = "memarg"
+operands = ["memarg"]
+align = 1
+type = "[at] -> [i64]"
+traps = ["out of bounds memory access"]
+
+[[instr]]
+name = "i64.load32_s"
+opcode = 0x34
+shape = "memarg"
+operands = ["memarg"]
+align = 2
+type = "[at] -> [i64]"
+traps = ["out of bounds memory access"]
+
+[[instr]]
+name = "i64.load32_u"
+opcode = 0x35
+shape = "memarg"
+operands = ["memarg"]
+align = 2
+type = "[at] -> [i64]"
+traps = ["out of bounds memory access"]
+
+[[instr]]
+name = "i32.store"
+opcode = 0x36
+shape = "memarg"
+operands = ["memarg"]
+align = 2
+type = "[at i32] -> []"
+traps = ["out of bounds memory access"]
+
+[[instr]]
+name = "i64.store"
+opcode = 0x37
+shape = "memarg"
+operands = ["memarg"]
+align = 3
+type = "[at i64] -> []"
+traps = ["out of bounds memory access"]
+
+[[instr]]
+name = "f32.store"
+opcode = 0x38
+shape = "memarg"
+operands = ["memarg"]
+align = 2
+type = "[at f32] -> []"
+traps = ["out of bounds memory access"]
+
+[[instr]]
+name = "f64.store"
+opcode = 0x39
+shape = "memarg"
+operands = ["memarg"]
+align = 3
+type = "[at f64] -> []"
+traps = ["out of bounds memory access"]
+
+[[instr]]
+name = "i32.store8"
+opcode = 0x3A
+shape = "memarg"
+operands = ["memarg"]
+align = 0
+type = "[at i32] -> []"
+traps = ["out of bounds memory access"]
+
+[[instr]]
+name = "i32.store16"
+opcode = 0x3B
+shape = "memarg"
+operands = ["memarg"]
+align = 1
+type = "[at i32] -> []"
+traps = ["out of bounds memory access"]
+
+[[instr]]
+name = "i64.store8"
+opcode = 0x3C
+shape = "memarg"
+operands = ["memarg"]
+align = 0
+type = "[at i64] -> []"
+traps = ["out of bounds memory access"]
+
+[[instr]]
+name = "i64.store16"
+opcode = 0x3D
+shape = "memarg"
+operands = ["memarg"]
+align = 1
+type = "[at i64] -> []"
+traps = ["out of bounds memory access"]
+
+[[instr]]
+name = "i64.store32"
+opcode = 0x3E
+shape = "memarg"
+operands = ["memarg"]
+align = 2
+type = "[at i64] -> []"
+traps = ["out of bounds memory access"]
+
+[[instr]]
+name = "memory.size"
+opcode = 0x3F
+shape = "idx"
+operands = ["memidx"]
+type = "[] -> [at]"
+traps = []
+
+[[instr]]
+name = "memory.grow"
+opcode = 0x40
+shape = "idx"
+operands = ["memidx"]
+type = "[at] -> [at]"
+traps = []
+
+[[instr]]
+name = "i32.const"
+opcode = 0x41
+shape = "i32"
+operands = ["i32"]
+type = "[] -> [i32]"
+traps = []
+
+[[instr]]
+name = "i64.const"
+opcode = 0x42
+shape = "i64"
+operands = ["i64"]
+type = "[] -> [i64]"
+traps = []
+
+[[instr]]
+name = "f32.const"
+opcode = 0x43
+shape = "f32"
+operands = ["f32"]
+type = "[] -> [f32]"
+traps = []
+
+[[instr]]
+name = "f64.const"
+opcode = 0x44
+shape = "f64"
+operands = ["f64"]
+type = "[] -> [f64]"
+traps = []
+
+[[instr]]
+name = "i32.eqz"
+opcode = 0x45
+shape = "none"
+operands = []
+type = "[i32] -> [i32]"
+traps = []
+
+[[instr]]
+name = "i32.eq"
+opcode = 0x46
+shape = "none"
+operands = []
+type = "[i32 i32] -> [i32]"
+traps = []
+
+[[instr]]
+name = "i32.ne"
+opcode = 0x47
+shape = "none"
+operands = []
+type = "[i32 i32] -> [i32]"
+traps = []
+
+[[instr]]
+name = "i32.lt_s"
+opcode = 0x48
+shape = "none"
+operands = []
+type = "[i32 i32] -> [i32]"
+traps = []
+
+[[instr]]
+name = "i32.lt_u"
+opcode = 0x49
+shape = "none"
+operands = []
+type = "[i32 i32] -> [i32]"
+traps = []
+
+[[instr]]
+name = "i32.gt_s"
+opcode = 0x4A
+shape = "none"
+operands = []
+type = "[i32 i32] -> [i32]"
+traps = []
+
+[[instr]]
+name = "i32.gt_u"
+opcode = 0x4B
+shape = "none"
+operands = []
+type = "[i32 i32] -> [i32]"
+traps = []
+
+[[instr]]
+name = "i32.le_s"
+opcode = 0x4C
+shape = "none"
+operands = []
+type = "[i32 i32] -> [i32]"
+traps = []
+
+[[instr]]
+name = "i32.le_u"
+opcode = 0x4D
+shape = "none"
+operands = []
+type = "[i32 i32] -> [i32]"
+traps = []
+
+[[instr]]
+name = "i32.ge_s"
+opcode = 0x4E
+shape = "none"
+operands = []
+type = "[i32 i32] -> [i32]"
+traps = []
+
+[[instr]]
+name = "i32.ge_u"
+opcode = 0x4F
+shape = "none"
+operands = []
+type = "[i32 i32] -> [i32]"
+traps = []
+
+[[instr]]
+name = "i64.eqz"
+opcode = 0x50
+shape = "none"
+operands = []
+type = "[i64] -> [i32]"
+traps = []
+
+[[instr]]
+name = "i64.eq"
+opcode = 0x51
+shape = "none"
+operands = []
+type = "[i64 i64] -> [i32]"
+traps = []
+
+[[instr]]
+name = "i64.ne"
+opcode = 0x52
+shape = "none"
+operands = []
+type = "[i64 i64] -> [i32]"
+traps = []
+
+[[instr]]
+name = "i64.lt_s"
+opcode = 0x53
+shape = "none"
+operands = []
+type = "[i64 i64] -> [i32]"
+traps = []
+
+[[instr]]
+name = "i64.lt_u"
+opcode = 0x54
+shape = "none"
+operands = []
+type = "[i64 i64] -> [i32]"
+traps = []
+
+[[instr]]
+name = "i64.gt_s"
+opcode = 0x55
+shape = "none"
+operands = []
+type = "[i64 i64] -> [i32]"
+traps = []
+
+[[instr]]
+name = "i64.gt_u"
+opcode = 0x56
+shape = "none"
+operands = []
+type = "[i64 i64] -> [i32]"
+traps = []
+
+[[instr]]
+name = "i64.le_s"
+opcode = 0x57
+shape = "none"
+operands = []
+type = "[i64 i64] -> [i32]"
+traps = []
+
+[[instr]]
+name = "i64.le_u"
+opcode = 0x58
+shape = "none"
+operands = []
+type = "[i64 i64] -> [i32]"
+traps = []
+
+[[instr]]
+name = "i64.ge_s"
+opcode = 0x59
+shape = "none"
+operands = []
+type = "[i64 i64] -> [i32]"
+traps = []
+
+[[instr]]
+name = "i64.ge_u"
+opcode = 0x5A
+shape = "none"
+operands = []
+type = "[i64 i64] -> [i32]"
+traps = []
+
+[[instr]]
+name = "f32.eq"
+opcode = 0x5B
+shape = "none"
+operands = []
+type = "[f32 f32] -> [i32]"
+traps = []
+
+[[instr]]
+name = "f32.ne"
+opcode = 0x5C
+shape = "none"
+operands = []
+type = "[f32 f32] -> [i32]"
+traps = []
+
+[[instr]]
+name = "f32.lt"
+opcode = 0x5D
+shape = "none"
+operands = []
+type = "[f32 f32] -> [i32]"
+traps = []
+
+[[instr]]
+name = "f32.gt"
+opcode = 0x5E
+shape = "none"
+operands = []
+type = "[f32 f32] -> [i32]"
+traps = []
+
+[[instr]]
+name = "f32.le"
+opcode = 0x5F
+shape = "none"
+operands = []
+type = "[f32 f32] -> [i32]"
+traps = []
+
+[[instr]]
+name = "f32.ge"
+opcode = 0x60
+shape = "none"
+operands = []
+type = "[f32 f32] -> [i32]"
+traps = []
+
+[[instr]]
+name = "f64.eq"
+opcode = 0x61
+shape = "none"
+operands = []
+type = "[f64 f64] -> [i32]"
+traps = []
+
+[[instr]]
+name = "f64.ne"
+opcode = 0x62
+shape = "none"
+operands = []
+type = "[f64 f64] -> [i32]"
+traps = []
+
+[[instr]]
+name = "f64.lt"
+opcode = 0x63
+shape = "none"
+operands = []
+type = "[f64 f64] -> [i32]"
+traps = []
+
+[[instr]]
+name = "f64.gt"
+opcode = 0x64
+shape = "none"
+operands = []
+type = "[f64 f64] -> [i32]"
+traps = []
+
+[[instr]]
+name = "f64.le"
+opcode = 0x65
+shape = "none"
+operands = []
+type = "[f64 f64] -> [i32]"
+traps = []
+
+[[instr]]
+name = "f64.ge"
+opcode = 0x66
+shape = "none"
+operands = []
+type = "[f64 f64] -> [i32]"
+traps = []
+
+[[instr]]
+name = "i32.clz"
+opcode = 0x67
+shape = "none"
+operands = []
+type = "[i32] -> [i32]"
+traps = []
+
+[[instr]]
+name = "i32.ctz"
+opcode = 0x68
+shape = "none"
+operands = []
+type = "[i32] -> [i32]"
+traps = []
+
+[[instr]]
+name = "i32.popcnt"
+opcode = 0x69
+shape = "none"
+operands = []
+type = "[i32] -> [i32]"
+traps = []
+
+[[instr]]
+name = "i32.add"
+opcode = 0x6A
+shape = "none"
+operands = []
+type = "[i32 i32] -> [i32]"
+traps = []
+
+[[instr]]
+name = "i32.sub"
+opcode = 0x6B
+shape = "none"
+operands = []
+type = "[i32 i32] -> [i32]"
+traps = []
+
+[[instr]]
+name = "i32.mul"
+opcode = 0x6C
+shape = "none"
+operands = []
+type = "[i32 i32] -> [i32]"
+traps = []
+
+[[instr]]
+name = "i32.div_s"
+opcode = 0x6D
+shape = "none"
+operands = []
+type = "[i32 i32] -> [i32]"
+traps = ["integer divide by zero", "integer overflow"]
+
+[[instr]]
+name = "i32.div_u"
+opcode = 0x6E
+shape = "none"
+operands = []
+type = "[i32 i32] -> [i32]"
+traps = ["integer divide by zero"]
+
+[[instr]]
+name = "i32.rem_s"
+opcode = 0x6F
+shape = "none"
+operands = []
+type = "[i32 i32] -> [i32]"
+traps = ["integer divide by zero"]
+
+[[instr]]
+name = "i32.rem_u"
+opcode = 0x70
+shape = "none"
+operands = []
+type = "[i32 i32] -> [i32]"
+traps = ["integer divide by zero"]
+
+[[instr]]
+name = "i32.and"
+opcode = 0x71
+shape = "none"
+operands = []
+type = "[i32 i32] -> [i32]"
+traps = []
+
+[[instr]]
+name = "i32.or"
+opcode = 0x72
+shape = "none"
+operands = []
+type = "[i32 i32] -> [i32]"
+traps = []
+
+[[instr]]
+name = "i32.xor"
+opcode = 0x73
+shape = "none"
+operands = []
+type = "[i32 i32] -> [i32]"
+traps = []
+
+[[instr]]
+name = "i32.shl"
+opcode = 0x74
+shape = "none"
+operands = []
+type = "[i32 i32] -> [i32]"
+traps = []
+
+[[instr]]
+name = "i32.shr_s"
+opcode = 0x75
+shape = "none"
+operands = []
+type = "[i32 i32] -> [i32]"
+traps = []
+
+[[instr]]
+name = "i32.shr_u"
+opcode = 0x76
+shape = "none"
+operands = []
+type = "[i32 i32] -> [i32]"
+traps = []
+
+[[instr]]
+name = "i32.rotl"
+opcode = 0x77
+shape = "none"
+operands = []
+type = "[i32 i32] -> [i32]"
+traps = []
+
+[[instr]]
+name = "i32.rotr"
+opcode = 0x78
+shape = "none"
+operands = []
+type = "[i32 i32] -> [i32]"
+traps = []
+
+[[instr]]
+name = "i64.clz"
+opcode = 0x79
+shape = "none"
+operands = []
+type = "[i64] -> [i64]"
+traps = []
+
+[[instr]]
+name = "i64.ctz"
+opcode = 0x7A
+shape = "none"
+operands = []
+type = "[i64] -> [i64]"
+traps = []
+
+[[instr]]
+name = "i64.popcnt"
+opcode = 0x7B
+shape = "none"
+operands = []
+type = "[i64] -> [i64]"
+traps = []
+
+[[instr]]
+name = "i64.add"
+opcode = 0x7C
+shape = "none"
+operands = []
+type = "[i64 i64] -> [i64]"
+traps = []
+
+[[instr]]
+name = "i64.sub"
+opcode = 0x7D
+shape = "none"
+operands = []
+type = "[i64 i64] -> [i64]"
+traps = []
+
+[[instr]]
+name = "i64.mul"
+opcode = 0x7E
+shape = "none"
+operands = []
+type = "[i64 i64] -> [i64]"
+traps = []
+
+[[instr]]
+name = "i64.div_s"
+opcode = 0x7F
+shape = "none"
+operands = []
+type = "[i64 i64] -> [i64]"
+traps = ["integer divide by zero", "integer overflow"]
+
+[[instr]]
+name = "i64.div_u"
+opcode = 0x80
+shape = "none"
+operands = []
+type = "[i64 i64] -> [i64]"
+traps = ["integer divide by zero"]
+
+[[instr]]
+name = "i64.rem_s"
+opcode = 0x81
+shape = "none"
+operands = []
+type = "[i64 i64] -> [i64]"
+traps = ["integer divide by zero"]
+
+[[instr]]
+name = "i64.rem_u"
+opcode = 0x82
+shape = "none"
+operands = []
+type = "[i64 i64] -> [i64]"
+traps = ["integer divide by zero"]
+
+[[instr]]
+name = "i64.and"
+opcode = 0x83
+shape = "none"
+operands = []
+type = "[i64 i64] -> [i64]"
+traps = []
+
+[[instr]]
+name = "i64.or"
+opcode = 0x84
+shape = "none"
+operands = []
+type = "[i64 i64] -> [i64]"
+traps = []
+
+[[instr]]
+name = "i64.xor"
+opcode = 0x85
+shape = "none"
+operands = []
+type = "[i64 i64] -> [i64]"
+traps = []
+
+[[instr]]
+name = "i64.shl"
+opcode = 0x86
+shape = "none"
+operands = []
+type = "[i64 i64] -> [i64]"
+traps = []
+
+[[instr]]
+name = "i64.shr_s"
+opcode = 0x87
+shape = "none"
+operands = []
+type = "[i64 i64] -> [i64]"
+traps = []
+
+[[instr]]
+name = "i64.shr_u"
+opcode = 0x88
+shape = "none"
+operands = []
+type = "[i64 i64] -> [i64]"
+traps = []
+
+[[instr]]
+name = "i64.rotl"
+opcode = 0x89
+shape = "none"
+operands = []
+type = "[i64 i64] -> [i64]"
+traps = []
+
+[[instr]]
+name = "i64.rotr"
+opcode = 0x8A
+shape = "none"
+operands = []
+type = "[i64 i64] -> [i64]"
+traps = []
+
+[[instr]]
+name = "f32.abs"
+opcode = 0x8B
+shape = "none"
+operands = []
+type = "[f32] -> [f32]"
+traps = []
+
+[[instr]]
+name = "f32.neg"
+opcode = 0x8C
+shape = "none"
+operands = []
+type = "[f32] -> [f32]"
+traps = []
+
+[[instr]]
+name = "f32.ceil"
+opcode = 0x8D
+shape = "none"
+operands = []
+type = "[f32] -> [f32]"
+traps = []
+
+[[instr]]
+name = "f32.floor"
+opcode = 0x8E
+shape = "none"
+operands = []
+type = "[f32] -> [f32]"
+traps = []
+
+[[instr]]
+name = "f32.trunc"
+opcode = 0x8F
+shape = "none"
+operands = []
+type = "[f32] -> [f32]"
+traps = []
+
+[[instr]]
+name = "f32.nearest"
+opcode = 0x90
+shape = "none"
+operands = []
+type = "[f32] -> [f32]"
+traps = []
+
+[[instr]]
+name = "f32.sqrt"
+opcode = 0x91
+shape = "none"
+operands = []
+type = "[f32] -> [f32]"
+traps = []
+
+[[instr]]
+name = "f32.add"
+opcode = 0x92
+shape = "none"
+operands = []
+type = "[f32 f32] -> [f32]"
+traps = []
+
+[[instr]]
+name = "f32.sub"
+opcode = 0x93
+shape = "none"
+operands = []
+type = "[f32 f32] -> [f32]"
+traps = []
+
+[[instr]]
+name = "f32.mul"
+opcode = 0x94
+shape = "none"
+operands = []
+type = "[f32 f32] -> [f32]"
+traps = []
+
+[[instr]]
+name = "f32.div"
+opcode = 0x95
+shape = "none"
+operands = []
+type = "[f32 f32] -> [f32]"
+traps = []
+
+[[instr]]
+name = "f32.min"
+opcode = 0x96
+shape = "none"
+operands = []
+type = "[f32 f32] -> [f32]"
+traps = []
+
+[[instr]]
+name = "f32.max"
+opcode = 0x97
+shape = "none"
+operands = []
+type = "[f32 f32] -> [f32]"
+traps = []
+
+[[instr]]
+name = "f32.copysign"
+opcode = 0x98
+shape = "none"
+operands = []
+type = "[f32 f32] -> [f32]"
+traps = []
+
+[[instr]]
+name = "f64.abs"
+opcode = 0x99
+shape = "none"
+operands = []
+type = "[f64] -> [f64]"
+traps = []
+
+[[instr]]
+name = "f64.neg"
+opcode = 0x9A
+shape = "none"
+operands = []
+type = "[f64] -> [f64]"
+traps = []
+
+[[instr]]
+name = "f64.ceil"
+opcode = 0x9B
+shape = "none"
+operands = []
+type = "[f64] -> [f64]"
+traps = []
+
+[[instr]]
+name = "f64.floor"
+opcode = 0x9C
+shape = "none"
+operands = []
+type = "[f64] -> [f64]"
+traps = []
+
+[[instr]]
+name = "f64.trunc"
+opcode = 0x9D
+shape = "none"
+operands = []
+type = "[f64] -> [f64]"
+traps = []
+
+[[instr]]
+name = "f64.nearest"
+opcode = 0x9E
+shape = "none"
+operands = []
+type = "[f64] -> [f64]"
+traps = []
+
+[[instr]]
+name = "f64.sqrt"
+opcode = 0x9F
+shape = "none"
+operands = []
+type = "[f64] -> [f64]"
+traps = []
+
+[[instr]]
+name = "f64.add"
+opcode = 0xA0
+shape = "none"
+operands = []
+type = "[f64 f64] -> [f64]"
+traps = []
+
+[[instr]]
+name = "f64.sub"
+opcode = 0xA1
+shape = "none"
+operands = []
+type = "[f64 f64] -> [f64]"
+traps = []
+
+[[instr]]
+name = "f64.mul"
+opcode = 0xA2
+shape = "none"
+operands = []
+type = "[f64 f64] -> [f64]"
+traps = []
+
+[[instr]]
+name = "f64.div"
+opcode = 0xA3
+shape = "none"
+operands = []
+type = "[f64 f64] -> [f64]"
+traps = []
+
+[[instr]]
+name = "f64.min"
+opcode = 0xA4
+shape = "none"
+operands = []
+type = "[f64 f64] -> [f64]"
+traps = []
+
+[[instr]]
+name = "f64.max"
+opcode = 0xA5
+shape = "none"
+operands = []
+type = "[f64 f64] -> [f64]"
+traps = []
+
+[[instr]]
+name = "f64.copysign"
+opcode = 0xA6
+shape = "none"
+operands = []
+type = "[f64 f64] -> [f64]"
+traps = []
+
+[[instr]]
+name = "i32.wrap_i64"
+opcode = 0xA7
+shape = "none"
+operands = []
+type = "[i64] -> [i32]"
+traps = []
+
+[[instr]]
+name = "i32.trunc_f32_s"
+opcode = 0xA8
+shape = "none"
+operands = []
+type = "[f32] -> [i32]"
+traps = ["integer overflow", "invalid conversion to integer"]
+
+[[instr]]
+name = "i32.trunc_f32_u"
+opcode = 0xA9
+shape = "none"
+operands = []
+type = "[f32] -> [i32]"
+traps = ["integer overflow", "invalid conversion to integer"]
+
+[[instr]]
+name = "i32.trunc_f64_s"
+opcode = 0xAA
+shape = "none"
+operands = []
+type = "[f64] -> [i32]"
+traps = ["integer overflow", "invalid conversion to integer"]
+
+[[instr]]
+name = "i32.trunc_f64_u"
+opcode = 0xAB
+shape = "none"
+operands = []
+type = "[f64] -> [i32]"
+traps = ["integer overflow", "invalid conversion to integer"]
+
+[[instr]]
+name = "i64.extend_i32_s"
+opcode = 0xAC
+shape = "none"
+operands = []
+type = "[i32] -> [i64]"
+traps = []
+
+[[instr]]
+name = "i64.extend_i32_u"
+opcode = 0xAD
+shape = "none"
+operands = []
+type = "[i32] -> [i64]"
+traps = []
+
+[[instr]]
+name = "i64.trunc_f32_s"
+opcode = 0xAE
+shape = "none"
+operands = []
+type = "[f32] -> [i64]"
+traps = ["integer overflow", "invalid conversion to integer"]
+
+[[instr]]
+name = "i64.trunc_f32_u"
+opcode = 0xAF
+shape = "none"
+operands = []
+type = "[f32] -> [i64]"
+traps = ["integer overflow", "invalid conversion to integer"]
+
+[[instr]]
+name = "i64.trunc_f64_s"
+opcode = 0xB0
+shape = "none"
+operands = []
+type = "[f64] -> [i64]"
+traps = ["integer overflow", "invalid conversion to integer"]
+
+[[instr]]
+name = "i64.trunc_f64_u"
+opcode = 0xB1
+shape = "none"
+operands = []
+type = "[f64] -> [i64]"
+traps = ["integer overflow", "invalid conversion to integer"]
+
+[[instr]]
+name = "f32.convert_i32_s"
+opcode = 0xB2
+shape = "none"
+operands = []
+type = "[i32] -> [f32]"
+traps = []
+
+[[instr]]
+name = "f32.convert_i32_u"
+opcode = 0xB3
+shape = "none"
+operands = []
+type = "[i32] -> [f32]"
+traps = []
+
+[[instr]]
+name = "f32.convert_i64_s"
+opcode = 0xB4
+shape = "none"
+operands = []
+type = "[i64] -> [f32]"
+traps = []
+
+[[instr]]
+name = "f32.convert_i64_u"
+opcode = 0xB5
+shape = "none"
+operands = []
+type = "[i64] -> [f32]"
+traps = []
+
+[[instr]]
+name = "f32.demote_f64"
+opcode = 0xB6
+shape = "none"
+operands = []
+type = "[f64] -> [f32]"
+traps = []
+
+[[instr]]
+name = "f64.convert_i32_s"
+opcode = 0xB7
+shape = "none"
+operands = []
+type = "[i32] -> [f64]"
+traps = []
+
+[[instr]]
+name = "f64.convert_i32_u"
+opcode = 0xB8
+shape = "none"
+operands = []
+type = "[i32] -> [f64]"
+traps = []
+
+[[instr]]
+name = "f64.convert_i64_s"
+opcode = 0xB9
+shape = "none"
+operands = []
+type = "[i64] -> [f64]"
+traps = []
+
+[[instr]]
+name = "f64.convert_i64_u"
+opcode = 0xBA
+shape = "none"
+operands = []
+type = "[i64] -> [f64]"
+traps = []
+
+[[instr]]
+name = "f64.promote_f32"
+opcode = 0xBB
+shape = "none"
+operands = []
+type = "[f32] -> [f64]"
+traps = []
+
+[[instr]]
+name = "i32.reinterpret_f32"
+opcode = 0xBC
+shape = "none"
+operands = []
+type = "[f32] -> [i32]"
+traps = []
+
+[[instr]]
+name = "i64.reinterpret_f64"
+opcode = 0xBD
+shape = "none"
+operands = []
+type = "[f64] -> [i64]"
+traps = []
+
+[[instr]]
+name = "f32.reinterpret_i32"
+opcode = 0xBE
+shape = "none"
+operands = []
+type = "[i32] -> [f32]"
+traps = []
+
+[[instr]]
+name = "f64.reinterpret_i64"
+opcode = 0xBF
+shape = "none"
+operands = []
+type = "[i64] -> [f64]"
+traps = []
+
+[[instr]]
+name = "i32.extend8_s"
+opcode = 0xC0
+shape = "none"
+operands = []
+type = "[i32] -> [i32]"
+traps = []
+
+[[instr]]
+name = "i32.extend16_s"
+opcode = 0xC1
+shape = "none"
+operands = []
+type = "[i32] -> [i32]"
+traps = []
+
+[[instr]]
+name = "i64.extend8_s"
+opcode = 0xC2
+shape = "none"
+operands = []
+type = "[i64] -> [i64]"
+traps = []
+
+[[instr]]
+name = "i64.extend16_s"
+opcode = 0xC3
+shape = "none"
+operands = []
+type = "[i64] -> [i64]"
+traps = []
+
+[[instr]]
+name = "i64.extend32_s"
+opcode = 0xC4
+shape = "none"
+operands = []
+type = "[i64] -> [i64]"
+traps = []
+
+[[instr]]
+name = "ref.null"
+opcode = 0xD0
+shape = "heap"
+operands = ["heaptype"]
+type = "[] -> [(ref null ht)]"
+traps = []
+
+[[instr]]
+name = "ref.is_null"
+opcode = 0xD1
+shape = "none"
+operands = []
+type = "[(ref null ht)] -> [i32]"
+traps = []
+
+[[instr]]
+name = "ref.func"
+opcode = 0xD2
+shape = "idx"
+operands = ["funcidx"]
+type = "[] -> [ref ht]"
+traps = []
+
+[[instr]]
+name = "ref.eq"
+opcode = 0xD3
+shape = "none"
+operands = []
+type = "[eqref eqref] -> [i32]"
+traps = []
+
+[[instr]]
+name = "ref.as_non_null"
+opcode = 0xD4
+shape = "none"
+operands = []
+type = "[(ref null ht)] -> [(ref ht)]"
+traps = ["null reference"]
+
+[[instr]]
+name = "br_on_null"
+opcode = 0xD5
+shape = "idx"
+operands = ["labelidx"]
+type = "[t* (ref null ht)] -> [t* (ref ht)]"
+traps = []
+
+[[instr]]
+name = "br_on_non_null"
+opcode = 0xD6
+shape = "idx"
+operands = ["labelidx"]
+type = "[t* (ref null ht)] -> [t*]"
+traps = []
+
+[[instr]]
+name = "struct.new"
+opcode = [0xFB, 0]
+shape = "idx"
+operands = ["typeidx"]
+type = "[t*] -> [(ref x)]"
+traps = []
+
+[[instr]]
+name = "struct.new_default"
+opcode = [0xFB, 1]
+shape = "idx"
+operands = ["typeidx"]
+type = "[] -> [(ref x)]"
+traps = []
+
+[[instr]]
+name = "struct.get"
+opcode = [0xFB, 2]
+shape = "idx2"
+operands = ["typeidx", "fieldidx"]
+type = "[(ref null x)] -> [t]"
+traps = ["null structure reference"]
+
+[[instr]]
+name = "struct.get_s"
+opcode = [0xFB, 3]
+shape = "idx2"
+operands = ["typeidx", "fieldidx"]
+type = "[(ref null x)] -> [i32]"
+traps = ["null structure reference"]
+
+[[instr]]
+name = "struct.get_u"
+opcode = [0xFB, 4]
+shape = "idx2"
+operands = ["typeidx", "fieldidx"]
+type = "[(ref null x)] -> [i32]"
+traps = ["null structure reference"]
+
+[[instr]]
+name = "struct.set"
+opcode = [0xFB, 5]
+shape = "idx2"
+operands = ["typeidx", "fieldidx"]
+type = "[(ref null x) t] -> []"
+traps = ["null structure reference"]
+
+[[instr]]
+name = "array.new"
+opcode = [0xFB, 6]
+shape = "idx"
+operands = ["typeidx"]
+type = "[t i32] -> [(ref x)]"
+traps = []
+
+[[instr]]
+name = "array.new_default"
+opcode = [0xFB, 7]
+shape = "idx"
+operands = ["typeidx"]
+type = "[i32] -> [(ref x)]"
+traps = []
+
+[[instr]]
+name = "array.new_fixed"
+opcode = [0xFB, 8]
+shape = "idx2"
+operands = ["typeidx", "u32"]
+type = "[tn] -> [(ref x)]"
+traps = []
+
+[[instr]]
+name = "array.new_data"
+opcode = [0xFB, 9]
+shape = "idx2"
+operands = ["typeidx", "dataidx"]
+type = "[i32 i32] -> [(ref x)]"
+traps = ["out of bounds memory access"]
+
+[[instr]]
+name = "array.new_elem"
+opcode = [0xFB, 10]
+shape = "idx2"
+operands = ["typeidx", "elemidx"]
+type = "[i32 i32] -> [(ref x)]"
+traps = ["out of bounds table access"]
+
+[[instr]]
+name = "array.get"
+opcode = [0xFB, 11]
+shape = "idx"
+operands = ["typeidx"]
+type = "[(ref null x) i32] -> [t]"
+traps = ["null array reference", "out of bounds array access"]
+
+[[instr]]
+name = "array.get_s"
+opcode = [0xFB, 12]
+shape = "idx"
+operands = ["typeidx"]
+type = "[(ref null x) i32] -> [i32]"
+traps = ["null array reference", "out of bounds array access"]
+
+[[instr]]
+name = "array.get_u"
+opcode = [0xFB, 13]
+shape = "idx"
+operands = ["typeidx"]
+type = "[(ref null x) i32] -> [i32]"
+traps = ["null array reference", "out of bounds array access"]
+
+[[instr]]
+name = "array.set"
+opcode = [0xFB, 14]
+shape = "idx"
+operands = ["typeidx"]
+type = "[(ref null x) i32 t] -> []"
+traps = ["null array reference", "out of bounds array access"]
+
+[[instr]]
+name = "array.len"
+opcode = [0xFB, 15]
+shape = "none"
+operands = []
+type = "[(ref null array)] -> [i32]"
+traps = ["null array reference"]
+
+[[instr]]
+name = "array.fill"
+opcode = [0xFB, 16]
+shape = "idx"
+operands = ["typeidx"]
+type = "[(ref null x) i32 t i32] -> []"
+traps = ["null array reference", "out of bounds array access"]
+
+[[instr]]
+name = "array.copy"
+opcode = [0xFB, 17]
+shape = "idx2"
+operands = ["typeidx", "typeidx"]
+type = "[(ref null x) i32 (ref null y) i32 i32] -> []"
+traps = ["null array reference", "out of bounds array access"]
+
+[[instr]]
+name = "array.init_data"
+opcode = [0xFB, 18]
+shape = "idx2"
+operands = ["typeidx", "dataidx"]
+type = "[(ref null x) i32 i32 i32] -> []"
+traps = ["null array reference", "out of bounds array access", "out of bounds memory access"]
+
+[[instr]]
+name = "array.init_elem"
+opcode = [0xFB, 19]
+shape = "idx2"
+operands = ["typeidx", "elemidx"]
+type = "[(ref null x) i32 i32 i32] -> []"
+traps = ["null array reference", "out of bounds array access", "out of bounds table access"]
+
+[[instr]]
+name = "ref.test"
+opcode = [0xFB, 20]
+shape = "heap"
+operands = ["heaptype"]
+type = "[(ref t')] -> [i32]"
+traps = []
+
+[[instr]]
+name = "ref.test"
+opcode = [0xFB, 21]
+shape = "heap"
+operands = ["heaptype"]
+type = "[(ref null t')] -> [i32]"
+traps = []
+
+[[instr]]
+name = "ref.cast"
+opcode = [0xFB, 22]
+shape = "heap"
+operands = ["heaptype"]
+type = "[(ref t')] -> [(ref t)]"
+traps = ["cast failure"]
+
+[[instr]]
+name = "ref.cast"
+opcode = [0xFB, 23]
+shape = "heap"
+operands = ["heaptype"]
+type = "[(ref null t')] -> [(ref null t)]"
+traps = ["cast failure"]
+
+[[instr]]
+name = "br_on_cast"
+opcode = [0xFB, 24]
+shape = "broncast"
+operands = ["castop"]
+type = "[t1] -> [t1 ∖ t2]"
+traps = []
+
+[[instr]]
+name = "br_on_cast_fail"
+opcode = [0xFB, 25]
+shape = "broncast"
+operands = ["castop"]
+type = "[t1] -> [t2]"
+traps = []
+
+[[instr]]
+name = "any.convert_extern"
+opcode = [0xFB, 26]
+shape = "none"
+operands = []
+type = "[(ref null extern)] -> [(ref null any)]"
+traps = []
+
+[[instr]]
+name = "extern.convert_any"
+opcode = [0xFB, 27]
+shape = "none"
+operands = []
+type = "[(ref null any)] -> [(ref null extern)]"
+traps = []
+
+[[instr]]
+name = "ref.i31"
+opcode = [0xFB, 28]
+shape = "none"
+operands = []
+type = "[i32] -> [(ref i31)]"
+traps = []
+
+[[instr]]
+name = "i31.get_s"
+opcode = [0xFB, 29]
+shape = "none"
+operands = []
+type = "[i31ref] -> [i32]"
+traps = ["null i31 reference"]
+
+[[instr]]
+name = "i31.get_u"
+opcode = [0xFB, 30]
+shape = "none"
+operands = []
+type = "[i31ref] -> [i32]"
+traps = ["null i31 reference"]
+
+[[instr]]
+name = "i32.trunc_sat_f32_s"
+opcode = [0xFC, 0]
+shape = "none"
+operands = []
+type = "[f32] -> [i32]"
+traps = []
+
+[[instr]]
+name = "i32.trunc_sat_f32_u"
+opcode = [0xFC, 1]
+shape = "none"
+operands = []
+type = "[f32] -> [i32]"
+traps = []
+
+[[instr]]
+name = "i32.trunc_sat_f64_s"
+opcode = [0xFC, 2]
+shape = "none"
+operands = []
+type = "[f64] -> [i32]"
+traps = []
+
+[[instr]]
+name = "i32.trunc_sat_f64_u"
+opcode = [0xFC, 3]
+shape = "none"
+operands = []
+type = "[f64] -> [i32]"
+traps = []
+
+[[instr]]
+name = "i64.trunc_sat_f32_s"
+opcode = [0xFC, 4]
+shape = "none"
+operands = []
+type = "[f32] -> [i64]"
+traps = []
+
+[[instr]]
+name = "i64.trunc_sat_f32_u"
+opcode = [0xFC, 5]
+shape = "none"
+operands = []
+type = "[f32] -> [i64]"
+traps = []
+
+[[instr]]
+name = "i64.trunc_sat_f64_s"
+opcode = [0xFC, 6]
+shape = "none"
+operands = []
+type = "[f64] -> [i64]"
+traps = []
+
+[[instr]]
+name = "i64.trunc_sat_f64_u"
+opcode = [0xFC, 7]
+shape = "none"
+operands = []
+type = "[f64] -> [i64]"
+traps = []
+
+[[instr]]
+name = "memory.init"
+opcode = [0xFC, 8]
+shape = "idx2"
+operands = ["dataidx", "memidx"]
+type = "[at i32 i32] -> []"
+traps = ["out of bounds memory access"]
+
+[[instr]]
+name = "data.drop"
+opcode = [0xFC, 9]
+shape = "idx"
+operands = ["dataidx"]
+type = "[] -> []"
+traps = []
+
+[[instr]]
+name = "memory.copy"
+opcode = [0xFC, 10]
+shape = "idx2"
+operands = ["memidx", "memidx"]
+type = "[at1 at2 at] -> []"
+traps = ["out of bounds memory access"]
+
+[[instr]]
+name = "memory.fill"
+opcode = [0xFC, 11]
+shape = "idx"
+operands = ["memidx"]
+type = "[at i32 at] -> []"
+traps = ["out of bounds memory access"]
+
+[[instr]]
+name = "table.init"
+opcode = [0xFC, 12]
+shape = "idx2"
+operands = ["elemidx", "tableidx"]
+type = "[at i32 i32] -> []"
+traps = ["out of bounds table access"]
+
+[[instr]]
+name = "elem.drop"
+opcode = [0xFC, 13]
+shape = "idx"
+operands = ["elemidx"]
+type = "[] -> []"
+traps = []
+
+[[instr]]
+name = "table.copy"
+opcode = [0xFC, 14]
+shape = "idx2"
+operands = ["tableidx", "tableidx"]
+type = "[at1 at2 at] -> []"
+traps = ["out of bounds table access"]
+
+[[instr]]
+name = "table.grow"
+opcode = [0xFC, 15]
+shape = "idx"
+operands = ["tableidx"]
+type = "[t at] -> [at]"
+traps = []
+
+[[instr]]
+name = "table.size"
+opcode = [0xFC, 16]
+shape = "idx"
+operands = ["tableidx"]
+type = "[] -> [at]"
+traps = []
+
+[[instr]]
+name = "table.fill"
+opcode = [0xFC, 17]
+shape = "idx"
+operands = ["tableidx"]
+type = "[at t at] -> []"
+traps = ["out of bounds table access"]
+
+[[instr]]
+name = "v128.load"
+opcode = [0xFD, 0]
+shape = "memarg"
+operands = ["memarg"]
+align = 4
+type = "[at] -> [v128]"
+traps = ["out of bounds memory access"]
+
+[[instr]]
+name = "v128.load8x8_s"
+opcode = [0xFD, 1]
+shape = "memarg"
+operands = ["memarg"]
+align = 3
+type = "[at] -> [v128]"
+traps = ["out of bounds memory access"]
+
+[[instr]]
+name = "v128.load8x8_u"
+opcode = [0xFD, 2]
+shape = "memarg"
+operands = ["memarg"]
+align = 3
+type = "[at] -> [v128]"
+traps = ["out of bounds memory access"]
+
+[[instr]]
+name = "v128.load16x4_s"
+opcode = [0xFD, 3]
+shape = "memarg"
+operands = ["memarg"]
+align = 3
+type = "[at] -> [v128]"
+traps = ["out of bounds memory access"]
+
+[[instr]]
+name = "v128.load16x4_u"
+opcode = [0xFD, 4]
+shape = "memarg"
+operands = ["memarg"]
+align = 3
+type = "[at] -> [v128]"
+traps = ["out of bounds memory access"]
+
+[[instr]]
+name = "v128.load32x2_s"
+opcode = [0xFD, 5]
+shape = "memarg"
+operands = ["memarg"]
+align = 3
+type = "[at] -> [v128]"
+traps = ["out of bounds memory access"]
+
+[[instr]]
+name = "v128.load32x2_u"
+opcode = [0xFD, 6]
+shape = "memarg"
+operands = ["memarg"]
+align = 3
+type = "[at] -> [v128]"
+traps = ["out of bounds memory access"]
+
+[[instr]]
+name = "v128.load8_splat"
+opcode = [0xFD, 7]
+shape = "memarg"
+operands = ["memarg"]
+align = 0
+type = "[at] -> [v128]"
+traps = ["out of bounds memory access"]
+
+[[instr]]
+name = "v128.load16_splat"
+opcode = [0xFD, 8]
+shape = "memarg"
+operands = ["memarg"]
+align = 1
+type = "[at] -> [v128]"
+traps = ["out of bounds memory access"]
+
+[[instr]]
+name = "v128.load32_splat"
+opcode = [0xFD, 9]
+shape = "memarg"
+operands = ["memarg"]
+align = 2
+type = "[at] -> [v128]"
+traps = ["out of bounds memory access"]
+
+[[instr]]
+name = "v128.load64_splat"
+opcode = [0xFD, 10]
+shape = "memarg"
+operands = ["memarg"]
+align = 3
+type = "[at] -> [v128]"
+traps = ["out of bounds memory access"]
+
+[[instr]]
+name = "v128.store"
+opcode = [0xFD, 11]
+shape = "memarg"
+operands = ["memarg"]
+align = 4
+type = "[at v128] -> []"
+traps = ["out of bounds memory access"]
+
+[[instr]]
+name = "v128.const"
+opcode = [0xFD, 12]
+shape = "v128"
+operands = ["byte^16"]
+type = "[] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i8x16.shuffle"
+opcode = [0xFD, 13]
+shape = "v128"
+operands = ["laneidx^16"]
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i8x16.swizzle"
+opcode = [0xFD, 14]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i8x16.splat"
+opcode = [0xFD, 15]
+shape = "none"
+operands = []
+type = "[i32] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i16x8.splat"
+opcode = [0xFD, 16]
+shape = "none"
+operands = []
+type = "[i32] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i32x4.splat"
+opcode = [0xFD, 17]
+shape = "none"
+operands = []
+type = "[i32] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i64x2.splat"
+opcode = [0xFD, 18]
+shape = "none"
+operands = []
+type = "[i64] -> [v128]"
+traps = []
+
+[[instr]]
+name = "f32x4.splat"
+opcode = [0xFD, 19]
+shape = "none"
+operands = []
+type = "[f32] -> [v128]"
+traps = []
+
+[[instr]]
+name = "f64x2.splat"
+opcode = [0xFD, 20]
+shape = "none"
+operands = []
+type = "[f64] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i8x16.extract_lane_s"
+opcode = [0xFD, 21]
+shape = "lane"
+operands = ["laneidx"]
+type = "[v128] -> [i32]"
+traps = []
+
+[[instr]]
+name = "i8x16.extract_lane_u"
+opcode = [0xFD, 22]
+shape = "lane"
+operands = ["laneidx"]
+type = "[v128] -> [i32]"
+traps = []
+
+[[instr]]
+name = "i8x16.replace_lane"
+opcode = [0xFD, 23]
+shape = "lane"
+operands = ["laneidx"]
+type = "[v128 i32] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i16x8.extract_lane_s"
+opcode = [0xFD, 24]
+shape = "lane"
+operands = ["laneidx"]
+type = "[v128] -> [i32]"
+traps = []
+
+[[instr]]
+name = "i16x8.extract_lane_u"
+opcode = [0xFD, 25]
+shape = "lane"
+operands = ["laneidx"]
+type = "[v128] -> [i32]"
+traps = []
+
+[[instr]]
+name = "i16x8.replace_lane"
+opcode = [0xFD, 26]
+shape = "lane"
+operands = ["laneidx"]
+type = "[v128 i32] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i32x4.extract_lane"
+opcode = [0xFD, 27]
+shape = "lane"
+operands = ["laneidx"]
+type = "[v128] -> [i32]"
+traps = []
+
+[[instr]]
+name = "i32x4.replace_lane"
+opcode = [0xFD, 28]
+shape = "lane"
+operands = ["laneidx"]
+type = "[v128 i32] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i64x2.extract_lane"
+opcode = [0xFD, 29]
+shape = "lane"
+operands = ["laneidx"]
+type = "[v128] -> [i64]"
+traps = []
+
+[[instr]]
+name = "i64x2.replace_lane"
+opcode = [0xFD, 30]
+shape = "lane"
+operands = ["laneidx"]
+type = "[v128 i64] -> [v128]"
+traps = []
+
+[[instr]]
+name = "f32x4.extract_lane"
+opcode = [0xFD, 31]
+shape = "lane"
+operands = ["laneidx"]
+type = "[v128] -> [f32]"
+traps = []
+
+[[instr]]
+name = "f32x4.replace_lane"
+opcode = [0xFD, 32]
+shape = "lane"
+operands = ["laneidx"]
+type = "[v128 f32] -> [v128]"
+traps = []
+
+[[instr]]
+name = "f64x2.extract_lane"
+opcode = [0xFD, 33]
+shape = "lane"
+operands = ["laneidx"]
+type = "[v128] -> [f64]"
+traps = []
+
+[[instr]]
+name = "f64x2.replace_lane"
+opcode = [0xFD, 34]
+shape = "lane"
+operands = ["laneidx"]
+type = "[v128 f64] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i8x16.eq"
+opcode = [0xFD, 35]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i8x16.ne"
+opcode = [0xFD, 36]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i8x16.lt_s"
+opcode = [0xFD, 37]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i8x16.lt_u"
+opcode = [0xFD, 38]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i8x16.gt_s"
+opcode = [0xFD, 39]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i8x16.gt_u"
+opcode = [0xFD, 40]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i8x16.le_s"
+opcode = [0xFD, 41]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i8x16.le_u"
+opcode = [0xFD, 42]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i8x16.ge_s"
+opcode = [0xFD, 43]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i8x16.ge_u"
+opcode = [0xFD, 44]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i16x8.eq"
+opcode = [0xFD, 45]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i16x8.ne"
+opcode = [0xFD, 46]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i16x8.lt_s"
+opcode = [0xFD, 47]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i16x8.lt_u"
+opcode = [0xFD, 48]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i16x8.gt_s"
+opcode = [0xFD, 49]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i16x8.gt_u"
+opcode = [0xFD, 50]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i16x8.le_s"
+opcode = [0xFD, 51]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i16x8.le_u"
+opcode = [0xFD, 52]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i16x8.ge_s"
+opcode = [0xFD, 53]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i16x8.ge_u"
+opcode = [0xFD, 54]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i32x4.eq"
+opcode = [0xFD, 55]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i32x4.ne"
+opcode = [0xFD, 56]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i32x4.lt_s"
+opcode = [0xFD, 57]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i32x4.lt_u"
+opcode = [0xFD, 58]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i32x4.gt_s"
+opcode = [0xFD, 59]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i32x4.gt_u"
+opcode = [0xFD, 60]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i32x4.le_s"
+opcode = [0xFD, 61]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i32x4.le_u"
+opcode = [0xFD, 62]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i32x4.ge_s"
+opcode = [0xFD, 63]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i32x4.ge_u"
+opcode = [0xFD, 64]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "f32x4.eq"
+opcode = [0xFD, 65]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "f32x4.ne"
+opcode = [0xFD, 66]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "f32x4.lt"
+opcode = [0xFD, 67]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "f32x4.gt"
+opcode = [0xFD, 68]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "f32x4.le"
+opcode = [0xFD, 69]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "f32x4.ge"
+opcode = [0xFD, 70]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "f64x2.eq"
+opcode = [0xFD, 71]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "f64x2.ne"
+opcode = [0xFD, 72]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "f64x2.lt"
+opcode = [0xFD, 73]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "f64x2.gt"
+opcode = [0xFD, 74]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "f64x2.le"
+opcode = [0xFD, 75]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "f64x2.ge"
+opcode = [0xFD, 76]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "v128.not"
+opcode = [0xFD, 77]
+shape = "none"
+operands = []
+type = "[v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "v128.and"
+opcode = [0xFD, 78]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "v128.andnot"
+opcode = [0xFD, 79]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "v128.or"
+opcode = [0xFD, 80]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "v128.xor"
+opcode = [0xFD, 81]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "v128.bitselect"
+opcode = [0xFD, 82]
+shape = "none"
+operands = []
+type = "[v128 v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "v128.any_true"
+opcode = [0xFD, 83]
+shape = "none"
+operands = []
+type = "[v128] -> [i32]"
+traps = []
+
+[[instr]]
+name = "v128.load8_lane"
+opcode = [0xFD, 84]
+shape = "memlane"
+operands = ["memarg", "laneidx"]
+align = 0
+type = "[at v128] -> [v128]"
+traps = ["out of bounds memory access"]
+
+[[instr]]
+name = "v128.load16_lane"
+opcode = [0xFD, 85]
+shape = "memlane"
+operands = ["memarg", "laneidx"]
+align = 1
+type = "[at v128] -> [v128]"
+traps = ["out of bounds memory access"]
+
+[[instr]]
+name = "v128.load32_lane"
+opcode = [0xFD, 86]
+shape = "memlane"
+operands = ["memarg", "laneidx"]
+align = 2
+type = "[at v128] -> [v128]"
+traps = ["out of bounds memory access"]
+
+[[instr]]
+name = "v128.load64_lane"
+opcode = [0xFD, 87]
+shape = "memlane"
+operands = ["memarg", "laneidx"]
+align = 3
+type = "[at v128] -> [v128]"
+traps = ["out of bounds memory access"]
+
+[[instr]]
+name = "v128.store8_lane"
+opcode = [0xFD, 88]
+shape = "memlane"
+operands = ["memarg", "laneidx"]
+align = 0
+type = "[at v128] -> []"
+traps = ["out of bounds memory access"]
+
+[[instr]]
+name = "v128.store16_lane"
+opcode = [0xFD, 89]
+shape = "memlane"
+operands = ["memarg", "laneidx"]
+align = 1
+type = "[at v128] -> []"
+traps = ["out of bounds memory access"]
+
+[[instr]]
+name = "v128.store32_lane"
+opcode = [0xFD, 90]
+shape = "memlane"
+operands = ["memarg", "laneidx"]
+align = 2
+type = "[at v128] -> []"
+traps = ["out of bounds memory access"]
+
+[[instr]]
+name = "v128.store64_lane"
+opcode = [0xFD, 91]
+shape = "memlane"
+operands = ["memarg", "laneidx"]
+align = 3
+type = "[at v128] -> []"
+traps = ["out of bounds memory access"]
+
+[[instr]]
+name = "v128.load32_zero"
+opcode = [0xFD, 92]
+shape = "memarg"
+operands = ["memarg"]
+align = 2
+type = "[at] -> [v128]"
+traps = ["out of bounds memory access"]
+
+[[instr]]
+name = "v128.load64_zero"
+opcode = [0xFD, 93]
+shape = "memarg"
+operands = ["memarg"]
+align = 3
+type = "[at] -> [v128]"
+traps = ["out of bounds memory access"]
+
+[[instr]]
+name = "f32x4.demote_f64x2_zero"
+opcode = [0xFD, 94]
+shape = "none"
+operands = []
+type = "[v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "f64x2.promote_low_f32x4"
+opcode = [0xFD, 95]
+shape = "none"
+operands = []
+type = "[v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i8x16.abs"
+opcode = [0xFD, 96]
+shape = "none"
+operands = []
+type = "[v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i8x16.neg"
+opcode = [0xFD, 97]
+shape = "none"
+operands = []
+type = "[v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i8x16.popcnt"
+opcode = [0xFD, 98]
+shape = "none"
+operands = []
+type = "[v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i8x16.all_true"
+opcode = [0xFD, 99]
+shape = "none"
+operands = []
+type = "[v128] -> [i32]"
+traps = []
+
+[[instr]]
+name = "i8x16.bitmask"
+opcode = [0xFD, 100]
+shape = "none"
+operands = []
+type = "[v128] -> [i32]"
+traps = []
+
+[[instr]]
+name = "i8x16.narrow_i16x8_s"
+opcode = [0xFD, 101]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i8x16.narrow_i16x8_u"
+opcode = [0xFD, 102]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "f32x4.ceil"
+opcode = [0xFD, 103]
+shape = "none"
+operands = []
+type = "[v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "f32x4.floor"
+opcode = [0xFD, 104]
+shape = "none"
+operands = []
+type = "[v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "f32x4.trunc"
+opcode = [0xFD, 105]
+shape = "none"
+operands = []
+type = "[v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "f32x4.nearest"
+opcode = [0xFD, 106]
+shape = "none"
+operands = []
+type = "[v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i8x16.shl"
+opcode = [0xFD, 107]
+shape = "none"
+operands = []
+type = "[v128 i32] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i8x16.shr_s"
+opcode = [0xFD, 108]
+shape = "none"
+operands = []
+type = "[v128 i32] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i8x16.shr_u"
+opcode = [0xFD, 109]
+shape = "none"
+operands = []
+type = "[v128 i32] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i8x16.add"
+opcode = [0xFD, 110]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i8x16.add_sat_s"
+opcode = [0xFD, 111]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i8x16.add_sat_u"
+opcode = [0xFD, 112]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i8x16.sub"
+opcode = [0xFD, 113]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i8x16.sub_sat_s"
+opcode = [0xFD, 114]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i8x16.sub_sat_u"
+opcode = [0xFD, 115]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "f64x2.ceil"
+opcode = [0xFD, 116]
+shape = "none"
+operands = []
+type = "[v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "f64x2.floor"
+opcode = [0xFD, 117]
+shape = "none"
+operands = []
+type = "[v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i8x16.min_s"
+opcode = [0xFD, 118]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i8x16.min_u"
+opcode = [0xFD, 119]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i8x16.max_s"
+opcode = [0xFD, 120]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i8x16.max_u"
+opcode = [0xFD, 121]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "f64x2.trunc"
+opcode = [0xFD, 122]
+shape = "none"
+operands = []
+type = "[v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i8x16.avgr_u"
+opcode = [0xFD, 123]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i16x8.extadd_pairwise_i8x16_s"
+opcode = [0xFD, 124]
+shape = "none"
+operands = []
+type = "[v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i16x8.extadd_pairwise_i8x16_u"
+opcode = [0xFD, 125]
+shape = "none"
+operands = []
+type = "[v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i32x4.extadd_pairwise_i16x8_s"
+opcode = [0xFD, 126]
+shape = "none"
+operands = []
+type = "[v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i32x4.extadd_pairwise_i16x8_u"
+opcode = [0xFD, 127]
+shape = "none"
+operands = []
+type = "[v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i16x8.abs"
+opcode = [0xFD, 128]
+shape = "none"
+operands = []
+type = "[v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i16x8.neg"
+opcode = [0xFD, 129]
+shape = "none"
+operands = []
+type = "[v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i16x8.q15mulr_sat_s"
+opcode = [0xFD, 130]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i16x8.all_true"
+opcode = [0xFD, 131]
+shape = "none"
+operands = []
+type = "[v128] -> [i32]"
+traps = []
+
+[[instr]]
+name = "i16x8.bitmask"
+opcode = [0xFD, 132]
+shape = "none"
+operands = []
+type = "[v128] -> [i32]"
+traps = []
+
+[[instr]]
+name = "i16x8.narrow_i32x4_s"
+opcode = [0xFD, 133]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i16x8.narrow_i32x4_u"
+opcode = [0xFD, 134]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i16x8.extend_low_i8x16_s"
+opcode = [0xFD, 135]
+shape = "none"
+operands = []
+type = "[v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i16x8.extend_high_i8x16_s"
+opcode = [0xFD, 136]
+shape = "none"
+operands = []
+type = "[v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i16x8.extend_low_i8x16_u"
+opcode = [0xFD, 137]
+shape = "none"
+operands = []
+type = "[v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i16x8.extend_high_i8x16_u"
+opcode = [0xFD, 138]
+shape = "none"
+operands = []
+type = "[v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i16x8.shl"
+opcode = [0xFD, 139]
+shape = "none"
+operands = []
+type = "[v128 i32] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i16x8.shr_s"
+opcode = [0xFD, 140]
+shape = "none"
+operands = []
+type = "[v128 i32] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i16x8.shr_u"
+opcode = [0xFD, 141]
+shape = "none"
+operands = []
+type = "[v128 i32] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i16x8.add"
+opcode = [0xFD, 142]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i16x8.add_sat_s"
+opcode = [0xFD, 143]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i16x8.add_sat_u"
+opcode = [0xFD, 144]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i16x8.sub"
+opcode = [0xFD, 145]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i16x8.sub_sat_s"
+opcode = [0xFD, 146]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i16x8.sub_sat_u"
+opcode = [0xFD, 147]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "f64x2.nearest"
+opcode = [0xFD, 148]
+shape = "none"
+operands = []
+type = "[v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i16x8.mul"
+opcode = [0xFD, 149]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i16x8.min_s"
+opcode = [0xFD, 150]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i16x8.min_u"
+opcode = [0xFD, 151]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i16x8.max_s"
+opcode = [0xFD, 152]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i16x8.max_u"
+opcode = [0xFD, 153]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i16x8.avgr_u"
+opcode = [0xFD, 155]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i16x8.extmul_low_i8x16_s"
+opcode = [0xFD, 156]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i16x8.extmul_high_i8x16_s"
+opcode = [0xFD, 157]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i16x8.extmul_low_i8x16_u"
+opcode = [0xFD, 158]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i16x8.extmul_high_i8x16_u"
+opcode = [0xFD, 159]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i32x4.abs"
+opcode = [0xFD, 160]
+shape = "none"
+operands = []
+type = "[v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i32x4.neg"
+opcode = [0xFD, 161]
+shape = "none"
+operands = []
+type = "[v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i32x4.all_true"
+opcode = [0xFD, 163]
+shape = "none"
+operands = []
+type = "[v128] -> [i32]"
+traps = []
+
+[[instr]]
+name = "i32x4.bitmask"
+opcode = [0xFD, 164]
+shape = "none"
+operands = []
+type = "[v128] -> [i32]"
+traps = []
+
+[[instr]]
+name = "i32x4.extend_low_i16x8_s"
+opcode = [0xFD, 167]
+shape = "none"
+operands = []
+type = "[v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i32x4.extend_high_i16x8_s"
+opcode = [0xFD, 168]
+shape = "none"
+operands = []
+type = "[v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i32x4.extend_low_i16x8_u"
+opcode = [0xFD, 169]
+shape = "none"
+operands = []
+type = "[v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i32x4.extend_high_i16x8_u"
+opcode = [0xFD, 170]
+shape = "none"
+operands = []
+type = "[v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i32x4.shl"
+opcode = [0xFD, 171]
+shape = "none"
+operands = []
+type = "[v128 i32] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i32x4.shr_s"
+opcode = [0xFD, 172]
+shape = "none"
+operands = []
+type = "[v128 i32] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i32x4.shr_u"
+opcode = [0xFD, 173]
+shape = "none"
+operands = []
+type = "[v128 i32] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i32x4.add"
+opcode = [0xFD, 174]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i32x4.sub"
+opcode = [0xFD, 177]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i32x4.mul"
+opcode = [0xFD, 181]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i32x4.min_s"
+opcode = [0xFD, 182]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i32x4.min_u"
+opcode = [0xFD, 183]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i32x4.max_s"
+opcode = [0xFD, 184]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i32x4.max_u"
+opcode = [0xFD, 185]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i32x4.dot_i16x8_s"
+opcode = [0xFD, 186]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i32x4.extmul_low_i16x8_s"
+opcode = [0xFD, 188]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i32x4.extmul_high_i16x8_s"
+opcode = [0xFD, 189]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i32x4.extmul_low_i16x8_u"
+opcode = [0xFD, 190]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i32x4.extmul_high_i16x8_u"
+opcode = [0xFD, 191]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i64x2.abs"
+opcode = [0xFD, 192]
+shape = "none"
+operands = []
+type = "[v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i64x2.neg"
+opcode = [0xFD, 193]
+shape = "none"
+operands = []
+type = "[v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i64x2.all_true"
+opcode = [0xFD, 195]
+shape = "none"
+operands = []
+type = "[v128] -> [i32]"
+traps = []
+
+[[instr]]
+name = "i64x2.bitmask"
+opcode = [0xFD, 196]
+shape = "none"
+operands = []
+type = "[v128] -> [i32]"
+traps = []
+
+[[instr]]
+name = "i64x2.extend_low_i32x4_s"
+opcode = [0xFD, 199]
+shape = "none"
+operands = []
+type = "[v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i64x2.extend_high_i32x4_s"
+opcode = [0xFD, 200]
+shape = "none"
+operands = []
+type = "[v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i64x2.extend_low_i32x4_u"
+opcode = [0xFD, 201]
+shape = "none"
+operands = []
+type = "[v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i64x2.extend_high_i32x4_u"
+opcode = [0xFD, 202]
+shape = "none"
+operands = []
+type = "[v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i64x2.shl"
+opcode = [0xFD, 203]
+shape = "none"
+operands = []
+type = "[v128 i32] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i64x2.shr_s"
+opcode = [0xFD, 204]
+shape = "none"
+operands = []
+type = "[v128 i32] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i64x2.shr_u"
+opcode = [0xFD, 205]
+shape = "none"
+operands = []
+type = "[v128 i32] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i64x2.add"
+opcode = [0xFD, 206]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i64x2.sub"
+opcode = [0xFD, 209]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i64x2.mul"
+opcode = [0xFD, 213]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i64x2.eq"
+opcode = [0xFD, 214]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i64x2.ne"
+opcode = [0xFD, 215]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i64x2.lt_s"
+opcode = [0xFD, 216]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i64x2.gt_s"
+opcode = [0xFD, 217]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i64x2.le_s"
+opcode = [0xFD, 218]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i64x2.ge_s"
+opcode = [0xFD, 219]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i64x2.extmul_low_i32x4_s"
+opcode = [0xFD, 220]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i64x2.extmul_high_i32x4_s"
+opcode = [0xFD, 221]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i64x2.extmul_low_i32x4_u"
+opcode = [0xFD, 222]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i64x2.extmul_high_i32x4_u"
+opcode = [0xFD, 223]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "f32x4.abs"
+opcode = [0xFD, 224]
+shape = "none"
+operands = []
+type = "[v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "f32x4.neg"
+opcode = [0xFD, 225]
+shape = "none"
+operands = []
+type = "[v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "f32x4.sqrt"
+opcode = [0xFD, 227]
+shape = "none"
+operands = []
+type = "[v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "f32x4.add"
+opcode = [0xFD, 228]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "f32x4.sub"
+opcode = [0xFD, 229]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "f32x4.mul"
+opcode = [0xFD, 230]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "f32x4.div"
+opcode = [0xFD, 231]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "f32x4.min"
+opcode = [0xFD, 232]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "f32x4.max"
+opcode = [0xFD, 233]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "f32x4.pmin"
+opcode = [0xFD, 234]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "f32x4.pmax"
+opcode = [0xFD, 235]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "f64x2.abs"
+opcode = [0xFD, 236]
+shape = "none"
+operands = []
+type = "[v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "f64x2.neg"
+opcode = [0xFD, 237]
+shape = "none"
+operands = []
+type = "[v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "f64x2.sqrt"
+opcode = [0xFD, 239]
+shape = "none"
+operands = []
+type = "[v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "f64x2.add"
+opcode = [0xFD, 240]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "f64x2.sub"
+opcode = [0xFD, 241]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "f64x2.mul"
+opcode = [0xFD, 242]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "f64x2.div"
+opcode = [0xFD, 243]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "f64x2.min"
+opcode = [0xFD, 244]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "f64x2.max"
+opcode = [0xFD, 245]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "f64x2.pmin"
+opcode = [0xFD, 246]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "f64x2.pmax"
+opcode = [0xFD, 247]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i32x4.trunc_sat_f32x4_s"
+opcode = [0xFD, 248]
+shape = "none"
+operands = []
+type = "[v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i32x4.trunc_sat_f32x4_u"
+opcode = [0xFD, 249]
+shape = "none"
+operands = []
+type = "[v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "f32x4.convert_i32x4_s"
+opcode = [0xFD, 250]
+shape = "none"
+operands = []
+type = "[v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "f32x4.convert_i32x4_u"
+opcode = [0xFD, 251]
+shape = "none"
+operands = []
+type = "[v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i32x4.trunc_sat_f64x2_s_zero"
+opcode = [0xFD, 252]
+shape = "none"
+operands = []
+type = "[v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i32x4.trunc_sat_f64x2_u_zero"
+opcode = [0xFD, 253]
+shape = "none"
+operands = []
+type = "[v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "f64x2.convert_low_i32x4_s"
+opcode = [0xFD, 254]
+shape = "none"
+operands = []
+type = "[v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "f64x2.convert_low_i32x4_u"
+opcode = [0xFD, 255]
+shape = "none"
+operands = []
+type = "[v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i8x16.relaxed_swizzle"
+opcode = [0xFD, 256]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i32x4.relaxed_trunc_f32x4_s"
+opcode = [0xFD, 257]
+shape = "none"
+operands = []
+type = "[v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i32x4.relaxed_trunc_f32x4_u"
+opcode = [0xFD, 258]
+shape = "none"
+operands = []
+type = "[v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i32x4.relaxed_trunc_f64x2_s_zero"
+opcode = [0xFD, 259]
+shape = "none"
+operands = []
+type = "[v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i32x4.relaxed_trunc_f64x2_u_zero"
+opcode = [0xFD, 260]
+shape = "none"
+operands = []
+type = "[v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "f32x4.relaxed_madd"
+opcode = [0xFD, 261]
+shape = "none"
+operands = []
+type = "[v128 v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "f32x4.relaxed_nmadd"
+opcode = [0xFD, 262]
+shape = "none"
+operands = []
+type = "[v128 v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "f64x2.relaxed_madd"
+opcode = [0xFD, 263]
+shape = "none"
+operands = []
+type = "[v128 v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "f64x2.relaxed_nmadd"
+opcode = [0xFD, 264]
+shape = "none"
+operands = []
+type = "[v128 v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i8x16.relaxed_laneselect"
+opcode = [0xFD, 265]
+shape = "none"
+operands = []
+type = "[v128 v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i16x8.relaxed_laneselect"
+opcode = [0xFD, 266]
+shape = "none"
+operands = []
+type = "[v128 v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i32x4.relaxed_laneselect"
+opcode = [0xFD, 267]
+shape = "none"
+operands = []
+type = "[v128 v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i64x2.relaxed_laneselect"
+opcode = [0xFD, 268]
+shape = "none"
+operands = []
+type = "[v128 v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "f32x4.relaxed_min"
+opcode = [0xFD, 269]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "f32x4.relaxed_max"
+opcode = [0xFD, 270]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "f64x2.relaxed_min"
+opcode = [0xFD, 271]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "f64x2.relaxed_max"
+opcode = [0xFD, 272]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i16x8.relaxed_q15mulr_s"
+opcode = [0xFD, 273]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i16x8.relaxed_dot_i8x16_i7x16_s"
+opcode = [0xFD, 274]
+shape = "none"
+operands = []
+type = "[v128 v128] -> [v128]"
+traps = []
+
+[[instr]]
+name = "i32x4.relaxed_dot_i8x16_i7x16_add_s"
+opcode = [0xFD, 275]
+shape = "none"
+operands = []
+type = "[v128 v128 v128] -> [v128]"
+traps = []

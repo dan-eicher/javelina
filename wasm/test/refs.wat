@@ -1,0 +1,11 @@
+(module
+  (import "e" "g" (global i32))
+  (func $f0)
+  (func $f1)
+  (global $a i32 (i32.const 1))
+  (global $b i32 (global.get 1))
+  (global $c funcref (ref.func 0))
+  (table 4 funcref)
+  (elem (i32.const 0) func 0 1)
+  (elem funcref (ref.func 1) (ref.null func))
+  (export "f1" (func 1)))

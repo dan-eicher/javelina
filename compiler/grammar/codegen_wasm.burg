@@ -1,0 +1,619 @@
+// codegen_wasm.burg — BURS codegen: SIR → WASM.
+//
+//   * Single sir_node_t. Expr nodes are tree children (sir_arity/sir_child);
+//     stmt nodes are on the spine (sir_succ). burg_rewrite walks successors,
+//     tree-matches expr trees.
+//   * Arithmetic is UNTYPED in the SIR — the BURS nonterminals carry the type,
+//     flowing up from the typed leaves (LoadConst/LoadLocal pick their
+//     nonterminal from data_type). The op's nonterminal selects the opcode.
+//   * Each spine rule threads its continuation with cg_jump (Dybvig DDCG p.13).
+//
+// byte/short/char/int are ONE type (i32) — no sreg/ireg split and no
+// short→int widening chain. long/float/double are
+// genuinely distinct (i64/f32/f64); their conversions are explicit nodes. No
+// integer neg op (x*-1); float→int is saturating (JLS §5.1.3); control is
+// structured (the cg_jump br/scope resolution lands with the structurer, S5.10).
+//
+// Opcodes come from wasm_ops.h (generated from spec/instructions.toml) via
+// ew_emit — never hardcoded. Branch/Switch/Invoke/Field/Array rules are the
+// next layer (S5.10); their TERMs are declared so the node set stays complete.
+
+TERM LoadConst       = SIR_LOADCONST
+TERM LoadLongConst   = SIR_LOADLONGCONST
+TERM LoadFloatConst  = SIR_LOADFLOATCONST
+TERM LoadDoubleConst = SIR_LOADDOUBLECONST
+TERM LoadNull        = SIR_LOADNULL
+TERM LoadLocal       = SIR_LOADLOCAL
+TERM LoadThis        = SIR_LOADTHIS
+TERM LoadClass       = SIR_LOADCLASS
+TERM CloneCopy       = SIR_CLONECOPY
+TERM Add             = SIR_ADD
+TERM Sub             = SIR_SUB
+TERM Mul             = SIR_MUL
+TERM Div             = SIR_DIV
+TERM Rem             = SIR_REM
+TERM Neg             = SIR_NEG
+TERM And             = SIR_AND
+TERM Or              = SIR_OR
+TERM Xor             = SIR_XOR
+TERM Shl             = SIR_SHL
+TERM Shr             = SIR_SHR
+TERM Ushr            = SIR_USHR
+TERM LogNot          = SIR_LOGNOT
+TERM S2B             = SIR_S2B
+TERM S2I             = SIR_S2I
+TERM I2S             = SIR_I2S
+TERM I2B             = SIR_I2B
+TERM I2C             = SIR_I2C
+TERM I2L             = SIR_I2L
+TERM I2F             = SIR_I2F
+TERM I2D             = SIR_I2D
+TERM L2I             = SIR_L2I
+TERM L2F             = SIR_L2F
+TERM L2D             = SIR_L2D
+TERM F2I             = SIR_F2I
+TERM F2L             = SIR_F2L
+TERM F2D             = SIR_F2D
+TERM D2I             = SIR_D2I
+TERM D2L             = SIR_D2L
+TERM D2F             = SIR_D2F
+TERM MoveF2I         = SIR_MOVEF2I
+TERM MoveI2F         = SIR_MOVEI2F
+TERM MoveD2L         = SIR_MOVED2L
+TERM MoveL2D         = SIR_MOVEL2D
+TERM F64Sqrt         = SIR_F64SQRT
+TERM F64Floor        = SIR_F64FLOOR
+TERM F64Ceil         = SIR_F64CEIL
+TERM F64Nearest      = SIR_F64NEAREST
+TERM Eq              = SIR_EQ
+TERM Ne              = SIR_NE
+TERM Lt              = SIR_LT
+TERM Le              = SIR_LE
+TERM Gt              = SIR_GT
+TERM Ge              = SIR_GE
+TERM New             = SIR_NEW
+TERM InstanceOf      = SIR_INSTANCEOF
+TERM CheckCast       = SIR_CHECKCAST
+TERM NewArray        = SIR_NEWARRAY
+TERM NewRefArray     = SIR_NEWREFARRAY
+TERM ArrayLoad       = SIR_ARRAYLOAD
+TERM ArrayLength     = SIR_ARRAYLENGTH
+TERM GetField        = SIR_GETFIELD
+TERM GetStatic       = SIR_GETSTATIC
+TERM InvokeVirtual   = SIR_INVOKEVIRTUAL
+TERM InvokeSpecial   = SIR_INVOKESPECIAL
+TERM InvokeStatic    = SIR_INVOKESTATIC
+TERM InvokeInterface = SIR_INVOKEINTERFACE
+TERM StoreLocal      = SIR_STORELOCAL
+TERM ExprEffect      = SIR_EXPREFFECT
+TERM ArrayStore      = SIR_ARRAYSTORE
+TERM ArrayCopy       = SIR_ARRAYCOPY
+TERM MemLoad8        = SIR_MEMLOAD8
+TERM MemStore8       = SIR_MEMSTORE8
+TERM ClassInstantiable = SIR_CLASSINSTANTIABLE
+TERM ClassConstruct    = SIR_CLASSCONSTRUCT
+TERM PutField        = SIR_PUTFIELD
+TERM SetHeader       = SIR_SETHEADER
+TERM PutStatic       = SIR_PUTSTATIC
+TERM Branch          = SIR_BRANCH
+TERM Switch          = SIR_SWITCH
+TERM Return          = SIR_RETURN
+TERM ReturnVoid      = SIR_RETURNVOID
+TERM Throw           = SIR_THROW
+TERM ExceptionEntry  = SIR_EXCEPTIONENTRY
+TERM TryRegion       = SIR_TRYREGION
+TERM Inc             = SIR_INC
+TERM Nop             = SIR_NOP
+
+MEMBERS (. emit_wasm_ctx emit; struct wasm_types_t* types; .)
+
+(. #include "javelina/compiler/sir_support.h"
+   #include "javelina/compiler/emit_wasm.h"
+   #include "javelina/compiler/type_lattice.h"
+   #include "javelina/compiler/wasm_types.h"
+
+   #define E (&ctx->emit)
+
+   /* A class's struct typeidx — topologically remapped (super before sub), so
+    * NEVER the raw class_id. The one layout authority lives in wasm_types. */
+   #define struct_idx(cls) wasm_types_class_typeidx(ctx->types, (cls))
+
+   /* A reference array's typeidx, from the element's carried referent descriptor
+    * (ir.ClassRef / ir.ArrayRef) threaded onto the array op. A primitive-element
+    * op carries no descriptor (nil) and falls back to the covariant structref
+    * array — but ref-element arrays MUST select their concrete element type so
+    * the op's array immediate matches the operand's declared array type. */
+   /* The CONTAINING array's typeidx = array whose element is the carried
+    * descriptor. ClassRef element → 1-level ref array; ArrayRef/PrimArray element
+    * of `dim` levels → (dim+1)-level array. A missing descriptor means a non-ref
+    * element op reached here (a bug) — fall back to the covariant structref. */
+   static inline int32_t burg_array_idx(wasm_types_t* _wt, sir_node_t* _eref) {
+       if (_eref && _eref->tag == SIR_CLASSREF)
+           return wasm_types_nested_ref_array(_wt, _eref->class_ref.class_id, 1);
+       if (_eref && _eref->tag == SIR_ARRAYREF)
+           return wasm_types_nested_ref_array(_wt, _eref->array_ref.class_id, _eref->array_ref.dim + 1);
+       if (_eref && _eref->tag == SIR_PRIMARRAY)
+           return wasm_types_nested_prim_array(_wt, _eref->prim_array.width, _eref->prim_array.dim + 1);
+       return wasm_types_array_for_dt(_wt, SIR_DTREF);
+   }
+   #define array_idx(eref) burg_array_idx(ctx->types, (eref))
+
+   /* Absolute WASM struct field index for a (declaring class, class-local
+    * field index) pair — the layout authority lives in wasm_types, threaded in
+    * via ctx->types (set by the module assembler before tiling). */
+   #define field_abs(cls, fld) wasm_types_field_index(ctx->types, (cls), (fld))
+
+   /* Static field → module global index (also from wasm_types). */
+   #define global_abs(cls, fld) wasm_global_index(ctx->types, (cls), (fld))
+
+   /* Virtual dispatch. The receiver (a spilled LoadLocal) is reloaded to fetch its
+    * ClassDesc (struct field 0), then the vtable (ClassDesc field 3, the global
+    * (array (mut funcref))); the method's funcref slot is loaded and call_ref'd. The
+    * receiver + args the burg already tiled stay below as the call's arguments. */
+   /* Dispatch: struct.get field 0 reads the object's ClassDesc; struct.get field 3
+    * reads its vtable; then `i32.const slot; array.get $vtable` loads the method's
+    * funcref. That element is the GENERIC funcref, so ref.cast it to the method's
+    * concrete (ref $functype) before call_ref (which needs the exact type). Interface
+    * (IVCALL): the receiver is only known as a reference, so the caller casts it to
+    * the root struct first; the slot machinery is identical (overrides + interface
+    * impls share a slot). CALLOP = WOP_CALL_REF for a nested dispatch,
+    * WOP_RETURN_CALL_REF for a tail dispatch (§3.4.8). */
+   #define VTABLE_DISPATCH_OP(structcls, cls, midx, CALLOP) do {                   \
+       ew_emit(E, WOP_STRUCT_GET); ew_u32(E, struct_idx(structcls)); ew_u32(E, 0); \
+       ew_emit(E, WOP_STRUCT_GET); ew_u32(E, (uint32_t)wasm_class_reflect_typeidx(ctx->types)); \
+                                   ew_u32(E, (uint32_t)wasm_class_vtable_field_index(ctx->types)); \
+       ew_emit(E, WOP_I32_CONST);  ew_i32(E, wasm_vtable_slot(ctx->types, (cls), (midx))); \
+       ew_emit(E, WOP_ARRAY_GET);  ew_u32(E, wasm_vtable_typeidx(ctx->types, (cls))); \
+       ew_emit(E, WOP_REF_CAST);   ew_i32(E, wasm_functype_idx(ctx->types, (cls), (midx))); \
+       ew_emit(E, (CALLOP));       ew_i32(E, wasm_functype_idx(ctx->types, (cls), (midx))); \
+   } while (0)
+   #define VTABLE_DISPATCH(structcls, cls, midx) VTABLE_DISPATCH_OP((structcls), (cls), (midx), WOP_CALL_REF)
+   /* Reload the (already-tiled) receiver for the vtable fetch. The DDCG spills
+    * every receiver to a LoadLocal, but the optimizer's GVN may forward that
+    * load to another PURE LEAF (LoadThis / LoadNull / a different LoadLocal) —
+    * re-emit by leaf kind, never by assuming the LoadLocal union overlay.
+    * LoadThis mirrors its own tile rule (local 0 re-narrowed to the owning
+    * class); LoadNull's dispatch traps at runtime but must still validate. */
+   #define RECV_RELOAD(obj) do {                                                   \
+       if ((obj)->tag == SIR_LOADTHIS) {                                           \
+           ew_emit(E, WOP_LOCAL_GET); ew_u32(E, 0);                                \
+           ew_emit(E, WOP_REF_CAST);  ew_i32(E, struct_idx((obj)->load_this.class_id)); \
+       } else if ((obj)->tag == SIR_LOADNULL) {                                    \
+           ew_emit(E, WOP_REF_NULL);  ew_i64(E, -15);                              \
+       } else {                                                                    \
+           ew_emit(E, WOP_LOCAL_GET); ew_u32(E, (obj)->load_local.slot);           \
+       }                                                                           \
+   } while (0)
+   #define VCALL(obj, cls, midx) do {                                              \
+       RECV_RELOAD(obj);                                                           \
+       VTABLE_DISPATCH((cls), (cls), (midx));                                      \
+   } while (0)
+   #define IVCALL(obj, cls, midx) do {                                             \
+       int _root = wasm_root_class(ctx->types);                                    \
+       RECV_RELOAD(obj);                                                           \
+       ew_emit(E, WOP_REF_CAST);  ew_i32(E, struct_idx(_root));                                \
+       VTABLE_DISPATCH(_root, (cls), (midx));                                      \
+   } while (0)
+   /* Tail dispatch — return_call_ref replaces the current frame (O(1) stack). */
+   #define TVCALL(obj, cls, midx) do {                                             \
+       RECV_RELOAD(obj);                                                           \
+       VTABLE_DISPATCH_OP((cls), (cls), (midx), WOP_RETURN_CALL_REF);              \
+   } while (0)
+   #define TIVCALL(obj, cls, midx) do {                                            \
+       int _root = wasm_root_class(ctx->types);                                    \
+       RECV_RELOAD(obj);                                                           \
+       ew_emit(E, WOP_REF_CAST);  ew_i32(E, struct_idx(_root));                                \
+       VTABLE_DISPATCH_OP(_root, (cls), (midx), WOP_RETURN_CALL_REF);              \
+   } while (0)
+
+   /* cg_jump (Dybvig DDCG p.13) — thread a spine node's continuation. Control
+    * is structured, so the br / fall-through to a Nop merge point is resolved
+    * by the structurer
+    * against the scope sidecar (S5.10). Straight-line code has no Nop
+    * continuations, so this is currently a no-op (natural fall-through). */
+   static inline void cg_jump(emit_wasm_ctx* e, sir_node_t* n) {
+       (void)e; (void)n;   /* structured-control transfer: S5.10 */
+   }
+
+   /* Tiny selection accessors (anything substantial → emit_wasm.h). */
+   #define const_val(n)  sir_const_val(n)
+   #define local_slot(n) sir_local_slot(n)
+   #define ll_dt(n)      ((n)->load_local.data_type)
+   /* The four Java widths that lower to WASM i32 — the class decision is
+    * the lattice's (lat_dt_valtype, the ONE dt→valtype authority). */
+   #define DT_IS_I32(dt) (lat_dt_valtype(dt) == LAT_VT_I32)
+   /* JLS §5.1.3: narrow an i32-on-stack to a sub-int storage width — used when
+    * an inc/dec result is stored into a byte/short/char local (i32 storage, so
+    * the truncation must be explicit). byte/short sign-extend, char zero-extends;
+    * int is identity. Matches the I2B/I2S/I2C rules. */
+   #define CG_NARROW(E, dt) do { \
+       if ((dt)==SIR_DTBYTE)        ew_emit((E), WOP_I32_EXTEND8_S); \
+       else if ((dt)==SIR_DTSHORT)  ew_emit((E), WOP_I32_EXTEND16_S); \
+       else if ((dt)==SIR_DTCHAR) { ew_emit((E), WOP_I32_CONST); ew_i32((E), 0xFFFF); ew_emit((E), WOP_I32_AND); } \
+   } while (0)
+.)
+
+START stmt
+
+RULES
+
+// ── Constants — one nonterminal per WASM valtype (distinct SIR leaves) ──
+i32: LoadConst       = 1 (. ew_emit(E, WOP_I32_CONST); ew_i32(E, const_val(node)); .);
+i64: LoadLongConst   = 1 (. ew_emit(E, WOP_I64_CONST); ew_i64(E, node->load_long_const.value); .);
+f32: LoadFloatConst  = 1 (. ew_emit(E, WOP_F32_CONST); ew_f32(E, node->load_float_const.value); .);
+f64: LoadDoubleConst = 1 (. ew_emit(E, WOP_F64_CONST); ew_f64(E, node->load_double_const.value); .);
+
+// ── Locals — the leaf's data_type picks its nonterminal; local.get is uniform ──
+i32: LoadLocal where (. DT_IS_I32(ll_dt(node)) .)        = 1 (. ew_emit(E, WOP_LOCAL_GET); ew_u32(E, local_slot(node)); .);
+i64: LoadLocal where (. ll_dt(node) == SIR_DTLONG .)     = 1 (. ew_emit(E, WOP_LOCAL_GET); ew_u32(E, local_slot(node)); .);
+f32: LoadLocal where (. ll_dt(node) == SIR_DTFLOAT .)    = 1 (. ew_emit(E, WOP_LOCAL_GET); ew_u32(E, local_slot(node)); .);
+f64: LoadLocal where (. ll_dt(node) == SIR_DTDOUBLE .)   = 1 (. ew_emit(E, WOP_LOCAL_GET); ew_u32(E, local_slot(node)); .);
+ref: LoadLocal where (. ll_dt(node) == SIR_DTREF .)      = 1 (. ew_emit(E, WOP_LOCAL_GET); ew_u32(E, local_slot(node)); .);
+// `this` is local 0. A virtual method's param 0 is typed at the root class (so
+// overrides share one vtable-slot func type), so re-narrow it to the method's own
+// class for member access. For a non-virtual method local 0 is already the own
+// class, so the cast is the identity. (Receiver is non-null → ref.cast non-null.)
+ref: LoadThis = 1 (. ew_emit(E, WOP_LOCAL_GET); ew_u32(E, 0); ew_emit(E, WOP_REF_CAST); ew_i32(E, struct_idx(node->load_this.class_id)); .);
+
+// The `null` literal: ref.null none — the bottom of the any hierarchy (§3.3.3
+// none ≤ every internal heaptype). One typed null that is assignable into any Java
+// reference slot and is (ref null eq)-comparable, so `x == null` lowers to ref.eq.
+ref: LoadNull = 1 (. ew_emit(E, WOP_REF_NULL); ew_i64(E, -15); .);
+// §20.3: the class's Class-object singleton (a per-class module global) — a (ref Class).
+ref: LoadClass = 1 (. ew_emit(E, WOP_GLOBAL_GET); ew_u32(E, wasm_class_singleton_global_index(ctx->types, node->load_class.class_id)); .);
+
+// ── Arithmetic — children reduce first (postorder); the nonterminal selects
+//    the opcode. No data_type read here: type lives in the nonterminal. ──
+i32: Add(i32,i32) = 1 (. ew_emit(E, WOP_I32_ADD); .);
+i32: Sub(i32,i32) = 1 (. ew_emit(E, WOP_I32_SUB); .);
+i32: Mul(i32,i32) = 1 (. ew_emit(E, WOP_I32_MUL); .);
+i32: Div(i32,i32) = 1 (. ew_emit(E, WOP_I32_DIV_S); .);
+i32: Rem(i32,i32) = 1 (. ew_emit(E, WOP_I32_REM_S); .);
+i32: And(i32,i32) = 1 (. ew_emit(E, WOP_I32_AND); .);
+i32: Or(i32,i32)  = 1 (. ew_emit(E, WOP_I32_OR);  .);
+i32: Xor(i32,i32) = 1 (. ew_emit(E, WOP_I32_XOR); .);
+i32: Shl(i32,i32) = 1 (. ew_emit(E, WOP_I32_SHL);   .);
+i32: Shr(i32,i32) = 1 (. ew_emit(E, WOP_I32_SHR_S); .);
+i32: Ushr(i32,i32)= 1 (. ew_emit(E, WOP_I32_SHR_U); .);
+// No i32/i64.neg in WASM. BURS reduces the operand first, so a const can't
+// precede it (rules out 0 - x); x * -1 is the postorder-clean negation, exact
+// in two's complement (incl. MIN, which wraps to itself either way).
+i32: Neg(i32)     = 2 (. ew_emit(E, WOP_I32_CONST); ew_i32(E, -1); ew_emit(E, WOP_I32_MUL); .);
+i32: LogNot(i32)  = 1 (. ew_emit(E, WOP_I32_EQZ); .);   // !x  ==  (x == 0)
+
+i64: Add(i64,i64) = 1 (. ew_emit(E, WOP_I64_ADD); .);
+i64: Sub(i64,i64) = 1 (. ew_emit(E, WOP_I64_SUB); .);
+i64: Mul(i64,i64) = 1 (. ew_emit(E, WOP_I64_MUL); .);
+i64: Div(i64,i64) = 1 (. ew_emit(E, WOP_I64_DIV_S); .);
+i64: Rem(i64,i64) = 1 (. ew_emit(E, WOP_I64_REM_S); .);
+i64: And(i64,i64) = 1 (. ew_emit(E, WOP_I64_AND); .);
+i64: Or(i64,i64)  = 1 (. ew_emit(E, WOP_I64_OR);  .);
+i64: Xor(i64,i64) = 1 (. ew_emit(E, WOP_I64_XOR); .);
+i64: Shl(i64,i64) = 1 (. ew_emit(E, WOP_I64_SHL);   .);
+i64: Shr(i64,i64) = 1 (. ew_emit(E, WOP_I64_SHR_S); .);
+i64: Ushr(i64,i64)= 1 (. ew_emit(E, WOP_I64_SHR_U); .);
+i64: Neg(i64)     = 2 (. ew_emit(E, WOP_I64_CONST); ew_i64(E, -1); ew_emit(E, WOP_I64_MUL); .);
+
+f32: Add(f32,f32) = 1 (. ew_emit(E, WOP_F32_ADD); .);
+f32: Sub(f32,f32) = 1 (. ew_emit(E, WOP_F32_SUB); .);
+f32: Mul(f32,f32) = 1 (. ew_emit(E, WOP_F32_MUL); .);
+f32: Div(f32,f32) = 1 (. ew_emit(E, WOP_F32_DIV); .);
+f32: Neg(f32)     = 1 (. ew_emit(E, WOP_F32_NEG); .);
+
+f64: Add(f64,f64) = 1 (. ew_emit(E, WOP_F64_ADD); .);
+f64: Sub(f64,f64) = 1 (. ew_emit(E, WOP_F64_SUB); .);
+f64: Mul(f64,f64) = 1 (. ew_emit(E, WOP_F64_MUL); .);
+f64: Div(f64,f64) = 1 (. ew_emit(E, WOP_F64_DIV); .);
+f64: Neg(f64)     = 1 (. ew_emit(E, WOP_F64_NEG); .);
+
+// ── Comparisons — distinct CPS nodes (Eq/Ne/Lt/Le/Gt/Ge); operand type comes
+//    from the children, the boolean result is always i32. int/long signed. ──
+i32: Eq(i32,i32) = 1 (. ew_emit(E, WOP_I32_EQ);   .);
+i32: Ne(i32,i32) = 1 (. ew_emit(E, WOP_I32_NE);   .);
+i32: Lt(i32,i32) = 1 (. ew_emit(E, WOP_I32_LT_S); .);
+i32: Le(i32,i32) = 1 (. ew_emit(E, WOP_I32_LE_S); .);
+i32: Gt(i32,i32) = 1 (. ew_emit(E, WOP_I32_GT_S); .);
+i32: Ge(i32,i32) = 1 (. ew_emit(E, WOP_I32_GE_S); .);
+i32: Eq(i64,i64) = 1 (. ew_emit(E, WOP_I64_EQ);   .);
+i32: Ne(i64,i64) = 1 (. ew_emit(E, WOP_I64_NE);   .);
+i32: Lt(i64,i64) = 1 (. ew_emit(E, WOP_I64_LT_S); .);
+i32: Le(i64,i64) = 1 (. ew_emit(E, WOP_I64_LE_S); .);
+i32: Gt(i64,i64) = 1 (. ew_emit(E, WOP_I64_GT_S); .);
+i32: Ge(i64,i64) = 1 (. ew_emit(E, WOP_I64_GE_S); .);
+i32: Eq(f32,f32) = 1 (. ew_emit(E, WOP_F32_EQ); .);
+i32: Ne(f32,f32) = 1 (. ew_emit(E, WOP_F32_NE); .);
+i32: Lt(f32,f32) = 1 (. ew_emit(E, WOP_F32_LT); .);
+i32: Le(f32,f32) = 1 (. ew_emit(E, WOP_F32_LE); .);
+i32: Gt(f32,f32) = 1 (. ew_emit(E, WOP_F32_GT); .);
+i32: Ge(f32,f32) = 1 (. ew_emit(E, WOP_F32_GE); .);
+i32: Eq(f64,f64) = 1 (. ew_emit(E, WOP_F64_EQ); .);
+i32: Ne(f64,f64) = 1 (. ew_emit(E, WOP_F64_NE); .);
+i32: Lt(f64,f64) = 1 (. ew_emit(E, WOP_F64_LT); .);
+i32: Le(f64,f64) = 1 (. ew_emit(E, WOP_F64_LE); .);
+i32: Gt(f64,f64) = 1 (. ew_emit(E, WOP_F64_GT); .);
+i32: Ge(f64,f64) = 1 (. ew_emit(E, WOP_F64_GE); .);
+
+// Reference identity (JLS §15.21.3): == / != on references is ref.eq (object
+// identity). struct/array/funcref are all under `eq`, so ref.eq applies; there is
+// no ref.ne opcode, so != is ref.eq then i32.eqz. Covers null comparisons too.
+i32: Eq(ref,ref) = 1 (. ew_emit(E, WOP_REF_EQ); .);
+i32: Ne(ref,ref) = 2 (. ew_emit(E, WOP_REF_EQ); ew_emit(E, WOP_I32_EQZ); .);
+
+// ── §5.1 conversions — explicit nodes (the type-flow bridges between
+//    nonterminals); float→int is saturating (JLS §5.1.3). ──
+i64: I2L(i32) = 1 (. ew_emit(E, WOP_I64_EXTEND_I32_S); .);
+f32: I2F(i32) = 1 (. ew_emit(E, WOP_F32_CONVERT_I32_S); .);
+f64: I2D(i32) = 1 (. ew_emit(E, WOP_F64_CONVERT_I32_S); .);
+i32: L2I(i64) = 1 (. ew_emit(E, WOP_I32_WRAP_I64); .);
+f32: L2F(i64) = 1 (. ew_emit(E, WOP_F32_CONVERT_I64_S); .);
+f64: L2D(i64) = 1 (. ew_emit(E, WOP_F64_CONVERT_I64_S); .);
+f64: F2D(f32) = 1 (. ew_emit(E, WOP_F64_PROMOTE_F32); .);
+f32: D2F(f64) = 1 (. ew_emit(E, WOP_F32_DEMOTE_F64); .);
+i32: F2I(f32) = 1 (. ew_emit(E, WOP_I32_TRUNC_SAT_F32_S); .);
+i32: D2I(f64) = 1 (. ew_emit(E, WOP_I32_TRUNC_SAT_F64_S); .);
+i64: F2L(f32) = 1 (. ew_emit(E, WOP_I64_TRUNC_SAT_F32_S); .);
+i64: D2L(f64) = 1 (. ew_emit(E, WOP_I64_TRUNC_SAT_F64_S); .);
+// Bit-preserving moves (typed bitcast) — same bits, reinterpreted across the float/int domains.
+i32: MoveF2I(f32) = 1 (. ew_emit(E, WOP_I32_REINTERPRET_F32); .);
+f32: MoveI2F(i32) = 1 (. ew_emit(E, WOP_F32_REINTERPRET_I32); .);
+i64: MoveD2L(f64) = 1 (. ew_emit(E, WOP_I64_REINTERPRET_F64); .);
+f64: MoveL2D(i64) = 1 (. ew_emit(E, WOP_F64_REINTERPRET_I64); .);
+// f64 math intrinsics with a direct opcode (§20.11 Math.sqrt/floor/ceil/rint) — pure, no host import.
+f64: F64Sqrt(f64)    = 1 (. ew_emit(E, WOP_F64_SQRT); .);
+f64: F64Floor(f64)   = 1 (. ew_emit(E, WOP_F64_FLOOR); .);
+f64: F64Ceil(f64)    = 1 (. ew_emit(E, WOP_F64_CEIL); .);
+f64: F64Nearest(f64) = 1 (. ew_emit(E, WOP_F64_NEAREST); .);
+// int-family narrowings — byte/short/char/int are all i32, so these stay i32.
+i32: I2B(i32) = 1 (. ew_emit(E, WOP_I32_EXTEND8_S); .);
+i32: I2S(i32) = 1 (. ew_emit(E, WOP_I32_EXTEND16_S); .);
+i32: I2C(i32) = 2 (. ew_emit(E, WOP_I32_CONST); ew_i32(E, 0xFFFF); ew_emit(E, WOP_I32_AND); .);  // (char): zero-extend low 16
+i32: S2B(i32) = 1 (. ew_emit(E, WOP_I32_EXTEND8_S); .);
+i32: S2I(i32) = 0 (. /* short→int: both i32, no-op (the operand already an i32) */ .);
+
+// ── Spine — each value-bearing stmt reduces its child then threads cg_jump.
+//    Return/ReturnVoid are terminators (no continuation, no cg_jump). ──
+stmt: Return(i32) = 1 (. ew_emit(E, WOP_RETURN); .);
+stmt: Return(i64) = 1 (. ew_emit(E, WOP_RETURN); .);
+stmt: Return(f32) = 1 (. ew_emit(E, WOP_RETURN); .);
+stmt: Return(f64) = 1 (. ew_emit(E, WOP_RETURN); .);
+stmt: Return(ref) = 1 (. ew_emit(E, WOP_RETURN); .);
+stmt: ReturnVoid  = 1 (. ew_emit(E, WOP_RETURN); .);
+
+// Tail call: `return <call>(...)`. The `tail` nonterminal makes the call a real
+// subtree reduction (so the invoke rule below — InvokeStatic as a rule ROOT —
+// tiles the args, unlike a Return(InvokeStatic) leaf pattern which burg would not
+// descend into), and the invoke emits return_call* instead of call;return. Only
+// a DIRECT return-of-call reduces to `tail` — an implicit §5.2 widening puts a
+// conversion node between Return and the call, so that correctly takes the normal
+// path (return_call needs an exact result-type match, which the no-conversion case
+// is). The invoke's own value rules (i32/i64/…) still serve every nested call.
+stmt: Return(tail) = 0 (. /* the tail invoke already emitted return_call* and returned */ .);
+
+// Throw — the exception ref is the payload of the single Java-exception tag
+// ($jexn, tag index 0; defined in the module's tag section at assembly time).
+// A terminator: control leaves via the throw.
+stmt: Throw(ref) = 1 (. ew_emit(E, WOP_THROW); ew_u32(E, 0); .);
+
+stmt: StoreLocal(i32) = 1 (. ew_emit(E, WOP_LOCAL_SET); ew_u32(E, node->store_local.slot); cg_jump(E, node); .);
+stmt: StoreLocal(i64) = 1 (. ew_emit(E, WOP_LOCAL_SET); ew_u32(E, node->store_local.slot); cg_jump(E, node); .);
+stmt: StoreLocal(f32) = 1 (. ew_emit(E, WOP_LOCAL_SET); ew_u32(E, node->store_local.slot); cg_jump(E, node); .);
+stmt: StoreLocal(f64) = 1 (. ew_emit(E, WOP_LOCAL_SET); ew_u32(E, node->store_local.slot); cg_jump(E, node); .);
+stmt: StoreLocal(ref) = 1 (. ew_emit(E, WOP_LOCAL_SET); ew_u32(E, node->store_local.slot); cg_jump(E, node); .);
+
+// In-place local increment (i++/--/+= by a constant). The matched child is the
+// read-side LoadLocal (emits local.get slot); add the delta and store back, i.e.
+// `local.get slot; <ty>.const delta; <ty>.add; local.set slot`.
+stmt: Inc(i32) = 1 (. ew_emit(E, WOP_I32_CONST); ew_i32(E, node->inc.delta); ew_emit(E, WOP_I32_ADD); CG_NARROW(E, node->inc.data_type); ew_emit(E, WOP_LOCAL_SET); ew_u32(E, node->inc.slot); cg_jump(E, node); .);
+stmt: Inc(i64) = 1 (. ew_emit(E, WOP_I64_CONST); ew_i64(E, (int64_t)node->inc.delta); ew_emit(E, WOP_I64_ADD); ew_emit(E, WOP_LOCAL_SET); ew_u32(E, node->inc.slot); cg_jump(E, node); .);
+stmt: Inc(f32) = 1 (. ew_emit(E, WOP_F32_CONST); ew_f32(E, (float)node->inc.delta); ew_emit(E, WOP_F32_ADD); ew_emit(E, WOP_LOCAL_SET); ew_u32(E, node->inc.slot); cg_jump(E, node); .);
+stmt: Inc(f64) = 1 (. ew_emit(E, WOP_F64_CONST); ew_f64(E, (double)node->inc.delta); ew_emit(E, WOP_F64_ADD); ew_emit(E, WOP_LOCAL_SET); ew_u32(E, node->inc.slot); cg_jump(E, node); .);
+
+// ExprEffect — evaluate for side effect, drop the result (void calls leave none).
+stmt: ExprEffect(i32) = 1 (. if (!node->expr_effect.is_void) ew_emit(E, WOP_DROP); cg_jump(E, node); .);
+stmt: ExprEffect(i64) = 1 (. if (!node->expr_effect.is_void) ew_emit(E, WOP_DROP); cg_jump(E, node); .);
+stmt: ExprEffect(f32) = 1 (. if (!node->expr_effect.is_void) ew_emit(E, WOP_DROP); cg_jump(E, node); .);
+stmt: ExprEffect(f64) = 1 (. if (!node->expr_effect.is_void) ew_emit(E, WOP_DROP); cg_jump(E, node); .);
+stmt: ExprEffect(ref) = 1 (. if (!node->expr_effect.is_void) ew_emit(E, WOP_DROP); cg_jump(E, node); .);
+
+// ── Object model — instance fields & allocation. typeidx == class_id; the
+//    struct field index is field_idx. New allocates the object with field 0 set
+//    to the class's populated vtable (struct.new, not struct.new_default) so
+//    virtual/interface dispatch reads a live table; the following InvokeSpecial
+//    (the <init>) sets the data fields, mirroring JVM new+<init>. Sub-int fields
+//    are unpacked i32 (struct.get, not get_s/_u), matching the type section. ──
+ref: New = 1 (. wasm_types_emit_new(ctx->types, E, node->new_.class_id); .);
+
+// §20.3.6 Class.newInstance, over the Class reference's `factory` funcref field.
+//   ClassInstantiable — is the factory non-null? `struct.get factory; ref.is_null; i32.eqz`
+//     leaves 1 for an instantiable class, 0 otherwise. java.lang.Class does the null test.
+//   ClassConstruct — call it: `struct.get factory; ref.cast $factorysig; call_ref $factorysig`.
+//     The field is a plain funcref (a rec-group functype would mistype it, see wasm_types.c), so
+//     it is cast to the standalone factory functype `[] -> [(ref null Object)]` before call_ref.
+i32: ClassInstantiable(ref) = 1 (.
+    ew_emit(E, WOP_STRUCT_GET);  ew_u32(E, (uint32_t)wasm_class_reflect_typeidx(ctx->types));
+                                 ew_u32(E, (uint32_t)wasm_class_factory_field_index(ctx->types));
+    ew_emit(E, WOP_REF_IS_NULL);
+    ew_emit(E, WOP_I32_EQZ);
+.);
+ref: ClassConstruct(ref) = 1 (.
+    ew_emit(E, WOP_STRUCT_GET);  ew_u32(E, (uint32_t)wasm_class_reflect_typeidx(ctx->types));
+                                 ew_u32(E, (uint32_t)wasm_class_factory_field_index(ctx->types));
+    ew_emit(E, WOP_REF_CAST);    ew_i32(E, (int32_t)wasm_factory_functype_idx(ctx->types));
+    ew_emit(E, WOP_CALL_REF);    ew_u32(E, (uint32_t)wasm_factory_functype_idx(ctx->types));
+.);
+ref: CloneCopy = 1 (. wasm_types_emit_clone_copy(ctx->types, E, node->clone_copy.class_id); .);
+
+// §3.4: a packed (i8/i16) field reads via get_s/get_u — byte/short sign-extend,
+// char zero-extends; int is the lone unpacked i32 field (plain struct.get).
+i32: GetField(ref) where (. node->get_field.data_type == SIR_DTINT .)     = 1 (. ew_emit(E, WOP_STRUCT_GET);   ew_u32(E, struct_idx(node->get_field.class_id)); ew_u32(E, field_abs(node->get_field.class_id, node->get_field.field_idx)); .);
+i32: GetField(ref) where (. node->get_field.data_type == SIR_DTBYTE || node->get_field.data_type == SIR_DTSHORT .) = 1 (. ew_emit(E, WOP_STRUCT_GET_S); ew_u32(E, struct_idx(node->get_field.class_id)); ew_u32(E, field_abs(node->get_field.class_id, node->get_field.field_idx)); .);
+i32: GetField(ref) where (. node->get_field.data_type == SIR_DTCHAR .)    = 1 (. ew_emit(E, WOP_STRUCT_GET_U); ew_u32(E, struct_idx(node->get_field.class_id)); ew_u32(E, field_abs(node->get_field.class_id, node->get_field.field_idx)); .);
+i64: GetField(ref) where (. node->get_field.data_type == SIR_DTLONG .)   = 1 (. ew_emit(E, WOP_STRUCT_GET); ew_u32(E, struct_idx(node->get_field.class_id)); ew_u32(E, field_abs(node->get_field.class_id, node->get_field.field_idx)); .);
+f32: GetField(ref) where (. node->get_field.data_type == SIR_DTFLOAT .)  = 1 (. ew_emit(E, WOP_STRUCT_GET); ew_u32(E, struct_idx(node->get_field.class_id)); ew_u32(E, field_abs(node->get_field.class_id, node->get_field.field_idx)); .);
+f64: GetField(ref) where (. node->get_field.data_type == SIR_DTDOUBLE .) = 1 (. ew_emit(E, WOP_STRUCT_GET); ew_u32(E, struct_idx(node->get_field.class_id)); ew_u32(E, field_abs(node->get_field.class_id, node->get_field.field_idx)); .);
+ref: GetField(ref) where (. node->get_field.data_type == SIR_DTREF .)    = 1 (. ew_emit(E, WOP_STRUCT_GET); ew_u32(E, struct_idx(node->get_field.class_id)); ew_u32(E, field_abs(node->get_field.class_id, node->get_field.field_idx)); .);
+
+stmt: PutField(ref,i32) = 1 (. ew_emit(E, WOP_STRUCT_SET); ew_u32(E, struct_idx(node->put_field.class_id)); ew_u32(E, field_abs(node->put_field.class_id, node->put_field.field_idx)); cg_jump(E, node); .);
+stmt: PutField(ref,i64) = 1 (. ew_emit(E, WOP_STRUCT_SET); ew_u32(E, struct_idx(node->put_field.class_id)); ew_u32(E, field_abs(node->put_field.class_id, node->put_field.field_idx)); cg_jump(E, node); .);
+stmt: PutField(ref,f32) = 1 (. ew_emit(E, WOP_STRUCT_SET); ew_u32(E, struct_idx(node->put_field.class_id)); ew_u32(E, field_abs(node->put_field.class_id, node->put_field.field_idx)); cg_jump(E, node); .);
+stmt: PutField(ref,f64) = 1 (. ew_emit(E, WOP_STRUCT_SET); ew_u32(E, struct_idx(node->put_field.class_id)); ew_u32(E, field_abs(node->put_field.class_id, node->put_field.field_idx)); cg_jump(E, node); .);
+stmt: PutField(ref,ref) = 1 (. ew_emit(E, WOP_STRUCT_SET); ew_u32(E, struct_idx(node->put_field.class_id)); ew_u32(E, field_abs(node->put_field.class_id, node->put_field.field_idx)); cg_jump(E, node); .);
+// §10.8 set field-0 (the Class header) directly by struct type — the header is abs 0.
+stmt: SetHeader(ref,ref) = 1 (. ew_emit(E, WOP_STRUCT_SET); ew_u32(E, struct_idx(node->set_header.struct_class_id)); ew_u32(E, 0); cg_jump(E, node); .);
+
+// ── Static fields → module globals. global.get/set take a global index; the
+//    nonterminal of GetStatic is selected by the field's data_type. ──
+i32: GetStatic where (. DT_IS_I32(node->get_static.data_type) .)      = 1 (. ew_emit(E, WOP_GLOBAL_GET); ew_u32(E, global_abs(node->get_static.class_id, node->get_static.field_idx)); .);
+i64: GetStatic where (. node->get_static.data_type == SIR_DTLONG .)   = 1 (. ew_emit(E, WOP_GLOBAL_GET); ew_u32(E, global_abs(node->get_static.class_id, node->get_static.field_idx)); .);
+f32: GetStatic where (. node->get_static.data_type == SIR_DTFLOAT .)  = 1 (. ew_emit(E, WOP_GLOBAL_GET); ew_u32(E, global_abs(node->get_static.class_id, node->get_static.field_idx)); .);
+f64: GetStatic where (. node->get_static.data_type == SIR_DTDOUBLE .) = 1 (. ew_emit(E, WOP_GLOBAL_GET); ew_u32(E, global_abs(node->get_static.class_id, node->get_static.field_idx)); .);
+ref: GetStatic where (. node->get_static.data_type == SIR_DTREF .)    = 1 (. ew_emit(E, WOP_GLOBAL_GET); ew_u32(E, global_abs(node->get_static.class_id, node->get_static.field_idx)); .);
+
+stmt: PutStatic(i32) = 1 (. ew_emit(E, WOP_GLOBAL_SET); ew_u32(E, global_abs(node->put_static.class_id, node->put_static.field_idx)); cg_jump(E, node); .);
+stmt: PutStatic(i64) = 1 (. ew_emit(E, WOP_GLOBAL_SET); ew_u32(E, global_abs(node->put_static.class_id, node->put_static.field_idx)); cg_jump(E, node); .);
+stmt: PutStatic(f32) = 1 (. ew_emit(E, WOP_GLOBAL_SET); ew_u32(E, global_abs(node->put_static.class_id, node->put_static.field_idx)); cg_jump(E, node); .);
+stmt: PutStatic(f64) = 1 (. ew_emit(E, WOP_GLOBAL_SET); ew_u32(E, global_abs(node->put_static.class_id, node->put_static.field_idx)); cg_jump(E, node); .);
+stmt: PutStatic(ref) = 1 (. ew_emit(E, WOP_GLOBAL_SET); ew_u32(E, global_abs(node->put_static.class_id, node->put_static.field_idx)); cg_jump(E, node); .);
+/* I/O staging memory: store one byte (value's low 8 bits). Operands [addr, value]; memarg align 0, offset 0. */
+stmt: MemStore8(i32,i32) = 1 (. ew_emit(E, WOP_I32_STORE8); ew_u32(E, 0); ew_u32(E, 0); cg_jump(E, node); .);
+
+// ── Arrays. Element type → array typeidx via wasm_types (registered on demand).
+//    array.new_default zero-inits (Java new T[n]); array.len takes no typeidx;
+//    sub-int elements are unpacked i32 (array.get, not _s/_u). Ref-element
+//    arrays (NewRefArray, ref load/store) need the element class — later. ──
+ref: NewArray(i32) = 1 (. ew_emit(E, WOP_ARRAY_NEW_DEFAULT); ew_u32(E, wasm_types_array_for_atype(ctx->types, node->new_array.elem_type)); .);
+
+// §3.4: packed (i8/i16) array elements read via array.get_s/get_u; int is plain.
+i32: ArrayLoad(ref,i32) where (. node->array_load.data_type == SIR_DTINT .)    = 1 (. ew_emit(E, WOP_ARRAY_GET);   ew_u32(E, wasm_types_array_for_dt(ctx->types, node->array_load.data_type)); .);
+i32: ArrayLoad(ref,i32) where (. node->array_load.data_type == SIR_DTBYTE || node->array_load.data_type == SIR_DTSHORT .) = 1 (. ew_emit(E, WOP_ARRAY_GET_S); ew_u32(E, wasm_types_array_for_dt(ctx->types, node->array_load.data_type)); .);
+i32: ArrayLoad(ref,i32) where (. node->array_load.data_type == SIR_DTCHAR .)   = 1 (. ew_emit(E, WOP_ARRAY_GET_U); ew_u32(E, wasm_types_array_for_dt(ctx->types, node->array_load.data_type)); .);
+i64: ArrayLoad(ref,i32) where (. node->array_load.data_type == SIR_DTLONG .)   = 1 (. ew_emit(E, WOP_ARRAY_GET); ew_u32(E, wasm_types_array_for_dt(ctx->types, node->array_load.data_type)); .);
+f32: ArrayLoad(ref,i32) where (. node->array_load.data_type == SIR_DTFLOAT .)  = 1 (. ew_emit(E, WOP_ARRAY_GET); ew_u32(E, wasm_types_array_for_dt(ctx->types, node->array_load.data_type)); .);
+f64: ArrayLoad(ref,i32) where (. node->array_load.data_type == SIR_DTDOUBLE .) = 1 (. ew_emit(E, WOP_ARRAY_GET); ew_u32(E, wasm_types_array_for_dt(ctx->types, node->array_load.data_type)); .);
+
+stmt: ArrayStore(ref,i32,i32) = 1 (. ew_emit(E, WOP_ARRAY_SET); ew_u32(E, wasm_types_array_for_dt(ctx->types, node->array_store.data_type)); cg_jump(E, node); .);
+stmt: ArrayStore(ref,i32,i64) = 1 (. ew_emit(E, WOP_ARRAY_SET); ew_u32(E, wasm_types_array_for_dt(ctx->types, node->array_store.data_type)); cg_jump(E, node); .);
+stmt: ArrayStore(ref,i32,f32) = 1 (. ew_emit(E, WOP_ARRAY_SET); ew_u32(E, wasm_types_array_for_dt(ctx->types, node->array_store.data_type)); cg_jump(E, node); .);
+stmt: ArrayStore(ref,i32,f64) = 1 (. ew_emit(E, WOP_ARRAY_SET); ew_u32(E, wasm_types_array_for_dt(ctx->types, node->array_store.data_type)); cg_jump(E, node); .);
+
+i32: ArrayLength(ref) = 1 (. ew_emit(E, WOP_ARRAY_LEN); .);
+/* I/O staging memory: load one byte (zero-extended). memarg = align 0, offset 0 (address is the full operand). */
+i32: MemLoad8(i32) = 1 (. ew_emit(E, WOP_I32_LOAD8_U); ew_u32(E, 0); ew_u32(E, 0); .);
+
+// Reference arrays — WASM-GC array types are invariant, so a ref-element op must
+// name its CONCRETE element-class array type (carried via the elem_ref referent),
+// matching the operand's declared array type. NewRefArray's class_id is the element.
+// §10 RefArray: the ddcg indirects a reference array's operand through GetField(data),
+// so these ops act on the BACKING = the covariant top-ref array (array_for_dt DTREF).
+// NewRefArray is emitted only with a nil elem_ref (the backing allocation for a
+// RefArray wrapper); a read casts the loaded top-ref to the static element type
+// (elem_ref) — a covariant store surfaces a wrong type here (ref.cast_null) until the
+// §10.10 ArrayStore guard lands.
+ref: NewRefArray(i32) = 1 (. ew_emit(E, WOP_ARRAY_NEW_DEFAULT); ew_u32(E, wasm_types_array_for_dt(ctx->types, SIR_DTREF)); .);
+ref:  ArrayLoad(ref,i32)  where (. node->array_load.data_type == SIR_DTREF .) = 1 (. ew_emit(E, WOP_ARRAY_GET); ew_u32(E, wasm_types_array_for_dt(ctx->types, SIR_DTREF)); ew_emit(E, WOP_REF_CAST_NULL); ew_i32(E, wasm_types_ref_typeidx(ctx->types, node->array_load.elem_ref)); .);
+stmt: ArrayStore(ref,i32,ref) = 1 (. ew_emit(E, WOP_ARRAY_SET); ew_u32(E, wasm_types_array_for_dt(ctx->types, SIR_DTREF)); cg_jump(E, node); .);
+
+// §20.18.16/§20.1.5 array.copy dst_ty src_ty [dst, dst_off, src, src_off, len]. Both backings
+// share the element width; the two typeidxs are the same backing array type.
+stmt: ArrayCopy(ref,i32,ref,i32,i32) = 1 (. ew_emit(E, WOP_ARRAY_COPY); ew_u32(E, wasm_types_array_for_dt(ctx->types, node->array_copy.width)); ew_u32(E, wasm_types_array_for_dt(ctx->types, node->array_copy.width)); cg_jump(E, node); .);
+
+// ── Method invocation. Direct calls (static/special) → call <funcidx>.
+//    return_type selects the result nonterminal (yoctojc's shape); burgc tiles
+//    the arg children (and, for special, the receiver) onto the stack before
+//    the call. Virtual/interface dispatch (vtable/itable + call_ref) lands
+//    later. A void call's return_type still matches a value rule; the wrapping
+//    ExprEffect(is_void) emits no drop, so the net bytes are balanced. ──
+i32: InvokeStatic where (. DT_IS_I32(node->invoke_static.return_type) .)      = 1 (. ew_emit(E, WOP_CALL); ew_u32(E, wasm_func_index(ctx->types, node->invoke_static.class_id, node->invoke_static.method_idx)); .);
+i64: InvokeStatic where (. node->invoke_static.return_type == SIR_DTLONG .)    = 1 (. ew_emit(E, WOP_CALL); ew_u32(E, wasm_func_index(ctx->types, node->invoke_static.class_id, node->invoke_static.method_idx)); .);
+f32: InvokeStatic where (. node->invoke_static.return_type == SIR_DTFLOAT .)   = 1 (. ew_emit(E, WOP_CALL); ew_u32(E, wasm_func_index(ctx->types, node->invoke_static.class_id, node->invoke_static.method_idx)); .);
+f64: InvokeStatic where (. node->invoke_static.return_type == SIR_DTDOUBLE .)  = 1 (. ew_emit(E, WOP_CALL); ew_u32(E, wasm_func_index(ctx->types, node->invoke_static.class_id, node->invoke_static.method_idx)); .);
+ref: InvokeStatic where (. node->invoke_static.return_type == SIR_DTREF .)     = 1 (. ew_emit(E, WOP_CALL); ew_u32(E, wasm_func_index(ctx->types, node->invoke_static.class_id, node->invoke_static.method_idx)); .);
+
+i32: InvokeSpecial(ref) where (. DT_IS_I32(node->invoke_special.return_type) .)      = 1 (. ew_emit(E, WOP_CALL); ew_u32(E, wasm_func_index(ctx->types, node->invoke_special.class_id, node->invoke_special.method_idx)); .);
+i64: InvokeSpecial(ref) where (. node->invoke_special.return_type == SIR_DTLONG .)    = 1 (. ew_emit(E, WOP_CALL); ew_u32(E, wasm_func_index(ctx->types, node->invoke_special.class_id, node->invoke_special.method_idx)); .);
+f32: InvokeSpecial(ref) where (. node->invoke_special.return_type == SIR_DTFLOAT .)   = 1 (. ew_emit(E, WOP_CALL); ew_u32(E, wasm_func_index(ctx->types, node->invoke_special.class_id, node->invoke_special.method_idx)); .);
+f64: InvokeSpecial(ref) where (. node->invoke_special.return_type == SIR_DTDOUBLE .)  = 1 (. ew_emit(E, WOP_CALL); ew_u32(E, wasm_func_index(ctx->types, node->invoke_special.class_id, node->invoke_special.method_idx)); .);
+ref: InvokeSpecial(ref) where (. node->invoke_special.return_type == SIR_DTREF .)     = 1 (. ew_emit(E, WOP_CALL); ew_u32(E, wasm_func_index(ctx->types, node->invoke_special.class_id, node->invoke_special.method_idx)); .);
+
+// ── Virtual dispatch → vtable + call_ref. The receiver child reduces to ref
+//    (pushed as the call's `this`); the args auto-tile; VCALL fetches the vtable
+//    slot's funcref and call_refs it. return_type selects the result nonterminal.
+//    (InvokeInterface/itable dispatch + override-aware slots are later.) ──
+i32: InvokeVirtual(ref) where (. DT_IS_I32(node->invoke_virtual.return_type) .)    = 5 (. VCALL(node->invoke_virtual.obj, node->invoke_virtual.class_id, node->invoke_virtual.method_idx); .);
+i64: InvokeVirtual(ref) where (. node->invoke_virtual.return_type == SIR_DTLONG .)   = 5 (. VCALL(node->invoke_virtual.obj, node->invoke_virtual.class_id, node->invoke_virtual.method_idx); .);
+f32: InvokeVirtual(ref) where (. node->invoke_virtual.return_type == SIR_DTFLOAT .)  = 5 (. VCALL(node->invoke_virtual.obj, node->invoke_virtual.class_id, node->invoke_virtual.method_idx); .);
+f64: InvokeVirtual(ref) where (. node->invoke_virtual.return_type == SIR_DTDOUBLE .) = 5 (. VCALL(node->invoke_virtual.obj, node->invoke_virtual.class_id, node->invoke_virtual.method_idx); .);
+ref: InvokeVirtual(ref) where (. node->invoke_virtual.return_type == SIR_DTREF .)    = 5 (. VCALL(node->invoke_virtual.obj, node->invoke_virtual.class_id, node->invoke_virtual.method_idx); .);
+
+// Interface dispatch — same global vtable + signature slot as virtual, but the
+// receiver is only known as a reference, so cast to the root struct to read its
+// vtable header. The signature slot is shared with the implementing class's
+// override, so this reaches the right method on any implementer.
+i32: InvokeInterface(ref) where (. DT_IS_I32(node->invoke_interface.return_type) .)    = 6 (. IVCALL(node->invoke_interface.obj, node->invoke_interface.class_id, node->invoke_interface.method_idx); .);
+i64: InvokeInterface(ref) where (. node->invoke_interface.return_type == SIR_DTLONG .)   = 6 (. IVCALL(node->invoke_interface.obj, node->invoke_interface.class_id, node->invoke_interface.method_idx); .);
+f32: InvokeInterface(ref) where (. node->invoke_interface.return_type == SIR_DTFLOAT .)  = 6 (. IVCALL(node->invoke_interface.obj, node->invoke_interface.class_id, node->invoke_interface.method_idx); .);
+f64: InvokeInterface(ref) where (. node->invoke_interface.return_type == SIR_DTDOUBLE .) = 6 (. IVCALL(node->invoke_interface.obj, node->invoke_interface.class_id, node->invoke_interface.method_idx); .);
+ref: InvokeInterface(ref) where (. node->invoke_interface.return_type == SIR_DTREF .)    = 6 (. IVCALL(node->invoke_interface.obj, node->invoke_interface.class_id, node->invoke_interface.method_idx); .);
+
+// ── Tail-call form of each invoke (consumed by `stmt: Return(tail)`). Each is a
+//    rule ROOT over the invoke node, so the matcher tiles the args/receiver the
+//    same way the value rules above do; the action emits return_call* instead of
+//    call/call_ref. No return_type split — return_call* ignores the result
+//    nonterminal (it just returns the callee's results as this function's). ──
+tail: InvokeStatic       = 1 (. ew_emit(E, WOP_RETURN_CALL); ew_u32(E, wasm_func_index(ctx->types, node->invoke_static.class_id, node->invoke_static.method_idx)); .);
+tail: InvokeSpecial(ref) = 1 (. ew_emit(E, WOP_RETURN_CALL); ew_u32(E, wasm_func_index(ctx->types, node->invoke_special.class_id, node->invoke_special.method_idx)); .);
+tail: InvokeVirtual(ref) = 5 (. TVCALL(node->invoke_virtual.obj, node->invoke_virtual.class_id, node->invoke_virtual.method_idx); .);
+tail: InvokeInterface(ref) = 6 (. TIVCALL(node->invoke_interface.obj, node->invoke_interface.class_id, node->invoke_interface.method_idx); .);
+
+// ── instanceof / cast. For a CLASS target the class typeidx is a concrete s33:
+//    ref.test is the non-null form (Java `null instanceof T` is false); ref.cast_null
+//    allows null (Java permits casting null to any reference type). For an INTERFACE
+//    target a structural ref.test can't distinguish implementors (interface refs type
+//    as root), so instanceof calls the iface_instanceof helper (obj on the stack, then
+//    the target interface's class id) which scans the object's ClassDesc.interfaces. ──
+i32: InstanceOf(ref) = 1 (.
+    int _iid = node->instance_of.class_id;
+    if (wasm_class_is_interface(ctx->types, _iid)) {
+        ew_emit(E, WOP_I32_CONST); ew_i32(E, _iid);
+        ew_emit(E, WOP_CALL);      ew_u32(E, (uint32_t)wasm_iface_helper_funcidx(ctx->types));
+    } else {
+        ew_emit(E, WOP_REF_TEST);  ew_i32(E, struct_idx(_iid));
+    }
+.);
+// An INTERFACE target has no usable struct type — interface refs type as root, and the
+// membership check is the iface_instanceof guard (emitted around this CheckCast in the ddcg).
+// So narrow to ROOT, not the interface's own struct (which no concrete object is typed as —
+// a ref.cast to it would both mistype the destination and trap every real implementor).
+ref: CheckCast(ref)  = 1 (.
+    int _cc = node->check_cast.class_id;
+    int _to = wasm_class_is_interface(ctx->types, _cc) ? wasm_root_class(ctx->types) : _cc;
+    ew_emit(E, WOP_REF_CAST_NULL); ew_i32(E, struct_idx(_to));
+.);
+
+// ExceptionEntry — the catch landing pad. Emits ONLY the store of the value on
+// the operand stack into the entry's slot. The structurer (codegen_structured.c)
+// frames the one try_table and drives catch dispatch: per-typed-region ref.test
+// → ref.cast → this store → handler body, in source order, with the Throwable
+// catch-all (finally + rethrow) as the no-match fall-through. So for a typed
+// catch the structurer has already ref.cast the value to the catch type before
+// this store; for the catch-all it is the raw Throwable landing.
+stmt: ExceptionEntry = 1 (.
+    ew_emit(E, WOP_LOCAL_SET); ew_u32(E, node->exception_entry.local_slot);
+    cg_jump(E, node);
+.);
+
+// Nop — the IR's label/merge anchor. Emits no bytecode; the structurer owns the
+// block/loop scope and any br to it (S5.10). Control falls through to .next.
+stmt: Nop = 0 (. /* label anchor — structurer owns the scope (S5.10) */ .);
+
+// ── value-as-statement chains (faithful to yoctojc's stmt: sreg/ireg/aref) ──
+// A bare value subtree reduces to stmt with NO extra bytes — it tiles the value
+// and leaves it on the stack. The structured emit (S5.7b) calls burg_rewrite on
+// a cond/value subtree to tile it; these chains are the only public matcher
+// entry for a value tree. High cost = last-resort (never wins in a real spine,
+// where value nodes are children, not stmt roots).
+stmt: i32 = 400;
+stmt: i64 = 401;
+stmt: f32 = 402;
+stmt: f64 = 403;
+stmt: ref = 404;

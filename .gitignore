@@ -1,0 +1,32 @@
+# Build trees — every artifact under here is reproducible from `make`.
+build/
+
+# Compiler dependency files emitted by -MMD next to the source (wasm/ root).
+*.d
+# ...except the BBQ generator specs, which are real sources with a .def suffix.
+!*.def
+
+# Object files and libraries.
+*.o
+*.a
+
+# Valgrind / kernel core dumps. These have reached 200 MB+ in wasm/test.
+vgcore.*
+core.*
+*.core
+
+# LSP/tooling scratch.
+compile_commands.json
+.cache/
+
+# Stale test executables built before the build/ convention (2026-06 era).
+# They are checked-in binaries pending deletion approval; ignoring them keeps
+# them out of history in the meantime. Remove these lines once they are gone.
+wasm/test/test_container
+wasm/test/test_control
+wasm/test/test_control_manual
+wasm/test/test_interp
+wasm/test/test_jit_numeric
+wasm/test/test_locals
+wasm/test/test_ops
+wasm/test/test_skeleton

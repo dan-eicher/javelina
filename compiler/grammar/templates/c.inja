@@ -1,0 +1,322 @@
+/* ============================================================
+ * Auto-generated from ASDL — do not edit by hand.
+ * ============================================================ */
+#ifndef {{upper(name)}}_AST_H
+#define {{upper(name)}}_AST_H
+
+#include <stdint.h>
+#include <stddef.h>
+#include <stdbool.h>
+
+#include "bbq_arena.h"
+#include "bbq_vec.h"
+
+/* ── Tag enums for sum types ────────────────────────────── */
+
+{% for def in definitions %}
+{% if def.type == "sum" %}
+{% if existsIn(def, "is_enum") and def.is_enum %}
+typedef enum {
+{% for type in def.types %}
+    {{upper(name)}}_{{upper(type.name)}}{% if not loop.is_last %},{% endif %}
+
+{% endfor %}
+} {{c_name(name, def.name)}};
+
+{% else if length(def.types) > 1 %}
+typedef enum {
+{% for type in def.types %}
+    {{upper(name)}}_{{upper(type.name)}}{% if not loop.is_last %},{% endif %}
+
+{% endfor %}
+} {{c_name(name, def.name)}}_tag;
+
+{% endif %}
+{% endif %}
+{% endfor %}
+/* ── Forward declarations ───────────────────────────────── */
+
+{% for def in definitions %}
+{% if def.type == "sum" and not (existsIn(def, "is_enum") and def.is_enum) %}
+typedef struct {{c_name(name, def.name)}} {{c_name(name, def.name)}};
+{% endif %}
+{% if def.type == "product" %}
+typedef struct {{c_name(name, def.name)}} {{c_name(name, def.name)}};
+{% endif %}
+{% endfor %}
+
+/* ── Source location ────────────────────────────────────── */
+
+typedef struct {
+    const char* file;
+    int line;
+    int col;
+} {{name}}_srcloc;
+
+/* ── Multi-constructor sum types (tagged unions) ────────── */
+
+{% for def in definitions %}
+{% if def.type == "sum" and not (existsIn(def, "is_enum") and def.is_enum) and length(def.types) > 1 %}
+struct {{c_name(name, def.name)}} {
+    {{c_name(name, def.name)}}_tag tag;
+    {{name}}_srcloc loc;
+    union {
+{% for type in def.types %}
+{% if length(type.fields) > 0 %}
+        struct {
+{% for field in type.fields %}
+{% if field.flag == "sequence" %}
+            {{get_type(field.type)}}* {{safe_name(field.name)}};
+            int {{safe_name(field.name)}}_count;
+{% else %}
+            {{get_type(field.type)}} {{safe_name(field.name)}};
+{% endif %}
+{% endfor %}
+        } {{safe_name(snakecase(type.name))}};
+{% endif %}
+{% endfor %}
+    };
+{% if existsIn(def, "attributes") and length(def.attributes) > 0 %}
+{% for field in def.attributes %}
+{% if field.flag == "sequence" %}
+    {{get_type(field.type)}}* {{safe_name(field.name)}};
+    int {{safe_name(field.name)}}_count;
+{% else %}
+    {{get_type(field.type)}} {{safe_name(field.name)}};
+{% endif %}
+{% endfor %}
+{% endif %}
+};
+
+{% endif %}
+{% endfor %}
+/* ── Single-constructor sum types (plain structs) ───────── */
+
+{% for def in definitions %}
+{% if def.type == "sum" and not (existsIn(def, "is_enum") and def.is_enum) and length(def.types) == 1 %}
+{% set type = def.types.0 %}
+struct {{c_name(name, def.name)}} {
+    {{name}}_srcloc loc;
+{% for field in type.fields %}
+{% if field.flag == "sequence" %}
+    {{get_type(field.type)}}* {{safe_name(field.name)}};
+    int {{safe_name(field.name)}}_count;
+{% else %}
+    {{get_type(field.type)}} {{safe_name(field.name)}};
+{% endif %}
+{% endfor %}
+};
+
+{% endif %}
+{% endfor %}
+/* ── Product types ──────────────────────────────────────── */
+
+{% for def in definitions %}
+{% if def.type == "product" %}
+struct {{c_name(name, def.name)}} {
+    {{name}}_srcloc loc;
+{% for field in def.fields %}
+{% if field.flag == "sequence" %}
+    {{get_type(field.type)}}* {{safe_name(field.name)}};
+    int {{safe_name(field.name)}}_count;
+{% else %}
+    {{get_type(field.type)}} {{safe_name(field.name)}};
+{% endif %}
+{% endfor %}
+};
+
+{% endif %}
+{% endfor %}
+/* ── Constructor functions ──────────────────────────────── */
+
+{% for def in definitions %}
+{% if def.type == "sum" and not (existsIn(def, "is_enum") and def.is_enum) %}
+{% if length(def.types) == 1 %}
+{% set type = def.types.0 %}
+{% if length(type.fields) > 0 %}
+static inline {{c_name(name, def.name)}}* {{snakecase(name)}}_{{snakecase(type.name)}}(bbq_arena* _a{% for field in type.fields %}{% if field.flag == "sequence" %}, {{get_type(field.type)}}* {{safe_name(field.name)}}, int {{safe_name(field.name)}}_count{% else %}, {{get_type(field.type)}} {{safe_name(field.name)}}{% endif %}{% endfor %}) {
+    {{c_name(name, def.name)}}* _n = ({{c_name(name, def.name)}}*)bbq_arena_alloc(_a, sizeof({{c_name(name, def.name)}}));
+    _n->loc = ({{name}}_srcloc){0};   /* zero the common source location — arena_alloc doesn't; it's stamped later */
+{% for field in type.fields %}
+{% if field.flag == "sequence" %}
+    _n->{{safe_name(field.name)}} = {{safe_name(field.name)}};
+    _n->{{safe_name(field.name)}}_count = {{safe_name(field.name)}}_count;
+{% else %}
+    _n->{{safe_name(field.name)}} = {{safe_name(field.name)}};
+{% endif %}
+{% endfor %}
+    return _n;
+}
+
+{% endif %}
+{% else %}
+{% for type in def.types %}
+{% if length(type.fields) > 0 %}
+static inline {{c_name(name, def.name)}}* {{snakecase(name)}}_{{snakecase(type.name)}}(bbq_arena* _a{% for field in type.fields %}{% if field.flag == "sequence" %}, {{get_type(field.type)}}* {{safe_name(field.name)}}, int {{safe_name(field.name)}}_count{% else %}, {{get_type(field.type)}} {{safe_name(field.name)}}{% endif %}{% endfor %}) {
+    {{c_name(name, def.name)}}* _n = ({{c_name(name, def.name)}}*)bbq_arena_alloc(_a, sizeof({{c_name(name, def.name)}}));
+    _n->loc = ({{name}}_srcloc){0};   /* zero the common source location — arena_alloc doesn't; it's stamped later */
+    _n->tag = {{upper(name)}}_{{upper(type.name)}};
+{% for field in type.fields %}
+{% if field.flag == "sequence" %}
+    _n->{{safe_name(snakecase(type.name))}}.{{safe_name(field.name)}} = {{safe_name(field.name)}};
+    _n->{{safe_name(snakecase(type.name))}}.{{safe_name(field.name)}}_count = {{safe_name(field.name)}}_count;
+{% else %}
+    _n->{{safe_name(snakecase(type.name))}}.{{safe_name(field.name)}} = {{safe_name(field.name)}};
+{% endif %}
+{% endfor %}
+{% if existsIn(def, "attributes") %}{% for field in def.attributes %}
+    _n->{{safe_name(field.name)}} = {% if field.flag == "optional" %}NULL{% else %}0{% endif %};
+{% endfor %}{% endif %}
+    return _n;
+}
+
+{% else %}
+static inline {{c_name(name, def.name)}}* {{snakecase(name)}}_{{snakecase(type.name)}}(bbq_arena* _a) {
+    {{c_name(name, def.name)}}* _n = ({{c_name(name, def.name)}}*)bbq_arena_alloc(_a, sizeof({{c_name(name, def.name)}}));
+    _n->loc = ({{name}}_srcloc){0};   /* zero the common source location — arena_alloc doesn't; it's stamped later */
+    _n->tag = {{upper(name)}}_{{upper(type.name)}};
+{% if existsIn(def, "attributes") %}{% for field in def.attributes %}
+    _n->{{safe_name(field.name)}} = {% if field.flag == "optional" %}NULL{% else %}0{% endif %};
+{% endfor %}{% endif %}
+    return _n;
+}
+
+{% endif %}
+{% endfor %}
+{% endif %}
+{% endif %}
+{% endfor %}
+{% for def in definitions %}
+{% if def.type == "product" %}
+{% if length(def.fields) > 0 %}
+static inline {{c_name(name, def.name)}}* {{snakecase(name)}}_{{snakecase(def.name)}}(bbq_arena* _a{% for field in def.fields %}{% if field.flag == "sequence" %}, {{get_type(field.type)}}* {{safe_name(field.name)}}, int {{safe_name(field.name)}}_count{% else %}, {{get_type(field.type)}} {{safe_name(field.name)}}{% endif %}{% endfor %}) {
+    {{c_name(name, def.name)}}* _n = ({{c_name(name, def.name)}}*)bbq_arena_alloc(_a, sizeof({{c_name(name, def.name)}}));
+    _n->loc = ({{name}}_srcloc){0};   /* zero the common source location — arena_alloc doesn't; it's stamped later */
+{% for field in def.fields %}
+{% if field.flag == "sequence" %}
+    _n->{{safe_name(field.name)}} = {{safe_name(field.name)}};
+    _n->{{safe_name(field.name)}}_count = {{safe_name(field.name)}}_count;
+{% else %}
+    _n->{{safe_name(field.name)}} = {{safe_name(field.name)}};
+{% endif %}
+{% endfor %}
+    return _n;
+}
+
+{% endif %}
+{% endif %}
+{% endfor %}
+/* ── Deep-copy (clone) into an arena ────────────────────── */
+/* The IR is a graph: expression operands are trees, but the CPS spine has
+ * shared merge points and loop back-edges. A naive recursion would loop or
+ * duplicate the shared nodes, so the copy is memoised on the original pointer
+ * (orig→copy). The memo is a transient linear table over a bbq_vec — method
+ * bodies are small, so the O(n) probe is cheaper than a hash; the cloned
+ * nodes themselves live in the caller's arena. Record the forwarding pointer
+ * BEFORE recursing so a back-edge to a node mid-construction resolves. */
+
+typedef struct { const void* k; void* v; } {{name}}_copy_pair;
+typedef struct { {{name}}_copy_pair* pairs; } {{name}}_copy_memo;
+
+static inline void* {{name}}_copy_memo_get({{name}}_copy_memo* _m, const void* _k) {
+    for (int _i = 0; _i < bbq_vec_len(_m->pairs); _i++)
+        if (_m->pairs[_i].k == _k) return _m->pairs[_i].v;
+    return NULL;
+}
+static inline void {{name}}_copy_memo_put({{name}}_copy_memo* _m, const void* _k, void* _v) {
+    {{name}}_copy_pair _p; _p.k = _k; _p.v = _v;
+    bbq_vec_push(_m->pairs, _p);
+}
+static inline void {{name}}_copy_memo_dispose({{name}}_copy_memo* _m) {
+    bbq_vec_free(_m->pairs);
+}
+
+/* Forward declarations (the copy functions are mutually recursive). */
+{% for def in definitions %}
+{% if (def.type == "sum" and not (existsIn(def, "is_enum") and def.is_enum)) or def.type == "product" %}
+static inline {{c_name(name, def.name)}}* {{snakecase(name)}}_{{snakecase(def.name)}}_copy(bbq_arena* _a, {{name}}_copy_memo* _memo, const {{c_name(name, def.name)}}* _src);
+{% endif %}
+{% endfor %}
+
+{% for def in definitions %}
+{% if (def.type == "sum" and not (existsIn(def, "is_enum") and def.is_enum)) or def.type == "product" %}
+static inline {{c_name(name, def.name)}}* {{snakecase(name)}}_{{snakecase(def.name)}}_copy(bbq_arena* _a, {{name}}_copy_memo* _memo, const {{c_name(name, def.name)}}* _src) {
+    if (!_src) return NULL;
+    void* _hit = {{name}}_copy_memo_get(_memo, _src);
+    if (_hit) return ({{c_name(name, def.name)}}*)_hit;
+    {{c_name(name, def.name)}}* _n = ({{c_name(name, def.name)}}*)bbq_arena_alloc(_a, sizeof({{c_name(name, def.name)}}));
+    {{name}}_copy_memo_put(_memo, _src, _n);
+    _n->loc = _src->loc;
+{% if def.type == "sum" and length(def.types) > 1 %}
+    _n->tag = _src->tag;
+    switch (_src->tag) {
+{% for type in def.types %}
+    case {{upper(name)}}_{{upper(type.name)}}:
+{% for field in type.fields %}
+{% if not field.is_schema %}
+{% if field.flag == "sequence" %}
+        _n->{{safe_name(snakecase(type.name))}}.{{safe_name(field.name)}}_count = _src->{{safe_name(snakecase(type.name))}}.{{safe_name(field.name)}}_count;
+        _n->{{safe_name(snakecase(type.name))}}.{{safe_name(field.name)}} = ({{get_type(field.type)}}*)bbq_arena_alloc(_a, sizeof({{get_type(field.type)}}) * (size_t)(_src->{{safe_name(snakecase(type.name))}}.{{safe_name(field.name)}}_count));
+        for (int _i = 0; _i < _src->{{safe_name(snakecase(type.name))}}.{{safe_name(field.name)}}_count; _i++)
+            _n->{{safe_name(snakecase(type.name))}}.{{safe_name(field.name)}}[_i] = _src->{{safe_name(snakecase(type.name))}}.{{safe_name(field.name)}}[_i];
+{% else %}
+        _n->{{safe_name(snakecase(type.name))}}.{{safe_name(field.name)}} = _src->{{safe_name(snakecase(type.name))}}.{{safe_name(field.name)}};
+{% endif %}
+{% else %}
+{% for d in definitions %}{% if d.name == field.type %}
+{% if existsIn(d, "is_enum") and d.is_enum %}
+        _n->{{safe_name(snakecase(type.name))}}.{{safe_name(field.name)}} = _src->{{safe_name(snakecase(type.name))}}.{{safe_name(field.name)}};
+{% else if field.flag == "sequence" %}
+        _n->{{safe_name(snakecase(type.name))}}.{{safe_name(field.name)}}_count = _src->{{safe_name(snakecase(type.name))}}.{{safe_name(field.name)}}_count;
+        _n->{{safe_name(snakecase(type.name))}}.{{safe_name(field.name)}} = ({{get_type(field.type)}}*)bbq_arena_alloc(_a, sizeof({{get_type(field.type)}}) * (size_t)(_src->{{safe_name(snakecase(type.name))}}.{{safe_name(field.name)}}_count));
+        for (int _i = 0; _i < _src->{{safe_name(snakecase(type.name))}}.{{safe_name(field.name)}}_count; _i++)
+            _n->{{safe_name(snakecase(type.name))}}.{{safe_name(field.name)}}[_i] = {{snakecase(name)}}_{{snakecase(field.type)}}_copy(_a, _memo, _src->{{safe_name(snakecase(type.name))}}.{{safe_name(field.name)}}[_i]);
+{% else %}
+        _n->{{safe_name(snakecase(type.name))}}.{{safe_name(field.name)}} = {{snakecase(name)}}_{{snakecase(field.type)}}_copy(_a, _memo, _src->{{safe_name(snakecase(type.name))}}.{{safe_name(field.name)}});
+{% endif %}
+{% endif %}{% endfor %}
+{% endif %}
+{% endfor %}
+        break;
+{% endfor %}
+    default: break;
+    }
+{% else %}
+{% if def.type == "product" %}{% set fields = def.fields %}{% else %}{% set fields = def.types.0.fields %}{% endif %}
+{% for field in fields %}
+{% if not field.is_schema %}
+{% if field.flag == "sequence" %}
+    _n->{{safe_name(field.name)}}_count = _src->{{safe_name(field.name)}}_count;
+    _n->{{safe_name(field.name)}} = ({{get_type(field.type)}}*)bbq_arena_alloc(_a, sizeof({{get_type(field.type)}}) * (size_t)(_src->{{safe_name(field.name)}}_count));
+    for (int _i = 0; _i < _src->{{safe_name(field.name)}}_count; _i++)
+        _n->{{safe_name(field.name)}}[_i] = _src->{{safe_name(field.name)}}[_i];
+{% else %}
+    _n->{{safe_name(field.name)}} = _src->{{safe_name(field.name)}};
+{% endif %}
+{% else %}
+{% for d in definitions %}{% if d.name == field.type %}
+{% if existsIn(d, "is_enum") and d.is_enum %}
+    _n->{{safe_name(field.name)}} = _src->{{safe_name(field.name)}};
+{% else if field.flag == "sequence" %}
+    _n->{{safe_name(field.name)}}_count = _src->{{safe_name(field.name)}}_count;
+    _n->{{safe_name(field.name)}} = ({{get_type(field.type)}}*)bbq_arena_alloc(_a, sizeof({{get_type(field.type)}}) * (size_t)(_src->{{safe_name(field.name)}}_count));
+    for (int _i = 0; _i < _src->{{safe_name(field.name)}}_count; _i++)
+        _n->{{safe_name(field.name)}}[_i] = {{snakecase(name)}}_{{snakecase(field.type)}}_copy(_a, _memo, _src->{{safe_name(field.name)}}[_i]);
+{% else %}
+    _n->{{safe_name(field.name)}} = {{snakecase(name)}}_{{snakecase(field.type)}}_copy(_a, _memo, _src->{{safe_name(field.name)}});
+{% endif %}
+{% endif %}{% endfor %}
+{% endif %}
+{% endfor %}
+{% endif %}
+{% if existsIn(def, "attributes") and length(def.attributes) > 0 %}
+{% for field in def.attributes %}
+    _n->{{safe_name(field.name)}} = _src->{{safe_name(field.name)}};   /* attributes copy SHALLOW — stamps, not owned subtrees (previously left UNINITIALIZED on copies) */
+{% endfor %}
+{% endif %}
+    return _n;
+}
+
+{% endif %}
+{% endfor %}
+#endif /* {{upper(name)}}_AST_H */

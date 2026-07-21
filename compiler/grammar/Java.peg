@@ -1,0 +1,1071 @@
+// =============================================================
+// Java 1.0 PEG Grammar
+//
+// Java 1.0 (minus synchronized), plus char/string sugar.
+// Generated parser constructs ASDL-defined AST nodes.
+// =============================================================
+
+COMPILER Java
+
+(.
+#include "java_ast.h"
+#include <stdlib.h>
+#include <string.h>
+
+/* ── Parse context (stored in peg_state.user_data) ──────── */
+
+typedef struct {
+    bbq_arena arena;
+    ast_program_t*  result;
+    /* Optional file path attributed to every AST node's srcloc.
+     * Callers that drive multi-file parses set this per-file before
+     * each java_parser_parse() call so downstream diagnostics can
+     * point at the right source. If NULL, srcloc.file is left NULL
+     * (which is how single-string test harnesses operate today). */
+    const char*     file;
+} java_parse_ctx_t;
+
+#define CTX  ((java_parse_ctx_t*)p->user_data)
+#define A    (&CTX->arena)
+
+/* ── Helpers ────────────────────────────────────────────── */
+
+static inline const char* jdup(bbq_arena* a, peg_span s) {
+    char* d = (char*)bbq_arena_alloc(a, (size_t)(s.len + 1));
+    memcpy(d, s.ptr, (size_t)s.len);
+    d[s.len] = '\0';
+    return d;
+}
+
+static inline void** jpush(bbq_arena* a, void** old, int* count, void* item) {
+    int n = *count;
+    void** nw = (void**)bbq_arena_alloc(a, (size_t)(n + 1) * sizeof(void*));
+    if (old && n > 0) memcpy(nw, old, (size_t)n * sizeof(void*));
+    nw[n] = item;
+    *count = n + 1;
+    return nw;
+}
+
+static inline ast_modifier_t* mpush(bbq_arena* a, ast_modifier_t* old, int* count, ast_modifier_t m) {
+    int n = *count;
+    ast_modifier_t* nw = (ast_modifier_t*)bbq_arena_alloc(a, (size_t)(n + 1) * sizeof(ast_modifier_t));
+    if (old && n > 0) memcpy(nw, old, (size_t)n * sizeof(ast_modifier_t));
+    nw[n] = m;
+    *count = n + 1;
+    return nw;
+}
+
+/* Decode a raw string-literal span (the characters between the quotes, escapes intact) into an
+   ArrayInit of char (UTF-16 code unit) IntLits — the desugared backing char[] of the String.
+   `char` is unsigned 16-bit → the backing is (array (mut i16)), so a code unit is an element.
+   Handles: JLS §3.3 \u escapes (the string_lit TOKEN guarantees a well-formed \ u+ 4hex here, so
+   there is no error path); §3.10.6 escapes (\b \t \n \f \r \" \' \\ and octal \0..\377); and UTF-8
+   source bytes decoded to UTF-16 (a BMP code point → one code unit, an astral one → a surrogate
+   pair). §3.3's even/odd-backslash and no-re-participation rules fall out of the ordered decode:
+   a \\ is consumed as the escape for one backslash before any \u is considered, and a code unit
+   produced by \u is emitted, never re-scanned. */
+static inline int jstr_hexval(char h) {
+    if (h >= '0' && h <= '9') return h - '0';
+    if (h >= 'a' && h <= 'f') return h - 'a' + 10;
+    if (h >= 'A' && h <= 'F') return h - 'A' + 10;
+    return 0;
+}
+static inline ast_expr_t* jstr_to_array(bbq_arena* a, peg_span raw) {
+    ast_expr_t** elems = NULL; int count = 0;
+    int i = 0;
+    while (i < raw.len) {
+        int32_t cu;                              /* the UTF-16 code unit to emit */
+        unsigned char b = (unsigned char)raw.ptr[i];
+        if (b == '\\' && i + 1 < raw.len) {
+            if (raw.ptr[i + 1] == 'u') {         /* §3.3 unicode escape: \ u{1,} XXXX */
+                int j = i + 1;
+                while (j < raw.len && raw.ptr[j] == 'u') j++;   /* one or more 'u' */
+                cu = 0;
+                for (int k = 0; k < 4 && j < raw.len; k++, j++) cu = (cu << 4) | jstr_hexval(raw.ptr[j]);
+                i = j;
+            } else {                             /* §3.10.6 escape */
+                char e = raw.ptr[i + 1];
+                i += 2;
+                switch (e) {
+                case 'b':  cu = '\b'; break;
+                case 't':  cu = '\t'; break;
+                case 'n':  cu = '\n'; break;
+                case 'f':  cu = '\f'; break;
+                case 'r':  cu = '\r'; break;
+                case '"':  cu = '"';  break;
+                case '\'': cu = '\''; break;
+                case '\\': cu = '\\'; break;
+                default:
+                    if (e >= '0' && e <= '7') {  /* octal \0..\377 (3 digits only if the first is 0-3) */
+                        int v = e - '0';
+                        if (i < raw.len && raw.ptr[i] >= '0' && raw.ptr[i] <= '7') {
+                            v = v * 8 + (raw.ptr[i++] - '0');
+                            if (e <= '3' && i < raw.len && raw.ptr[i] >= '0' && raw.ptr[i] <= '7')
+                                v = v * 8 + (raw.ptr[i++] - '0');
+                        }
+                        cu = v;
+                    } else cu = (unsigned char)e;
+                    break;
+                }
+            }
+        } else if (b < 0x80) {                   /* ASCII */
+            cu = b; i++;
+        } else {                                 /* UTF-8 multibyte → code point → UTF-16 code unit(s) */
+            int32_t cp; int n;
+            if      ((b & 0xE0) == 0xC0) { cp = b & 0x1F; n = 1; }
+            else if ((b & 0xF0) == 0xE0) { cp = b & 0x0F; n = 2; }
+            else if ((b & 0xF8) == 0xF0) { cp = b & 0x07; n = 3; }
+            else                         { cp = b;        n = 0; }   /* invalid lead → Latin-1 fallback */
+            i++;
+            for (int k = 0; k < n && i < raw.len && ((unsigned char)raw.ptr[i] & 0xC0) == 0x80; k++, i++)
+                cp = (cp << 6) | (raw.ptr[i] & 0x3F);
+            if (cp > 0xFFFF) {                    /* astral → high + low surrogate */
+                cp -= 0x10000;
+                elems = (ast_expr_t**)jpush(a, (void**)elems, &count, ast_char_lit(a, 0xD800 + (cp >> 10)));
+                cu = 0xDC00 + (cp & 0x3FF);
+            } else cu = cp;
+        }
+        elems = (ast_expr_t**)jpush(a, (void**)elems, &count,
+                    ast_char_lit(a, cu));
+    }
+    /* §10.6: an array initializer's component type is inferred from its elements — an
+       EMPTY literal ("") has none, so it must instead be an explicit array creation
+       `new char[0]` (§15.9) that names the component type. */
+    if (count == 0) {
+        ast_expr_t** dims = NULL; int dc = 0;
+        dims = (ast_expr_t**)jpush(a, (void**)dims, &dc, ast_int_lit(a, 0));
+        return ast_new_array(a, ast_char_type(a), dims, dc);
+    }
+    return ast_array_init(a, elems, count);
+}
+
+/* JLS §3.10.5 / §15.8.1: a string literal is a reference to a String object. Lower
+   it to `new String(<the char[] of its code units>)` — the backing char[] is the
+   array-init above (char elements → char[] naturally), and String(char[]) is the
+   compiled overlay ctor that stores it. (Literal interning, §3.10.5, is a later
+   refinement; each occurrence currently builds a fresh String.) */
+static inline ast_expr_t* jstr_to_string(bbq_arena* a, peg_span raw) {
+    ast_expr_t** args = NULL; int ac = 0;
+    args = (ast_expr_t**)jpush(a, (void**)args, &ac, jstr_to_array(a, raw));
+    return ast_new(a, ast_simple_name(a, "String"), args, ac);
+}
+
+/* JLS §14.8: an ExpressionStatement only allows certain expression
+   forms (assignment, ++/--, method call, class instance creation).
+   Same restriction applies to for-init and for-update via §14.14
+   StatementExpressionList. Parse permissively as Expr_, reject
+   non-statement-expression forms via this check so `5 + 3;` and
+   `for (a + b; …)` fail at parse time. */
+static inline bool jis_stmt_expr(const ast_expr_t* e) {
+    if (!e) return false;
+    switch (e->tag) {
+        case AST_ASSIGN:
+        case AST_COMPOUNDASSIGN:
+        case AST_METHODCALL:
+        case AST_SUPERCALL:        /* super.method() — invocation form */
+        case AST_NEW:              /* ClassInstanceCreationExpression */
+        case AST_CONSTRUCTORCALL:  /* this()/super() — explicit ctor invocation */
+            return true;
+        case AST_UNARY:
+            return e->unary.op == AST_PREINC || e->unary.op == AST_PREDEC
+                || e->unary.op == AST_POSTINC || e->unary.op == AST_POSTDEC;
+        default:
+            return false;
+    }
+}
+
+/* Decode a captured `integer` token span (decimal, 0x… hex, or 0…
+   octal per JLS §3.10.1). The lexer guarantees the span is a valid
+   integer numeral, so strtoll with base 0 covers all three forms. */
+static inline int64_t jparse_int(peg_span s) {
+    char buf[32];
+    int n = s.len < (int)sizeof(buf) - 1 ? s.len : (int)sizeof(buf) - 1;
+    memcpy(buf, s.ptr, (size_t)n);
+    buf[n] = '\0';
+    return strtoll(buf, NULL, 0);
+}
+
+/* Decode a captured `long_lit` token (JLS §3.10.1): an integer numeral
+   with a trailing l/L. strtoUll base 0 covers decimal/hex/octal and stops
+   at the suffix letter. Unsigned-then-cast (NOT strtoll) so a hex/octal/binary
+   literal with bit 63 set represents its two's-complement value rather than
+   saturating to LLONG_MAX — e.g. 0x8000000000000000L is Long.MIN_VALUE. */
+static inline int64_t jparse_long(peg_span s) {
+    char buf[32];
+    int n = s.len < (int)sizeof(buf) - 1 ? s.len : (int)sizeof(buf) - 1;
+    memcpy(buf, s.ptr, (size_t)n);
+    buf[n] = '\0';
+    return (int64_t)strtoull(buf, NULL, 0);
+}
+
+/* Decode a captured `float_lit` token (JLS §3.10.2). A trailing f/F suffix
+   makes it a float; d/D or no suffix makes it a double. strtof/strtod parse
+   the numeral and stop at the suffix letter. */
+static inline ast_expr_t* jparse_float_lit(bbq_arena* a, peg_span s) {
+    char buf[64];
+    int n = s.len < (int)sizeof(buf) - 1 ? s.len : (int)sizeof(buf) - 1;
+    memcpy(buf, s.ptr, (size_t)n);
+    buf[n] = '\0';
+    char last = n > 0 ? buf[n - 1] : '\0';
+    if (last == 'f' || last == 'F') return ast_float_lit(a, strtof(buf, NULL));
+    return ast_double_lit(a, strtod(buf, NULL));
+}
+
+/* Decode a captured `char_lit` span (quotes included) to the character (UTF-16 code unit) value,
+   per JLS §3.3 (\u escape — the char_lit TOKEN guarantees \ u+ 4hex here) and §3.10.6 escapes
+   (\b \t \n \f \r \" \' \\ and octal \0..\377). A non-ASCII char given as raw UTF-8 bytes is not
+   handled here (the TOKEN matches a single byte); use the \u form for those. */
+static inline int32_t jparse_char_lit(peg_span s) {
+    /* s is `'X'`, `'\X'`, `'\ooo'`, or `'\uXXXX'` — decode the body between quotes. */
+    if (s.len >= 4 && s.ptr[1] == '\\') {
+        if (s.ptr[2] == 'u') {                 /* §3.3 unicode escape: \ u{1,} XXXX */
+            int j = 2; while (j < s.len && s.ptr[j] == 'u') j++;
+            int32_t cu = 0;
+            for (int k = 0; k < 4 && j < s.len; k++, j++) cu = (cu << 4) | jstr_hexval(s.ptr[j]);
+            return cu;
+        }
+        char c = s.ptr[2];
+        switch (c) {
+        case 'b':  return '\b';
+        case 't':  return '\t';
+        case 'n':  return '\n';
+        case 'f':  return '\f';
+        case 'r':  return '\r';
+        case '"':  return '"';
+        case '\'': return '\'';
+        case '\\': return '\\';
+        default:
+            if (c >= '0' && c <= '7') {        /* octal escape */
+                int v = 0, i = 2;
+                while (i < s.len - 1 && s.ptr[i] >= '0' && s.ptr[i] <= '7') {
+                    v = v * 8 + (s.ptr[i] - '0');
+                    i++;
+                }
+                return v;
+            }
+            return (unsigned char)c;
+        }
+    }
+    return (unsigned char)s.ptr[1];
+}
+
+/* Source location capture — saves the parser's current line/col
+ * plus the caller-supplied file path (NULL by default). */
+#define LOC ((ast_srcloc){ CTX->file, peg_line(p), peg_col(p) })
+
+/* Called by the generated parser when parse fails at top level.
+ * Consumers use p->furthest directly to render diagnostics their
+ * own way — this hook is left as a no-op so nothing is written to
+ * stderr behind the caller's back. */
+static inline void report_parse_error(peg_state* p) { (void)p; }
+.)
+
+CHARACTERS
+    letter           = 'a'..'z' + 'A'..'Z' + '_' + '$' .
+    digit            = '0'..'9' .
+    nonzero_digit    = '1'..'9' .
+    octal_digit      = '0'..'7' .
+    hex_digit        = digit + 'a'..'f' + 'A'..'F' .
+    letter_or_digit  = letter + digit .
+    float_suffix     = 'f' + 'F' + 'd' + 'D' .
+    sign_char        = '+' + '-' .
+
+TOKENS
+    // Any reserved word + word-boundary (§3.9). Used as a negative
+    // lookahead in `ident` so identifiers can't accidentally collide
+    // with keywords (e.g. `void` as a class type would silently make
+    // `void x;` parse as a field).
+    keyword = ( "abstract" | "boolean" | "break" | "byte" | "case"
+              | "catch" | "char" | "class" | "const" | "continue" | "default"
+              | "do" | "double" | "else" | "extends" | "false" | "final"
+              | "finally" | "float" | "for" | "goto" | "if" | "implements" | "import"
+              | "instanceof" | "int" | "interface" | "long" | "native" | "new" | "null"
+              | "package" | "private" | "protected" | "public" | "return"
+              | "short" | "static" | "super" | "switch" | "synchronized" | "this"
+              | "throw" | "throws" | "transient" | "true" | "try" | "void"
+              | "volatile" | "while" )
+              !letter_or_digit .
+
+    ident      = !keyword letter { letter_or_digit } .
+
+    integer    = '0' ( 'x' | 'X' ) hex_digit { hex_digit }
+               | nonzero_digit { digit }
+               | '0' { octal_digit }
+               .
+
+    // Long literal (§3.10.1): an integer numeral + l/L suffix. Tried
+    // before `integer` in the Literal production so `10L` isn't lexed
+    // as `10` with a stray `L`.
+    long_lit   = ( '0' ( 'x' | 'X' ) hex_digit { hex_digit }
+                 | nonzero_digit { digit }
+                 | '0' { octal_digit } ) ( 'l' | 'L' ) .
+
+    // Floating-point literal (§3.10.2). Each alternative requires a '.',
+    // an exponent, or a float suffix, so a bare integer never matches —
+    // it falls through to `integer`/`long_lit`.
+    float_lit  = digit { digit } '.' { digit } [ ( 'e' | 'E' ) [ sign_char ] digit { digit } ] [ float_suffix ]
+               | '.' digit { digit } [ ( 'e' | 'E' ) [ sign_char ] digit { digit } ] [ float_suffix ]
+               | digit { digit } ( 'e' | 'E' ) [ sign_char ] digit { digit } [ float_suffix ]
+               | digit { digit } float_suffix
+               .
+
+    // §3.3 unicode escape (\ u+ then exactly 4 hex) is tried first; the other-escape branch
+    // then excludes 'u' (!'u'), so a malformed \u fails the token → a clean parse error rather
+    // than silently degrading to a literal 'u...'. \u decoding happens in jparse_char_lit.
+    char_lit   = '\'' ( '\\' 'u' { 'u' } hex_digit hex_digit hex_digit hex_digit
+                      | '\\' !'u' ( octal_digit [ octal_digit [ octal_digit ] ] | ANY )
+                      | !'\'' !'\\' !'\r' !'\n' ANY )
+                 '\'' .
+
+    string_lit = '"' { '\\' 'u' { 'u' } hex_digit hex_digit hex_digit hex_digit
+                     | '\\' !'u' ANY
+                     | !'"' !'\\' !'\r' !'\n' ANY }
+                 '"' .
+
+    /* Keywords (§3.9). PEG is character-level so a literal "throw"
+     * matches the prefix of "thrower"; pegc's auto-skip is optional
+     * (zero whitespace satisfies it) so it doesn't enforce a word
+     * boundary either. Each kw_X TOKEN bakes in `!letter_or_digit`
+     * after the literal so positive matches and negative-lookahead
+     * disambiguation both see the right boundary. */
+    kw_abstract   = "abstract"   !letter_or_digit .
+    kw_boolean    = "boolean"    !letter_or_digit .
+    kw_break      = "break"      !letter_or_digit .
+    kw_byte       = "byte"       !letter_or_digit .
+    kw_case       = "case"       !letter_or_digit .
+    kw_catch      = "catch"      !letter_or_digit .
+    kw_char       = "char"       !letter_or_digit .
+    kw_class      = "class"      !letter_or_digit .
+    kw_continue   = "continue"   !letter_or_digit .
+    kw_default    = "default"    !letter_or_digit .
+    kw_do         = "do"         !letter_or_digit .
+    kw_double     = "double"     !letter_or_digit .
+    kw_else       = "else"       !letter_or_digit .
+    kw_extends    = "extends"    !letter_or_digit .
+    kw_false      = "false"      !letter_or_digit .
+    kw_final      = "final"      !letter_or_digit .
+    kw_finally    = "finally"    !letter_or_digit .
+    kw_float      = "float"      !letter_or_digit .
+    kw_for        = "for"        !letter_or_digit .
+    kw_if         = "if"         !letter_or_digit .
+    kw_implements = "implements" !letter_or_digit .
+    kw_import     = "import"     !letter_or_digit .
+    kw_instanceof = "instanceof" !letter_or_digit .
+    kw_int        = "int"        !letter_or_digit .
+    kw_interface  = "interface"  !letter_or_digit .
+    kw_long       = "long"       !letter_or_digit .
+    kw_native     = "native"     !letter_or_digit .
+    kw_new        = "new"        !letter_or_digit .
+    kw_null       = "null"       !letter_or_digit .
+    kw_package    = "package"    !letter_or_digit .
+    kw_private    = "private"    !letter_or_digit .
+    kw_protected  = "protected"  !letter_or_digit .
+    kw_public     = "public"     !letter_or_digit .
+    kw_return     = "return"     !letter_or_digit .
+    kw_short      = "short"      !letter_or_digit .
+    kw_static     = "static"     !letter_or_digit .
+    kw_super      = "super"      !letter_or_digit .
+    kw_switch     = "switch"     !letter_or_digit .
+    kw_synchronized = "synchronized" !letter_or_digit .
+    kw_this       = "this"       !letter_or_digit .
+    kw_throw      = "throw"      !letter_or_digit .
+    kw_throws     = "throws"     !letter_or_digit .
+    kw_transient  = "transient"  !letter_or_digit .
+    kw_true       = "true"       !letter_or_digit .
+    kw_try        = "try"        !letter_or_digit .
+    kw_void       = "void"       !letter_or_digit .
+    kw_volatile   = "volatile"   !letter_or_digit .
+    kw_while      = "while"      !letter_or_digit .
+
+COMMENTS FROM "//" TO "\n"
+COMMENTS FROM "/*" TO "*/"
+
+IGNORE '\r' + '\n' + '\t' + ' '
+
+PRODUCTIONS
+
+// ═══════════════════════════════════════════════════════════════
+// Compilation Unit
+// ═══════════════════════════════════════════════════════════════
+
+Java
+    (. ast_import_t** imports = NULL; int ic = 0;
+       ast_type_decl_t** types = NULL; int tc = 0;
+       ast_import_t* imp; ast_type_decl_t* td; ast_name_t* pkg = NULL; .)
+    = [ kw_package QualName<&pkg> ";" ]
+      { ImportDecl<&imp>
+        (. imports = (ast_import_t**)jpush(A, (void**)imports, &ic, imp); .)
+      }
+      { TypeDecl_<&td>
+        (. types = (ast_type_decl_t**)jpush(A, (void**)types, &tc, td); .)
+      }
+      (. peg_skip(p); if (!peg_at_end(p)) { report_parse_error(p); return false; } .)
+    (. CTX->result = ast_program(A, pkg, imports, ic, types, tc); .)
+.
+
+ImportDecl <. ast_import_t** result .>
+    (. const char** parts = NULL; int pc = 0;
+       peg_span s; bool wildcard = false; .)
+    = kw_import      ident<&s>  (. parts = (const char**)jpush(A, (void**)parts, &pc, (void*)jdup(A, s)); .)
+      { "." ident<&s>  (. parts = (const char**)jpush(A, (void**)parts, &pc, (void*)jdup(A, s)); .) }
+      [ "." "*" (. wildcard = true; .) ]
+      ";"
+    (. if (wildcard) *result = ast_wildcard_import(A, parts, pc);
+       else          *result = ast_single_import(A, parts, pc); .)
+.
+
+// ═══════════════════════════════════════════════════════════════
+// ast_type_t Declarations
+// ═══════════════════════════════════════════════════════════════
+
+TypeDecl_ <. ast_type_decl_t** result .>
+    (. ast_modifier_t* mods = NULL; int mc = 0; .)
+    = { Modifier_<&mods, &mc> }
+      ( ClassDecl_<result, mods, mc>
+      | InterfaceDecl_<result, mods, mc>
+      )
+.
+
+ClassDecl_ <. ast_type_decl_t** result, ast_modifier_t* mods, int mc .>
+    (. peg_span ns; ast_srcloc _loc;
+       ast_name_t* super = NULL;
+       ast_name_t** ifaces = NULL; int ifc = 0;
+       ast_member_t** members = NULL; int memc = 0; .)
+    = (. _loc = LOC; .) kw_class ident<&ns>
+      [ kw_extends QualName<&super> ]
+      [ kw_implements NameList<&ifaces, &ifc> ]
+      "{" { ClassMember<&members, &memc> } "}"
+    (. *result = ast_class_decl(A, jdup(A, ns), super,
+           ifaces, ifc, mods, mc, members, memc);
+       (*result)->loc = _loc; .)
+.
+
+InterfaceDecl_ <. ast_type_decl_t** result, ast_modifier_t* mods, int mc .>
+    (. peg_span ns; ast_srcloc _loc;
+       ast_name_t** extends = NULL; int ec = 0;
+       ast_member_t** members = NULL; int memc = 0; .)
+    = (. _loc = LOC; .) kw_interface ident<&ns>
+      [ kw_extends NameList<&extends, &ec> ]
+      "{" { InterfaceMember<&members, &memc> } "}"
+    (. *result = ast_interface_decl(A, jdup(A, ns),
+           extends, ec, mods, mc, members, memc);
+       (*result)->loc = _loc; .)
+.
+
+NameList <. ast_name_t*** list, int* count .>
+    (. ast_name_t* n; .)
+    = QualName<&n>  (. *list = (ast_name_t**)jpush(A, (void**)*list, count, n); .)
+      { "," QualName<&n>  (. *list = (ast_name_t**)jpush(A, (void**)*list, count, n); .) }
+.
+
+// ═══════════════════════════════════════════════════════════════
+// Members
+// ═══════════════════════════════════════════════════════════════
+
+ClassMember <. ast_member_t*** list, int* count .>
+    (. ast_member_t* m; .)
+    = MemberDecl<&m>
+      (. *list = (ast_member_t**)jpush(A, (void**)*list, count, m); .)
+    | ";"
+.
+
+InterfaceMember <. ast_member_t*** list, int* count .>
+    (. ast_member_t* m; .)
+    = MemberDecl<&m>
+      (. *list = (ast_member_t**)jpush(A, (void**)*list, count, m); .)
+    | ";"
+.
+
+MemberDecl <. ast_member_t** result .>
+    (. ast_modifier_t* mods = NULL; int mc = 0; .)
+    = { Modifier_<&mods, &mc> }
+      ( StaticInitDecl<result, mods, mc>
+      | ConstructorOrMethodOrField<result, mods, mc>
+      )
+.
+
+StaticInitDecl <. ast_member_t** result, ast_modifier_t* mods, int mc .>
+    (. ast_stmt_t* body; ast_srcloc _loc; (void)mods; (void)mc; .)
+    = (. _loc = LOC; .) Block<&body>
+    (. *result = ast_static_init(A, body); (*result)->loc = _loc; .)
+.
+
+ConstructorOrMethodOrField <. ast_member_t** result, ast_modifier_t* mods, int mc .>
+    (. ast_type_t* ty; peg_span ns; ast_srcloc _loc; .)
+    = ConstructorDecl<result, mods, mc>
+    // void is method-only — JLS §8.4.5. Splitting the void path lets
+    // `void x;` (field) fail at parse time instead of producing a
+    // bogus JT_VOID-typed field that sema doesn't catch.
+    | (. _loc = LOC; .) kw_void  (. ty = ast_void_type(A); .) ident<&ns>
+      MethodRest<result, ty, ns, mods, mc>  (. (*result)->loc = _loc; .)
+    | (. _loc = LOC; .) TypeRef<&ty> ident<&ns>
+      ( FieldRest<result, ty, ns, mods, mc>   (. (*result)->loc = _loc; .)
+      | MethodRest<result, ty, ns, mods, mc>  (. (*result)->loc = _loc; .)
+      )
+.
+
+ConstructorDecl <. ast_member_t** result, ast_modifier_t* mods, int mc .>
+    (. peg_span ns; ast_srcloc _loc;
+       ast_param_t** params = NULL; int pc = 0;
+       ast_name_t** throws = NULL; int thc = 0;
+       ast_stmt_t* body; .)
+    = (. _loc = LOC; .) ident<&ns> "(" [ FormalParamList<&params, &pc> ] ")"
+      [ kw_throws NameList<&throws, &thc> ]
+      Block<&body>
+    (. *result = ast_constructor_decl(A, jdup(A, ns),
+           params, pc, throws, thc, body, mods, mc);
+       (*result)->loc = _loc; .)
+.
+
+FieldRest <. ast_member_t** result, ast_type_t* ty, peg_span ns,
+             ast_modifier_t* mods, int mc .>
+    (. ast_var_decl_t** decls = NULL; int dc = 0;
+       int32_t dims = 0; ast_expr_t* init = NULL; .)
+    = [ "[" "]" (. dims = 1; .) ]
+      [ "=" VarInit<&init> ]
+      (. decls = (ast_var_decl_t**)jpush(A, (void**)decls, &dc,
+             ast_var_decl(A, jdup(A, ns), dims, init)); .)
+      { "," VarDeclItem<&decls, &dc> }
+      ";"
+    (. *result = ast_field_decl(A, ty, decls, dc, mods, mc); .)
+.
+
+VarDeclItem <. ast_var_decl_t*** decls, int* dc .>
+    (. peg_span ns; int32_t dims = 0; ast_expr_t* init = NULL; .)
+    = ident<&ns>
+      [ "[" "]" (. dims = 1; .) ]
+      [ "=" VarInit<&init> ]
+    (. *decls = (ast_var_decl_t**)jpush(A, (void**)*decls, dc,
+           ast_var_decl(A, jdup(A, ns), dims, init)); .)
+.
+
+VarInit <. ast_expr_t** result .>
+    = ArrayInitExpr<result>
+    | Expr_<result>
+.
+
+ArrayInitExpr <. ast_expr_t** result .>
+    (. ast_expr_t** elems = NULL; int ec = 0; ast_expr_t* e; .)
+    = "{" [ VarInit<&e>  (. elems = (ast_expr_t**)jpush(A, (void**)elems, &ec, e); .)
+            { "," VarInit<&e>  (. elems = (ast_expr_t**)jpush(A, (void**)elems, &ec, e); .) }
+          ]
+      "}"
+    (. *result = ast_array_init(A, elems, ec); .)
+.
+
+MethodRest <. ast_member_t** result, ast_type_t* ty, peg_span ns,
+              ast_modifier_t* mods, int mc .>
+    (. ast_param_t** params = NULL; int pc = 0;
+       ast_name_t** throws = NULL; int thc = 0;
+       ast_stmt_t* body = NULL; .)
+    = "(" [ FormalParamList<&params, &pc> ] ")"
+      [ kw_throws NameList<&throws, &thc> ]
+      ( Block<&body> | ";" )
+    (. *result = ast_method_decl(A, ty, jdup(A, ns),
+           params, pc, throws, thc, body, mods, mc); .)
+.
+
+FormalParamList <. ast_param_t*** params, int* pc .>
+    (. ast_param_t* fp; .)
+    = FormalParam<&fp>  (. *params = (ast_param_t**)jpush(A, (void**)*params, pc, fp); .)
+      { "," FormalParam<&fp>  (. *params = (ast_param_t**)jpush(A, (void**)*params, pc, fp); .) }
+.
+
+FormalParam <. ast_param_t** result .>
+    (. ast_type_t* ty; peg_span ns; .)
+    = TypeRef<&ty> ident<&ns>
+      { "[" "]" (. ty = ast_array_type(A, ty); .) }
+    (. *result = ast_param(A, ty, jdup(A, ns)); .)
+.
+
+// ═══════════════════════════════════════════════════════════════
+// Types
+// ═══════════════════════════════════════════════════════════════
+
+// Type rules layered per JLS:
+//   PrimType — primitive types only (excludes void per §4.2)
+//   BaseType — primitive or class type (no array suffix, no void)
+//   TypeRef  — BaseType with optional `[]`s; valid for fields, params,
+//              casts, instanceof RHS — anywhere a value-bearing type
+//              is allowed. Excluding void here means `void x;` fields
+//              and `void` parameters fail at parse time per JLS §8.4.5.
+//   `void`-as-return is handled inline in ConstructorOrMethodOrField,
+//   the only context where it's legal.
+TypeRef <. ast_type_t** result .>
+    = BaseType<result>
+      { "[" "]"  (. *result = ast_array_type(A, *result); .) }
+.
+
+BaseType <. ast_type_t** result .>
+    (. ast_name_t* n; .)
+    = PrimType<result>
+    | QualName<&n>  (. *result = ast_class_type(A, n); .)
+.
+
+// ═══════════════════════════════════════════════════════════════
+// Names
+// ═══════════════════════════════════════════════════════════════
+
+QualName <. ast_name_t** result .>
+    (. peg_span s; .)
+    = ident<&s>
+      (. *result = ast_simple_name(A, jdup(A, s)); .)
+      { "." ident<&s>
+        (. *result = ast_qualified_name(A, *result, jdup(A, s)); .)
+      }
+.
+
+// ═══════════════════════════════════════════════════════════════
+// Modifiers
+// ═══════════════════════════════════════════════════════════════
+
+Modifier_ <. ast_modifier_t** mods, int* count .>
+    = kw_public     (. *mods = mpush(A, *mods, count, AST_PUBLIC); .)
+    | kw_protected  (. *mods = mpush(A, *mods, count, AST_PROTECTED); .)
+    | kw_private    (. *mods = mpush(A, *mods, count, AST_PRIVATE); .)
+    | kw_static     (. *mods = mpush(A, *mods, count, AST_STATIC); .)
+    | kw_final      (. *mods = mpush(A, *mods, count, AST_FINAL); .)
+    | kw_abstract   (. *mods = mpush(A, *mods, count, AST_ABSTRACT); .)
+    | kw_synchronized (. *mods = mpush(A, *mods, count, AST_SYNCHRONIZED); .)
+    | kw_transient  (. *mods = mpush(A, *mods, count, AST_TRANSIENT); .)
+    | kw_volatile   (. *mods = mpush(A, *mods, count, AST_VOLATILE); .)
+    | kw_native     (. *mods = mpush(A, *mods, count, AST_NATIVE); .)
+.
+
+// ═══════════════════════════════════════════════════════════════
+// Statements
+// ═══════════════════════════════════════════════════════════════
+
+Block <. ast_stmt_t** result .>
+    (. ast_stmt_t** stmts = NULL; int sc = 0; ast_stmt_t* s; ast_srcloc _loc; .)
+    = (. _loc = LOC; .) "{" { BlockStmt<&s>  (. stmts = (ast_stmt_t**)jpush(A, (void**)stmts, &sc, s); .) } "}"
+    (. *result = ast_block(A, stmts, sc); (*result)->loc = _loc; .)
+.
+
+BlockStmt <. ast_stmt_t** result .>
+    // `case` and `default` are switch labels — never valid as a
+    // free-standing block statement. Reject them at this level
+    // (not just in LocalVarDeclStmt's lookahead) so they can't be
+    // misparsed as labeled statements via LabeledOrExprStmt, which
+    // would silently steal the next case group from the enclosing
+    // switch's `{ SwitchGroup }` loop.
+    = !(kw_case|kw_default)
+      ( // LocalVarDeclStmt starts with a type; guard against statement
+        // keywords that ident would otherwise match as class type names.
+        !(kw_if|kw_else|kw_while|kw_do|kw_for|kw_switch|kw_try|kw_catch|kw_finally
+         |kw_throw|kw_return|kw_break|kw_continue|kw_new|kw_this|kw_super|kw_null
+         |kw_true|kw_false)
+        LocalVarDeclStmt<result>
+      | Statement<result>
+      )
+.
+
+LocalVarDeclStmt <. ast_stmt_t** result .>
+    (. ast_type_t* ty; ast_var_decl_t** decls = NULL; int dc = 0;
+       ast_modifier_t* mods = NULL; int mc = 0; ast_srcloc _loc; .)
+    = (. _loc = LOC; .) { Modifier_<&mods, &mc> }
+      TypeRef<&ty> VarDeclItem<&decls, &dc>
+      { "," VarDeclItem<&decls, &dc> }
+      ";"
+    (. *result = ast_local_var_decl(A, ty, decls, dc, mods, mc); (*result)->loc = _loc; .)
+.
+
+Statement <. ast_stmt_t** result .>
+    = Block<result>
+    | IfStmt<result>
+    | WhileStmt<result>
+    | DoStmt<result>
+    | ForStmt<result>
+    | SwitchStmt<result>
+    | TryStmt<result>
+    | ThrowStmt<result>
+    | ReturnStmt<result>
+    | (. ast_srcloc _bl = LOC; .)
+      kw_break    (. const char* lbl = NULL; peg_span s; .)
+                 [ ident<&s> (. lbl = jdup(A, s); .) ] ";"
+                 (. *result = ast_break(A, lbl); (*result)->loc = _bl; .)
+    | (. ast_srcloc _cl = LOC; .)
+      kw_continue (. const char* lbl = NULL; peg_span s; .)
+                 [ ident<&s> (. lbl = jdup(A, s); .) ] ";"
+                 (. *result = ast_continue(A, lbl); (*result)->loc = _cl; .)
+    | LabeledOrExprStmt<result>
+    | ";" (. *result = ast_empty(A); .)
+.
+
+IfStmt <. ast_stmt_t** result .>
+    (. ast_expr_t* test; ast_stmt_t* then; ast_stmt_t* else_ = NULL; ast_srcloc _loc; .)
+    = (. _loc = LOC; .) kw_if "(" Expr_<&test> ")" Statement<&then>
+      [ kw_else Statement<&else_> ]
+    (. *result = ast_if(A, test, then, else_); (*result)->loc = _loc; .)
+.
+
+WhileStmt <. ast_stmt_t** result .>
+    (. ast_expr_t* test; ast_stmt_t* body; ast_srcloc _loc; .)
+    = (. _loc = LOC; .) kw_while "(" Expr_<&test> ")" Statement<&body>
+    (. *result = ast_while(A, test, body); (*result)->loc = _loc; .)
+.
+
+DoStmt <. ast_stmt_t** result .>
+    (. ast_stmt_t* body; ast_expr_t* test; ast_srcloc _loc; .)
+    = (. _loc = LOC; .) kw_do Statement<&body> kw_while "(" Expr_<&test> ")" ";"
+    (. *result = ast_do_while(A, body, test); (*result)->loc = _loc; .)
+.
+
+ForStmt <. ast_stmt_t** result .>
+    (. ast_stmt_t* init = NULL; ast_expr_t* test = NULL;
+       ast_expr_t** update = NULL; int uc = 0;
+       ast_stmt_t* body; ast_srcloc _loc; .)
+    = (. _loc = LOC; .) kw_for "("
+      [ ForInit<&init> ] ";"
+      [ Expr_<&test> ] ";"
+      [ ForUpdate<&update, &uc> ]
+      ")" Statement<&body>
+    (. *result = ast_for(A, init, test, update, uc, body); (*result)->loc = _loc; .)
+.
+
+ForInit <. ast_stmt_t** result .>
+    = LocalVarDeclStmtNoSemi<result>
+    | ForInitExpr<result>
+.
+
+LocalVarDeclStmtNoSemi <. ast_stmt_t** result .>
+    (. ast_type_t* ty; ast_var_decl_t** decls = NULL; int dc = 0;
+       ast_modifier_t* mods = NULL; int mc = 0; ast_srcloc _loc; .)
+    = (. _loc = LOC; .) { Modifier_<&mods, &mc> }
+      TypeRef<&ty> VarDeclItem<&decls, &dc>
+      { "," VarDeclItem<&decls, &dc> }
+    (. *result = ast_local_var_decl(A, ty, decls, dc, mods, mc); (*result)->loc = _loc; .)
+.
+
+// Java for-init's expression list is comma-separated. JLS §14.14:
+// each item is a StatementExpression — assignment/++/--/methodcall/
+// new — not an arbitrary expression. A single item becomes one
+// expr-statement; multiple items become a block of expr-statements
+// (semantically identical and the only way to fit `init` as a single
+// ast_stmt_t*).
+ForInitExpr <. ast_stmt_t** result .>
+    (. ast_expr_t* e; ast_stmt_t** stmts = NULL; int sc = 0; .)
+    = Expr_<&e>  (. if (!jis_stmt_expr(e)) return false;
+                    stmts = (ast_stmt_t**)jpush(A, (void**)stmts, &sc, ast_expr_stmt(A, e)); .)
+      { "," Expr_<&e>  (. if (!jis_stmt_expr(e)) return false;
+                          stmts = (ast_stmt_t**)jpush(A, (void**)stmts, &sc, ast_expr_stmt(A, e)); .) }
+    (. *result = (sc == 1) ? stmts[0] : ast_block(A, stmts, sc); .)
+.
+
+// JLS §14.14: ForUpdate is a StatementExpressionList — each item must
+// be a StatementExpression (assignment, ++/--, method call, new), not
+// an arbitrary expression.
+ForUpdate <. ast_expr_t*** list, int* count .>
+    (. ast_expr_t* e; .)
+    = Expr_<&e>  (. if (!jis_stmt_expr(e)) return false;
+                    *list = (ast_expr_t**)jpush(A, (void**)*list, count, e); .)
+      { "," Expr_<&e>  (. if (!jis_stmt_expr(e)) return false;
+                          *list = (ast_expr_t**)jpush(A, (void**)*list, count, e); .) }
+.
+
+SwitchStmt <. ast_stmt_t** result .>
+    (. ast_expr_t* sel; ast_switch_case_t** cases = NULL; int cc = 0; ast_switch_case_t* sc; ast_srcloc _loc; .)
+    = (. _loc = LOC; .) kw_switch "(" Expr_<&sel> ")"
+      "{" { SwitchGroup<&sc>
+            (. cases = (ast_switch_case_t**)jpush(A, (void**)cases, &cc, sc); .)
+          } "}"
+    (. *result = ast_switch(A, sel, cases, cc); (*result)->loc = _loc; .)
+.
+
+SwitchGroup <. ast_switch_case_t** result .>
+    (. ast_expr_t* val = NULL; ast_stmt_t** stmts = NULL; int sc = 0; ast_stmt_t* s; .)
+    = ( kw_case Expr_<&val> ":" | kw_default ":" )
+      { BlockStmt<&s>  (. stmts = (ast_stmt_t**)jpush(A, (void**)stmts, &sc, s); .) }
+    (. *result = ast_switch_case(A, val, stmts, sc); .)
+.
+
+TryStmt <. ast_stmt_t** result .>
+    (. ast_stmt_t* body; ast_catch_clause_t** catches = NULL; int cc = 0;
+       ast_catch_clause_t* c; ast_stmt_t* fin = NULL; ast_srcloc _loc; .)
+    = (. _loc = LOC; .) kw_try Block<&body>
+      ( { CatchClause_<&c>
+          (. catches = (ast_catch_clause_t**)jpush(A, (void**)catches, &cc, c); .)
+        }
+        [ kw_finally Block<&fin> ]
+      )
+    (. *result = ast_try(A, body, catches, cc, fin); (*result)->loc = _loc; .)
+.
+
+CatchClause_ <. ast_catch_clause_t** result .>
+    (. ast_type_t* ty; peg_span ns; ast_stmt_t* body; ast_srcloc _loc; .)
+    = (. _loc = LOC; .) kw_catch "(" TypeRef<&ty> ident<&ns> ")" Block<&body>
+    (. *result = ast_catch_clause(A, ty, jdup(A, ns), body); (*result)->loc = _loc; .)
+.
+
+ReturnStmt <. ast_stmt_t** result .>
+    (. ast_expr_t* val = NULL; ast_srcloc _loc; .)
+    = (. _loc = LOC; .) kw_return [ Expr_<&val> ] ";"
+    (. *result = ast_return(A, val); (*result)->loc = _loc; .)
+.
+
+ThrowStmt <. ast_stmt_t** result .>
+    (. ast_expr_t* e; ast_srcloc _loc; .)
+    = (. _loc = LOC; .) kw_throw Expr_<&e> ";"
+    (. *result = ast_throw(A, e); (*result)->loc = _loc; .)
+.
+
+// JLS §14.7 LabeledStatement = Identifier ":" Statement
+// JLS §14.8 ExpressionStatement = StatementExpression ";"
+// PEG ordered-choice tries label first (ident + colon); on miss the
+// expression-statement arm matches and the StatementExpression check
+// rejects forms like `5 + 3;` that aren't valid statement-exprs.
+LabeledOrExprStmt <. ast_stmt_t** result .>
+    (. ast_expr_t* e; peg_span s; ast_srcloc _loc; ast_stmt_t* body; .)
+    = (. _loc = LOC; .)
+      ( ident<&s> ":" Statement<&body>
+        (. *result = ast_labeled(A, jdup(A, s), body); (*result)->loc = _loc; .)
+      | Expr_<&e> ";"
+        (. if (!jis_stmt_expr(e)) return false;
+           *result = ast_expr_stmt(A, e); (*result)->loc = _loc; .)
+      )
+.
+
+// ═══════════════════════════════════════════════════════════════
+// Expressions
+// ═══════════════════════════════════════════════════════════════
+
+Expr_ <. ast_expr_t** result .>
+    = AssignExpr<result>
+.
+
+AssignExpr <. ast_expr_t** result .>
+    (. ast_expr_t* rhs; ast_binop_t op; ast_srcloc _loc; .)
+    = (. _loc = LOC; .) CondExpr<result>
+      [ CompoundAssignOp<&op>
+        AssignExpr<&rhs>
+        (. *result = ast_compound_assign(A, op, *result, rhs);
+           (*result)->loc = _loc; .)
+      | "=" AssignExpr<&rhs>
+        (. *result = ast_assign(A, *result, rhs);
+           (*result)->loc = _loc; .)
+      ]
+.
+
+CompoundAssignOp <. ast_binop_t* op .>
+    = ">>>=" (. *op = AST_USHR; .)
+    | ">>="  (. *op = AST_SHR;  .)
+    | "<<="  (. *op = AST_SHL;  .)
+    | "+="   (. *op = AST_ADD;  .)
+    | "-="   (. *op = AST_SUB;  .)
+    | "*="   (. *op = AST_MUL;  .)
+    | "/="   (. *op = AST_DIV;  .)
+    | "%="   (. *op = AST_REM;  .)
+    | "&="   (. *op = AST_BITAND; .)
+    | "^="   (. *op = AST_BITXOR; .)
+    | "|="   (. *op = AST_BITOR;  .)
+.
+
+CondExpr <. ast_expr_t** result .>
+    (. ast_expr_t* then; ast_expr_t* else_; ast_srcloc _loc; .)
+    = (. _loc = LOC; .) CondOrExpr<result>
+      [ "?" Expr_<&then> ":" CondExpr<&else_>
+        (. *result = ast_ternary(A, *result, then, else_);
+           (*result)->loc = _loc; .)
+      ]
+.
+
+CondOrExpr <. ast_expr_t** result .>
+    (. ast_expr_t* rhs; .)
+    = CondAndExpr<result>
+      { "||" CondAndExpr<&rhs>
+        (. *result = ast_binary(A, AST_OR, *result, rhs); .)
+      }
+.
+
+CondAndExpr <. ast_expr_t** result .>
+    (. ast_expr_t* rhs; .)
+    = IncOrExpr<result>
+      { "&&" IncOrExpr<&rhs>
+        (. *result = ast_binary(A, AST_AND, *result, rhs); .)
+      }
+.
+
+IncOrExpr <. ast_expr_t** result .>
+    (. ast_expr_t* rhs; .)
+    = XorExpr<result>
+      { "|" XorExpr<&rhs>
+        (. *result = ast_binary(A, AST_BITOR, *result, rhs); .)
+      }
+.
+
+XorExpr <. ast_expr_t** result .>
+    (. ast_expr_t* rhs; .)
+    = AndExpr<result>
+      { "^" AndExpr<&rhs>
+        (. *result = ast_binary(A, AST_BITXOR, *result, rhs); .)
+      }
+.
+
+AndExpr <. ast_expr_t** result .>
+    (. ast_expr_t* rhs; .)
+    = EqualExpr<result>
+      { "&" EqualExpr<&rhs>
+        (. *result = ast_binary(A, AST_BITAND, *result, rhs); .)
+      }
+.
+
+EqualExpr <. ast_expr_t** result .>
+    (. ast_expr_t* rhs; .)
+    = RelExpr<result>
+      { "==" RelExpr<&rhs>  (. *result = ast_binary(A, AST_EQ, *result, rhs); .)
+      | "!=" RelExpr<&rhs>  (. *result = ast_binary(A, AST_NE, *result, rhs); .)
+      }
+.
+
+RelExpr <. ast_expr_t** result .>
+    (. ast_expr_t* rhs; ast_type_t* ty; .)
+    = ShiftExpr<result>
+      { "<=" ShiftExpr<&rhs>   (. *result = ast_binary(A, AST_LE, *result, rhs); .)
+      | ">=" ShiftExpr<&rhs>   (. *result = ast_binary(A, AST_GE, *result, rhs); .)
+      | "<"  ShiftExpr<&rhs>   (. *result = ast_binary(A, AST_LT, *result, rhs); .)
+      | ">"  ShiftExpr<&rhs>   (. *result = ast_binary(A, AST_GT, *result, rhs); .)
+      | kw_instanceof TypeRef<&ty>  (. *result = ast_instance_of(A, *result, ty); .)
+      }
+.
+
+ShiftExpr <. ast_expr_t** result .>
+    (. ast_expr_t* rhs; .)
+    = AddExpr<result>
+      { ">>>" AddExpr<&rhs>  (. *result = ast_binary(A, AST_USHR, *result, rhs); .)
+      | ">>"  AddExpr<&rhs>  (. *result = ast_binary(A, AST_SHR,  *result, rhs); .)
+      | "<<"  AddExpr<&rhs>  (. *result = ast_binary(A, AST_SHL,  *result, rhs); .)
+      }
+.
+
+AddExpr <. ast_expr_t** result .>
+    (. ast_expr_t* rhs; .)
+    = MultExpr<result>
+      { "+" MultExpr<&rhs>  (. *result = ast_binary(A, AST_ADD, *result, rhs); .)
+      | "-" MultExpr<&rhs>  (. *result = ast_binary(A, AST_SUB, *result, rhs); .)
+      }
+.
+
+MultExpr <. ast_expr_t** result .>
+    (. ast_expr_t* rhs; .)
+    = UnaryExpr<result>
+      { "*" UnaryExpr<&rhs>  (. *result = ast_binary(A, AST_MUL, *result, rhs); .)
+      | "/" UnaryExpr<&rhs>  (. *result = ast_binary(A, AST_DIV, *result, rhs); .)
+      | "%" UnaryExpr<&rhs>  (. *result = ast_binary(A, AST_REM, *result, rhs); .)
+      }
+.
+
+UnaryExpr <. ast_expr_t** result .>
+    (. ast_srcloc _ul; .)
+    = (. _ul = LOC; .) "++" UnaryExpr<result>  (. *result = ast_unary(A, AST_PREINC, *result); (*result)->loc = _ul; .)
+    | (. _ul = LOC; .) "--" UnaryExpr<result>  (. *result = ast_unary(A, AST_PREDEC, *result); (*result)->loc = _ul; .)
+    | (. _ul = LOC; .) "+"  UnaryExpr<result>  (. *result = ast_unary(A, AST_POS, *result); (*result)->loc = _ul; .)
+    | (. _ul = LOC; .) "-"  UnaryExpr<result>  (. *result = ast_unary(A, AST_NEG, *result); (*result)->loc = _ul; .)
+    | UnaryExprNPM<result>
+.
+
+// UnaryExprNotPlusMinus — cast disambiguation happens here
+UnaryExprNPM <. ast_expr_t** result .>
+    (. ast_type_t* ty; ast_expr_t* e; ast_name_t* n; ast_srcloc _ul; .)
+    // 1. Primitive cast: (byte)expr — keyword after ( is unambiguous
+    = (. _ul = LOC; .) "(" PrimType<&ty> [ "[" "]" (. ty = ast_array_type(A, ty); .) ]
+      ")" UnaryExpr<&e>
+      (. *result = ast_cast(A, ty, e); (*result)->loc = _ul; .)
+    // 2. Reference cast: (ast_name_t)expr or (ast_name_t[])expr
+    //    PEG backtracks if not followed by UENPM
+    | (. _ul = LOC; .) "(" QualName<&n>
+      (. ty = ast_class_type(A, n); .)
+      [ "[" "]" (. ty = ast_array_type(A, ty); .) ]
+      ")" UnaryExprNPM<&e>
+      (. *result = ast_cast(A, ty, e); (*result)->loc = _ul; .)
+    | (. _ul = LOC; .) "~" UnaryExpr<result>  (. *result = ast_unary(A, AST_BITNOT, *result); (*result)->loc = _ul; .)
+    | (. _ul = LOC; .) "!" UnaryExpr<result>  (. *result = ast_unary(A, AST_LOGNOT, *result); (*result)->loc = _ul; .)
+    | PostfixExpr<result>
+.
+
+PrimType <. ast_type_t** result .>
+    = kw_byte     (. *result = ast_byte_type(A); .)
+    | kw_short    (. *result = ast_short_type(A); .)
+    | kw_int      (. *result = ast_int_type(A); .)
+    | kw_long     (. *result = ast_long_type(A); .)
+    | kw_char     (. *result = ast_char_type(A); .)
+    | kw_float    (. *result = ast_float_type(A); .)
+    | kw_double   (. *result = ast_double_type(A); .)
+    | kw_boolean  (. *result = ast_bool_type(A); .)
+.
+
+PostfixExpr <. ast_expr_t** result .>
+    (. peg_span s; ast_expr_t** args = NULL; int ac = 0; ast_expr_t* idx; ast_srcloc _ploc; .)
+    = PrimaryExpr<result>
+      { (. _ploc = LOC; .)
+        ( "." ident<&s>
+          ( "(" [ ArgList<&args, &ac> ] ")"
+            (. *result = ast_method_call(A, *result, jdup(A, s), args, ac);
+               (*result)->loc = _ploc; args = NULL; ac = 0; .)
+          | (. *result = ast_field_access(A, *result, jdup(A, s));
+               (*result)->loc = _ploc; .)
+          )
+        | "[" Expr_<&idx> "]"
+          (. *result = ast_array_access(A, *result, idx); (*result)->loc = _ploc; .)
+        | "++" (. *result = ast_unary(A, AST_POSTINC, *result); (*result)->loc = _ploc; .)
+        | "--" (. *result = ast_unary(A, AST_POSTDEC, *result); (*result)->loc = _ploc; .)
+        )
+      }
+.
+
+PrimaryExpr <. ast_expr_t** result .>
+    (. int64_t n; peg_span s; peg_span isp; peg_span csp; peg_span fsp; peg_span lsp;
+       ast_srcloc _loc; ast_name_t* name; ast_type_t* ty;
+       ast_expr_t** args = NULL; int ac = 0; ast_expr_t* sz;
+       ast_expr_t** dims = NULL; int dc = 0; .)
+    = (. _loc = LOC; .)
+    ( float_lit<&fsp> (. *result = jparse_float_lit(A, fsp); .)
+    | long_lit<&lsp>  (. *result = ast_long_lit(A, jparse_long(lsp)); .)
+    | integer<&isp>   (. n = jparse_int(isp); *result = ast_int_lit(A, (int32_t)n); .)
+    | kw_true       (. *result = ast_bool_lit(A, true); .)
+    | kw_false      (. *result = ast_bool_lit(A, false); .)
+    | kw_null       (. *result = ast_null_lit(A); .)
+    | char_lit<&csp> (. *result = ast_char_lit(A, jparse_char_lit(csp)); .)
+    | string_lit<&s> (. peg_span body = { s.ptr + 1, s.len - 2 };
+                        *result = jstr_to_string(A, body); .)
+    | kw_this      ( "(" [ ArgList<&args, &ac> ] ")"
+        (. *result = ast_constructor_call(A, false, args, ac); .)
+      | (. *result = ast_this(A); .)
+      )
+    | kw_super      ( "." ident<&s>
+        ( "(" [ ArgList<&args, &ac> ] ")"
+          (. *result = ast_super_call(A, jdup(A, s), args, ac); .)
+        | (. *result = ast_super_access(A, jdup(A, s)); .)
+        )
+      | "(" [ ArgList<&args, &ac> ] ")"
+        (. *result = ast_constructor_call(A, true, args, ac); .)
+      )
+    | kw_new      ( BaseType<&ty>
+        "[" Expr_<&sz> "]" (. dims = (ast_expr_t**)jpush(A, (void**)dims, &dc, sz); .)
+        { "[" Expr_<&sz> "]" (. dims = (ast_expr_t**)jpush(A, (void**)dims, &dc, sz); .)
+        | "[" "]"            (. dims = (ast_expr_t**)jpush(A, (void**)dims, &dc, NULL); .) }
+        (. *result = ast_new_array(A, ty, dims, dc); dims = NULL; dc = 0; .)
+      | QualName<&name>
+        ( "(" [ ArgList<&args, &ac> ] ")"
+          (. *result = ast_new(A, name, args, ac); .)
+        | "[" Expr_<&sz> "]" (. dims = (ast_expr_t**)jpush(A, (void**)dims, &dc, sz); .)
+          { "[" Expr_<&sz> "]" (. dims = (ast_expr_t**)jpush(A, (void**)dims, &dc, sz); .)
+          | "[" "]"            (. dims = (ast_expr_t**)jpush(A, (void**)dims, &dc, NULL); .) }
+          (. *result = ast_new_array(A, ast_class_type(A, name), dims, dc); dims = NULL; dc = 0; .)
+        )
+      )
+    | ident<&s>
+      ( "(" [ ArgList<&args, &ac> ] ")"
+        (. *result = ast_method_call(A, NULL, jdup(A, s), args, ac); .)
+      | (. *result = ast_ident(A, jdup(A, s)); .)
+      )
+    | "(" Expr_<result> ")"
+    ) (. (*result)->loc = _loc; .)
+.
+
+ArgList <. ast_expr_t*** args, int* count .>
+    (. ast_expr_t* e; .)
+    = Expr_<&e>  (. *args = (ast_expr_t**)jpush(A, (void**)*args, count, e); .)
+      { "," Expr_<&e>  (. *args = (ast_expr_t**)jpush(A, (void**)*args, count, e); .) }
+.
+
+END Java.

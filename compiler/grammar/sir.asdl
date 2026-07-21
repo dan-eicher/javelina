@@ -1,0 +1,261 @@
+// sir.asdl — Static Intermediate Representation (CPS continuation graph)
+//
+// Single sum type. Expression nodes are pure trees. Spine nodes have
+// explicit CPS continuation fields. Every type-bearing node carries
+// its data_type as a schema field populated by ddcg from sema's
+// resolved type — single source of truth, no recomputation downstream.
+//
+// Generate with:
+//   asdl -i sir.asdl -t templates/c.inja -o sir_ast.h -l c
+
+module sir {
+
+    type int32   = "int32_t"
+    type int64   = "int64_t"
+    type float32 = "float"
+    type float64 = "double"
+    type ident   = "const char*"
+
+    // Data type tag — selects typed load/store/field/return opcodes.
+    // The first four keep DtByte < DtShort < DtInt < DtRef (BURS
+    // where-clauses rely on it); the full-Java-1.0 widths are appended
+    // so the ordinals match sema.h's SEMA_DT_* exactly (the same tag
+    // crosses the sema→ddcg→SIR boundary — see docs/sema-contract.md).
+    datatype = DtByte | DtShort | DtInt | DtRef
+             | DtChar | DtLong | DtFloat | DtDouble
+
+    // Array / type-check classification — used by NewArray,
+    // InstanceOf, and CheckCast to describe the target type
+    // semantically. The BURS backend translates to whatever
+    // encoding the target requires (e.g. the WASM-GC array
+    // element type).
+    atype = AtClass | AtBool | AtByte | AtShort | AtInt | AtRefArray
+          | AtChar | AtLong | AtFloat | AtDouble
+
+    method = Method(ident name, int32 class_id, int32 method_id,
+                    int32 max_locals, node entry)
+
+    node
+        // ── Expressions (pure trees, no continuation) ────────
+
+        // Constants / locals. LoadConst carries byte/short/char/int (all
+        // fit int32); long/float/double need their own width-carrying
+        // leaves (i64.const / f32.const / f64.const at the WASM backend).
+        = LoadConst(int32 value, datatype data_type)
+        | LoadLongConst(int64 value)
+        | LoadFloatConst(float32 value)
+        | LoadDoubleConst(float64 value)
+        | LoadNull
+        | LoadLocal(int32 slot, datatype data_type, node? ref_type)
+        | LoadThis(datatype data_type, int32 class_id)
+        // The Class-object singleton of a class (§20.3 the runtime type) — a
+        // (ref Class) value. Used to stamp RefArray.elementClass at array creation
+        // for the §10.10 ArrayStore check; the basis for `.class` literals.
+        | LoadClass(int32 class_id)
+        // §20.1.5 the shallow copy of `this` (local 0, statically class_id): struct.new
+        // class_id with each field read from `this` (a regular class), or a new overlay with
+        // an array.copy'd backing (RefArray/PrimArray). The value side of internalClone; a
+        // leaf (the receiver is implicitly local 0, read as many times as there are fields).
+        | CloneCopy(int32 class_id)
+
+        // Arithmetic
+        | Add(datatype data_type, node left, node right)
+        | Sub(datatype data_type, node left, node right)
+        | Mul(datatype data_type, node left, node right)
+        | Div(datatype data_type, node left, node right)
+        | Rem(datatype data_type, node left, node right)
+        | Neg(datatype data_type, node operand)
+
+        // Bitwise
+        | And(datatype data_type, node left, node right)
+        | Or(datatype data_type, node left, node right)
+        | Xor(datatype data_type, node left, node right)
+        | Shl(datatype data_type, node left, node right)
+        | Shr(datatype data_type, node left, node right)
+        | Ushr(datatype data_type, node left, node right)
+
+        // Boolean
+        | LogNot(datatype data_type, node operand)
+
+        // Type conversion (explicit in SIR for JLS compliance). The full
+        // JLS §5.1.2/§5.1.3 primitive-conversion set as distinct Java-IR
+        // nodes; burg lowers each per backend (a no-op on WASM where the
+        // source and target share a valtype, a mask, or a real conversion).
+        // byte/short/char→int widenings stay implicit (no node).
+        | S2B(node operand)
+        | S2I(node operand)
+        | I2S(node operand)
+        | I2B(node operand)
+        | I2C(node operand)
+        | I2L(node operand)
+        | I2F(node operand)
+        | I2D(node operand)
+        | L2I(node operand)
+        | L2F(node operand)
+        | L2D(node operand)
+        | F2I(node operand)
+        | F2L(node operand)
+        | F2D(node operand)
+        | D2I(node operand)
+        | D2L(node operand)
+        | D2F(node operand)
+
+        // Bit-preserving moves between the float and integer domains (a typed bitcast:
+        // LLVM `bitcast`, HotSpot C2 `MoveF2I`/`MoveI2F`/`MoveD2L`/`MoveL2D`). Distinct
+        // from the numeric conversions above — same bits, reinterpreted. Back the raw
+        // java.lang.Float/Double bit accessors; the burg tile is the wasm `reinterpret`.
+        | MoveF2I(node operand)
+        | MoveI2F(node operand)
+        | MoveD2L(node operand)
+        | MoveL2D(node operand)
+
+        // f64 math intrinsics with a direct wasm opcode (§20.11): java.lang.Math.sqrt/
+        // floor/ceil/rint lower inline to f64.sqrt/floor/ceil/nearest — pure computation,
+        // never a host import. (The transcendentals with no opcode stay a Java fdlibm impl.)
+        | F64Sqrt(node operand)
+        | F64Floor(node operand)
+        | F64Ceil(node operand)
+        | F64Nearest(node operand)
+
+        // Comparison — one DISTINCT node per operator (not a single Cmp
+        // with an op field). burg can't gate sub-rules with `where`, so a
+        // single node whose operator is a field can't be matched when
+        // nested (e.g. Eq(Lt(),Var())); distinct terminals match
+        // structurally. Pure CPS: a comparison is the test child of a
+        // Branch (cg_store wraps it when γ is pair), or a materialized
+        // 0/1 value otherwise — never an op-dispatched Cmp.
+        | Eq(node left, node right)
+        | Ne(node left, node right)
+        | Lt(node left, node right)
+        | Le(node left, node right)
+        | Gt(node left, node right)
+        | Ge(node left, node right)
+
+        // §20.3.6 Class.newInstance. A Class singleton carries a `factory` funcref — the
+        // compiler-synthesized `$newInstance()` of the class it describes, or null when the
+        // class cannot be instantiated (an interface, an abstract class, or no no-argument
+        // constructor). Both read that field off a Class reference:
+        //   ClassInstantiable — is the factory non-null?     (i32)
+        //   ClassConstruct    — call it: `new C()`           (ref)
+        // Java does the null test and raises InstantiationException, so ClassConstruct is only
+        // ever reached with a non-null factory. Keeping the test in Java rather than folding a
+        // branch into a burg tile is why these are two pure expression nodes and not one.
+        | ClassInstantiable(node cls)
+        | ClassConstruct(node cls)
+
+        // Objects / arrays
+        | New(int32 class_id)
+        // InstanceOf / CheckCast: atype classifies the target type
+        // semantically (class-ref, primitive-array, ref-array).
+        // class_id is the CP index for AtClass / AtRefArray; zero
+        // for primitive-array atypes.
+        | InstanceOf(node obj, atype atype, int32 class_id)
+        | CheckCast(node obj, atype atype, int32 class_id)
+        | NewArray(atype elem_type, node size)
+        | NewRefArray(int32 class_id, node size, node? elem_ref)
+        | ArrayLoad(datatype data_type, node arr, node index, node? elem_ref)
+
+        // I/O staging linear memory access — read one byte (zero-extended) from `addr`.
+        // Backs the GC-byte[]↔linear-memory bounce copy for the host I/O floor. (i32.load8_u)
+        | MemLoad8(node addr)
+        | ArrayLength(node arr)
+        | GetField(datatype data_type, node obj, int32 class_id, int32 field_idx)
+        | GetStatic(datatype data_type, int32 class_id, int32 field_idx)
+
+        // Method invocation (return_type selects BURS nonterminal)
+        | InvokeVirtual(node obj, int32 class_id, int32 method_idx,
+                        node *args, datatype return_type)
+        | InvokeSpecial(node obj, int32 class_id, int32 method_idx,
+                        node *args, datatype return_type)
+        | InvokeStatic(int32 class_id, int32 method_idx,
+                       node *args, datatype return_type)
+        | InvokeInterface(node obj, int32 class_id, int32 method_idx,
+                          node *args, datatype return_type)
+
+        // ── Spine nodes (CPS continuations) ──────────────────
+
+        | StoreLocal(int32 slot, datatype data_type, node? ref_type, node value, node next)
+        | ExprEffect(node value, int32 is_void, node next)
+        | ArrayStore(datatype data_type, node arr, node index, node value, node next, node? elem_ref)
+        | PutField(datatype data_type, node obj, int32 class_id, int32 field_idx, node value, node next)
+        // §10.8 set an object's field-0 Class header (struct.set field 0). The header is the
+        // synthesized root field, not a declared one, so it can't be reached via PutField;
+        // used to point a freshly-built array overlay at its per-type array Class object.
+        // struct_class_id is the overlay's struct type (for the struct.set typeidx).
+        | SetHeader(node obj, node value, int32 struct_class_id, node next)
+        // §20.18.16 / §20.1.5 array.copy over two raw backings of the same element width:
+        // copy `len` elements from src[src_off..] to dst[dst_off..]. width selects the backing
+        // array typeidx (both operands share it). The primitive of clone + System.arraycopy.
+        | ArrayCopy(datatype width, node dst, node dst_off, node src, node src_off, node len, node next)
+        | PutStatic(datatype data_type, int32 class_id, int32 field_idx, node value, node next)
+
+        // I/O staging linear memory store — write one byte (`value`'s low 8 bits) to `addr`,
+        // then thread `next`. The write half of the GC-byte[]↔linear-memory bounce copy. (i32.store8)
+        | MemStore8(node addr, node value, node next)
+
+        // Control flow
+        | Branch(node cond, node on_true, node on_false)
+
+        // Switch — tableswitch/lookupswitch family. selector is
+        // the value being dispatched on; case_targets and case_values
+        // are parallel arrays (both length case_targets_count);
+        // default_target is the fall-back. selector_type picks the
+        // key width: short → stableswitch/slookupswitch, int →
+        // itableswitch/ilookupswitch. BURS arity is 1 (only the
+        // selector is a tree child — case targets + default are
+        // spine successors, same model as Branch's on_true/on_false).
+        | Switch(node selector,
+                 node *case_targets, int32 *case_values,
+                 node default_target, datatype selector_type)
+
+        // Terminals
+        | Return(node value, datatype data_type)
+        | ReturnVoid
+        | Throw(node ref)
+
+        // Exception handling. catch_class_id is the sema class id
+        // of the declared catch type so downstream passes (Click
+        // type lattice, verifier hints) don't have to rediscover
+        // it. -1 means "no type info" (finally / throwable-catch).
+        | ExceptionEntry(int32 local_slot, int32 catch_class_id, node next)
+
+        // Scope marker: "a handler is installed for the code reached
+        // via next." BURS walks handler and next as successors; emits
+        // no bytecode. body is implicit — it's whatever the chain of
+        // TryRegions leads into via their next pointers.
+        | TryRegion(node handler, node next)
+
+        // Increment local (signed delta; covers ++, --, +=const).
+        // `value` is the LoadLocal expression for the read side of
+        // the in-place update — exposing the slot read to the
+        // partition graph / liveness / DSE the same way StoreLocal's
+        // value child exposes its expression. ddcg ensures
+        // value.load_local.slot == inc.slot; codegen pattern-matches
+        // Inc(LoadLocal) and emits one iinc/sinc.
+        | Inc(int32 slot, int32 delta, datatype data_type, node value, node next)
+
+        // Merge point
+        | Nop(node next)
+
+        // Reference-type descriptors. A reference value's WASM type is its Java
+        // reference type (the SIR stays Java-typed to burg); these slim leaves
+        // carry it without erasure, mirroring the type_lattice's TK_REF /
+        // TK_ARRAY / TK_PRIM_ARRAY. burg tree-matches the kind and resolves the
+        // id through the shared type authority (type_lattice / wasm_types).
+        // class_id indexes sema's class table; dim is the array rank; width is a
+        // primitive element's datatype. Appended last so the existing node tags
+        // (and every tag-indexed table) keep their ordinals.
+        | ClassRef(int32 class_id)
+        | ArrayRef(int32 class_id, int32 dim)
+        | PrimArray(datatype width, int32 dim)
+
+        // THE EXCEPTION CONTINUATION (spec §1 — double-barrelled CPS). An EXCEPTING node
+        // (Throw, the Invoke*s, New/NewArray/NewRefArray, ClassConstruct — JLS §11.1's
+        // throws/calls/allocations) carries a second control destination: the OUTERMOST
+        // TryRegion of the INNERMOST enclosing try, or NULL when no region encloses it.
+        // An attribute, not a constructor field: NULL at build (build order — handlers are
+        // built AFTER the body they protect), stamped by the DDCG's patch_excepts when the
+        // try rule closes its chain. Emit-order successors (sir_succ) do NOT include it;
+        // codegen never reads it. The optimizer reads THE FIELD — never a side table.
+        attributes (node? exc)
+}

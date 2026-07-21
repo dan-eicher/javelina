@@ -1,0 +1,1361 @@
+{
+  "aliases": {
+    "float32": "float",
+    "float64": "double",
+    "ident": "const char*",
+    "int32": "int32_t",
+    "int64": "int64_t"
+  },
+  "bases": [
+    "Program",
+    "Import",
+    "TypeDecl",
+    "Member",
+    "VarDecl",
+    "Param",
+    "Name",
+    "Type",
+    "Stmt",
+    "SwitchCase",
+    "CatchClause",
+    "Expr"
+  ],
+  "definitions": [
+    {
+      "attributes": [],
+      "is_enum": false,
+      "name": "program",
+      "type": "sum",
+      "types": [
+        {
+          "base": "ASTNode",
+          "fields": [
+            {
+              "flag": "optional",
+              "is_schema": true,
+              "name": "package_",
+              "type": "name"
+            },
+            {
+              "flag": "sequence",
+              "is_schema": true,
+              "name": "imports",
+              "type": "import"
+            },
+            {
+              "flag": "sequence",
+              "is_schema": true,
+              "name": "types",
+              "type": "type_decl"
+            }
+          ],
+          "name": "Program"
+        }
+      ]
+    },
+    {
+      "attributes": [],
+      "is_enum": false,
+      "name": "import",
+      "type": "sum",
+      "types": [
+        {
+          "base": "Import",
+          "fields": [
+            {
+              "flag": "sequence",
+              "is_schema": false,
+              "name": "parts",
+              "type": "ident"
+            }
+          ],
+          "name": "SingleImport"
+        },
+        {
+          "base": "Import",
+          "fields": [
+            {
+              "flag": "sequence",
+              "is_schema": false,
+              "name": "parts",
+              "type": "ident"
+            }
+          ],
+          "name": "WildcardImport"
+        }
+      ]
+    },
+    {
+      "attributes": [],
+      "is_enum": false,
+      "name": "type_decl",
+      "type": "sum",
+      "types": [
+        {
+          "base": "TypeDecl",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "name",
+              "type": "ident"
+            },
+            {
+              "flag": "optional",
+              "is_schema": true,
+              "name": "super_class",
+              "type": "name"
+            },
+            {
+              "flag": "sequence",
+              "is_schema": true,
+              "name": "interfaces",
+              "type": "name"
+            },
+            {
+              "flag": "sequence",
+              "is_schema": true,
+              "name": "mods",
+              "type": "modifier"
+            },
+            {
+              "flag": "sequence",
+              "is_schema": true,
+              "name": "members",
+              "type": "member"
+            }
+          ],
+          "name": "ClassDecl"
+        },
+        {
+          "base": "TypeDecl",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "name",
+              "type": "ident"
+            },
+            {
+              "flag": "sequence",
+              "is_schema": true,
+              "name": "extends_",
+              "type": "name"
+            },
+            {
+              "flag": "sequence",
+              "is_schema": true,
+              "name": "mods",
+              "type": "modifier"
+            },
+            {
+              "flag": "sequence",
+              "is_schema": true,
+              "name": "members",
+              "type": "member"
+            }
+          ],
+          "name": "InterfaceDecl"
+        }
+      ]
+    },
+    {
+      "attributes": [],
+      "is_enum": false,
+      "name": "member",
+      "type": "sum",
+      "types": [
+        {
+          "base": "Member",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "ty",
+              "type": "type"
+            },
+            {
+              "flag": "sequence",
+              "is_schema": true,
+              "name": "decls",
+              "type": "var_decl"
+            },
+            {
+              "flag": "sequence",
+              "is_schema": true,
+              "name": "mods",
+              "type": "modifier"
+            }
+          ],
+          "name": "FieldDecl"
+        },
+        {
+          "base": "Member",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "ret",
+              "type": "type"
+            },
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "name",
+              "type": "ident"
+            },
+            {
+              "flag": "sequence",
+              "is_schema": true,
+              "name": "params",
+              "type": "param"
+            },
+            {
+              "flag": "sequence",
+              "is_schema": true,
+              "name": "throws_",
+              "type": "name"
+            },
+            {
+              "flag": "optional",
+              "is_schema": true,
+              "name": "body",
+              "type": "stmt"
+            },
+            {
+              "flag": "sequence",
+              "is_schema": true,
+              "name": "mods",
+              "type": "modifier"
+            }
+          ],
+          "name": "MethodDecl"
+        },
+        {
+          "base": "Member",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "name",
+              "type": "ident"
+            },
+            {
+              "flag": "sequence",
+              "is_schema": true,
+              "name": "params",
+              "type": "param"
+            },
+            {
+              "flag": "sequence",
+              "is_schema": true,
+              "name": "throws_",
+              "type": "name"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "body",
+              "type": "stmt"
+            },
+            {
+              "flag": "sequence",
+              "is_schema": true,
+              "name": "mods",
+              "type": "modifier"
+            }
+          ],
+          "name": "ConstructorDecl"
+        },
+        {
+          "base": "Member",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "body",
+              "type": "stmt"
+            }
+          ],
+          "name": "StaticInit"
+        }
+      ]
+    },
+    {
+      "attributes": [],
+      "is_enum": false,
+      "name": "var_decl",
+      "type": "sum",
+      "types": [
+        {
+          "base": "ASTNode",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "name",
+              "type": "ident"
+            },
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "dims",
+              "type": "int32"
+            },
+            {
+              "flag": "optional",
+              "is_schema": true,
+              "name": "init",
+              "type": "expr"
+            }
+          ],
+          "name": "VarDecl"
+        }
+      ]
+    },
+    {
+      "attributes": [],
+      "is_enum": false,
+      "name": "param",
+      "type": "sum",
+      "types": [
+        {
+          "base": "ASTNode",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "ty",
+              "type": "type"
+            },
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "name",
+              "type": "ident"
+            }
+          ],
+          "name": "Param"
+        }
+      ]
+    },
+    {
+      "attributes": [],
+      "is_enum": true,
+      "name": "modifier",
+      "type": "sum",
+      "types": [
+        {
+          "fields": [],
+          "name": "Public"
+        },
+        {
+          "fields": [],
+          "name": "Protected"
+        },
+        {
+          "fields": [],
+          "name": "Private"
+        },
+        {
+          "fields": [],
+          "name": "Static"
+        },
+        {
+          "fields": [],
+          "name": "Final"
+        },
+        {
+          "fields": [],
+          "name": "Abstract"
+        },
+        {
+          "fields": [],
+          "name": "Synchronized"
+        },
+        {
+          "fields": [],
+          "name": "Transient"
+        },
+        {
+          "fields": [],
+          "name": "Volatile"
+        },
+        {
+          "fields": [],
+          "name": "Native"
+        }
+      ]
+    },
+    {
+      "attributes": [],
+      "is_enum": false,
+      "name": "name",
+      "type": "sum",
+      "types": [
+        {
+          "base": "Name",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "id",
+              "type": "ident"
+            }
+          ],
+          "name": "SimpleName"
+        },
+        {
+          "base": "Name",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "qualifier",
+              "type": "name"
+            },
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "id",
+              "type": "ident"
+            }
+          ],
+          "name": "QualifiedName"
+        }
+      ]
+    },
+    {
+      "attributes": [],
+      "is_enum": false,
+      "name": "type",
+      "type": "sum",
+      "types": [
+        {
+          "base": "Type",
+          "fields": [],
+          "name": "ByteType"
+        },
+        {
+          "base": "Type",
+          "fields": [],
+          "name": "ShortType"
+        },
+        {
+          "base": "Type",
+          "fields": [],
+          "name": "IntType"
+        },
+        {
+          "base": "Type",
+          "fields": [],
+          "name": "LongType"
+        },
+        {
+          "base": "Type",
+          "fields": [],
+          "name": "CharType"
+        },
+        {
+          "base": "Type",
+          "fields": [],
+          "name": "FloatType"
+        },
+        {
+          "base": "Type",
+          "fields": [],
+          "name": "DoubleType"
+        },
+        {
+          "base": "Type",
+          "fields": [],
+          "name": "BoolType"
+        },
+        {
+          "base": "Type",
+          "fields": [],
+          "name": "VoidType"
+        },
+        {
+          "base": "Type",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "name",
+              "type": "name"
+            }
+          ],
+          "name": "ClassType"
+        },
+        {
+          "base": "Type",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "element",
+              "type": "type"
+            }
+          ],
+          "name": "ArrayType"
+        }
+      ]
+    },
+    {
+      "attributes": [],
+      "is_enum": false,
+      "name": "stmt",
+      "type": "sum",
+      "types": [
+        {
+          "base": "Stmt",
+          "fields": [
+            {
+              "flag": "sequence",
+              "is_schema": true,
+              "name": "stmts",
+              "type": "stmt"
+            }
+          ],
+          "name": "Block"
+        },
+        {
+          "base": "Stmt",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "ty",
+              "type": "type"
+            },
+            {
+              "flag": "sequence",
+              "is_schema": true,
+              "name": "decls",
+              "type": "var_decl"
+            },
+            {
+              "flag": "sequence",
+              "is_schema": true,
+              "name": "mods",
+              "type": "modifier"
+            }
+          ],
+          "name": "LocalVarDecl"
+        },
+        {
+          "base": "Stmt",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "e",
+              "type": "expr"
+            }
+          ],
+          "name": "ExprStmt"
+        },
+        {
+          "base": "Stmt",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "test",
+              "type": "expr"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "then",
+              "type": "stmt"
+            },
+            {
+              "flag": "optional",
+              "is_schema": true,
+              "name": "else_",
+              "type": "stmt"
+            }
+          ],
+          "name": "If"
+        },
+        {
+          "base": "Stmt",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "test",
+              "type": "expr"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "body",
+              "type": "stmt"
+            }
+          ],
+          "name": "While"
+        },
+        {
+          "base": "Stmt",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "body",
+              "type": "stmt"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "test",
+              "type": "expr"
+            }
+          ],
+          "name": "DoWhile"
+        },
+        {
+          "base": "Stmt",
+          "fields": [
+            {
+              "flag": "optional",
+              "is_schema": true,
+              "name": "init",
+              "type": "stmt"
+            },
+            {
+              "flag": "optional",
+              "is_schema": true,
+              "name": "test",
+              "type": "expr"
+            },
+            {
+              "flag": "sequence",
+              "is_schema": true,
+              "name": "update",
+              "type": "expr"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "body",
+              "type": "stmt"
+            }
+          ],
+          "name": "For"
+        },
+        {
+          "base": "Stmt",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "selector",
+              "type": "expr"
+            },
+            {
+              "flag": "sequence",
+              "is_schema": true,
+              "name": "cases",
+              "type": "switch_case"
+            }
+          ],
+          "name": "Switch"
+        },
+        {
+          "base": "Stmt",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "body",
+              "type": "stmt"
+            },
+            {
+              "flag": "sequence",
+              "is_schema": true,
+              "name": "catches",
+              "type": "catch_clause"
+            },
+            {
+              "flag": "optional",
+              "is_schema": true,
+              "name": "finally_",
+              "type": "stmt"
+            }
+          ],
+          "name": "Try"
+        },
+        {
+          "base": "Stmt",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "e",
+              "type": "expr"
+            }
+          ],
+          "name": "Throw"
+        },
+        {
+          "base": "Stmt",
+          "fields": [
+            {
+              "flag": "optional",
+              "is_schema": true,
+              "name": "value",
+              "type": "expr"
+            }
+          ],
+          "name": "Return"
+        },
+        {
+          "base": "Stmt",
+          "fields": [
+            {
+              "flag": "optional",
+              "is_schema": false,
+              "name": "label",
+              "type": "ident"
+            }
+          ],
+          "name": "Break"
+        },
+        {
+          "base": "Stmt",
+          "fields": [
+            {
+              "flag": "optional",
+              "is_schema": false,
+              "name": "label",
+              "type": "ident"
+            }
+          ],
+          "name": "Continue"
+        },
+        {
+          "base": "Stmt",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "label",
+              "type": "ident"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "body",
+              "type": "stmt"
+            }
+          ],
+          "name": "Labeled"
+        },
+        {
+          "base": "Stmt",
+          "fields": [],
+          "name": "Empty"
+        }
+      ]
+    },
+    {
+      "attributes": [],
+      "is_enum": false,
+      "name": "switch_case",
+      "type": "sum",
+      "types": [
+        {
+          "base": "ASTNode",
+          "fields": [
+            {
+              "flag": "optional",
+              "is_schema": true,
+              "name": "value",
+              "type": "expr"
+            },
+            {
+              "flag": "sequence",
+              "is_schema": true,
+              "name": "stmts",
+              "type": "stmt"
+            }
+          ],
+          "name": "SwitchCase"
+        }
+      ]
+    },
+    {
+      "attributes": [],
+      "is_enum": false,
+      "name": "catch_clause",
+      "type": "sum",
+      "types": [
+        {
+          "base": "ASTNode",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "ty",
+              "type": "type"
+            },
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "name",
+              "type": "ident"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "body",
+              "type": "stmt"
+            }
+          ],
+          "name": "CatchClause"
+        }
+      ]
+    },
+    {
+      "attributes": [
+        {
+          "flag": "none",
+          "name": "etype",
+          "type": "int32"
+        }
+      ],
+      "is_enum": false,
+      "name": "expr",
+      "type": "sum",
+      "types": [
+        {
+          "base": "Expr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "value",
+              "type": "int32"
+            }
+          ],
+          "name": "IntLit"
+        },
+        {
+          "base": "Expr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "value",
+              "type": "int64"
+            }
+          ],
+          "name": "LongLit"
+        },
+        {
+          "base": "Expr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "value",
+              "type": "float32"
+            }
+          ],
+          "name": "FloatLit"
+        },
+        {
+          "base": "Expr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "value",
+              "type": "float64"
+            }
+          ],
+          "name": "DoubleLit"
+        },
+        {
+          "base": "Expr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "value",
+              "type": "int32"
+            }
+          ],
+          "name": "CharLit"
+        },
+        {
+          "base": "Expr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "value",
+              "type": "bool"
+            }
+          ],
+          "name": "BoolLit"
+        },
+        {
+          "base": "Expr",
+          "fields": [],
+          "name": "NullLit"
+        },
+        {
+          "base": "Expr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "name",
+              "type": "ident"
+            }
+          ],
+          "name": "Ident"
+        },
+        {
+          "base": "Expr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "obj",
+              "type": "expr"
+            },
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "field",
+              "type": "ident"
+            }
+          ],
+          "name": "FieldAccess"
+        },
+        {
+          "base": "Expr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "arr",
+              "type": "expr"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "index",
+              "type": "expr"
+            }
+          ],
+          "name": "ArrayAccess"
+        },
+        {
+          "base": "Expr",
+          "fields": [
+            {
+              "flag": "optional",
+              "is_schema": true,
+              "name": "obj",
+              "type": "expr"
+            },
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "method",
+              "type": "ident"
+            },
+            {
+              "flag": "sequence",
+              "is_schema": true,
+              "name": "args",
+              "type": "expr"
+            }
+          ],
+          "name": "MethodCall"
+        },
+        {
+          "base": "Expr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "class_",
+              "type": "name"
+            },
+            {
+              "flag": "sequence",
+              "is_schema": true,
+              "name": "args",
+              "type": "expr"
+            }
+          ],
+          "name": "New"
+        },
+        {
+          "base": "Expr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "element",
+              "type": "type"
+            },
+            {
+              "flag": "sequence",
+              "is_schema": true,
+              "name": "dims",
+              "type": "expr"
+            }
+          ],
+          "name": "NewArray"
+        },
+        {
+          "base": "Expr",
+          "fields": [
+            {
+              "flag": "sequence",
+              "is_schema": true,
+              "name": "elems",
+              "type": "expr"
+            }
+          ],
+          "name": "ArrayInit"
+        },
+        {
+          "base": "Expr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "ty",
+              "type": "type"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "e",
+              "type": "expr"
+            }
+          ],
+          "name": "Cast"
+        },
+        {
+          "base": "Expr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "e",
+              "type": "expr"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "ty",
+              "type": "type"
+            }
+          ],
+          "name": "InstanceOf"
+        },
+        {
+          "base": "Expr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "op",
+              "type": "unop"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "e",
+              "type": "expr"
+            }
+          ],
+          "name": "Unary"
+        },
+        {
+          "base": "Expr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "op",
+              "type": "binop"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "lhs",
+              "type": "expr"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "rhs",
+              "type": "expr"
+            }
+          ],
+          "name": "Binary"
+        },
+        {
+          "base": "Expr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "target",
+              "type": "expr"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "value",
+              "type": "expr"
+            }
+          ],
+          "name": "Assign"
+        },
+        {
+          "base": "Expr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "op",
+              "type": "binop"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "target",
+              "type": "expr"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "value",
+              "type": "expr"
+            }
+          ],
+          "name": "CompoundAssign"
+        },
+        {
+          "base": "Expr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "test",
+              "type": "expr"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "then",
+              "type": "expr"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "else_",
+              "type": "expr"
+            }
+          ],
+          "name": "Ternary"
+        },
+        {
+          "base": "Expr",
+          "fields": [],
+          "name": "This"
+        },
+        {
+          "base": "Expr",
+          "fields": [],
+          "name": "Super"
+        },
+        {
+          "base": "Expr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "field",
+              "type": "ident"
+            }
+          ],
+          "name": "SuperAccess"
+        },
+        {
+          "base": "Expr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "method",
+              "type": "ident"
+            },
+            {
+              "flag": "sequence",
+              "is_schema": true,
+              "name": "args",
+              "type": "expr"
+            }
+          ],
+          "name": "SuperCall"
+        },
+        {
+          "base": "Expr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "is_super",
+              "type": "bool"
+            },
+            {
+              "flag": "sequence",
+              "is_schema": true,
+              "name": "args",
+              "type": "expr"
+            }
+          ],
+          "name": "ConstructorCall"
+        }
+      ]
+    },
+    {
+      "attributes": [],
+      "is_enum": true,
+      "name": "unop",
+      "type": "sum",
+      "types": [
+        {
+          "fields": [],
+          "name": "Pos"
+        },
+        {
+          "fields": [],
+          "name": "Neg"
+        },
+        {
+          "fields": [],
+          "name": "BitNot"
+        },
+        {
+          "fields": [],
+          "name": "LogNot"
+        },
+        {
+          "fields": [],
+          "name": "PreInc"
+        },
+        {
+          "fields": [],
+          "name": "PreDec"
+        },
+        {
+          "fields": [],
+          "name": "PostInc"
+        },
+        {
+          "fields": [],
+          "name": "PostDec"
+        }
+      ]
+    },
+    {
+      "attributes": [],
+      "is_enum": true,
+      "name": "binop",
+      "type": "sum",
+      "types": [
+        {
+          "fields": [],
+          "name": "Add"
+        },
+        {
+          "fields": [],
+          "name": "Sub"
+        },
+        {
+          "fields": [],
+          "name": "Mul"
+        },
+        {
+          "fields": [],
+          "name": "Div"
+        },
+        {
+          "fields": [],
+          "name": "Rem"
+        },
+        {
+          "fields": [],
+          "name": "Shl"
+        },
+        {
+          "fields": [],
+          "name": "Shr"
+        },
+        {
+          "fields": [],
+          "name": "Ushr"
+        },
+        {
+          "fields": [],
+          "name": "BitAnd"
+        },
+        {
+          "fields": [],
+          "name": "BitOr"
+        },
+        {
+          "fields": [],
+          "name": "BitXor"
+        },
+        {
+          "fields": [],
+          "name": "Eq"
+        },
+        {
+          "fields": [],
+          "name": "Ne"
+        },
+        {
+          "fields": [],
+          "name": "Lt"
+        },
+        {
+          "fields": [],
+          "name": "Gt"
+        },
+        {
+          "fields": [],
+          "name": "Le"
+        },
+        {
+          "fields": [],
+          "name": "Ge"
+        },
+        {
+          "fields": [],
+          "name": "And"
+        },
+        {
+          "fields": [],
+          "name": "Or"
+        }
+      ]
+    }
+  ],
+  "name": "ast"
+}
