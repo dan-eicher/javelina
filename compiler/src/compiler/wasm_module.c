@@ -23,6 +23,7 @@
 #include "jav_types.h"
 #include "jav_reader.h"                          /* jav_func_body_read, jav_type_section_read */
 #include "jav_writer.h"                          /* jav_module_write */
+#include "jav_validate_module.h"                 /* jav_module_wf — §5.5.1 audit */
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -751,6 +752,23 @@ bool wasm_assemble_program(compiler_ctx_t* cctx, const sema_ctx_t* sctx,
         secs[ns].body.u.case_5.count = 1;
         secs[ns].body.u.case_5.mems.items = iomem; secs[ns].body.u.case_5.mems.count = 1; ns++;
     }
+    /* Tag section (id 13): one exception tag → its functype. PLUGIN imports jre's
+     * tag instead of defining one, so a cross-boundary throw/catch shares one tag
+     * id. Heap-allocated: jav_module_free owns + frees tags.items.
+     *
+     * §5.5.17: sections "must occur at most once and in the prescribed order",
+     * and the module grammar puts tagsec between memsec and globalsec — NOT at
+     * the position its id would suggest (§5.5.2 notes ids do not follow the
+     * encoding order). Emitting it last, after codesec, produces a module every
+     * conforming runtime rejects. */
+    if (wt->has_exceptions && sctx->mode != SEMA_MODE_PLUGIN) {
+        jav_tag_type_t* exn_tag = (jav_tag_type_t*)malloc(sizeof *exn_tag);
+        exn_tag->attr = 0x00;                /* attribute 0 = exception tag */
+        exn_tag->type = (uint32_t)wasm_tag_functype_idx(wt);
+        secs[ns].id = 13; secs[ns].body.tag = 13;
+        secs[ns].body.u.case_13.count = 1;
+        secs[ns].body.u.case_13.tags.items = exn_tag; secs[ns].body.u.case_13.tags.count = 1; ns++;
+    }
     if (has_globals) {
         secs[ns].id = 6;  secs[ns].body.tag = 6;  secs[ns].body.u.case_6 = globalsec; ns++;
     }
@@ -772,21 +790,27 @@ bool wasm_assemble_program(compiler_ctx_t* cctx, const sema_ctx_t* sctx,
     secs[ns].id = 10; secs[ns].body.tag = 10;
     secs[ns].body.u.case_10.count = (uint32_t)nfuncs;
     secs[ns].body.u.case_10.entries.items = entries; secs[ns].body.u.case_10.entries.count = (size_t)nfuncs; ns++;
-    if (wt->has_exceptions && sctx->mode != SEMA_MODE_PLUGIN) {  /* tag section (id 13): one exception tag
-                                              * → its functype. PLUGIN imports jre's tag instead of defining
-                                              * one, so a cross-boundary throw/catch shares one tag id.
-                                              * Heap-allocated: jav_module_free owns + frees tags.items. */
-        jav_tag_type_t* exn_tag = (jav_tag_type_t*)malloc(sizeof *exn_tag);
-        exn_tag->attr = 0x00;                /* attribute 0 = exception tag */
-        exn_tag->type = (uint32_t)wasm_tag_functype_idx(wt);
-        secs[ns].id = 13; secs[ns].body.tag = 13;
-        secs[ns].body.u.case_13.count = 1;
-        secs[ns].body.u.case_13.tags.items = exn_tag; secs[ns].body.u.case_13.tags.count = 1; ns++;
-    }
 
     jav_section_t* secarr = (jav_section_t*)malloc((size_t)ns * sizeof(jav_section_t));
     memcpy(secarr, secs, (size_t)ns * sizeof(jav_section_t));
     mod.sections.items = secarr; mod.sections.count = (size_t)ns;
+
+    /* §5.5.1 structural audit of the FINISHED module, before it is serialized.
+     * The per-body jav_func_body_read above is construction — it decodes the
+     * emitted bytes into the entry so the tree can be assembled — not a check.
+     * This is the check: the cross-section invariants no single section's
+     * grammar can express (section order and duplication, function/code count
+     * agreement, datacount/data agreement, the locals limit). We are the only
+     * producer of an owning jav_module_t, so if the emitter gets one of these
+     * wrong nothing else in the pipeline would catch it before the VM. */
+    if (ok) {
+        const char* wf_err = NULL;
+        if (!jav_module_wf(&mod, &wf_err)) {
+            fprintf(stderr, "wasm_assemble: emitted module is malformed: %s\n",
+                    wf_err ? wf_err : "(no reason given)");
+            ok = false;
+        }
+    }
 
     if (ok) {
         bbq_write_ctx_t w;

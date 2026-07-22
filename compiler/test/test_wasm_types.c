@@ -13,8 +13,7 @@
 #include <string.h>
 #include <dirent.h>
 
-static int fails = 0;
-#define CHECK(c, m) do { if (!(c)) { printf("  FAIL  %s\n", (m)); fails++; } } while (0)
+#include "javelina_test.h"
 
 static char* read_file(const char* path) {
     FILE* f = fopen(path, "rb"); if (!f) return NULL;
@@ -238,6 +237,7 @@ int main(void) {
         CHECK(wasm_types_field_base(&wt2, b_id) == 3, "field_base(B) == 3 (header + hash + A's one field)");
 
         wasm_types_free(&wt2);
+        sema_destroy(&s2);
         bbq_arena_free(&b);
     }
 
@@ -260,7 +260,7 @@ int main(void) {
         CHECK(am >= 0 && bm >= 0, "found A.m and B.m");
         CHECK(wasm_vtable_slot(&wt2, a_id, am) == wasm_vtable_slot(&wt2, b_id, bm),
               "override: B.m reuses A.m's vtable slot");
-        wasm_types_free(&wt2); bbq_arena_free(&b);
+        wasm_types_free(&wt2); sema_destroy(&s2); bbq_arena_free(&b);
     }
 
     /* THE DEFUNCTIONALIZED CALL GRAPH, MATERIALIZED (spec §7/§10 — the assembler side).
@@ -322,10 +322,9 @@ int main(void) {
             CHECK(got >= 0 && got == want, rows[i].label);
         }
         bbq_vec_free(g.code);
-        wasm_types_free(&wt3); bbq_arena_free(&b2);
+        wasm_types_free(&wt3); sema_destroy(&s3); bbq_arena_free(&b2);
     }
 
-    if (fails) { printf("test_wasm_types: %d FAILED\n", fails); return 1; }
-    printf("test_wasm_types: OK\n");
-    return 0;
+    sema_destroy(&sctx);
+    return TEST_SUMMARY("test_wasm_types");
 }

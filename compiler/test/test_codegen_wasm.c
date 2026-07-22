@@ -9,8 +9,7 @@
 #include <stdio.h>
 #include <string.h>
 
-static int fails = 0;
-#define CHECK(c, m) do { if (!(c)) { printf("  FAIL  %s\n", (m)); fails++; } } while (0)
+#include "javelina_test.h"
 
 static int eq_code(const burg_ctx_t* ctx, const uint8_t* exp, int n) {
     return (int)bbq_vec_len(ctx->emit.code) == n && memcmp(ctx->emit.code, exp, (size_t)n) == 0;
@@ -27,7 +26,7 @@ static int eq_code(const burg_ctx_t* ctx, const uint8_t* exp, int n) {
         for (int i=0;i<(int)sizeof want;i++) printf(" %02X", want[i]); \
         printf("\n    got: "); \
         for (int i=0;i<(int)bbq_vec_len(ctx.emit.code);i++) printf(" %02X", ctx.emit.code[i]); \
-        printf("\n"); fails++; \
+        printf("\n"); TEST_FAILED(); \
     } \
     bbq_vec_free(ctx.emit.code); burg_ctx_free(&ctx); } while (0)
 
@@ -164,7 +163,5 @@ int main(void) {
      *    a typed op, so it can no longer be tiled without ctx->types.) ────────── */
 
     bbq_arena_free(&arena);
-    if (fails) { printf("test_codegen_wasm: %d FAILED\n", fails); return 1; }
-    printf("test_codegen_wasm: OK (all burg rules pinned)\n");
-    return 0;
+    return TEST_SUMMARY("test_codegen_wasm");
 }

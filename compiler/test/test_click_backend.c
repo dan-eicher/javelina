@@ -29,8 +29,7 @@
 #include <string.h>
 #include <dirent.h>
 
-static int fails = 0;
-#define CHECK(c, m) do { if (!(c)) { printf("  FAIL  %s\n", (m)); fails++; } } while (0)
+#include "javelina_test.h"
 
 static char* read_file(const char* path) {
     FILE* f = fopen(path, "rb"); if (!f) return NULL;
@@ -76,7 +75,11 @@ static int contains(const uint8_t* hay, int hn, const uint8_t* needle, int nn) {
 static const uint8_t* emit(bbq_arena* a, const char* src, const char* name,
                            bool click, int* out_len) {
     ast_program_t* prog = build_program(src, a);
-    static sema_ctx_t sctx; sema_init(&sctx, a); sema_analyze(&sctx, prog);
+    /* The context is reused across calls, so the PREVIOUS one's 31 htrees are
+     * released here — re-initialising over them just abandoned them. */
+    static sema_ctx_t sctx; static bool sctx_live = false;
+    if (sctx_live) sema_destroy(&sctx);
+    sema_init(&sctx, a); sctx_live = true; sema_analyze(&sctx, prog);
     static compiler_ctx_t cctx; compiler_init(&cctx, a, &sctx);
     int mc = 0; sir_method_t** methods = compiler_compile(&cctx, prog, &mc);
     for (int i = 0; i < mc; i++) {
@@ -149,7 +152,5 @@ int main(void) {
         bbq_arena_free(&a);
     }
 
-    if (fails) { printf("test_click_backend: %d FAILED\n", fails); return 1; }
-    printf("test_click_backend: OK\n");
-    return 0;
+    return TEST_SUMMARY("test_click_backend");
 }

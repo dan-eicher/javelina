@@ -16,8 +16,8 @@
 #include <string.h>
 #include <dirent.h>
 
-static int fails = 0;
-#define CHECK(c, m) do { if (!(c)) { printf("  FAIL  %s\n", (m)); fails++; } } while (0)
+#define JT_REPORT_RSS   /* this suite compiles the whole prelude per case */
+#include "javelina_test.h"
 
 static char* read_file(const char* path) {
     FILE* f = fopen(path, "rb"); if (!f) return NULL;
@@ -26,11 +26,16 @@ static char* read_file(const char* path) {
     if (fread(b, 1, (size_t)n, f) != (size_t)n) { fclose(f); free(b); return NULL; }
     b[n] = 0; fclose(f); return b;
 }
-static ast_program_t* parse_src(const char* src) {
+// Parse `src`, handing back the context that owns the resulting AST so the
+// caller can decide its lifetime. The AST is arena-backed by that context;
+// idents and literals are jdup'd into it, so `src` itself need not survive.
+static ast_program_t* parse_into(const char* src, java_parse_ctx_t** ctx_out) {
     java_parse_ctx_t* pc = (java_parse_ctx_t*)malloc(sizeof(*pc));
     bbq_arena_init(&pc->arena, 1 << 16); pc->result = NULL; pc->file = NULL;
     peg_state p; java_parser_init(&p, src, (int)strlen(src)); p.user_data = pc;
-    return java_parser_parse(&p) ? pc->result : NULL;
+    ast_program_t* prog = java_parser_parse(&p) ? pc->result : NULL;
+    if (ctx_out) *ctx_out = pc;
+    return prog;
 }
 // java.lang stubs + user source, merged into one program.
 // Shared compile session — ONE arena reused across every full-prelude compile in
@@ -46,27 +51,78 @@ static bbq_arena* sess_arena(void) {
     return &a;
 }
 
-static ast_program_t* build_program(const char* user_src, bbq_arena* arena, int* nlib_out) {
+// The java.lang prelude — 110 files, 2.2 MB of source, the generated
+// CharacterData.java alone being 2 MB — is identical for every compile here, so
+// it is parsed ONCE and shared.
+//
+// Sharing it takes one extra step, because sema DESUGARS into the AST it is
+// given: JLS §8.8.7 prepends the implicit super() into every constructor body
+// that lacks an explicit one, allocating the statement and a replacement
+// statement array from ctx->arena and writing them back into the node. The
+// prepend is guarded — it re-reads stmts[0] and skips when a constructor call
+// is already there — so a second compile over the same AST does not duplicate
+// it. What it DOES do is dereference stmts[0], and if the first compile wrote
+// that pointer out of a per-test arena which has since been reset, the read is
+// of freed memory.
+//
+// So the prelude is desugared ONCE against storage that is never released, and
+// every later compile finds the rewrite already present and valid. The prelude
+// arena is process-lifetime by design; the OS reclaims it.
+static ast_type_decl_t** g_lib_types  = NULL;
+static int               g_lib_ntypes = -1;      /* <0 until the one-time build runs */
+static bbq_arena         g_prelude_arena;        /* owns the shared desugar; never freed */
+
+static void prelude_once(void) {
+    if (g_lib_ntypes >= 0) return;
     ast_type_decl_t** t = NULL; int tc = 0, cap = 0;
-    #define PUSH(td) do { if(tc==cap){cap=cap?cap*2:64;t=realloc(t,(size_t)cap*sizeof(*t));} t[tc++]=(td);}while(0)
     DIR* d = opendir("lib/java/lang");
     if (d) { struct dirent* e;
         while ((e = readdir(d))) { size_t L=strlen(e->d_name);
             if (L<6 || strcmp(e->d_name+L-5,".java")) continue;
             char path[512]; snprintf(path,sizeof path,"lib/java/lang/%s",e->d_name);
             char* s = read_file(path); if(!s) continue;
-            ast_program_t* p = parse_src(s); if(!p){printf("  FAIL parse %s\n",path);fails++;continue;}
-            for (int i=0;i<p->types_count;i++) PUSH(p->types[i]);
+            ast_program_t* p = parse_into(s, NULL);  /* context kept for the run */
+            free(s);                       /* idents/literals are jdup'd into pc->arena */
+            if(!p){printf("  FAIL parse %s\n",path);TEST_FAILED();continue;}
+            for (int i=0;i<p->types_count;i++) {
+                if(tc==cap){cap=cap?cap*2:64;t=realloc(t,(size_t)cap*sizeof(*t));}
+                t[tc++]=p->types[i];
+            }
         } closedir(d);
     }
-    if (nlib_out) *nlib_out = tc;                 /* prelude classes occupy [0, tc) */
-    ast_program_t* up = parse_src(user_src);
-    if (!up) { printf("  FAIL  parse user source\n"); fails++; }
-    else for (int i=0;i<up->types_count;i++) PUSH(up->types[i]);
+    g_lib_types = t; g_lib_ntypes = tc;
+
+    /* Warm the desugar into permanent storage. sema_destroy releases this pass's
+     * hash tables; the AST rewrite it made stays in g_prelude_arena. */
+    bbq_arena_init(&g_prelude_arena, 1 << 20);
+    ast_type_decl_t** parr = bbq_arena_alloc(&g_prelude_arena, (size_t)tc*sizeof(*parr));
+    memcpy(parr, t, (size_t)tc*sizeof(*parr));
+    ast_program_t* pre = ast_program(&g_prelude_arena, NULL, NULL, 0, parr, tc);
+    sema_ctx_t warm; sema_init(&warm, &g_prelude_arena);
+    warm.num_library_classes = tc;
+    sema_analyze(&warm, pre);
+    sema_destroy(&warm);
+}
+
+// The user source's parse context, released at the START of the next build —
+// the same "valid until the next call" lifetime the session arena documents.
+static java_parse_ctx_t* g_user_ctx = NULL;
+
+static ast_program_t* build_program(const char* user_src, bbq_arena* arena, int* nlib_out) {
+    prelude_once();
+    if (g_user_ctx) { bbq_arena_free(&g_user_ctx->arena); free(g_user_ctx); g_user_ctx = NULL; }
+
+    int nlib = g_lib_ntypes;
+    if (nlib_out) *nlib_out = nlib;               /* prelude classes occupy [0, nlib) */
+    ast_program_t* up = parse_into(user_src, &g_user_ctx);
+    if (!up) { printf("  FAIL  parse user source\n"); TEST_FAILED(); }
+
+    int nuser = up ? up->types_count : 0;
+    int tc = nlib + nuser;
     ast_type_decl_t** arr = bbq_arena_alloc(arena,(size_t)tc*sizeof(*arr));
-    memcpy(arr,t,(size_t)tc*sizeof(*arr)); free(t);
+    memcpy(arr, g_lib_types, (size_t)nlib*sizeof(*arr));
+    for (int i = 0; i < nuser; i++) arr[nlib+i] = up->types[i];
     return ast_program(arena, NULL, NULL, 0, arr, tc);
-    #undef PUSH
 }
 
 // The sidecar is ONE table of all kinds (compiler.h's PAYLOAD TABLE). A pin about
@@ -180,7 +236,7 @@ static const sir_node_t* compile_find(const char* user_src, int tag, int opt) {
     bbq_arena* arena = sess_arena();
     int nlib = 0;
     ast_program_t* prog = build_program(user_src, arena, &nlib);
-    sema_ctx_t sctx; sema_init(&sctx, arena); sctx.num_library_classes = nlib;
+    sema_ctx_t sctx; sema_init(&sctx, arena); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
     if (!sema_analyze(&sctx, prog)) { printf("  (note: sema reported errors)\n"); }
     compiler_ctx_t cctx; compiler_init(&cctx, arena, &sctx);
     int mc = 0;
@@ -201,7 +257,7 @@ static int packed_max_locals(const char* user_src, const char* mname) {
     bbq_arena arena; bbq_arena_init(&arena, 1 << 16);
     int nlib = 0;
     ast_program_t* prog = build_program(user_src, &arena, &nlib);
-    sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib;
+    sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
     if (!sema_analyze(&sctx, prog)) { printf("  (note: sema reported errors)\n"); }
     compiler_ctx_t cctx; compiler_init(&cctx, &arena, &sctx);
     int mc = 0;
@@ -210,8 +266,11 @@ static int packed_max_locals(const char* user_src, const char* mname) {
         if (methods[i]->class_id < nlib) continue;
         if (!methods[i]->name || strcmp(methods[i]->name, mname)) continue;
         cp_pack(methods[i], &sctx, &arena, methods[i]->max_locals);
-        return methods[i]->max_locals;
+        int packed = methods[i]->max_locals;
+        sema_destroy(&sctx); bbq_arena_free(&arena);          /* the result is a scalar; nothing escapes */
+        return packed;
     }
+    sema_destroy(&sctx); bbq_arena_free(&arena);
     return -1;
 }
 
@@ -398,7 +457,7 @@ static int opt_method_tag_count(const char* user_src, const char* mname, int tag
     bbq_arena arena; bbq_arena_init(&arena, 1 << 16);
     int nlib = 0;
     ast_program_t* prog = build_program(user_src, &arena, &nlib);
-    sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib;
+    sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
     if (!sema_analyze(&sctx, prog)) { printf("  (note: sema reported errors)\n"); }
     compiler_ctx_t cctx; compiler_init(&cctx, &arena, &sctx);
     int mc = 0;
@@ -407,8 +466,11 @@ static int opt_method_tag_count(const char* user_src, const char* mname, int tag
         if (methods[i]->class_id < nlib) continue;
         if (!methods[i]->name || strcmp(methods[i]->name, mname)) continue;
         sir_optimize(&cctx, i);
-        return count_tag(methods[i]->entry, tag);
+        int n = count_tag(methods[i]->entry, tag);
+        sema_destroy(&sctx); bbq_arena_free(&arena);          /* the result is a scalar; nothing escapes */
+        return n;
     }
+    sema_destroy(&sctx); bbq_arena_free(&arena);
     return -1;
 }
 
@@ -418,7 +480,7 @@ static bool opt_method_keeps_rem_branch(const char* user_src, const char* mname)
     bbq_arena arena; bbq_arena_init(&arena, 1 << 16);
     int nlib = 0;
     ast_program_t* prog = build_program(user_src, &arena, &nlib);
-    sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib;
+    sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
     if (!sema_analyze(&sctx, prog)) { printf("  (note: sema reported errors)\n"); }
     compiler_ctx_t cctx; compiler_init(&cctx, &arena, &sctx);
     int mc = 0;
@@ -427,8 +489,11 @@ static bool opt_method_keeps_rem_branch(const char* user_src, const char* mname)
         if (methods[i]->class_id < nlib) continue;
         if (!methods[i]->name || strcmp(methods[i]->name, mname)) continue;
         sir_optimize(&cctx, i);
-        return any_branch_tests_rem(methods[i]->entry);
+        bool r = any_branch_tests_rem(methods[i]->entry);
+        sema_destroy(&sctx); bbq_arena_free(&arena);          /* the result is a scalar; nothing escapes */
+        return r;
     }
+    sema_destroy(&sctx); bbq_arena_free(&arena);
     return false;
 }
 
@@ -659,7 +724,7 @@ static void dbg_dump_method(const char* user_src, const char* mname) {
     bbq_arena arena; bbq_arena_init(&arena, 1 << 16);
     int nlib = 0;
     ast_program_t* prog = build_program(user_src, &arena, &nlib);
-    sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib;
+    sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
     if (!sema_analyze(&sctx, prog)) printf("  (sema errors)\n");
     compiler_ctx_t cctx; compiler_init(&cctx, &arena, &sctx);
     int mc = 0;
@@ -701,9 +766,11 @@ static void dbg_dump_method(const char* user_src, const char* mname) {
             }
             printf("\n");
         }
+        sema_destroy(&sctx); bbq_arena_free(&arena);
         return;
     }
     printf("  (method %s not found)\n", mname);
+    sema_destroy(&sctx); bbq_arena_free(&arena);
 }
 
 int main(void) {
@@ -836,7 +903,7 @@ int main(void) {
         ast_program_t* prog = build_program(
             "class C { int v; } class T { static int f(C c) { return c.v; } }",
             &arena, &nlib);
-        sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib;
+        sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
         sema_analyze(&sctx, prog);
         compiler_ctx_t cctx; compiler_init(&cctx, &arena, &sctx);
         int mc = 0;
@@ -858,6 +925,7 @@ int main(void) {
         CHECK(ng == 1 && gs[0].b >= 0,
               "the guard names the SLOT it tests — not a node pointer, which the "
               "optimizer's rewrites would leave dangling");
+        sema_destroy(&sctx); bbq_arena_free(&arena);
     }
 
     // 12. §15 NPE guard elimination — the payoff. A deref of a freshly
@@ -879,7 +947,7 @@ int main(void) {
             bbq_arena arena; bbq_arena_init(&arena, 1 << 16);
             int nlib = 0;
             ast_program_t* prog = build_program(gk[i].src, &arena, &nlib);
-            sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib;
+            sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
             sema_analyze(&sctx, prog);
             compiler_ctx_t cctx; compiler_init(&cctx, &arena, &sctx);
             int mc = 0;
@@ -897,6 +965,7 @@ int main(void) {
             sir_optimize(&cctx, mi);
             int gone = (npe >= 0 && gs[npe].key->tag != SIR_BRANCH);
             CHECK(gone == gk[i].want_gone, gk[i].label);
+            sema_destroy(&sctx); bbq_arena_free(&arena);
         }
     }
 
@@ -934,7 +1003,7 @@ int main(void) {
             bbq_arena arena; bbq_arena_init(&arena, 1 << 16);
             int nlib = 0;
             ast_program_t* prog = build_program(bk[i].src, &arena, &nlib);
-            sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib;
+            sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
             sema_analyze(&sctx, prog);
             compiler_ctx_t cctx; compiler_init(&cctx, &arena, &sctx);
             int mc = 0;
@@ -955,6 +1024,7 @@ int main(void) {
                 if (gs[g].a == COMPILER_GUARD_ARRAY_INDEX_HIGH
                         && gs[g].key->tag != SIR_BRANCH) gone++;
             CHECK(gone == bk[i].want_gone, bk[i].label);
+            sema_destroy(&sctx); bbq_arena_free(&arena);
         }
     }
 
@@ -973,7 +1043,10 @@ int main(void) {
         bbq_arena arena; bbq_arena_init(&arena, 1 << 16);
         int nlib = 0;
         ast_program_t* prog = build_program("class U {}", &arena, &nlib);   /* just pull in the prelude */
-        sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib;
+  /* WHOLE-program: this block's checks need the java.lang bodies compiled —
+   * the ctor chain and the §7 call-graph summaries that escape analysis reads
+   * reach into the prelude, so analyze_from stays 0. */
+        sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib; /* analyze_from stays 0: see below */
         sema_analyze(&sctx, prog);
         compiler_ctx_t cctx; compiler_init(&cctx, &arena, &sctx);
         int mc = 0;
@@ -996,7 +1069,7 @@ int main(void) {
               "§46: BOTH of String.replace's bounds guards drop — value[i] straight-line under the "
               "loop bound; buf[i] past the ternary's merge, which must KEEP the all-agree "
               "refinement (SCCP join, spec §4). The IDX_HIGH −1 recovered.");
-        bbq_arena_free(&arena);
+        sema_destroy(&sctx); bbq_arena_free(&arena);
     }
 
     // 14. SOUNDNESS: the optimizer must never conclude that a method which cannot
@@ -1027,7 +1100,7 @@ int main(void) {
             bbq_arena arena; bbq_arena_init(&arena, 1 << 16);
             int nlib = 0;
             ast_program_t* prog = build_program(liveness[i].src, &arena, &nlib);
-            sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib;
+            sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
             sema_analyze(&sctx, prog);
             compiler_ctx_t cctx; compiler_init(&cctx, &arena, &sctx);
             int mc = 0;
@@ -1037,6 +1110,7 @@ int main(void) {
                 if (ms[k]->class_id >= nlib && ms[k]->name && !strcmp(ms[k]->name, "f")) mi = k;
             sir_optimize(&cctx, mi);
             CHECK(spine_has_tag(ms[mi]->entry, SIR_RETURN), liveness[i].label);
+            sema_destroy(&sctx); bbq_arena_free(&arena);
         }
     }
 
@@ -1070,7 +1144,7 @@ int main(void) {
         bbq_arena arena; bbq_arena_init(&arena, 1 << 16);
         int nlib = 0;
         ast_program_t* prog = build_program(src, &arena, &nlib);
-        sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib;
+        sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
         sema_analyze(&sctx, prog);
         compiler_ctx_t cctx; compiler_init(&cctx, &arena, &sctx);
         int mc = 0;
@@ -1099,6 +1173,7 @@ int main(void) {
                   "fields, or the optimizer CSEs a stale read");
         }
         cp_free(e);
+        sema_destroy(&sctx); bbq_arena_free(&arena);
     }
 
     // 16. Spec §2, the CAST TRANSFER: `v ← ref.cast τ(u)` ⟹ `{ O ∈ pts(u) | classOf(O)
@@ -1139,7 +1214,7 @@ int main(void) {
             bbq_arena arena; bbq_arena_init(&arena, 1 << 16);
             int nlib = 0;
             ast_program_t* prog = build_program(casts[i].src, &arena, &nlib);
-            sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib;
+            sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
             sema_analyze(&sctx, prog);
             compiler_ctx_t cctx; compiler_init(&cctx, &arena, &sctx);
             int mc = 0;
@@ -1173,6 +1248,7 @@ int main(void) {
                     CHECK(!cp_pts_has(e, p, cp_obj_of(e, other)), casts[i].label);
             }
             cp_free(e);
+            sema_destroy(&sctx); bbq_arena_free(&arena);
         }
     }
 
@@ -1187,7 +1263,7 @@ int main(void) {
         bbq_arena arena; bbq_arena_init(&arena, 1 << 16);
         int nlib = 0;
         ast_program_t* prog = build_program(src, &arena, &nlib);
-        sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib;
+        sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
         sema_analyze(&sctx, prog);
         compiler_ctx_t cctx; compiler_init(&cctx, &arena, &sctx);
         int mc = 0;
@@ -1210,6 +1286,7 @@ int main(void) {
                   "be null and its NPE guard must stand");
         }
         cp_free(e);
+        sema_destroy(&sctx); bbq_arena_free(&arena);
     }
 
     // 16c. …and the branch on `instanceof` splits pts along BOTH edges (spec §2's
@@ -1230,7 +1307,7 @@ int main(void) {
         bbq_arena arena; bbq_arena_init(&arena, 1 << 16);
         int nlib = 0;
         ast_program_t* prog = build_program(src, &arena, &nlib);
-        sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib;
+        sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
         sema_analyze(&sctx, prog);
         compiler_ctx_t cctx; compiler_init(&cctx, &arena, &sctx);
         int mc = 0;
@@ -1266,6 +1343,7 @@ int main(void) {
             }
         }
         cp_free(e);
+        sema_destroy(&sctx); bbq_arena_free(&arena);
     }
 
     // 17. Spec §5's other consumer: "drop the INT_MIN/-1 overflow-wrap guard when the
@@ -1294,7 +1372,7 @@ int main(void) {
             bbq_arena arena; bbq_arena_init(&arena, 1 << 16);
             int nlib = 0;
             ast_program_t* prog = build_program(dv[i].src, &arena, &nlib);
-            sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib;
+            sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
             sema_analyze(&sctx, prog);
             compiler_ctx_t cctx; compiler_init(&cctx, &arena, &sctx);
             int mc = 0;
@@ -1313,6 +1391,7 @@ int main(void) {
             sir_optimize(&cctx, mi);
             int gone = (gs[ov].key->tag != SIR_BRANCH);
             CHECK(gone == dv[i].want_gone, dv[i].label);
+            sema_destroy(&sctx); bbq_arena_free(&arena);
         }
     }
 
@@ -1340,7 +1419,7 @@ int main(void) {
         bbq_arena arena; bbq_arena_init(&arena, 1 << 16);
         int nlib = 0;
         ast_program_t* prog = build_program(src, &arena, &nlib);
-        sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib;
+        sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
         sema_analyze(&sctx, prog);
         compiler_ctx_t cctx; compiler_init(&cctx, &arena, &sctx);
         int mc = 0;
@@ -1367,6 +1446,7 @@ int main(void) {
                   "and must fall once the back edge goes live");
         }
         cp_free(e);
+        sema_destroy(&sctx); bbq_arena_free(&arena);
     }
 
     // 19. Spec §3, Lattice B: "Do NOT invent a second type domain — thread the existing
@@ -1396,7 +1476,7 @@ int main(void) {
             "   static Object nul(boolean c){ Object o = null;"
             "     if (c) o = new C(); return o; } }";
         ast_program_t* prog = build_program(src, &arena, &nlib);
-        sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib;
+        sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
         sema_analyze(&sctx, prog);
         compiler_ctx_t cctx; compiler_init(&cctx, &arena, &sctx);
         int mc = 0;
@@ -1459,6 +1539,7 @@ int main(void) {
          *    not §3's — the two elements are independent. */
         CHECK(q[3].kind == TK_REF && q[3].cls >= 0 && q[3].cls == q[3].site_a,
               "⊥null does not poison τ̂ — a maybe-null C is still a C");
+        sema_destroy(&sctx); bbq_arena_free(&arena);
     }
 
     // 20. Spec §2 ("if it drops nothing, the guard is dead") + §3 ("drop the ref.test
@@ -1497,7 +1578,7 @@ int main(void) {
             bbq_arena arena; bbq_arena_init(&arena, 1 << 16);
             int nlib = 0;
             ast_program_t* prog = build_program(cc[i].src, &arena, &nlib);
-            sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib;
+            sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
             sema_analyze(&sctx, prog);
             compiler_ctx_t cctx; compiler_init(&cctx, &arena, &sctx);
             int mc = 0;
@@ -1519,6 +1600,7 @@ int main(void) {
             CHECK(spine_has_tag(ms[mi]->entry, SIR_RETURN),
                   "…and the method can still RETURN: a guard is only ever folded to the "
                   "arm that does NOT throw (the sidecar records which one that is)");
+            sema_destroy(&sctx); bbq_arena_free(&arena);
         }
     }
 
@@ -1565,7 +1647,7 @@ int main(void) {
             bbq_arena arena; bbq_arena_init(&arena, 1 << 16);
             int nlib = 0;
             ast_program_t* prog = build_program(dv[i].src, &arena, &nlib);
-            sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib;
+            sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
             sema_analyze(&sctx, prog);
             compiler_ctx_t cctx; compiler_init(&cctx, &arena, &sctx);
             int mc = 0;
@@ -1590,6 +1672,7 @@ int main(void) {
                 CHECK(s1 != NULL, "…and it became a DIRECT call (InvokeSpecial), which "
                                   "still passes the receiver — a static call would drop it");
             }
+            sema_destroy(&sctx); bbq_arena_free(&arena);
         }
     }
 
@@ -1634,7 +1717,7 @@ int main(void) {
             bbq_arena arena; bbq_arena_init(&arena, 1 << 16);
             int nlib = 0;
             ast_program_t* prog = build_program(as[i].src, &arena, &nlib);
-            sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib;
+            sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
             sema_analyze(&sctx, prog);
             compiler_ctx_t cctx; compiler_init(&cctx, &arena, &sctx);
             int mc = 0;
@@ -1652,6 +1735,7 @@ int main(void) {
             if (ag < 0) continue;
             sir_optimize(&cctx, mi);
             CHECK((gs[ag].key->tag != SIR_EXPREFFECT) == as[i].want_gone, as[i].label);
+            sema_destroy(&sctx); bbq_arena_free(&arena);
         }
     }
 
@@ -1697,7 +1781,7 @@ int main(void) {
             bbq_arena arena; bbq_arena_init(&arena, 1 << 16);
             int nlib = 0;
             ast_program_t* prog = build_program(le[i].src, &arena, &nlib);
-            sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib;
+            sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
             sema_analyze(&sctx, prog);
             compiler_ctx_t cctx; compiler_init(&cctx, &arena, &sctx);
             int mc = 0;
@@ -1716,6 +1800,7 @@ int main(void) {
             CHECK((gs[hi].key->tag != SIR_BRANCH) == le[i].want_gone, le[i].label);
             CHECK(spine_has_tag(ms[mi]->entry, SIR_RETURN),
                   "…and the method can still RETURN");
+            sema_destroy(&sctx); bbq_arena_free(&arena);
         }
     }
 
@@ -1748,7 +1833,7 @@ int main(void) {
             bbq_arena arena; bbq_arena_init(&arena, 1 << 16);
             int nlib = 0;
             ast_program_t* prog = build_program(opt[i].src, &arena, &nlib);
-            sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib;
+            sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
             sema_analyze(&sctx, prog);
             compiler_ctx_t cctx; compiler_init(&cctx, &arena, &sctx);
             int mc = 0;
@@ -1765,6 +1850,7 @@ int main(void) {
             if (hi < 0) continue;
             sir_optimize(&cctx, mi);
             CHECK((gs[hi].key->tag != SIR_BRANCH) == opt[i].want_gone, opt[i].label);
+            sema_destroy(&sctx); bbq_arena_free(&arena);
         }
     }
 
@@ -1780,7 +1866,7 @@ int main(void) {
             "class T { static void f(char[] buf, int i){ int p = buf.length;"
             "  while (i <= -10) { buf[--p] = (char)(48 - (i % 10)); i = i / 10; } } }",
             &arena, &nlib);
-        sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib;
+        sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
         sema_analyze(&sctx, prog);
         compiler_ctx_t cctx; compiler_init(&cctx, &arena, &sctx);
         int mc = 0;
@@ -1801,6 +1887,7 @@ int main(void) {
                   "SURVIVE — the analysis cannot bound the decrement count, so `p-1 >= 0` "
                   "is not provable; folding it writes below index 0");
         }
+        sema_destroy(&sctx); bbq_arena_free(&arena);
     }
 
     {
@@ -1823,7 +1910,7 @@ int main(void) {
             "  for (int i = 0; i < total; i = i + 1) { if (mem[i] == 0) { names[idx] = null; idx = idx + 1; } }"
             "  return names; } }",
             &arena, &nlib);
-        sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib;
+        sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
         sema_analyze(&sctx, prog);
         compiler_ctx_t cctx; compiler_init(&cctx, &arena, &sctx);
         int mc = 0;
@@ -1845,6 +1932,7 @@ int main(void) {
                   "IDX_HIGH guard must SURVIVE — `idx < count` is a cross-loop invariant "
                   "the SIR does not establish; the optimistic solve must not fold it");
         }
+        sema_destroy(&sctx); bbq_arena_free(&arena);
     }
 
 
@@ -1882,7 +1970,7 @@ int main(void) {
             bbq_arena arena; bbq_arena_init(&arena, 1 << 16);
             int nlib = 0;
             ast_program_t* prog = build_program(cv[i].src, &arena, &nlib);
-            sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib;
+            sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
             sema_analyze(&sctx, prog);
             compiler_ctx_t cctx; compiler_init(&cctx, &arena, &sctx);
             int mc = 0;
@@ -1895,6 +1983,7 @@ int main(void) {
             const sir_node_t *g = NULL, *g2 = NULL;
             collect_two(ms[mi]->entry, SIR_GETSTATIC, &g, &g2);
             CHECK(g == NULL, cv[i].label);
+            sema_destroy(&sctx); bbq_arena_free(&arena);
         }
     }
 
@@ -1909,7 +1998,7 @@ int main(void) {
         bbq_arena arena; bbq_arena_init(&arena, 1 << 16);
         int nlib = 0;
         ast_program_t* prog = build_program(src, &arena, &nlib);
-        sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib;
+        sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
         sema_analyze(&sctx, prog);
         compiler_ctx_t cctx; compiler_init(&cctx, &arena, &sctx);
         int mc = 0;
@@ -1923,6 +2012,7 @@ int main(void) {
               "read inside it, and its guards, are gone (§14.19 via §13.1)");
         CHECK(spine_has_tag(ms[mi]->entry, SIR_RETURN),
               "…and the method still returns");
+        sema_destroy(&sctx); bbq_arena_free(&arena);
     }
 
     // 25. BRANCH REFINEMENTS COMPOSE. A value tested by a nested branch is ALREADY refined
@@ -1945,7 +2035,7 @@ int main(void) {
         bbq_arena arena; bbq_arena_init(&arena, 1 << 16);
         int nlib = 0;
         ast_program_t* prog = build_program(src, &arena, &nlib);
-        sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib;
+        sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
         sema_analyze(&sctx, prog);
         compiler_ctx_t cctx; compiler_init(&cctx, &arena, &sctx);
         int mc = 0;
@@ -1966,6 +2056,7 @@ int main(void) {
                   "nested branch — refinements COMPOSE, the inner one does not discard the "
                   "outer one");
         }
+        sema_destroy(&sctx); bbq_arena_free(&arena);
     }
 
     // 26. Spec §0: "the DEFUNCTIONALIZED `call_ref` TARGET SET (the usually-hard part, given
@@ -2018,7 +2109,9 @@ int main(void) {
             bbq_arena arena; bbq_arena_init(&arena, 1 << 16);
             int nlib = 0;
             ast_program_t* prog = build_program(tg[i].src, &arena, &nlib);
-            sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib;
+  /* WHOLE-program: the §7 call-graph summaries this block checks reach into
+   * the java.lang ctor chain, so the prelude bodies must be compiled. */
+            sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib; /* analyze_from stays 0 */
             sctx.mode = (sema_mode_t)tg[i].mode;
             sema_analyze(&sctx, prog);
             compiler_ctx_t cctx; compiler_init(&cctx, &arena, &sctx);
@@ -2036,6 +2129,7 @@ int main(void) {
             const sir_node_t *v1 = NULL, *x1 = NULL;
             collect_two(ms[mi]->entry, SIR_INVOKEVIRTUAL, &v1, &x1);
             CHECK((v1 == NULL) == (tg[i].want_direct != 0), tg[i].label);
+            sema_destroy(&sctx); bbq_arena_free(&arena);
         }
     }
 
@@ -2151,7 +2245,9 @@ int main(void) {
             bbq_arena arena; bbq_arena_init(&arena, 1 << 16);
             int nlib = 0;
             ast_program_t* prog = build_program(es[i].src, &arena, &nlib);
-            sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib;
+  /* WHOLE-program: these cases summarize the java.lang ctor chain (§7), so the
+   * prelude bodies must be compiled. */
+            sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib; /* analyze_from stays 0 */
             sema_analyze(&sctx, prog);
             compiler_ctx_t cctx; compiler_init(&cctx, &arena, &sctx);
             int mc = 0;
@@ -2189,12 +2285,13 @@ int main(void) {
             CHECK(n0 != NULL, "the source's `new C()` is in the graph");
             if (n0) CHECK((int)cp_escape_of_expr(e, n0) == es[i].want, es[i].label);
             cp_free(e);
+            sema_destroy(&sctx); bbq_arena_free(&arena);
         }
         for (int i = 0; i < (int)(sizeof ea / sizeof ea[0]); i++) {
             bbq_arena arena; bbq_arena_init(&arena, 1 << 16);
             int nlib = 0;
             ast_program_t* prog = build_program(ea[i].src, &arena, &nlib);
-            sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib;
+            sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
             sema_analyze(&sctx, prog);
             compiler_ctx_t cctx; compiler_init(&cctx, &arena, &sctx);
             int mc = 0;
@@ -2222,6 +2319,7 @@ int main(void) {
                       "…and the BACKING store's state follows the heap rule from the wrapper");
             }
             cp_free(e);
+            sema_destroy(&sctx); bbq_arena_free(&arena);
         }
     }
 
@@ -2269,7 +2367,7 @@ int main(void) {
             ast_program_t* prog = build_program(
                 "class E extends Exception { } class U extends Exception { } class T { }",
                 &a, &nlib);
-            sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib;
+            sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
             sema_analyze(&sctx, prog);
             int e_id = sema_find_class(&sctx, "E");
             int u_id = sema_find_class(&sctx, "U");
@@ -2300,7 +2398,7 @@ int main(void) {
                 CHECK((int)cp_escape_of_expr(e, alloc) == tc[i].want, tc[i].label);
                 cp_free(e);
             }
-            bbq_arena_free(&a);
+            sema_destroy(&sctx); bbq_arena_free(&a);
         }
     }
 
@@ -2329,7 +2427,7 @@ int main(void) {
         int nlib = 0;
         ast_program_t* prog = build_program(
             "class D { } class C { D f; } class T { static void h(){ } }", &a, &nlib);
-        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib;
+        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
         sema_analyze(&sctx, prog);
         int c_id = sema_find_class(&sctx, "C");
         int d_id = sema_find_class(&sctx, "D");
@@ -2380,7 +2478,7 @@ int main(void) {
             }
             cp_free(e);
         }
-        bbq_arena_free(&a);
+        sema_destroy(&sctx); bbq_arena_free(&a);
     }
 
     // 29. THE POST-CLICK SSA INVARIANT: no slot is READ that is never WRITTEN.
@@ -2422,7 +2520,7 @@ int main(void) {
             bbq_arena arena; bbq_arena_init(&arena, 1 << 18);
             int nlib = 0;
             ast_program_t* prog = build_program(srcs[i], &arena, &nlib);
-            sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib;
+            sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
             sema_analyze(&sctx, prog);
             compiler_ctx_t cctx; compiler_init(&cctx, &arena, &sctx);
             int mc = 0;
@@ -2451,7 +2549,7 @@ int main(void) {
                 }
                 free(def); free(use);
             }
-            bbq_arena_free(&arena);
+            sema_destroy(&sctx); bbq_arena_free(&arena);
         }
     }
 
@@ -2485,7 +2583,7 @@ int main(void) {
             "    return 7;"
             "  }"
             "}", &arena, &nlib);
-        sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib;
+        sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
         sema_analyze(&sctx, prog);
         compiler_ctx_t cctx; compiler_init(&cctx, &arena, &sctx);
         int mc = 0;
@@ -2508,7 +2606,7 @@ int main(void) {
                       "merges the state at the excepting call, where x is null, not the "
                       "try-entry state where it was NonNull");
         }
-        bbq_arena_free(&arena);
+        sema_destroy(&sctx); bbq_arena_free(&arena);
     }
 
     // 31. COMPLETENESS OF THE EXCEPT RECORDING (spec §1 / JLS §11.1). Every excepting
@@ -2546,7 +2644,7 @@ int main(void) {
             "    return 3;"
             "  }"
             "}", &arena, &nlib);
-        sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib;
+        sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
         sema_analyze(&sctx, prog);
         compiler_ctx_t cctx; compiler_init(&cctx, &arena, &sctx);
         int mc = 0;
@@ -2595,7 +2693,7 @@ int main(void) {
                                        "per enclosing region (innermost first)");
             bbq_vec_free(seen); bbq_vec_free(exs);
         }
-        bbq_arena_free(&arena);
+        sema_destroy(&sctx); bbq_arena_free(&arena);
     }
 
     // ── §32 spec §6's CONSUMER — scalar replacement (S4.c) ──────────────────────
@@ -2612,7 +2710,7 @@ int main(void) {
         bbq_arena a; bbq_arena_init(&a, 1 << 16);
         int nlib = 0;
         ast_program_t* prog = build_program("class C { int f; } class T { }", &a, &nlib);
-        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib;
+        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
         sema_analyze(&sctx, prog);
         int c_id = sema_find_class(&sctx, "C");
         int t_id = sema_find_class(&sctx, "T");
@@ -2645,7 +2743,7 @@ int main(void) {
         CHECK(count_tag(m->entry, SIR_GETFIELD) == 0
            && count_tag(m->entry, SIR_PUTFIELD) == 0,
               "§32.1: …and its field ops became LOCAL ops, not heap ops");
-        bbq_arena_free(&a);
+        sema_destroy(&sctx); bbq_arena_free(&a);
     }
     {
         // §32.2 JLS §4.12.5 — a field READ BEFORE ANY STORE reads the DEFAULT (0), not
@@ -2653,7 +2751,7 @@ int main(void) {
         bbq_arena a; bbq_arena_init(&a, 1 << 16);
         int nlib = 0;
         ast_program_t* prog = build_program("class C { int f; } class T { }", &a, &nlib);
-        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib;
+        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
         sema_analyze(&sctx, prog);
         int c_id = sema_find_class(&sctx, "C");
         int t_id = sema_find_class(&sctx, "T");
@@ -2679,7 +2777,7 @@ int main(void) {
         CHECK(retslot_defaults_to_zero(m->entry),
               "§32.2: JLS §4.12.5 — an unwritten field reads its DEFAULT (0): the "
               "returned slot is initialized with 0 AT the allocation");
-        bbq_arena_free(&a);
+        sema_destroy(&sctx); bbq_arena_free(&a);
     }
     {
         // §32.3 FAIL-CLOSED — the ref is COMPARED. Reference identity is observable, so
@@ -2687,7 +2785,7 @@ int main(void) {
         bbq_arena a; bbq_arena_init(&a, 1 << 16);
         int nlib = 0;
         ast_program_t* prog = build_program("class C { int f; } class T { }", &a, &nlib);
-        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib;
+        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
         sema_analyze(&sctx, prog);
         int c_id = sema_find_class(&sctx, "C");
         int t_id = sema_find_class(&sctx, "T");
@@ -2709,7 +2807,7 @@ int main(void) {
                  cp_free(e); }
         CHECK(count_tag(m->entry, SIR_NEW) == 1,
               "§32.3: …and the allocation is still there");
-        bbq_arena_free(&a);
+        sema_destroy(&sctx); bbq_arena_free(&a);
     }
     {
         // §32.4 FAIL-CLOSED — the receiver's pts is not a singleton (two sites merge into
@@ -2717,7 +2815,7 @@ int main(void) {
         bbq_arena a; bbq_arena_init(&a, 1 << 16);
         int nlib = 0;
         ast_program_t* prog = build_program("class C { int f; } class T { }", &a, &nlib);
-        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib;
+        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
         sema_analyze(&sctx, prog);
         int c_id = sema_find_class(&sctx, "C");
         int t_id = sema_find_class(&sctx, "T");
@@ -2745,7 +2843,7 @@ int main(void) {
                  cp_free(e); }
         CHECK(count_tag(m->entry, SIR_NEW) == 2,
               "§32.4: …and both allocations survive");
-        bbq_arena_free(&a);
+        sema_destroy(&sctx); bbq_arena_free(&a);
     }
     {
         // §32.5 JLS §11.3.1 — a field written in the TRY, read in the CATCH. The write
@@ -2760,7 +2858,7 @@ int main(void) {
         int nlib = 0;
         ast_program_t* prog = build_program(
             "class C { int f; } class E extends Exception { } class T { }", &a, &nlib);
-        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib;
+        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
         sema_analyze(&sctx, prog);
         int c_id = sema_find_class(&sctx, "C");
         int e_id = sema_find_class(&sctx, "E");
@@ -2804,7 +2902,7 @@ int main(void) {
          * load name the SAME slot. */
         CHECK(try_write_reaches_catch_read(m->entry, 7),
               "§32.5: JLS §11.3.1 — the catch's read is the slot the try wrote 7 into");
-        bbq_arena_free(&a);
+        sema_destroy(&sctx); bbq_arena_free(&a);
     }
     {
         // §32.6 the SUMMARY site (the recorded ALLOC fact says the site can run more
@@ -2818,7 +2916,7 @@ int main(void) {
         bbq_arena a; bbq_arena_init(&a, 1 << 16);
         int nlib = 0;
         ast_program_t* prog = build_program("class C { int f; } class T { }", &a, &nlib);
-        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib;
+        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
         sema_analyze(&sctx, prog);
         int c_id = sema_find_class(&sctx, "C");
         int t_id = sema_find_class(&sctx, "T");
@@ -2884,7 +2982,7 @@ int main(void) {
             CHECK(count_tag(m->entry, SIR_NEW) == 1,
                   "§32.6b: …and the allocation survives");
         }
-        bbq_arena_free(&a);
+        sema_destroy(&sctx); bbq_arena_free(&a);
     }
 
     {
@@ -2905,7 +3003,7 @@ int main(void) {
         bbq_arena a; bbq_arena_init(&a, 1 << 16);
         int nlib = 0;
         ast_program_t* prog = build_program("class T { }", &a, &nlib);
-        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib;
+        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
         sema_analyze(&sctx, prog);
         int t_id = sema_find_class(&sctx, "T");
 
@@ -2930,7 +3028,7 @@ int main(void) {
         }
         CHECK(count_tag(m->entry, SIR_NEW) == 1,
               "§32.7: …and the allocation survives");
-        bbq_arena_free(&a);
+        sema_destroy(&sctx); bbq_arena_free(&a);
     }
 
     {
@@ -2956,7 +3054,7 @@ int main(void) {
         bbq_arena a; bbq_arena_init(&a, 1 << 16);
         int nlib = 0;
         ast_program_t* prog = build_program("class C { int f; } class T { }", &a, &nlib);
-        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib;
+        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
         sema_analyze(&sctx, prog);
         int c_id = sema_find_class(&sctx, "C");
 
@@ -3019,7 +3117,7 @@ int main(void) {
               "§35: …and the list is EXACTLY those 10 nodes — the back edge terminates "
               "rather than spinning, and nothing else is invented");
         bbq_vec_free(sp);
-        bbq_arena_free(&a);
+        sema_destroy(&sctx); bbq_arena_free(&a);
     }
 
     {
@@ -3047,7 +3145,7 @@ int main(void) {
             "   static int callvirt(A r){ return r.m(); }"
             "   static int callstatic(){ return s(); }"
             " }", &a, &nlib);
-        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib;
+        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
         sema_analyze(&sctx, prog);
         compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
         int mc = 0;
@@ -3110,7 +3208,7 @@ int main(void) {
         CHECK(compiler_method_index(&cctx, a_id, 999) == -1,
               "§34: a callee with no compiled body is NOT a node — §7's bottom-method "
               "boundary, and it must be -1 rather than a silent 0");
-        bbq_arena_free(&a);
+        sema_destroy(&sctx); bbq_arena_free(&a);
     }
 
     {
@@ -3137,7 +3235,7 @@ int main(void) {
                 "  static void f(int[] p){}"
                 "  static void g(){ int[] a = new int[4]; a[0] = 7; f(a); }"
                 " }", &a, &nlib);
-            sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib;
+            sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
             sema_analyze(&sctx, prog);
             compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
             int mc = 0;
@@ -3169,7 +3267,7 @@ int main(void) {
             if (e && wrap)
                 CHECK((int)cp_escape_of_expr(e, wrap) == mt[i].want, mt[i].label);
             if (e) cp_free(e);
-            bbq_arena_free(&a);
+            sema_destroy(&sctx); bbq_arena_free(&a);
         }
     }
 
@@ -3194,7 +3292,7 @@ int main(void) {
             "   static void leak(C p){ S = p; }"    /* p → static ⟹ GlobalEscape */
             "   static void keep(C p){ p.f = 5; }"  /* p used, not leaked ⟹ ArgEscape (seed) */
             " }", &a, &nlib);
-        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib;
+        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
         sema_analyze(&sctx, prog);
         compiler_ctx_t cctx; cctx.optimize = true;   /* the summary is a readout of the solve */
         compiler_init(&cctx, &a, &sctx);
@@ -3231,7 +3329,7 @@ int main(void) {
             CHECK(s_keep->slot_escape[0] == COMPILER_ESC_NONE,
                   "§37: keep's formal 0 is CLEAN — used as a receiver but never leaked "
                   "(not stored-as-value / returned / thrown / passed to a leaking callee)");
-        bbq_arena_free(&a);
+        sema_destroy(&sctx); bbq_arena_free(&a);
     }
     {
         // §37b THE TRANSITIVE CASE — a formal stored into a LOCAL that then escapes must NOT
@@ -3248,7 +3346,7 @@ int main(void) {
             /* p stored into c.n; c THEN stored into a static ⟹ p reaches global TRANSITIVELY */
             "   static void sink(C p){ C c = new C(); c.n = p; S = c; }"
             " }", &a, &nlib);
-        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib;
+        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
         sema_analyze(&sctx, prog);
         compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
         int mc = 0;
@@ -3265,7 +3363,7 @@ int main(void) {
             CHECK(s->slot_escape[0] != COMPILER_ESC_NONE,
                   "§37b: a formal stored into a local that LATER escapes is NOT CLEAN — the "
                   "escape fixpoint catches the transitive reach a one-pass scan misses");
-        bbq_arena_free(&a);
+        sema_destroy(&sctx); bbq_arena_free(&a);
     }
     {
         // §37c §7.2 SIDE-EFFECTED CELLS (producer): a method that writes a formal's field
@@ -3277,7 +3375,7 @@ int main(void) {
             "class C { int v; int w; }"
             " class T { static void wr(C p){ p.v = 5; } }",   /* writes p.v, NOT p.w */
             &a, &nlib);
-        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib;
+        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
         sema_analyze(&sctx, prog);
         compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
         int mc = 0;
@@ -3298,7 +3396,7 @@ int main(void) {
         CHECK(n_on_p == 1,
               "§37c: wr's summary records ONE side-effected cell on parameter 0 — the caller "
               "kills exactly p.v (not p.w), so a ctor receiver's written field is not stale");
-        bbq_arena_free(&a);
+        sema_destroy(&sctx); bbq_arena_free(&a);
     }
     {
         // §37d DEEP WRITE — Fig 7's field-edge (Choi §4.4). A formal written BELOW its own
@@ -3322,7 +3420,7 @@ int main(void) {
             "                   f(o); return o.child.x; }"
             " }",
             &a, &nlib);
-        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib;
+        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
         sema_analyze(&sctx, prog);
         compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
         int mc = 0;
@@ -3368,7 +3466,7 @@ int main(void) {
                   "clobber (Fig 7) invalidated the pre-call 9 that f overwrote to 5");
         }
         if (e) cp_free(e);
-        bbq_arena_free(&a);
+        sema_destroy(&sctx); bbq_arena_free(&a);
     }
     {
         // §37e DEEP GlobalEscape (Fig 7 §4.4) + its negative control. Only GlobalEscape
@@ -3398,7 +3496,7 @@ int main(void) {
                 "   static void run(){ C o = new C(); o.f = new D(); act(o); } }",
                 dg[i].leaker);
             ast_program_t* prog = build_program(src, &a, &nlib);
-            sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib;
+            sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
             sema_analyze(&sctx, prog);
             compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
             int mc = 0;
@@ -3421,7 +3519,7 @@ int main(void) {
             if (e && nd)
                 CHECK((int)cp_escape_of_expr(e, nd) == dg[i].want, dg[i].label);
             if (e) cp_free(e);
-            bbq_arena_free(&a);
+            sema_destroy(&sctx); bbq_arena_free(&a);
         }
     }
     {
@@ -3447,7 +3545,9 @@ int main(void) {
             "   static int h(){ C o = new C(); o.r = new D(); f(o);"
             "                   if (o.r == null) return 1; return 2; } }",
             &a, &nlib);
-        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib;
+  /* WHOLE-program: these cases summarize the java.lang ctor chain (§7), so the
+   * prelude bodies must be compiled. */
+        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; /* analyze_from stays 0 */
         sema_analyze(&sctx, prog);
         compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
         int mc = 0;
@@ -3511,7 +3611,7 @@ int main(void) {
                   "transitive write set wiped the preserved row, so the null test cannot fold");
         }
         if (e) cp_free(e);
-        bbq_arena_free(&a);
+        sema_destroy(&sctx); bbq_arena_free(&a);
     }
     {
         // §37g spec §7 — `this` IS the receiver SLOT, one object. The DDCG compiles a `this.f`
@@ -3533,7 +3633,10 @@ int main(void) {
             "           L(){ sink = this; } }"
             " class T { static int use(){ W w = new W(); E e = new E(); return w.v + e.v; } }",
             &a, &nlib);
-        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib;
+  /* WHOLE-program: this block's checks need the java.lang bodies compiled —
+   * the ctor chain and the §7 call-graph summaries that escape analysis reads
+   * reach into the prelude, so analyze_from stays 0. */
+        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; /* analyze_from stays 0: see below */
         sema_analyze(&sctx, prog);
         compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
         int mc = 0;
@@ -3574,7 +3677,7 @@ int main(void) {
               "§37g: a ctor that stores `this` into a static reports a REAL this_escape — proof "
               "the unification made this_escape reflect the receiver actually used, not a phantom "
               "nothing references");
-        bbq_arena_free(&a);
+        sema_destroy(&sctx); bbq_arena_free(&a);
     }
     {
         // §39 spec §7 — VIRTUAL FAN-OUT (Choi §4.3: "merge the solution after processing each
@@ -3591,7 +3694,7 @@ int main(void) {
             " class T { static void run(){ I x = new A(); int[] arr = new int[4];"
             "                              arr[0] = 7; x.m(arr); } }",
             &a, &nlib);
-        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib;
+        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
         sema_analyze(&sctx, prog);
         compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
         int mc = 0;
@@ -3617,7 +3720,7 @@ int main(void) {
                   "a CLEAN summary stays NoEscape — the fan-out consulted the summary, not the "
                   "bottom graph");
         if (e) cp_free(e);
-        bbq_arena_free(&a);
+        sema_destroy(&sctx); bbq_arena_free(&a);
     }
     {
         // §40 spec §7 / Choi §4 — ITERATE-TO-CONVERGENCE over a CYCLIC call graph. `a` and `b`
@@ -3637,7 +3740,7 @@ int main(void) {
             "   static void b(C p, int n){ if (n > 0) a(p, n - 1); }"    /* b → a (cycle) */
             " }",
             &a, &nlib);
-        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib;
+        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
         sema_analyze(&sctx, prog);
         compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
         cctx.optimize = true;
@@ -3675,7 +3778,7 @@ int main(void) {
             CHECK(sa->slot_escape[0] == COMPILER_ESC_ARG,
                   "§40: a's `p`, passed around the a↔b cycle, converges to ArgEscape (sound) — "
                   "not wrongly CLEAN");
-        bbq_arena_free(&a);
+        sema_destroy(&sctx); bbq_arena_free(&a);
     }
     {
         // §41 spec §7.2 — RETURN-PTS (FORMAL aliasing). A method whose every return yields the
@@ -3691,7 +3794,7 @@ int main(void) {
             "   static C id(C p){ return p; }"
             "   static void run(){ C x = new C(); C y = id(x); if (y == null) return; } }",
             &a, &nlib);
-        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib;
+        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
         sema_analyze(&sctx, prog);
         compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
         int mc = 0;
@@ -3721,7 +3824,7 @@ int main(void) {
                   "aliasing), not just the opaque Oret");
         }
         if (e) cp_free(e);
-        bbq_arena_free(&a);
+        sema_destroy(&sctx); bbq_arena_free(&a);
     }
     {
         // §42p spec §7 — PRODUCER side of §42, pinned SEPARATELY so an integration failure is
@@ -3735,7 +3838,7 @@ int main(void) {
             ast_program_t* prog = build_program(
                 "class D {} class C { D v; }"
                 " class T { static void store(C p, D a){ p.v = a; } }", &a, &nlib);
-            sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib;
+            sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
             sema_analyze(&sctx, prog);
             compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
             int mc = 0;
@@ -3759,7 +3862,7 @@ int main(void) {
                       "§42p: the receiver p is NOT leaked to a bottom method — the write is fully "
                       "captured, so a caller may REPLACE CP_OBJ_EXT (spec/plan: receiver CLEAN)");
             }
-            bbq_arena_free(&a);
+            sema_destroy(&sctx); bbq_arena_free(&a);
         }
 
         // §42 spec §7 / Fig 7 "Updating Caller Edges" — ADDED CALLER EDGES. `store(C p, D a){ p.v =
@@ -3782,7 +3885,7 @@ int main(void) {
             "   static void run(){ C o = new C(); D x = new D(); store(o, x);"
             "                      D y = o.v; if (y == null) return; } }",
             &a, &nlib);
-        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib;
+        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
         sema_analyze(&sctx, prog);
         compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
         int mc = 0;
@@ -3812,7 +3915,7 @@ int main(void) {
                   "REPLACES the clobber's conservative unknown (CP_OBJ_EXT gone)");
         }
         if (e) cp_free(e);
-        bbq_arena_free(&a);
+        sema_destroy(&sctx); bbq_arena_free(&a);
     }
     {
         // §44 spec §7 / VFG ISMM'13 §4.1 (verbatim: "a STORE ∗p=x to object O can kill all
@@ -3831,7 +3934,7 @@ int main(void) {
             "   static void g(){ }"
             "   static int run(){ C o = new C(); o.x = 5; g(); return o.x; } }",
             &a, &nlib);
-        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib;
+        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
         sema_analyze(&sctx, prog);
         compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
         int mc = 0;
@@ -3854,7 +3957,7 @@ int main(void) {
                   "ONLY the cells its callee writes, not all memory (VFG ISMM'13 §4.1)");
         }
         if (e) cp_free(e);
-        bbq_arena_free(&a);
+        sema_destroy(&sctx); bbq_arena_free(&a);
     }
     {
         // §44b Gate 5 SOUNDNESS at the integration level — a callee that WRITES the cell blocks the
@@ -3870,7 +3973,7 @@ int main(void) {
             "   static void w(C p){ p.x = 9; }"
             "   static int run(){ C o = new C(); o.x = 5; w(o); return o.x; } }",
             &a, &nlib);
-        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib;
+        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
         sema_analyze(&sctx, prog);
         compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
         int mc = 0;
@@ -3893,7 +3996,7 @@ int main(void) {
                   "(the callee's write set clobbers the cell — preserve is false)");
         }
         if (e) cp_free(e);
-        bbq_arena_free(&a);
+        sema_destroy(&sctx); bbq_arena_free(&a);
     }
     {
         // §44c Gate 5 branch — `clobbered` is CELL-SPECIFIC. `setv(C p){ p.v = 7; }` writes p.v and
@@ -3908,7 +4011,7 @@ int main(void) {
             "   static void setv(C p){ p.v = 7; }"
             "   static int run(){ C o = new C(); o.w = 5; setv(o); return o.w; } }",
             &a, &nlib);
-        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib;
+        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
         sema_analyze(&sctx, prog);
         compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
         int mc = 0;
@@ -3931,7 +4034,7 @@ int main(void) {
                   "cell-specific, an un-written sibling cell still forwards its value");
         }
         if (e) cp_free(e);
-        bbq_arena_free(&a);
+        sema_destroy(&sctx); bbq_arena_free(&a);
     }
     {
         // §45p E1 / VFG Rule 1 return half / JLS §15.9.4 — PRODUCER. A factory `m(){ return new C(); }`
@@ -3944,7 +4047,7 @@ int main(void) {
             "class C {}"
             " class T { static C m(){ return new C(); } }",
             &a, &nlib);
-        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib;
+        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
         sema_analyze(&sctx, prog);
         compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
         int mc = 0;
@@ -3960,7 +4063,7 @@ int main(void) {
         CHECK(s && s->ret_kind == COMPILER_RET_FRESH && !s->ret_maybe_null,
               "§45p: return new C() classifies FRESH — NonNull result (a `new` never returns null), "
               "even though its Oret identity is not mintable at the caller (per-site naming)");
-        bbq_arena_free(&a);
+        sema_destroy(&sctx); bbq_arena_free(&a);
     }
     {
         // §45 E1 — CONSUMER (L1). The result of a FRESH-returning callee is NonNull: `x = m()` with
@@ -3975,7 +4078,7 @@ int main(void) {
             " class T { static C m(){ return new C(); }"
             "           static C run(){ C x = m(); return x; } }",
             &a, &nlib);
-        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib;
+        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
         sema_analyze(&sctx, prog);
         compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
         int mc = 0;
@@ -3998,7 +4101,7 @@ int main(void) {
                   "never returns null); the Oret identity remains");
         }
         if (e) cp_free(e);
-        bbq_arena_free(&a);
+        sema_destroy(&sctx); bbq_arena_free(&a);
     }
     {
         // §45n E1's TRANSITIVE half. `run(){ return m(); }` where m is FRESH: run's return is not
@@ -4016,7 +4119,7 @@ int main(void) {
             "           static C run(){ return m(); }"
             "           static C h(){ C x = run(); return x; } }",
             &a, &nlib);
-        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib;
+        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
         sema_analyze(&sctx, prog);
         compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
         int mc = 0;
@@ -4047,7 +4150,7 @@ int main(void) {
                   "same consumer FRESH rides, one more kind admitted");
         }
         if (e) cp_free(e);
-        bbq_arena_free(&a);
+        sema_destroy(&sctx); bbq_arena_free(&a);
     }
     {
         // §46c S6-C (spec §7.2's VALUE half — lattice D made interprocedural, the S5 completion).
@@ -4067,7 +4170,7 @@ int main(void) {
             "   static int useK(){ return five() + 1; }"
             "   static int usev(boolean p){ A q = p ? new A() : new B(); return q.g(); } }",
             &a, &nlib);
-        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib;
+        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
         sema_analyze(&sctx, prog);
         compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
         int mc = 0;
@@ -4126,7 +4229,7 @@ int main(void) {
             }
             if (e) cp_free(e);
         }
-        bbq_arena_free(&a);
+        sema_destroy(&sctx); bbq_arena_free(&a);
     }
     {
         // §47p S6-B (Stadler §5.1–5.4 — PARTIAL escape: virtual per BRANCH, materialize at the
@@ -4157,7 +4260,10 @@ int main(void) {
             "                        if (x > 0) e.c = 1; else e.c = 2;"
             "                        return e.c; } }",
             &a, &nlib);
-        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib;
+  /* WHOLE-program: this block's checks need the java.lang bodies compiled —
+   * the ctor chain and the §7 call-graph summaries that escape analysis reads
+   * reach into the prelude, so analyze_from stays 0. */
+        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; /* analyze_from stays 0: see below */
         sema_analyze(&sctx, prog);
         compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
         int mc = 0;
@@ -4199,7 +4305,7 @@ int main(void) {
         CHECK(count_new_graph(ms[i_g]->entry) == 0,
               "§47p g PARITY: the whole-method NoEscape diamond stays scalar-replaced across "
               "the cp_sr→cp_pea swap");
-        bbq_arena_free(&a);
+        sema_destroy(&sctx); bbq_arena_free(&a);
     }
     {
         // §42b spec §7 — an invoke kills ONLY the cells its summary says it writes. `setv` writes
@@ -4218,7 +4324,10 @@ int main(void) {
             "   static void run(){ C o = new C(); D x = new D(); o.w = x; setv(o, new D());"
             "                      D y = o.w; if (y == null) return; } }",
             &a, &nlib);
-        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib;
+  /* WHOLE-program: this block's checks need the java.lang bodies compiled —
+   * the ctor chain and the §7 call-graph summaries that escape analysis reads
+   * reach into the prelude, so analyze_from stays 0. */
+        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; /* analyze_from stays 0: see below */
         sema_analyze(&sctx, prog);
         compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
         int mc = 0;
@@ -4245,7 +4354,7 @@ int main(void) {
                   "set), never p.w, so o.w still points to EXACTLY x");
         }
         if (e) cp_free(e);
-        bbq_arena_free(&a);
+        sema_destroy(&sctx); bbq_arena_free(&a);
     }
     {
         // §42d spec §7 — THE COMPLETENESS GUARD (the reason this is careful, not a cram). `store`
@@ -4264,7 +4373,7 @@ int main(void) {
             "   static void run(){ C o = new C(); D x = new D(); store(o, x);"
             "                      D y = o.v; if (y == null) return; } }",
             &a, &nlib);
-        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib;
+        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
         sema_analyze(&sctx, prog);
         compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
         int mc = 0;
@@ -4290,7 +4399,7 @@ int main(void) {
                   "the write is not fully captured and the precise injection must NOT fire");
         }
         if (e) cp_free(e);
-        bbq_arena_free(&a);
+        sema_destroy(&sctx); bbq_arena_free(&a);
     }
     {
         // §43 spec §6.1 / S5.4 — CTOR-AWARE SCALAR REPLACEMENT, the first customer, with a
@@ -4307,7 +4416,10 @@ int main(void) {
             "class W { int v = 7; }"
             " class T { static int g(){ W w = new W(); return w.v; } }",
             &a, &nlib);
-        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib;
+  /* WHOLE-program: this block's checks need the java.lang bodies compiled —
+   * the ctor chain and the §7 call-graph summaries that escape analysis reads
+   * reach into the prelude, so analyze_from stays 0. */
+        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; /* analyze_from stays 0: see below */
         sema_analyze(&sctx, prog);
         compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
         int mc = 0;
@@ -4337,7 +4449,7 @@ int main(void) {
               " materialized onto the slot, not declined (S5.4)");
         CHECK(find_new_of_class(ms[i_g]->entry, w_id) == NULL,
               "§43: the `new W()` is GONE from g's SIR — allocation removed, ctor materialized");
-        bbq_arena_free(&a);
+        sema_destroy(&sctx); bbq_arena_free(&a);
     }
 
     {
@@ -4365,7 +4477,10 @@ int main(void) {
             bbq_arena a; bbq_arena_init(&a, 1 << 16);
             int nlib = 0;
             ast_program_t* prog = build_program(sr[t].src, &a, &nlib);
-            sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib;
+  /* WHOLE-program: this block's checks need the java.lang bodies compiled —
+   * the ctor chain and the §7 call-graph summaries that escape analysis reads
+   * reach into the prelude, so analyze_from stays 0. */
+            sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; /* analyze_from stays 0: see below */
             sema_analyze(&sctx, prog);
             compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
             int mc = 0;
@@ -4376,12 +4491,12 @@ int main(void) {
             for (int k = 0; k < mc; k++)
                 if (ms[k]->class_id == t_id && ms[k]->name && !strcmp(ms[k]->name, sr[t].meth)) mi = k;
             CHECK(mi >= 0, sr[t].label);
-            if (mi < 0) { bbq_arena_free(&a); continue; }
+            if (mi < 0) { sema_destroy(&sctx); bbq_arena_free(&a); continue; }
             int before = cctx.scalar_total;
             sir_optimize(&cctx, mi);
             CHECK(cctx.scalar_total > before && find_new_of_class(ms[mi]->entry, cls) == NULL,
                   sr[t].label);
-            bbq_arena_free(&a);
+            sema_destroy(&sctx); bbq_arena_free(&a);
         }
     }
 
@@ -4408,7 +4523,7 @@ int main(void) {
             "   static int mid(){ return leaf(); }"    /* mid → leaf */
             "   static int leaf(){ return 1; }"
             " }", &a, &nlib);
-        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib;
+        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
         sema_analyze(&sctx, prog);
         compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
         int mc = 0;
@@ -4449,7 +4564,7 @@ int main(void) {
               && p_leaf < p_mid && p_mid < p_top,
               "§36: reverse-topological — a callee is analyzed BEFORE its caller "
               "(leaf before mid before top)");
-        bbq_arena_free(&a);
+        sema_destroy(&sctx); bbq_arena_free(&a);
     }
 
     {
@@ -4469,7 +4584,7 @@ int main(void) {
         bbq_arena a; bbq_arena_init(&a, 1 << 16);
         int nlib = 0;
         ast_program_t* prog = build_program("class C { int f; } class T { }", &a, &nlib);
-        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib;
+        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
         sema_analyze(&sctx, prog);
         int c_id = sema_find_class(&sctx, "C");
         int t_id = sema_find_class(&sctx, "T");
@@ -4505,7 +4620,7 @@ int main(void) {
               "§32.8: …and NO LoadLocal is left reading a slot whose def was deleted — the "
               "copy chain is fully removed (JLS §16). THIS is the assertion that decides "
               "S4.c1c: it fails the moment one link of t0→t1→t2 survives its own def");
-        bbq_arena_free(&a);
+        sema_destroy(&sctx); bbq_arena_free(&a);
     }
 
     {
@@ -4556,7 +4671,7 @@ int main(void) {
             ast_program_t* prog = build_program(
                 "class E extends Exception { } class X extends Exception { } class T { }",
                 &a, &nlib);
-            sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib;
+            sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
             sema_analyze(&sctx, prog);
             int e_id = sema_find_class(&sctx, "E");
             int x_id = sema_find_class(&sctx, "X");
@@ -4595,7 +4710,7 @@ int main(void) {
                 CHECK((int)cp_escape_of_expr(e, alloc_e) == tr[i].want, tr[i].label);
                 cp_free(e);
             }
-            bbq_arena_free(&a);
+            sema_destroy(&sctx); bbq_arena_free(&a);
         }
     }
 
@@ -4614,7 +4729,7 @@ int main(void) {
             "class E extends Exception { }"
             " class T { static void g() { try { throw new E(); } catch (E e) { } } }",
             &a, &nlib);
-        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib;
+        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
         sema_analyze(&sctx, prog);
         compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
         int mc = 0;
@@ -4652,7 +4767,7 @@ int main(void) {
         CHECK(n_throwable_typed == 0,
               "§33.5: the catch-all is NOT minted as a catch of Throwable — that is what "
               "made sema_ref_is_subtype say 'caught' to every throw in every try");
-        bbq_arena_free(&a);
+        sema_destroy(&sctx); bbq_arena_free(&a);
     }
 
     if (getenv("SIR_DUMP"))
@@ -4663,7 +4778,5 @@ int main(void) {
             " cur = cur + 1; } } }",
             getenv("SIR_DUMP_METHOD") ? getenv("SIR_DUMP_METHOD") : "skip");
 
-    if (fails) { printf("test_sir: %d FAILED\n", fails); return 1; }
-    printf("test_sir: OK\n");
-    return 0;
+    return TEST_SUMMARY("test_sir");
 }

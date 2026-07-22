@@ -12,7 +12,6 @@
  * Usage: water [options] [input.wat]
  *   input.wat        source file; omitted or "-" reads stdin
  *   -o, --output F   write binary to F; omitted or "-" writes stdout
- *   -i, --instrs P   instructions.toml path (mnemonic table; default below)
  *   -h, --help       this message
  *
  * Pipe-friendly: `water foo.wat -o foo.wasm`, `cat foo.wat | water > foo.wasm`.
@@ -25,8 +24,6 @@
 #include <string.h>
 #include <unistd.h>
 
-#define DEFAULT_INSTRS "spec/instructions.toml"
-
 static const char *PROG = "water";
 
 static void usage(FILE *f) {
@@ -34,9 +31,8 @@ static void usage(FILE *f) {
         "usage: %s [options] [input.wat]\n"
         "  input.wat         .wat source (omit or \"-\" for stdin)\n"
         "  -o, --output F    write .wasm to F (omit or \"-\" for stdout)\n"
-        "  -i, --instrs P    instructions.toml path (default: %s)\n"
         "  -h, --help        show this help\n",
-        PROG, DEFAULT_INSTRS);
+        PROG);
 }
 
 static int streq(const char *a, const char *b) { return strcmp(a, b) == 0; }
@@ -62,7 +58,7 @@ static char *slurp(FILE *f, long *out_len) {
 }
 
 int main(int argc, char **argv) {
-    const char *in_path = NULL, *out_path = NULL, *instrs = DEFAULT_INSTRS;
+    const char *in_path = NULL, *out_path = NULL;
 
     for (int i = 1; i < argc; i++) {
         const char *a = argv[i];
@@ -70,9 +66,6 @@ int main(int argc, char **argv) {
         else if (streq(a, "-o") || streq(a, "--output")) {
             if (++i >= argc) { fprintf(stderr, "%s: %s needs an argument\n", PROG, a); return 2; }
             out_path = argv[i];
-        } else if (streq(a, "-i") || streq(a, "--instrs")) {
-            if (++i >= argc) { fprintf(stderr, "%s: %s needs an argument\n", PROG, a); return 2; }
-            instrs = argv[i];
         } else if (a[0] == '-' && a[1] && !streq(a, "-")) {
             fprintf(stderr, "%s: unknown option %s\n", PROG, a);
             usage(stderr);
@@ -93,12 +86,11 @@ int main(int argc, char **argv) {
 
     /* ── parse + resolve → jav_module_t ── */
     int err_line = 0, err_col = 0;
-    jav_module_t *mod = wat_assemble(src, (int)len, instrs, &err_line, &err_col);
+    jav_module_t *mod = wat_assemble(src, (int)len, &err_line, &err_col);
     free(src);
     if (!mod) {
-        if (err_line) fprintf(stderr, "%s: %s:%d:%d: parse error\n", PROG,
-                              in_path ? in_path : "<stdin>", err_line, err_col);
-        else          fprintf(stderr, "%s: could not load instruction table %s\n", PROG, instrs);
+        fprintf(stderr, "%s: %s:%d:%d: parse error\n", PROG,
+                in_path ? in_path : "<stdin>", err_line, err_col);
         return 1;
     }
 

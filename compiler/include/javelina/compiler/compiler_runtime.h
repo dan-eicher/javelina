@@ -5,8 +5,8 @@
  * Tag constants are <DEST>_<VARIANT> uppercase; constructors are
  * lowercase variant names so DSL rule bodies can write `effect()`.
  */
-#ifndef YOCTOJC_COMPILER_RUNTIME_H
-#define YOCTOJC_COMPILER_RUNTIME_H
+#ifndef JAVELINA_COMPILER_RUNTIME_H
+#define JAVELINA_COMPILER_RUNTIME_H
 
 #include "gen/sir_ast.h"     /* sir_node_t, sir_datatype_t */
 #include "gen/java_ast.h"    /* ast_stmt_t, ast_expr_t */
@@ -388,4 +388,4 @@ static inline sema_new_array_kind_t NewArrayInvalid(struct ddcg_ctx* ctx) {
     (void)ctx; sema_new_array_kind_t k = { SEMA_NEW_ARRAY_KIND_NEWARRAYINVALID, 0 }; return k;
 }
 
-#endif /* YOCTOJC_COMPILER_RUNTIME_H */
+#endif /* JAVELINA_COMPILER_RUNTIME_H */

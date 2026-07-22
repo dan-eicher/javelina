@@ -6,7 +6,36 @@
  * the Click thesis §4.1 defines: Nodes with ordered input edges, a
  * φ node at each control-flow merge, and a def-use index that is the
  * exact inverse of the input edges. */
-#include "unity.h"
+#include "javelina_test.h"
+
+/* This suite is written in Unity's assertion vocabulary. Unity is gone; the
+ * vocabulary is defined here in terms of the shared CHECK.
+ *
+ * The one semantic Unity supplied that CHECK does not is ABORT: a failed
+ * assertion ended that test case (longjmp) rather than falling through. Every
+ * case here is a `static void test_*(void)`, so the same thing is spelled
+ * `return` — the assertion stops its own case and the runner moves on, which
+ * is what the 186 not-null guards below depend on. Each condition is evaluated
+ * exactly once. */
+#define JT_ASSERT_(ok, label)                                                  \
+    do { int jt_ok_ = (ok) ? 1 : 0; CHECK(jt_ok_, (label)); if (!jt_ok_) return; } while (0)
+
+#define TEST_ASSERT_TRUE(c)                    JT_ASSERT_((c), #c)
+#define TEST_ASSERT_TRUE_MESSAGE(c, m)         JT_ASSERT_((c), (m))
+#define TEST_ASSERT_FALSE_MESSAGE(c, m)        JT_ASSERT_(!(c), (m))
+#define TEST_ASSERT_MESSAGE(c, m)              JT_ASSERT_((c), (m))
+#define TEST_ASSERT_NOT_NULL(p)                JT_ASSERT_((p) != NULL, #p " != NULL")
+#define TEST_ASSERT_NOT_NULL_MESSAGE(p, m)     JT_ASSERT_((p) != NULL, (m))
+#define TEST_ASSERT_NULL_MESSAGE(p, m)         JT_ASSERT_((p) == NULL, (m))
+#define TEST_ASSERT_EQUAL_INT(e, a)            JT_ASSERT_((long)(e) == (long)(a), #a " == " #e)
+#define TEST_ASSERT_EQUAL_INT_MESSAGE(e, a, m) JT_ASSERT_((long)(e) == (long)(a), (m))
+#define TEST_ASSERT_EQUAL_HEX32_MESSAGE(e, a, m)                               \
+    JT_ASSERT_((uint32_t)(e) == (uint32_t)(a), (m))
+#define TEST_ASSERT_EQUAL_PTR(e, a)            JT_ASSERT_((const void*)(e) == (const void*)(a), #a " == " #e)
+#define TEST_ASSERT_EQUAL_PTR_MESSAGE(e, a, m) JT_ASSERT_((const void*)(e) == (const void*)(a), (m))
+
+static int jt_cases = 0;
+#define RUN_TEST(fn) do { jt_cases++; fn(); } while (0)
 
 #include "javelina/compiler/sir_optimizer.h"
 #include "javelina/compiler/sir_op_gamma.h"
@@ -74,7 +103,10 @@ static cp_vnode_t* cp_only_phi(cp_engine_t* e) {
     cp_vnode_t* phi = NULL;
     for (int i = 0; i < e->vnode_count; i++) {
         if (e->vnodes[i]->kind != CP_VN_PHI) continue;
-        TEST_ASSERT_NULL_MESSAGE(phi, "expected at most one phi node");
+        /* Spelled out rather than via TEST_ASSERT_*: this helper returns a
+         * pointer, so the vocabulary's bare `return` would not compile. */
+        CHECK(phi == NULL, "expected at most one phi node");
+        if (phi != NULL) return NULL;
         phi = e->vnodes[i];
     }
     return phi;
@@ -6232,11 +6264,8 @@ void test_click_partition_suite(void) {
     RUN_TEST(test_cp_apply_phi_follower_same_partition_contributors);
 }
 
-/* Standalone runner (yoctojc kept main/setUp/tearDown in test_main.c). */
-void setUp(void) {}
-void tearDown(void) {}
 int main(void) {
-    UNITY_BEGIN();
     test_click_partition_suite();
-    return UNITY_END();
+    printf("\n  %d cases run\n", jt_cases);
+    return TEST_SUMMARY("test_click_partition");
 }

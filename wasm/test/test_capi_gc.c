@@ -25,7 +25,7 @@ static int fails = 0;
 
 static void assemble(const char* wat, wasm_byte_vec_t* out) {
     int el = 0, ec = 0;
-    jav_module_t* mod = wat_assemble(wat, (int)strlen(wat), INSTRS_TOML, &el, &ec);
+    jav_module_t* mod = wat_assemble(wat, (int)strlen(wat), &el, &ec);
     if (!mod) { fprintf(stderr, "wat_assemble failed at %d:%d\n", el, ec); exit(2); }
     bbq_write_ctx_t w; bbq_write_ctx_init_growable(&w, strlen(wat) + 64);
     bbq_write_set_endian(&w, true);

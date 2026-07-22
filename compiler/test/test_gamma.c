@@ -12,8 +12,7 @@
 #include <stdio.h>
 #include <string.h>
 
-static int fails = 0;
-#define CHECK(c, m) do { if (!(c)) { printf("  FAIL  %s\n", (m)); fails++; } } while (0)
+#include "javelina_test.h"
 
 int main(void) {
     // 1. Every row is indexed by its own tag — so sir_op_gamma[node->tag]
@@ -23,7 +22,7 @@ int main(void) {
         if ((int)sir_op_gamma[i].tag != i) {
             printf("  FAIL  sir_op_gamma[%d].tag = %d (missing/mis-tagged row)\n",
                    i, (int)sir_op_gamma[i].tag);
-            fails++;
+            TEST_FAILED();
         }
     }
 
@@ -235,7 +234,5 @@ int main(void) {
         bbq_arena_free(&a);
     }
 
-    if (fails) { printf("test_gamma: %d FAILED\n", fails); return 1; }
-    printf("test_gamma: OK\n");
-    return 0;
+    return TEST_SUMMARY("test_gamma");
 }

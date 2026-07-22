@@ -1,0 +1,48 @@
+compiler/test — the compiler's suites
+=====================================
+
+Where a new case goes
+---------------------
+  test/test_*.c             plain C, exit code is the verdict. Assertions come
+                            from ../../testkit/javelina_test.h (CHECK,
+                            CHECK_CASE, CHECK_EXPR, TEST_FAILED, TEST_SUMMARY).
+                            A suite that evaluates zero checks FAILS — silence
+                            from a test that never asserted is indistinguishable
+                            from success.
+
+  test/test_exec.c          compiler output EXECUTED in the VM. The fast pin for
+                            a behaviour: compile a program, run it, assert the
+                            result. Reaches the VM only through the public
+                            wasm.h (via test/exec.h) — no jav_* internals.
+
+  conformance/ (E7.4)       e2e breadth: real .java programs with expected
+                            stdout and exit code, driven through the SHIPPED
+                            javelinac + javelina binaries, both tiers. Not built
+                            yet; `make test-java-conformance` at the repo root
+                            reports its absence rather than passing quietly.
+
+  test/test_cli.sh          the shipped binaries end to end — argv, exit codes,
+                            stderr diagnostics, -jit vs -nojit agreement. Runs
+                            in the default gate (`make test` at the root).
+
+The rule that matters
+---------------------
+A bug that only the e2e corpus catches is a failure of the FAST suites, not just
+of the code. Pin it at the level that owns it — test_sir for a lowering,
+test_click_partition for a lattice/partition fact, test_exec for a behaviour —
+and verify the pin RED against a deliberate break before trusting it. The e2e
+layer confirms breadth; it must never be what DISCOVERS a defect.
+
+Never put our own material in ../../testsuite/. That is a git submodule pinned
+to the upstream WebAssembly corpus: files of ours there are outside javelina's
+history and are destroyed by any submodule operation. Four VM fixture sources
+were lost exactly that way.
+
+Running one suite
+-----------------
+    make test-one T=test_sema      # from compiler/
+    make test-one T=test_sema      # from the repo root — routes by name
+    make test-sema                 # the historical dashed name still works
+
+A failing suite prints its whole log; logs are kept in ../build/logs/.
+`make test-exec-asan` builds and runs the execution corpus under AddressSanitizer.

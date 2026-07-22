@@ -29,7 +29,7 @@
 #include <string.h>
 #include <dirent.h>
 
-static int fails = 0;
+#include "javelina_test.h"
 
 static char* read_file(const char* path) {
     FILE* f = fopen(path, "rb"); if (!f) return NULL;
@@ -66,7 +66,11 @@ static ast_program_t* build_program(const char* user_src, bbq_arena* arena) {
 }
 static int emit_body(bbq_arena* a, const char* src, const uint8_t** out) {
     ast_program_t* prog = build_program(src, a);
-    static sema_ctx_t sctx; sema_init(&sctx, a); sema_analyze(&sctx, prog);
+    /* The context is reused across calls, so the PREVIOUS one's 31 htrees are
+     * released here — re-initialising over them just abandoned them. */
+    static sema_ctx_t sctx; static bool sctx_live = false;
+    if (sctx_live) sema_destroy(&sctx);
+    sema_init(&sctx, a); sctx_live = true; sema_analyze(&sctx, prog);
     static compiler_ctx_t cctx; compiler_init(&cctx, a, &sctx);
     int mc = 0; sir_method_t** methods = compiler_compile(&cctx, prog, &mc);
     for (int i = 0; i < mc; i++) {
@@ -235,8 +239,9 @@ int main(void) {
         bbq_arena a; bbq_arena_init(&a, 1 << 16);
         const uint8_t* body = NULL; int n = emit_body(&a, cases[c].src, &body);
         const char* flag = (n > 0) ? audit(body, n) : "compile failed";
+        CHECK(flag == NULL, cases[c].name);
         if (flag) {
-            dirty++; fails++;
+            dirty++;
             printf("  DIRTY  %-22s %s\n    ", cases[c].name, flag);
             for (int i=0;i<n;i++) printf("%02X ", body[i]); printf("\n");
         } else {
@@ -283,16 +288,14 @@ int main(void) {
         printf("  linearity: depth deltas");
         for (int k = 3; k <= 8; k++) printf(" %d", sizes[k]-sizes[k-1]);
         printf("  (min %d, max %d)\n", dmin, dmax);
+        CHECK(dmax <= dmin * 3 / 2, "else-if-&&-cast chain is linear (constant per-level cost)");
         if (dmax > dmin * 3 / 2) {
             printf("  DIRTY  else-if-&&-cast chain NOT linear (max delta %d >> min %d) "
                    "— a shared label is re-emitted; see docs/ddcg-merge-labels.md §1\n", dmax, dmin);
-            fails++;
         } else {
             printf("  clean  else-if-&&-cast chain is linear (constant per-level cost)\n");
         }
     }
 
-    if (fails) { printf("test_control_audit: %d FAILED\n", fails); return 1; }
-    printf("test_control_audit: OK\n");
-    return 0;
+    return TEST_SUMMARY("test_control_audit");
 }

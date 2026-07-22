@@ -28,8 +28,8 @@
  * arena to toml_resolve; freeing the arena frees the doc.
  */
 
-#ifndef YOCTOJC_TOML_DOC_H
-#define YOCTOJC_TOML_DOC_H
+#ifndef TOML_DOC_H
+#define TOML_DOC_H
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -209,4 +209,4 @@ const toml_val_t* toml_val_array_at(const toml_val_t* v, int i);
 } /* extern "C" */
 #endif
 
-#endif /* YOCTOJC_TOML_DOC_H */
+#endif /* TOML_DOC_H */

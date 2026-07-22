@@ -12,7 +12,7 @@
 // (must raise it). The alignment check precedes stack typing in validate.c, so the
 // body needs no valid operands: any other verdict is an accepted answer for the
 // in-range case, only the ALIGNMENT reason itself is under test.
-#include "yoctojc/toml/toml_doc.h"
+#include "toml/toml_doc.h"
 #include "jav_view_nav.h"
 #include "jav_module_index.h"
 #include "jav_module_validate.h"

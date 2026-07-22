@@ -3,7 +3,7 @@
  * Consumes the flat item stream from the pegc-generated parser
  * (src/gen/toml_parser.c, grammar/toml.peg) and produces the
  * resolved tables-and-values document defined in
- * include/yoctojc/toml/toml_doc.h.
+ * include/toml/toml_doc.h.
  *
  * Resolution enforces TOML v1.0 §5 (tables) and §6 (inline tables):
  *
@@ -20,7 +20,7 @@
  *   - Type-mismatch (`a = 1` followed by `[a]`) is an error.
  */
 
-#include "yoctojc/toml/toml_doc.h"
+#include "toml/toml_doc.h"
 #include "toml_ast.h"       /* generated from grammar/toml.asdl */
 #include "toml_parser.h"    /* generated, declares toml_parse_ctx_t */
 #include "peg_runtime.h"

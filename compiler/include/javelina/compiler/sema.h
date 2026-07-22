@@ -407,6 +407,26 @@ typedef struct {
      * default) = no library, every class is user code. */
     int num_library_classes;
 
+    /* First class index whose method BODIES should be type-checked (INPUT,
+     * default 0 = all of them, which is what every shipped path does).
+     *
+     * Classes below this index are still REGISTERED — names, signatures,
+     * hierarchy, synthesized members — so anything can resolve against them.
+     * Only the body type-check is skipped, and compiler_compile skips lowering
+     * the same range: a body whose expression types were never recorded cannot
+     * be lowered.
+     *
+     * This exists for tests that isolate one stage. test_sir inspects the SIR of
+     * USER methods and explicitly skips class_id < num_library_classes, so the
+     * ~450 java.lang bodies it never looks at need not be checked or lowered.
+     *
+     * It is NOT a way to compile a plugin more cheaply. A plugin's imports must
+     * line up with jre.wasm's exports — same names, signatures and funcidx
+     * order — and both sides derive that by compiling the same prelude source in
+     * the same order. Skipping work there desynchronises the two. */
+    int analyze_from;
+
+
     /* Emission mode (INPUT): WHOLE / RUNTIME / PLUGIN — see sema_mode_t above. */
     sema_mode_t mode;
 
@@ -445,6 +465,7 @@ void sema_init(sema_ctx_t* ctx, bbq_arena* arena);
 /* Run semantic analysis on a parsed program. Returns true if no errors.
  * After analysis, ctx->functions holds the emitted-function table (see below). */
 bool sema_analyze(sema_ctx_t* ctx, ast_program_t* program);
+
 
 /* Is `m` (declared in `class_id`) emitted as a defined module function? True iff
  * its class is user code (not library) and it has a body. The single predicate

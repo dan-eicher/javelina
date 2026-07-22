@@ -9,7 +9,7 @@
 
 #include "jav_reader.h"
 #include "jav_writer.h"
-#include "yoctojc/toml/toml_doc.h"
+#include "toml/toml_doc.h"
 #include "bbq_arena.h"
 #include <stdio.h>
 #include <stdlib.h>

@@ -767,7 +767,12 @@ sir_method_t** compiler_compile(compiler_ctx_t* ctx,
     compiler_fact_t** f_ptrs   = NULL;  /* bbq_vec */
     int*              f_counts = NULL;  /* bbq_vec */
 
-    for (int ci = 0; ci < bbq_vec_len(ctx->sema->classes); ci++) {
+    /* Lower the same class range sema type-checked. sema->analyze_from is 0 for
+     * a whole-program compile; a caller that type-checked only user classes
+     * against an already-analyzed prelude (sema_analyze_more, or analyze_from
+     * set directly) has no expression types recorded for the library bodies, so
+     * lowering them would walk a sema gap. Same bound, one source of truth. */
+    for (int ci = ctx->sema->analyze_from; ci < bbq_vec_len(ctx->sema->classes); ci++) {
         const sema_class_t* cls = sema_get_class(ctx->sema, ci);
         /* Iterate EVERY class (no ast_node skip) exactly like sema's function table
          * (sema.c "Build the emitted-function table"): a synthesized class with no source

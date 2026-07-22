@@ -3175,7 +3175,10 @@ static bool is_throwable_subclass(const sema_ctx_t* ctx, int class_id) {
  * ═══════════════════════════════════════════════════════════════ */
 
 static void analyze_bodies(sema_ctx_t* ctx) {
-    for (int ci = 0; ci < bbq_vec_len(ctx->classes); ci++) {
+    /* ctx->analyze_from is 0 for a normal whole-program run. When a caller has
+     * already type-checked a prefix (the java.lang prelude) it is the count of
+     * those classes, so their ~450 method bodies are not re-checked. */
+    for (int ci = ctx->analyze_from; ci < bbq_vec_len(ctx->classes); ci++) {
         sema_class_t* c = &ctx->classes[ci];
         ctx->current_class_id = ci;
 

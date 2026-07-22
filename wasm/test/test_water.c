@@ -18,7 +18,7 @@ static int fails = 0;
 // Assemble `wat`, serialize, and compare to `expect` (the hand-encoded bytes).
 static void check(const char *name, const char *wat, const uint8_t *expect, size_t en) {
     int line = 0, col = 0;
-    jav_module_t *m = wat_assemble(wat, (int)strlen(wat), "../spec/instructions.toml", &line, &col);
+    jav_module_t *m = wat_assemble(wat, (int)strlen(wat), &line, &col);
     int ok = m != NULL;
     if (!ok) { printf("  %-40s [FAIL parse %d:%d]\n", name, line, col); fails++; return; }
 

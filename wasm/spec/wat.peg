@@ -19,7 +19,6 @@ COMPILER Wat
 #include "jav_reader.h"            /* jav_func_body_read: bytes -> FuncBody tree */
 #include "bbq_arena.h"
 #include "bbq_vec.h"                /* stb-style growable vector (push/pop/len/free) */
-#include "yoctojc/toml/toml_doc.h"  /* the pinched TOML reader for instructions.toml */
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -47,6 +46,11 @@ enum { WSH_NONE, WSH_IDX, WSH_IDX2, WSH_I32, WSH_I64, WSH_F32, WSH_F64, WSH_HEAP
  * against separate per-func state, not the module array. */
 enum { SP_TYPE, SP_FUNC, SP_TABLE, SP_MEM, SP_GLOBAL, SP_TAG, SP_ELEM, SP_DATA, SP_N,
        SP_LOCAL = SP_N, SP_LABEL };
+
+/* The mnemonic table, generated from spec/instructions.toml at BUILD time. Included
+ * HERE rather than with the other headers because its rows name the SP_* spaces
+ * above. */
+#include "wat_mnemonics.h"
 
 /* A resolved try_table catch clause (§5.4): kind 0 catch / 1 catch_ref (both carry a
  * tag) / 2 catch_all / 3 catch_all_ref; all carry a (relative) label. */
@@ -82,8 +86,6 @@ typedef struct {
     jav_ref_type_t el_rtv;      /*   funcidx-form vs expr-form, the element reftype, and the two */
     uint32_t* el_funcs;          /*   result bbq_vecs (funcidx list / elemexpr list). The CALLER */
     jav_expr_t* el_exprs;       /*   takes ownership (WAT_FREEZE) and picks the binary variant. */
-    char* toml_src;              /* instructions.toml text (kept alive: toml strings point into it/arena) */
-    const toml_val_t* instr_arr; /* the [[instr]] array — mnemonic -> (opcode, shape) lookup */
     bbq_write_ctx_t** wb_all;    /* emit-scratch pool: every buffer ever opened (bbq_vec) */
     bbq_write_ctx_t** wb_free;   /*   the subset available for reuse (bbq_vec stack) */
     jav_val_type_t* sc_vt[6];   /* ctx-rooted scratch vecs (see the SC_* macros): a failed */
@@ -107,71 +109,25 @@ typedef struct {
 #define CTX ((wat_ctx_t*)p->user_data)
 #define A   (&CTX->arena)
 
-static int wat_shape_id(const char* s) {
-    static const char* N[] = {"none","idx","idx2","i32","i64","f32","f64","heap","lane",
-        "v128","memarg","memlane","brtable","selectt","broncast","block","if","trytable"};
-    for (int i = 0; i < 18; i++) if (!strcmp(s, N[i])) return i;
-    return -1;
-}
-
-/* Load instructions.toml into the context (caller runs this before parsing). The
- * grammar resolves each mnemonic against this spec-derived table — no hand list. */
-static int wat_load_instrs(wat_ctx_t* c, const char* path) {
-    FILE* f = fopen(path, "rb"); if (!f) return 0;
-    fseek(f, 0, SEEK_END); long n = ftell(f); fseek(f, 0, SEEK_SET);
-    c->toml_src = (char*)malloc((size_t)n);
-    if (fread(c->toml_src, 1, (size_t)n, f) != (size_t)n) { fclose(f); return 0; }
-    fclose(f);
-    toml_doc_t* doc = toml_parse(c->toml_src, (int)n, &c->arena);
-    if (toml_doc_has_errors(doc)) return 0;
-    c->instr_arr = toml_tbl_get(toml_doc_root(doc), "instr");
-    return c->instr_arr && c->instr_arr->type == TOML_VT_ARRAY;
-}
-
-/* An `operands` index-kind token -> the module index space a $id resolves against,
- * or -1 for kinds that are function-local (localidx/labelidx), per-type (fieldidx),
- * or not a $id at all (u32 counts) — those resolve numerically or in later passes. */
-static int wat_kind_space(const char* k) {
-    if (!strcmp(k, "funcidx"))   return SP_FUNC;
-    if (!strcmp(k, "typeidx"))   return SP_TYPE;
-    if (!strcmp(k, "tableidx"))  return SP_TABLE;
-    if (!strcmp(k, "memidx"))    return SP_MEM;
-    if (!strcmp(k, "globalidx")) return SP_GLOBAL;
-    if (!strcmp(k, "tagidx"))    return SP_TAG;
-    if (!strcmp(k, "elemidx"))   return SP_ELEM;
-    if (!strcmp(k, "dataidx"))   return SP_DATA;
-    if (!strcmp(k, "localidx"))  return SP_LOCAL;
-    if (!strcmp(k, "labelidx"))  return SP_LABEL;
-    return -1;
-}
-
 /* Resolve a text mnemonic (name,len — not NUL-terminated) -> opcode + shape +
  * natural alignment (log2; -1 for non-memory ops) + the index space of each idx/
- * idx2 operand (sp0/sp1; -1 if not a module-space index), read from `operands`. */
-static int wat_find_instr(wat_ctx_t* c, const char* name, int len,
+ * idx2 operand (sp0/sp1; -1 if not a module-space index).
+ *
+ * The table is GENERATED from spec/instructions.toml at build time
+ * (tools/gen_wat_mnemonics.py -> gen/wat_mnemonics.h), the same way the
+ * compiler's wasm_ops.h and the VM's jav_trap_reason.h are. It used to be read
+ * from the toml at RUNTIME, which is what forced `water` to carry an
+ * -i/--instrs flag and every .wat-consuming gate to run from a cwd where the
+ * relative path resolved. Same single source of truth, no data file to find. */
+static int wat_find_instr(const char* name, int len,
                           uint8_t* prefix, uint32_t* op, int* shape, int* align,
                           int* sp0, int* sp1) {
-    if (!c->instr_arr) return 0;
-    for (int i = 0; i < c->instr_arr->u.array.count; i++) {
-        const toml_tbl_t* t = c->instr_arr->u.array.items[i]->u.table;
-        const char* nm; const char* sh; int64_t a, b;
-        if (!toml_val_as_string(toml_tbl_get(t, "name"), &nm)) continue;
-        if ((int)strlen(nm) != len || memcmp(nm, name, (size_t)len) != 0) continue;
-        toml_val_as_string(toml_tbl_get(t, "shape"), &sh);
-        const toml_val_t* opv = toml_tbl_get(t, "opcode");
-        if (opv->type == TOML_VT_INT) { *prefix = 0; toml_val_as_int(opv, &a); *op = (uint32_t)a; }
-        else { toml_val_as_int(opv->u.array.items[0], &a); toml_val_as_int(opv->u.array.items[1], &b);
-               *prefix = (uint8_t)a; *op = (uint32_t)b; }
-        *shape = wat_shape_id(sh);
-        const toml_val_t* alv = toml_tbl_get(t, "align");      /* memarg/memlane only */
-        int64_t al; *align = (alv && toml_val_as_int(alv, &al)) ? (int)al : -1;
-        *sp0 = *sp1 = -1;                                      /* idx/idx2 operand spaces */
-        const toml_val_t* ops = toml_tbl_get(t, "operands");
-        if (ops && ops->type == TOML_VT_ARRAY) {
-            const char* k;
-            if (ops->u.array.count >= 1 && toml_val_as_string(ops->u.array.items[0], &k)) *sp0 = wat_kind_space(k);
-            if (ops->u.array.count >= 2 && toml_val_as_string(ops->u.array.items[1], &k)) *sp1 = wat_kind_space(k);
-        }
+    for (int i = 0; i < WAT_MNEMONIC_COUNT; i++) {
+        const wat_mnemonic_t* m = &wat_mnemonics[i];
+        if ((int)strlen(m->name) != len || memcmp(m->name, name, (size_t)len) != 0) continue;
+        *prefix = m->prefix; *op = m->op;
+        *shape = m->shape;   *align = m->align;
+        *sp0 = m->sp0;       *sp1 = m->sp1;
         return 1;
     }
     return 0;
@@ -1061,7 +1017,7 @@ LinearInstr <. bbq_write_ctx_t* w .>
     (. peg_span s; uint8_t prefix = 0; uint32_t op = 0;
        int shape = -1, align = -1, sp0 = -1, sp1 = -1; .)
     = atom<&s>
-      (. if (!wat_find_instr(CTX, s.ptr, (int)s.len, &prefix, &op, &shape, &align, &sp0, &sp1))
+      (. if (!wat_find_instr(s.ptr, (int)s.len, &prefix, &op, &shape, &align, &sp0, &sp1))
              return false; .)                             /* unknown mnemonic */
       [ &( "(" "result" )                                 /* `select (result t)` is the typed select */
         (. if (op == 0x1b) { op = 0x1c; shape = WSH_SELECTT; } .) ]

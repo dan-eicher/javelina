@@ -26,10 +26,11 @@
 
 
 // ── .wat text-module path: feed the raw (module …) span to the real .wat reader ──
-// One persistent ctx holds instructions.toml (in G.arena/G.toml_src); each module
-// parse shares G.instr_arr read-only and uses its own arena for emit scratch.
-static wat_ctx_t G;
-static int g_toml_ok, g_wat_ok, g_wat_bad, g_wat_excl;
+// Each module parse gets its own ctx and arena. The mnemonic table is generated
+// into the binary (gen/wat_mnemonics.h), so there is nothing per-parse to load —
+// this used to keep a persistent ctx holding instructions.toml precisely because
+// re-reading it per module (5000×) turned the run into a multi-minute hang.
+static int g_wat_ok, g_wat_bad, g_wat_excl;
 static char g_wat_frag[64];          // WAST_CAT: source fragment at the parser's furthest point
 static const char *g_curfile = "";   // basename of the .wast file currently being scanned
 
@@ -57,7 +58,6 @@ static void free_parse_vecs(wat_ctx_t *c) {
 static int wat_parses(const char *src, int len) {
     wat_ctx_t ctx; memset(&ctx, 0, sizeof ctx);
     bbq_arena_init(&ctx.arena, 64 * 1024);
-    ctx.instr_arr = G.instr_arr;                 // share the loaded toml table (read-only)
     peg_state p;
     ctx.pass = 1;
     wat_parser_init(&p, src, len); p.user_data = &ctx;
@@ -122,10 +122,19 @@ static int module_wat_source(const Node *m, char *scratch, const char **src_out,
 
 // Text (module …): feed its effective .wat source to the .wat reader; same expectation.
 static void run_module_text(const Node *m, int expect_ok) {
-    if (!g_toml_ok) return;
     static char qbuf[1<<20];
     const char *src; int len;
-    if (!module_wat_source(m, qbuf, &src, &len)) return;   // binary / instance command → not this gate
+    /* The corpus carries material beyond core 3.0. `(module instance …)` is
+     * module-linking's INSTANTIATION command — not a module at all, so there is
+     * nothing for the .wat reader to score. It is EXCLUDED and counted, never
+     * silently dropped: an exclusion nobody can see reads exactly like a pass.
+     *
+     * NOT excluded, deliberately: `(module definition $id …)` — that is .wast
+     * scripting around a module whose body IS core wasm, which we parse and
+     * score like any other (module_wat_source strips the keyword). And binary
+     * modules are the binary gate's business, scored there. */
+    if (m->nkids >= 2 && tok_is(m->kids[1], "instance")) { g_wat_excl++; return; }
+    if (!module_wat_source(m, qbuf, &src, &len)) return;   // binary module → the other gate
     int parsed = wat_parses(src, len);
     if (parsed == expect_ok) { g_wat_ok++; return; }
     g_wat_bad++;
@@ -206,15 +215,11 @@ static void run_module_validate(const Node *m, int kind) {
 static int g_tval_ok, g_tval_bad, g_tval_excl;
 static void run_module_validate_text(const Node *m, int kind) {
     if (kind == 2) return;                               // malformed is the reader's gate, not §7
-    if (!g_toml_ok) return;
     static char qbuf[1<<20];
     const char *src; int len;
     if (!module_wat_source(m, qbuf, &src, &len)) return; // binary modules → run_module_validate; instance → not a module
-    // Assemble reusing the ONCE-loaded instruction table (G.instr_arr) — NOT wat_assemble,
-    // which reloads instructions.toml per module (5000× = a multi-minute "hang").
     wat_ctx_t ctx; memset(&ctx, 0, sizeof ctx);
     bbq_arena_init(&ctx.arena, 64 * 1024);
-    ctx.instr_arr = G.instr_arr;
     peg_state p;
     ctx.pass = 1; wat_parser_init(&p, src, len); p.user_data = &ctx;
     int ok = wat_parser_parse(&p);
@@ -274,7 +279,6 @@ static int module_to_bytes(const Node *m, uint8_t **out, size_t *outlen) {
         *out = b; *outlen = (size_t)n; return 1;
     }
     if (out_of_scope(m)) return 0;                   // module definition/instance, annotations
-    if (!g_toml_ok) return 0;
     // Text / quote → assemble via the .wat reader (passes 1+2) → jav_module_write → bytes.
     const char *src = m->s0; int len = (int)(m->s1 - m->s0);
     char *qbuf = NULL;
@@ -287,7 +291,7 @@ static int module_to_bytes(const Node *m, uint8_t **out, size_t *outlen) {
         } else { memcpy(qbuf, "(module ", 8); txt[qn] = ')'; src = qbuf; len = 8 + qn + 1; }
     }
     wat_ctx_t ctx; memset(&ctx, 0, sizeof ctx);
-    bbq_arena_init(&ctx.arena, 64 * 1024); ctx.instr_arr = G.instr_arr;
+    bbq_arena_init(&ctx.arena, 64 * 1024);
     peg_state p; ctx.pass = 1; wat_parser_init(&p, src, len); p.user_data = &ctx;
     int ok = wat_parser_parse(&p);
     if (ok) { ctx.pass = 2; ctx.mod = calloc(1, sizeof *ctx.mod); wat_parser_init(&p, src, len); p.user_data = &ctx; ok = wat_parser_parse(&p); }
@@ -410,15 +414,11 @@ static void exec_dispatch(const Node *cmd) {
 
 int main(int argc, char **argv) {
     int files = 0;
-    memset(&G, 0, sizeof G);                      // load instructions.toml ONCE for the .wat path
-    bbq_arena_init(&G.arena, 256 * 1024);
-    g_toml_ok = wat_load_instrs(&G, "../spec/instructions.toml");
-    if (!g_toml_ok) fprintf(stderr, "warning: no instructions.toml — text modules skipped\n");
-    if (g_toml_ok && wast_exec_store_init()) {       // build the spectest host once, register it
+    if (wast_exec_store_init()) {                    // build the spectest host once, register it
         uint8_t *sb; size_t sl;
         if (wat_string_to_bytes(SPECTEST_WAT, &sb, &sl)) { wast_exec_spectest(sb, sl); g_store_ready = 1; }
     }
-    if (g_toml_ok && !g_store_ready) fprintf(stderr, "warning: spectest store init failed — execution skipped\n");
+    if (!g_store_ready) fprintf(stderr, "warning: spectest store init failed — execution skipped\n");
     for (int a = 1; a < argc; a++) {
         FILE *f = fopen(argv[a], "rb"); if (!f) continue;
         fseek(f,0,SEEK_END); long sz=ftell(f); fseek(f,0,SEEK_SET);
@@ -458,9 +458,8 @@ int main(int argc, char **argv) {
     fprintf(sum, "wast §7 validation gate (text modules): %d ok, %d mismatched, %d excluded (didn't assemble)\n",
             g_tval_ok, g_tval_bad, g_tval_excl);
     fprintf(sum, "wast §7 reject-reason (jav_err_str vs .wast string): %d rejected for the WRONG reason\n", g_val_msgbad);
-    if (g_toml_ok)
-        fprintf(sum, "wast text-module (.wat reader) conformance: %d ok, %d mismatched, %d excluded (non-core-3.0)\n",
-                g_wat_ok, g_wat_bad, g_wat_excl);
+    fprintf(sum, "wast text-module (.wat reader) conformance: %d ok, %d mismatched, %d excluded (non-core-3.0)\n",
+            g_wat_ok, g_wat_bad, g_wat_excl);
     if (g_store_ready) {
         int eok, ebad, eexcl; const char *ereason;
         wast_exec_counts(&eok, &ebad, &eexcl, &ereason);
@@ -470,6 +469,5 @@ int main(int argc, char **argv) {
                 wast_exec_trap_msgbad());
         if (getenv("WAST_EXCL")) wast_exec_print_breakdown(sum);
     }
-    bbq_arena_free(&G.arena); wat_wbufs_free(&G); wat_scratch_free(&G); wat_assembly_free(&G); free(G.toml_src);
     return (g_bad || g_wat_bad || g_val_bad) ? 1 : 0;   // §7 gate enforced (binary subset at 0)
 }

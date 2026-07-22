@@ -1,0 +1,31 @@
+wasm/tools — offline tooling
+============================
+
+*.ml — the WebAssembly spec authors' reference interpreter (OCaml).
+
+    Kept as the offline oracle. spec/instructions.toml was derived from it by
+    gen_instr_toml.py: the opcode table, immediate shapes, trap message text and
+    the `type` column all come from the reference implementation rather than
+    from anyone's reading of the prose.
+
+    NOT built and NOT linked — no Makefile rule references them. They are here
+    so the derivation can be re-run and checked against its source.
+
+gen_instr_toml.py — reference interpreter -> spec/instructions.toml.
+    Run once, offline; instructions.toml is a committed artifact, deliberately
+    not a build step (regenerating it is a spec-version decision, not something
+    a build should do silently).
+
+gen_wasm_ops.py — instructions.toml -> the compiler's src/gen/wasm_ops.h.
+    A real build step, driven from compiler/Makefile: the EMIT-side authority
+    for each instruction's (prefix, opcode) encoding.
+
+gen_wat_mnemonics.py — instructions.toml -> src/gen/wat_mnemonics.h.
+    A real build step: the TEXT-side authority mapping a mnemonic to its opcode,
+    shape, natural alignment and operand index spaces. Generated so the .wat
+    reader needs no data file at runtime and `water` is a standalone binary.
+
+gen_trap_reasons.c — instructions.toml + spec/wasm.def -> src/gen/jav_trap_reason.h.
+    A real build step, and a coverage gate: it fails the build if wasm.def names
+    a trap reason the spec table does not carry, and prints the trap/signature
+    ledger every time it runs.

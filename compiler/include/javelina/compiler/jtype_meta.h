@@ -13,8 +13,8 @@
  *                            (NULL, ERROR).
  *
  * Indexed by `java_type_tag_t`. Out-of-enum indices are zero. */
-#ifndef YOCTOJC_COMPILER_JTYPE_META_H
-#define YOCTOJC_COMPILER_JTYPE_META_H
+#ifndef JAVELINA_COMPILER_JTYPE_META_H
+#define JAVELINA_COMPILER_JTYPE_META_H
 
 #include <stdint.h>
 #include "javelina/compiler/sema.h"

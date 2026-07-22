@@ -20,9 +20,9 @@
 #include <dirent.h>
 #include <math.h>
 
-static int fails = 0;
-#define CHECK(c, m) do { if (!(c)) { printf("  FAIL  %s\n", (m)); fails++; } \
-                         else      { printf("  ....  %s\n", (m)); } } while (0)
+#define JT_VERBOSE      /* a four-minute suite wants a progress log */
+#define JT_REPORT_RSS   /* this suite compiles the whole prelude per case */
+#include "javelina_test.h"
 
 static char* read_file(const char* path) {
     FILE* f = fopen(path, "rb"); if (!f) return NULL;
@@ -65,8 +65,20 @@ static void glob_lib_dir(const char* dir, ast_type_decl_t*** types,
 
 /* The prelude (the lib/java tree) is identical for every test, but big (the generated CharacterData is
  * ~24k lines). Parse it ONCE into process-lifetime storage and reuse the AST across all assemble()
- * calls — sema reads the AST into its own ctx and does not mutate it, so the parse is shareable.
- * (Before this cache, re-globbing + re-parsing the lib per test dominated the run: ~6 min.) */
+ * calls. (Before this cache, re-globbing + re-parsing the lib per test dominated the run: ~6 min.)
+ *
+ * Sharing it is safe, but NOT because sema leaves the AST alone — it does not. Resolving a
+ * constructor DESUGARS into the AST: JLS §8.8.7 prepends the implicit super(), allocating the
+ * statement and a replacement statement array from ctx->arena and writing them back into the node.
+ * The prepend is guarded (it re-reads stmts[0] and skips when a constructor call is already there),
+ * so it happens exactly once — but every later pass DEREFERENCES stmts[0] to check.
+ *
+ * What makes that safe here is an ordering invariant worth stating, because nothing enforces it:
+ * the FIRST sema over the prelude is assemble_jre(), run against jre_arena, and jre_arena is not
+ * freed until the end of main. So the rewrite lands in storage that outlives every per-test arena.
+ * Move the jre build later, or free jre_arena early, and all the per-test compiles start reading
+ * freed memory — silently, since the bytes usually survive. (test_sir makes the same guarantee
+ * explicitly with a dedicated prelude arena.) */
 static ast_type_decl_t** g_lib_types = NULL;
 static int               g_lib_ntypes = 0;
 
@@ -4446,7 +4458,5 @@ int main(void) {
     exec_jre_teardown();                         /* tear down the shared jre + store once, at the end */
     bbq_vec_free(jre.code); bbq_arena_free(&jre_arena);
 
-    if (fails) { printf("test_exec: %d FAILED\n", fails); return 1; }
-    printf("test_exec: OK\n");
-    return 0;
+    return TEST_SUMMARY("test_exec");
 }

@@ -49,6 +49,7 @@ int main(int argc, char **argv) {
 
     int ri = jav_tos(&vi).i, rj = jav_tos(&vj).i;
     int ok = (si == JAV_RETURN && sj == JAV_RETURN &&
+              jav_tos_type(&vi) == T_INT && jav_tos_type(&vj) == T_INT &&
               ri == 8 && rj == 8 && ri == rj);
     printf("interp (3,5) -> %d   jit (3,5) -> %d   [%s]\n",
            ri, rj, (ri == rj) ? "agree" : "DIVERGE");

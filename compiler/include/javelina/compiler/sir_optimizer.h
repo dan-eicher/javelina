@@ -8,8 +8,8 @@
  * those.
  *
  * The engine is Click's thesis Chapter 4 in our terms. */
-#ifndef YOCTOJC_COMPILER_SIR_OPTIMIZER_H
-#define YOCTOJC_COMPILER_SIR_OPTIMIZER_H
+#ifndef JAVELINA_COMPILER_SIR_OPTIMIZER_H
+#define JAVELINA_COMPILER_SIR_OPTIMIZER_H
 
 #include "bbq_arena.h"
 #include "bbq_htree.h"

@@ -1569,7 +1569,7 @@ static bool wat_parse_linear_instr(peg_state* p, bbq_write_ctx_t* w) {
        int shape = -1, align = -1, sp0 = -1, sp1 = -1;
     peg_skip(p);
     if (!wat_atom(p, &s)) return false;
-    if (!wat_find_instr(CTX, s.ptr, (int)s.len, &prefix, &op, &shape, &align, &sp0, &sp1))
+    if (!wat_find_instr(s.ptr, (int)s.len, &prefix, &op, &shape, &align, &sp0, &sp1))
              return false;
     {
         peg_mark _m0 = peg_save(p);

@@ -19,7 +19,7 @@
  * jav_runtime.c / jav_mem.h) still get an enum member — the vocabulary is the
  * spec's complete set, not the subset opgen happens to declare today.
  */
-#include "yoctojc/toml/toml_doc.h"
+#include "toml/toml_doc.h"
 #include "bbq_arena.h"
 #include <stdio.h>
 #include <stdlib.h>

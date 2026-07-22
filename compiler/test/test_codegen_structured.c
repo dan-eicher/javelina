@@ -13,8 +13,7 @@
 #include <string.h>
 #include <dirent.h>
 
-static int fails = 0;
-#define CHECK(c, m) do { if (!(c)) { printf("  FAIL  %s\n", (m)); fails++; } } while (0)
+#include "javelina_test.h"
 
 static char* read_file(const char* path) {
     FILE* f = fopen(path, "rb"); if (!f) return NULL;
@@ -53,7 +52,11 @@ static ast_program_t* build_program(const char* user_src, bbq_arena* arena) {
 /* Compile `src`, structured-emit method `name`'s body into `out` (returns len). */
 static int emit_body(bbq_arena* a, const char* src, const char* name, const uint8_t** out) {
     ast_program_t* prog = build_program(src, a);
-    static sema_ctx_t sctx; sema_init(&sctx, a); sema_analyze(&sctx, prog);
+    /* The context is reused across calls, so the PREVIOUS one's 31 htrees are
+     * released here — re-initialising over them just abandoned them. */
+    static sema_ctx_t sctx; static bool sctx_live = false;
+    if (sctx_live) sema_destroy(&sctx);
+    sema_init(&sctx, a); sctx_live = true; sema_analyze(&sctx, prog);
     static compiler_ctx_t cctx; compiler_init(&cctx, a, &sctx);
     int mc = 0; sir_method_t** methods = compiler_compile(&cctx, prog, &mc);
     for (int i = 0; i < mc; i++) {
@@ -74,7 +77,7 @@ static void check_bytes(const char* m, const uint8_t* got, int n,
         for (int i=0;i<wn;i++) printf(" %02X", want[i]);
         printf("\n    got: ");
         for (int i=0;i<n;i++) printf(" %02X", got[i]);
-        printf("\n"); fails++;
+        printf("\n"); TEST_FAILED();
     }
 }
 
@@ -356,7 +359,5 @@ int main(void) {
         bbq_arena_free(&a);
     }
 
-    if (fails) { printf("test_codegen_structured: %d FAILED\n", fails); return 1; }
-    printf("test_codegen_structured: OK\n");
-    return 0;
+    return TEST_SUMMARY("test_codegen_structured");
 }

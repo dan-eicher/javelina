@@ -16,8 +16,7 @@
 #include <string.h>
 #include <dirent.h>
 
-static int fails = 0;
-#define CHECK(c, m) do { if (!(c)) { printf("  FAIL  %s\n", (m)); fails++; } } while (0)
+#include "javelina_test.h"
 
 static char* read_file(const char* path) {
     FILE* f = fopen(path, "rb"); if (!f) return NULL;
@@ -112,7 +111,7 @@ int main(void) {
         CHECK(body && obj >= 0, "getA compiled; found Obj");
         CHECK(has_structop(body, n, 0x02, wasm_types_class_typeidx(&wt, obj), 2),
               "getA: struct.get Obj field a (absolute idx 2 = header + inherited hash + a)");
-        bbq_arena_free(&a);
+        sema_destroy(&s); bbq_arena_free(&a);
     }
     /* getB: read field b (instance index 1) → struct.get Obj 1 — the absolute
      * index, NOT the dead -1 the old CP path produced. */
@@ -124,7 +123,7 @@ int main(void) {
         CHECK(body != NULL, "getB compiled");
         CHECK(has_structop(body, n, 0x02, wasm_types_class_typeidx(&wt, obj), 3),
               "getB: struct.get Obj field b (absolute idx 3, not -1)");
-        bbq_arena_free(&a);
+        sema_destroy(&s); bbq_arena_free(&a);
     }
     /* setB: write field b → struct.set Obj 1. */
     {
@@ -135,7 +134,7 @@ int main(void) {
         CHECK(body != NULL, "setB compiled");
         CHECK(has_structop(body, n, 0x05, wasm_types_class_typeidx(&wt, obj), 3),
               "setB: struct.set Obj field b (absolute idx 3)");
-        bbq_arena_free(&a);
+        sema_destroy(&s); bbq_arena_free(&a);
     }
     /* allocation: new Obj → struct.new at Obj's (topo-remapped) typeidx, with
      * field 0 = the class's populated vtable global and the data fields defaulted
@@ -151,7 +150,7 @@ int main(void) {
         wasm_types_emit_new(&wt, &w, obj);
         CHECK(contains(body, n, w.code, (int)bbq_vec_len(w.code)),
               "new: struct.new Obj (global.get vtable + field defaults)");
-        bbq_vec_free(w.code); bbq_arena_free(&a);
+        bbq_vec_free(w.code); sema_destroy(&s); bbq_arena_free(&a);
     }
 
     /* LoadThis: `this` is local 0, re-narrowed to the method's class for member
@@ -170,7 +169,7 @@ int main(void) {
         ew_i32(&lt, wasm_types_class_typeidx(&wt, w));
         CHECK(contains(body, n, lt.code, (int)bbq_vec_len(lt.code)),
               "this: local.get 0; ref.cast (ref W)");
-        bbq_vec_free(lt.code); bbq_arena_free(&a);
+        bbq_vec_free(lt.code); sema_destroy(&s); bbq_arena_free(&a);
     }
 
     /* INHERITANCE: B extends A; B's methods access A's field x. The struct.get/
@@ -188,7 +187,7 @@ int main(void) {
         CHECK(body && ca >= 0, "inherited get compiled; found A");
         CHECK(has_structop(body, n, 0x02, wasm_types_class_typeidx(&wt, ca), 2),
               "inherited read: struct.get DECLARING class A, field 0");
-        bbq_arena_free(&a);
+        sema_destroy(&s); bbq_arena_free(&a);
     }
     {
         bbq_arena a; bbq_arena_init(&a, 1 << 16);
@@ -198,7 +197,7 @@ int main(void) {
         CHECK(body != NULL, "inherited set compiled");
         CHECK(has_structop(body, n, 0x05, wasm_types_class_typeidx(&wt, ca), 2),
               "inherited write: struct.set DECLARING class A, field 0");
-        bbq_arena_free(&a);
+        sema_destroy(&s); bbq_arena_free(&a);
     }
 
     /* QUALIFIED access to an inherited field: `b.x` where b is a B and x is
@@ -216,7 +215,7 @@ int main(void) {
         CHECK(body && ca >= 0, "qualified rd compiled; found A");
         CHECK(has_structop(body, n, 0x02, wasm_types_class_typeidx(&wt, ca), 2),
               "qualified read b.x: struct.get declaring class A");
-        bbq_arena_free(&a);
+        sema_destroy(&s); bbq_arena_free(&a);
     }
     {
         bbq_arena a; bbq_arena_init(&a, 1 << 16);
@@ -226,7 +225,7 @@ int main(void) {
         CHECK(body != NULL, "qualified wr compiled");
         CHECK(has_structop(body, n, 0x05, wasm_types_class_typeidx(&wt, ca), 2),
               "qualified write b.x: struct.set declaring class A");
-        bbq_arena_free(&a);
+        sema_destroy(&s); bbq_arena_free(&a);
     }
 
     /* STATICS: a static field is a module global. GetStatic→global.get (0x23),
@@ -246,7 +245,7 @@ int main(void) {
         ew_byte(&w, 0x23); ew_u32(&w, (uint32_t)wasm_global_index(&wt, sid, 0)); /* global.get g */
         CHECK(contains(body, n, w.code, (int)bbq_vec_len(w.code)),
               "static read g: global.get at g's global index");
-        bbq_vec_free(w.code); bbq_arena_free(&a);
+        bbq_vec_free(w.code); sema_destroy(&s); bbq_arena_free(&a);
     }
     {
         bbq_arena a; bbq_arena_init(&a, 1 << 16);
@@ -258,7 +257,7 @@ int main(void) {
         CHECK(body != NULL, "static wr compiled");
         CHECK(contains(body, n, w.code, (int)bbq_vec_len(w.code)),
               "static write g: global.set at g's global index");
-        bbq_vec_free(w.code); bbq_arena_free(&a);
+        bbq_vec_free(w.code); sema_destroy(&s); bbq_arena_free(&a);
     }
 
     /* ARRAYS: int[] create / load / store / length. The array typeidx is
@@ -278,7 +277,7 @@ int main(void) {
         emit_wasm_ctx w = {0}; ew_byte(&w, 0xFB); ew_u32(&w, 0x07); ew_u32(&w, (uint32_t)tid);
         CHECK(body != NULL, "array make compiled");
         CHECK(contains(body, n, w.code, (int)bbq_vec_len(w.code)), "make: array.new_default int[]");
-        bbq_vec_free(w.code); bbq_arena_free(&a);
+        bbq_vec_free(w.code); sema_destroy(&s); bbq_arena_free(&a);
     }
     {   /* a[0] → array.get <int[]> */
         bbq_arena a; bbq_arena_init(&a, 1 << 16);
@@ -288,7 +287,7 @@ int main(void) {
         emit_wasm_ctx w = {0}; ew_byte(&w, 0xFB); ew_u32(&w, 0x0B); ew_u32(&w, (uint32_t)tid);
         CHECK(body != NULL, "array get0 compiled");
         CHECK(contains(body, n, w.code, (int)bbq_vec_len(w.code)), "get0: array.get int[]");
-        bbq_vec_free(w.code); bbq_arena_free(&a);
+        bbq_vec_free(w.code); sema_destroy(&s); bbq_arena_free(&a);
     }
     {   /* a[0] = v → array.set <int[]> */
         bbq_arena a; bbq_arena_init(&a, 1 << 16);
@@ -298,7 +297,7 @@ int main(void) {
         emit_wasm_ctx w = {0}; ew_byte(&w, 0xFB); ew_u32(&w, 0x0E); ew_u32(&w, (uint32_t)tid);
         CHECK(body != NULL, "array set0 compiled");
         CHECK(contains(body, n, w.code, (int)bbq_vec_len(w.code)), "set0: array.set int[]");
-        bbq_vec_free(w.code); bbq_arena_free(&a);
+        bbq_vec_free(w.code); sema_destroy(&s); bbq_arena_free(&a);
     }
     {   /* a.length → array.len (no typeidx) */
         bbq_arena a; bbq_arena_init(&a, 1 << 16);
@@ -307,7 +306,7 @@ int main(void) {
         const uint8_t want[] = { 0xFB, 0x0F };   /* array.len */
         CHECK(body != NULL, "array len compiled");
         CHECK(contains(body, n, want, 2), "len: array.len");
-        bbq_arena_free(&a);
+        sema_destroy(&s); bbq_arena_free(&a);
     }
 
     /* INVOKES: direct static calls → call <funcidx> (0x10). funcidx via the
@@ -331,7 +330,7 @@ int main(void) {
         emit_wasm_ctx w = {0};
         ew_byte(&w, 0x10); ew_u32(&w, (uint32_t)wasm_func_index(&wt, cid, 0)); /* call f (method 0) */
         CHECK(contains(body, n, w.code, (int)bbq_vec_len(w.code)), "g: call f at f's funcidx");
-        bbq_vec_free(w.code); bbq_arena_free(&a);
+        bbq_vec_free(w.code); sema_destroy(&s); bbq_arena_free(&a);
     }
     {   /* use() calls add(2,3) — two args must be pushed before the call */
         bbq_arena a; bbq_arena_init(&a, 1 << 16);
@@ -345,7 +344,7 @@ int main(void) {
         /* the args (2 and 3) must materialize before the call: two i32.const. */
         int consts = 0; for (int i = 0; i + 1 < n; i++) if (body[i]==0x41) consts++;
         CHECK(consts >= 2, "use: both args tiled (>=2 i32.const before the call)");
-        bbq_vec_free(w.code); bbq_arena_free(&a);
+        bbq_vec_free(w.code); sema_destroy(&s); bbq_arena_free(&a);
     }
 
     /* InvokeSpecial: a private instance method is a non-virtual direct call —
@@ -365,7 +364,7 @@ int main(void) {
               "use: invokespecial helper → call at helper's funcidx");
         const uint8_t this_get[] = { 0x20, 0x00 };   /* this (local.get 0) pushed as receiver */
         CHECK(contains(body, n, this_get, 2), "use: receiver `this` pushed before the call");
-        bbq_vec_free(w.code); bbq_arena_free(&a);
+        bbq_vec_free(w.code); sema_destroy(&s); bbq_arena_free(&a);
     }
 
     /* instanceof / cast: ref.test (FB 14, non-null) and ref.cast_null (FB 17),
@@ -383,7 +382,7 @@ int main(void) {
         CHECK(body && bid >= 0, "isB compiled; found B");
         emit_wasm_ctx w = {0}; ew_byte(&w, 0xFB); ew_u32(&w, 0x14); ew_i32(&w, wasm_types_class_typeidx(&wt, bid));
         CHECK(contains(body, n, w.code, (int)bbq_vec_len(w.code)), "isB: ref.test B");
-        bbq_vec_free(w.code); bbq_arena_free(&a);
+        bbq_vec_free(w.code); sema_destroy(&s); bbq_arena_free(&a);
     }
     {
         bbq_arena a; bbq_arena_init(&a, 1 << 16);
@@ -393,7 +392,7 @@ int main(void) {
         emit_wasm_ctx w = {0}; ew_byte(&w, 0xFB); ew_u32(&w, 0x17); ew_i32(&w, wasm_types_class_typeidx(&wt, bid));
         CHECK(body != NULL, "cast compiled");
         CHECK(contains(body, n, w.code, (int)bbq_vec_len(w.code)), "cast: ref.cast_null B");
-        bbq_vec_free(w.code); bbq_arena_free(&a);
+        bbq_vec_free(w.code); sema_destroy(&s); bbq_arena_free(&a);
     }
 
     /* §15.19.2 ARRAY instanceof/cast. A single-dim primitive array is precisely its PrimArray
@@ -415,7 +414,7 @@ int main(void) {
         CHECK(body != NULL && ia >= 0, "prim-array cast compiled");
         CHECK(contains(body, n, w.code, (int)bbq_vec_len(w.code)),
               "(int[])x → ref.cast_null IntArray (precise overlay, not Object)");
-        bbq_vec_free(w.code); bbq_arena_free(&a);
+        bbq_vec_free(w.code); sema_destroy(&s); bbq_arena_free(&a);
     }
     {
         bbq_arena a; bbq_arena_init(&a, 1 << 16);
@@ -429,7 +428,7 @@ int main(void) {
               "(String[])x → ref.cast_null RefArray (structural narrow)");
         CHECK(contains(body, n, &call, 1),
               "(String[])x → runtime Class.isInstance call (element-precise guard)");
-        bbq_vec_free(w.code); bbq_arena_free(&a);
+        bbq_vec_free(w.code); sema_destroy(&s); bbq_arena_free(&a);
     }
     {
         bbq_arena a; bbq_arena_init(&a, 1 << 16);
@@ -439,7 +438,7 @@ int main(void) {
         CHECK(body != NULL, "ref-array instanceof compiled");
         CHECK(contains(body, n, &call, 1),
               "x instanceof String[] → runtime Class.isInstance call (not a static ref.test)");
-        bbq_arena_free(&a);
+        sema_destroy(&s); bbq_arena_free(&a);
     }
 
     /* Switch → stacked-block br_table. case 0/1 + default (contiguous, lo=0):
@@ -465,7 +464,7 @@ int main(void) {
               "switch: case bodies r=10 / r=20 / r=30");
         CHECK(contains(body, n, brk2, 2) && contains(body, n, brk1, 2),
               "switch: breaks → br 2 (case 0) and br 1 (case 1)");
-        bbq_arena_free(&a);
+        sema_destroy(&s); bbq_arena_free(&a);
     }
 
     /* Virtual dispatch: m() is a non-private instance method, so use() calls it
@@ -494,7 +493,7 @@ int main(void) {
         emit_wasm_ctx cr = {0}; ew_byte(&cr, 0x14); ew_i32(&cr, wasm_functype_idx(&wt, v, 0));
         CHECK(contains(body, n, cr.code, (int)bbq_vec_len(cr.code)), "virtual: call_ref m's functype");
         bbq_vec_free(sg.code); bbq_vec_free(rc.code); bbq_vec_free(cr.code);
-        bbq_arena_free(&a);
+        sema_destroy(&s); bbq_arena_free(&a);
     }
 
     /* throw e → push the exception ref, then throw the single Java tag (0). */
@@ -511,7 +510,7 @@ int main(void) {
         for (int i = 0; i + 3 < n; i++)
             if (body[i] == 0x20 && body[i+2] == 0x08 && body[i+3] == 0x00) got = 1;
         CHECK(got, "throw: exception ref (local.get) pushed before throw");
-        bbq_arena_free(&a);
+        sema_destroy(&s); bbq_arena_free(&a);
     }
 
     /* try/catch → try_table. block $after; block $handler; try_table (catch
@@ -534,7 +533,7 @@ int main(void) {
         CHECK(contains(body, n, hb.code, (int)bbq_vec_len(hb.code)), "try: $after + $handler (ref Throwable) blocks");
         CHECK(contains(body, n, trytbl, 6), "try: try_table with catch $jexn → $handler");
         CHECK(contains(body, n, brafter, 2), "try: normal completion brs to $after");
-        bbq_vec_free(hb.code); bbq_arena_free(&a);
+        bbq_vec_free(hb.code); sema_destroy(&s); bbq_arena_free(&a);
     }
 
     /* typed catch: the structurer's dispatch tests the catch type (ref.test) then
@@ -559,7 +558,7 @@ int main(void) {
               "typed-catch: ref.cast the exn to the catch type");
         const uint8_t rethrow[] = { 0x08, 0x00 };              /* throw 0 — the catch-all rethrow */
         CHECK(contains(body, n, rethrow, 2), "typed-catch: catch-all re-throws (throw 0)");
-        bbq_vec_free(w.code); bbq_vec_free(rc.code); bbq_arena_free(&a);
+        bbq_vec_free(w.code); bbq_vec_free(rc.code); sema_destroy(&s); bbq_arena_free(&a);
     }
 
     /* multi-catch → ONE try_table whose handler is a source-order if/else-if chain
@@ -580,7 +579,7 @@ int main(void) {
         CHECK(contains(body,n,ta.code,(int)bbq_vec_len(ta.code)) &&
               contains(body,n,tc.code,(int)bbq_vec_len(tc.code)),
               "multi-catch: ref.test for both catch types");
-        bbq_vec_free(ta.code); bbq_vec_free(tc.code); bbq_arena_free(&a);
+        bbq_vec_free(ta.code); bbq_vec_free(tc.code); sema_destroy(&s); bbq_arena_free(&a);
     }
     /* try/finally → a catch-all (catch_class_id 0, no type test) that runs the
      * finally body and re-throws; finally also runs inline on normal exit. */
@@ -596,7 +595,7 @@ int main(void) {
          * (normal-exit inline + exceptional catch-all). */
         int c2 = 0; for (int i = 0; i + 1 < n; i++) if (body[i] == 0x41 && body[i+1] == 0x02) c2++;
         CHECK(c2 >= 2, "try/finally: finally body duplicated (normal + exceptional)");
-        bbq_arena_free(&a);
+        sema_destroy(&s); bbq_arena_free(&a);
     }
 
     /* sparse switch: cases 0 and 2 (gap at 1) → padded br_table over [0..2]:
@@ -610,7 +609,7 @@ int main(void) {
         CHECK(body != NULL, "sparse switch compiled");
         const uint8_t brtbl[] = { 0x0E, 0x03, 0x00, 0x02, 0x01, 0x02 }; /* span 3: [0(case0),2(def),1(case1)] def 2 */
         CHECK(contains(body, n, brtbl, 6), "sparse switch: padded br_table routes the gap to default");
-        bbq_arena_free(&a);
+        sema_destroy(&s); bbq_arena_free(&a);
     }
 
     /* wide-element array CREATION (was NewArrayInvalid → panic before the atype
@@ -625,7 +624,7 @@ int main(void) {
         emit_wasm_ctx w = {0}; ew_byte(&w, 0xFB); ew_u32(&w, 0x07); ew_u32(&w, (uint32_t)tid);
         CHECK(contains(body, n, w.code, (int)bbq_vec_len(w.code)), "long[]: array.new_default of long[] type");
         if(!contains(body,n,w.code,(int)bbq_vec_len(w.code))){printf("    want tid=%d body:",tid);for(int i=0;i<n;i++)printf(" %02X",body[i]);printf("\n");}
-        bbq_vec_free(w.code); bbq_arena_free(&a);
+        bbq_vec_free(w.code); sema_destroy(&s); bbq_arena_free(&a);
     }
     {
         bbq_arena a; bbq_arena_init(&a, 1 << 16);
@@ -635,7 +634,7 @@ int main(void) {
         int32_t tid = wasm_types_array_for_dt(&wt, SIR_DTDOUBLE);
         emit_wasm_ctx w = {0}; ew_byte(&w, 0xFB); ew_u32(&w, 0x07); ew_u32(&w, (uint32_t)tid);
         CHECK(contains(body, n, w.code, (int)bbq_vec_len(w.code)), "double[]: array.new_default of double[] type");
-        bbq_vec_free(w.code); bbq_arena_free(&a);
+        bbq_vec_free(w.code); sema_destroy(&s); bbq_arena_free(&a);
     }
 
     /* §10.2 reference arrays → the ONE RefArray struct (String[]/Object[] are the same
@@ -656,7 +655,7 @@ int main(void) {
         bbq_vec_free(w.code);
         emit_wasm_ctx w2 = {0}; ew_byte(&w2, 0xFB); ew_u32(&w2, 0x00); ew_u32(&w2, (uint32_t)rat);
         CHECK(contains(body, n, w2.code, (int)bbq_vec_len(w2.code)), "ref array new: struct.new RefArray wrapper");
-        bbq_vec_free(w2.code); bbq_arena_free(&a);
+        bbq_vec_free(w2.code); sema_destroy(&s); bbq_arena_free(&a);
     }
     {
         bbq_arena a; bbq_arena_init(&a, 1 << 16);
@@ -671,7 +670,7 @@ int main(void) {
         bbq_vec_free(w.code);
         emit_wasm_ctx w2 = {0}; ew_byte(&w2, 0xFB); ew_u32(&w2, 0x17); ew_i32(&w2, objt);
         CHECK(contains(body, n, w2.code, (int)bbq_vec_len(w2.code)), "ref array load: ref.cast to the element type");
-        bbq_vec_free(w2.code); bbq_arena_free(&a);
+        bbq_vec_free(w2.code); sema_destroy(&s); bbq_arena_free(&a);
     }
 
     /* interface dispatch: i.m() through an interface-typed receiver → cast to
@@ -696,10 +695,8 @@ int main(void) {
               "interface: struct.get root field 0 (vtable header)");
         const uint8_t callref[] = { 0x14 };   /* call_ref */
         CHECK(contains(body, n, callref, 1), "interface: call_ref");
-        bbq_vec_free(rc.code); bbq_vec_free(sg.code); bbq_arena_free(&a);
+        bbq_vec_free(rc.code); bbq_vec_free(sg.code); sema_destroy(&s); bbq_arena_free(&a);
     }
 
-    if (fails) { printf("test_codegen_object: %d FAILED\n", fails); return 1; }
-    printf("test_codegen_object: OK\n");
-    return 0;
+    return TEST_SUMMARY("test_codegen_object");
 }

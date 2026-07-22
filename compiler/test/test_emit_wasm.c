@@ -3,11 +3,9 @@
 // These bytes are what the whole backend serializes, so they're pinned exactly.
 #include "javelina/compiler/emit_wasm.h"
 #include "javelina/compiler/codegen_wasm.h"
+#include "javelina_test.h"
 #include <stdio.h>
 #include <string.h>
-
-static int fails = 0;
-#define CHECK(c, m) do { if (!(c)) { printf("  FAIL  %s\n", (m)); fails++; } } while (0)
 
 static int eq(emit_wasm_ctx* e, const uint8_t* exp, int n) {
     return bbq_vec_len(e->code) == n && memcmp(e->code, exp, (size_t)n) == 0;
@@ -75,7 +73,5 @@ int main(void) {
       const uint8_t w[] = { 0x02, 0x02, 0x7F, 0x01, 0x7E };  /* (2×i32)(1×i64) */
       CHECK(eq(&e, w, (int)sizeof w), "locals RLE [i32,i32,i64]"); bbq_vec_free(e.code); }
 
-    if (fails) { printf("test_emit_wasm: %d FAILED\n", fails); return 1; }
-    printf("test_emit_wasm: OK\n");
-    return 0;
+    return TEST_SUMMARY("test_emit_wasm");
 }

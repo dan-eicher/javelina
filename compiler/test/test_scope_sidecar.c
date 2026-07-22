@@ -13,8 +13,7 @@
 #include <string.h>
 #include <dirent.h>
 
-static int fails = 0;
-#define CHECK(c, m) do { if (!(c)) { printf("  FAIL  %s\n", (m)); fails++; } } while (0)
+#include "javelina_test.h"
 
 static char* read_file(const char* path) {
     FILE* f = fopen(path, "rb"); if (!f) return NULL;
@@ -60,7 +59,9 @@ static const compiler_fact_t* scopes_of(bbq_arena* a, const char* src,
                                         const char* name, int* n) {
     ast_program_t* prog = build_program(src, a);
     static sema_ctx_t sctx;            /* static: outlives this call for the test */
-    sema_init(&sctx, a); sema_analyze(&sctx, prog);
+    static bool sctx_live = false;     /* ...so release the previous one here, */
+    if (sctx_live) sema_destroy(&sctx);/* rather than abandon its 31 htrees. */
+    sema_init(&sctx, a); sctx_live = true; sema_analyze(&sctx, prog);
     static compiler_ctx_t cctx;
     compiler_init(&cctx, a, &sctx);
     int mc = 0;
@@ -186,7 +187,5 @@ int main(void) {
         bbq_arena_free(&a);
     }
 
-    if (fails) { printf("test_scope_sidecar: %d FAILED\n", fails); return 1; }
-    printf("test_scope_sidecar: OK\n");
-    return 0;
+    return TEST_SUMMARY("test_scope_sidecar");
 }

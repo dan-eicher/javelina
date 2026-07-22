@@ -7,6 +7,9 @@
 #include "wat_driver.h"      // wat_assemble: the shared two-pass assemble driver
 #include "jav_reader.h"     // the binary reader (the oracle)
 #include "jav_writer.h"     // jav_func_body_write: tree -> bytes (round-trip check)
+#include "toml/toml_doc.h"  // the completeness gate below walks instructions.toml
+                                    // as DATA (every instruction must round-trip); the
+                                    // reader itself no longer reads it at runtime
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -16,7 +19,7 @@
 // water and the conformance harness use); NULL + a diagnostic on a parse failure.
 static jav_module_t* parse_text(const char* src) {
     int line = 0, col = 0;
-    jav_module_t* m = wat_assemble(src, (int)strlen(src), "../spec/instructions.toml", &line, &col);
+    jav_module_t* m = wat_assemble(src, (int)strlen(src), &line, &col);
     if (!m) fprintf(stderr, "text parse failed at %d:%d\n", line, col);
     return m;
 }

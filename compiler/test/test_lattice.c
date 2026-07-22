@@ -14,8 +14,7 @@
 #include <string.h>
 #include <dirent.h>
 
-static int fails = 0;
-#define CHECK(c, m) do { if (!(c)) { printf("  FAIL  %s\n", (m)); fails++; } } while (0)
+#include "javelina_test.h"
 
 /* The representation authority is only meaningful against a REAL class table — the
  * PrimArray/RefArray overlays are SYNTHESIZED by sema, so a NULL sema cannot see them
@@ -219,6 +218,7 @@ int main(void) {
         CHECK(type_meet(&s, tA, tA, &pool) == tA, "meet is idempotent");
         CHECK(type_meet(&s, top, tA, &pool) == tA, "TOP is the meet identity");
         CHECK(type_meet(&s, bot, tA, &pool) == bot, "BOTTOM absorbs");
+        sema_destroy(&s);
     }
 
     /* ── §5.6 NUMERIC PROMOTION — the lattice is the authority for it ────────────
@@ -446,9 +446,8 @@ int main(void) {
               "backing — the two overlays disagree on the index, so nobody may assume it");
         CHECK(lat_is_array_data_cell(&s, root, 0) == false,
               "data_cell: an ordinary class's field 0 is NOT a backing store");
+        sema_destroy(&s);
     }
 
-    if (fails) { printf("test_lattice: %d FAILED\n", fails); return 1; }
-    printf("test_lattice: OK\n");
-    return 0;
+    return TEST_SUMMARY("test_lattice");
 }

@@ -12,8 +12,7 @@
 #include "bbq_arena.h"
 #include <stdio.h>
 
-static int fails = 0;
-#define CHECK(c, m) do { if (!(c)) { printf("  FAIL  %s\n", (m)); fails++; } } while (0)
+#include "javelina_test.h"
 
 int main(void) {
     bbq_arena arena; bbq_arena_init(&arena, 4096);
@@ -106,7 +105,5 @@ int main(void) {
     sir_copy_memo_dispose(&memo3);
 
     bbq_arena_free(&arena);
-    if (fails) { printf("test_sir_copy: %d FAILED\n", fails); return 1; }
-    printf("test_sir_copy: OK\n");
-    return 0;
+    return TEST_SUMMARY("test_sir_copy");
 }

@@ -18,8 +18,8 @@
  * §3.2.1) — are the lattice contract; test/unit/test_lattice.c
  * pins them. */
 
-#ifndef YOCTOJC_COMPILER_TYPE_LATTICE_H
-#define YOCTOJC_COMPILER_TYPE_LATTICE_H
+#ifndef JAVELINA_COMPILER_TYPE_LATTICE_H
+#define JAVELINA_COMPILER_TYPE_LATTICE_H
 
 #include "bbq_arena.h"
 #include "gen/sir_ast.h"
@@ -226,4 +226,4 @@ typedef enum {
 
 lat_conv_t lat_num_conv(sir_datatype_t from, sir_datatype_t to);
 
-#endif /* YOCTOJC_COMPILER_TYPE_LATTICE_H */
+#endif /* JAVELINA_COMPILER_TYPE_LATTICE_H */

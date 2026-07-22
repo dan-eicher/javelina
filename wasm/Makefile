@@ -103,9 +103,18 @@ $(GEN)/jav_reader.c $(GEN)/jav_reader.h $(GEN)/jav_writer.c $(GEN)/jav_writer.h 
 $(GEN)/jav_view_reader.c $(GEN)/jav_view_reader.h: spec/wasm.bbq $(BBQC)
 	$(BBQC) spec/wasm.bbq -backend c-lite -prefix jav_view -templates $(BBQ_TEMPLATES) -o $(GEN)/
 
+# The .wat reader's mnemonic table, generated from the SAME instructions.toml the
+# compiler's wasm_ops.h and jav_trap_reason.h come from. It used to be read at
+# RUNTIME, which is why `water` carried an -i/--instrs flag and every .wat gate had
+# to run from a cwd where the relative path resolved. Build-time now; `water` is a
+# standalone binary. (test_instr still reads the toml at runtime, deliberately: it
+# walks the table as DATA to sweep every instruction.)
+$(GEN)/wat_mnemonics.h: spec/instructions.toml tools/gen_wat_mnemonics.py
+	python3 tools/gen_wat_mnemonics.py spec/instructions.toml > $@
+
 # pegc: the §6 text grammar -> the .wat reader, building the SAME jav_module_t
 # the binary reader produces (struct is the contract; oracle = struct-equivalence).
-$(GEN)/wat_parser.c $(GEN)/wat_parser.h: spec/wat.peg $(PEGC)
+$(GEN)/wat_parser.c $(GEN)/wat_parser.h: spec/wat.peg $(PEGC) $(GEN)/wat_mnemonics.h
 	$(PEGC) spec/wat.peg -lang c -frames $(PEG_FRAMES) -prefix wat -o $(GEN)/
 
 # jitterator: compiled stencils -> the copy-and-patch stencil table. opgen emits
@@ -126,10 +135,14 @@ $(B)/validate.o:     src/validate.c     $(GEN)/jav_stencil_table.h $(GEN)/gen_in
 	$(CC) $(CFLAGS) -c $< -o $@
 $(B)/gen_interp.o:   $(GEN)/gen_interp.c $(GEN)/jav_trap_reason.h | $(B)
 	$(CC) $(CFLAGS) -c $< -o $@
+# -MMD -MP like everything else: without it these two carried NO header
+# dependencies, so a header change left them stale. That stayed invisible because
+# gen_trap_reasons only RUNS when it is relinked — the stale pair segfaulted the
+# generator the first time a rebuild happened to trigger it.
 $(B)/toml_parser.o:  src/gen/toml_parser.c | $(B)
-	$(CC) -O2 -std=c11 -Wall $(TOML_INC) -c $< -o $@
+	$(CC) -O2 -std=c11 -Wall -MMD -MP $(TOML_INC) -c $< -o $@
 $(B)/toml_doc.o:     src/toml/toml_doc.c | $(B)
-	$(CC) -O2 -std=c11 -Wall $(TOML_INC) -c $< -o $@
+	$(CC) -O2 -std=c11 -Wall -MMD -MP $(TOML_INC) -c $< -o $@
 $(B)/bbq_arena.o:    $(CRT)/bbq_arena.c | $(B)
 	$(CC) -O2 -std=c11 -Wall $(TOML_INC) -c $< -o $@
 $(B)/bbq_htree.o:    $(CRT)/bbq_htree.c | $(B)   # jit_driver's footer-pool dedup cache
@@ -154,121 +167,8 @@ IMMIX_TESTS  := test_immix_line test_immix_block test_immix_pool test_immix_spac
 IMMIX_CFLAGS := -O2 -std=c11 -Wall -Werror -Isrc/immix -I/home/dan/Source/BBQ/crt
 
 # ── tests ──────────────────────────────────────────────────────────
-test: $(OBJS) $(TOML_OBJS) $(GEN)/wat_parser.c $(GEN)/jav_view_reader.c
-	@pass=0; fail=0; \
-	$(CC) -O2 -std=c11 -Wall -Werror -Isrc test/test_subtype.c src/jav_subtype.c -o $(B)/test_subtype \
-	  && $(B)/test_subtype >/dev/null 2>&1 && { echo "  PASS  test_subtype"; pass=$$((pass+1)); } \
-	  || { echo "  FAIL  test_subtype"; fail=$$((fail+1)); }; \
-	$(CC) -O2 -std=c11 -Wall -Werror -Isrc -Isrc/gen -Isrc/immix -I$(RT) -I$(CRT) test/test_storage.c -o $(B)/test_storage \
-	  && $(B)/test_storage >/dev/null 2>&1 && { echo "  PASS  test_storage"; pass=$$((pass+1)); } \
-	  || { echo "  FAIL  test_storage"; fail=$$((fail+1)); }; \
-	$(CC) -O2 -std=c11 -Wall -Werror -I$(RT) -I$(CRT) test/test_leb.c -o $(B)/test_leb \
-	  && $(B)/test_leb >/dev/null 2>&1 && { echo "  PASS  test_leb"; pass=$$((pass+1)); } \
-	  || { echo "  FAIL  test_leb"; fail=$$((fail+1)); }; \
-	for t in $(IMMIX_TESTS); do \
-	  $(CC) $(IMMIX_CFLAGS) test/$$t.c $(IMMIX_SRC) -o $(B)/$$t || { echo "  $$t: BUILD FAIL"; fail=$$((fail+1)); continue; }; \
-	  if $(B)/$$t >/dev/null 2>&1; then echo "  PASS  $$t"; pass=$$((pass+1)); \
-	  else echo "  FAIL  $$t"; fail=$$((fail+1)); fi; \
-	done; \
-	for t in $(TESTS); do \
-	  $(CC) $(CFLAGS) test/$$t.c $(OBJS) -lm -o $(B)/$$t || { echo "  $$t: BUILD FAIL"; fail=$$((fail+1)); continue; }; \
-	  if ( cd test && ../$(B)/$$t >/dev/null 2>&1 ); then echo "  PASS  $$t"; pass=$$((pass+1)); \
-	  else echo "  FAIL  $$t"; fail=$$((fail+1)); fi; \
-	done; \
-	$(CC) $(CFLAGS) -Wno-unused-function test/test_skeleton.c $(CLITE_SRCS) $(ENGINE_OBJS) -lm -o $(B)/test_skeleton && \
-	  ( cd test && ../$(B)/test_skeleton add.wasm >/dev/null 2>&1 ) && \
-	  { echo "  PASS  test_skeleton"; pass=$$((pass+1)); } || { echo "  FAIL  test_skeleton"; fail=$$((fail+1)); }; \
-	$(CC) $(CFLAGS) -Wno-unused-function -Iinclude test/test_align.c $(CLITE_SRCS) $(ENGINE_OBJS) $(TOML_OBJS) -lm -o $(B)/test_align && \
-	  ( cd test && ../$(B)/test_align >/dev/null 2>&1 ) && \
-	  { echo "  PASS  test_align"; pass=$$((pass+1)); } || { echo "  FAIL  test_align"; fail=$$((fail+1)); }; \
-	$(CC) $(CFLAGS) -Wno-unused-function test/test_div.c $(CLITE_SRCS) $(ENGINE_OBJS) -lm -o $(B)/test_div && \
-	  ( cd test && ../$(B)/test_div >/dev/null 2>&1 ) && \
-	  { echo "  PASS  test_div"; pass=$$((pass+1)); } || { echo "  FAIL  test_div"; fail=$$((fail+1)); }; \
-	$(CC) $(CFLAGS) -Wno-unused-function test/test_instantiate.c $(CLITE_SRCS) $(ENGINE_OBJS) -lm -o $(B)/test_instantiate && \
-	  ( cd test && ../$(B)/test_instantiate >/dev/null 2>&1 ) && \
-	  { echo "  PASS  test_instantiate"; pass=$$((pass+1)); } || { echo "  FAIL  test_instantiate"; fail=$$((fail+1)); }; \
-	$(CC) $(CFLAGS) -Wno-unused-function test/test_module_index.c $(CLITE_SRCS) $(ENGINE_OBJS) -lm -o $(B)/test_module_index && \
-	  ( cd test && ../$(B)/test_module_index >/dev/null 2>&1 ) && \
-	  { echo "  PASS  test_module_index"; pass=$$((pass+1)); } || { echo "  FAIL  test_module_index"; fail=$$((fail+1)); }; \
-	$(CC) $(CFLAGS) -Wno-unused-function test/test_gc_funcref.c $(CLITE_SRCS) $(ENGINE_OBJS) -lm -o $(B)/test_gc_funcref && \
-	  ( cd test && ../$(B)/test_gc_funcref >/dev/null 2>&1 ) && \
-	  { echo "  PASS  test_gc_funcref"; pass=$$((pass+1)); } || { echo "  FAIL  test_gc_funcref"; fail=$$((fail+1)); }; \
-	$(CC) $(CFLAGS) -Wno-unused-function test/test_addrtype_spec.c $(CLITE_SRCS) $(ENGINE_OBJS) -lm -o $(B)/test_addrtype_spec && \
-	  ( cd test && ../$(B)/test_addrtype_spec >/dev/null 2>&1 ) && \
-	  { echo "  PASS  test_addrtype_spec"; pass=$$((pass+1)); } || { echo "  FAIL  test_addrtype_spec"; fail=$$((fail+1)); }; \
-	$(CC) $(CFLAGS) -Wno-unused-function test/test_gc_roots_real.c $(CLITE_SRCS) $(ENGINE_OBJS) -lm -o $(B)/test_gc_roots_real && \
-	  ( cd test && ../$(B)/test_gc_roots_real >/dev/null 2>&1 ) && \
-	  { echo "  PASS  test_gc_roots_real"; pass=$$((pass+1)); } || { echo "  FAIL  test_gc_roots_real"; fail=$$((fail+1)); }; \
-	$(CC) $(CFLAGS) -Wno-unused-function test/test_gc_refforms.c $(CLITE_SRCS) $(ENGINE_OBJS) -lm -o $(B)/test_gc_refforms && \
-	  ( cd test && ../$(B)/test_gc_refforms >/dev/null 2>&1 ) && \
-	  { echo "  PASS  test_gc_refforms"; pass=$$((pass+1)); } || { echo "  FAIL  test_gc_refforms"; fail=$$((fail+1)); }; \
-	$(CC) $(CFLAGS) -Wno-unused-function test/test_module_validate.c $(CLITE_SRCS) $(ENGINE_OBJS) -lm -o $(B)/test_module_validate && \
-	  ( cd test && ../$(B)/test_module_validate >/dev/null 2>&1 ) && \
-	  { echo "  PASS  test_module_validate"; pass=$$((pass+1)); } || { echo "  FAIL  test_module_validate"; fail=$$((fail+1)); }; \
-	$(CC) $(CFLAGS) -Wno-unused-function test/test_gc_validation.c $(CLITE_SRCS) $(ENGINE_OBJS) -lm -o $(B)/test_gc_validation && \
-	  ( cd test && ../$(B)/test_gc_validation >/dev/null 2>&1 ) && \
-	  { echo "  PASS  test_gc_validation"; pass=$$((pass+1)); } || { echo "  FAIL  test_gc_validation"; fail=$$((fail+1)); }; \
-	$(CC) $(CFLAGS) -Wno-unused-function \
-	    test/test_load.c $(CLITE_SRCS) $(ENGINE_OBJS) -lm -o $(B)/test_load && \
-	  ( cd test && ../$(B)/test_load add.wasm >/dev/null 2>&1 ) && \
-	  { echo "  PASS  test_load"; pass=$$((pass+1)); } || { echo "  FAIL  test_load"; fail=$$((fail+1)); }; \
-	$(CC) $(CFLAGS) test/test_roundtrip.c $(OBJS) -lm -o $(B)/test_roundtrip && \
-	  ( cd test && ../$(B)/test_roundtrip add.wasm >/dev/null 2>&1 ) && \
-	  { echo "  PASS  test_roundtrip"; pass=$$((pass+1)); } || { echo "  FAIL  test_roundtrip"; fail=$$((fail+1)); }; \
-	$(CC) $(CFLAGS) test/test_func.c $(OBJS) -lm -o $(B)/test_func && \
-	  ( cd test && ../$(B)/test_func add.wasm >/dev/null 2>&1 ) && \
-	  { echo "  PASS  test_func"; pass=$$((pass+1)); } || { echo "  FAIL  test_func"; fail=$$((fail+1)); }; \
-	$(CC) $(CFLAGS) test/test_types.c $(OBJS) -lm -o $(B)/test_types && \
-	  ( cd test && ../$(B)/test_types >/dev/null 2>&1 ) && \
-	  { echo "  PASS  test_types"; pass=$$((pass+1)); } || { echo "  FAIL  test_types"; fail=$$((fail+1)); }; \
-	$(CC) $(CFLAGS) test/test_sections.c $(OBJS) -lm -o $(B)/test_sections && \
-	  ( cd test && ../$(B)/test_sections >/dev/null 2>&1 ) && \
-	  { echo "  PASS  test_sections"; pass=$$((pass+1)); } || { echo "  FAIL  test_sections"; fail=$$((fail+1)); }; \
-	$(CC) $(CFLAGS) test/test_malformed.c $(OBJS) -lm -o $(B)/test_malformed && \
-	  ( cd test && ../$(B)/test_malformed >/dev/null 2>&1 ) && \
-	  { echo "  PASS  test_malformed"; pass=$$((pass+1)); } || { echo "  FAIL  test_malformed"; fail=$$((fail+1)); }; \
-	$(CC) $(CFLAGS) -Iinclude -I$(PEGRT) test/test_instr.c $(OBJS) $(TOML_OBJS) -lm -o $(B)/test_instr && \
-	  ( cd test && ../$(B)/test_instr >/dev/null 2>&1 ) && \
-	  { echo "  PASS  test_instr"; pass=$$((pass+1)); } || { echo "  FAIL  test_instr"; fail=$$((fail+1)); }; \
-	$(CC) $(CFLAGS) -Wno-unused-function -Iinclude -I$(PEGRT) test/test_wat.c src/wat_driver.c $(GEN)/wat_parser.c $(B)/jav_reader.o $(B)/jav_writer.o $(B)/jav_utf8.o $(B)/toml_parser.o $(B)/toml_doc.o $(B)/bbq_arena.o -lm -o $(B)/test_wat && \
-	  ( cd test && ../$(B)/test_wat >/dev/null 2>&1 ) && \
-	  { echo "  PASS  test_wat"; pass=$$((pass+1)); } || { echo "  FAIL  test_wat"; fail=$$((fail+1)); }; \
-	$(CC) $(CFLAGS) -Wno-unused-function -Iinclude -I$(PEGRT) test/test_wast.c test/wast_exec.c src/wasm_capi.c $(GEN)/wat_parser.c \
-	    src/jav_validate_module.c $(B)/jav_reader.o $(B)/jav_writer.o $(B)/jav_utf8.o $(B)/toml_parser.o $(B)/toml_doc.o $(B)/bbq_arena.o \
-	    src/jav_load.c src/jav_view_nav.c src/jav_module_index.c src/jav_module_validate.c src/jav_instance.c src/jav_extern.c src/jav_error.c $(CRT)/bbq_htree.c $(GEN)/jav_view_reader.c $(RT)/bbq_lite.c $(B)/validate.o $(B)/jav_subtype.o $(B)/interp.o $(B)/jav_runtime.o $(B)/gen_interp.o $(B)/jit_driver.o $(GC_OBJS) -lm -o $(B)/test_wast && \
-	  ( cd test && ../$(B)/test_wast ../../testsuite/*.wast regress_*.wast 2>/dev/null ) && \
-	  { echo "  PASS  conformance"; pass=$$((pass+1)); } || { echo "  FAIL  conformance"; fail=$$((fail+1)); }; \
-	$(CC) $(CFLAGS) -D_POSIX_C_SOURCE=200809L -Wno-unused-function -Iinclude -I$(PEGRT) test/test_water.c src/wat_driver.c $(GEN)/wat_parser.c $(B)/jav_reader.o $(B)/jav_writer.o $(B)/jav_utf8.o $(B)/toml_parser.o $(B)/toml_doc.o $(B)/bbq_arena.o -lm -o $(B)/test_water && \
-	  ( cd test && ../$(B)/test_water >/dev/null 2>&1 ) && \
-	  { echo "  PASS  test_water"; pass=$$((pass+1)); } || { echo "  FAIL  test_water"; fail=$$((fail+1)); }; \
-	$(MAKE) -s water && \
-	  ( cd test && printf '(module (func (export "id") (param i32) (result i32) local.get 0))' \
-	      | ../$(B)/water -i ../spec/instructions.toml - > ../$(B)/.water_smoke.wasm 2>/dev/null \
-	      && ../$(B)/test_roundtrip ../$(B)/.water_smoke.wasm >/dev/null 2>&1 ) && \
-	  { echo "  PASS  water (cli → round-trippable .wasm)"; pass=$$((pass+1)); } || { echo "  FAIL  water (cli → round-trippable .wasm)"; fail=$$((fail+1)); }; \
-	$(CC) $(CFLAGS) -Wno-unused-function -Iinclude examples/embed.c src/wasm_capi.c \
-	    $(CLITE_SRCS) src/jav_load.c $(ENGINE_OBJS) -lm -o $(B)/embed && \
-	  ( cd test && printf '(module (func (export "add") (param i32 i32) (result i32) local.get 0 local.get 1 i32.add))' \
-	      | ../$(B)/water -i ../spec/instructions.toml - > ../$(B)/.embed.wasm 2>/dev/null \
-	      && ../$(B)/embed ../$(B)/.embed.wasm >/dev/null 2>&1 ) && \
-	  { echo "  PASS  embed (public wasm.h → instantiate + call)"; pass=$$((pass+1)); } || { echo "  FAIL  embed (public wasm.h → instantiate + call)"; fail=$$((fail+1)); }; \
-	$(CC) $(CFLAGS) -Wno-unused-function -Iinclude -I$(PEGRT) test/test_capi.c src/wasm_capi.c \
-	    src/wat_driver.c $(GEN)/wat_parser.c $(B)/jav_reader.o $(B)/jav_writer.o $(TOML_OBJS) \
-	    $(CLITE_SRCS) src/jav_load.c $(ENGINE_OBJS) -lm -o $(B)/test_capi && \
-	  ( cd test && ../$(B)/test_capi >/dev/null 2>&1 ) && \
-	  { echo "  PASS  test_capi (host funcs + imports + accessors + reflection + ref values)"; pass=$$((pass+1)); } || { echo "  FAIL  test_capi (host funcs + imports + accessors + reflection + ref values)"; fail=$$((fail+1)); }; \
-	$(CC) $(CFLAGS) -Wno-unused-function -Iinclude -I$(PEGRT) test/test_capi_gc.c src/wasm_capi.c \
-	    src/wat_driver.c $(GEN)/wat_parser.c $(B)/jav_reader.o $(B)/jav_writer.o $(TOML_OBJS) \
-	    $(CLITE_SRCS) src/jav_load.c $(ENGINE_OBJS) -lm -o $(B)/test_capi_gc && \
-	  ( cd test && ../$(B)/test_capi_gc >/dev/null 2>&1 ) && \
-	  { echo "  PASS  test_capi_gc (store roots under collection)"; pass=$$((pass+1)); } || { echo "  FAIL  test_capi_gc (store roots under collection)"; fail=$$((fail+1)); }; \
-	$(CC) $(CFLAGS) -Wno-unused-function -Iinclude -I$(PEGRT) test/test_capi_jit.c src/wasm_capi.c \
-	    src/wat_driver.c $(GEN)/wat_parser.c $(B)/jav_reader.o $(B)/jav_writer.o $(TOML_OBJS) \
-	    $(CLITE_SRCS) src/jav_load.c $(ENGINE_OBJS) -lm -o $(B)/test_capi_jit && \
-	  ( cd test && ../$(B)/test_capi_jit >/dev/null 2>&1 ) && \
-	  { echo "  PASS  test_capi_jit (wasm_config tier selection: interp == JIT)"; pass=$$((pass+1)); } || { echo "  FAIL  test_capi_jit (wasm_config tier selection: interp == JIT)"; fail=$$((fail+1)); }; \
-	echo "── $$pass passed, $$fail failed ──"; \
-	[ $$fail -eq 0 ]
+# The test targets (per-gate objects, per-gate binaries, the `test` gate) live
+# in test.mk, included at the bottom of this file.
 
 # The tier-selection gate on its own (the `test` recipe runs it too): interp == JIT through
 # the public wasm.h, driven by the wasm_config_t embedder option.
@@ -297,3 +197,6 @@ clean:
 # Make unions these with the explicit rules above, so an edit to any included header
 # (including upstream BBQ headers outside this tree) rebuilds the objects that use it.
 -include $(wildcard $(B)/*.d)
+
+# Last: the test build reads every object/source variable defined above.
+include test.mk

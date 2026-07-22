@@ -1,0 +1,43 @@
+wasm/test — the engine's gates
+==============================
+
+Where things go
+---------------
+OUR test material lives HERE. Never in ../../testsuite/.
+
+  ../../testsuite/          a git submodule pinned to the upstream
+                            WebAssembly/testsuite. It is the ORACLE and is
+                            read-only. Anything of ours written into it is
+                            outside javelina's history, invisible to `git
+                            status` at the root, and destroyed by any submodule
+                            operation. Four fixture sources were lost exactly
+                            that way and had to be rewritten.
+
+  test/regress_*.wast       our own execution regressions, in .wast form, run
+                            by test_wast alongside the upstream corpus.
+
+  test/*.c                  the gates themselves (plain C, exit code is the
+                            verdict — see ../../testkit/javelina_test.h).
+
+  test/*.wat + test/*.wasm  binary fixtures and their sources.
+
+Fixture provenance
+------------------
+Every .wasm fixture has a .wat source beside it, and the .wat assembles to the
+committed .wasm BYTE FOR BYTE:
+
+    ../build/water foo.wat -o /tmp/foo.wasm && cmp foo.wasm /tmp/foo.wasm
+
+A fixture without a source needs a written reason in this file. There are
+currently none.
+
+The exceptions are the deliberately malformed binaries (bad_*.wasm): they encode
+byte sequences no assembler will emit, which is the point — they exist to be
+rejected. Their shape is documented at the test that consumes them.
+
+Running one gate
+----------------
+    make test-one T=test_gc_los        # from wasm/
+    make test-one T=test_gc_los        # from the repo root — routes by name
+
+A failing gate prints its whole log; logs are also kept in ../build/logs/.

@@ -12,8 +12,8 @@
 #include <string.h>
 #include <dirent.h>
 
-static int fails = 0;
-#define CHECK(c, m) do { if (!(c)) { printf("  FAIL  %s\n", (m)); fails++; } } while (0)
+#define JT_REPORT_RSS   /* this suite compiles the whole prelude per case */
+#include "javelina_test.h"
 
 static char* read_file(const char* path) {
     FILE* f = fopen(path, "rb");
@@ -49,15 +49,15 @@ static ast_program_t* build_program(const char* user_src, bbq_arena* arena) {
     struct dirent* e;
     for (int di = 0; di < 3; di++) {
         DIR* d = opendir(dirs[di]);
-        if (!d) { printf("  FAIL  cannot open %s (run from compiler/)\n", dirs[di]); fails++; return NULL; }
+        if (!d) { printf("  FAIL  cannot open %s (run from compiler/)\n", dirs[di]); TEST_FAILED(); return NULL; }
         while ((e = readdir(d)) != NULL) {
             size_t L = strlen(e->d_name);
             if (L < 6 || strcmp(e->d_name + L - 5, ".java") != 0) continue;
             char path[512]; snprintf(path, sizeof(path), "%s/%s", dirs[di], e->d_name);
             char* src = read_file(path);
-            if (!src) { printf("  FAIL  read %s\n", path); fails++; continue; }
+            if (!src) { printf("  FAIL  read %s\n", path); TEST_FAILED(); continue; }
             ast_program_t* p = parse_src(src);
-            if (!p) { printf("  FAIL  parse %s\n", path); fails++; continue; }
+            if (!p) { printf("  FAIL  parse %s\n", path); TEST_FAILED(); continue; }
             for (int i = 0; i < p->types_count; i++) PUSH(p->types[i]);
         }
         closedir(d);
@@ -65,7 +65,7 @@ static ast_program_t* build_program(const char* user_src, bbq_arena* arena) {
 
     if (user_src) {
         ast_program_t* up = parse_src(user_src);
-        if (!up) { printf("  FAIL  parse user source\n"); fails++; }
+        if (!up) { printf("  FAIL  parse user source\n"); TEST_FAILED(); }
         else for (int i = 0; i < up->types_count; i++) PUSH(up->types[i]);
     }
 
@@ -88,7 +88,10 @@ static int analyze(const char* user_src, bool dump) {
     const sema_diag_t* diags = sema_diags(&ctx, &n);
     if (dump) for (int i = 0; i < n; i++)
         printf("    diag %d:%d  %s\n", diags[i].loc.line, diags[i].loc.col, diags[i].message);
-    return sema_error_count(&ctx);
+    int errs = sema_error_count(&ctx);
+    sema_destroy(&ctx);              /* 31 htrees/vecs, none of them arena-backed */
+    bbq_arena_free(&arena);
+    return errs;
 }
 
 // The (class, "name") → class-local method index lookup the call-graph pins use.
@@ -137,6 +140,7 @@ int main(void) {
         CHECK(cc>=0 && !sema_get_class(&ctx,cc)->needs_init, "no static init → no needs_init");
         CHECK(d>=0  && sema_get_class(&ctx,d)->needs_init,   "subclass of needs_init class inherits needs_init");
         CHECK(e>=0  && !sema_get_class(&ctx,e)->needs_init,  "instance-init-only w/ clean super → no needs_init");
+        sema_destroy(&ctx); bbq_arena_free(&arena);
     }
 
     // 1a5. §12.4.2 synthesis: a needs_init class gets a $initstate static field AND a $ensure_init method
@@ -159,6 +163,7 @@ int main(void) {
         CHECK(n_state,   "needs_init class N gets a $initstate static field");
         CHECK(n_ensure,  "needs_init class N gets a $ensure_init method");
         CHECK(!p_ensure, "non-needs_init class P gets NO $ensure_init");
+        sema_destroy(&ctx); bbq_arena_free(&arena);
     }
 
     // 1b. §10 arrays: the RefArray overlay is synthesized as a real class (every
@@ -182,6 +187,7 @@ int main(void) {
                       "RefArray.data is an array of the top reference (JT_NULL element)");
             }
         }
+        sema_destroy(&ctx); bbq_arena_free(&arena);
     }
 
     // 1c. §20.9/§20.10 raw bit accessors are stamped with their Move* intrinsic kind ONCE
@@ -210,6 +216,7 @@ int main(void) {
         for (int i = 0; fc && i < (int)bbq_vec_len(fc->methods); i++)
             if (strcmp(fc->methods[i].name, "floatValue") == 0)
                 CHECK(fc->methods[i].move_kind == 0, "Float.floatValue not a move intrinsic");
+        sema_destroy(&ctx); bbq_arena_free(&arena);
     }
 
     // 2. A trivial class (implicitly extends Object) — must pass.
@@ -441,10 +448,8 @@ int main(void) {
         CHECK(!has_e,
               "E.m (same signature, UNRELATED class) is NOT a target — membership is "
               "receiver subtyping (§4.10.2), not signature match");
-        bbq_arena_free(&arena);
+        sema_destroy(&ctx); bbq_arena_free(&arena);
     }
 
-    if (fails) { printf("test_sema: %d FAILED\n", fails); return 1; }
-    printf("test_sema: OK\n");
-    return 0;
+    return TEST_SUMMARY("test_sema");
 }

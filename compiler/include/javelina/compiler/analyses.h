@@ -1,6 +1,6 @@
 /* analyses.h — CFG + lattice dataflow engine over sema's tagged AST. */
-#ifndef YOCTOJC_COMPILER_ANALYSES_H
-#define YOCTOJC_COMPILER_ANALYSES_H
+#ifndef JAVELINA_COMPILER_ANALYSES_H
+#define JAVELINA_COMPILER_ANALYSES_H
 
 #include "gen/java_ast.h"
 #include "javelina/compiler/sema.h"
@@ -209,4 +209,4 @@ void analyses_run(sema_ctx_t* ctx);
 }
 #endif
 
-#endif /* YOCTOJC_COMPILER_ANALYSES_H */
+#endif /* JAVELINA_COMPILER_ANALYSES_H */

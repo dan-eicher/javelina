@@ -15,9 +15,11 @@
 /* Parse `len` bytes of .wat `src` into a jav_module_t (malloc'd; the caller frees
  * it with jav_module_free + free). Returns NULL on a parse failure, writing the
  * 1-based failure line and column through err_line and err_col when non-NULL.
- * `toml_path` is the instructions.toml the mnemonic resolver reads; NULL fails the
- * load. All parse scratch is reclaimed before returning, success or failure. */
-jav_module_t *wat_assemble(const char *src, int len, const char *toml_path,
+ * All parse scratch is reclaimed before returning, success or failure.
+ *
+ * The mnemonic table is generated from spec/instructions.toml at build time
+ * (gen/wat_mnemonics.h), so there is no data file to locate at runtime. */
+jav_module_t *wat_assemble(const char *src, int len,
                             int *err_line, int *err_col);
 
 #endif /* WAT_DRIVER_H */

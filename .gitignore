@@ -19,14 +19,12 @@ core.*
 compile_commands.json
 .cache/
 
-# Stale test executables built before the build/ convention (2026-06 era).
-# They are checked-in binaries pending deletion approval; ignoring them keeps
-# them out of history in the meantime. Remove these lines once they are gone.
-wasm/test/test_container
-wasm/test/test_control
-wasm/test/test_control_manual
-wasm/test/test_interp
-wasm/test/test_jit_numeric
-wasm/test/test_locals
-wasm/test/test_ops
-wasm/test/test_skeleton
+# The Unicode generator's compiled binary — a build artifact. The SOURCE and the
+# pinned UnicodeData.txt are tracked; rebuild per the recipe in gen_character.c.
+compiler/tools/unicode/gen_character
+
+# Test executables land in build/, never beside their sources. The pre-2026-07
+# in-place binaries have been removed; this keeps them from coming back.
+wasm/test/test_*
+!wasm/test/test_*.c
+!wasm/test/test_*.h

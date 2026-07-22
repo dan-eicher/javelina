@@ -15,8 +15,7 @@
 #include <string.h>
 #include <dirent.h>
 
-static int fails = 0;
-#define CHECK(c, m) do { if (!(c)) { printf("  FAIL  %s\n", (m)); fails++; } } while (0)
+#include "javelina_test.h"
 
 static char* read_file(const char* path) {
     FILE* f = fopen(path, "rb"); if (!f) return NULL;
@@ -69,6 +68,8 @@ static bool assemble(bbq_arena* a, const char* src, emit_wasm_ctx* out) {
     wasm_types_t wt; wasm_types_build(&wt, sctx);
     bool ok = wasm_assemble_program(cctx, sctx, &wt, methods, mc, out);
     wasm_types_free(&wt);
+    sema_destroy(sctx);              /* 31 htrees/vecs, none of them arena-backed */
+    free(sctx); free(cctx);
     return ok;
 }
 
@@ -121,7 +122,5 @@ int main(void) {
             "locals: code section carries the i32 locals run");
       bbq_vec_free(mod.code); bbq_arena_free(&a); }
 
-    if (fails) { printf("test_wasm_module: %d FAILED\n", fails); return 1; }
-    printf("test_wasm_module: OK\n");
-    return 0;
+    return TEST_SUMMARY("test_wasm_module");
 }

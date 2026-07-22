@@ -8,8 +8,7 @@
 #include <stdio.h>
 #include <string.h>
 
-static int fails = 0;
-#define CHECK(cond, msg) do { if (!(cond)) { printf("  FAIL  %s\n", (msg)); fails++; } } while (0)
+#include "javelina_test.h"
 
 static ast_program_t* do_parse(const char* src) {
     java_parse_ctx_t pctx;
@@ -28,8 +27,8 @@ static int parse_fails(const char* src) { return do_parse(src) == NULL; }
 
 static ast_type_decl_t* one_class(const char* src, const char* what) {
     ast_program_t* prog = do_parse(src);
-    if (!prog) { printf("  FAIL  %s: parse returned NULL\n", what); fails++; return NULL; }
-    if (prog->types_count < 1) { printf("  FAIL  %s: no types\n", what); fails++; return NULL; }
+    if (!prog) { printf("  FAIL  %s: parse returned NULL\n", what); TEST_FAILED(); return NULL; }
+    if (prog->types_count < 1) { printf("  FAIL  %s: no types\n", what); TEST_FAILED(); return NULL; }
     return prog->types[0];
 }
 
@@ -45,7 +44,7 @@ static ast_stmt_t* method_body(const char* ret, const char* body, const char* wh
     ast_type_decl_t* c = one_class(src, what);
     ast_member_t* m = member(c, 0);
     if (!m || m->tag != AST_METHODDECL || !m->method_decl.body) {
-        printf("  FAIL  %s: no method body\n", what); fails++; return NULL;
+        printf("  FAIL  %s: no method body\n", what); TEST_FAILED(); return NULL;
     }
     return m->method_decl.body;
 }
@@ -57,7 +56,7 @@ static ast_expr_t* expr_of(const char* e, const char* what) {
     ast_stmt_t* blk = method_body("int", body, what);
     if (!blk || blk->block.stmts_count < 1) return NULL;
     ast_stmt_t* s = blk->block.stmts[0];
-    if (s->tag != AST_RETURN || !s->return_.value) { printf("  FAIL  %s: not a return-expr\n", what); fails++; return NULL; }
+    if (s->tag != AST_RETURN || !s->return_.value) { printf("  FAIL  %s: not a return-expr\n", what); TEST_FAILED(); return NULL; }
     return s->return_.value;
 }
 
@@ -329,7 +328,5 @@ int main(void) {
     t_java10_literals();
     t_package();
     t_negatives();
-    if (fails) { printf("test_parse: %d FAILED\n", fails); return 1; }
-    printf("test_parse: OK\n");
-    return 0;
+    return TEST_SUMMARY("test_parse");
 }

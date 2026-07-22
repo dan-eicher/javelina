@@ -14,8 +14,8 @@
  *
  * Shape mirrors src/vm/interp.c's dispatch[256] — designated-initializer
  * indexed by opcode, one row per opcode. Adding a new opcode is one row. */
-#ifndef YOCTOJC_COMPILER_SIR_OP_GAMMA_H
-#define YOCTOJC_COMPILER_SIR_OP_GAMMA_H
+#ifndef JAVELINA_COMPILER_SIR_OP_GAMMA_H
+#define JAVELINA_COMPILER_SIR_OP_GAMMA_H
 
 #include "gen/sir_ast.h"
 #include "javelina/compiler/sema.h"
@@ -212,4 +212,4 @@ const Type* gamma_type_for_node(const sema_ctx_t* sema,
                                  const struct sir_node_t* e,
                                  type_pool_t* pool);
 
-#endif /* YOCTOJC_COMPILER_SIR_OP_GAMMA_H */
+#endif /* JAVELINA_COMPILER_SIR_OP_GAMMA_H */
