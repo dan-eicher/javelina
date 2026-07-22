@@ -26,6 +26,5 @@ gen_wat_mnemonics.py — instructions.toml -> src/gen/wat_mnemonics.h.
     reader needs no data file at runtime and `water` is a standalone binary.
 
 gen_trap_reasons.c — instructions.toml + spec/wasm.def -> src/gen/jav_trap_reason.h.
-    A real build step, and a coverage gate: it fails the build if wasm.def names
-    a trap reason the spec table does not carry, and prints the trap/signature
-    ledger every time it runs.
+    A real build step: it fails the build if wasm.def names a trap reason the
+    spec table does not carry.

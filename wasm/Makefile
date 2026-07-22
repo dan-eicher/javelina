@@ -85,8 +85,8 @@ $(GEN)/jav_type_meta.h $(GEN)/jav_jit_symbols.h &: spec/wasm.def $(OPGEN)
 # The execution-trap vocabulary. UNLIKE the toml itself this IS a build step: it
 # joins instructions.toml's `traps` (the canonical §7.10 message text) with the
 # `error:` guard names wasm.def declares, and fails the build if wasm.def names a
-# reason the spec table doesn't carry. That check is the coverage ledger's first
-# leg, so it has to run on every wasm.def edit, not offline.
+# reason the spec table doesn't carry — so it has to run on every wasm.def edit,
+# not offline.
 $(B)/gen_trap_reasons: tools/gen_trap_reasons.c $(B)/toml_parser.o $(B)/toml_doc.o $(B)/bbq_arena.o | $(B)
 	$(CC) -O2 -std=c11 -Wall -Werror $(TOML_INC) -Isrc/gen \
 	  tools/gen_trap_reasons.c $(B)/toml_parser.o $(B)/toml_doc.o $(B)/bbq_arena.o -o $@

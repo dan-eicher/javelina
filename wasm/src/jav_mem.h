@@ -26,7 +26,7 @@ static inline int mem_ok(jav_mem_t* m, u8 ea, u8 n) { return m && ea <= m->size 
  * `error: (. !mem_in_bounds(memidx, addr + offset, N) .) -> OutOfBoundsMemoryAccess`, so the
  * bounds contract is visible to a verifier instead of buried in the accessor. N is the STORAGE
  * width (load8_u is 1, not 4) — the same width the accessor uses and the same one the spec's
- * `align` column names; gen_trap_reasons asserts that equality on every build. */
+ * `align` column names. */
 static inline int mem_in_bounds(vm_t* vm, heap_t* h, s4 mi, s8 ea, s8 n) {
     return mem_ok(mem_at(vm, h, mi), (u8)ea, (u8)n);
 }
