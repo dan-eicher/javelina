@@ -1,6 +1,16 @@
 # Build trees — every artifact under here is reproducible from `make`.
 build/
 
+# Reference specs (Sun/Oracle JLS 1.0, the WebAssembly Core spec, the Alves-Foss
+# grammar paper). Kept on disk for authoring — the code cites section numbers,
+# never file paths, and gen_instr_toml.py reads WebAssembly.pdf only when the
+# committed spec/instructions.toml needs re-deriving — but not redistributed:
+# download your own copy if you need one. Anchored to root so these titles are
+# the only PDFs affected.
+/java-langspec-1.0.pdf
+/WebAssembly.pdf
+/Formal Grammar for Java.pdf
+
 # Compiler dependency files emitted by -MMD next to the source (wasm/ root).
 *.d
 # ...except the BBQ generator specs, which are real sources with a .def suffix.

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-2.0-with-classpath-exception
+// Derived from OpenJDK; GPLv2 + Classpath Exception (see compiler/lib/LICENSE).
 package java.lang;
 
 // Faithful port of OpenJDK jdk.internal.math.FloatingDecimal — the String->binary (parse) path.

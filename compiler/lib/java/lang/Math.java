@@ -1,3 +1,14 @@
+// SPDX-License-Identifier: GPL-2.0-with-classpath-exception
+// The transcendentals here are ported from OpenJDK's FdLibm and, beneath it,
+// from Sun's fdlibm. As a combined work with the rest of the runtime library
+// this file is GPLv2 + Classpath Exception (see compiler/lib/LICENSE). The
+// underlying fdlibm code carries its own permissive grant, preserved here as
+// its terms require:
+//
+//   Copyright (C) 1993 by Sun Microsystems, Inc. All rights reserved.
+//   Developed at SunSoft, a Sun Microsystems, Inc. business.
+//   Permission to use, copy, modify, and distribute this software is freely
+//   granted, provided that this notice is preserved.
 package java.lang;
 
 public final class Math {

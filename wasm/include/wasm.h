@@ -1,4 +1,10 @@
 // WebAssembly C API
+//
+// SPDX-License-Identifier: Apache-2.0
+// Vendored from the WebAssembly C API (github.com/WebAssembly/wasm-c-api), the
+// community embedding-API header originated by Andreas Rossberg. Distributed
+// under the Apache License 2.0; see ../../THIRD_PARTY.md. This is the ONE file
+// in wasm/ that is not public-domain javelina work.
 
 #ifndef WASM_H
 #define WASM_H
