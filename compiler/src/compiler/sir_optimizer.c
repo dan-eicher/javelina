@@ -175,7 +175,7 @@ static uint32_t cp_cell_key_for_expr(const sir_node_t* e) {
         case SIR_ARRAYLOAD:  return cp_cell_key_array((int)e->array_load.data_type);
         /* memory.size is a memory-dependent read: stable between grows, so
          * congruence keyed by its cell's reaching writer is exactly right
-         * (sober-qualifying-names W8 — what lets Mem bounds guards merge). */
+         * (this is what lets consecutive Mem bounds guards over one region merge). */
         case SIR_MEMSIZE:    return cp_cell_key_memsize();
         default:             return 0xFFFFFFFFu;
     }
@@ -344,7 +344,7 @@ static int cp_spine_index(cp_engine_t* eng, const sir_node_t* n) {
 /* The engine's spine + its index, off THE collector (sir_collect_spine, sir_support.h —
  * pinned by test_sir §35). This used to have its own DFS; so did cp_pack. Two copies of
  * "follow the continuation edges" with no test between them is what made writing a THIRD
- * cheaper than reusing either, when D5 needed a spine. */
+ * cheaper than reusing either, when the summary driver needed a spine. */
 static void cp_collect_spine(cp_engine_t* eng, sir_node_t* entry) {
     sir_node_t** list = sir_collect_spine(entry);
     for (int i = 0; i < (int)bbq_vec_len(list); i++) {
@@ -3312,7 +3312,7 @@ static int cp_obj_isa(const cp_engine_t* eng, int o, sir_atype_t atype, int targ
  * taken successor, the throw arm becomes unreachable, and its exception
  * allocation and Throw are dropped. No new rewrite, no guard-shape matching.
  *
- * Note this does NOT violate D2 (pts must not feed congruence): what reaches
+ * Note this does NOT violate the rule that pts must not feed congruence: what reaches
  * cp_split_by_facts is the CONSTANT, and the constant is a true value fact — the
  * comparison really does evaluate to 0. pts itself is never a congruence key.
  *
@@ -3367,7 +3367,7 @@ static cp_const_t cp_null_compare_const(cp_engine_t* eng, const cp_vnode_t* v,
  * the arm is dead. `cp_null_compare_const` above is the same shape, and the DIV_OVERFLOW
  * arm needed no consumer AT ALL because the range lattice's transfer already answered it.
  *
- * D2 is intact for the same reason it is there: what reaches cp_split_by_facts is the
+ * That rule is intact for the same reason it is there: what reaches cp_split_by_facts is the
  * CONSTANT — a true value fact, since the comparison really does evaluate to that — and
  * never pts itself.
  *
@@ -3670,7 +3670,7 @@ static cp_const_t cp_node_const(cp_engine_t* eng, const cp_vnode_t* v) {
                                          | (uint32_t)(fi & 0xFFFF) };
         }
     }
-    /* §7.2's VALUE half (S6-C): a call's result carries its callee-set's exported return
+    /* §7.2's VALUE half: a call's result carries its callee-set's exported return
      * const — the summary is fixed during this solve (a constant transfer, monotone). */
     if (e->tag == SIR_INVOKESTATIC || e->tag == SIR_INVOKESPECIAL
             || e->tag == SIR_INVOKEVIRTUAL || e->tag == SIR_INVOKEINTERFACE) {
@@ -4027,7 +4027,7 @@ static void cp_enumerate_objects(cp_engine_t* eng) {
      * runtime object. Unify their phantoms. Otherwise the summary reads this_escape / this_obj
      * off an obj_this that a compiled body never references (spuriously NoEscape, empty write
      * set), while every `this.f = …` store lands on the slot-0 phantom instead — which let a
-     * field-initializer ctor look like a no-op and get dropped (the S5.4 miscompile). A synthetic
+     * field-initializer ctor look like a no-op and get dropped (the no-op-ctor-drop miscompile). A synthetic
      * method that names `this` only via LoadThis (internalClone) never reads slot 0 as a local,
      * so obj_of_slot[0] is -1 there and `this` keeps its own phantom. */
     bool inst_method = false;
@@ -4047,8 +4047,8 @@ static void cp_enumerate_objects(cp_engine_t* eng) {
      * every store through any unknown visible at every load through any other.
      *
      * The name is the memory CELL: syntactic (the (class, field) pairs this method
-     * mentions), finite, and known before the solve — which is what D3 demands of an
-     * object NAME, pts being a fixpoint RESULT. It also bounds the recursion: cell f's
+     * mentions), finite, and known before the solve — which is what an
+     * object NAME must be, pts being a fixpoint RESULT. It also bounds the recursion: cell f's
      * SEED row for a pre-existing object holds cell f's phantom, so `p.f.f` names the
      * same phantom as `p.f`, at any depth, with no k-limiting rule to pick. */
     eng->obj_first_cell = next;
@@ -4211,7 +4211,7 @@ cp_escape_t cp_escape_of(const cp_engine_t* eng, int obj) {
 }
 
 /* …of the object an allocation EXPRESSION names. The Obj is the site's, via the syntactic
- * naming — not a pts query, because an allocation IS its object (D3). Goes through
+ * naming — not a pts query, because an allocation IS its object (a syntactic name, not a pts result). Goes through
  * vnode_of_obj, the documented inverse: obj_of_vnode is sized to the vnode count AT
  * ENUMERATION, and later passes append vnodes. */
 cp_escape_t cp_escape_of_expr(const cp_engine_t* eng, const sir_node_t* alloc) {
@@ -4270,7 +4270,7 @@ int cp_obj_of(const cp_engine_t* eng, const sir_node_t* alloc) {
  * EXACT, not "may be": `new C` allocates a C and never a subclass, which is what makes
  * this stronger than the static type and lets a cast or a virtual dispatch be decided.
  *
- * FAIL-CLOSED (D4): an object whose class we do not know — a phantom, an `Oret`, the
+ * FAIL-CLOSED: an object whose class we do not know — a phantom, an `Oret`, the
  * catch-all — yields BOTTOM, the absorbing element, so one unknown in the set poisons
  * the whole join. Every consumer's `⊑ τ` question then answers NO and the guard stays.
  * ⊥null is TK_NULL, which JLS §4.10.2 makes a subtype of every reference type, so it
@@ -4506,7 +4506,7 @@ static bool cp_heap_differs(const cp_engine_t* eng, const cp_pts_t* a,
     return memcmp(a[0].bits, b[0].bits, cp_heap_bytes(eng)) != 0;
 }
 
-/* The heap transfer — plan D3, spec §2's `pts(O.f)`.
+/* The heap transfer — spec §2's `pts(O.f)`.
  *
  * A memory-state vnode NAMES a version of one cell; its value is that version's
  * contents as `Obj ↦ pts`. Spec §2 licenses the strong update because "the store's
@@ -4826,7 +4826,7 @@ static void cp_escape_seed(cp_engine_t* eng) {
          * phantom stands for anything reachable from a formal OR A GLOBAL, and this one name
          * covers both — we cannot tell which object owns the cell. §2 pins the static case
          * outright ("a static-field global … is external: pts = {Oext}, GlobalEscape"), and a
-         * field cell's owner may equally be a global's contents. FAIL-CLOSED (D4). */
+         * field cell's owner may equally be a global's contents. FAIL-CLOSED. */
         case CP_OBJK_CELL:
             eng->escape[o] = CP_ESC_GLOBAL;
             break;
@@ -5396,7 +5396,7 @@ static bool cp_escape_sweep(cp_engine_t* eng) {
     return false;
 }
 
-/* Lattice E's domain is the Obj set, which is SYNTACTIC (D3) — so it is fixed here, before
+/* Lattice E's domain is the Obj set, which is SYNTACTIC — so it is fixed here, before
  * the solve, exactly like pts's. */
 static void cp_escape_init(cp_engine_t* eng) {
     int n = eng->obj_count > 0 ? eng->obj_count : 1;
@@ -5485,9 +5485,9 @@ static bool cp_invoke_ret_fresh(cp_engine_t* eng, const sir_node_t* call) {
     }
 }
 
-/* §7.2's VALUE half, the consumer (S6-C): rebuild a callee's exported return const. The
+/* §7.2's VALUE half, the consumer: rebuild a callee's exported return const. The
  * summary is FIXED during this method's solve, so the transfer is a constant function —
- * trivially monotone; across S5.1 passes cp_summary_differ re-runs the loop. */
+ * trivially monotone; across convergence passes cp_summary_differ re-runs the loop. */
 static bool cp_summary_ret_const(const compiler_summary_t* s, cp_const_t* out) {
     if (!s || !s->computed || s->ret_cstate == COMPILER_RETC_UNKNOWN) return false;
     memset(out, 0, sizeof *out);
@@ -5860,7 +5860,7 @@ static void cp_compute_facts(cp_engine_t* eng) {
             /* Lattice A rides the SAME worklist — but a pts change must reach
              * only the node's USERS, never `fallen`. `fallen` drives
              * cp_split_by_facts and the Follower-apply pass, i.e. CONGRUENCE;
-             * pts is a derived property, not value identity (D2). Keeping it
+             * pts is a derived property, not value identity. Keeping it
              * out of `fallen` is what makes "adding pts cannot move a
              * partition" true by construction rather than by luck. */
             cp_pts_t np = cp_node_pts(eng, xv);
@@ -7471,7 +7471,7 @@ static void cp_select_canonical_phis(cp_engine_t* eng) {
  * §6: "NoEscape ⟹ scalar-replace the struct.new — its fields become SSA values /
  * LOCALS". A site qualifies iff EVERY surviving occurrence of its value is a
  * position the rewrite knows how to remove. The whitelist is the whole safety
- * argument, so it is fail-closed (D4): a position not named below kills the site.
+ * argument, so it is fail-closed: a position not named below kills the site.
  *
  * WHAT A "USE" IS. §8: "a value IS a node; using it IS an edge." An occurrence is a
  * (parent node, child slot) pair, and the parent tells us everything — so the sweep
@@ -7778,7 +7778,7 @@ static void cp_sr_edge(cp_engine_t* eng, const sir_node_t* parent, const sir_nod
     cp_pts_t s = eng->vnodes[ci]->pts;
     int n = cp_pts_count(eng, s);
     if (n <= 0) return;
-    /* S5.4: the RECEIVER edge of a provably-no-op ctor call is not an observation — the
+    /* The RECEIVER edge of a provably-no-op ctor call is not an observation — the
      * rewrite drops the call with the allocation. Exactness (n == 1) is load-bearing: with a
      * multi-object receiver the rewrite's cp_sr_recv_site would refuse the Nop while the
      * qualifier had excused the edge, and the kept call would run on a deleted allocation. */
@@ -7801,7 +7801,7 @@ static void cp_sr_edge(cp_engine_t* eng, const sir_node_t* parent, const sir_nod
  * names an OVERLAY (ClassRef | ArrayRef | PrimArray) and returns NULL for anything it
  * cannot name — notably the CONCRETE BACKING of an array overlay (`JT_ARRAY_RAW`), which
  * is `(array W)`, not a ref to a struct. A REF field the descriptor cannot name has no
- * nameable slot type, so the site DECLINES (D4, fail-closed).
+ * nameable slot type, so the site DECLINES (fail-closed).
  *
  * This is what the array-wrapper overlays are: the jre's only ctor-less structs, whose
  * `data` field IS that backing. Splitting their fields also splits an ARRAY, which §1
@@ -7844,7 +7844,7 @@ static int cp_scalar_qualify(cp_engine_t* eng, bool* cand, int* pos, bool* disq)
         disq[o] = false;
         if (o < eng->obj_first_site) continue;
         if (cp_escape_of(eng, o) != CP_ESC_NONE) continue;
-        /* §2/D1: a SUMMARY site (the recorded ALLOC fact says it can run more than
+        /* §2: a SUMMARY site (the recorded ALLOC fact says it can run more than
          * once) is declined in v1 — one set of slots cannot stand for objects the
          * site mints on different iterations. */
         if (!cp_obj_is_concrete(eng, o)) continue;
@@ -7852,19 +7852,19 @@ static int cp_scalar_qualify(cp_engine_t* eng, bool* cand, int* pos, bool* disq)
         if (vn < 0 || !eng->vnodes[vn]->expr) continue;
         if (eng->vnodes[vn]->expr->tag != SIR_NEW) continue;   /* §1: an array's cell is
                                                                 * monolithic — no fields */
-        /* D4: every field must have a slot type the SIR can NAME, or the site declines. */
+        /* Every field must have a slot type the SIR can NAME, or the site declines. */
         if (!eng->sema
          || !cp_sr_fields_nameable(eng, eng->vnodes[vn]->expr->new_.class_id)) continue;
         cand[o] = true;
     }
 
-    /* ONE LINEAR SWEEP over the edges the engine already has (S4.c1) — no recursion, no
+    /* ONE LINEAR SWEEP over the edges the engine already has — no recursion, no
      * tree walker. Worklist reachability over the expression DAG: each vnode is pushed
      * at most once (`survives` is the visited flag), each edge classified exactly once
      * when its parent is expanded — O(edges), independent of sharing.
      *
      * Roots are each REACHABLE spine node's direct data children (the spine node is the
-     * classification parent — StoreLocal / PutField / Branch …). S4.c1b's "stop where
+     * classification parent — StoreLocal / PutField / Branch …). The "stop where
      * the rewrite stops keeping": cp_rewrite_expr replaces a KNOWN node with a LoadConst
      * and discards its subtree, so a KNOWN child is neither classified (a constant has
      * no pts) nor expanded — the SAME shared predicate decides for sweep and rewrite. */
@@ -7904,7 +7904,7 @@ static int cp_scalar_qualify(cp_engine_t* eng, bool* cand, int* pos, bool* disq)
     int qualified = 0;
     for (int o = eng->obj_first_site; o < eng->obj_count; o++) {
         if (!cand[o]) continue;
-        /* S4.c1a: the New occurs EXACTLY ONCE, and that occurrence is the def. */
+        /* The New occurs EXACTLY ONCE, and that occurrence is the def. */
         if (alloc_uses[o] != 1 || pos[o * CP_SR_POS_COUNT + CP_SR_DEF] != 1)
             disq[o] = true;
         if (disq[o]) { cand[o] = false; continue; }
@@ -8176,7 +8176,7 @@ static void cp_pea(cp_engine_t* eng, const bool* sr_cand) {
                 bool _exact = (cp_pts_count(eng, _p) == 1);                                 \
                 bool _isalloc = (obj_of_alloc[ci] == _pc->obj);                             \
                 cp_sr_pos_t _r = cp_sr_classify((par), (ch), _exact, _isalloc);             \
-                /* S5.4 (mirrors cp_sr_edge): the receiver of the object's OWN materializable \
+                /* Mirrors cp_sr_edge: the receiver of the object's OWN materializable \
                  * ctor is not an observation — the ctor's field inits replay onto slots. */ \
                 if (_r == CP_SR_D_CALL && (par)->tag == SIR_INVOKESPECIAL                   \
                         && (par)->invoke_special.obj == (ch)) {                             \
@@ -8531,7 +8531,7 @@ static void cp_pea(cp_engine_t* eng, const bool* sr_cand) {
         } else if (n->tag == SIR_EXPREFFECT && n->expr_effect.value
                    && n->expr_effect.value->tag == SIR_INVOKESPECIAL) {
             /* The object's own materializable ctor in a VIRTUAL row: replay its field
-             * inits onto the slots (S5.4, the cp_sr mechanism verbatim). */
+             * inits onto the slots (the cp_sr mechanism verbatim). */
             sir_node_t* eff = n->expr_effect.value;
             int o = cp_sr_recv_site(eng, pea_ok, eff->invoke_special.obj);
             int k = o >= 0 ? pea_of_obj[o] : -1;
@@ -8631,7 +8631,7 @@ static void cp_pea(cp_engine_t* eng, const bool* sr_cand) {
     bbq_vec_free(pcs);
 }
 
-/* The pass: qualify (S4.c1), then rewrite (S4.c2). */
+/* The pass: qualify, then rewrite. */
 static void cp_scalar_replace(cp_engine_t* eng) {
     int oc = eng->obj_count;
     if (oc <= eng->obj_first_site) return;
@@ -8791,7 +8791,7 @@ void cp_rewrite(cp_engine_t* eng) {
  * dominance query with the word left out, and a second authority for an extent the
  * frontend owns. Spec §8. Gone.
  *
- * Structural and pre-solve, like every other Obj/scope naming (D3): which regions cover a
+ * Structural and pre-solve, like every other Obj/scope naming (syntactic, pre-solve): which regions cover a
  * throw cannot depend on the fixpoint. WHICH of them actually catches it does — that is
  * the transfer, and it reads pts (cp_throw_is_caught). */
 static void cp_index_try_regions(cp_engine_t* eng) {
@@ -8916,7 +8916,7 @@ cp_engine_t* cp_build_no_solve(sir_method_t* method, const sema_ctx_t* sema,
     cp_enumerate(eng);
     cp_enumerate_memory_cells(eng);
     cp_enumerate_objects(eng);      /* Obj naming is syntactic — fixed before the solve */
-    cp_escape_init(eng);            /* …so lattice E's domain is fixed here too (§6, D3) */
+    cp_escape_init(eng);            /* …so lattice E's domain is fixed here too (§6) */
     /* K-set for cp_const_widen: precomputed once after vnodes exist,
      * before any solve. Click §3.7 phase-ordering — analysis reads K,
      * nothing during analysis mutates the LoadConst set. */
@@ -9446,13 +9446,13 @@ static void cp_debug_dump_spine(sir_method_t* method, const char* cls, const cha
     cp_pmap_free(&seen);
 }
 
-/* §7's per-method escape SUMMARY (S5.2), produced as a pure READOUT of the solved escape
+/* §7's per-method escape SUMMARY, produced as a pure READOUT of the solved escape
  * lattice — the same domain the census reads, no mutation. Per ref formal (keyed by slot,
  * `this` separately since it is LOADTHIS not a slot): its post-solve escape state. Stored on
- * ctx, keyed by method index, for a caller's later solve to consume (S5.3's MapsTo).
+ * ctx, keyed by method index, for a caller's later solve to consume (the MapsTo mapping).
  *
  * WHAT THIS DOES NOT YET CARRY: the reachable sub-graph edges (§7 / Fig 7's cross-parameter
- * mapping) and the return's pts (the pointer half). Those land with the full Fig 7 in S5.3.
+ * mapping) and the return's pts (the pointer half); the full Fig 7 is not built here.
  * This first cut is the per-formal escape STATE, which is exactly what Fig 7 propagates
  * (GlobalEscape only) at a call site. */
 /* Is object `o` among the objects `e` (a value expression) may point to? */
@@ -9653,7 +9653,7 @@ static void cp_summarize(compiler_ctx_t* ctx, int method_idx,
     compiler_summary_t* sm = &ctx->summaries[method_idx];
     compiler_summary_t old = *sm;          /* Choi §4 convergence: compare after recompute */
     sm->computed   = true;
-    sm->ret_escape = COMPILER_ESC_NA;      /* the pointer half (return pts) is S5.3's Fig 7 */
+    sm->ret_escape = COMPILER_ESC_NA;      /* the pointer half (return pts) is Fig 7's, not built here */
 
     /* `this` is a formal ONLY for an instance method; a static method's obj_this is a spurious
      * seed nothing loads, so report NA there. The per-parameter arrays below are indexed by
@@ -9761,7 +9761,7 @@ static void cp_summarize(compiler_ctx_t* ctx, int method_idx,
     /* E1's TRANSITIVE half — not FRESH (the objects are a callee's `Oret`, not this method's
      * sites) but provably NEVER NULL: every reachable ref-return's pts excludes ⊥null. That is
      * the only fact the FRESH consumer ever used, so a caller drops the NPE on the result the
-     * same way; identity stays Oret. Established across depth by the S5.1 convergence loop:
+     * same way; identity stays Oret. Established across depth by the convergence loop:
      * pass 1 marks the leaf factory FRESH, pass 2 sees this method's return null-free through
      * cp_invoke_ret_fresh and lands here — `run(){ return m(); }` at any nesting. A retraction
      * (a later pass re-introducing ⊥null) flips the summary back and the loop re-runs until
@@ -9781,7 +9781,7 @@ static void cp_summarize(compiler_ctx_t* ctx, int method_idx,
         }
         if (saw3 && nn) { sm->ret_kind = COMPILER_RET_NONNULL; sm->ret_maybe_null = false; }
     }
-    /* §7.2's VALUE half (S6-C — lattice D made interprocedural, completing Click's
+    /* §7.2's VALUE half (lattice D made interprocedural, completing Click's
      * "combined" across the call graph): the MEET over every reachable numeric return's
      * SOLVED constant (the genuine fact, never a seed). EXPORTABLE facts only: KNOWN or
      * RANGE at i32/i64/f32/f64; a symbolic bound (`hi_vn1`) is a per-method vnode id and

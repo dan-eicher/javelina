@@ -263,10 +263,10 @@
    /* cg_jump (Dybvig DDCG p.13) — thread a spine node's continuation. Control
     * is structured, so the br / fall-through to a Nop merge point is resolved
     * by the structurer
-    * against the scope sidecar (S5.10). Straight-line code has no Nop
+    * against the scope sidecar. Straight-line code has no Nop
     * continuations, so this is currently a no-op (natural fall-through). */
    static inline void cg_jump(emit_wasm_ctx* e, sir_node_t* n) {
-       (void)e; (void)n;   /* structured-control transfer: S5.10 */
+       (void)e; (void)n;   /* structured-control transfer */
    }
 
    /* Tiny selection accessors (anything substantial → emit_wasm.h). */

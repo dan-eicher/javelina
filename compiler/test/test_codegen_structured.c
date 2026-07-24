@@ -1,4 +1,4 @@
-// test_codegen_structured.c — S5.7b. Destination-driven structured WASM emit for
+// test_codegen_structured.c — destination-driven structured WASM emit for
 // control flow. Compile real `if` methods end-to-end (parse→sema→ddcg→sidecar→
 // structured emit) and pin the body bytes: the cond tiles via the burg, the
 // branch frames a native WASM if/else/end. This is the plan's step-7 gate

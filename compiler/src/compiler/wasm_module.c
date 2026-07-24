@@ -235,7 +235,7 @@ bool wasm_assemble_program(compiler_ctx_t* cctx, const sema_ctx_t* sctx,
     int  nexp = 0;                              /* count of emitted exports (≤ nf) */
     bool ok = true;
 
-    /* D5 (S5.1): run the per-method Click fixpoint in the call graph's REVERSE-TOPOLOGICAL
+    /* Run the per-method Click fixpoint in the call graph's REVERSE-TOPOLOGICAL
      * order — a callee before its caller — so a callee's stage-5 summary is available when
      * its caller is analyzed. Hoisted OUT of the assembly loop, which now only emits.
      *
@@ -244,8 +244,9 @@ bool wasm_assemble_program(compiler_ctx_t* cctx, const sema_ctx_t* sctx,
      * order, and wasm_func_index (built pre-optimization from class_id/method_id, never from
      * iteration order) is untouched — so the module is BYTE-IDENTICAL to the old in-loop
      * order. That equality is the gate. The iterate-to-convergence WRAPPER (for recursion,
-     * once a summary can change) lands with S5.2 — its convergence quantity is the summary,
-     * which does not exist yet, so there is nothing to converge and the single pass is exact.
+     * once a summary can change) does not exist yet — its convergence quantity would be the
+     * summary, which does not exist either, so there is nothing to converge and the single
+     * pass is exact.
      * <clinit> is not a call-graph node (it is instantiation-time); it stays optimized at its
      * own emit site below. */
     if (cctx->optimize) {
@@ -337,7 +338,7 @@ bool wasm_assemble_program(compiler_ctx_t* cctx, const sema_ctx_t* sctx,
             exports[nexp++] = ex;
         }
 
-        /* Click ran in the D5 driver above (reverse-topological, before this loop); the
+        /* Click ran in the reverse-topological driver above (before this loop); the
          * assembly loop now only emits. The census below reads each method's post-optimize
          * facts, which are all final by here. */
 

@@ -4299,7 +4299,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         for (int _ci = 0; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        /* label anchor — structurer owns the scope (S5.10) */
+        /* label anchor — structurer owns the scope */
         break;
     }
     case 241: { // stmt: i32

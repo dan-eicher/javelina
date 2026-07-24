@@ -1,4 +1,4 @@
-// test_scope_sidecar.c — S5.7a. The DDCG records a control-flow scope per
+// test_scope_sidecar.c — the DDCG records a control-flow scope per
 // loop/if (the sidecar the WASM structured emit reads instead of recovering
 // structure). Pin that the records are present, correctly kinded, and anchored
 // on the right Nop labels, in nesting order (inner-first, since the rules build

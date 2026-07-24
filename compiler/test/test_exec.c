@@ -638,7 +638,7 @@ int main(void) {
           { "Mem.memory_fill(64, 9, 4); Mem.memory_copy(80, 64, 4);"
             " return Mem.i32_load8_u(80) + Mem.i32_load8_u(83)*10 + Mem.i32_load8_u(84)*100;", 99,
             "memory.copy: exactly len bytes copied, the byte after untouched" },
-          /* ── D5: OOB is a CATCHABLE Java exception, never a VM trap ── */
+          /* ── OOB is a CATCHABLE Java exception, never a VM trap ── */
           { "try { int x = Mem.i32_load(-4); return x; }"
             " catch (IndexOutOfBoundsException e) { return 42; }", 42,
             "OOB i32_load(-4) throws catchable IndexOutOfBoundsException (no trap)" },
@@ -1406,22 +1406,22 @@ int main(void) {
             100, -56, "compound: static byte == -56 (T)" },
           { "class C { byte b; } class T { static int f(int x){ C c=new C(); c.b=100; c.b+=x; return c.b; } }",
             100, -56, "compound: instance byte field == -56 (T)" },
-          /* S5.4's exec pins (spec §6.1 gate 3): under Click these objects are SCALAR-REPLACED —
+          /* Scalar-replacement exec pins (spec §6.1 gate 3): under Click these objects are SCALAR-REPLACED —
            * the allocation gone, fields are locals, the ctor's initializers materialized onto the
            * slots. Semantics must be identical with the optimizer off. The byte cases above are the
            * narrow-slot pins on the same path. */
           { "class C { int v; } class T { static int f(int x){ C c=new C(); c.v=x; int a=c.v;"
             " c.v=a+2; return c.v*10+a; } }",
-            5, 75, "S5.4: scalar-replaced object field store/load/re-store == 75" },
+            5, 75, "scalar-replaced object field store/load/re-store == 75" },
           { "class P { int x; P(int a){ x = a; } }"
             " class T { static int f(int x){ P p = new P(x + 1); return p.x; } }",
-            5, 6, "S5.4: user ctor param bound to arg, scalar-replaced == 6" },
+            5, 6, "user ctor param bound to arg, scalar-replaced == 6" },
           { "class Pt { int x, y; Pt(int a, int b){ x = a; y = b; } }"
             " class T { static int f(int x){ Pt p = new Pt(x, x * 2); return p.x * 100 + p.y; } }",
-            3, 306, "S5.4: multi-field user ctor, scalar-replaced == 306" },
+            3, 306, "multi-field user ctor, scalar-replaced == 306" },
           { "class A { int a = 3; } class B extends A { int b = 4; }"
             " class T { static int f(int x){ B o = new B(); return o.a * 10 + o.b; } }",
-            0, 34, "S5.4: super-chain field inits, scalar-replaced == 34" },
+            0, 34, "super-chain field inits, scalar-replaced == 34" },
           { "class T { static int f(int x){ byte[] a=new byte[1]; a[0]=100; a[0]+=x; return a[0]; } }",
             100, -56, "compound: byte[] elem == -56 (T)" },
           /* inc/dec overflow — implicit (T) narrowing (JLS §15.13/§15.14) */
@@ -2221,7 +2221,7 @@ int main(void) {
         }
     }
 
-    /* ── §20.12 String batch S1: char[]-construction methods (substring, concat,
+    /* ── §20.12 String batch — char[]-construction methods (substring, concat,
      * replace, trim, toCharArray, getChars, valueOf(char[]/char)) ── */
     {
         struct { const char* src; int32_t arg; int32_t want; const char* label; } ss[] = {
@@ -2247,7 +2247,7 @@ int main(void) {
         }
     }
 
-    /* ── §20.12 String batch S2: scan methods (indexOf/lastIndexOf, startsWith/
+    /* ── §20.12 String batch — scan methods (indexOf/lastIndexOf, startsWith/
      * endsWith, compareTo, regionMatches) ── */
     {
         struct { const char* src; int32_t arg; int32_t want; const char* label; } s2[] = {
@@ -3058,7 +3058,7 @@ int main(void) {
             CHECK(ok && st == EXEC_OK && res[0].of.i32 == keep[i].want, keep[i].label);
             bbq_vec_free(mod.code); bbq_arena_free(&a);
         }
-        /* ── Partial-escape ISOLATION pins (S6-B, Stadler §5.1–5.4): pure-Java
+        /* ── Partial-escape ISOLATION pins (Stadler §5.1–5.4): pure-Java
          * skeletons of every cp_pea mechanism, checked by VALUE through the whole
          * pipeline. Each pins the SEMANTICS, not the mechanism — whichever way the
          * optimizer decides a site (virtualize, sink, decline), the value must

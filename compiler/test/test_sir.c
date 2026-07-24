@@ -268,7 +268,7 @@ static int count_tag_r(const sir_node_t* n, int tag, const sir_node_t** seen,
 }
 
 /* Compile, optionally Click, then count `tag` in the named USER method —
- * the W8 guard-merge pins. -1 = method not found. */
+ * the guard-merge pins. -1 = method not found. */
 static int compile_count_in(const char* user_src, const char* mname, int tag, int opt) {
     bbq_arena* arena = sess_arena();
     int nlib = 0;
@@ -1521,7 +1521,7 @@ int main(void) {
     //     type lattice already computed it — and the join is `type_meet`, the lattice's
     //     own LUB. Nothing here re-derives a class hierarchy.
     //
-    //     FAIL-CLOSED (D4): one object of unknown class — a phantom, an Oret, the
+    //     FAIL-CLOSED: one object of unknown class — a phantom, an Oret, the
     //     catch-all — and τ̂ is BOTTOM. Never a concrete class.
     {
         bbq_arena arena; bbq_arena_init(&arena, 1 << 16);
@@ -1593,7 +1593,7 @@ int main(void) {
         /* 3. FAIL-CLOSED: one object of unknown class poisons the join. */
         CHECK(q[2].kind == TK_BOTTOM,
               "τ̂ of a PARAMETER is BOTTOM — its class is unknown, and an unknown class "
-              "must never join to a concrete one (D4: fail closed)");
+              "must never join to a concrete one (fail closed)");
 
         /* 4. ⊥null joins AWAY: JLS §4.10.2 makes null a subtype of every reference type,
          *    so `c ? new C() : null` is still exactly C. Its NPE guard is §4's business,
@@ -2206,11 +2206,11 @@ int main(void) {
     //     the plain heap rule rather than needing a case of its own.
     {
         struct { const char* src; int want; const char* label; bool summarize; } es[] = {
-          /* THE STANDING RED PIN, FLIPPED GREEN BY S5.4 (07-15). It was red, deliberately, from
+          /* THE STANDING RED PIN, FLIPPED GREEN once the harness gained summaries (07-15). It was red, deliberately, from
            * the day stage 4 landed: `new C()` calls the synthesized default ctor (JLS §8.8.9),
            * so with no summaries the receiver is passed to a §7 BOTTOM METHOD and escapes. With
            * `summarize` set, this case runs the REAL path — the ctor chain summarized
-           * supers-first, exactly as the D5 driver orders it — and the CLEAN chain leaves the
+           * supers-first, exactly as the reverse-topological driver orders it — and the CLEAN chain leaves the
            * object NoEscape. The src and the CP_ESC_NONE expectation are the original falsifier,
            * UNTOUCHED; only the harness gained the summaries the driver always provides.
            * The remaining cases run WITHOUT summaries on purpose: they pin the BOTTOM-GRAPH
@@ -2219,7 +2219,7 @@ int main(void) {
             " class T { static int g(){ C c = new C(); c.f = 5; return c.f; } }",
             CP_ESC_NONE,
             "an object that never leaves the method is NoEscape — its ctor chain is CLEAN "
-            "via the §7 summaries (S5.4)", true },
+            "via the §7 summaries", true },
           { "class C { int f; }"
             " class T { static C g(){ return new C(); } }",
             CP_ESC_ARG,
@@ -2319,7 +2319,7 @@ int main(void) {
             CHECK(mi >= 0, "the test method compiled");
             if (mi < 0) continue;
             if (es[i].summarize) {
-                /* The REAL path: the ctor chain summarized supers-first, as D5 orders it. */
+                /* The REAL path: the ctor chain summarized supers-first, as the reverse-topological driver orders it. */
                 int cid0 = sema_find_class(&sctx, "C");
                 const sema_class_t* csc0 = sema_get_class(&sctx, cid0);
                 int sup0 = csc0 ? csc0->super_id : -1;
@@ -2757,7 +2757,7 @@ int main(void) {
         sema_destroy(&sctx); bbq_arena_free(&arena);
     }
 
-    // ── §32 spec §6's CONSUMER — scalar replacement (S4.c) ──────────────────────
+    // ── §32 spec §6's CONSUMER — scalar replacement ──────────────────────
     //
     //     "NoEscape ⟹ scalar-replace the struct.new — its fields become SSA values /
     //     LOCALS, zero GC allocation." The observable is the OPTIMIZED SIR: the New is
@@ -2842,7 +2842,7 @@ int main(void) {
     }
     {
         // §32.3 FAIL-CLOSED — the ref is COMPARED. Reference identity is observable, so
-        //       the object must stay materialized (D4: unknown ⟹ keep).
+        //       the object must stay materialized (unknown ⟹ keep).
         bbq_arena a; bbq_arena_init(&a, 1 << 16);
         int nlib = 0;
         build_program("class C { int f; } class T { }", &a, &nlib);
@@ -3047,7 +3047,7 @@ int main(void) {
     }
 
     {
-        // §32.7 FAIL-CLOSED — a site whose FIELD HAS NO NAMEABLE SLOT TYPE (D4).
+        // §32.7 FAIL-CLOSED — a site whose FIELD HAS NO NAMEABLE SLOT TYPE.
         //
         //     The rewrite types each new slot with the field's ref descriptor. The SIR's
         //     descriptor vocabulary is ClassRef | ArrayRef | PrimArray — every one names an
@@ -3079,7 +3079,7 @@ int main(void) {
         cp_engine_t* e = cp_build(m, &sctx, &a, NULL, 0);
         if (e) {
             CHECK(cp_escape_of_expr(e, alloc) == CP_ESC_NONE,
-                  "§32.7: the overlay site IS NoEscape — so only the D4 decline stops it");
+                  "§32.7: the overlay site IS NoEscape — so only the fail-closed decline stops it");
             cp_rewrite(e);
             CHECK(e->scalar_count == 0,
                   "§32.7: FAIL-CLOSED — a field the SIR cannot NAME (the overlay's raw "
@@ -3100,7 +3100,7 @@ int main(void) {
         //     other consumer reads the LIST it returns.
         //
         //     It existed TWICE (the engine's cp_collect_spine and cp_pack's own DFS) with
-        //     NO test, so when D5 needed a spine it was cheaper to write a THIRD copy than
+        //     NO test, so when the summary driver needed a spine it was cheaper to write a THIRD copy than
         //     to reuse one — which is exactly what happened, and exactly the economics that
         //     produce walkers. One authority, one pin.
         //
@@ -3187,7 +3187,7 @@ int main(void) {
         //     §10: the analysis "CONSUMES the lowered value graph + the defunctionalized
         //     call graph". test_sema pins the RULE (a call site's complete target set is
         //     enumerable from the class table alone) and test_wasm_types pins the emitted
-        //     vtable rows. THIS pins the graph the compiler actually hands D5: real Java
+        //     vtable rows. THIS pins the graph the compiler actually hands the summary driver: real Java
         //     source → compiler_compile → compiler_build_callgraph.
         //
         //     The property that makes stage 5 possible at all: the target set is COMPLETE
@@ -3273,7 +3273,7 @@ int main(void) {
     }
 
     {
-        // ── §38 spec §7 — MapsTo CONSUMER (S5.3, Choi Fig 7): escape + §7.2 side-effects ──
+        // ── §38 spec §7 — MapsTo CONSUMER (Choi Fig 7): escape + §7.2 side-effects ──
         //
         //     Isolates the consumer with a MANUAL callee summary. A caller passes an array
         //     (no ctor call, so its only escape source is the f() call) to a static f, whose
@@ -3333,12 +3333,12 @@ int main(void) {
     }
 
     {
-        // ── §37 spec §7 — THE PER-METHOD ESCAPE SUMMARY (S5.2, Choi §4.2) ────────────────
+        // ── §37 spec §7 — THE PER-METHOD ESCAPE SUMMARY (Choi §4.2) ────────────────
         //
         //     §7: "Per method f, the summary is: escape — which formals/return/globals
         //     escape." Produced as a READOUT of the SOLVED escape lattice (no mutation), the
         //     same domain the census at wasm_module already reads. A CALLER consumes it
-        //     (S5.3's MapsTo) instead of §7's bottom graph.
+        //     (the MapsTo mapping) instead of §7's bottom graph.
         //
         //     The distinction the summary carries (spec §6/§7, Choi Fig 7): a formal that is
         //     GlobalEscape in the callee → the caller's actual escapes; a formal at ArgEscape
@@ -3680,7 +3680,7 @@ int main(void) {
         //      when they were two, the summary read this_escape / this_obj off an obj_this a
         //      compiled body never references (spuriously NoEscape, empty write set), and a
         //      field-initializer ctor's `this.v = 7` landed on the slot-0 phantom instead —
-        //      making the ctor look like a no-op that S5.4 then dropped (the field-init exec
+        //      making the ctor look like a no-op that scalar replacement then dropped (the field-init exec
         //      miscompile). This pins the OWNING level: a field-init ctor's summary records the
         //      write on this_obj; an initializer-free ctor's stays empty; and a ctor that leaks
         //      `this` reports a real (non-NoEscape) this_escape. RED before the unification
@@ -3731,7 +3731,7 @@ int main(void) {
                        ? se->wcell_off[se->this_obj + 1] - se->wcell_off[se->this_obj] : -1;
         CHECK(se && se->this_obj >= 0 && e_writes == 0,
               "§37g: an initializer-free synthetic-default ctor writes NOTHING on this_obj — the "
-              "provably-no-op shape S5.4 is permitted to drop");
+              "provably-no-op shape scalar replacement is permitted to drop");
 
         const compiler_summary_t* sl = i_lc >= 0 ? compiler_method_summary(&cctx, i_lc) : NULL;
         CHECK(sl && sl->this_escape != COMPILER_ESC_NONE,
@@ -4169,7 +4169,7 @@ int main(void) {
         //      FRESH (the objects are m's Oret, not run's sites) but it is provably NEVER NULL —
         //      the E1 consumer already dropped ⊥null from the m() result inside run's own solve.
         //      COMPILER_RET_NONNULL records exactly that (identity stays Oret); the consumer treats
-        //      it like FRESH's null half. Transitive at any depth via the S5.1 convergence loop:
+        //      it like FRESH's null half. Transitive at any depth via the convergence loop:
         //      pass 1 marks m FRESH, pass 2 sees run's return null-free and marks it NONNULL.
         //      PRODUCER + CONSUMER pinned here (h's call result drops ⊥null through run).
         bbq_arena a; bbq_arena_init(&a, 1 << 16);
@@ -4214,7 +4214,7 @@ int main(void) {
         sema_destroy(&sctx); bbq_arena_free(&a);
     }
     {
-        // §46c S6-C (spec §7.2's VALUE half — lattice D made interprocedural, the S5 completion).
+        // §46c (spec §7.2's VALUE half — lattice D made interprocedural).
         //      PRODUCER: a numeric-returning method exports the MEET over its reachable returns —
         //      KNOWN for one value, RANGE for several, the right width for long. CONSUMER: the
         //      caller's invoke transfer reads the summary (the call's vnode const IS the fact), and
@@ -4286,14 +4286,14 @@ int main(void) {
                          && cv->constant.lo == 5 && cv->constant.hi == 7,
                       "§46c consumer: a virtual call over concrete-site pts MEETS all "
                       "defunctionalized targets' exports — {5,7} ⟹ [5,7] (a phantom receiver "
-                      "stays fail-closed; widening that gate is stage-3 devirt, not S6-C)");
+                      "stays fail-closed; widening that gate is stage-3 devirt, not the interprocedural value half)");
             }
             if (e) cp_free(e);
         }
         sema_destroy(&sctx); bbq_arena_free(&a);
     }
     {
-        // §47p S6-B (Stadler §5.1–5.4 — PARTIAL escape: virtual per BRANCH, materialize at the
+        // §47p (Stadler §5.1–5.4 — PARTIAL escape: virtual per BRANCH, materialize at the
         //      escape point, recorded merges only). The diamond parity case guards the
         //      cp_sr→cp_pea swap. Shapes:
         //      f: escapes ONLY on the then-arm (PutStatic) — the ok path keeps NO allocation,
@@ -4463,7 +4463,7 @@ int main(void) {
         sema_destroy(&sctx); bbq_arena_free(&a);
     }
     {
-        // §43 spec §6.1 / S5.4 — CTOR-AWARE SCALAR REPLACEMENT, the first customer, with a
+        // §43 spec §6.1 — CTOR-AWARE SCALAR REPLACEMENT, the first customer, with a
         //     FIELD-INITIALIZER ctor (the case the no-op-only predicate DECLINED). `class W {
         //     int v = 7; }` has a synthesized-default ctor whose body is `super(); this.v = 7`
         //     (JLS §12.5). The object is torn apart, so the ctor's initializer is MATERIALIZED
@@ -4507,7 +4507,7 @@ int main(void) {
         sir_optimize(&cctx, i_g);
         CHECK(cctx.scalar_total > scalar_before,
               "§43: a local `new W()` with a FIELD-INIT ctor is SCALAR-REPLACED — its `this.v = 7`"
-              " materialized onto the slot, not declined (S5.4)");
+              " materialized onto the slot, not declined");
         CHECK(find_new_of_class(ms[i_g]->entry, w_id) == NULL,
               "§43: the `new W()` is GONE from g's SIR — allocation removed, ctor materialized");
         sema_destroy(&sctx); bbq_arena_free(&a);
@@ -4562,13 +4562,13 @@ int main(void) {
     }
 
     {
-        // ── §36 D5's ANALYSIS ORDER — reverse-topological over the call graph (S5.1) ─────
+        // ── §36 THE ANALYSIS ORDER — reverse-topological over the call graph ─────
         //
         //     Choi §4: "iterate over the nodes in the call graph in a reverse topological
         //     order … we ignore back edges." The driver runs the per-method fixpoint in
         //     THIS order so a callee's summary exists before its caller is analyzed. It is
         //     a DFS POSTORDER over the (pinned) call graph — every callee before its caller
-        //     — NOT an SCC/dominator structure (S5.1's forbidden list); cycles are the
+        //     — NOT an SCC/dominator structure (the forbidden list); cycles are the
         //     driver's convergence iteration's job, not a structure on the graph.
         bbq_arena a; bbq_arena_init(&a, 1 << 16);
         int nlib = 0;
@@ -4629,7 +4629,7 @@ int main(void) {
     }
 
     {
-        // §32.8 THE COPY CHAIN — S4.c1c's recorded divergence, settled by TEST, not argument.
+        // §32.8 THE COPY CHAIN — a recorded divergence, settled by TEST, not argument.
         //
         //     The plan says a ref copy is not a use, and that once the field ops are
         //     rewritten "the copy's slot has no readers, so DSE removes it". The code does
@@ -4680,7 +4680,7 @@ int main(void) {
         CHECK(!reads_a_defless_slot(m->entry),
               "§32.8: …and NO LoadLocal is left reading a slot whose def was deleted — the "
               "copy chain is fully removed (JLS §16). THIS is the assertion that decides "
-              "S4.c1c: it fails the moment one link of t0→t1→t2 survives its own def");
+              "it fails the moment one link of t0→t1→t2 survives its own def");
         sema_destroy(&sctx); bbq_arena_free(&a);
     }
 
@@ -4839,13 +4839,13 @@ int main(void) {
             " cur = cur + 1; } } }",
             getenv("SIR_DUMP_METHOD") ? getenv("SIR_DUMP_METHOD") : "skip");
 
-    /* ── W8: MemSize in the fixpoint — Mem guard merging (sober-qualifying-
-     * names). Each Mem access carries a 2-branch guard chain (addr < 0;
+    /* ── MemSize in the fixpoint — Mem guard merging. Each Mem access
+     * carries a 2-branch guard chain (addr < 0;
      * addr+width > memory.size*64Ki). MemSize reads are congruent BETWEEN
      * kills (the memsize cell's follower rule), so two identical adjacent
      * loads share one guard — and a grow or a call between them is a kill,
      * so the soundness negatives MUST keep both. */
-    printf("== W8: Mem guard merging (MemSize in the fixpoint) ==\n");
+    printf("== Mem guard merging (MemSize in the fixpoint) ==\n");
     {
         /* The address is a PARAMETER — a constant one lets SCCP fold the
          * `addr < 0` arms on its own and the counts stop measuring the
@@ -4855,7 +4855,7 @@ int main(void) {
             "class T { static int f(int p){ return Mem.i32_load(p) + Mem.i32_load(p); } }";
         CHECK(compile_count_in(TWO, "f", SIR_BRANCH, 0) == 4,
               "unoptimized: two loads carry two full guard chains (4 branches)");
-        /* The W8 gate: the second access's WHOLE guard chain folds. The lo
+        /* The gate: the second access's WHOLE guard chain folds. The lo
          * arm folds on the slot's p ≥ 0 range; the hi arm folds by the §15
          * array mechanism — the guard is emitted in the ARRAY SHAPE
          * (`(long)p > limit − w`, tested side = the slot through one I2L),
@@ -4866,7 +4866,7 @@ int main(void) {
          * never congruent — the bound expression is p-free, which is the
          * whole point of the shape. */
         CHECK(compile_count_in(TWO, "f", SIR_BRANCH, 1) == 2,
-              "W8: the second load's lo AND hi guards both fold");
+              "the second load's lo AND hi guards both fold");
         const char* GROW = SIMDI
             "class T { static int f(int p){ int a = Mem.i32_load(p);"
             " Mem.memory_grow(1); return a + Mem.i32_load(p); } }";
@@ -4890,10 +4890,10 @@ int main(void) {
         #undef SIMDI
     }
 
-    /* ── W9a: same-input rules — x-x/x^x fold to 0 and integer cmp(v,v)
+    /* ── Same-input rules — x-x/x^x fold to 0 and integer cmp(v,v)
      * decides, with the value UNKNOWN. Float is the soundness negative
      * (NaN: x==x is false; inf-inf is NaN). */
-    printf("== W9a: same-input rules ==\n");
+    printf("== same-input rules ==\n");
     {
         const char* SI = "class T { static int f(int x){ return (x - x) + (x ^ x); } }";
         CHECK(compile_count_in(SI, "f", SIR_SUB, 0) == 1 &&
@@ -4910,11 +4910,11 @@ int main(void) {
               "SOUNDNESS: float x==x does NOT fold (NaN)");
     }
 
-    /* ── W8 channel (a): condition-verdict identity facts. A branch whose
+    /* ── Condition-verdict identity facts. A branch whose
      * condition VALUE was already decided on every surviving path folds;
      * the verdict is matched by value identity (cp_value_leader), and a
      * diamond's rejoin intersects the arms' contradictory verdicts away. */
-    printf("== W8a: condition-verdict identity ==\n");
+    printf("== condition-verdict identity ==\n");
     {
         /* Exit shape: branch 1's true arm returns, so the fall-through
          * carries (c == false) to branch 2, which folds to its else arm. */
@@ -4936,7 +4936,7 @@ int main(void) {
      * bucket until CAUSE_SPLITS separates them (a[i] vs b[i]) must NOT
      * same-input-fold — the transient coarse congruence has to be walked
      * back by the partition-consumer re-arm (the BitSet.xor miscompile). */
-    printf("== W9a: cong_fold transient-congruence soundness ==\n");
+    printf("== cong_fold transient-congruence soundness ==\n");
     {
         const char* AB = "class T { static void f(int[] a, int[] b) { "
                          "for (int i = 0; i < b.length; i = i + 1) a[i] = a[i] ^ b[i]; } }";
@@ -4944,11 +4944,11 @@ int main(void) {
               "SOUNDNESS: a[i] ^ b[i] never folds (distinct arrays)");
     }
 
-    /* ── W9b/W9c: strides live end-to-end (Click §4.5). MUL/SHL PRODUCE a
+    /* ── Strides live end-to-end (Click §4.5). MUL/SHL PRODUCE a
      * strided range, DIV carries it through, REM/AND consume it to a KNOWN,
      * and EQ consumes stride disjointness by gcd. Each positive needs the
      * whole chain; the negatives pin where the claim must stop. */
-    printf("== W9b/c: range strides produce + consume ==\n");
+    printf("== range strides produce + consume ==\n");
     {
         const char* MA = "class T { static int f(int x){ if (x < 0 || x > 100) return 0; "
                          "int i = x * 4; if ((i & 3) == 0) return 1; return 2; } }";
@@ -5054,7 +5054,7 @@ int main(void) {
     /* ── §4.8 idempotent same-input followers: x&x and x|x ARE x (a
      * follower transition — the result forwards, no constant is minted).
      * Identity-matched only; distinct operands must survive. */
-    printf("== W9: idempotent same-input followers ==\n");
+    printf("== idempotent same-input followers ==\n");
     {
         const char* ID = "class T { static int f(int x){ return (x & x) + (x | x); } }";
         CHECK(compile_count_in(ID, "f", SIR_AND, 0) == 1 &&

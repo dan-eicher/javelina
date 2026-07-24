@@ -1060,7 +1060,7 @@ const sir_op_gamma_t sir_op_gamma[SIR_TAG_COUNT] = {
                               * memsize CELL's reaching writer as its memory input (the
                               * Gate-5 follower rule): two reads merge only between kills
                               * (MemGrow, calls). This is what lets two Mem bounds guards
-                              * over one region become one (W8). */
+                              * over one region become one. */
                              .is_congruent = true,
                              .type_kind = GT_PRIM_FIXED, .type_prim_fixed_dt = SIR_DTINT },
     [SIR_MEMGROW]        = { .tag = SIR_MEMGROW,        .mnemonic = "memgrow",

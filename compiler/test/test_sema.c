@@ -505,7 +505,7 @@ int main(void) {
           "NON-constant memlane lane is a compile error (no runtime-lane fallback)");
 
     // ── JLS §7 packages + §6.5.4 type-name resolution ──────────────────────
-    // The gates of sober-qualifying-names W1/W2. Before the fix: the class
+    // Before the fix: the class
     // table was SIMPLE-name keyed (two Mems clobbered each other), imports
     // were ignored, and every simple name resolved globally.
     printf("== JLS §7 packages / §6.5.4 resolution ==\n");

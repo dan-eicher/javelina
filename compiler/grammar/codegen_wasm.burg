@@ -12,11 +12,11 @@
 // short→int widening chain. long/float/double are
 // genuinely distinct (i64/f32/f64); their conversions are explicit nodes. No
 // integer neg op (x*-1); float→int is saturating (JLS §5.1.3); control is
-// structured (the cg_jump br/scope resolution lands with the structurer, S5.10).
+// structured (the cg_jump br/scope resolution lands with the structurer).
 //
 // Opcodes come from wasm_ops.h (generated from spec/instructions.toml) via
 // ew_emit — never hardcoded. Branch/Switch/Invoke/Field/Array rules are the
-// next layer (S5.10); their TERMs are declared so the node set stays complete.
+// next layer; their TERMs are declared so the node set stays complete.
 
 TERM LoadConst       = SIR_LOADCONST
 TERM LoadLongConst   = SIR_LOADLONGCONST
@@ -243,10 +243,10 @@ MEMBERS (. emit_wasm_ctx emit; struct wasm_types_t* types; .)
    /* cg_jump (Dybvig DDCG p.13) — thread a spine node's continuation. Control
     * is structured, so the br / fall-through to a Nop merge point is resolved
     * by the structurer
-    * against the scope sidecar (S5.10). Straight-line code has no Nop
+    * against the scope sidecar. Straight-line code has no Nop
     * continuations, so this is currently a no-op (natural fall-through). */
    static inline void cg_jump(emit_wasm_ctx* e, sir_node_t* n) {
-       (void)e; (void)n;   /* structured-control transfer: S5.10 */
+       (void)e; (void)n;   /* structured-control transfer */
    }
 
    /* Tiny selection accessors (anything substantial → emit_wasm.h). */
@@ -701,12 +701,12 @@ stmt: ExceptionEntry = 1 (.
 .);
 
 // Nop — the IR's label/merge anchor. Emits no bytecode; the structurer owns the
-// block/loop scope and any br to it (S5.10). Control falls through to .next.
-stmt: Nop = 0 (. /* label anchor — structurer owns the scope (S5.10) */ .);
+// block/loop scope and any br to it. Control falls through to .next.
+stmt: Nop = 0 (. /* label anchor — structurer owns the scope */ .);
 
 // ── value-as-statement chains (faithful to yoctojc's stmt: sreg/ireg/aref) ──
 // A bare value subtree reduces to stmt with NO extra bytes — it tiles the value
-// and leaves it on the stack. The structured emit (S5.7b) calls burg_rewrite on
+// and leaves it on the stack. The structured emit calls burg_rewrite on
 // a cond/value subtree to tile it; these chains are the only public matcher
 // entry for a value tree. High cost = last-resort (never wins in a real spine,
 // where value nodes are children, not stmt roots).

@@ -624,8 +624,8 @@ static void cg_push_targets(compiler_ctx_t* ctx, bbq_hmap* midx,
     #undef CG_KEY
 }
 
-/* This method's call sites: ONE LINEAR SCAN OF ITS SPINE (S5.1 — "a scan, not a
- * traversal"). The spine comes from THE collector; nothing here follows a successor.
+/* This method's call sites: ONE LINEAR SCAN OF ITS SPINE — a scan, not a
+ * traversal. The spine comes from THE collector; nothing here follows a successor.
  *
  * A call is an EXPRESSION — a producer, delivering its value to a destination (the DDCG
  * paper's δ) — so it lives inside a spine node's OPERAND TREE, not on the spine. Reading a

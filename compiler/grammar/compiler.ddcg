@@ -1995,7 +1995,7 @@ fun throw_new_noarg(exc_class: int, r: rho) -> ir_root {
                         exc_new, after_new);
 }
 
-// javelina.simd.Mem bounds (sober-qualifying-names D5): a Java-visible memory
+// javelina.simd.Mem bounds: a Java-visible memory
 // access NEVER traps the VM. `addr < 0 || (long)addr + width > memory.size *
 // 64Ki` throws the catchable base IndexOutOfBoundsException (a §7.5.3
 // java.lang type) BEFORE the raw wasm op — which is then in-bounds by
@@ -2102,7 +2102,7 @@ fun arraystore_guard(t_a: int, t_v: int, ok: ir_root, r: rho) -> ir_root {
           // RECORDED like every other guard — it is a check the LOWERING inserted, which a
           // proof can remove. It is a CALL and not a Branch, which is exactly why it was
           // never recorded before and why every array-store check went uncounted: the
-          // sidecar's shape assumed a Branch. The stage that knows says so (D1); the
+          // sidecar's shape assumed a Branch. The stage that knows says so; the
           // consumer and the census read the node's tag to see whether it survived.
           let _ = record_guard(eff, 7, t_v, t_a, 0);
           eff; };

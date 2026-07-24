@@ -2024,7 +2024,7 @@ static void test_cp_loop_bound_folds_through_copy_and_low_guard(void) {
     bbq_arena_free(&a);
 }
 
-/* §5-D5 (loop back-edges WIDEN) — THE loop-carried lemma the fabricated "optimistic
+/* Loop back-edges WIDEN — THE loop-carried lemma the fabricated "optimistic
  * header-keep" was faking. i is loop-invariant (the latch bumps c, not i), so it carries
  * `i < a.length` on BOTH header edges. §5's mechanism is widening, and widening a
  * loop-invariant value is that value (`x ▽ x = x`), so the bound survives the back-edge
@@ -2057,7 +2057,7 @@ static void test_cp_range_invariant_bound_survives_loop(void) {
     sir_method_t* m  = sir_method(&a, "f", 0, 2, 3, initC);
 
     /* The DDCG records the loop header (COMPILER_SCOPE_LOOP, key=Ltop): it is the ONE
-     * sanctioned source for "this merge is a loop header", so §5-D5's forward-edge keep
+     * sanctioned source for "this merge is a loop header", so the widening's forward-edge keep
      * fires only where a real back-edge exists — never a diamond's late-linearized arm. */
     compiler_fact_t facts[1] = {
         (compiler_fact_t){ .kind = COMPILER_FACT_SCOPE, .key = header,
@@ -2068,14 +2068,14 @@ static void test_cp_range_invariant_bound_survives_loop(void) {
     cp_vnode_t* v2 = cp_vnode_for(e, ge2);
     TEST_ASSERT_NOT_NULL(v2);
     TEST_ASSERT_EQUAL_INT_MESSAGE(CP_C_KNOWN, v2->constant.state,
-        "i is loop-invariant with `i < a.length` on entry; §5-D5 widening preserves an "
+        "i is loop-invariant with `i < a.length` on entry; widening preserves an "
         "invariant bound across the back-edge, so `i >= a.length` folds in the loop");
     TEST_ASSERT_EQUAL_INT_MESSAGE(0, v2->constant.value, "…to FALSE");
     cp_free(e);
     bbq_arena_free(&a);
 }
 
-/* §5-D5 SOUNDNESS NEGATIVE (the mirror of the invariant-bound pin): the SAME shape, but the
+/* Widening SOUNDNESS NEGATIVE (the mirror of the invariant-bound pin): the SAME shape, but the
  * probed slot i is INCREMENTED in the loop — a counter, not invariant. `i < a.length` proven
  * on entry does NOT survive: i climbs past a.length, so `i >= a.length` MUST NOT fold. The
  * forward-edge keep may keep a bound ONLY for a genuinely-invariant slot; a slot with a
@@ -2122,7 +2122,7 @@ static void test_cp_range_counter_entry_bound_not_kept(void) {
     bbq_arena_free(&a);
 }
 
-/* §5-D5 SOUNDNESS NEGATIVE (an UPPER bound does not imply a lower one): invariant i with
+/* Widening SOUNDNESS NEGATIVE (an UPPER bound does not imply a lower one): invariant i with
  * `i < a.length` kept across the loop by the forward-edge keep — but `i < a.length` says
  * NOTHING about i >= 0 (i may be negative). So `i < 0` MUST NOT fold. A false KNOWN here is
  * an invented lower bound = the negative-index miscompile: an in-loop `a[i]` would drop its
@@ -2167,9 +2167,9 @@ static void test_cp_range_kept_upper_bound_does_not_imply_nonneg(void) {
     bbq_arena_free(&a);
 }
 
-/* §5-D5 (widening keeps the numeric lower bound): a counter from 0 that only increments
+/* Widening keeps the numeric lower bound: a counter from 0 that only increments
  * has range `[0, ∞)` — widening preserves lo=0 while the upper bound is lost. So the
- * IDX_LOW guard `i < 0` folds to FALSE (i >= 0) — the induction lower bound §5-D6 uses to
+ * IDX_LOW guard `i < 0` folds to FALSE (i >= 0) — the induction lower bound the analysis uses to
  * drop IDX_LOW / NegativeArraySize. */
 static void test_cp_range_counter_lower_bound_from_widening(void) {
     bbq_arena a; bbq_arena_init(&a, 1 << 16);
@@ -2204,7 +2204,7 @@ static void test_cp_range_counter_lower_bound_from_widening(void) {
     bbq_arena_free(&a);
 }
 
-/* §5-D5 SOUNDNESS: an unbounded param used as a loop index is NOT claimed non-negative.
+/* Widening SOUNDNESS: an unbounded param used as a loop index is NOT claimed non-negative.
  * i enters as a param (any int) and the loop never establishes i >= 0, so the IDX_LOW
  * guard `i < 0` must NOT fold — widening may not invent a lower bound. */
 static void test_cp_range_unbounded_param_not_claimed_nonneg(void) {
@@ -2239,7 +2239,7 @@ static void test_cp_range_unbounded_param_not_claimed_nonneg(void) {
     bbq_arena_free(&a);
 }
 
-/* §5-D5 ANALYSIS pin (asserts the RANGE VALUE, not the guard fold): a counter from 0
+/* Widening ANALYSIS pin (asserts the RANGE VALUE, not the guard fold): a counter from 0
  * that only increments must have `i`'s interval widen to `[0, +∞)` — widening keeps the
  * lower bound (0 never decreases) and loses the upper. This tests the widening TRANSFER
  * directly, the lattice fact the guard consumer later reads. */
@@ -2276,7 +2276,7 @@ static void test_cp_range_counter_widens_lo0(void) {
     bbq_arena_free(&a);
 }
 
-/* §5-D5 SOUNDNESS NEGATIVE (overflow): a counter from 0 that increments with NO upper
+/* Widening SOUNDNESS NEGATIVE (overflow): a counter from 0 that increments with NO upper
  * bound on ITSELF (the loop runs on a DIFFERENT counter) overflows INT_MAX → INT_MIN, so
  * it becomes negative. `i < 0` therefore MUST NOT fold — claiming i >= 0 here is the
  * overflow negative-index bug. This is the exact partner of the lower-bound pin above,
@@ -2316,7 +2316,7 @@ static void test_cp_range_counter_unbounded_can_overflow_negative(void) {
     bbq_arena_free(&a);
 }
 
-/* §5-D5 SOUNDNESS (the plain counter loop WITH a recorded header, i.e. skip_back ACTIVE —
+/* Widening SOUNDNESS (the plain counter loop WITH a recorded header, i.e. skip_back ACTIVE —
  * the case every other counter pin misses by passing no scope fact): `for(i=0;i<n;i++)`.
  * The loop condition `i < n` MUST stay non-constant — folding it collapses the loop (the
  * counter Inc goes dead), which is exactly the initProperties loop-collapse miscompile. */
@@ -2350,7 +2350,7 @@ static void test_cp_range_counter_loop_condition_survives_skipback(void) {
     bbq_arena_free(&a);
 }
 
-/* §5-D5 SOUNDNESS (initProperties shape): the loop is guarded by `if (total <= 0) return`,
+/* Widening SOUNDNESS (initProperties shape): the loop is guarded by `if (total <= 0) return`,
  * so `total` enters the loop refined `>= 1` and the forward-edge keep carries it across the
  * header. The counter loop condition `i < total` must STILL NOT fold — the kept invariant
  * `total >= 1` says nothing about i vs total. This mirrors the exact shape whose loops the
@@ -2391,7 +2391,7 @@ static void test_cp_range_counter_loop_under_kept_bound_survives(void) {
     bbq_arena_free(&a);
 }
 
-/* §5-D5 SOUNDNESS (initProperties loop 1 shape, faithfully): outer `if (total<=0) return`,
+/* Widening SOUNDNESS (initProperties loop 1 shape, faithfully): outer `if (total<=0) return`,
  * then `for(i=0;i<total;i++) if (p!=0) count++;` — a counter i AND a CONDITIONAL counter
  * count inside an inner branch (its own inner merge), header recorded (skip_back active).
  * The loop condition `i < total` must NOT fold. This is the exact shape the SIR dump showed
@@ -2440,7 +2440,7 @@ static void test_cp_range_conditional_counter_loop_survives(void) {
     bbq_arena_free(&a);
 }
 
-/* §5-D5 SOUNDNESS NEGATIVE (the spine back-edge heuristic must fail safe): the loop header
+/* Widening SOUNDNESS NEGATIVE (the spine back-edge heuristic must fail safe): the loop header
  * is entered from BOTH arms of `if (x < 5)` — the true arm proves x<5, the FALSE arm proves
  * x>=5. sir_collect_spine visits false arms first, so the TRUE-arm entry is linearized AFTER
  * the header; its edge into the header has spine index > header, exactly like a back edge.
@@ -2937,7 +2937,7 @@ static cp_const_t cp_ut_K(int32_t v) {
     return c;
 }
 
-/* PIECE 1 — the JOIN is the interval hull (§5-D1: join = interval hull). */
+/* PIECE 1 — the JOIN is the interval hull. */
 static void test_cp_unit_meet_is_interval_hull(void) {
     cp_const_t r = cp_const_meet(cp_ut_K(0), cp_ut_K(1));
     TEST_ASSERT_EQUAL_INT_MESSAGE(CP_C_RANGE, r.state, "hull of 0 and 1 is a range");
@@ -2952,7 +2952,7 @@ static void test_cp_unit_meet_is_interval_hull(void) {
         "BOTTOM absorbs in this engine's convention");
 }
 
-/* PIECE 2 — the NARROWING meet is intersection (§5-D4 branch refinement uses it). */
+/* PIECE 2 — the NARROWING meet is intersection (branch refinement uses it). */
 static void test_cp_unit_intersect_narrows(void) {
     cp_const_t r = cp_const_intersect(cp_ut_R(0, 10), cp_ut_R(5, INT32_MAX));
     TEST_ASSERT_TRUE_MESSAGE(r.lo == 5 && r.hi == 10,
@@ -2982,7 +2982,7 @@ static void test_cp_unit_widen_keeps_lower_bound(void) {
     bbq_arena_free(&a);
 }
 
-/* PIECE 4 — the branch refinement (§5-D4) produces a bounded RANGE on a body load:
+/* PIECE 4 — the branch refinement produces a bounded RANGE on a body load:
  * on the `i < 5` true edge, a load of i must carry a range with hi = 4. This is the
  * value the INC's input reads; if it's not bounded here, the increment overflows. */
 static void test_cp_unit_branch_refine_bounds_load(void) {
@@ -4575,7 +4575,7 @@ static void test_pts_null_is_never_a_store_target_or_load_source(void) {
 /* Spec §1, the OTHER half of `Oext@param`: "a phantom/external object for anything
  * REACHABLE FROM a formal parameter or a global … one per (site, type)."
  *
- * S1.a gave each PARAMETER its own phantom. It did not give one to what those
+ * Each PARAMETER got its own phantom. It did not give one to what those
  * parameters POINT AT — a phantom's fields still read as the single shared catch-all,
  * so `p.f` and `p.g` and every other unknown field were one object again: the very
  * collapse the parameter phantoms were fixing, one level down.
@@ -4646,7 +4646,7 @@ static void test_pts_phantom_recursion_is_bounded(void) {
 }
 
 /* FAIL-CLOSED: a phantom is still an UNKNOWN object. It may be null, and it must
- * never be strongly updated (S1.a2's rule) — two unknowns may alias at runtime. */
+ * never be strongly updated — two unknowns may alias at runtime. */
 static void test_pts_store_through_a_field_phantom_is_weak(void) {
     bbq_arena a; bbq_arena_init(&a, 1 << 16);
     sir_node_t* x    = sir_new(&a, 3);
@@ -4683,7 +4683,7 @@ static void test_pts_store_through_a_field_phantom_is_weak(void) {
  * result is the single catch-all, so `a.foo()` and `b.bar()` alias each other and a
  * store through one is read back through the other.
  *
- * (This is a pts fact, never a value fact — D2. `foo()` twice is not the same VALUE,
+ * (This is a pts fact, never a value fact. `foo()` twice is not the same VALUE,
  * and the congruence pins below still hold.) */
 static void test_pts_two_calls_to_the_same_callee_name_the_same_object(void) {
     bbq_arena a; bbq_arena_init(&a, 1 << 16);
@@ -4846,7 +4846,7 @@ static void test_pts_static_is_killed_by_a_call(void) {
     bbq_arena_free(&a);
 }
 
-/* D2: pts must not disturb congruence. The partition suite as a whole is the
+/* pts must not disturb congruence. The partition suite as a whole is the
  * real check, but pin the invariant explicitly — a New is still its own
  * partition and pts changes nothing about who is congruent with whom. */
 static void test_pts_does_not_change_partitions(void) {
@@ -5395,7 +5395,7 @@ static void test_cp_null_test_refines_pts_on_both_arms(void) {
     bbq_arena_free(&a);
 }
 
-/* D2: the new lattices must never move a partition. A Refine that narrows only
+/* The new lattices must never move a partition. A Refine that narrows only
  * pts computes nothing — same value, same constant — so it is a §4.7 COPY
  * Follower of its input. If it were a Leader in its own partition, every
  * expression over a null-checked reference would be incongruent with the same
@@ -5416,7 +5416,7 @@ static void test_cp_null_refine_does_not_move_partitions(void) {
     TEST_ASSERT_NOT_NULL(v);
     TEST_ASSERT_TRUE_MESSAGE(v->leader >= 0,
         "a refined use is a COPY Follower — pts is a derived property, never value "
-        "identity (D2: adding a lattice cannot move a partition)");
+        "identity (adding a lattice cannot move a partition)");
     TEST_ASSERT_EQUAL_INT_MESSAGE(e->vnodes[v->leader]->partition, v->partition,
         "a Follower lives in its Leader's partition");
     cp_free(e);
