@@ -45,6 +45,13 @@ EOF
 compile "$TMP/src" "$TMP/Dir.wasm" && out=$($JV "$TMP/Dir.wasm" 2>/dev/null)
 [ "$out" = "dir:2" ] && ok "directory input (recursive *.java) -> compiles + runs" || no "dir-input" "out=$out"
 
+# The shipped example (examples/hello-java): compile the real file and run it, so
+# the example a reader copies is exercised here, not just described.
+compile "examples/hello-java/Hello.java" "$TMP/Hello.wasm" || no "hello-java compile" "$(cat "$TMP/cc.err")"
+out=$($JV "$TMP/Hello.wasm" 2>/dev/null)
+[ "$out" = "Hello from javelina!
+sum(1..10) = 55" ] && ok "examples/hello-java compiles + runs" || no "hello-java" "out=$out"
+
 # ── E7.1a — program entry + argv + exit codes ──────────────────────────────
 cat >"$TMP/Echo.java" <<'EOF'
 public class Echo {
