@@ -17,6 +17,7 @@ java_type_t desc_parse_type(bbq_arena* a, const char* desc, int* pos,
     case 'I': (*pos)++; return jt_prim(JT_INT);
     case 'Z': (*pos)++; return jt_prim(JT_BOOL);
     case 'V': (*pos)++; return jt_prim(JT_VOID);
+    case 'Q': (*pos)++; return jt_prim(JT_V128);   /* internal v128 (see jtype_desc_char) */
 
     case '[': {
         (*pos)++;
@@ -42,21 +43,10 @@ java_type_t desc_parse_type(bbq_arena* a, const char* desc, int* pos,
             name[i] = (start[i] == '/') ? '.' : start[i];
         name[len] = '\0';
 
+        /* Descriptors carry the FULLY QUALIFIED name (built from fq_name),
+         * and the class table is FQN-keyed (§7.5.1) — one lookup, no
+         * simple-name fallback (a lucky simple hit would mask a bad FQN). */
         int cid = sema_find_class(ctx, name);
-        if (cid < 0) {
-            /* Try with slashes (some lookups use slash form) */
-            char* sname = (char*)bbq_arena_alloc(a, (size_t)(len + 1));
-            memcpy(sname, start, (size_t)len);
-            sname[len] = '\0';
-            cid = sema_find_class(ctx, sname);
-        }
-        if (cid < 0) {
-            /* Try just the simple name (last component) */
-            const char* last = name;
-            for (const char* p = name; *p; p++)
-                if (*p == '.') last = p + 1;
-            cid = sema_find_class(ctx, last);
-        }
         if (cid < 0) return jt_error();
         return jt_class(cid);
     }

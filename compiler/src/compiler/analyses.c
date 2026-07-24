@@ -1482,6 +1482,18 @@ static bool iv_le_state(const void* xv, const void* yv) {
 
 /* --- expression evaluation --- */
 
+/* Java int arithmetic WRAPS at 32 bits; the lattice's saturating i64 does
+ * not. A result crossing the int32 rails may have wrapped to the other
+ * sign at runtime, so passing the un-wrapped interval on is a false SAFE
+ * claim — forfeit to TOP instead. (The shrinking ops — div/rem/mask —
+ * cannot newly exceed their inputs and skip this. The Click twin is the
+ * γ folds' overflow-forfeits discipline.) */
+static interval_val_t iv_int_wrap_guard(interval_val_t v) {
+    if (interval_is_bot(v)) return v;
+    if (v.lo < INT32_MIN || v.hi > INT32_MAX) return interval_top();
+    return v;
+}
+
 static interval_val_t iv_eval(const ast_expr_t* e, const interval_state_t* s) {
     if (!e) return interval_top();
     switch (e->tag) {
@@ -1496,30 +1508,81 @@ static interval_val_t iv_eval(const ast_expr_t* e, const interval_state_t* s) {
         /* Array length comes from the outer (first) dimension expression. */
         return iv_eval(e->new_array.dims[0], s);
     case AST_FIELDACCESS:
-        /* `arr.length` — if arr is a tracked ident, return its
-         * interval, interpreted as length. */
+        /* `arr.length` — spec T3: a length is ALWAYS within [0, INT32_MAX],
+         * tracked or not (an untracked array is a param, not an unassigned
+         * local — §16 definite assignment already rejects those). The
+         * tracked interval, when present, tightens both bounds. */
         if (e->field_access.field &&
             strcmp(e->field_access.field, "length") == 0 &&
             e->field_access.obj &&
-            e->field_access.obj->tag == AST_IDENT)
-            return iv_state_get(
+            e->field_access.obj->tag == AST_IDENT) {
+            interval_val_t v = iv_state_get(
                 s, fnv1a(e->field_access.obj->ident.name));
+            interval_val_t r;
+            r.lo = interval_is_bot(v) ? 0 : i64_max(0, v.lo);
+            r.hi = interval_is_bot(v) ? INT32_MAX : i64_min(INT32_MAX, v.hi);
+            if (r.lo > r.hi) return interval_top();  /* inconsistent: no claim */
+            return r;
+        }
         return interval_top();
-    case AST_CAST: return iv_eval(e->cast.e, s);
+    case AST_CAST: {
+        /* Narrowing casts TRUNCATE (JLS §5.1.3): the interval passes through
+         * only when it FITS the target; otherwise the exact claim is the
+         * target's own total range. Anything else passes through. (The
+         * Click twins are the i2s/i2b/s2b/i2c range folds.) */
+        interval_val_t v = iv_eval(e->cast.e, s);
+        const ast_type_t* ty = e->cast.ty;
+        int64_t tlo, thi;
+        if      (ty && ty->tag == AST_BYTETYPE)  { tlo = -128;      thi = 127; }
+        else if (ty && ty->tag == AST_SHORTTYPE) { tlo = -32768;    thi = 32767; }
+        else if (ty && ty->tag == AST_CHARTYPE)  { tlo = 0;         thi = 65535; }
+        else if (ty && ty->tag == AST_INTTYPE)   { tlo = INT32_MIN; thi = INT32_MAX; }
+        else return v;
+        if (interval_is_bot(v)) return v;
+        if (v.lo >= tlo && v.hi <= thi) return v;    /* fits — value-preserving */
+        interval_val_t r = { tlo, thi };
+        return r;
+    }
     case AST_BINARY: {
         interval_val_t lhs = iv_eval(e->binary.lhs, s);
         interval_val_t rhs = iv_eval(e->binary.rhs, s);
         switch (e->binary.op) {
-        case AST_ADD: return iv_arith_add(lhs, rhs);
-        case AST_SUB: return iv_arith_sub(lhs, rhs);
-        case AST_MUL: return iv_arith_mul(lhs, rhs);
+        case AST_ADD: return iv_int_wrap_guard(iv_arith_add(lhs, rhs));
+        case AST_SUB: return iv_int_wrap_guard(iv_arith_sub(lhs, rhs));
+        case AST_MUL: return iv_int_wrap_guard(iv_arith_mul(lhs, rhs));
         case AST_DIV: return iv_arith_div(lhs, rhs);
         case AST_REM: return iv_arith_rem(lhs, rhs);
+        case AST_SHL: {
+            /* x << k for a KNOWN in-range count is ×2^k (spec T2); Java
+             * wraps, so the guard forfeits overflowing shifts. A
+             * non-constant count claims nothing. */
+            if (interval_is_bot(lhs) || interval_is_bot(rhs))
+                return interval_bot();
+            if (rhs.lo != rhs.hi || rhs.lo < 0 || rhs.lo > 31)
+                return interval_top();
+            return iv_int_wrap_guard(
+                iv_arith_mul(lhs, interval_const((int64_t)1 << rhs.lo)));
+        }
+        case AST_BITAND: {
+            /* x & m with a wholly non-negative m is within [0, hi(m)] for ANY
+             * x — two's complement: a non-negative mask clears the sign bit —
+             * so the classic `i & 7` index bounds itself with i unknown. */
+            if (interval_is_bot(lhs) || interval_is_bot(rhs))
+                return interval_bot();
+            int64_t hi = INTERVAL_POS_INF;
+            bool nn = false;
+            if (lhs.lo >= 0) { nn = true; hi = lhs.hi; }
+            if (rhs.lo >= 0) { nn = true; hi = i64_min(hi, rhs.hi); }
+            if (!nn) return interval_top();
+            interval_val_t r = { 0, hi };
+            return r;
+        }
         default:      return interval_top();
         }
     }
     case AST_UNARY:
-        if (e->unary.op == AST_NEG) return iv_arith_neg(iv_eval(e->unary.e, s));
+        if (e->unary.op == AST_NEG)
+            return iv_int_wrap_guard(iv_arith_neg(iv_eval(e->unary.e, s)));
         return interval_top();
     default:
         return interval_top();
@@ -1882,7 +1945,7 @@ static void check_da_expr(sema_ctx_t* ctx, const ast_expr_t* e,
         if (info && (info->kind == SEMA_IDENT_LOCAL ||
                      info->kind == SEMA_IDENT_PARAM)
             && !da_bit_get(state, info->slot)) {
-            sema_diag_t d;
+            sema_diag_t d = {0};
             d.level = DIAG_ERROR;
             d.loc = e->loc;
             snprintf(d.message, sizeof(d.message),
@@ -2130,7 +2193,7 @@ static void compute_noreturn_set(sema_ctx_t* ctx, bbq_htree* noreturn_methods) {
 /* Emit a warning to ctx->diags. Mirrors sema.c's static diag() helper;
  * pushed to the shared diag vec so formatting is uniform. */
 static void warn(sema_ctx_t* ctx, ast_srcloc loc, const char* fmt, ...) {
-    sema_diag_t d;
+    sema_diag_t d = {0};
     d.level = DIAG_WARNING;
     d.loc = loc;
     va_list ap;
@@ -2217,7 +2280,7 @@ static void check_exprs(sema_ctx_t* ctx, const ast_expr_t* e,
  * Skips arrays of unknown length (params, fields) to avoid a flood
  * of false positives on ref-typed inputs. */
 static void check_bounds(sema_ctx_t* ctx, const ast_expr_t* e,
-                         const interval_state_t* state) {
+                         const interval_state_t* state, ast_srcloc floc) {
     if (!e) return;
     switch (e->tag) {
     case AST_ARRAYACCESS: {
@@ -2231,9 +2294,16 @@ static void check_bounds(sema_ctx_t* ctx, const ast_expr_t* e,
                 int64_t len = av.lo;
                 bool safe = (iv.lo >= 0 && iv.hi < len);
                 if (!safe) {
-                    sema_diag_t d;
+                    sema_diag_t d = {0};
                     d.level = DIAG_WARNING;
-                    d.loc = idx ? idx->loc : e->loc;
+                    d.kind  = SEMA_DIAG_ARRAY_BOUNDS;
+                    /* Interior expression nodes may carry no stamped loc
+                     * (a 0:0 loc renders as a useless "<input>:0:0") — fall
+                     * back to the enclosing STATEMENT's loc so the warning
+                     * always lands somewhere a person can look. */
+                    d.loc = (idx && idx->loc.line) ? idx->loc
+                          : e->loc.line            ? e->loc
+                          : floc;
                     if (iv.lo == iv.hi)
                         snprintf(d.message, sizeof(d.message),
                                  "array index %lld out of bounds for length %lld",
@@ -2247,35 +2317,35 @@ static void check_bounds(sema_ctx_t* ctx, const ast_expr_t* e,
                 }
             }
         }
-        check_bounds(ctx, arr, state);
-        check_bounds(ctx, idx, state);
+        check_bounds(ctx, arr, state, floc);
+        check_bounds(ctx, idx, state, floc);
         return;
     }
     case AST_FIELDACCESS:
-        check_bounds(ctx, e->field_access.obj, state);
+        check_bounds(ctx, e->field_access.obj, state, floc);
         return;
     case AST_METHODCALL:
-        check_bounds(ctx, e->method_call.obj, state);
+        check_bounds(ctx, e->method_call.obj, state, floc);
         for (int i = 0; i < e->method_call.args_count; i++)
-            check_bounds(ctx, e->method_call.args[i], state);
+            check_bounds(ctx, e->method_call.args[i], state, floc);
         return;
     case AST_ASSIGN:
-        check_bounds(ctx, e->assign.target, state);
-        check_bounds(ctx, e->assign.value, state);
+        check_bounds(ctx, e->assign.target, state, floc);
+        check_bounds(ctx, e->assign.value, state, floc);
         return;
     case AST_COMPOUNDASSIGN:
-        check_bounds(ctx, e->compound_assign.target, state);
-        check_bounds(ctx, e->compound_assign.value, state);
+        check_bounds(ctx, e->compound_assign.target, state, floc);
+        check_bounds(ctx, e->compound_assign.value, state, floc);
         return;
     case AST_BINARY:
-        check_bounds(ctx, e->binary.lhs, state);
-        check_bounds(ctx, e->binary.rhs, state);
+        check_bounds(ctx, e->binary.lhs, state, floc);
+        check_bounds(ctx, e->binary.rhs, state, floc);
         return;
-    case AST_UNARY:  check_bounds(ctx, e->unary.e, state); return;
+    case AST_UNARY:  check_bounds(ctx, e->unary.e, state, floc); return;
     case AST_TERNARY:
-        check_bounds(ctx, e->ternary.test, state);
-        check_bounds(ctx, e->ternary.then, state);
-        check_bounds(ctx, e->ternary.else_, state);
+        check_bounds(ctx, e->ternary.test, state, floc);
+        check_bounds(ctx, e->ternary.then, state, floc);
+        check_bounds(ctx, e->ternary.else_, state, floc);
         return;
     case AST_CAST: {
         /* Narrowing cast to byte / short — warn if subexpr's tracked
@@ -2294,8 +2364,9 @@ static void check_bounds(sema_ctx_t* ctx, const ast_expr_t* e,
             interval_val_t iv = iv_eval(e->cast.e, state);
             if (!interval_is_bot(iv) && !interval_is_top(iv)
                 && (iv.lo < tmin || iv.hi > tmax)) {
-                sema_diag_t d;
+                sema_diag_t d = {0};
                 d.level = DIAG_WARNING;
+                d.kind  = SEMA_DIAG_NARROWING_CAST;
                 d.loc = e->loc;
                 snprintf(d.message, sizeof(d.message),
                          "narrowing cast to %s: value in [%lld, %lld] exceeds range [%lld, %lld]",
@@ -2304,16 +2375,16 @@ static void check_bounds(sema_ctx_t* ctx, const ast_expr_t* e,
                 bbq_vec_push(ctx->diags, d);
             }
         }
-        check_bounds(ctx, e->cast.e, state);
+        check_bounds(ctx, e->cast.e, state, floc);
         return;
     }
-    case AST_INSTANCEOF:  check_bounds(ctx, e->instance_of.e, state); return;
+    case AST_INSTANCEOF:  check_bounds(ctx, e->instance_of.e, state, floc); return;
     case AST_NEW:
         for (int i = 0; i < e->new_.args_count; i++)
-            check_bounds(ctx, e->new_.args[i], state);
+            check_bounds(ctx, e->new_.args[i], state, floc);
         return;
     case AST_NEWARRAY:    for (int _d = 0; _d < e->new_array.dims_count; _d++)
-                              if (e->new_array.dims[_d]) check_bounds(ctx, e->new_array.dims[_d], state);
+                              if (e->new_array.dims[_d]) check_bounds(ctx, e->new_array.dims[_d], state, floc);
                           return;
     default: return;
     }
@@ -2323,22 +2394,22 @@ static void check_bounds_stmt(sema_ctx_t* ctx, const ast_stmt_t* s,
                               const interval_state_t* state) {
     if (!s) return;
     switch (s->tag) {
-    case AST_EXPRSTMT:     check_bounds(ctx, s->expr_stmt.e, state); return;
+    case AST_EXPRSTMT:     check_bounds(ctx, s->expr_stmt.e, state, s->loc); return;
     case AST_LOCALVARDECL:
         for (int i = 0; i < s->local_var_decl.decls_count; i++)
-            check_bounds(ctx, s->local_var_decl.decls[i]->init, state);
+            check_bounds(ctx, s->local_var_decl.decls[i]->init, state, s->loc);
         return;
-    case AST_IF:       check_bounds(ctx, s->if_.test, state); return;
-    case AST_WHILE:    check_bounds(ctx, s->while_.test, state); return;
-    case AST_DOWHILE:  check_bounds(ctx, s->do_while.test, state); return;
+    case AST_IF:       check_bounds(ctx, s->if_.test, state, s->loc); return;
+    case AST_WHILE:    check_bounds(ctx, s->while_.test, state, s->loc); return;
+    case AST_DOWHILE:  check_bounds(ctx, s->do_while.test, state, s->loc); return;
     case AST_FOR:
-        check_bounds(ctx, s->for_.test, state);
+        check_bounds(ctx, s->for_.test, state, s->loc);
         for (int i = 0; i < s->for_.update_count; i++)
-            check_bounds(ctx, s->for_.update[i], state);
+            check_bounds(ctx, s->for_.update[i], state, s->loc);
         return;
-    case AST_SWITCH:   check_bounds(ctx, s->switch_.selector, state); return;
-    case AST_RETURN:   check_bounds(ctx, s->return_.value, state); return;
-    case AST_THROW:    check_bounds(ctx, s->throw_.e, state); return;
+    case AST_SWITCH:   check_bounds(ctx, s->switch_.selector, state, s->loc); return;
+    case AST_RETURN:   check_bounds(ctx, s->return_.value, state, s->loc); return;
+    case AST_THROW:    check_bounds(ctx, s->throw_.e, state, s->loc); return;
     default: return;
     }
 }
@@ -2433,7 +2504,7 @@ static void check_switch_enum_coverage(sema_ctx_t* ctx,
     }
 
     if (bbq_vec_len(missing) > 0) {
-        sema_diag_t d;
+        sema_diag_t d = {0};
         d.level = DIAG_WARNING;
         d.loc = s->loc;
         int w = snprintf(d.message, sizeof(d.message),
@@ -2497,7 +2568,7 @@ static void check_stmt_exprs(sema_ctx_t* ctx, const ast_stmt_t* s,
 
 static void emit_diag(sema_ctx_t* ctx, diag_level_t level,
                       ast_srcloc loc, const char* msg) {
-    sema_diag_t d;
+    sema_diag_t d = {0};
     d.level = level;
     d.loc = loc;
     snprintf(d.message, sizeof(d.message), "%s", msg);
@@ -2577,7 +2648,7 @@ static void run_on_method(sema_ctx_t* ctx, const sema_method_t* m,
      * is accepted rather than demanding an explicit throw. */
     if (!m->is_constructor && m->return_type.tag != JT_VOID
         && jls_can_complete_normally_nr(ctx, body, nr_stmts)) {
-        sema_diag_t d;
+        sema_diag_t d = {0};
         d.level = DIAG_ERROR;
         d.loc = m->ast_node ? m->ast_node->loc : body->loc;
         snprintf(d.message, sizeof(d.message),
@@ -2680,7 +2751,10 @@ static void ef_add_method_throws(const sema_method_t* m, bbq_htree* out) {
  * and `ClassName.method(...)`. */
 static bool ef_is_class_ref(const sema_ctx_t* ctx, const ast_expr_t* e) {
     if (!e || e->tag != AST_IDENT) return false;
-    return e->ident.name && sema_find_class(ctx, e->ident.name) >= 0;
+    /* Read sema's §6.5.4 classification — never re-resolve the name here
+     * (resolution is unit-relative; a bare table lookup is wrong under §7). */
+    const sema_ident_info_t* info = sema_ident_kind(ctx, e);
+    return info && info->kind == SEMA_IDENT_CLASSREF;
 }
 
 static void ef_collect_expr(sema_ctx_t* ctx, const ef_builtins_t* b,
@@ -2912,7 +2986,7 @@ static void ef_check_try(sema_ctx_t* ctx, const ef_builtins_t* b,
              * unreachable." A catch block is a Block, and this one is unreachable — no reachable
              * expression or throw statement in the try block can throw a checked exception
              * assignable to its parameter. */
-            sema_diag_t d;
+            sema_diag_t d = {0};
             d.level = DIAG_ERROR;
             d.loc = cc->loc;
             const sema_class_t* c = sema_get_class(ctx, catch_id);
@@ -2970,14 +3044,28 @@ static void check_exception_flow(sema_ctx_t* ctx, const ast_stmt_t* body) {
 /* ── Recursion detection (stack-depth) ─────────────────────────── */
 
 typedef struct {
-    const sema_method_t** callees;   /* bbq_vec, deduped */
+    const sema_method_t** callees;      /* bbq_vec, deduped — NON-TAIL call edges */
+    const sema_method_t** tail_callees; /* bbq_vec, deduped — tail-call edges only */
+    java_type_t           mret;         /* the owning method's declared return type */
 } cg_entry_t;
 
-static void cg_add(cg_entry_t* e, const sema_method_t* m) {
+static void cg_add(cg_entry_t* e, const sema_method_t* m, bool tail) {
     if (!m) return;
-    for (int i = 0; i < bbq_vec_len(e->callees); i++)
-        if (e->callees[i] == m) return;
-    bbq_vec_push(e->callees, m);
+    const sema_method_t*** list = tail ? &e->tail_callees : &e->callees;
+    for (int i = 0; i < bbq_vec_len(*list); i++)
+        if ((*list)[i] == m) return;
+    bbq_vec_push(*list, m);
+}
+
+/* Structural java_type_t equality. The tail shape needs an EXACT result-type
+ * match: an implicit §5.2 widening puts a conversion node between Return and
+ * the call, which takes the normal (frame-growing) path. */
+static bool cg_type_eq(java_type_t a, java_type_t b) {
+    if (a.tag != b.tag) return false;
+    if (a.tag == JT_CLASS) return a.class_id == b.class_id;
+    if (a.tag == JT_ARRAY)
+        return a.element && b.element && cg_type_eq(*a.element, *b.element);
+    return true;
 }
 
 static void cg_walk_expr(sema_ctx_t* ctx, const ast_expr_t* e, cg_entry_t* out);
@@ -2991,20 +3079,20 @@ static void cg_walk_expr(sema_ctx_t* ctx, const ast_expr_t* e, cg_entry_t* out) 
     if (!e) return;
     switch (e->tag) {
     case AST_METHODCALL:
-        cg_add(out, sema_resolved_method(ctx, e));
+        cg_add(out, sema_resolved_method(ctx, e), false);
         cg_walk_expr(ctx, e->method_call.obj, out);
         cg_walk_args(ctx, e->method_call.args, e->method_call.args_count, out);
         return;
     case AST_SUPERCALL:
-        cg_add(out, sema_resolved_super_method(ctx, e));
+        cg_add(out, sema_resolved_super_method(ctx, e), false);
         cg_walk_args(ctx, e->super_call.args, e->super_call.args_count, out);
         return;
     case AST_NEW:
-        cg_add(out, sema_resolved_constructor(ctx, e));
+        cg_add(out, sema_resolved_constructor(ctx, e), false);
         cg_walk_args(ctx, e->new_.args, e->new_.args_count, out);
         return;
     case AST_CONSTRUCTORCALL:
-        cg_add(out, sema_resolved_constructor(ctx, e));
+        cg_add(out, sema_resolved_constructor(ctx, e), false);
         cg_walk_args(ctx, e->constructor_call.args,
                      e->constructor_call.args_count, out);
         return;
@@ -3044,12 +3132,17 @@ static void cg_walk_expr(sema_ctx_t* ctx, const ast_expr_t* e, cg_entry_t* out) 
     }
 }
 
-static void cg_walk_stmt(sema_ctx_t* ctx, const ast_stmt_t* s, cg_entry_t* out) {
+/* `prot` counts enclosing protected regions (a try's body or a finally body —
+ * the AST mirror of the DDCG's rho_in_protected): a `return f()` inside one
+ * does NOT lower to return_call (the tail call would pop the frame and its
+ * handlers with it), so its call edge is a plain frame-growing edge. */
+static void cg_walk_stmt(sema_ctx_t* ctx, const ast_stmt_t* s, cg_entry_t* out,
+                         int prot) {
     if (!s) return;
     switch (s->tag) {
     case AST_BLOCK:
         for (int i = 0; i < s->block.stmts_count; i++)
-            cg_walk_stmt(ctx, s->block.stmts[i], out);
+            cg_walk_stmt(ctx, s->block.stmts[i], out, prot);
         return;
     case AST_EXPRSTMT:    cg_walk_expr(ctx, s->expr_stmt.e, out); return;
     case AST_LOCALVARDECL:
@@ -3058,62 +3151,101 @@ static void cg_walk_stmt(sema_ctx_t* ctx, const ast_stmt_t* s, cg_entry_t* out) 
         return;
     case AST_IF:
         cg_walk_expr(ctx, s->if_.test, out);
-        cg_walk_stmt(ctx, s->if_.then, out);
-        cg_walk_stmt(ctx, s->if_.else_, out);
+        cg_walk_stmt(ctx, s->if_.then, out, prot);
+        cg_walk_stmt(ctx, s->if_.else_, out, prot);
         return;
     case AST_WHILE:
         cg_walk_expr(ctx, s->while_.test, out);
-        cg_walk_stmt(ctx, s->while_.body, out);
+        cg_walk_stmt(ctx, s->while_.body, out, prot);
         return;
     case AST_DOWHILE:
         cg_walk_expr(ctx, s->do_while.test, out);
-        cg_walk_stmt(ctx, s->do_while.body, out);
+        cg_walk_stmt(ctx, s->do_while.body, out, prot);
         return;
     case AST_FOR:
-        cg_walk_stmt(ctx, s->for_.init, out);
+        cg_walk_stmt(ctx, s->for_.init, out, prot);
         cg_walk_expr(ctx, s->for_.test, out);
         for (int i = 0; i < s->for_.update_count; i++)
             cg_walk_expr(ctx, s->for_.update[i], out);
-        cg_walk_stmt(ctx, s->for_.body, out);
+        cg_walk_stmt(ctx, s->for_.body, out, prot);
         return;
     case AST_SWITCH:
         cg_walk_expr(ctx, s->switch_.selector, out);
         for (int i = 0; i < s->switch_.cases_count; i++)
             for (int j = 0; j < s->switch_.cases[i]->stmts_count; j++)
-                cg_walk_stmt(ctx, s->switch_.cases[i]->stmts[j], out);
+                cg_walk_stmt(ctx, s->switch_.cases[i]->stmts[j], out, prot);
         return;
     case AST_TRY:
-        cg_walk_stmt(ctx, s->try_.body, out);
-        for (int i = 0; i < s->try_.catches_count; i++)
-            cg_walk_stmt(ctx, s->try_.catches[i]->body, out);
-        cg_walk_stmt(ctx, s->try_.finally_, out);
+        cg_walk_stmt(ctx, s->try_.body, out, prot + 1);
+        for (int i = 0; i < s->try_.catches_count; i++)          /* a catch body has
+                left its own region — only OUTER regions still protect it */
+            cg_walk_stmt(ctx, s->try_.catches[i]->body, out, prot);
+        cg_walk_stmt(ctx, s->try_.finally_, out, prot + 1);
         return;
-    case AST_RETURN:      cg_walk_expr(ctx, s->return_.value, out); return;
+    case AST_RETURN: {
+        /* Only a DIRECT `return f(...)` with an EXACT result-type match,
+         * outside every protected region, lowers to return_call* (burg's
+         * `stmt: Return(tail)`) — mirror precisely that shape. The call's
+         * receiver and arguments are still ordinary (frame-growing) edges. */
+        const ast_expr_t* v = s->return_.value;
+        if (v && prot == 0
+                && (v->tag == AST_METHODCALL || v->tag == AST_SUPERCALL)) {
+            const sema_method_t* callee = v->tag == AST_METHODCALL
+                ? sema_resolved_method(ctx, v)
+                : sema_resolved_super_method(ctx, v);
+            if (callee && cg_type_eq(callee->return_type, out->mret)) {
+                cg_add(out, callee, true);
+                if (v->tag == AST_METHODCALL) {
+                    cg_walk_expr(ctx, v->method_call.obj, out);
+                    cg_walk_args(ctx, v->method_call.args,
+                                 v->method_call.args_count, out);
+                } else {
+                    cg_walk_args(ctx, v->super_call.args,
+                                 v->super_call.args_count, out);
+                }
+                return;
+            }
+        }
+        cg_walk_expr(ctx, s->return_.value, out);
+        return;
+    }
     case AST_THROW:       cg_walk_expr(ctx, s->throw_.e, out); return;
-    case AST_LABELED:     cg_walk_stmt(ctx, s->labeled.body, out); return;
+    case AST_LABELED:     cg_walk_stmt(ctx, s->labeled.body, out, prot); return;
     default: return;
     }
 }
 
-static bool cg_reaches(bbq_htree* graph,
-                       const sema_method_t* from, const sema_method_t* target,
-                       bbq_htree* visited) {
+/* Reach `target` from `from` along call edges, where the path must carry at
+ * least one NON-TAIL edge to count. A cycle sustained purely by tail calls
+ * runs in O(1) stack — burg's `Return(tail)` emits return_call*, reusing the
+ * frame — so it cannot exhaust anything and must not warn. `seen` rides the
+ * visited key's low bit (method pointers are aligned), so a node is revisited
+ * at most once per state. */
+static bool cg_reaches_nontail(bbq_htree* graph,
+                               const sema_method_t* from,
+                               const sema_method_t* target, bool seen,
+                               bbq_htree* visited) {
     cg_entry_t* e = (cg_entry_t*)bbq_htree_search(
         graph, (uint32_t)(uintptr_t)from);
     if (!e) return false;
-    for (int i = 0; i < bbq_vec_len(e->callees); i++) {
-        const sema_method_t* c = e->callees[i];
-        if (c == target) return true;
-        if (bbq_htree_contains(visited, (uint32_t)(uintptr_t)c)) continue;
-        bbq_htree_insert(visited, (uint32_t)(uintptr_t)c, (void*)1);
-        if (cg_reaches(graph, c, target, visited)) return true;
+    for (int t = 0; t < 2; t++) {
+        const sema_method_t** list = t ? e->tail_callees : e->callees;
+        bool s2 = t ? seen : true;           /* a non-tail edge sets the bit */
+        for (int i = 0; i < bbq_vec_len(list); i++) {
+            const sema_method_t* c = list[i];
+            if (c == target && s2) return true;
+            uint32_t key = (uint32_t)(uintptr_t)c | (s2 ? 1u : 0u);
+            if (bbq_htree_contains(visited, key)) continue;
+            bbq_htree_insert(visited, key, (void*)1);
+            if (cg_reaches_nontail(graph, c, target, s2, visited)) return true;
+        }
     }
     return false;
 }
 
-static bool method_in_cycle(bbq_htree* graph, const sema_method_t* m) {
+static bool method_in_nontail_cycle(bbq_htree* graph, const sema_method_t* m) {
     bbq_htree* visited = bbq_htree_create();
-    bool in_cycle = cg_reaches(graph, m, m, visited);
+    bool in_cycle = cg_reaches_nontail(graph, m, m, false, visited);
     bbq_htree_destroy(visited);
     return in_cycle;
 }
@@ -3133,7 +3265,9 @@ static void check_recursion(sema_ctx_t* ctx) {
             cg_entry_t* e = (cg_entry_t*)bbq_arena_alloc(
                 ctx->arena, sizeof(*e));
             e->callees = NULL;
-            cg_walk_stmt(ctx, body, e);
+            e->tail_callees = NULL;
+            e->mret = m->return_type;
+            cg_walk_stmt(ctx, body, e, 0);
             bbq_htree_insert(graph, (uint32_t)(uintptr_t)m, e);
             bbq_vec_push(entries, e);
         }
@@ -3145,21 +3279,27 @@ static void check_recursion(sema_ctx_t* ctx) {
         for (int mi = 0; mi < bbq_vec_len(c->methods); mi++) {
             sema_method_t* m = &c->methods[mi];
             if (!bbq_htree_contains(graph, (uint32_t)(uintptr_t)m)) continue;
-            if (method_in_cycle(graph, m)) {
-                sema_diag_t d;
+            /* Only NON-TAIL recursion warns: a pure tail-call cycle lowers to
+             * return_call* and runs in O(1) stack, so "can exhaust the call
+             * stack" would simply be false there. */
+            if (method_in_nontail_cycle(graph, m)) {
+                sema_diag_t d = {0};
                 d.level = DIAG_WARNING;
+                d.kind  = SEMA_DIAG_RECURSION_CYCLE;
                 d.loc = m->ast_node ? m->ast_node->loc : (ast_srcloc){0};
                 snprintf(d.message, sizeof(d.message),
-                    "method '%s' participates in a recursion cycle; "
-                    "deep recursion can exhaust the call stack",
+                    "method '%s' participates in a recursion cycle through a "
+                    "non-tail call; deep recursion can exhaust the call stack",
                     m->name ? m->name : "");
                 bbq_vec_push(ctx->diags, d);
             }
         }
     }
 
-    for (int i = 0; i < bbq_vec_len(entries); i++)
+    for (int i = 0; i < bbq_vec_len(entries); i++) {
         bbq_vec_free(entries[i]->callees);
+        bbq_vec_free(entries[i]->tail_callees);
+    }
     bbq_vec_free(entries);
     bbq_htree_destroy(graph);
 }
@@ -3339,7 +3479,7 @@ static void check_discarded_pure_call(sema_ctx_t* ctx, const ast_stmt_t* s,
     if (!m) return;
     if (m->return_type.tag == JT_VOID) return;
     if (!bbq_htree_contains(pure_set, (uint32_t)(uintptr_t)m)) return;
-    sema_diag_t d;
+    sema_diag_t d = {0};
     d.level = DIAG_WARNING;
     d.loc = s->loc;
     snprintf(d.message, sizeof(d.message),
@@ -3382,7 +3522,7 @@ static void check_wrong_overrides(sema_ctx_t* ctx) {
                     if (sm->param_count != m->param_count) continue;
                     if (sig_exact_match(m, sm)) goto next_method;
                     /* Same name + arity, signature differs: suspicious. */
-                    sema_diag_t d;
+                    sema_diag_t d = {0};
                     d.level = DIAG_WARNING;
                     d.loc = m->ast_node ? m->ast_node->loc : (ast_srcloc){0};
                     snprintf(d.message, sizeof(d.message),

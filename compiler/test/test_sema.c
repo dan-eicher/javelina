@@ -15,83 +15,57 @@
 #define JT_REPORT_RSS   /* this suite compiles the whole prelude per case */
 #include "javelina_test.h"
 
-static char* read_file(const char* path) {
-    FILE* f = fopen(path, "rb");
-    if (!f) return NULL;
-    fseek(f, 0, SEEK_END); long n = ftell(f); fseek(f, 0, SEEK_SET);
-    char* buf = (char*)malloc((size_t)n + 1);
-    if (fread(buf, 1, (size_t)n, f) != (size_t)n) { fclose(f); free(buf); return NULL; }
-    buf[n] = '\0'; fclose(f);
-    return buf;
-}
+// The §7.3-correct prelude+user parse (per-unit programs; see jtest_units.h).
+#include "jtest_units.h"
 
-// Parse one source string into a program AST (each parse gets its own arena;
-// nothing is freed — fine for a test).
-static ast_program_t* parse_src(const char* src) {
-    java_parse_ctx_t* pc = (java_parse_ctx_t*)malloc(sizeof(*pc));
-    bbq_arena_init(&pc->arena, 1 << 16);
-    pc->result = NULL; pc->file = NULL;
-    peg_state p;
-    java_parser_init(&p, src, (int)strlen(src));
-    p.user_data = pc;
-    if (!java_parser_parse(&p)) return NULL;
-    return pc->result;
-}
-
-// Build one program = every java.lang stub's type decls + the user source's.
-static ast_program_t* build_program(const char* user_src, bbq_arena* arena) {
-    ast_type_decl_t** types = NULL; int tc = 0, cap = 0;
-    #define PUSH(td) do { if (tc==cap){ cap=cap?cap*2:64; types=realloc(types,(size_t)cap*sizeof(*types)); } types[tc++]=(td); } while(0)
-
-    /* The stdlib environment: java.lang no longer stands alone — java.lang.System.out/err/in are
-     * java.io.PrintStream/InputStream, so java.io (and its java.util deps) must be in the env too. */
-    const char* dirs[] = { "lib/java/lang", "lib/java/util", "lib/java/io" };
-    struct dirent* e;
-    for (int di = 0; di < 3; di++) {
-        DIR* d = opendir(dirs[di]);
-        if (!d) { printf("  FAIL  cannot open %s (run from compiler/)\n", dirs[di]); TEST_FAILED(); return NULL; }
-        while ((e = readdir(d)) != NULL) {
-            size_t L = strlen(e->d_name);
-            if (L < 6 || strcmp(e->d_name + L - 5, ".java") != 0) continue;
-            char path[512]; snprintf(path, sizeof(path), "%s/%s", dirs[di], e->d_name);
-            char* src = read_file(path);
-            if (!src) { printf("  FAIL  read %s\n", path); TEST_FAILED(); continue; }
-            ast_program_t* p = parse_src(src);
-            if (!p) { printf("  FAIL  parse %s\n", path); TEST_FAILED(); continue; }
-            for (int i = 0; i < p->types_count; i++) PUSH(p->types[i]);
-        }
-        closedir(d);
-    }
-
-    if (user_src) {
-        ast_program_t* up = parse_src(user_src);
-        if (!up) { printf("  FAIL  parse user source\n"); TEST_FAILED(); }
-        else for (int i = 0; i < up->types_count; i++) PUSH(up->types[i]);
-    }
-
-    ast_type_decl_t** arr = (ast_type_decl_t**)bbq_arena_alloc(arena, (size_t)tc * sizeof(*arr));
-    memcpy(arr, types, (size_t)tc * sizeof(*arr));
-    free(types);
-    return ast_program(arena, NULL, NULL, 0, arr, tc);
-    #undef PUSH
+// Build units + run sema; the caller inspects ctx and must sema_destroy it.
+// Returns false if parsing failed (a FAIL was already recorded).
+static bool analyze_into(const char* user_src, bbq_arena* arena, sema_ctx_t* ctx) {
+    jtest_program_t jp;
+    if (!jtest_build(user_src, arena, &jp)) return false;
+    sema_init(ctx, arena);
+    sema_analyze_units(ctx, jp.units, jp.nunits);
+    bbq_vec_free(jp.units);
+    return true;
 }
 
 // Analyze user source against java.lang; return the error count (and dump diags).
 static int analyze(const char* user_src, bool dump) {
     bbq_arena arena; bbq_arena_init(&arena, 1 << 16);
-    ast_program_t* prog = build_program(user_src, &arena);
-    if (!prog) return -1;
     sema_ctx_t ctx;
-    sema_init(&ctx, &arena);
-    sema_analyze(&ctx, prog);
+    if (!analyze_into(user_src, &arena, &ctx)) { bbq_arena_free(&arena); return -1; }
     int n = 0;
     const sema_diag_t* diags = sema_diags(&ctx, &n);
     if (dump) for (int i = 0; i < n; i++)
-        printf("    diag %d:%d  %s\n", diags[i].loc.line, diags[i].loc.col, diags[i].message);
+        printf("    diag %s:%d:%d  %s\n", diags[i].loc.file ? diags[i].loc.file : "<user>",
+               diags[i].loc.line, diags[i].loc.col, diags[i].message);
     int errs = sema_error_count(&ctx);
     sema_destroy(&ctx);              /* 31 htrees/vecs, none of them arena-backed */
     bbq_arena_free(&arena);
     return errs;
+}
+
+// Count WARNING diags of one KIND — the pin for diagnostic precision (a warning
+// that should not fire, or one that must keep firing). Kind is the diagnostic's
+// structural identity; the message is prose and free to be reworded.
+static int warn_count(const char* user_src, sema_diag_kind_t kind) {
+    bbq_arena arena; bbq_arena_init(&arena, 1 << 16);
+    sema_ctx_t ctx;
+    if (!analyze_into(user_src, &arena, &ctx)) { bbq_arena_free(&arena); return -1; }
+    int n = 0, hits = 0;
+    const sema_diag_t* diags = sema_diags(&ctx, &n);
+    for (int i = 0; i < n; i++) {
+        /* This harness analyzes the jre sources as ordinary units, so lib
+         * diags (real ones — the jre has warnings) share the vec with the
+         * fixture's. The USER unit is the one parsed with no file name:
+         * loc.file == NULL is its structural identity, so count only it. */
+        if (diags[i].loc.file != NULL) continue;
+        if (diags[i].level == DIAG_WARNING && diags[i].kind == kind)
+            hits++;
+    }
+    sema_destroy(&ctx);
+    bbq_arena_free(&arena);
+    return hits;
 }
 
 // The (class, "name") → class-local method index lookup the call-graph pins use.
@@ -126,13 +100,13 @@ int main(void) {
     printf("== class initialization analysis (JLS 12.4) ==\n");
     {
         bbq_arena arena; bbq_arena_init(&arena, 1 << 16);
-        ast_program_t* prog = build_program(
+        sema_ctx_t ctx;
+        analyze_into(
             "class A { static int x = 5; }"               /* own static field init → needs */
             "class B { static { int y = 1; } }"           /* static block → needs */
             "class Cc {}"                                 /* nothing → no */
             "class D extends A {}"                        /* super needs → inherits */
-            "class E extends Cc { int z = 3; }", &arena); /* instance init only, clean super → no */
-        sema_ctx_t ctx; sema_init(&ctx, &arena); sema_analyze(&ctx, prog);
+            "class E extends Cc { int z = 3; }", &arena, &ctx); /* instance init only, clean super → no */
         int a=sema_find_class(&ctx,"A"), b=sema_find_class(&ctx,"B"), cc=sema_find_class(&ctx,"Cc"),
             d=sema_find_class(&ctx,"D"), e=sema_find_class(&ctx,"E");
         CHECK(a>=0  && sema_get_class(&ctx,a)->needs_init,   "static field init → needs_init");
@@ -147,10 +121,10 @@ int main(void) {
     // (the barrier target); a class that needs no init gets neither.
     {
         bbq_arena arena; bbq_arena_init(&arena, 1 << 16);
-        ast_program_t* prog = build_program(
+        sema_ctx_t ctx;
+        analyze_into(
             "class N { static int s = 7; }"      /* needs init */
-            "class P {}", &arena);               /* does not */
-        sema_ctx_t ctx; sema_init(&ctx, &arena); sema_analyze(&ctx, prog);
+            "class P {}", &arena, &ctx);         /* does not */
         const sema_class_t* nc = sema_get_class(&ctx, sema_find_class(&ctx, "N"));
         const sema_class_t* pc = sema_get_class(&ctx, sema_find_class(&ctx, "P"));
         bool n_state = false, n_ensure = false, p_ensure = false;
@@ -170,8 +144,8 @@ int main(void) {
     // reference array is represented by it). Structural pin of the synthesis.
     {
         bbq_arena arena; bbq_arena_init(&arena, 1 << 16);
-        ast_program_t* prog = build_program("class T {}", &arena);
-        sema_ctx_t ctx; sema_init(&ctx, &arena); sema_analyze(&ctx, prog);
+        sema_ctx_t ctx;
+        analyze_into("class T {}", &arena, &ctx);
         int ra = sema_refarray_id(&ctx);
         CHECK(ra >= 0, "RefArray synthesized (sema_refarray_id resolved)");
         if (ra >= 0) {
@@ -194,11 +168,11 @@ int main(void) {
     //     (read at each call site, never re-strcmp'd); ordinary methods stay 0.
     {
         bbq_arena arena; bbq_arena_init(&arena, 1 << 16);
-        ast_program_t* prog = build_program("class T {}", &arena);
-        sema_ctx_t ctx; sema_init(&ctx, &arena); sema_analyze(&ctx, prog);
+        sema_ctx_t ctx;
+        analyze_into("class T {}", &arena, &ctx);
         struct { const char* cls; const char* meth; int kind; } want[] = {
-            { "Float",  "floatToRawIntBits",   1 }, { "Float",  "intBitsToFloat",   2 },
-            { "Double", "doubleToRawLongBits", 3 }, { "Double", "longBitsToDouble", 4 },
+            { "java.lang.Float",  "floatToRawIntBits",   1 }, { "java.lang.Float",  "intBitsToFloat",   2 },
+            { "java.lang.Double", "doubleToRawLongBits", 3 }, { "java.lang.Double", "longBitsToDouble", 4 },
         };
         for (int w = 0; w < 4; w++) {
             int cid = sema_find_class(&ctx, want[w].cls);
@@ -211,7 +185,7 @@ int main(void) {
             CHECK(found, want[w].meth);
         }
         // A non-intrinsic method (Float.floatValue) must NOT be stamped.
-        int fid = sema_find_class(&ctx, "Float");
+        int fid = sema_find_class(&ctx, "java.lang.Float");
         const sema_class_t* fc = fid >= 0 ? sema_get_class(&ctx, fid) : NULL;
         for (int i = 0; fc && i < (int)bbq_vec_len(fc->methods); i++)
             if (strcmp(fc->methods[i].name, "floatValue") == 0)
@@ -388,14 +362,14 @@ int main(void) {
     printf("== the defunctionalized call graph (spec §7/§10) ==\n");
     {
         bbq_arena arena; bbq_arena_init(&arena, 1 << 16);
-        ast_program_t* prog = build_program(
+        sema_ctx_t ctx;
+        analyze_into(
             "class A { int m() { return 1; } int n() { return 9; } }"
             "class B extends A { int m() { return 2; } }"
             "class C extends B { }"
             "class D extends A { int m() { return 4; } }"
             "class E { int m() { return 8; } }"
-            "abstract class X { abstract int m(); }", &arena);
-        sema_ctx_t ctx; sema_init(&ctx, &arena); sema_analyze(&ctx, prog);
+            "abstract class X { abstract int m(); }", &arena, &ctx);
         int a = sema_find_class(&ctx, "A"), b = sema_find_class(&ctx, "B"),
             c = sema_find_class(&ctx, "C"), d = sema_find_class(&ctx, "D"),
             e = sema_find_class(&ctx, "E"), x = sema_find_class(&ctx, "X");
@@ -450,6 +424,161 @@ int main(void) {
               "receiver subtyping (§4.10.2), not signature match");
         sema_destroy(&ctx); bbq_arena_free(&arena);
     }
+
+    // ── javelina.simd.V128 value semantics ─────────────────────────────────
+    // The V128 class is nominally a class to the parser but a VALUE width to
+    // sema (resolve_type maps it to JT_V128). The legal positions compile; every
+    // reference-semantics use is a compile error. Each negative pins the
+    // resolve_type hook: with the hook absent, V128 is an ordinary final class
+    // and every one of these compiles — which is exactly the failure mode.
+    // Snippets are unnamed-package units, so the simd names need their §7.5
+    // import — exactly what a real user writes.
+    #define SIMD "import javelina.simd.*; "
+    printf("== javelina.simd V128 value semantics ==\n");
+    CHECK(analyze(SIMD "class C { static V128 f; V128 m(V128 x) { V128 y = x; return y; } }", false) == 0,
+          "V128 local/param/return/static-field declarations compile");
+    CHECK(analyze(SIMD "class C { V128[] a; V128 g(V128[] b) { return b[0]; } }", false) == 0,
+          "V128[] array declarations and element reads compile");
+    CHECK(analyze(SIMD "class C { V128 m() { return null; } }", false) > 0,
+          "V128 is not nullable: `return null` is a compile error");
+    CHECK(analyze(SIMD "class C { boolean m(V128 a, V128 b) { return a == b; } }", false) > 0,
+          "V128 has no == (not numeric, not a reference)");
+    CHECK(analyze(SIMD "class C { Object m(V128 a) { return a; } }", false) > 0,
+          "V128 does not assignment-convert to Object");
+    CHECK(analyze(SIMD "class C { Object m(V128 a) { return (Object)a; } }", false) > 0,
+          "V128 does not cast to Object");
+    CHECK(analyze(SIMD "class C { V128 m(Object o) { return (V128)o; } }", false) > 0,
+          "Object does not cast to V128");
+    CHECK(analyze(SIMD "class C { boolean m(Object o) { return o instanceof V128; } }", false) > 0,
+          "instanceof V128 is a compile error (not a reference type)");
+    CHECK(analyze(SIMD "class C { V128 m(V128 a, V128 b) { return a + b; } }", false) > 0,
+          "no operator arithmetic on V128 (ops are intrinsics, not +)");
+    CHECK(analyze(SIMD "class C { String m(V128 a) { return \"\" + a; } }", false) > 0,
+          "no string concatenation of a V128 (no §5.4 conversion exists)");
+    CHECK(analyze(SIMD "class C { void m(java.util.Vector v, V128 a) { v.addElement(a); } }", false) > 0,
+          "V128 cannot enter Vector (no Object conversion)");
+
+    // ── javelina.simd intrinsic calls + §15.27 immediate validation ────────
+    printf("== javelina.simd intrinsic calls ==\n");
+    CHECK(analyze(SIMD "class C { V128 m(V128 a, V128 b) { return I32x4.add(a, b); } }", false) == 0,
+          "static intrinsic call through the lane class compiles");
+    CHECK(analyze(SIMD "class C { V128 m(V128 a, V128 b) { return V128.and(a, b); } }", false) == 0,
+          "static intrinsic call through V128 itself compiles");
+    CHECK(analyze(SIMD "class C { int m(V128 a) { return I32x4.extract_lane(a, 2); } }", false) == 0,
+          "constant in-range lane compiles");
+    CHECK(analyze(SIMD "class C { int m(V128 a, int i) { return I32x4.extract_lane(a, i); } }", false) > 0,
+          "NON-constant lane is a compile error (no runtime-lane fallback)");
+    CHECK(analyze(SIMD "class C { int m(V128 a) { return I32x4.extract_lane(a, 4); } }", false) > 0,
+          "lane 4 of i32x4 is out of range (0..3)");
+    CHECK(analyze(SIMD "class C { V128 m() { return V128.const_(1L, 2L); } }", false) == 0,
+          "v128.const with constant halves compiles");
+    CHECK(analyze(SIMD "class C { V128 m(long x) { return V128.const_(x, 2L); } }", false) > 0,
+          "v128.const with a non-constant half is a compile error");
+    CHECK(analyze(SIMD "class C { V128 m(V128 a, V128 b) {"
+                  " return I8x16.shuffle(a, b, 0x0706050403020100L, 0x0F0E0D0C0B0A0908L); } }", false) == 0,
+          "shuffle with an in-range constant mask compiles");
+    CHECK(analyze(SIMD "class C { V128 m(V128 a, V128 b) {"
+                  " return I8x16.shuffle(a, b, 0x20L, 0L); } }", false) > 0,
+          "shuffle mask byte 0x20 (32) is out of range (lane indices are 0..31)");
+
+    // ── linear-memory intrinsics (javelina.simd.Mem; §15.27 lane gate) ─────
+    printf("== linear-memory intrinsics (Mem) ==\n");
+    CHECK(analyze(SIMD "class C { V128 m(int p) { return Mem.v128_load(p); } }", false) == 0,
+          "Mem.v128_load(addr) compiles");
+    CHECK(analyze(SIMD "class C { void m(int p, V128 a) { Mem.v128_store(p, a); } }", false) == 0,
+          "Mem.v128_store(addr, v) compiles");
+    CHECK(analyze(SIMD "class C { int m(int p) { return Mem.i32_load(p); } }", false) == 0,
+          "Mem.i32_load(addr) compiles (the scalar family)");
+    CHECK(analyze(SIMD "class C { void m(int p, double d) { Mem.f64_store(p, d); } }", false) == 0,
+          "Mem.f64_store(addr, v) compiles");
+    CHECK(analyze(SIMD "class C { int m() { return Mem.memory_size(); } }", false) == 0,
+          "Mem.memory_size() compiles");
+    CHECK(analyze(SIMD "class C { void m(int d, int s, int n) { Mem.memory_copy(d, s, n); } }", false) == 0,
+          "Mem.memory_copy(dst, src, len) compiles");
+    CHECK(analyze(SIMD "class C { V128 m(int p, V128 a) { return Mem.v128_load8_lane(p, a, 15); } }", false) == 0,
+          "v128_load8_lane lane 15 (max of 16 lanes) compiles");
+    CHECK(analyze(SIMD "class C { V128 m(int p, V128 a) { return Mem.v128_load8_lane(p, a, 16); } }", false) > 0,
+          "v128_load8_lane lane 16 is out of range (0..15)");
+    CHECK(analyze(SIMD "class C { void m(int p, V128 a) { Mem.v128_store64_lane(p, a, 2); } }", false) > 0,
+          "v128_store64_lane lane 2 is out of range (0..1)");
+    CHECK(analyze(SIMD "class C { V128 m(int p, V128 a, int i) { return Mem.v128_load32_lane(p, a, i); } }", false) > 0,
+          "NON-constant memlane lane is a compile error (no runtime-lane fallback)");
+
+    // ── JLS §7 packages + §6.5.4 type-name resolution ──────────────────────
+    // The gates of sober-qualifying-names W1/W2. Before the fix: the class
+    // table was SIMPLE-name keyed (two Mems clobbered each other), imports
+    // were ignored, and every simple name resolved globally.
+    printf("== JLS §7 packages / §6.5.4 resolution ==\n");
+    CHECK(analyze("package a; public class Twin {}", false) == 0,
+          "a named-package compilation unit compiles");
+    CHECK(analyze("class C { V128 f; }", false) > 0,
+          "V128 WITHOUT the import does not resolve (§6.5.4.1 — no global namespace)");
+    CHECK(analyze("class C { javelina.simd.V128 f; javelina.simd.V128 m() { return f; } }", false) == 0,
+          "the fully qualified name works without an import (§6.5.4.2)");
+    CHECK(analyze("import javelina.simd.V128; class C { V128 f; }", false) == 0,
+          "a single-type-import makes the simple name available (§7.5.1)");
+    CHECK(analyze("import javelina.simd.NoSuch; class C {}", false) > 0,
+          "importing a type that does not exist is a compile error (§7.5.1)");
+    CHECK(analyze("import bogus.pkg.*; class C {}", false) > 0,
+          "import-on-demand of an unknown package is a compile error (§7.5.2)");
+    CHECK(analyze("import java.util.Vector; class Vector { }", false) > 0,
+          "the JLS §7.5.1 example: import + same-simple-name local decl = error");
+    CHECK(analyze("import java.util.Vector; import java.io.File; class C {"
+                  " Vector v; java.io.File f; }", false) == 0,
+          "two single-type-imports with distinct simple names coexist");
+    CHECK(analyze("import java.util.Vector; import java.util.Vector; class C { Vector v; }", false) == 0,
+          "a duplicate import of the SAME type is an ignored dup (§7.5.1)");
+    CHECK(analyze("package my; public class Mem { public static int x; }", false) == 0,
+          "a second class named Mem in another package coexists with java.io.Mem (FQN keying)");
+    CHECK(analyze("package java.io; class File {}", false) > 0,
+          "duplicate FQN java.io.File is a compile-time error (was a silent clobber)");
+
+    // Diagnostic quality: the recursion-cycle warning fires on NON-TAIL recursion
+    // only (a pure tail cycle lowers to return_call* — O(1) stack), mirroring the
+    // burg Return(tail) shape exactly: direct return-of-call, exact result type,
+    // outside every protected region. And the AST interval lattice knows `x & m`
+    // is within [0, m] for a non-negative mask — the classic self-bounding index.
+    printf("== warning precision: tail recursion + masked indexes ==\n");
+    CHECK(warn_count("class C { static int f(int n, int a){ if (n == 0) return a;"
+                     " return f(n - 1, a + n); } }", SEMA_DIAG_RECURSION_CYCLE) == 0,
+          "a pure tail-recursive cycle does NOT warn (return_call reuses the frame)");
+    CHECK(warn_count("class C { static int g(int n){ if (n < 2) return n;"
+                     " return g(n - 1) + g(n - 2); } }", SEMA_DIAG_RECURSION_CYCLE) == 1,
+          "non-tail recursion warns (each call grows a frame)");
+    CHECK(warn_count("class C { static int h(int n){ try { if (n == 0) return 0;"
+                     " return h(n - 1); } catch (RuntimeException e) { return 1; } } }",
+                     SEMA_DIAG_RECURSION_CYCLE) == 1,
+          "a `return h(...)` INSIDE a try is a non-tail edge (the frame holds the handlers)");
+    CHECK(warn_count("class C { static int k(int x){ int[] a = new int[8];"
+                     " return a[x & 7]; } }", SEMA_DIAG_ARRAY_BOUNDS) == 0,
+          "a[x & 7] on int[8] is provably in bounds (mask rule) — no warning");
+    CHECK(warn_count("class C { static int m(int x){ int[] a = new int[8];"
+                     " return a[x & 15]; } }", SEMA_DIAG_ARRAY_BOUNDS) == 1,
+          "a[x & 15] on int[8] still warns — the checker did not go blind");
+
+    /* ── Two-lattice parity (the sema side of the plan's audit table; the
+     * Click twins live in test_sir's "range strides" + parity blocks — a
+     * rule added to one side must be added to the other or its twin pin
+     * goes red). */
+    printf("== interval parity: shift / narrowing conv / length / wrap ==\n");
+    CHECK(warn_count("class C { static int f(int x){ int[] a = new int[8];"
+                     " return a[(x & 3) << 1]; } }", SEMA_DIAG_ARRAY_BOUNDS) == 0,
+          "spec T2 <<: a[(x & 3) << 1] is [0,6] on int[8] — no warning");
+    CHECK(warn_count("class C { static int g(int x){ if (x < 0) return 0; if (x > 299) return 0;"
+                     " int[] a = new int[300]; return a[(byte) x]; } }",
+                     SEMA_DIAG_ARRAY_BOUNDS) == 1,
+          "SOUNDNESS: (byte)x of [0,299] does NOT fit — the cast can go negative, warn");
+    CHECK(warn_count("class C { static int h(int x){ if (x < 0) return 0; if (x > 100) return 0;"
+                     " int[] a = new int[128]; return a[(byte) x]; } }",
+                     SEMA_DIAG_ARRAY_BOUNDS) == 0,
+          "(byte)x of [0,100] FITS — the interval passes through, no warning");
+    CHECK(warn_count("class C { static int k(int[] a){ int[] b = new int[4];"
+                     " return b[a.length % 4]; } }", SEMA_DIAG_ARRAY_BOUNDS) == 0,
+          "spec T3: ANY length is >= 0, so length % 4 is [0,3] — no warning");
+    CHECK(warn_count("class C { static int w(int x){ if (x < 0) return 0;"
+                     " int[] a = new int[8]; return a[(x * 4) % 8]; } }",
+                     SEMA_DIAG_ARRAY_BOUNDS) == 1,
+          "SOUNDNESS: x*4 can WRAP int for large x, so %8 can go negative — warn");
 
     return TEST_SUMMARY("test_sema");
 }

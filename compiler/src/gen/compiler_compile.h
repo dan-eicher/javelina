@@ -16,7 +16,6 @@
 #include <string.h>
 
 /* ─── ddcgc-emitted list/tuple helpers ─── */
-#include <stdlib.h>
 #include <string.h>
 
 typedef struct {
@@ -635,6 +634,12 @@ int ddcg_sema_ident_kind(ddcg_ctx_t* ctx, ast_expr_t* _arg0);
 int ddcg_sema_ident_slot(ddcg_ctx_t* ctx, ast_expr_t* _arg0);
 int ddcg_sema_move_intrinsic_kind(ddcg_ctx_t* ctx, ast_expr_t* _arg0);
 int ddcg_sema_math_intrinsic_kind(ddcg_ctx_t* ctx, ast_expr_t* _arg0);
+int ddcg_sema_simd_family(ddcg_ctx_t* ctx, ast_expr_t* _arg0);
+int ddcg_sema_simd_op(ddcg_ctx_t* ctx, ast_expr_t* _arg0);
+int ddcg_sema_simd_lane(ddcg_ctx_t* ctx, ast_expr_t* _arg0);
+int ddcg_sema_simd_align(ddcg_ctx_t* ctx, ast_expr_t* _arg0);
+int ddcg_sema_simd_awidth(ddcg_ctx_t* ctx, ast_expr_t* _arg0);
+int ddcg_sema_simd_fill(ddcg_ctx_t* ctx, sir_node_t* _arg0, ast_expr_t* _arg1);
 int ddcg_sema_class_intrinsic_kind(ddcg_ctx_t* ctx, ast_expr_t* _arg0);
 sir_datatype_t ddcg_sema_ident_dt(ddcg_ctx_t* ctx, ast_expr_t* _arg0);
 sir_node_t* ddcg_sema_ident_ref(ddcg_ctx_t* ctx, ast_expr_t* _arg0);
@@ -743,9 +748,8 @@ bool ddcg_is_guarded_intdiv(ddcg_ctx_t* ctx, ast_expr_t* _arg0);
 bool ddcg_sema_is_arraycopy(ddcg_ctx_t* ctx, ast_expr_t* _arg0);
 bool ddcg_sema_is_move_intrinsic(ddcg_ctx_t* ctx, ast_expr_t* _arg0);
 bool ddcg_sema_is_math_intrinsic(ddcg_ctx_t* ctx, ast_expr_t* _arg0);
+bool ddcg_sema_is_simd_intrinsic(ddcg_ctx_t* ctx, ast_expr_t* _arg0);
 bool ddcg_sema_is_class_intrinsic(ddcg_ctx_t* ctx, ast_expr_t* _arg0);
-bool ddcg_sema_is_memload8(ddcg_ctx_t* ctx, ast_expr_t* _arg0);
-bool ddcg_sema_is_memstore8(ddcg_ctx_t* ctx, ast_expr_t* _arg0);
 bool ddcg_ident_is_local_or_param(ddcg_ctx_t* ctx, ast_expr_t* _arg0);
 bool ddcg_ident_is_instance_field(ddcg_ctx_t* ctx, ast_expr_t* _arg0);
 bool ddcg_ident_is_static_field(ddcg_ctx_t* ctx, ast_expr_t* _arg0);
@@ -827,6 +831,8 @@ sir_node_t* ddcg_zero_const(ddcg_ctx_t* ctx, sir_datatype_t dt);
 sir_node_t* ddcg_neg_one_const(ddcg_ctx_t* ctx, sir_datatype_t dt);
 sir_node_t* ddcg_div_overflow_arm(ddcg_ctx_t* ctx, int t_a, int t_b, sir_datatype_t lhs_dt, sir_datatype_t rhs_dt, sir_datatype_t ct, delta_t delta, gamma_t gamma, sir_node_t* Lnext);
 sir_node_t* ddcg_throw_new_noarg(ddcg_ctx_t* ctx, int exc_class, rho_t r);
+sir_node_t* ddcg_mem_bounds_guard(ddcg_ctx_t* ctx, int t_addr, int width, sir_node_t* ok, rho_t r);
+sir_node_t* ddcg_mem_range_guard(ddcg_ctx_t* ctx, int t_base, int t_len, sir_node_t* ok, rho_t r);
 sir_node_t* ddcg_null_guard(ddcg_ctx_t* ctx, int t_a, sir_node_t* ok, rho_t r);
 sir_node_t* ddcg_bounds_guard(ddcg_ctx_t* ctx, int t_a, int t_i, sir_node_t* eref, sir_datatype_t width, sir_node_t* ok, rho_t r);
 sir_node_t* ddcg_arraystore_guard(ddcg_ctx_t* ctx, int t_a, int t_v, sir_node_t* ok, rho_t r);

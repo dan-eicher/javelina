@@ -2,7 +2,7 @@ package java.io;
 
 // javelina-internal host I/O surface (WASI-shaped): these natives are supplied by the embedder and
 // operate on OFFSETS into the module's I/O staging linear memory (the GC-byte[]↔linear-memory bounce
-// buffer). The guest copies a byte[] into the memory (via Mem.store8), then hands the host an
+// buffer). The guest copies a byte[] into the memory (via Mem.i32_store8), then hands the host an
 // (offset, length); the host touches only linear memory (wasm_memory_data). `checksum` is a probe.
 public final class HostIO {
     private HostIO() {}

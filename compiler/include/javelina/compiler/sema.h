@@ -33,6 +33,9 @@ typedef enum {
     JT_LONG,    /* 64-bit */
     JT_FLOAT,   /* 32-bit IEEE */
     JT_DOUBLE,  /* 64-bit IEEE */
+    JT_V128,    /* WASM v128 (SIMD) — the javelina.simd value type; not a JLS type,
+                 * appended before the sentinel so jtype_meta's high entry still
+                 * sizes the tables */
     JT_ERROR    /* error sentinel — suppresses cascading errors */
 } java_type_tag_t;
 
@@ -121,6 +124,7 @@ static inline bool jt_eq(java_type_t a, java_type_t b) {
 #define SEMA_DT_LONG   5
 #define SEMA_DT_FLOAT  6
 #define SEMA_DT_DOUBLE 7
+#define SEMA_DT_V128   8
 
 /* ── Ident kind enum (returned by sema_ident_kind) ─────────────────
  *
@@ -132,6 +136,9 @@ typedef enum {
     SEMA_IDENT_PARAM,           /* method parameter or `this` */
     SEMA_IDENT_INSTANCE_FIELD,  /* unqualified instance field of current class */
     SEMA_IDENT_STATIC_FIELD,    /* unqualified static field */
+    SEMA_IDENT_CLASSREF,        /* a class name used as a value base (§6.5.4) —
+                                 * recorded so downstream passes never re-resolve
+                                 * the name (resolution is unit-relative) */
 } sema_ident_kind_t;
 
 /* ── Invoke kind enum (returned by sema_invoke_kind) ───────────────
@@ -196,6 +203,8 @@ typedef struct {
     int math_kind;                /* f64 math-op intrinsic (0 none, 1 sqrt, 2 floor, 3 ceil, 4 rint) — §20.11 */
     int class_kind;               /* §20.3.6 Class.newInstance intrinsic over the receiver Class:
                                    * 0 none, 1 instantiable? (i32), 2 construct (ref) — lowers inline, never a call */
+    int simd_id;                  /* javelina.simd intrinsic: 0 none, else 1 + the row index into the
+                                   * generated simd_intrinsics[] table (family/wop/lanes live THERE) */
 } sema_method_t;                  /* stamped once in resolve_wellknown_methods — READ, not re-strcmp'd. */
 
 typedef struct {
@@ -210,7 +219,9 @@ typedef struct {
     bool is_interface;
     bool needs_init;               /* JLS §12.4: has static field-init/static-block, OR super needs_init.
                                     * Gates the §12.4.2 init barrier at active-use sites. */
-    int import_pkg;                /* index into ctx->import_pkgs, -1 if local */
+    int import_pkg;                /* >=0 marks a bundled-library class (host-import side of the
+                                    * module split), -1 = user code. Historical name. */
+    int unit_idx;                  /* owning compilation unit (ctx->units), -1 = synthetic */
     ast_type_decl_t* ast_node;     /* back-pointer */
 } sema_class_t;
 
@@ -246,7 +257,6 @@ typedef struct {
     int arraycopy_method_id;     /* System.arraycopy(Object,int,Object,int,int)'s index (§20.18.16) */
     int float_id;                /* java.lang.Float — the raw bit-accessor Move* intrinsics' target */
     int double_id;               /* java.lang.Double — likewise (doubleToRawLongBits/longBitsToDouble) */
-    int mem_id;                  /* the I/O staging-memory intrinsic class (Mem.load8/store8 → MemLoad8/MemStore8) */
     int math_id;                 /* java.lang.Math — also the §15.17.3 float-remainder helper's home */
     int fmod_float_id;           /* Math.fmod(float,float)   — `float % float`  (WASM has no f32.rem) */
     int fmod_double_id;          /* Math.fmod(double,double) — `double % double` (no f64.rem either) */
@@ -282,15 +292,30 @@ typedef struct {
      * keyed by SIR datatype so char has its own overlay/backing typeidx distinct from
      * short (they'd share i16 bytes but are distinct WASM array types): 0=byte(+bool)
      * 1=short 2=char 3=int 4=long 5=float 6=double. */
-    int primarray_ids[7];
+    int primarray_ids[8];
+    /* javelina.simd.V128 — the v128 VALUE class. resolve_type maps this class to
+     * jt_prim(JT_V128) at every use site, so a V128 is never a reference. -1 when
+     * the simd library is absent (soft — plain-Java programs need no simd). */
+    int v128_id;
 } sema_wellknown_t;
 
 /* ── Diagnostics ──────────────────────────────────────────── */
 
 typedef enum { DIAG_ERROR, DIAG_WARNING } diag_level_t;
 
+/* Diagnostic identity — what a test (or tool) matches on. The message is
+ * PROSE, free to be reworded; the kind is the contract. GENERIC (0) is the
+ * default for diagnostics no consumer needs to discriminate yet. */
+typedef enum {
+    SEMA_DIAG_GENERIC = 0,
+    SEMA_DIAG_RECURSION_CYCLE,   /* non-tail recursion can exhaust the stack */
+    SEMA_DIAG_ARRAY_BOUNDS,      /* index not provably within [0, length)    */
+    SEMA_DIAG_NARROWING_CAST,    /* value range exceeds the cast target      */
+} sema_diag_kind_t;
+
 typedef struct {
     diag_level_t level;
+    sema_diag_kind_t kind;
     ast_srcloc loc;
     char message[256];
 } sema_diag_t;
@@ -305,14 +330,19 @@ typedef struct {
     const ast_expr_t* init_expr;  /* declaration-site initializer, or NULL — §15.27 constant variables */
 } sema_var_t;
 
-/* ── Imported package metadata ────────────────────────────── */
+/* ── Compilation units (JLS §7.3) ─────────────────────────── */
 
+/* One compilation unit: its package (§7.4) and its validated import lists
+ * (§7.5). Built by sema_analyze_units from each parsed program, in input
+ * order. Synthetic classes (RefArray, the overlays, array Classes) carry
+ * unit_idx -1: internal, unnamed package, no imports. */
 typedef struct {
-    uint8_t aid[16];
-    uint8_t aid_len;
-    uint8_t major_version;
-    uint8_t minor_version;
-} sema_import_pkg_t;
+    const char* package;     /* interned "java.io", or NULL = unnamed (§7.4.2) */
+    const char** singles;    /* bbq_vec: single-type-import FQNs (§7.5.1), source order */
+    const char** ondemands;  /* bbq_vec: on-demand package names (§7.5.2);
+                              * "java.lang" is always present (§7.5.3) */
+    const ast_program_t* prog;
+} sema_unit_t;
 
 typedef struct { const char* name; bool is_loop; } sema_label_t;
 
@@ -380,6 +410,9 @@ typedef struct {
     bbq_htree* resolved_methods; /* MethodCall* → sema_method_t* */
     bbq_htree* resolved_fields;  /* FieldAccess* → sema_field_t* */
     bbq_htree* data_types;       /* ast_expr_t* → (int)(SEMA_DT_* + 1) */
+    bbq_htree* simd_imms;        /* simd MethodCall* → sema_simd_imm_t* (validated §15.27
+                                  * lane / const halves / shuffle mask — the ddcg reads
+                                  * these as SIR payloads, never re-evaluating) */
     bbq_htree* slot_allocs;      /* decl ptr → (int)(slot + 1) */
     bbq_htree* local_types;      /* var_decl ptr → java_type_t* (the resolved declared type, for the slot's ref descriptor) */
     bbq_htree* ident_kinds;      /* AST_IDENT* → sema_ident_info_t* */
@@ -392,13 +425,20 @@ typedef struct {
     bbq_htree* switch_infos;      /* AST_SWITCH stmt → sema_switch_info_t* */
     bbq_htree* break_target_depths;    /* AST_BREAK*    → (int)(depth + 1) */
     bbq_htree* continue_target_depths; /* AST_CONTINUE* → (int)(depth + 1) */
+    bbq_htree* type_class_ids;   /* ast_type_t* (CLASSTYPE) → (int)(class_id + 1) —
+                                  * recorded by resolve_type, THE §6.5.4 resolution of
+                                  * each spelled type node. Post-sema queries (catch
+                                  * class, instanceof/cast target) read this record;
+                                  * they never re-resolve (resolution is unit-relative). */
 
     /* True once a throw/try is seen during analysis → the module needs the
      * exception tag section + tag functype. (Default false; set on sighting.) */
     bool uses_exceptions;
 
-    /* Imported packages (bbq_vec of sema_import_pkg_t, index = package_token) */
-    sema_import_pkg_t* import_pkgs;
+    /* Compilation units (bbq_vec of sema_unit_t) — §7.3. Class → unit via
+     * sema_class_t.unit_idx; the unit carries the package + import lists
+     * type-name resolution (§6.5.4.1) reads. */
+    sema_unit_t* units;
 
     /* Library boundary (INPUT, set by the driver before sema_analyze): the first
      * `num_library_classes` registered classes are the bundled java.lang runtime
@@ -465,6 +505,12 @@ void sema_init(sema_ctx_t* ctx, bbq_arena* arena);
 /* Run semantic analysis on a parsed program. Returns true if no errors.
  * After analysis, ctx->functions holds the emitted-function table (see below). */
 bool sema_analyze(sema_ctx_t* ctx, ast_program_t* program);
+
+/* The §7.3-correct entry: one parsed program PER COMPILATION UNIT, each
+ * carrying its own package declaration and import list. Classes register by
+ * fully qualified name (§7.4.1); type names resolve per §6.5.4 against the
+ * referencing unit's package + imports. sema_analyze(p) = the 1-unit case. */
+bool sema_analyze_units(sema_ctx_t* ctx, ast_program_t** units, int n);
 
 
 /* Is `m` (declared in `class_id`) emitted as a defined module function? True iff
@@ -582,10 +628,20 @@ int  sema_move_intrinsic_kind(const sema_ctx_t* ctx, const ast_expr_t* node); /*
 bool sema_is_move_intrinsic(const sema_ctx_t* ctx, const ast_expr_t* node);   /* the predicate form (move_kind != 0) — the ddcg where-guard */
 int  sema_math_intrinsic_kind(const sema_ctx_t* ctx, const ast_expr_t* node); /* Math.sqrt/floor/ceil/rint → f64 op (0 none, 1 sqrt, 2 floor, 3 ceil, 4 rint) */
 bool sema_is_math_intrinsic(const sema_ctx_t* ctx, const ast_expr_t* node);   /* the predicate form (math_kind != 0) — the ddcg where-guard */
+
+/* javelina.simd intrinsics — resolved-call accessors over the generated table
+ * (family/op) and the validated-immediates stash (lane / const halves). */
+typedef struct { int32_t lane; int64_t lo, hi; } sema_simd_imm_t;
+bool    sema_is_simd_intrinsic(const sema_ctx_t* ctx, const ast_expr_t* node);
+int     sema_simd_family(const sema_ctx_t* ctx, const ast_expr_t* node);  /* 1..23, 0 none */
+int     sema_simd_op(const sema_ctx_t* ctx, const ast_expr_t* node);      /* the WOP_* enum value */
+int     sema_simd_align(const sema_ctx_t* ctx, const ast_expr_t* node);   /* memarg/memlane rows: the toml align column */
+int     sema_simd_awidth(const sema_ctx_t* ctx, const ast_expr_t* node);  /* the access width in bytes (1 << align) */
+int32_t sema_simd_lane(const sema_ctx_t* ctx, const ast_expr_t* node);
+int64_t sema_simd_lo(const sema_ctx_t* ctx, const ast_expr_t* node);
+int64_t sema_simd_hi(const sema_ctx_t* ctx, const ast_expr_t* node);
 int  sema_class_intrinsic_kind(const sema_ctx_t* ctx, const ast_expr_t* node); /* §20.3.6 Class.newInstance helper (0 none, 1 instantiable?, 2 construct) */
 bool sema_is_class_intrinsic(const sema_ctx_t* ctx, const ast_expr_t* node);   /* the predicate form (class_kind != 0) — the ddcg where-guard */
-bool sema_is_memload8(const sema_ctx_t* ctx, const ast_expr_t* node);         /* Mem.load8(addr)  → MemLoad8  (i32.load8_u) */
-bool sema_is_memstore8(const sema_ctx_t* ctx, const ast_expr_t* node);        /* Mem.store8(a,v)  → MemStore8 (i32.store8) */
 int sema_class_reflect_id(const sema_ctx_t* ctx);   /* java.lang.Class's class id */
 int sema_refarray_id(const sema_ctx_t* ctx);        /* the synthesized RefArray class id (§10) */
 int sema_primarray_id(const sema_ctx_t* ctx, int storage_index);  /* the per-width PrimArray overlay id (§10.7/§10.8) */
@@ -670,6 +726,13 @@ bool sema_int_constant(const sema_ctx_t* ctx, const ast_expr_t* e,
 
 /* Look up a class by name (returns -1 if not found). */
 int sema_find_class(const sema_ctx_t* ctx, const char* name);
+
+/* §6.5.4: the meaning of a type name `spelled` (simple or qualified) as seen
+ * from compilation unit `ui` (-1 = no unit context: FQN-or-unnamed only).
+ * `probe` suppresses error emission (§6.5.2 reclassification probes).
+ * Returns the class id, or -1. */
+int sema_resolve_type(sema_ctx_t* ctx, int ui, const char* spelled,
+                      ast_srcloc loc, bool probe);
 
 /* Get class info by index. */
 const sema_class_t* sema_get_class(const sema_ctx_t* ctx, int class_id);
@@ -831,7 +894,6 @@ const sema_method_t* sema_implementing_method(const sema_ctx_t* ctx,
                                                 const sema_method_t* iface_method);
 
 /* Get imported packages registered via sema_load_export(). */
-const sema_import_pkg_t* sema_get_imports(const sema_ctx_t* ctx, int* count);
 
 /* Function imports = the distinct native (bodiless) methods a resolved call
  * targets, in funcidx order. The backend numbers these [0, count) and offsets

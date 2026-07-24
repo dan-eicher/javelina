@@ -280,8 +280,8 @@ int32_t lat_refarray_class(const sema_ctx_t* sema) {
 }
 
 /* The per-width PrimArray overlay index (0=i8 1=i16-short 2=i16-char 3=i32
- * 4=i64 5=f32 6=f64) — the WASM backing width a primitive element packs into
- * (byte/bool→i8; char gets its own i16 slot, distinct from short). */
+ * 4=i64 5=f32 6=f64 7=v128) — the WASM backing width a primitive element packs
+ * into (byte/bool→i8; char gets its own i16 slot, distinct from short). */
 int lat_prim_storage_index(sir_datatype_t dt) {
     switch (dt) {
     case SIR_DTBYTE:   return 0;   /* i8 (byte; boolean folds here) */
@@ -290,6 +290,7 @@ int lat_prim_storage_index(sir_datatype_t dt) {
     case SIR_DTLONG:   return 4;
     case SIR_DTFLOAT:  return 5;
     case SIR_DTDOUBLE: return 6;
+    case SIR_DTV128:   return 7;   /* v128 — its own (array v128) backing */
     default:           return 3;   /* i32 (int) */
     }
 }
@@ -298,12 +299,42 @@ int32_t lat_primarray_class(const sema_ctx_t* sema, sir_datatype_t dt) {
     return sema_primarray_id(sema, lat_prim_storage_index(dt));
 }
 
+/* The inverse of lat_prim_storage_index — order-locked to it BY CONSTRUCTION
+ * (test_lattice pins the round trip over all 8 widths). */
+sir_datatype_t lat_prim_storage_dt(int si) {
+    switch (si) {
+    case 0:  return SIR_DTBYTE;
+    case 1:  return SIR_DTSHORT;
+    case 2:  return SIR_DTCHAR;
+    case 4:  return SIR_DTLONG;
+    case 5:  return SIR_DTFLOAT;
+    case 6:  return SIR_DTDOUBLE;
+    case 7:  return SIR_DTV128;
+    default: return SIR_DTINT;   /* 3 */
+    }
+}
+
+/* Primitive dt → array-element type: the inverse of lat_atype_to_dt over the
+ * primitive widths (byte carries boolean's storage too, per that map). */
+sir_atype_t lat_dt_to_atype(sir_datatype_t dt) {
+    switch (dt) {
+    case SIR_DTBYTE:   return SIR_ATBYTE;
+    case SIR_DTSHORT:  return SIR_ATSHORT;
+    case SIR_DTCHAR:   return SIR_ATCHAR;
+    case SIR_DTLONG:   return SIR_ATLONG;
+    case SIR_DTFLOAT:  return SIR_ATFLOAT;
+    case SIR_DTDOUBLE: return SIR_ATDOUBLE;
+    case SIR_DTV128:   return SIR_ATV128;
+    default:           return SIR_ATINT;
+    }
+}
+
 /* The overlay's backing-store cell: RefArray.data is field 1 (elementClass is 0),
  * a PrimArray's data is field 0. Both are written once, by the allocation that
  * creates the overlay, and are invisible to Java. */
 bool lat_is_array_data_cell(const sema_ctx_t* sema, int32_t class_id, int field_idx) {
     if (class_id == sema_refarray_id(sema)) return field_idx == 1;
-    for (int si = 0; si < 7; si++)
+    for (int si = 0; si < 8; si++)
         if (class_id == sema_primarray_id(sema, si)) return field_idx == 0;
     return false;
 }
@@ -332,6 +363,7 @@ lat_valtype_t lat_dt_valtype(sir_datatype_t dt) {
     case SIR_DTFLOAT:  return LAT_VT_F32;
     case SIR_DTDOUBLE: return LAT_VT_F64;
     case SIR_DTREF:    return LAT_VT_REF;
+    case SIR_DTV128:   return LAT_VT_V128;
     default:           return LAT_VT_I32;   /* byte/short/char/int */
     }
 }
@@ -345,6 +377,7 @@ sir_datatype_t lat_tag_to_dt(int32_t jt_tag) {
     case JT_LONG:               return SIR_DTLONG;
     case JT_FLOAT:              return SIR_DTFLOAT;
     case JT_DOUBLE:             return SIR_DTDOUBLE;
+    case JT_V128:               return SIR_DTV128;
     default:                    return SIR_DTREF;
     }
 }
@@ -364,6 +397,7 @@ sir_atype_t lat_tag_to_atype(int32_t jt_tag) {
     case JT_DOUBLE: return SIR_ATDOUBLE;
     case JT_CLASS:  return SIR_ATCLASS;
     case JT_ARRAY:  return SIR_ATREFARRAY;
+    case JT_V128:   return SIR_ATV128;
     default:        return SIR_ATINT;
     }
 }
@@ -378,6 +412,7 @@ sir_datatype_t lat_atype_to_dt(sir_atype_t atype) {
     case SIR_ATLONG:   return SIR_DTLONG;
     case SIR_ATFLOAT:  return SIR_DTFLOAT;
     case SIR_ATDOUBLE: return SIR_DTDOUBLE;
+    case SIR_ATV128:   return SIR_DTV128;
     default:           return SIR_DTREF;    /* ATCLASS / ATREFARRAY */
     }
 }
@@ -419,6 +454,7 @@ java_type_tag_t lat_promote(java_type_t a, java_type_t b) {
 
 sir_datatype_t lat_promote_dt(sir_datatype_t a, sir_datatype_t b) {
     if (a == SIR_DTREF    || b == SIR_DTREF)    return SIR_DTREF;    /* refs: no promo */
+    if (a == SIR_DTV128   || b == SIR_DTV128)   return SIR_DTV128;   /* v128: no promo (like ref) */
     if (a == SIR_DTDOUBLE || b == SIR_DTDOUBLE) return SIR_DTDOUBLE;
     if (a == SIR_DTFLOAT  || b == SIR_DTFLOAT)  return SIR_DTFLOAT;
     if (a == SIR_DTLONG   || b == SIR_DTLONG)   return SIR_DTLONG;
@@ -432,6 +468,10 @@ sir_datatype_t lat_unary_promote_dt(sir_datatype_t a) {
 
 lat_conv_t lat_num_conv(sir_datatype_t from, sir_datatype_t to) {
     if (from == to) return LAT_CONV_IDENTITY;
+    /* v128 has NO numeric conversions — crossing is spelled as intrinsics
+     * (splat/extract), never a cast. Guarded before the per-case fallthroughs,
+     * which would otherwise claim IDENTITY/I2B/… for a v128 operand. */
+    if (from == SIR_DTV128 || to == SIR_DTV128) return LAT_CONV_NONE;
     switch (to) {
     case SIR_DTBYTE:
         if (from == SIR_DTLONG)   return LAT_CONV_L2B;

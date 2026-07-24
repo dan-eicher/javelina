@@ -6,6 +6,7 @@
 #include "javelina/compiler/wasm_types.h"
 #include "javelina/compiler/type_lattice.h"   /* lat_value_class / lat_root_class */
 #include "bbq_vec.h"
+#include <stdio.h>    /* the loud unmapped-datatype default */
 #include <string.h>
 #include <stdlib.h>
 
@@ -107,8 +108,15 @@ int32_t wasm_types_array_for_dt(wasm_types_t* wt, sir_datatype_t dt) {
         case SIR_DTCHAR:   e = jt_prim(JT_CHAR);   break;
         case SIR_DTBYTE:   e = jt_prim(JT_BYTE);   break;
         case SIR_DTSHORT:  e = jt_prim(JT_SHORT);  break;
+        case SIR_DTV128:   e = jt_prim(JT_V128);   break;
         case SIR_DTREF:    e = jt_null();          break;  /* one covariant ref-array type */
-        default:           e = jt_prim(JT_INT);    break;
+        case SIR_DTINT:    e = jt_prim(JT_INT);    break;
+        default:
+            /* Every width is enumerated above — a tag landing here is a NEW
+             * width nobody taught this map (exactly how v128 arrays silently
+             * became (array i32), a §7.6 mismatch). Loud, not int. */
+            fprintf(stderr, "wasm_types_array_for_dt: unmapped datatype %d\n", (int)dt);
+            abort();
     }
     return wasm_types_array_typeidx(wt, e);
 }
@@ -165,6 +173,7 @@ static java_type_t jt_of_dt(sir_datatype_t dt) {
         case SIR_DTLONG:   return jt_prim(JT_LONG);
         case SIR_DTFLOAT:  return jt_prim(JT_FLOAT);
         case SIR_DTDOUBLE: return jt_prim(JT_DOUBLE);
+        case SIR_DTV128:   return jt_prim(JT_V128);
         default:           return jt_prim(JT_INT);  /* byte/short/int/char unpack to i32 */
     }
 }
@@ -204,6 +213,7 @@ int32_t wasm_types_array_for_atype(wasm_types_t* wt, sir_atype_t at) {
         case SIR_ATLONG:   e = jt_prim(JT_LONG);   break;
         case SIR_ATFLOAT:  e = jt_prim(JT_FLOAT);  break;
         case SIR_ATDOUBLE: e = jt_prim(JT_DOUBLE); break;
+        case SIR_ATV128:   e = jt_prim(JT_V128);   break;
         default:           e = jt_prim(JT_INT);    break;  /* ATINT (ATCLASS/ATREFARRAY: ref arrays) */
     }
     return wasm_types_array_typeidx(wt, e);
@@ -214,6 +224,7 @@ void wasm_types_emit_valtype(wasm_types_t* wt, emit_wasm_ctx* e, java_type_t t) 
         case JT_LONG:   ew_byte(e, W_VT_I64); break;
         case JT_FLOAT:  ew_byte(e, W_VT_F32); break;
         case JT_DOUBLE: ew_byte(e, W_VT_F64); break;
+        case JT_V128:   ew_byte(e, W_VT_V128); break;
         case JT_CLASS:  /* lat_value_class: interface → root object representation */
             wasm_types_emit_ref(e, wasm_types_class_typeidx(wt, lat_value_class(wt->sema, t.class_id)));
             break;
@@ -1064,6 +1075,9 @@ static void emit_global_default(wasm_types_t* wt, emit_wasm_ctx* out, java_type_
         case JT_LONG:   ew_byte(out, 0x42); ew_i64(out, 0);    break;  /* i64.const 0 */
         case JT_FLOAT:  ew_byte(out, 0x43); ew_f32(out, 0.0f); break;  /* f32.const 0 */
         case JT_DOUBLE: ew_byte(out, 0x44); ew_f64(out, 0.0);  break;  /* f64.const 0 */
+        case JT_V128:   ew_byte(out, 0xFD); ew_byte(out, 0x0C);        /* v128.const 0 (0xFD 12 + 16 bytes) */
+                        for (int vb = 0; vb < 16; vb++) ew_byte(out, 0);
+                        break;
         case JT_CLASS:  ew_byte(out, 0xD0); ew_i64(out, wasm_types_class_typeidx(wt, t.class_id)); break;
         case JT_ARRAY:  ew_byte(out, 0xD0); ew_i64(out, wasm_types_value_array_typeidx(wt, t)); break;
         default:        ew_byte(out, 0x41); ew_i32(out, 0);    break;  /* i32.const 0 (byte/short/int/char/bool) */
@@ -1223,6 +1237,9 @@ static void emit_field_default(wasm_types_t* wt, emit_wasm_ctx* e, java_type_t t
         case JT_LONG:   ew_emit(e, WOP_I64_CONST); ew_i64(e, 0);    break;
         case JT_FLOAT:  ew_emit(e, WOP_F32_CONST); ew_f32(e, 0.0f); break;
         case JT_DOUBLE: ew_emit(e, WOP_F64_CONST); ew_f64(e, 0.0);  break;
+        case JT_V128:   ew_emit(e, WOP_V128_CONST);                          /* v128.const 0 */
+                        for (int vb = 0; vb < 16; vb++) ew_byte(e, 0);
+                        break;
         case JT_CLASS:  ew_emit(e, WOP_REF_NULL);  ew_i64(e, wasm_types_class_typeidx(wt, lat_value_class(wt->sema, t.class_id))); break;  /* interface → root, matching the field decl (emit_valtype) */
         case JT_ARRAY:  ew_emit(e, WOP_REF_NULL);  ew_i64(e, wasm_types_value_array_typeidx(wt, t)); break;
         default:        ew_emit(e, WOP_I32_CONST); ew_i32(e, 0);    break;  /* byte/short/int/char/bool */

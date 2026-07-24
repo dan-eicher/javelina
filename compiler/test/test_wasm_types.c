@@ -15,39 +15,11 @@
 
 #include "javelina_test.h"
 
-static char* read_file(const char* path) {
-    FILE* f = fopen(path, "rb"); if (!f) return NULL;
-    fseek(f, 0, SEEK_END); long n = ftell(f); fseek(f, 0, SEEK_SET);
-    char* b = (char*)malloc((size_t)n + 1);
-    if (fread(b, 1, (size_t)n, f) != (size_t)n) { fclose(f); free(b); return NULL; }
-    b[n] = 0; fclose(f); return b;
-}
-static ast_program_t* parse_src(const char* src) {
-    java_parse_ctx_t* pc = (java_parse_ctx_t*)malloc(sizeof(*pc));
-    bbq_arena_init(&pc->arena, 1 << 16); pc->result = NULL; pc->file = NULL;
-    peg_state p; java_parser_init(&p, src, (int)strlen(src)); p.user_data = pc;
-    return java_parser_parse(&p) ? pc->result : NULL;
-}
-static ast_program_t* build_program(const char* user_src, bbq_arena* arena) {
-    ast_type_decl_t** t = NULL; int tc = 0, cap = 0;
-    #define PUSH(td) do { if(tc==cap){cap=cap?cap*2:64;t=realloc(t,(size_t)cap*sizeof(*t));} t[tc++]=(td);}while(0)
-    DIR* d = opendir("lib/java/lang");
-    if (d) { struct dirent* e;
-        while ((e = readdir(d))) { size_t L=strlen(e->d_name);
-            if (L<6 || strcmp(e->d_name+L-5,".java")) continue;
-            char path[512]; snprintf(path,sizeof path,"lib/java/lang/%s",e->d_name);
-            char* s = read_file(path); if(!s) continue;
-            ast_program_t* p = parse_src(s); if(!p) continue;
-            for (int i=0;i<p->types_count;i++) PUSH(p->types[i]);
-        } closedir(d);
-    }
-    ast_program_t* up = parse_src(user_src);
-    if (up) for (int i=0;i<up->types_count;i++) PUSH(up->types[i]);
-    ast_type_decl_t** arr = bbq_arena_alloc(arena,(size_t)tc*sizeof(*arr));
-    memcpy(arr,t,(size_t)tc*sizeof(*arr)); free(t);
-    return ast_program(arena, NULL, NULL, 0, arr, tc);
-    #undef PUSH
-}
+/* The §7.3-correct prelude+user parse — per-unit programs (jtest_units.h).
+ * The full prelude (lang/util/io/simd): java.lang's own §7.5 imports name
+ * java.io types, so a lang-only environment is no longer legal Java. */
+#include "jtest_units.h"
+#define build_program jtest_build_flat
 
 static int find_class(const sema_ctx_t* s, const char* name) {
     for (int i = 0; i < (int)bbq_vec_len(s->classes); i++) {
@@ -119,7 +91,7 @@ static int32_t vtable_row_funcidx(const uint8_t* buf, int len, int target, int w
 int main(void) {
     bbq_arena a; bbq_arena_init(&a, 1 << 16);
     ast_program_t* prog = build_program("class P { int x; }", &a);
-    sema_ctx_t sctx; sema_init(&sctx, &a); sema_analyze(&sctx, prog);
+    sema_ctx_t sctx; sema_init(&sctx, &a); jtest_analyze(&sctx);
 
     wasm_types_t wt; wasm_types_build(&wt, &sctx);
 
@@ -225,7 +197,7 @@ int main(void) {
         bbq_arena b; bbq_arena_init(&b, 1 << 16);
         ast_program_t* p2 = build_program(
             "class A { int a; } class B extends A { int b; }", &b);
-        sema_ctx_t s2; sema_init(&s2, &b); sema_analyze(&s2, p2);
+        sema_ctx_t s2; sema_init(&s2, &b); jtest_analyze(&s2);
         wasm_types_t wt2; wasm_types_build(&wt2, &s2);
 
         int a_id = find_class(&s2, "A");
@@ -247,7 +219,7 @@ int main(void) {
         bbq_arena b; bbq_arena_init(&b, 1 << 16);
         ast_program_t* p2 = build_program(
             "class A { int m(){ return 1; } } class B extends A { int m(){ return 2; } }", &b);
-        sema_ctx_t s2; sema_init(&s2, &b); sema_analyze(&s2, p2);
+        sema_ctx_t s2; sema_init(&s2, &b); jtest_analyze(&s2);
         wasm_types_t wt2; wasm_types_build(&wt2, &s2);
         int a_id = find_class(&s2, "A"), b_id = find_class(&s2, "B");
         int am = -1, bm = -1;
@@ -283,7 +255,7 @@ int main(void) {
             " class B extends A { int m(){ return 2; } }"
             " class C extends B { }"
             " class D extends A { int m(){ return 4; } }", &b2);
-        sema_ctx_t s3; sema_init(&s3, &b2); sema_analyze(&s3, p3);
+        sema_ctx_t s3; sema_init(&s3, &b2); jtest_analyze(&s3);
         wasm_types_t wt3; wasm_types_build(&wt3, &s3);
         int a_id = find_class(&s3, "A"), b_id = find_class(&s3, "B"),
             c_id = find_class(&s3, "C"), d_id = find_class(&s3, "D");

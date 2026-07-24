@@ -80,8 +80,6 @@ DESTINATIONS
     | MoveF2IOp | MoveI2FOp | MoveD2LOp | MoveL2DOp
     // f64 math intrinsics with a direct wasm opcode (§20.11 Math.sqrt/floor/ceil/rint).
     | F64SqrtOp | F64FloorOp | F64CeilOp | F64NearestOp
-    // I/O staging linear memory: load one byte (Mem.load8). (Store is a stmt rule, not a tree_op.)
-    | MemLoad8Op
     // §20.3.6 Class.newInstance, over a Class receiver: is its factory funcref non-null / call it.
     | ClassInstantiableOp | ClassConstructOp
     // Composite narrowings to a sub-int type from long/float/double:
@@ -169,6 +167,20 @@ AUXILIARIES
   // The Math f64-op kind for a math-intrinsic call (guarded by sema_is_math_intrinsic):
   // 1 = sqrt, 2 = floor, 3 = ceil, 4 = rint (§20.11).
   sema_math_intrinsic_kind : (ast.expr) -> int
+  // javelina.simd intrinsic facts (guarded by sema_is_simd_intrinsic): the family
+  // (1 Bin 2 Un 3 Shift 4 Tern 5 TestI 6-9 Splat I/L/F/D 10-13 Extract I/L/F/D
+  // 14-17 Replace I/L/F/D 18 Const 19 Shuffle 20 MemLoad 21 MemStore
+  // 22 MemLoadLane 23 MemStoreLane), the WOP_* opcode value the SIR node
+  // carries verbatim, the sema-validated lane immediate, and (memarg/memlane
+  // families) the spec table's align column. The 128-bit const/shuffle
+  // immediates do not fit an int extern: sema_simd_fill writes the stashed
+  // halves INTO the built node C-side (by tag) and returns 0.
+  sema_simd_family : (ast.expr) -> int
+  sema_simd_op     : (ast.expr) -> int
+  sema_simd_lane   : (ast.expr) -> int
+  sema_simd_align  : (ast.expr) -> int
+  sema_simd_awidth : (ast.expr) -> int    // the ACCESS width in bytes (1 << align) — the Mem bounds-guard span
+  sema_simd_fill   : (ir_root, ast.expr) -> int
   // The Class.newInstance helper kind (guarded by sema_is_class_intrinsic): 1 = instantiable? (i32),
   // 2 = construct (ref). Each operates on the receiver Class (§20.3.6).
   sema_class_intrinsic_kind : (ast.expr) -> int
@@ -380,9 +392,9 @@ AUXILIARIES
   sema_sb_append_index        : (ast.expr) -> int      // append overload for the operand's type
   sema_sb_append_param_class  : (ast.expr) -> int      // its (ref) param class, or -1 for a primitive
 
-  // New — target class (resolved via sema_target_class with
-  // sema_find_class fallback) and constructor CP index. The latter
-  // is -1 when there's no explicit ctor (default-constructor path).
+  // New — target class (sema's recorded resolution — codegen never
+  // re-resolves a spelled name, §6.5.4 is unit-relative) and constructor
+  // CP index. The latter is -1 when there's no explicit ctor.
   sema_new_target_class       : (ast.expr) -> int       // -1 if unresolved
   sema_new_ctor_cp            : (ast.expr) -> int       // -1 if no ctor
 
@@ -528,12 +540,12 @@ PREDICATES
   // A resolved Math.sqrt/floor/ceil/rint call (an f64-opcode intrinsic) — steers the math_intrinsic
   // rule; excluded from the plain method_call rule.
   sema_is_math_intrinsic   : (ast.expr) -> bool
+  // A resolved javelina.simd intrinsic call (a v128 SIMD node) — steers simd_intrinsic;
+  // excluded from the plain method_call rule.
+  sema_is_simd_intrinsic   : (ast.expr) -> bool
   // A resolved Class newInstance helper (instantiable/construct) — steers class_intrinsic; excluded
   // from the plain method_call rule.
   sema_is_class_intrinsic  : (ast.expr) -> bool
-  // I/O staging linear-memory byte access intrinsics: Mem.load8(addr)->MemLoad8, Mem.store8(addr,val)->MemStore8.
-  sema_is_memload8         : (ast.expr) -> bool
-  sema_is_memstore8        : (ast.expr) -> bool
 
   // SEMA_IDENT_* dispatch as where-guards. The four ident kinds are
   // mutually exclusive; rules with these guards cover all positive
@@ -1831,7 +1843,6 @@ fun build_tree_op(op: tree_op, value: ir_root, r: rho) -> ir_root {
       | F64FloorOp                          => build ir.F64Floor(value)
       | F64CeilOp                           => build ir.F64Ceil(value)
       | F64NearestOp                        => build ir.F64Nearest(value)
-      | MemLoad8Op                          => build ir.MemLoad8(value)
       | ClassInstantiableOp                 => build ir.ClassInstantiable(value)
       | ClassConstructOp                    =>
             { let n = build ir.ClassConstruct(value);   // call_ref's a ctor — it excepts
@@ -1982,6 +1993,64 @@ fun throw_new_noarg(exc_class: int, r: rho) -> ir_root {
             build ir.ExprEffect(ctor, 1, throw_node); };
     build ir.StoreLocal(t_obj, DtRef, build ir.ClassRef(exc_class),
                         exc_new, after_new);
+}
+
+// javelina.simd.Mem bounds (sober-qualifying-names D5): a Java-visible memory
+// access NEVER traps the VM. `addr < 0 || (long)addr + width > memory.size *
+// 64Ki` throws the catchable base IndexOutOfBoundsException (a §7.5.3
+// java.lang type) BEFORE the raw wasm op — which is then in-bounds by
+// construction. Long math so a large addr cannot wrap past the limit; the
+// separate `addr < 0` arm because a negative addr widens negative and would
+// pass the sum check.
+fun mem_bounds_guard(t_addr: int, width: int, ok: ir_root, r: rho) -> ir_root {
+    // The §15 ARRAY SHAPE: the tested side is the addr slot alone (through
+    // one I2L), the width folded into the bound — `(long)addr > limit − w`
+    // ⟺ `(long)addr + w > limit`, exact in i64 both ways. The bound is an
+    // addr-free expression, congruent across adjacent guards through the
+    // MemSize memory-input keying, which is what lets the optimizer's
+    // symbolic-bound consumer fold the SECOND guard the way it folds a
+    // second `i >= a.length`.
+    let hi = build ir.Branch(
+        build ir.Gt(build ir.I2L(build ir.LoadLocal(t_addr, DtInt, nil)),
+                    build ir.Sub(DtLong,
+                        build ir.Mul(DtLong,
+                            build ir.I2L(build ir.MemSize()),
+                            build ir.LoadLongConst(65536)),
+                        build ir.LoadLongConst(width))),
+        throw_new_noarg(sema_index_oob_exc_id(), r),
+        ok);
+    let _ = record_guard(hi, 8, t_addr, 0 - 1, 1);   // addr > limit-width; throws on TRUE
+    let lo = build ir.Branch(
+        build ir.Lt(build ir.LoadLocal(t_addr, DtInt, nil), build ir.LoadConst(0, DtInt)),
+        throw_new_noarg(sema_index_oob_exc_id(), r),
+        hi);
+    let _ = record_guard(lo, 8, t_addr, 0 - 1, 1);   // addr < 0; throws on TRUE
+    lo;
+}
+
+// The memory.fill/copy range form: base >= 0, len >= 0, (long)base + len <= limit.
+fun mem_range_guard(t_base: int, t_len: int, ok: ir_root, r: rho) -> ir_root {
+    let hi = build ir.Branch(
+        build ir.Gt(build ir.Add(DtLong,
+                        build ir.I2L(build ir.LoadLocal(t_base, DtInt, nil)),
+                        build ir.I2L(build ir.LoadLocal(t_len, DtInt, nil))),
+                    build ir.Mul(DtLong,
+                        build ir.I2L(build ir.MemSize()),
+                        build ir.LoadLongConst(65536))),
+        throw_new_noarg(sema_index_oob_exc_id(), r),
+        ok);
+    let _ = record_guard(hi, 8, t_base, t_len, 1);   // base+len > limit; throws on TRUE
+    let ln = build ir.Branch(
+        build ir.Lt(build ir.LoadLocal(t_len, DtInt, nil), build ir.LoadConst(0, DtInt)),
+        throw_new_noarg(sema_index_oob_exc_id(), r),
+        hi);
+    let _ = record_guard(ln, 8, t_len, 0 - 1, 1);    // len < 0; throws on TRUE
+    let lo = build ir.Branch(
+        build ir.Lt(build ir.LoadLocal(t_base, DtInt, nil), build ir.LoadConst(0, DtInt)),
+        throw_new_noarg(sema_index_oob_exc_id(), r),
+        ln);
+    let _ = record_guard(lo, 8, t_base, 0 - 1, 1);   // base < 0; throws on TRUE
+    lo;
 }
 
 // JLS §15.13.1 null-check: `if (t_a == null) throw new NullPointerException()` else
@@ -3426,6 +3495,229 @@ rule math_intrinsic : ast.MethodCall(obj: rcvr, method: m, args: as)
     };
 }
 
+// javelina.simd — every generated intrinsic lowers inline to its SIMD family
+// node; the op payload is the WOP_* value off the generated table, the lane /
+// const / mask immediates were validated and stashed by sema (a constant has
+// no effects, so skipping its evaluation preserves JLS 15.12.4.4 order).
+// Value args spill to temps left-to-right, mirroring spill_or_simple; Pure —
+// SIMD value ops cannot throw, so no exception region is recorded.
+rule simd_intrinsic : ast.MethodCall(obj: rcvr, method: m, args: as)
+                      where sema_is_simd_intrinsic(node) {
+    let op = sema_simd_op(node);
+    match (sema_simd_family(node)) {
+        1  => { let t0 = ddcg_alloc_temp(DtV128); let t1 = ddcg_alloc_temp(DtV128);
+                let head = deliver_tree(Pure, build ir.SimdBin(op,
+                               build ir.LoadLocal(t0, DtV128, nil),
+                               build ir.LoadLocal(t1, DtV128, nil)), delta, gamma, Lnext);
+                let mid = gen(as[1], rho, loc(t1, DtV128), single(head), head);
+                gen(as[0], rho, loc(t0, DtV128), single(mid), mid); }
+      | 2  => { let t0 = ddcg_alloc_temp(DtV128);
+                let head = deliver_tree(Pure, build ir.SimdUn(op,
+                               build ir.LoadLocal(t0, DtV128, nil)), delta, gamma, Lnext);
+                gen(as[0], rho, loc(t0, DtV128), single(head), head); }
+      | 3  => { let t0 = ddcg_alloc_temp(DtV128); let t1 = ddcg_alloc_temp(DtInt);
+                let head = deliver_tree(Pure, build ir.SimdShift(op,
+                               build ir.LoadLocal(t0, DtV128, nil),
+                               build ir.LoadLocal(t1, DtInt, nil)), delta, gamma, Lnext);
+                let mid = gen(as[1], rho, loc(t1, DtInt), single(head), head);
+                gen(as[0], rho, loc(t0, DtV128), single(mid), mid); }
+      | 4  => { let t0 = ddcg_alloc_temp(DtV128); let t1 = ddcg_alloc_temp(DtV128);
+                let t2 = ddcg_alloc_temp(DtV128);
+                let head = deliver_tree(Pure, build ir.SimdTern(op,
+                               build ir.LoadLocal(t0, DtV128, nil),
+                               build ir.LoadLocal(t1, DtV128, nil),
+                               build ir.LoadLocal(t2, DtV128, nil)), delta, gamma, Lnext);
+                let m2 = gen(as[2], rho, loc(t2, DtV128), single(head), head);
+                let m1 = gen(as[1], rho, loc(t1, DtV128), single(m2), m2);
+                gen(as[0], rho, loc(t0, DtV128), single(m1), m1); }
+      | 5  => { let t0 = ddcg_alloc_temp(DtV128);
+                let head = deliver_tree(Pure, build ir.SimdTestI(op,
+                               build ir.LoadLocal(t0, DtV128, nil)), delta, gamma, Lnext);
+                gen(as[0], rho, loc(t0, DtV128), single(head), head); }
+      | 6  => { let t0 = ddcg_alloc_temp(DtInt);
+                let head = deliver_tree(Pure, build ir.SimdSplatI(op,
+                               build ir.LoadLocal(t0, DtInt, nil)), delta, gamma, Lnext);
+                gen(as[0], rho, loc(t0, DtInt), single(head), head); }
+      | 7  => { let t0 = ddcg_alloc_temp(DtLong);
+                let head = deliver_tree(Pure, build ir.SimdSplatL(op,
+                               build ir.LoadLocal(t0, DtLong, nil)), delta, gamma, Lnext);
+                gen(as[0], rho, loc(t0, DtLong), single(head), head); }
+      | 8  => { let t0 = ddcg_alloc_temp(DtFloat);
+                let head = deliver_tree(Pure, build ir.SimdSplatF(op,
+                               build ir.LoadLocal(t0, DtFloat, nil)), delta, gamma, Lnext);
+                gen(as[0], rho, loc(t0, DtFloat), single(head), head); }
+      | 9  => { let t0 = ddcg_alloc_temp(DtDouble);
+                let head = deliver_tree(Pure, build ir.SimdSplatD(op,
+                               build ir.LoadLocal(t0, DtDouble, nil)), delta, gamma, Lnext);
+                gen(as[0], rho, loc(t0, DtDouble), single(head), head); }
+      | 10 => { let t0 = ddcg_alloc_temp(DtV128);
+                let head = deliver_tree(Pure, build ir.SimdExtractI(op, sema_simd_lane(node),
+                               build ir.LoadLocal(t0, DtV128, nil)), delta, gamma, Lnext);
+                gen(as[0], rho, loc(t0, DtV128), single(head), head); }
+      | 11 => { let t0 = ddcg_alloc_temp(DtV128);
+                let head = deliver_tree(Pure, build ir.SimdExtractL(op, sema_simd_lane(node),
+                               build ir.LoadLocal(t0, DtV128, nil)), delta, gamma, Lnext);
+                gen(as[0], rho, loc(t0, DtV128), single(head), head); }
+      | 12 => { let t0 = ddcg_alloc_temp(DtV128);
+                let head = deliver_tree(Pure, build ir.SimdExtractF(op, sema_simd_lane(node),
+                               build ir.LoadLocal(t0, DtV128, nil)), delta, gamma, Lnext);
+                gen(as[0], rho, loc(t0, DtV128), single(head), head); }
+      | 13 => { let t0 = ddcg_alloc_temp(DtV128);
+                let head = deliver_tree(Pure, build ir.SimdExtractD(op, sema_simd_lane(node),
+                               build ir.LoadLocal(t0, DtV128, nil)), delta, gamma, Lnext);
+                gen(as[0], rho, loc(t0, DtV128), single(head), head); }
+      | 14 => { let t0 = ddcg_alloc_temp(DtV128); let t1 = ddcg_alloc_temp(DtInt);
+                let head = deliver_tree(Pure, build ir.SimdReplaceI(op, sema_simd_lane(node),
+                               build ir.LoadLocal(t0, DtV128, nil),
+                               build ir.LoadLocal(t1, DtInt, nil)), delta, gamma, Lnext);
+                let mid = gen(as[1], rho, loc(t1, DtInt), single(head), head);
+                gen(as[0], rho, loc(t0, DtV128), single(mid), mid); }
+      | 15 => { let t0 = ddcg_alloc_temp(DtV128); let t1 = ddcg_alloc_temp(DtLong);
+                let head = deliver_tree(Pure, build ir.SimdReplaceL(op, sema_simd_lane(node),
+                               build ir.LoadLocal(t0, DtV128, nil),
+                               build ir.LoadLocal(t1, DtLong, nil)), delta, gamma, Lnext);
+                let mid = gen(as[1], rho, loc(t1, DtLong), single(head), head);
+                gen(as[0], rho, loc(t0, DtV128), single(mid), mid); }
+      | 16 => { let t0 = ddcg_alloc_temp(DtV128); let t1 = ddcg_alloc_temp(DtFloat);
+                let head = deliver_tree(Pure, build ir.SimdReplaceF(op, sema_simd_lane(node),
+                               build ir.LoadLocal(t0, DtV128, nil),
+                               build ir.LoadLocal(t1, DtFloat, nil)), delta, gamma, Lnext);
+                let mid = gen(as[1], rho, loc(t1, DtFloat), single(head), head);
+                gen(as[0], rho, loc(t0, DtV128), single(mid), mid); }
+      | 17 => { let t0 = ddcg_alloc_temp(DtV128); let t1 = ddcg_alloc_temp(DtDouble);
+                let head = deliver_tree(Pure, build ir.SimdReplaceD(op, sema_simd_lane(node),
+                               build ir.LoadLocal(t0, DtV128, nil),
+                               build ir.LoadLocal(t1, DtDouble, nil)), delta, gamma, Lnext);
+                let mid = gen(as[1], rho, loc(t1, DtDouble), single(head), head);
+                gen(as[0], rho, loc(t0, DtV128), single(mid), mid); }
+      | 18 => { let n = build ir.SimdConst(0, 0);
+                let _ = sema_simd_fill(n, node);
+                deliver_tree(Pure, n, delta, gamma, Lnext); }
+      // v128 linear-memory ops over the I/O-floor staging memory. Loads are
+      // values (mutable reads — the MemLoad8 posture); stores are spine
+      // statements (the memstore8_intrinsic shape). align rides the node.
+      | 20 => { let t0 = ddcg_alloc_temp(DtInt);
+                let head = deliver_tree(Pure, build ir.SimdMemLoad(op, sema_simd_align(node),
+                               build ir.LoadLocal(t0, DtInt, nil)), delta, gamma, Lnext);
+                let grd = mem_bounds_guard(t0, sema_simd_awidth(node), head, rho);
+                gen(as[0], rho, loc(t0, DtInt), single(grd), grd); }
+      | 21 => { let t0 = ddcg_alloc_temp(DtInt); let t1 = ddcg_alloc_temp(DtV128);
+                let done  = cg_jump(gamma, Lnext);
+                let store = build ir.SimdMemStore(op, sema_simd_align(node),
+                                build ir.LoadLocal(t0, DtInt, nil),
+                                build ir.LoadLocal(t1, DtV128, nil), done);
+                let grd = mem_bounds_guard(t0, sema_simd_awidth(node), store, rho);
+                let dv = gen(as[1], rho, loc(t1, DtV128), single(grd), grd);
+                gen(as[0], rho, loc(t0, DtInt), single(dv), dv); }
+      | 22 => { let t0 = ddcg_alloc_temp(DtInt); let t1 = ddcg_alloc_temp(DtV128);
+                let head = deliver_tree(Pure, build ir.SimdMemLoadLane(op, sema_simd_align(node),
+                               sema_simd_lane(node),
+                               build ir.LoadLocal(t0, DtInt, nil),
+                               build ir.LoadLocal(t1, DtV128, nil)), delta, gamma, Lnext);
+                let grd = mem_bounds_guard(t0, sema_simd_awidth(node), head, rho);
+                let mid = gen(as[1], rho, loc(t1, DtV128), single(grd), grd);
+                gen(as[0], rho, loc(t0, DtInt), single(mid), mid); }
+      | 23 => { let t0 = ddcg_alloc_temp(DtInt); let t1 = ddcg_alloc_temp(DtV128);
+                let done  = cg_jump(gamma, Lnext);
+                let store = build ir.SimdMemStoreLane(op, sema_simd_align(node),
+                                sema_simd_lane(node),
+                                build ir.LoadLocal(t0, DtInt, nil),
+                                build ir.LoadLocal(t1, DtV128, nil), done);
+                let grd = mem_bounds_guard(t0, sema_simd_awidth(node), store, rho);
+                let dv = gen(as[1], rho, loc(t1, DtV128), single(grd), grd);
+                gen(as[0], rho, loc(t0, DtInt), single(dv), dv); }
+      // Scalar linear-memory family (op selects the width/sign variant).
+      | 24 => { let t0 = ddcg_alloc_temp(DtInt);
+                let head = deliver_tree(Pure, build ir.MemLoadI(op, sema_simd_align(node),
+                               build ir.LoadLocal(t0, DtInt, nil)), delta, gamma, Lnext);
+                let grd = mem_bounds_guard(t0, sema_simd_awidth(node), head, rho);
+                gen(as[0], rho, loc(t0, DtInt), single(grd), grd); }
+      | 25 => { let t0 = ddcg_alloc_temp(DtInt);
+                let head = deliver_tree(Pure, build ir.MemLoadL(op, sema_simd_align(node),
+                               build ir.LoadLocal(t0, DtInt, nil)), delta, gamma, Lnext);
+                let grd = mem_bounds_guard(t0, sema_simd_awidth(node), head, rho);
+                gen(as[0], rho, loc(t0, DtInt), single(grd), grd); }
+      | 26 => { let t0 = ddcg_alloc_temp(DtInt);
+                let head = deliver_tree(Pure, build ir.MemLoadF(op, sema_simd_align(node),
+                               build ir.LoadLocal(t0, DtInt, nil)), delta, gamma, Lnext);
+                let grd = mem_bounds_guard(t0, sema_simd_awidth(node), head, rho);
+                gen(as[0], rho, loc(t0, DtInt), single(grd), grd); }
+      | 27 => { let t0 = ddcg_alloc_temp(DtInt);
+                let head = deliver_tree(Pure, build ir.MemLoadD(op, sema_simd_align(node),
+                               build ir.LoadLocal(t0, DtInt, nil)), delta, gamma, Lnext);
+                let grd = mem_bounds_guard(t0, sema_simd_awidth(node), head, rho);
+                gen(as[0], rho, loc(t0, DtInt), single(grd), grd); }
+      | 28 => { let t0 = ddcg_alloc_temp(DtInt); let t1 = ddcg_alloc_temp(DtInt);
+                let done  = cg_jump(gamma, Lnext);
+                let store = build ir.MemStoreI(op, sema_simd_align(node),
+                                build ir.LoadLocal(t0, DtInt, nil),
+                                build ir.LoadLocal(t1, DtInt, nil), done);
+                let grd = mem_bounds_guard(t0, sema_simd_awidth(node), store, rho);
+                let dv = gen(as[1], rho, loc(t1, DtInt), single(grd), grd);
+                gen(as[0], rho, loc(t0, DtInt), single(dv), dv); }
+      | 29 => { let t0 = ddcg_alloc_temp(DtInt); let t1 = ddcg_alloc_temp(DtLong);
+                let done  = cg_jump(gamma, Lnext);
+                let store = build ir.MemStoreL(op, sema_simd_align(node),
+                                build ir.LoadLocal(t0, DtInt, nil),
+                                build ir.LoadLocal(t1, DtLong, nil), done);
+                let grd = mem_bounds_guard(t0, sema_simd_awidth(node), store, rho);
+                let dv = gen(as[1], rho, loc(t1, DtLong), single(grd), grd);
+                gen(as[0], rho, loc(t0, DtInt), single(dv), dv); }
+      | 30 => { let t0 = ddcg_alloc_temp(DtInt); let t1 = ddcg_alloc_temp(DtFloat);
+                let done  = cg_jump(gamma, Lnext);
+                let store = build ir.MemStoreF(op, sema_simd_align(node),
+                                build ir.LoadLocal(t0, DtInt, nil),
+                                build ir.LoadLocal(t1, DtFloat, nil), done);
+                let grd = mem_bounds_guard(t0, sema_simd_awidth(node), store, rho);
+                let dv = gen(as[1], rho, loc(t1, DtFloat), single(grd), grd);
+                gen(as[0], rho, loc(t0, DtInt), single(dv), dv); }
+      | 31 => { let t0 = ddcg_alloc_temp(DtInt); let t1 = ddcg_alloc_temp(DtDouble);
+                let done  = cg_jump(gamma, Lnext);
+                let store = build ir.MemStoreD(op, sema_simd_align(node),
+                                build ir.LoadLocal(t0, DtInt, nil),
+                                build ir.LoadLocal(t1, DtDouble, nil), done);
+                let grd = mem_bounds_guard(t0, sema_simd_awidth(node), store, rho);
+                let dv = gen(as[1], rho, loc(t1, DtDouble), single(grd), grd);
+                gen(as[0], rho, loc(t0, DtInt), single(dv), dv); }
+      | 32 => { deliver_tree(Pure, build ir.MemSize(), delta, gamma, Lnext); }
+      | 33 => { let t0 = ddcg_alloc_temp(DtInt);
+                // Effectful: grow MUTATES the memory size — a statement-
+                // position call must execute, never be dropped by effect-δ.
+                let head = deliver_tree(Effectful, build ir.MemGrow(
+                               build ir.LoadLocal(t0, DtInt, nil)), delta, gamma, Lnext);
+                gen(as[0], rho, loc(t0, DtInt), single(head), head); }
+      | 34 => { let t0 = ddcg_alloc_temp(DtInt); let t1 = ddcg_alloc_temp(DtInt);
+                let t2 = ddcg_alloc_temp(DtInt);
+                let done = cg_jump(gamma, Lnext);
+                let fill = build ir.MemFill(build ir.LoadLocal(t0, DtInt, nil),
+                               build ir.LoadLocal(t1, DtInt, nil),
+                               build ir.LoadLocal(t2, DtInt, nil), done);
+                let grd = mem_range_guard(t0, t2, fill, rho);
+                let d2 = gen(as[2], rho, loc(t2, DtInt), single(grd), grd);
+                let d1 = gen(as[1], rho, loc(t1, DtInt), single(d2), d2);
+                gen(as[0], rho, loc(t0, DtInt), single(d1), d1); }
+      | 35 => { let t0 = ddcg_alloc_temp(DtInt); let t1 = ddcg_alloc_temp(DtInt);
+                let t2 = ddcg_alloc_temp(DtInt);
+                let done = cg_jump(gamma, Lnext);
+                let copy = build ir.MemCopy(build ir.LoadLocal(t0, DtInt, nil),
+                               build ir.LoadLocal(t1, DtInt, nil),
+                               build ir.LoadLocal(t2, DtInt, nil), done);
+                let gsrc = mem_range_guard(t1, t2, copy, rho);
+                let gdst = mem_range_guard(t0, t2, gsrc, rho);
+                let d2 = gen(as[2], rho, loc(t2, DtInt), single(gdst), gdst);
+                let d1 = gen(as[1], rho, loc(t1, DtInt), single(d2), d2);
+                gen(as[0], rho, loc(t0, DtInt), single(d1), d1); }
+      | _other => { let t0 = ddcg_alloc_temp(DtV128); let t1 = ddcg_alloc_temp(DtV128);
+                let n = build ir.SimdShuffle(0, 0,
+                            build ir.LoadLocal(t0, DtV128, nil),
+                            build ir.LoadLocal(t1, DtV128, nil));
+                let _ = sema_simd_fill(n, node);
+                let head = deliver_tree(Pure, n, delta, gamma, Lnext);
+                let mid = gen(as[1], rho, loc(t1, DtV128), single(head), head);
+                gen(as[0], rho, loc(t0, DtV128), single(mid), mid); }
+    };
+}
+
 // §20.3.6 the two Class.newInstance helpers, called only as `this.instantiable()` / `this.construct()`
 // inside Class.newInstance — so the receiver is `this` (the Class), always non-null, no spill. The
 // node operates on that receiver: instantiable? reads the factory funcref's nullness (i32), construct
@@ -3473,29 +3765,10 @@ rule arraycopy_intrinsic : ast.MethodCall(obj: rcvr, method: m, args: as)
     cg_deliver_conv(as[0], DtRef, rho, vloc(t_src, DtRef, expr_ref(src_arg)), single(d1), d1);
 }
 
-// Mem.load8(addr) -> i32.load8_u (a value): read one byte from the I/O staging memory.
-rule memload8_intrinsic : ast.MethodCall(obj: rcvr, method: m, args: as)
-                          where sema_is_memload8(node) {
-    spill_or_simple(MemLoad8Op, Pure, as[0], DtInt, rho, delta, gamma, Lnext);
-}
-
-// Mem.store8(addr, val) -> i32.store8 (a statement): write one byte to the I/O staging memory.
-rule memstore8_intrinsic : ast.MethodCall(obj: rcvr, method: m, args: as)
-                           where sema_is_memstore8(node) {
-    let t_addr = ddcg_alloc_temp(DtInt);
-    let t_val  = ddcg_alloc_temp(DtInt);
-    let done   = cg_jump(gamma, Lnext);
-    let store  = build ir.MemStore8(build ir.LoadLocal(t_addr, DtInt, nil),
-                                    build ir.LoadLocal(t_val, DtInt, nil),
-                                    done);
-    let dv = cg_deliver_conv(as[1], DtInt, rho, loc(t_val, DtInt), single(store), store);
-    cg_deliver_conv(as[0], DtInt, rho, loc(t_addr, DtInt), single(dv), dv);
-}
-
 rule method_call : ast.MethodCall(obj: rcvr, method: m, args: as)
                    where not sema_is_arraycopy(node) and not sema_is_move_intrinsic(node)
                      and not sema_is_math_intrinsic(node) and not sema_is_class_intrinsic(node)
-                     and not sema_is_memload8(node) and not sema_is_memstore8(node) {
+                     and not sema_is_simd_intrinsic(node) {
     let kind = sema_invoke_kind(node);
     kind < 0
       ? cg_store(build ir.LoadConst(0, DtShort), delta, gamma, Lnext)

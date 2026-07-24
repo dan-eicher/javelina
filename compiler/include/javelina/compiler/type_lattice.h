@@ -154,7 +154,12 @@ int32_t lat_handler_landing_class(const sema_ctx_t* sema, int32_t catch_class_id
  * consumer (wasm_types emit / burg) turns into a struct typeidx — it never re-decides. */
 bool    lat_array_elem_is_ref(java_type_t elem);
 int32_t lat_refarray_class(const sema_ctx_t* sema);
-int     lat_prim_storage_index(sir_datatype_t dt);              /* 0..6 = the WASM backing width */
+int     lat_prim_storage_index(sir_datatype_t dt);              /* 0..7 = the WASM backing width (7 = v128) */
+sir_datatype_t lat_prim_storage_dt(int si);                     /* the INVERSE — the width a storage index
+                                                                 * carries. The one map; a local si→dt table
+                                                                 * is how V128Array.clone got an int backing. */
+sir_atype_t    lat_dt_to_atype(sir_datatype_t dt);              /* primitive dt → SIR array-element type — the
+                                                                 * inverse of lat_atype_to_dt over primitives */
 int32_t lat_primarray_class(const sema_ctx_t* sema, sir_datatype_t dt);  /* the per-width PrimArray overlay */
 /* The overlay class an array-typed value `arr` is represented by (RefArray for a reference
  * element, per-width PrimArray for a primitive element), or -1 when `arr` is the concrete
@@ -175,7 +180,7 @@ bool    lat_is_array_data_cell(const sema_ctx_t* sema, int32_t class_id, int fie
  * the burg's i32-family test all read this; none re-decides. byte/short/
  * char/int share i32; long/float/double/ref each stand alone. */
 typedef enum {
-    LAT_VT_I32 = 0, LAT_VT_I64, LAT_VT_F32, LAT_VT_F64, LAT_VT_REF
+    LAT_VT_I32 = 0, LAT_VT_I64, LAT_VT_F32, LAT_VT_F64, LAT_VT_REF, LAT_VT_V128
 } lat_valtype_t;
 lat_valtype_t lat_dt_valtype(sir_datatype_t dt);
 

@@ -8,6 +8,8 @@
 #include "javelina/compiler/analyses.h"
 #include "javelina/compiler/jtype_meta.h"
 #include "javelina/compiler/type_lattice.h"   /* the one JLS conversion authority */
+#include "javelina/compiler/const_expr.h"     /* §15.27 — simd lane/mask immediates */
+#include "gen/simd_intrinsics.h"              /* the generated javelina.simd table */
 #include "bbq_buf.h"
 #include <stdio.h>
 #include <string.h>
@@ -30,7 +32,7 @@ static uint32_t ptr_key(const void* p) {
 
 static void diag(sema_ctx_t* ctx, diag_level_t level, ast_srcloc loc,
                  const char* fmt, ...) {
-    sema_diag_t d;
+    sema_diag_t d = {0};
     d.level = level;
     d.loc = loc;
     va_list ap;
@@ -85,12 +87,6 @@ static const char* name_to_str(sema_ctx_t* ctx, const ast_name_t* n) {
     return sema_name_to_str(ctx, n);
 }
 
-/* Get the simple (last) part of a ast_name_t. */
-static const char* name_simple(const ast_name_t* n) {
-    if (!n) return NULL;
-    if (n->tag == AST_SIMPLENAME) return n->simple_name.id;
-    return n->qualified_name.id;
-}
 
 /* ═══════════════════════════════════════════════════════════════
  * ast_modifier_t helpers
@@ -374,6 +370,14 @@ static bool compute_side_effects(const sema_ctx_t* ctx, const ast_expr_t* e) {
 static void sema_register_array_type(sema_ctx_t* ctx, java_type_t arr);   /* §10.8; defined below */
 static bool jre_gives_funcidx(const sema_ctx_t* ctx, int ci, const sema_method_t* m);  /* PLUGIN import set; defined below */
 
+/* The compilation unit of the class currently being analyzed — the §6.5.4
+ * resolution context. -1 during synthetic-class processing (FQN-or-unnamed). */
+static int cur_unit(const sema_ctx_t* ctx) {
+    return (ctx->current_class_id >= 0 &&
+            ctx->current_class_id < (int)bbq_vec_len(ctx->classes))
+         ? ctx->classes[ctx->current_class_id].unit_idx : -1;
+}
+
 static java_type_t resolve_type(sema_ctx_t* ctx, const ast_type_t* t, ast_srcloc loc) {
     if (!t) return jt_error();
     switch (t->tag) {
@@ -387,18 +391,16 @@ static java_type_t resolve_type(sema_ctx_t* ctx, const ast_type_t* t, ast_srcloc
     case AST_BOOLTYPE:  return jt_prim(JT_BOOL);
     case AST_VOIDTYPE:  return jt_prim(JT_VOID);
     case AST_CLASSTYPE: {
-        const char* name = name_to_str(ctx, t->class_type.name);
-        int id = sema_find_class(ctx, name);
-        if (id < 0) {
-            /* Try simple name (unqualified) */
-            const char* simple = name_simple(t->class_type.name);
-            id = sema_find_class(ctx, simple);
-        }
-        if (id < 0) {
-            sema_error(ctx, loc, "unknown type '%s'",
-                       name_to_str(ctx, t->class_type.name));
-            return jt_error();
-        }
+        int id = sema_resolve_type(ctx, cur_unit(ctx),
+                                   name_to_str(ctx, t->class_type.name), loc, false);
+        if (id < 0) return jt_error();   /* §6.5.4 already errored */
+        /* Record THIS node's resolution — post-sema queries read it. */
+        bbq_htree_insert(ctx->type_class_ids, ptr_key(t), (void*)(uintptr_t)(id + 1));
+        /* javelina.simd.V128 is the v128 VALUE type — every use site gets the
+         * value width, never a reference. This one hook is what makes a V128
+         * non-nullable, non-Object, ==-less: the JLS checks downstream reject a
+         * non-numeric non-reference primitive on their own. */
+        if (id == ctx->wk.v128_id) return jt_prim(JT_V128);
         return jt_class(id);
     }
     case AST_ARRAYTYPE: {
@@ -695,6 +697,66 @@ static void retype_array_init(sema_ctx_t* ctx, ast_expr_t* init, java_type_t arr
         retype_array_init(ctx, init->array_init.elems[i], *array_type.element);
 }
 
+/* javelina.simd: an intrinsic's immediate operands (lane / const halves /
+ * shuffle mask) are §15.27 compile-time constants — validated ONCE here at the
+ * call site and stashed; the ddcg reads the stash as SIR payloads and never
+ * re-evaluates. A non-constant or out-of-range immediate is a sema error
+ * naming the parameter; there is NO runtime-lane fallback. */
+static int64_t simd_const_long(jls_const_t k) {
+    return k.tag == JT_LONG ? k.v.l : (int64_t)k.v.i;   /* int consts widen to the long param */
+}
+static void check_simd_imms(sema_ctx_t* ctx, const ast_expr_t* e,
+                            const sema_method_t* m) {
+    const simd_intrinsic_t* r = &simd_intrinsics[m->simd_id - 1];
+    int fam = r->family;
+    bool lane_fam  = (fam >= 10 && fam <= 17)            /* extract / replace */
+                  ||  fam == 22 || fam == 23;            /* load/storeN_lane (128/N lanes) */
+    bool bytes_fam = fam == 18 || fam == 19;             /* const / shuffle */
+    if (!lane_fam && !bytes_fam) return;
+    int ac = e->method_call.args_count;
+    if (ac != r->nargs) return;                          /* arity error already reported */
+    sema_simd_imm_t* im = bbq_arena_alloc(ctx->arena, sizeof *im);
+    im->lane = 0; im->lo = 0; im->hi = 0;
+    if (lane_fam) {
+        const ast_expr_t* la = e->method_call.args[ac - 1];
+        jls_const_t k = jls_const_eval(ctx, la);
+        if (k.tag == JT_VOID) {
+            sema_error(ctx, e->loc, "'%s.%s': lane must be a compile-time constant",
+                       r->cls, r->method);
+            return;
+        }
+        int32_t lane = k.v.i;
+        if (lane < 0 || lane >= r->lanes) {
+            sema_error(ctx, e->loc, "'%s.%s': lane %d out of range 0..%d",
+                       r->cls, r->method, lane, r->lanes - 1);
+            return;
+        }
+        im->lane = lane;
+    } else {
+        jls_const_t klo = jls_const_eval(ctx, e->method_call.args[ac - 2]);
+        jls_const_t khi = jls_const_eval(ctx, e->method_call.args[ac - 1]);
+        if (klo.tag == JT_VOID || khi.tag == JT_VOID) {
+            sema_error(ctx, e->loc, "'%s.%s': the immediate halves must be "
+                       "compile-time constants", r->cls, r->method);
+            return;
+        }
+        im->lo = simd_const_long(klo);
+        im->hi = simd_const_long(khi);
+        if (fam == 19) {                                 /* shuffle: 16 mask bytes, each 0..31 */
+            for (int b = 0; b < 16; b++) {
+                uint8_t v = (uint8_t)((b < 8 ? (uint64_t)im->lo >> (8 * b)
+                                             : (uint64_t)im->hi >> (8 * (b - 8))));
+                if (v > 31) {
+                    sema_error(ctx, e->loc, "'%s.%s': mask byte %d is %d — a "
+                               "shuffle lane index must be 0..31", r->cls, r->method, b, v);
+                    return;
+                }
+            }
+        }
+    }
+    bbq_htree_insert(ctx->simd_imms, ptr_key(e), im);
+}
+
 /* ═══════════════════════════════════════════════════════════════
  * Class/member lookup helpers
  * ═══════════════════════════════════════════════════════════════ */
@@ -862,10 +924,26 @@ static const sema_method_t* find_constructor(const sema_ctx_t* ctx, int class_id
  * Pass 1: Declaration collection
  * ═══════════════════════════════════════════════════════════════ */
 
-static void register_class(sema_ctx_t* ctx, ast_type_decl_t* td) {
+/* §7.4.1: the fully qualified name of type T in package P is P.T; a type in
+ * the unnamed package (§7.4.2) is named by its simple name alone. */
+static const char* make_fq_name(sema_ctx_t* ctx, const char* pkg, const char* simple) {
+    if (!pkg) return simple;
+    size_t pl = strlen(pkg), sl = strlen(simple);
+    char* fq = (char*)bbq_arena_alloc(ctx->arena, pl + 1 + sl + 1);
+    memcpy(fq, pkg, pl); fq[pl] = '.'; memcpy(fq + pl + 1, simple, sl + 1);
+    return fq;
+}
+
+/* Register a type declaration under its FULLY QUALIFIED name — §7.5.1: "The
+ * compiler keeps track of types by their fully qualified names (§6.7)."
+ * `unit_idx` is the owning compilation unit; its package gives the FQN.
+ * Two types with one FQN = the same type declared twice: a compile-time
+ * error (previously the second silently overwrote the table slot). */
+static void register_class(sema_ctx_t* ctx, ast_type_decl_t* td, int unit_idx) {
     sema_class_t sc = {0};
     sc.ast_node = td;
     sc.import_pkg = -1;
+    sc.unit_idx = unit_idx;
     sc.fields = NULL;  /* bbq_vec */
     sc.methods = NULL;
 
@@ -880,9 +958,17 @@ static void register_class(sema_ctx_t* ctx, ast_type_decl_t* td) {
                                           td->interface_decl.mods_count);
         sc.is_interface = true;
     }
+    const char* pkg = (unit_idx >= 0) ? ctx->units[unit_idx].package : NULL;
+    sc.fq_name = make_fq_name(ctx, pkg, sc.name);
 
+    uint32_t key = str_hash(sc.fq_name);
+    if (bbq_htree_contains(ctx->class_by_name, key)) {
+        sema_error(ctx, (ast_srcloc){0}, "duplicate declaration of type '%s'",
+                   sc.fq_name);
+        return;
+    }
     int id = bbq_vec_len(ctx->classes);
-    bbq_htree_insert(ctx->class_by_name, str_hash(sc.name), (void*)(uintptr_t)id);
+    bbq_htree_insert(ctx->class_by_name, key, (void*)(uintptr_t)id);
     bbq_vec_push(ctx->classes, sc);
 }
 
@@ -900,6 +986,7 @@ static void synth_refarray_class(sema_ctx_t* ctx) {
     sema_class_t sc = {0};
     sc.name         = arena_strdup(ctx, "RefArray");
     sc.fq_name      = sc.name;
+    sc.unit_idx     = -1;   /* synthetic: unnamed package, no imports */
     sc.super_id     = ctx->wk.object_id;
     /* §10.7: every array implements Cloneable. (Primitive arrays get this with the
      * §10.8 primitive-array overlay — a separate migration.) */
@@ -938,17 +1025,19 @@ static void synth_refarray_class(sema_ctx_t* ctx) {
  * has no Java source type). Indexed by lat_prim_storage_index; the `data` element's packed
  * storagetype IS the backing width (byte→i8, short/char→i16, …). */
 static void synth_primarray_class(sema_ctx_t* ctx) {
-    for (int i = 0; i < 7; i++) ctx->wk.primarray_ids[i] = -1;
+    for (int i = 0; i < 8; i++) ctx->wk.primarray_ids[i] = -1;
     if (ctx->wk.object_id < 0 || ctx->wk.class_reflect_id < 0) return;
-    static const struct { java_type_tag_t rep; const char* name; } widths[7] = {
+    static const struct { java_type_tag_t rep; const char* name; } widths[8] = {
         { JT_BYTE,  "ByteArray"  }, { JT_SHORT, "ShortArray" }, { JT_CHAR,  "CharArray"  },
         { JT_INT,   "IntArray"   }, { JT_LONG,  "LongArray"  },
         { JT_FLOAT, "FloatArray" }, { JT_DOUBLE,"DoubleArray"},
+        { JT_V128,  "V128Array"  },   /* javelina.simd V128[] — the 8th width */
     };
-    for (int i = 0; i < 7; i++) {
+    for (int i = 0; i < 8; i++) {
         sema_class_t sc = {0};
         sc.name         = arena_strdup(ctx, widths[i].name);
         sc.fq_name      = sc.name;
+        sc.unit_idx     = -1;
         sc.super_id     = ctx->wk.object_id;
         if (ctx->wk.cloneable_id >= 0) {   /* §10.7: arrays implement Cloneable */
             sc.interface_ids = (int*)bbq_arena_alloc(ctx->arena, sizeof(int));
@@ -1023,6 +1112,7 @@ static void synth_array_classes(sema_ctx_t* ctx) {
         sema_class_t sc = {0};
         sc.name         = sema_array_descriptor(ctx, ctx->array_class_types[i]);
         sc.fq_name      = sc.name;
+        sc.unit_idx     = -1;
         sc.super_id     = ctx->wk.object_id;
         if (ctx->wk.cloneable_id >= 0) {
             sc.interface_ids = (int*)bbq_arena_alloc(ctx->arena, sizeof(int));
@@ -1183,7 +1273,7 @@ static void synth_main_method(sema_ctx_t* ctx) {
     }
     if (ctx->wk.main_class_id < 0) return;         /* no entry point — nothing to synthesize */
 
-    ctx->wk.startup_id = sema_find_class(ctx, "Startup");
+    ctx->wk.startup_id = sema_find_class(ctx, "java.io.Startup");
     if (ctx->wk.startup_id >= 0) {
         const sema_class_t* su = &ctx->classes[ctx->wk.startup_id];
         for (int i = 0; i < (int)bbq_vec_len(su->methods); i++)
@@ -1241,7 +1331,7 @@ int sema_array_class_overlay(const sema_ctx_t* ctx, int class_id) {
 
 bool sema_is_overlay(const sema_ctx_t* ctx, int class_id) {
     if (class_id == sema_refarray_id(ctx)) return true;
-    for (int si = 0; si < 7; si++) if (class_id == sema_primarray_id(ctx, si)) return true;
+    for (int si = 0; si < 8; si++) if (class_id == sema_primarray_id(ctx, si)) return true;
     return false;
 }
 
@@ -1320,14 +1410,13 @@ static void resolve_hierarchy(sema_ctx_t* ctx) {
         ast_type_decl_t* td = c->ast_node;
         if (!td) continue; /* imported from .exp */
 
-        /* Resolve superclass */
+        /* Resolve superclass — §6.5.4 against the declaring class's unit. */
         c->super_id = -1;
         if (td->tag == AST_CLASSDECL && td->class_decl.super_class) {
             const char* sname = name_to_str(ctx, td->class_decl.super_class);
-            int sid = sema_find_class(ctx, sname);
-            if (sid < 0) sid = sema_find_class(ctx, name_simple(td->class_decl.super_class));
+            int sid = sema_resolve_type(ctx, c->unit_idx, sname, td->loc, false);
             if (sid < 0) {
-                sema_error(ctx, td->loc, "unknown superclass '%s'", sname);
+                /* §6.5.4 already errored */
             } else {
                 c->super_id = sid;
                 if (ctx->classes[sid].modifiers & ACC_FINAL)
@@ -1364,11 +1453,9 @@ static void resolve_hierarchy(sema_ctx_t* ctx) {
             c->interface_count = iface_count;
             for (int j = 0; j < iface_count; j++) {
                 const char* iname = name_to_str(ctx, ifaces[j]);
-                int iid = sema_find_class(ctx, iname);
-                if (iid < 0) iid = sema_find_class(ctx, name_simple(ifaces[j]));
+                int iid = sema_resolve_type(ctx, c->unit_idx, iname, td->loc, false);
                 if (iid < 0) {
-                    sema_error(ctx, td->loc, "unknown interface '%s'", iname);
-                    c->interface_ids[j] = -1;
+                    c->interface_ids[j] = -1;   /* §6.5.4 already errored */
                 } else if (!ctx->classes[iid].is_interface) {
                     sema_error(ctx, td->loc,
                         "'%s' is not an interface",
@@ -1415,6 +1502,8 @@ static void register_members(sema_ctx_t* ctx) {
         sema_class_t* c = &ctx->classes[ci];
         ast_type_decl_t* td = c->ast_node;
         if (!td) continue; /* built-in class (Object) */
+        /* Signature types resolve per §6.5.4 against THIS class's unit. */
+        ctx->current_class_id = ci;
 
         ast_member_t** members;
         int member_count;
@@ -1531,13 +1620,7 @@ static void register_members(sema_ctx_t* ctx) {
                         (size_t)thrown_n * sizeof(java_type_t));
                     for (int ti = 0; ti < thrown_n; ti++) {
                         const char* tn = sema_name_to_str(ctx, m->method_decl.throws_[ti]);
-                        int tid = sema_find_class(ctx, tn);
-                        if (tid < 0) {
-                            const char* simple = m->method_decl.throws_[ti]->tag == AST_SIMPLENAME
-                                ? m->method_decl.throws_[ti]->simple_name.id
-                                : m->method_decl.throws_[ti]->qualified_name.id;
-                            tid = sema_find_class(ctx, simple);
-                        }
+                        int tid = sema_resolve_type(ctx, c->unit_idx, tn, m->loc, false);
                         thrown[ti] = tid >= 0 ? jt_class(tid) : jt_error();
                     }
                 }
@@ -1608,13 +1691,7 @@ static void register_members(sema_ctx_t* ctx) {
                         (size_t)c_thrown_n * sizeof(java_type_t));
                     for (int ti = 0; ti < c_thrown_n; ti++) {
                         const char* tn = sema_name_to_str(ctx, m->constructor_decl.throws_[ti]);
-                        int tid = sema_find_class(ctx, tn);
-                        if (tid < 0) {
-                            const char* simple = m->constructor_decl.throws_[ti]->tag == AST_SIMPLENAME
-                                ? m->constructor_decl.throws_[ti]->simple_name.id
-                                : m->constructor_decl.throws_[ti]->qualified_name.id;
-                            tid = sema_find_class(ctx, simple);
-                        }
+                        int tid = sema_resolve_type(ctx, c->unit_idx, tn, m->loc, false);
                         c_thrown[ti] = tid >= 0 ? jt_class(tid) : jt_error();
                     }
                 }
@@ -1667,10 +1744,128 @@ static void register_members(sema_ctx_t* ctx) {
     }
 }
 
-static void collect_decls(sema_ctx_t* ctx, ast_program_t* prog) {
-    /* Register all classes/interfaces first */
-    for (int i = 0; i < prog->types_count; i++)
-        register_class(ctx, prog->types[i]);
+/* Join an import declaration's ident parts into an interned dotted name. */
+static const char* import_parts_to_str(sema_ctx_t* ctx, const char** parts, int n) {
+    size_t total = 0;
+    for (int i = 0; i < n; i++) total += strlen(parts[i]) + 1;
+    char* s = (char*)bbq_arena_alloc(ctx->arena, total);
+    size_t o = 0;
+    for (int i = 0; i < n; i++) {
+        size_t l = strlen(parts[i]);
+        memcpy(s + o, parts[i], l); o += l;
+        s[o++] = (i + 1 < n) ? '.' : '\0';
+    }
+    return s;
+}
+
+/* §7.3 intake: record one compilation unit — its package (§7.4) and its raw
+ * import lists. "java.lang" is appended to the on-demand list per §7.5.3
+ * ("as if the declaration import java.lang.*; appeared in each unit").
+ * Validation of the lists (§7.5.1/§7.5.2) runs AFTER registration, when the
+ * class table can answer whether an imported type exists. */
+static int intern_unit(sema_ctx_t* ctx, const ast_program_t* prog) {
+    sema_unit_t u = {0};
+    u.prog = prog;
+    u.package = prog->package_ ? name_to_str(ctx, prog->package_) : NULL;
+    for (int i = 0; i < prog->imports_count; i++) {
+        const ast_import_t* im = prog->imports[i];
+        if (im->tag == AST_SINGLEIMPORT) {
+            const char* s = import_parts_to_str(ctx, im->single_import.parts,
+                                                im->single_import.parts_count);
+            bbq_vec_push(u.singles, s);
+        } else {
+            const char* s = import_parts_to_str(ctx, im->wildcard_import.parts,
+                                                im->wildcard_import.parts_count);
+            bbq_vec_push(u.ondemands, s);
+        }
+    }
+    bbq_vec_push(u.ondemands, "java.lang");   /* §7.5.3 automatic import */
+    int idx = (int)bbq_vec_len(ctx->units);
+    bbq_vec_push(ctx->units, u);
+    return idx;
+}
+
+/* Is `pkg` a known package per our §7.2 host rule: the declared package of
+ * some registered class, or a proper dotted prefix of one ("java" is known
+ * because "java.lang" is). */
+static bool package_known(const sema_ctx_t* ctx, const char* pkg) {
+    size_t pl = strlen(pkg);
+    for (int i = 0; i < (int)bbq_vec_len(ctx->classes); i++) {
+        int u = ctx->classes[i].unit_idx;
+        const char* cp = (u >= 0) ? ctx->units[u].package : NULL;
+        if (!cp) continue;
+        if (strncmp(cp, pkg, pl) == 0 && (cp[pl] == 0 || cp[pl] == '.')) return true;
+    }
+    return false;
+}
+
+/* The simple (last) segment of a dotted name. */
+static const char* fq_simple(const char* fq) {
+    const char* last = fq;
+    for (const char* p = fq; *p; p++) if (*p == '.') last = p + 1;
+    return last;
+}
+
+/* §7.5.1 / §7.5.2 import validation, per unit, after registration. */
+static void validate_imports(sema_ctx_t* ctx) {
+    for (int ui = 0; ui < (int)bbq_vec_len(ctx->units); ui++) {
+        sema_unit_t* u = &ctx->units[ui];
+        for (int i = 0; i < (int)bbq_vec_len(u->singles); i++) {
+            const char* fq = u->singles[i];
+            int cid = sema_find_class(ctx, fq);
+            if (cid < 0) {
+                sema_error(ctx, (ast_srcloc){0},
+                           "import '%s' does not name a class or interface (§7.5.1)", fq);
+                continue;
+            }
+            /* §7.5.1: if not in the current package, must be accessible (public). */
+            const char* dpkg = ctx->classes[cid].unit_idx >= 0
+                             ? ctx->units[ctx->classes[cid].unit_idx].package : NULL;
+            bool same_pkg = (dpkg == NULL && u->package == NULL) ||
+                            (dpkg && u->package && strcmp(dpkg, u->package) == 0);
+            if (!same_pkg && !(ctx->classes[cid].modifiers & ACC_PUBLIC))
+                sema_error(ctx, (ast_srcloc){0},
+                           "imported type '%s' is not public (§7.5.1, §6.6)", fq);
+            const char* simple = fq_simple(fq);
+            /* Two single-type-imports with one simple name: error unless the
+             * same type (the duplicate is ignored). */
+            for (int j = 0; j < i; j++) {
+                if (strcmp(fq_simple(u->singles[j]), simple) != 0) continue;
+                if (strcmp(u->singles[j], fq) != 0)
+                    sema_error(ctx, (ast_srcloc){0},
+                               "conflicting imports '%s' and '%s' (§7.5.1)",
+                               u->singles[j], fq);
+            }
+            /* Colliding with a type declared in this unit: error (unless it
+             * IS that type — importing yourself is a no-op dup). */
+            for (int ci = 0; ci < (int)bbq_vec_len(ctx->classes); ci++)
+                if (ctx->classes[ci].unit_idx == ui && ci != cid &&
+                    strcmp(ctx->classes[ci].name, simple) == 0)
+                    sema_error(ctx, (ast_srcloc){0},
+                               "import '%s' conflicts with type '%s' declared in "
+                               "this compilation unit (§7.5.1)", fq, simple);
+        }
+        for (int i = 0; i < (int)bbq_vec_len(u->ondemands); i++) {
+            const char* pkg = u->ondemands[i];
+            /* §7.5.2: naming the current package or java.lang is a legal,
+             * ignored duplicate. Unknown package = error. */
+            if (!package_known(ctx, pkg) &&
+                !(u->package && strcmp(pkg, u->package) == 0))
+                sema_error(ctx, (ast_srcloc){0},
+                           "package '%s' in import-on-demand is not known (§7.5.2)", pkg);
+        }
+    }
+}
+
+static void collect_decls(sema_ctx_t* ctx, ast_program_t** units, int nunits) {
+    /* Register all classes/interfaces first — one intake per §7.3 unit, each
+     * type under its §7.4.1 fully qualified name. */
+    for (int uix = 0; uix < nunits; uix++) {
+        int ui = intern_unit(ctx, units[uix]);
+        for (int i = 0; i < units[uix]->types_count; i++)
+            register_class(ctx, units[uix]->types[i], ui);
+    }
+    validate_imports(ctx);
 
     /* Resolve the well-known java.lang ids ONCE, after all classes are
      * registered, BEFORE hierarchy resolution (which reads wk.object_id). */
@@ -1927,28 +2122,19 @@ static void validate_hierarchy(sema_ctx_t* ctx) {
  * Access control
  * ═══════════════════════════════════════════════════════════════ */
 
-/* Determine the package of a class (everything before the last '.', or "" if none). */
+/* The declared package of class `class_id`, from its compilation unit (§7.4);
+ * NULL = the unnamed package (§7.4.2) — synthetics included. */
 static const char* class_package(const sema_ctx_t* ctx, int class_id) {
-    if (class_id < 0) return "";
-    const char* fq = ctx->classes[class_id].fq_name;
-    if (!fq) fq = ctx->classes[class_id].name;
-    const char* dot = strrchr(fq, '.');
-    if (!dot) return "";
-    /* Arena-dup the package portion */
-    /* Return the full fq_name — callers compare with strncmp up to the dot. */
-    return fq;
+    if (class_id < 0) return NULL;
+    int u = ctx->classes[class_id].unit_idx;
+    return (u >= 0) ? ctx->units[u].package : NULL;
 }
 
 static bool same_package(const sema_ctx_t* ctx, int a, int b) {
     const char* pa = class_package(ctx, a);
     const char* pb = class_package(ctx, b);
-    const char* da = strrchr(pa, '.');
-    const char* db = strrchr(pb, '.');
-    size_t la = da ? (size_t)(da - pa) : 0;
-    size_t lb = db ? (size_t)(db - pb) : 0;
-    if (la != lb) return false;
-    if (la == 0 && lb == 0) return true; /* both in default package */
-    return strncmp(pa, pb, la) == 0;
+    if (!pa && !pb) return true;             /* both unnamed (§7.4.2) */
+    return pa && pb && strcmp(pa, pb) == 0;
 }
 
 static bool check_access(const sema_ctx_t* ctx, int from_class, int target_class,
@@ -2008,9 +2194,9 @@ static void sema_note_import(sema_ctx_t* ctx, const sema_method_t* m) {
     if (m->move_kind != 0) return;   /* a Move* bitcast intrinsic: every call lowers inline — never a real call, so never an import */
     if (m->math_kind != 0) return;   /* a Math f64-op intrinsic (sqrt/floor/ceil/rint): lowers inline to the wasm opcode */
     if (m->class_kind != 0) return;  /* a Class.newInstance helper: lowers inline to ClassInstantiable/ClassConstruct */
+    if (m->simd_id != 0) return;     /* a javelina.simd intrinsic: lowers inline to its wasm opcode — never an import */
     int dc = m->owner, idx = m->index;   /* stamped identity — no address search */
     if (dc < 0) return;
-    if (dc == ctx->wk.mem_id) return;   /* Mem.load8/store8 lower to wasm i32.load8_u/store8 — never real calls */
     if (sema_method_is_defined(ctx, dc, m)) return;   /* emitted as a defined function, not an import */
     /* Abstract / interface methods have no body because they are dispatched
      * virtually (the vtable holds the concrete override's funcref) — they are
@@ -2055,9 +2241,12 @@ static int qualified_type_base(sema_ctx_t* ctx, const ast_expr_t* e) {
     int pos = snprintf(buf, sizeof buf, "%s", head);                    /* "head.segs[n-1]....segs[0]" */
     for (int i = n - 1; i >= 0 && pos < (int)sizeof buf; i--)
         pos += snprintf(buf + pos, sizeof buf - pos, ".%s", segs[i]);
-    int id = sema_find_class(ctx, buf);
-    if (id < 0) id = sema_find_class(ctx, segs[0]);                     /* simple = last segment (the type) */
-    return id;
+    /* §6.5.4.2 probe: the whole dotted path as a package-qualified type name.
+     * (The old fallback that retried the LAST segment as a simple name would
+     * accept `bogus.pkg.FileDescriptor` — Q must name the real package.)
+     * Nested shapes (`pkg.Class.staticField.x`) resolve by recursion: this
+     * probe misses, the caller descends, and the shorter base probes again. */
+    return sema_resolve_type(ctx, cur_unit(ctx), buf, e->loc, true);
 }
 
 static java_type_t analyze_expr(sema_ctx_t* ctx, ast_expr_t* e) {
@@ -2126,10 +2315,22 @@ static java_type_t analyze_expr(sema_ctx_t* ctx, ast_expr_t* e) {
                 info->var_init = NULL;
                 bbq_htree_insert(ctx->ident_kinds, ptr_key(e), info);
             } else {
-                /* Try as class name */
-                int cid = sema_find_class(ctx, name);
+                /* Try as class name — §6.5.4 probe against the current unit
+                 * (a miss here is "undefined symbol", not a type error). */
+                int cid = sema_resolve_type(ctx, cur_unit(ctx), name, e->loc, true);
                 if (cid >= 0) {
                     result = jt_class(cid);
+                    /* Record the classification: downstream passes must never
+                     * re-resolve the name (resolution is unit-relative). */
+                    sema_ident_info_t* info = (sema_ident_info_t*)
+                        bbq_arena_alloc(ctx->arena, sizeof(sema_ident_info_t));
+                    info->kind = SEMA_IDENT_CLASSREF;
+                    info->slot = cid;               /* the resolved class id */
+                    info->dt   = type_tag_to_dt(JT_CLASS);
+                    info->field = NULL;
+                    info->var_is_final = false;
+                    info->var_init = NULL;
+                    bbq_htree_insert(ctx->ident_kinds, ptr_key(e), info);
                 } else {
                     sema_error(ctx, e->loc, "undefined '%s'", name);
                 }
@@ -2230,6 +2431,7 @@ static java_type_t analyze_expr(sema_ctx_t* ctx, ast_expr_t* e) {
                                "arg %d: cannot convert to parameter type", i + 1);
                 }
             }
+            if (m->simd_id != 0) check_simd_imms(ctx, e, m);
             /* §11.2: checked exceptions must be caught or declared. §10.7 exception: an array's
              * clone() is public and never throws CloneNotSupportedException (arrays are always
              * Cloneable), even though it resolves through Object.clone here — so don't inherit
@@ -2288,12 +2490,8 @@ static java_type_t analyze_expr(sema_ctx_t* ctx, ast_expr_t* e) {
 
     case AST_NEW: {
         const char* cname = name_to_str(ctx, e->new_.class_);
-        int cid = sema_find_class(ctx, cname);
-        if (cid < 0) cid = sema_find_class(ctx, name_simple(e->new_.class_));
-        if (cid < 0) {
-            sema_error(ctx, e->loc, "unknown class '%s'", cname);
-            break;
-        }
+        int cid = sema_resolve_type(ctx, cur_unit(ctx), cname, e->loc, false);
+        if (cid < 0) break;   /* §6.5.4 already errored */
         if (ctx->classes[cid].is_interface) {
             sema_error(ctx, e->loc, "cannot instantiate interface '%s'", cname);
             break;
@@ -2333,6 +2531,11 @@ static java_type_t analyze_expr(sema_ctx_t* ctx, ast_expr_t* e) {
                 sema_note_import(ctx, effective_ctor);   /* library ctor → host import */
             }
         }
+        /* Record the resolved target class UNCONDITIONALLY — the ddcg reads
+         * this, never re-resolving the spelled name (resolution is
+         * unit-relative; a codegen-time name lookup would be §7-blind). */
+        bbq_htree_insert(ctx->target_classes, ptr_key(e),
+                         (void*)(uintptr_t)(cid + 1));
         result = jt_class(cid);
         break;
     }
@@ -2440,6 +2643,11 @@ static java_type_t analyze_expr(sema_ctx_t* ctx, ast_expr_t* e) {
                 (rhs.tag == JT_CLASS && rhs.class_id == ctx->wk.string_id)) {
                 if (lhs.tag == JT_VOID || rhs.tag == JT_VOID)
                     sema_error(ctx, e->loc, "string concatenation operand cannot be void");
+                /* A v128 has no §5.4 string conversion (it is not an Object and not a
+                 * JLS primitive) — rejecting here keeps it out of the StringBuffer
+                 * append desugar, which has no V128 overload. */
+                if (lhs.tag == JT_V128 || rhs.tag == JT_V128)
+                    sema_error(ctx, e->loc, "string concatenation operand cannot be a V128");
                 result = jt_class(ctx->wk.string_id);
                 break;
             }
@@ -3465,6 +3673,7 @@ void sema_init(sema_ctx_t* ctx, bbq_arena* arena) {
     ctx->scopes = NULL;
     ctx->expr_types = bbq_htree_create();
     ctx->resolved_methods = bbq_htree_create();
+    ctx->simd_imms = bbq_htree_create();
     ctx->import_funcs = NULL;          /* bbq_vec, accumulated at call resolution */
     ctx->resolved_fields = bbq_htree_create();
     ctx->data_types = bbq_htree_create();
@@ -3480,6 +3689,8 @@ void sema_init(sema_ctx_t* ctx, bbq_arena* arena) {
     ctx->switch_infos = bbq_htree_create();
     ctx->break_target_depths = bbq_htree_create();
     ctx->continue_target_depths = bbq_htree_create();
+    ctx->type_class_ids = bbq_htree_create();
+    ctx->units = NULL;   /* bbq_vec */
     ctx->labels = NULL;
     ctx->frames = NULL;
     ctx->pending_frame_label = NULL;
@@ -3494,7 +3705,6 @@ void sema_init(sema_ctx_t* ctx, bbq_arena* arena) {
      * but produced CAP entries referencing class_id 0 (unbound in
      * the runtime classpool), so the loader would silently bind
      * them to the wrong slot at install time. */
-    ctx->import_pkgs = NULL;
     ctx->static_init_field_limit = -1;
     ctx->caught_types = NULL;
     ctx->current_method = NULL;
@@ -3580,13 +3790,19 @@ static void resolve_wellknown(sema_ctx_t* ctx) {
         { offsetof(sema_wellknown_t, no_class_def_id),        "NoClassDefFoundError" },
     };
     for (size_t i = 0; i < sizeof table / sizeof table[0]; i++) {
-        int id = sema_find_class(ctx, table[i].name);
+        char fq[64];
+        snprintf(fq, sizeof fq, "java.lang.%s", table[i].name);   /* FQN-keyed table (§7.5.1) */
+        int id = sema_find_class(ctx, fq);
         if (id < 0)
             sema_error(ctx, (ast_srcloc){0},
                        "runtime class 'java.lang.%s' missing from the JRE prelude",
                        table[i].name);
         *(int*)((char*)&ctx->wk + table[i].off) = id;
     }
+    /* javelina.simd.V128 — soft, unlike the java.lang table: a program with no
+     * SIMD library still compiles; one that names V128 without it gets the
+     * ordinary "unknown type" error. */
+    ctx->wk.v128_id = sema_find_class(ctx, "javelina.simd.V128");
 }
 
 /* Object.getClass()'s method index (§20.1.1) — its forwarder reads field 0 (the object's
@@ -3642,7 +3858,7 @@ static void resolve_wellknown_methods(sema_ctx_t* ctx) {
     }
     /* §20.18.16 System.arraycopy — resolved to a `SIR_ARRAYCOPY` (array.copy) intrinsic rather
      * than an import. Soft (no error if absent): the intrinsic only fires when both resolve. */
-    ctx->wk.system_id = sema_find_class(ctx, "System");
+    ctx->wk.system_id = sema_find_class(ctx, "java.lang.System");
     ctx->wk.arraycopy_method_id = -1;
     if (ctx->wk.system_id >= 0) {
         const sema_class_t* sys = &ctx->classes[ctx->wk.system_id];
@@ -3651,19 +3867,47 @@ static void resolve_wellknown_methods(sema_ctx_t* ctx) {
     }
     /* §20.9/§20.10 raw bit accessors → Move* bitcast intrinsics. Stamp the method identity ONCE
      * here (soft: no-op if the class/method is absent); call sites read m->move_kind. */
-    ctx->wk.float_id  = sema_find_class(ctx, "Float");
-    ctx->wk.double_id = sema_find_class(ctx, "Double");
+    ctx->wk.float_id  = sema_find_class(ctx, "java.lang.Float");
+    ctx->wk.double_id = sema_find_class(ctx, "java.lang.Double");
     stamp_move_kind(ctx, ctx->wk.float_id,  "floatToRawIntBits",   1);
     stamp_move_kind(ctx, ctx->wk.float_id,  "intBitsToFloat",      2);
     stamp_move_kind(ctx, ctx->wk.double_id, "doubleToRawLongBits", 3);
     stamp_move_kind(ctx, ctx->wk.double_id, "longBitsToDouble",    4);
     /* §20.11 Math f64 ops with a direct wasm opcode → inline intrinsics (never a host import). The
      * transcendentals with no opcode stay real methods (a Java fdlibm impl). */
-    int math_id = sema_find_class(ctx, "Math");
+    int math_id = sema_find_class(ctx, "java.lang.Math");
     stamp_math_kind(ctx, math_id, "sqrt",  1);
     stamp_math_kind(ctx, math_id, "floor", 2);
     stamp_math_kind(ctx, math_id, "ceil",  3);
     stamp_math_kind(ctx, math_id, "rint",  4);
+
+    /* javelina.simd — every generated intrinsic stamped from the generated
+     * table (the toml's 6th consumer; the table and the stub classes come from
+     * ONE generator run, so a row that fails to stamp means the stubs and the
+     * table diverged — loud, not soft: that desync would silently turn an
+     * intrinsic into a host import). Soft only when the simd library itself is
+     * absent (wk.v128_id < 0, no simd classes loaded). */
+    if (ctx->wk.v128_id >= 0) {
+        for (int si = 0; si < SIMD_INTRINSIC_COUNT; si++) {
+            const simd_intrinsic_t* r = &simd_intrinsics[si];
+            char fq[64];
+            snprintf(fq, sizeof fq, "javelina.simd.%s", r->cls);   /* FQN-keyed (§7.5.1) */
+            int cid = sema_find_class(ctx, fq);
+            sema_method_t* m = NULL;
+            if (cid >= 0) {
+                sema_class_t* c = &ctx->classes[cid];
+                for (int i = 0; i < (int)bbq_vec_len(c->methods); i++)
+                    if (strcmp(c->methods[i].name, r->method) == 0) { m = &c->methods[i]; break; }
+            }
+            if (!m) {
+                sema_error(ctx, (ast_srcloc){0},
+                           "simd intrinsic '%s.%s' is in the generated table but not "
+                           "in the loaded stubs — regenerate (make gen)", r->cls, r->method);
+                continue;
+            }
+            m->simd_id = si + 1;
+        }
+    }
 
     /* §15.17.3: `%` on float/double is the truncated remainder (C fmod), and WASM has
      * no f32.rem/f64.rem opcode — so the ddcg desugars it to a call to Math's fdlibm
@@ -3685,7 +3929,6 @@ static void resolve_wellknown_methods(sema_ctx_t* ctx) {
 
     stamp_class_kind(ctx, ctx->wk.class_reflect_id, "instantiable", 1);   /* §20.3.6 */
     stamp_class_kind(ctx, ctx->wk.class_reflect_id, "construct",    2);
-    ctx->wk.mem_id = sema_find_class(ctx, "Mem");   /* I/O staging-memory byte access (load8/store8) */
 }
 
 /* Stamp every method/field with its (declaring class, class-local index) — the stable IDENTITY
@@ -3703,7 +3946,11 @@ static void stamp_member_identity(sema_ctx_t* ctx) {
 }
 
 bool sema_analyze(sema_ctx_t* ctx, ast_program_t* program) {
-    collect_decls(ctx, program);
+    return sema_analyze_units(ctx, &program, 1);
+}
+
+bool sema_analyze_units(sema_ctx_t* ctx, ast_program_t** units, int n) {
+    collect_decls(ctx, units, n);
     /* Mark the bundled java.lang runtime (the lowest class_ids — registered ahead of
      * user code) as library BEFORE body analysis: a library class is the extern API,
      * so its methods AND constructors are host imports, never emitted. Import
@@ -3711,20 +3958,9 @@ bool sema_analyze(sema_ctx_t* ctx, ast_program_t* program) {
      * analyze_bodies, so import_pkg must be set first. */
     for (int ci = 0; ci < ctx->num_library_classes && ci < (int)bbq_vec_len(ctx->classes); ci++)
         ctx->classes[ci].import_pkg = 0;
-    /* §20.3.2 fully-qualified name (getClass().getName()): the bundled library is all in
-     * java.lang; user code has no package (simple name). Generalize to a per-package map
-     * when non-java.lang packages (java.util/io) are bundled. */
-    for (int ci = 0; ci < (int)bbq_vec_len(ctx->classes); ci++) {
-        sema_class_t* c = &ctx->classes[ci];
-        if (ci < ctx->num_library_classes) {
-            int n = (int)strlen(c->name);
-            char* fq = (char*)bbq_arena_alloc(ctx->arena, (size_t)n + 11);  /* "java.lang." + name + NUL */
-            memcpy(fq, "java.lang.", 10); memcpy(fq + 10, c->name, (size_t)n + 1);
-            c->fq_name = fq;
-        } else {
-            c->fq_name = c->name;
-        }
-    }
+    /* (§20.3.2 note: fq_name is now the REAL §7.4.1 name, set at registration
+     * from the unit's package declaration — the old "everything bundled is
+     * java.lang" prefix hack lied for java.io/java.util/javelina.simd.) */
     validate_hierarchy(ctx);
     /* §20.3.6: `static Object $newInstance() { return new C(); }` per instantiable class. It carries
      * a real AST body, so it must exist BEFORE the member re-stamp and body analysis that follow —
@@ -3897,13 +4133,11 @@ const sema_method_t* sema_resolved_method(const sema_ctx_t* ctx, const ast_expr_
  * silently answered "unknown" and skipped its rule. The declared type may be written as a simple
  * name or a fully qualified one. */
 int sema_catch_class_id(const sema_ctx_t* ctx, const ast_catch_clause_t* cc) {
-    if (!cc || !cc->ty || cc->ty->tag != AST_CLASSTYPE || !cc->ty->class_type.name) return -1;
-    int cid = sema_find_class(ctx, sema_name_to_str(ctx, cc->ty->class_type.name));
-    if (cid >= 0) return cid;
-    const char* simple = cc->ty->class_type.name->tag == AST_SIMPLENAME
-        ? cc->ty->class_type.name->simple_name.id
-        : cc->ty->class_type.name->qualified_name.id;
-    return sema_find_class(ctx, simple);
+    if (!cc || !cc->ty || cc->ty->tag != AST_CLASSTYPE) return -1;
+    /* Read resolve_type's §6.5.4 record for the clause's type node — never
+     * re-resolve the spelled name here (resolution is unit-relative). */
+    void* v = bbq_htree_search(ctx->type_class_ids, ptr_key(cc->ty));
+    return v ? (int)(uintptr_t)v - 1 : -1;
 }
 
 const sema_field_t* sema_resolved_field(const sema_ctx_t* ctx, const ast_expr_t* access) {
@@ -3920,12 +4154,96 @@ bool sema_int_constant(const sema_ctx_t* ctx, const ast_expr_t* e,
 
 int sema_find_class(const sema_ctx_t* ctx, const char* name) {
     if (!name) return -1;
-    /* Use htree_contains to distinguish "class_id = 0" (the built-in
-     * Object) from "not in table." Otherwise bbq_htree_search returns
-     * NULL for both, and Object (id 0) gets reported as missing. */
+    /* FQN-keyed (§7.5.1: "the compiler keeps track of types by their fully
+     * qualified names"). Use htree_contains to distinguish "class_id = 0"
+     * (the built-in Object) from "not in table." */
     uint32_t key = str_hash(name);
     if (!bbq_htree_contains(ctx->class_by_name, key)) return -1;
     return (int)(uintptr_t)bbq_htree_search(ctx->class_by_name, key);
+}
+
+/* §6.6 class-type accessibility from unit `ui`: public, or same package. */
+static bool type_accessible(const sema_ctx_t* ctx, int ui, int cid) {
+    if (ctx->classes[cid].modifiers & ACC_PUBLIC) return true;
+    const char* dpkg = class_package(ctx, cid);
+    const char* upkg = (ui >= 0) ? ctx->units[ui].package : NULL;
+    if (!dpkg && !upkg) return true;
+    return dpkg && upkg && strcmp(dpkg, upkg) == 0;
+}
+
+/* §6.5.4 — the meaning of a type name spelled in compilation unit `ui`,
+ * transcribed IN ORDER from JLS 1.0 p.93-94.
+ *
+ * Qualified `Q.Id` (§6.5.4.2): Q must be a package name, Id a type declared
+ * in it, accessible (§6.6) — else a compile-time error.
+ *
+ * Simple `Id` (§6.5.4.1):
+ *   1. a type with that name declared in the CURRENT unit, or named by one
+ *      of its single-type-import declarations (§7.5.1);
+ *   2. otherwise, a type with that name declared in another unit of the
+ *      package containing the identifier (§7.1);
+ *   3. otherwise, a type declared by EXACTLY ONE type-import-on-demand
+ *      declaration of the unit (§7.5.2 — the automatic java.lang.* included);
+ *   4. otherwise, more than one on-demand match: ambiguous, compile-time error;
+ *   5. otherwise, undefined: compile-time error.
+ *
+ * `probe` suppresses the errors (for §6.5.2 ambiguous-name reclassification,
+ * where "not a type" just means "keep classifying"). Returns class id or -1. */
+int sema_resolve_type(sema_ctx_t* ctx, int ui, const char* spelled,
+                      ast_srcloc loc, bool probe) {
+    if (!spelled) return -1;
+    if (strchr(spelled, '.')) {                        /* §6.5.4.2 Q.Id */
+        int cid = sema_find_class(ctx, spelled);
+        if (cid < 0) {
+            if (!probe) sema_error(ctx, loc, "unknown type '%s'", spelled);
+            return -1;
+        }
+        if (!type_accessible(ctx, ui, cid)) {
+            if (!probe) sema_error(ctx, loc,
+                "type '%s' is not accessible from this package (§6.6)", spelled);
+            return -1;
+        }
+        return cid;
+    }
+    const sema_unit_t* u = (ui >= 0 && ui < (int)bbq_vec_len(ctx->units))
+                         ? &ctx->units[ui] : NULL;
+    /* Step 1a: declared in the current unit. */
+    if (u)
+        for (int ci = 0; ci < (int)bbq_vec_len(ctx->classes); ci++)
+            if (ctx->classes[ci].unit_idx == ui &&
+                strcmp(ctx->classes[ci].name, spelled) == 0) return ci;
+    /* Step 1b: named by a single-type-import of the unit. */
+    if (u)
+        for (int i = 0; i < (int)bbq_vec_len(u->singles); i++)
+            if (strcmp(fq_simple(u->singles[i]), spelled) == 0) {
+                int cid = sema_find_class(ctx, u->singles[i]);
+                if (cid >= 0) return cid;              /* missing import already errored */
+            }
+    /* Step 2: another unit of the current package (incl. the unnamed one —
+     * synthetics and unnamed-package units share the simple-name namespace). */
+    {
+        const char* pkg = u ? u->package : NULL;
+        int cid = sema_find_class(ctx, make_fq_name(ctx, pkg, spelled));
+        if (cid >= 0) return cid;
+    }
+    /* Step 3: exactly one type-import-on-demand (public types only, §7.5.2). */
+    if (u) {
+        int hit = -1, nhits = 0;
+        for (int i = 0; i < (int)bbq_vec_len(u->ondemands); i++) {
+            int cid = sema_find_class(ctx, make_fq_name(ctx, u->ondemands[i], spelled));
+            if (cid < 0 || !(ctx->classes[cid].modifiers & ACC_PUBLIC)) continue;
+            if (hit != cid) { hit = cid; nhits++; }
+        }
+        if (nhits == 1) return hit;
+        if (nhits > 1) {                               /* step 4 */
+            if (!probe) sema_error(ctx, loc,
+                "type name '%s' is ambiguous: more than one import-on-demand "
+                "declares it (§6.5.4.1)", spelled);
+            return -1;
+        }
+    }
+    if (!probe) sema_error(ctx, loc, "unknown type '%s'", spelled);   /* step 5 */
+    return -1;
 }
 
 const sema_class_t* sema_get_class(const sema_ctx_t* ctx, int class_id) {
@@ -3987,14 +4305,13 @@ int sema_field_decl_class(const sema_ctx_t* ctx, const ast_expr_t* expr) {
     return f ? f->owner : -1;            /* declaring class — stamped identity, no address search */
 }
 
-/* The class_id of a class-typed AST type node (instanceof / cast target), by
- * name, without re-running diagnostics. -1 if not a resolvable class type. */
+/* The class_id of a class-typed AST type node (instanceof / cast target).
+ * Reads resolve_type's §6.5.4 record for the node — no re-resolution
+ * (resolution is unit-relative). -1 if sema never resolved this node. */
 int sema_type_class_id(const sema_ctx_t* cctx, const ast_type_t* ty) {
     if (!ty || ty->tag != AST_CLASSTYPE) return -1;
-    sema_ctx_t* ctx = (sema_ctx_t*)cctx;   /* name lookup only — does not mutate */
-    int id = sema_find_class(ctx, name_to_str(ctx, ty->class_type.name));
-    if (id < 0) id = sema_find_class(ctx, name_simple(ty->class_type.name));
-    return id;
+    void* v = bbq_htree_search(cctx->type_class_ids, ptr_key(ty));
+    return v ? (int)(uintptr_t)v - 1 : -1;
 }
 
 /* The method a call expr resolves to: a normal method (resolved_methods) or a
@@ -4191,6 +4508,54 @@ bool sema_is_math_intrinsic(const sema_ctx_t* ctx, const ast_expr_t* node) {
     return sema_math_intrinsic_kind(ctx, node) != 0;
 }
 
+/* javelina.simd accessors — the resolved call's generated-table row, and the
+ * validated-immediates stash check_simd_imms recorded. */
+static const simd_intrinsic_t* simd_row_of(const sema_ctx_t* ctx, const ast_expr_t* node) {
+    if (!node || node->tag != AST_METHODCALL) return NULL;
+    int dc = sema_method_decl_class(ctx, node);
+    if (dc < 0) return NULL;
+    int idx = sema_method_index(ctx, node);
+    if (idx < 0 || idx >= (int)bbq_vec_len(ctx->classes[dc].methods)) return NULL;
+    int sid = ctx->classes[dc].methods[idx].simd_id;
+    return sid ? &simd_intrinsics[sid - 1] : NULL;
+}
+bool sema_is_simd_intrinsic(const sema_ctx_t* ctx, const ast_expr_t* node) {
+    return simd_row_of(ctx, node) != NULL;
+}
+int sema_simd_family(const sema_ctx_t* ctx, const ast_expr_t* node) {
+    const simd_intrinsic_t* r = simd_row_of(ctx, node);
+    return r ? r->family : 0;
+}
+int sema_simd_op(const sema_ctx_t* ctx, const ast_expr_t* node) {
+    const simd_intrinsic_t* r = simd_row_of(ctx, node);
+    return r ? r->wop : 0;
+}
+int sema_simd_align(const sema_ctx_t* ctx, const ast_expr_t* node) {
+    const simd_intrinsic_t* r = simd_row_of(ctx, node);
+    return r ? r->align : 0;
+}
+int sema_simd_awidth(const sema_ctx_t* ctx, const ast_expr_t* node) {
+    /* The access width in bytes: the spec's natural alignment IS log2(width)
+     * for every memarg/memlane row — the Mem bounds-guard span. */
+    const simd_intrinsic_t* r = simd_row_of(ctx, node);
+    return r ? (1 << r->align) : 0;
+}
+static const sema_simd_imm_t* simd_imm_of(const sema_ctx_t* ctx, const ast_expr_t* node) {
+    return (const sema_simd_imm_t*)bbq_htree_search(ctx->simd_imms, ptr_key(node));
+}
+int32_t sema_simd_lane(const sema_ctx_t* ctx, const ast_expr_t* node) {
+    const sema_simd_imm_t* im = simd_imm_of(ctx, node);
+    return im ? im->lane : 0;
+}
+int64_t sema_simd_lo(const sema_ctx_t* ctx, const ast_expr_t* node) {
+    const sema_simd_imm_t* im = simd_imm_of(ctx, node);
+    return im ? im->lo : 0;
+}
+int64_t sema_simd_hi(const sema_ctx_t* ctx, const ast_expr_t* node) {
+    const sema_simd_imm_t* im = simd_imm_of(ctx, node);
+    return im ? im->hi : 0;
+}
+
 int sema_class_intrinsic_kind(const sema_ctx_t* ctx, const ast_expr_t* node) {
     if (!node || node->tag != AST_METHODCALL) return 0;
     int dc = sema_method_decl_class(ctx, node);
@@ -4203,22 +4568,10 @@ bool sema_is_class_intrinsic(const sema_ctx_t* ctx, const ast_expr_t* node) {
     return sema_class_intrinsic_kind(ctx, node) != 0;
 }
 
-/* I/O staging-memory byte access: Mem.load8(addr) / Mem.store8(addr, val) — lowered to the
- * wasm i32.load8_u / i32.store8 (the GC-byte[]↔linear-memory bounce copy for the host I/O floor). */
-bool sema_is_memload8(const sema_ctx_t* ctx, const ast_expr_t* node) {
-    if (!node || node->tag != AST_METHODCALL || node->method_call.args_count != 1) return false;
-    if (ctx->wk.mem_id < 0 || strcmp(node->method_call.method, "load8") != 0) return false;
-    return sema_method_decl_class(ctx, node) == ctx->wk.mem_id;
-}
-bool sema_is_memstore8(const sema_ctx_t* ctx, const ast_expr_t* node) {
-    if (!node || node->tag != AST_METHODCALL || node->method_call.args_count != 2) return false;
-    if (ctx->wk.mem_id < 0 || strcmp(node->method_call.method, "store8") != 0) return false;
-    return sema_method_decl_class(ctx, node) == ctx->wk.mem_id;
-}
 int sema_class_reflect_id(const sema_ctx_t* ctx)     { return ctx->wk.class_reflect_id; }
 int sema_refarray_id(const sema_ctx_t* ctx)          { return ctx->wk.refarray_id; }
 int sema_primarray_id(const sema_ctx_t* ctx, int storage_index) {
-    return (storage_index >= 0 && storage_index < 7) ? ctx->wk.primarray_ids[storage_index] : -1;
+    return (storage_index >= 0 && storage_index < 8) ? ctx->wk.primarray_ids[storage_index] : -1;
 }
 int sema_arraystore_check_method(const sema_ctx_t* ctx) { return ctx->wk.arraystore_check_method_id; }
 int sema_is_instance_method(const sema_ctx_t* ctx) { return ctx->wk.is_instance_method_id; }
@@ -4360,10 +4713,6 @@ int sema_continue_target_depth(const sema_ctx_t* ctx, const ast_stmt_t* stmt) {
     return v ? (int)(intptr_t)v - 1 : -1;
 }
 
-const sema_import_pkg_t* sema_get_imports(const sema_ctx_t* ctx, int* count) {
-    *count = bbq_vec_len(ctx->import_pkgs);
-    return ctx->import_pkgs;
-}
 
 int sema_diag_format(const sema_diag_t* d, char* buf, int bufsize) {
     const char* level = (d->level == DIAG_ERROR) ? "error" : "warning";
@@ -4386,6 +4735,7 @@ void sema_destroy(sema_ctx_t* ctx) {
     bbq_htree_destroy(ctx->class_by_name);
     bbq_htree_destroy(ctx->expr_types);
     bbq_htree_destroy(ctx->resolved_methods);
+    bbq_htree_destroy(ctx->simd_imms);
     bbq_vec_free(ctx->import_funcs);
     bbq_htree_destroy(ctx->resolved_fields);
     bbq_htree_destroy(ctx->data_types);
@@ -4401,9 +4751,14 @@ void sema_destroy(sema_ctx_t* ctx) {
     bbq_htree_destroy(ctx->switch_infos);
     bbq_htree_destroy(ctx->break_target_depths);
     bbq_htree_destroy(ctx->continue_target_depths);
+    bbq_htree_destroy(ctx->type_class_ids);
+    for (int i = 0; i < (int)bbq_vec_len(ctx->units); i++) {
+        bbq_vec_free(ctx->units[i].singles);
+        bbq_vec_free(ctx->units[i].ondemands);
+    }
+    bbq_vec_free(ctx->units);
     bbq_vec_free(ctx->labels);
     bbq_vec_free(ctx->frames);
-    bbq_vec_free(ctx->import_pkgs);
 
     /* Free bbq_vecs for class fields/methods */
     for (int i = 0; i < bbq_vec_len(ctx->classes); i++) {

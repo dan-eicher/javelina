@@ -75,7 +75,8 @@ COMPILER_TESTS := test_parse test_lattice test_sema test_sir test_gamma \
                   test_click_partition test_sir_copy test_emit_wasm \
                   test_codegen_wasm test_scope_sidecar test_codegen_structured \
                   test_control_audit test_wasm_module test_wasm_types \
-                  test_codegen_object test_click_backend test_exec
+                  test_codegen_object test_click_backend test_exec \
+                  test_simd_ledger
 
 OBJS_test_parse              := $(PARSER_OBJ) $(ARENA_OBJ)
 OBJS_test_lattice            := $(SEMA_OBJS) $(PARSER_OBJ) $(CRT_OBJS)
@@ -92,12 +93,16 @@ OBJS_test_codegen_structured := $(CODEGEN_STRUCTURED_OBJ) $(WASM_TYPES_OBJ) $(MA
 OBJS_test_control_audit      := $(OBJS_test_codegen_structured)
 OBJS_test_wasm_module        := $(OBJ)/src/compiler/wasm_module.o $(WASM_TYPES_OBJ) $(CODEGEN_STRUCTURED_OBJ) \
                                 $(MATCHER_OBJ) $(SEMA_OBJS) $(DDCG_OBJS) $(CLICK_OBJS) \
-                                $(VM_RW_OBJS) $(OBJ)/vm/jav_utf8.o $(PARSER_OBJ) $(CRT_OBJS)
+                                $(VM_RW_OBJS) $(PARSER_OBJ) \
+                                $(OBJ)/crt/bbq_htree.o $(OBJ)/crt/bbq_hmap.o $(OBJ)/crt/bbq_buf.o \
+                                $(VM_CAPI_OBJS) $(VM_ENGINE_OBJS)
 OBJS_test_wasm_types         := $(WASM_TYPES_OBJ) $(SEMA_OBJS) $(PARSER_OBJ) $(CRT_OBJS)
 OBJS_test_codegen_object     := $(OBJS_test_codegen_structured)
 OBJS_test_click_backend      := $(CODEGEN_STRUCTURED_OBJ) $(WASM_TYPES_OBJ) $(MATCHER_OBJ) \
                                 $(SEMA_OBJS) $(DDCG_OBJS) $(CLICK_OBJS) $(PARSER_OBJ) $(CRT_OBJS)
 OBJS_test_exec               := $(call src2obj,$(EXEC_SRCS)) $(VM_RW_OBJS) $(VM_CAPI_OBJS) $(VM_ENGINE_OBJS)
+# The simd ledger re-reads the spec toml with the generator's own reader pair.
+OBJS_test_simd_ledger        := $(OBJ)/vmgen/toml_parser.o $(OBJ)/vm/toml/toml_doc.o $(ARENA_OBJ)
 
 # test_exec and test_wasm_module reach the VM; everything else is compiler-only.
 $(B)/test_exec $(B)/test_wasm_module: | vm-objs
@@ -173,6 +178,20 @@ test: generate-parser generate-ddcg generate-codegen $(addprefix $(B)/,$(COMPILE
 	  echo ""; echo "── $$t ─────────────────────────────────────────"; \
 	  sed 's/^/  | /' $(LOGS)/$$t.log; \
 	done; \
+	if JAVELINA_CLICK=1 ./$(B)/test_exec > $(LOGS)/test_exec_click.log 2>&1; then \
+	  echo "  PASS  test_exec (Click ON)"; pass=$$((pass+1)); \
+	else \
+	  echo "  FAIL  test_exec (Click ON)"; fail=$$((fail+1)); \
+	  echo ""; echo "── test_exec (Click ON) ─────────────────────────"; \
+	  sed 's/^/  | /' $(LOGS)/test_exec_click.log | head -60; \
+	fi; \
+	if $(MAKE) --no-print-directory test-bench > $(LOGS)/test_bench.log 2>&1; then \
+	  echo "  PASS  test-bench (quick matrix, checksum gate)"; pass=$$((pass+1)); \
+	else \
+	  echo "  FAIL  test-bench (quick matrix, checksum gate)"; fail=$$((fail+1)); \
+	  echo ""; echo "── test-bench ───────────────────────────────────"; \
+	  sed 's/^/  | /' $(LOGS)/test_bench.log | tail -40; \
+	fi; \
 	echo ""; echo "compiler tests: $$pass passed, $$fail failed"; \
 	[ $$fail -eq 0 ]
 

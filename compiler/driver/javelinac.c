@@ -19,6 +19,8 @@
 #include "javelina/compiler/compiler.h"
 #include "javelina/compiler/wasm_types.h"
 #include "javelina/compiler/wasm_module.h"
+#include "jav_load.h"    /* jav_validate_bytes — the fail-closed §7 gate before writing */
+#include "jav_error.h"   /* jav_err_str */
 #include "bbq_arena.h"
 #include "bbq_vec.h"
 
@@ -47,7 +49,8 @@ static int usage(FILE* f, int code) {
         "                   whole: self-contained (prelude compiled in)\n"
         "                   jre:   compile the prelude itself into the runtime module\n"
         "  -O, --optimize   run the Click optimizer (SCCP+GVN+DCE, slot repack)\n"
-        "                   on every method before codegen\n"
+        "                   on every method before codegen — THE DEFAULT\n"
+        "  -O0, --no-optimize  disable the optimizer (debugging / bisection)\n"
         "  --libdir DIR     the java.lang/util/io prelude root (default: lib/java)\n"
         "  --version        print the version and exit\n"
         "  -h, --help       print this help and exit\n"
@@ -149,7 +152,8 @@ static bool add_input(const char* path, ast_type_decl_t*** types, java_parse_ctx
 
 int main(int argc, char** argv) {
     const char* out_path  = NULL;
-    bool        optimize  = false;
+    bool        optimize  = true;    /* the DEFAULT: users get optimized code;
+                                      * -O0 is the explicit debugging escape */
     const char* libdir    = "lib/java";
     sema_mode_t mode      = SEMA_MODE_PLUGIN;
     const char** inputs   = (const char**)calloc((size_t)argc, sizeof(char*));
@@ -169,6 +173,7 @@ int main(int argc, char** argv) {
             else { fprintf(stderr, "%s: unknown mode '%s'\n", prog_name, argv[i]); free(inputs); return 2; }
         }
         else if (!strcmp(a, "-O") || !strcmp(a, "--optimize")) { optimize = true; }
+        else if (!strcmp(a, "-O0") || !strcmp(a, "--no-optimize")) { optimize = false; }
         else if (a[0] == '-' && a[1] && strcmp(a, "-")) {
             fprintf(stderr, "%s: unknown option '%s'\n", prog_name, a); free(inputs); return usage(stderr, 2);
         }
@@ -194,6 +199,10 @@ int main(int argc, char** argv) {
     snprintf(pkgdir, sizeof pkgdir, "%s/lang", libdir); glob_dir(pkgdir, &types, &ctxs);
     snprintf(pkgdir, sizeof pkgdir, "%s/util", libdir); glob_dir(pkgdir, &types, &ctxs);
     snprintf(pkgdir, sizeof pkgdir, "%s/io",   libdir); glob_dir(pkgdir, &types, &ctxs);
+    /* javelina.simd — the v128 value type + lane intrinsic classes. A sibling
+     * package root of java/, so it lives beside (not under) the java tree;
+     * glob_dir skips it silently when a custom --libdir has no simd library. */
+    snprintf(pkgdir, sizeof pkgdir, "%s/../javelina/simd", libdir); glob_dir(pkgdir, &types, &ctxs);
     int nlib = (int)bbq_vec_len(types);
     if (nlib == 0) {
         fprintf(stderr, "%s: no prelude classes found under '%s' (wrong --libdir?)\n", prog_name, libdir);
@@ -209,14 +218,21 @@ int main(int argc, char** argv) {
     ast_type_decl_t** arr = bbq_arena_alloc(&arena, (size_t)tc * sizeof(*arr));
     memcpy(arr, types, (size_t)tc * sizeof(*arr));
     bbq_vec_free(types);
+    /* The flat program feeds the DDCG (it only walks bodies; every name is
+     * resolved by then). Sema gets the PER-UNIT programs (§7.3): each file's
+     * package declaration and import list drive §6.5.4 name resolution. */
     ast_program_t* prog = ast_program(&arena, NULL, NULL, 0, arr, tc);
+    ast_program_t** units = NULL;
+    for (int i = 0; i < (int)bbq_vec_len(ctxs); i++)
+        if (ctxs[i]->result) bbq_vec_push(units, ctxs[i]->result);
 
     /* ── Sema (mode-aware). Fail-closed on any error. ── */
     sema_ctx_t* sctx = (sema_ctx_t*)malloc(sizeof *sctx);
     sema_init(sctx, &arena);
     sctx->num_library_classes = nlib;
     sctx->mode = mode;
-    sema_analyze(sctx, prog);
+    sema_analyze_units(sctx, units, (int)bbq_vec_len(units));
+    bbq_vec_free(units);
 
     int nd = 0; const sema_diag_t* diags = sema_diags(sctx, &nd);
     for (int i = 0; i < nd; i++) {
@@ -248,8 +264,20 @@ int main(int argc, char** argv) {
         sema_destroy(sctx); free(sctx); return 1;
     }
 
-    /* ── Write the module bytes. ── */
+    /* ── Fail-closed §7 gate: run the VM's OWN validator over the bytes
+     * BEFORE writing. The per-body grammar gate above catches shape bugs;
+     * this catches everything else (it once let an "unknown local" ship
+     * with exit 0 — the Click pool-count miscompile). An artifact this
+     * compiler writes is an artifact the VM will load. ── */
     size_t len = bbq_vec_len(out.code);
+    {
+        jav_err_t verr = JAV_E_NONE;
+        if (jav_validate_bytes(out.code, len, &verr) != JAV_OK) {
+            fprintf(stderr, "%s: emitted module FAILS validation: %s — refusing to write\n",
+                    prog_name, jav_err_str(verr));
+            sema_destroy(sctx); free(sctx); return 1;
+        }
+    }
     char derived[512] = {0};
     if (!out_path) {
         if (mode == SEMA_MODE_RUNTIME) out_path = "jre.wasm";

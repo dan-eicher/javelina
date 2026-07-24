@@ -36,6 +36,7 @@ const char jtype_desc_char[] = {
     [JT_LONG]   = 'J',
     [JT_FLOAT]  = 'F',
     [JT_DOUBLE] = 'D',
+    [JT_V128]   = 'Q',   /* internal-only: JVMS has no v128; 'Q' never leaves the compiler */
     [JT_VOID]   = 'V',
     [JT_CLASS]  = 'L',
     [JT_ARRAY]  = '[',

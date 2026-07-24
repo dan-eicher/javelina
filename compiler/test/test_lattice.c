@@ -19,37 +19,9 @@
 /* The representation authority is only meaningful against a REAL class table — the
  * PrimArray/RefArray overlays are SYNTHESIZED by sema, so a NULL sema cannot see them
  * (which is exactly why this half of the lattice went unpinned). Parse the prelude. */
-static char* lat_read_file(const char* path) {
-    FILE* f = fopen(path, "rb"); if (!f) return NULL;
-    fseek(f, 0, SEEK_END); long n = ftell(f); fseek(f, 0, SEEK_SET);
-    char* b = (char*)malloc((size_t)n + 1);
-    if (fread(b, 1, (size_t)n, f) != (size_t)n) { fclose(f); free(b); return NULL; }
-    b[n] = 0; fclose(f); return b;
-}
-static ast_program_t* lat_parse(const char* src) {
-    java_parse_ctx_t* pc = (java_parse_ctx_t*)malloc(sizeof(*pc));
-    bbq_arena_init(&pc->arena, 1 << 16); pc->result = NULL; pc->file = NULL;
-    peg_state p; java_parser_init(&p, src, (int)strlen(src)); p.user_data = pc;
-    return java_parser_parse(&p) ? pc->result : NULL;
-}
-static ast_program_t* lat_test_program(bbq_arena* arena) {
-    ast_type_decl_t** t = NULL; int tc = 0, cap = 0;
-    #define LPUSH(td) do { if(tc==cap){cap=cap?cap*2:64;t=realloc(t,(size_t)cap*sizeof(*t));} t[tc++]=(td);}while(0)
-    DIR* d = opendir("lib/java/lang");
-    if (d) { struct dirent* e;
-        while ((e = readdir(d))) { size_t L=strlen(e->d_name);
-            if (L<6 || strcmp(e->d_name+L-5,".java")) continue;
-            char path[512]; snprintf(path,sizeof path,"lib/java/lang/%s",e->d_name);
-            char* s = lat_read_file(path); if(!s) continue;
-            ast_program_t* p = lat_parse(s); if(!p) continue;
-            for (int i=0;i<p->types_count;i++) LPUSH(p->types[i]);
-        } closedir(d);
-    }
-    ast_type_decl_t** arr = bbq_arena_alloc(arena,(size_t)tc*sizeof(*arr));
-    memcpy(arr,t,(size_t)tc*sizeof(*arr)); free(t);
-    return ast_program(arena, NULL, NULL, 0, arr, tc);
-    #undef LPUSH
-}
+/* §7.3 per-unit parse (see jtest_units.h). */
+#include "jtest_units.h"
+
 
 int main(void) {
     bbq_arena arena; bbq_arena_init(&arena, 4096);
@@ -60,12 +32,13 @@ int main(void) {
     const Type* bot = type_bottom(&pool);
     const Type* nul = type_null(&pool);
 
-    /* The full Java 1.0 primitive width set. */
+    /* The full Java 1.0 primitive width set, plus the v128 SIMD width (a value
+     * width like the others: sibling of all, promoted with nothing). */
     sir_datatype_t widths[] = { SIR_DTBYTE, SIR_DTSHORT, SIR_DTCHAR, SIR_DTINT,
-                                SIR_DTLONG, SIR_DTFLOAT, SIR_DTDOUBLE };
-    const char* names[]     = { "byte","short","char","int","long","float","double" };
+                                SIR_DTLONG, SIR_DTFLOAT, SIR_DTDOUBLE, SIR_DTV128 };
+    const char* names[]     = { "byte","short","char","int","long","float","double","v128" };
     int NW = (int)(sizeof(widths)/sizeof(widths[0]));
-    const Type* prim[7];
+    const Type* prim[8];
     for (int i = 0; i < NW; i++) prim[i] = type_make_prim(&pool, widths[i]);
 
     /* ── TOP is the meet identity; BOTTOM is absorbing ── */
@@ -276,6 +249,7 @@ int main(void) {
     CHECK(lat_dt_valtype(SIR_DTFLOAT)  == LAT_VT_F32, "valtype: float→f32");
     CHECK(lat_dt_valtype(SIR_DTDOUBLE) == LAT_VT_F64, "valtype: double→f64");
     CHECK(lat_dt_valtype(SIR_DTREF)    == LAT_VT_REF, "valtype: ref→ref");
+    CHECK(lat_dt_valtype(SIR_DTV128)   == LAT_VT_V128, "valtype: v128→v128 (NOT the i32 default)");
 
     /* atype → dt: the one SIR array-element-type → element-width map (the
      * inverse of lat_tag_to_atype over primitives; boolean packs as byte —
@@ -288,13 +262,15 @@ int main(void) {
     CHECK(lat_atype_to_dt(SIR_ATLONG)   == SIR_DTLONG,   "atype_to_dt: long");
     CHECK(lat_atype_to_dt(SIR_ATFLOAT)  == SIR_DTFLOAT,  "atype_to_dt: float");
     CHECK(lat_atype_to_dt(SIR_ATDOUBLE) == SIR_DTDOUBLE, "atype_to_dt: double");
+    CHECK(lat_atype_to_dt(SIR_ATV128)   == SIR_DTV128,   "atype_to_dt: v128 (NOT the ref default)");
+    CHECK(lat_tag_to_atype(JT_V128)     == SIR_ATV128,   "tag_to_atype: v128 (NOT the int default)");
 
-    /* The 7 storage slots (i8, i16-short, i16-char, i32, i64, f32, f64):
+    /* The 8 storage slots (i8, i16-short, i16-char, i32, i64, f32, f64, v128):
      * boolean folds into byte's slot; char keeps its own distinct slot. */
     CHECK(lat_prim_storage_index(SIR_DTBYTE) == lat_prim_storage_index(SIR_DTBYTE), "storage: stable");
     CHECK(lat_prim_storage_index(SIR_DTCHAR) != lat_prim_storage_index(SIR_DTSHORT),
           "storage: char has its own slot, distinct from short");
-    { int idx[7], n = 0;
+    { int idx[8], n = 0;
       idx[n++] = lat_prim_storage_index(SIR_DTBYTE);
       idx[n++] = lat_prim_storage_index(SIR_DTSHORT);
       idx[n++] = lat_prim_storage_index(SIR_DTCHAR);
@@ -302,9 +278,21 @@ int main(void) {
       idx[n++] = lat_prim_storage_index(SIR_DTLONG);
       idx[n++] = lat_prim_storage_index(SIR_DTFLOAT);
       idx[n++] = lat_prim_storage_index(SIR_DTDOUBLE);
+      idx[n++] = lat_prim_storage_index(SIR_DTV128);   /* v128 defaulting into int's slot = the silent-misclassify bug */
       for (int i = 0; i < n; i++)
           for (int j = i + 1; j < n; j++)
-              CHECK(idx[i] != idx[j], "storage: the 7 width slots are distinct");
+              CHECK(idx[i] != idx[j], "storage: the 8 width slots are distinct");
+    }
+    /* The storage-index INVERSE round-trips over all 8 widths — a local si→dt
+     * table drifting from lat_prim_storage_index is the V128Array-clone bug. */
+    { sir_datatype_t ws[] = { SIR_DTBYTE, SIR_DTSHORT, SIR_DTCHAR, SIR_DTINT,
+                              SIR_DTLONG, SIR_DTFLOAT, SIR_DTDOUBLE, SIR_DTV128 };
+      for (int i = 0; i < 8; i++) {
+          CHECK(lat_prim_storage_dt(lat_prim_storage_index(ws[i])) == ws[i],
+                "storage inverse: dt -> index -> dt round-trips");
+          CHECK(lat_atype_to_dt(lat_dt_to_atype(ws[i])) == ws[i],
+                "atype inverse: dt -> atype -> dt round-trips");
+      }
     }
 
     /* ── JLS conversion authority (§5.1.2/§5.1.3/§5.6) — the spec tables ──
@@ -355,6 +343,24 @@ int main(void) {
     CHECK(lat_num_conv(SIR_DTBYTE,  SIR_DTCHAR)   == LAT_CONV_I2C,      "conv: byte→char = I2C");
     CHECK(lat_num_conv(SIR_DTINT,   SIR_DTREF)    == LAT_CONV_NONE,     "conv: int→ref = none");
 
+    /* ── v128: a value width with NO numeric conversions and NO promotion ──
+     * Conversion is spelled as intrinsics (splat/extract), never `(cast)`. The
+     * per-case fallthroughs would otherwise claim IDENTITY/I2B/I2L/... for a
+     * v128 operand — each of these pins one lie. */
+    CHECK(lat_num_conv(SIR_DTV128, SIR_DTV128)   == LAT_CONV_IDENTITY, "conv: v128→v128 = identity");
+    CHECK(lat_num_conv(SIR_DTV128, SIR_DTINT)    == LAT_CONV_NONE,     "conv: v128→int = NONE (not identity)");
+    CHECK(lat_num_conv(SIR_DTV128, SIR_DTBYTE)   == LAT_CONV_NONE,     "conv: v128→byte = NONE (not I2B)");
+    CHECK(lat_num_conv(SIR_DTV128, SIR_DTLONG)   == LAT_CONV_NONE,     "conv: v128→long = NONE (not I2L)");
+    CHECK(lat_num_conv(SIR_DTV128, SIR_DTFLOAT)  == LAT_CONV_NONE,     "conv: v128→float = NONE (not I2F)");
+    CHECK(lat_num_conv(SIR_DTV128, SIR_DTDOUBLE) == LAT_CONV_NONE,     "conv: v128→double = NONE (not I2D)");
+    CHECK(lat_num_conv(SIR_DTINT,  SIR_DTV128)   == LAT_CONV_NONE,     "conv: int→v128 = NONE");
+    CHECK(lat_promote_dt(SIR_DTV128, SIR_DTV128) == SIR_DTV128,        "promote_dt: v128 passes through (like ref)");
+    CHECK(lat_promote_dt(SIR_DTV128, SIR_DTINT)  == SIR_DTV128,        "promote_dt: v128 never promotes to int");
+    CHECK(lat_unary_promote_dt(SIR_DTV128)       == SIR_DTV128,        "unary promote: v128 unchanged");
+    CHECK(!jt_is_numeric(jt_prim(JT_V128)),                            "v128 is NOT a JLS numeric type");
+    CHECK(!lat_is_widening_prim(jt_prim(JT_V128), jt_prim(JT_INT)),    "no widening from v128");
+    CHECK(!lat_is_narrowing_prim(jt_prim(JT_INT), jt_prim(JT_V128)),   "no narrowing to v128");
+
     /* ── The REFERENCE / ARRAY REPRESENTATION authority ────────────────────────────
      *
      * Everything above is the primitive-conversion half. This is the OTHER half — the
@@ -369,17 +375,18 @@ int main(void) {
      * overlay classes are the whole point — they do not exist in a NULL sema). */
     {
         sema_ctx_t s; sema_init(&s, &arena);
-        sema_analyze(&s, lat_test_program(&arena));
+        jtest_build_flat(NULL, &arena);   /* prelude only, no user unit */
+        jtest_analyze(&s);
 
         /* ── the ROOT and the value-class collapse ── */
         int32_t root = lat_root_class(&s);
         CHECK(root >= 0, "root: java.lang.Object resolves (the unique super-less class)");
-        int32_t obj = sema_find_class(&s, "Object");
+        int32_t obj = sema_find_class(&s, "java.lang.Object");
         CHECK(root == obj, "root == java.lang.Object");
         CHECK(lat_value_class(&s, root) == root, "value_class: a class is itself");
         /* An INTERFACE value is an object — it collapses to the root (no interface
          * object is ever instantiated). */
-        int32_t cln = sema_find_class(&s, "Cloneable");
+        int32_t cln = sema_find_class(&s, "java.lang.Cloneable");
         if (cln >= 0)
             CHECK(lat_value_class(&s, cln) == root,
                   "value_class: an INTERFACE collapses to the root — an interface value "
@@ -409,6 +416,13 @@ int main(void) {
         CHECK(pa_i >= 0 && pa_d >= 0, "primarray: a per-width PrimArray overlay exists");
         CHECK(pa_i != pa_d, "primarray: the widths are DISTINCT overlays");
         CHECK(pa_i != ra,   "primarray: a PrimArray is not the RefArray");
+        int32_t pa_v = lat_primarray_class(&s, SIR_DTV128);
+        CHECK(pa_v >= 0,    "primarray: the v128 (8th width) overlay exists");
+        CHECK(pa_v != pa_i && pa_v != pa_d && pa_v != ra,
+              "primarray: V128Array is its own overlay — a v128 defaulting into "
+              "int's storage slot is the silent-misclassify bug");
+        CHECK(lat_is_array_data_cell(&s, pa_v, 0) == true,
+              "data_cell: V128Array.data (field 0) IS a backing-store cell (si<8)");
 
         /* ── lat_array_overlay_class: THE function sir_ref_descriptor should have asked ──
          * "or -1 when `arr` is the concrete backing of an overlay (a JT_ARRAY_RAW-marked

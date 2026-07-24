@@ -234,5 +234,28 @@ int main(void) {
         bbq_arena_free(&a);
     }
 
+    // ── JLS 1.0 §15.16.2 / §15.16.3: MIN/-1 DENOTES A VALUE ──────────────────
+    // "if the dividend is the negative integer of largest possible magnitude
+    //  for its type, and the divisor is -1, then integer overflow occurs and
+    //  the result is equal to the dividend. Despite the overflow, no exception
+    //  is thrown in this case." (§15.16.2) — and for %: "This identity holds
+    //  even in the special case that the dividend is the negative integer of
+    //  largest possible magnitude ... (the remainder is 0)" (§15.16.3).
+    // Only division by ZERO throws; only it may refuse to fold.
+    printf("== §15.16.2/.3: MIN/-1 folds to its defined value ==\n");
+    {
+        int32_t out = 42;
+        CHECK(sir_op_gamma[SIR_DIV].fold_binary
+              && sir_op_gamma[SIR_DIV].fold_binary(INT32_MIN, -1, &out)
+              && out == INT32_MIN,
+              "INT_MIN / -1 folds to INT_MIN — no exception (§15.16.2)");
+        CHECK(sir_op_gamma[SIR_REM].fold_binary(INT32_MIN, -1, &out) && out == 0,
+              "INT_MIN % -1 folds to 0 (§15.16.3)");
+        CHECK(!sir_op_gamma[SIR_DIV].fold_binary(7, 0, &out),
+              "x / 0 refuses to fold — it THROWS (§15.16.2)");
+        CHECK(!sir_op_gamma[SIR_REM].fold_binary(7, 0, &out),
+              "x % 0 refuses to fold — it THROWS (§15.16.3)");
+    }
+
     return TEST_SUMMARY("test_gamma");
 }

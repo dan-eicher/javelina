@@ -126,6 +126,8 @@ static bool cp_slot_still_holds(cp_engine_t* eng, const sir_node_t* lex,
 #define CP_CELL_KIND_FIELD   (0u  << 30)
 #define CP_CELL_KIND_STATIC  (1u  << 30)
 #define CP_CELL_KIND_ARRAY   (2u  << 30)
+#define CP_CELL_KIND_MEMSIZE (3u  << 30)   /* memory.size — ONE cell: read by MemSize,
+                                            * written by MemGrow and calls (CP_CELL_ALL) */
 #define CP_CELL_KIND_MASK    (3u  << 30)
 
 /* class_id occupies 14 key bits. Beyond 16383 classes the key wraps:
@@ -158,6 +160,9 @@ static uint32_t cp_cell_key_static(int class_id, int field_idx) {
 static uint32_t cp_cell_key_array(int data_type) {
     return CP_CELL_KIND_ARRAY | ((uint32_t)data_type & 0xFFFF);
 }
+static uint32_t cp_cell_key_memsize(void) {
+    return CP_CELL_KIND_MEMSIZE;               /* one memory, one size cell */
+}
 
 /* The cell that a SIR expression node touches, or 0xFFFFFFFF if the
  * node has no specific cell (non-memory ops). */
@@ -168,6 +173,10 @@ static uint32_t cp_cell_key_for_expr(const sir_node_t* e) {
         case SIR_GETSTATIC:  return cp_cell_key_static(e->get_static.class_id,
                                                         e->get_static.field_idx);
         case SIR_ARRAYLOAD:  return cp_cell_key_array((int)e->array_load.data_type);
+        /* memory.size is a memory-dependent read: stable between grows, so
+         * congruence keyed by its cell's reaching writer is exactly right
+         * (sober-qualifying-names W8 — what lets Mem bounds guards merge). */
+        case SIR_MEMSIZE:    return cp_cell_key_memsize();
         default:             return 0xFFFFFFFFu;
     }
 }
@@ -192,7 +201,16 @@ static uint32_t cp_cell_key_for_spine(const sir_node_t* e) {
          * no GC-field cell. MemStore8 writes linear memory; MemLoad8
          * is never congruent, so no cell is needed there either. */
         case SIR_SETHEADER:       return CP_CELL_NONE;
-        case SIR_MEMSTORE8:       return CP_CELL_NONE;
+        /* Linear-memory stores: linear memory is not a GC-field cell, and
+         * the Mem loads are never congruent — no cell needed. */
+        case SIR_SIMDMEMSTORE:    return CP_CELL_NONE;
+        case SIR_SIMDMEMSTORELANE:return CP_CELL_NONE;
+        case SIR_MEMSTOREI:       return CP_CELL_NONE;
+        case SIR_MEMSTOREL:       return CP_CELL_NONE;
+        case SIR_MEMSTOREF:       return CP_CELL_NONE;
+        case SIR_MEMSTORED:       return CP_CELL_NONE;
+        case SIR_MEMFILL:         return CP_CELL_NONE;
+        case SIR_MEMCOPY:         return CP_CELL_NONE;
         case SIR_INVOKEVIRTUAL:   /* fallthrough */
         case SIR_INVOKESPECIAL:   /* fallthrough */
         case SIR_INVOKESTATIC:    /* fallthrough */
@@ -200,12 +218,24 @@ static uint32_t cp_cell_key_for_spine(const sir_node_t* e) {
         case SIR_EXPREFFECT: {
             /* Wraps an arbitrary expression for its side effect. If
              * the wrapped value is an invoke, this spine node has
-             * its side-effect — wide-write. Otherwise no memory
-             * effect. */
+             * its side-effect — wide-write. A wrapped MemGrow writes
+             * exactly the memsize cell. Otherwise no memory effect. */
             sir_node_t* v = e->expr_effect.value;
             if (v && (v->tag == SIR_INVOKEVIRTUAL || v->tag == SIR_INVOKESPECIAL
                   ||  v->tag == SIR_INVOKESTATIC  || v->tag == SIR_INVOKEINTERFACE))
                 return CP_CELL_ALL;
+            if (v && v->tag == SIR_MEMGROW) return cp_cell_key_memsize();
+            return CP_CELL_NONE;
+        }
+        case SIR_STORELOCAL: {
+            /* Same unwrap for a value STORED to a local: `x = grow(1)` must
+             * advance the memsize cell (and a stored call is a wide-write,
+             * classified here for the same reason). */
+            sir_node_t* v = e->store_local.value;
+            if (v && (v->tag == SIR_INVOKEVIRTUAL || v->tag == SIR_INVOKESPECIAL
+                  ||  v->tag == SIR_INVOKESTATIC  || v->tag == SIR_INVOKEINTERFACE))
+                return CP_CELL_ALL;
+            if (v && v->tag == SIR_MEMGROW) return cp_cell_key_memsize();
             return CP_CELL_NONE;
         }
         default:                  return CP_CELL_NONE;
@@ -364,7 +394,8 @@ static int cp_enum_expr(cp_engine_t* eng, sir_node_t* e) {
          * collapses them via the existing follower rule. */
         bool needs_mem = (e->tag == SIR_GETFIELD
                        || e->tag == SIR_GETSTATIC
-                       || e->tag == SIR_ARRAYLOAD);
+                       || e->tag == SIR_ARRAYLOAD
+                       || e->tag == SIR_MEMSIZE);
         int n_total = n + (needs_mem ? 1 : 0);
         int* in = n_total > 0 ? (int*)bbq_arena_alloc(eng->arena,
                                                       (size_t)n_total * sizeof(int))
@@ -638,7 +669,7 @@ static void cp_resolve_loads(cp_engine_t* eng, const int* in_state,
         return;
     }
     if (e->tag == SIR_GETFIELD || e->tag == SIR_GETSTATIC
-            || e->tag == SIR_ARRAYLOAD) {
+            || e->tag == SIR_ARRAYLOAD || e->tag == SIR_MEMSIZE) {
         uint32_t key = cp_cell_key_for_expr(e);
         if (key != CP_CELL_NONE) {
             void* cf = bbq_htree_search(eng->mem_cell_idx, (uint32_t)(key + 1));
@@ -1743,6 +1774,21 @@ static int cp_edge_refined(cp_engine_t* eng, const int* b_rt, const int* b_rf,
     return r;
 }
 
+/* The verdict fact a crossing edge p → cur contributes: taking a branch's arm
+ * decides its condition's VALUE on that edge (1 on the true arm, 0 on the false
+ * arm) — sets fact bit 2*ord+bit into `dst`. A pred that is not a fact-bearing
+ * branch contributes nothing. */
+static void cp_verdict_edge_or(cp_engine_t* eng, uint64_t* dst, int p, int cur) {
+    int ord = eng->branch_fact_ord[p];
+    if (ord < 0) return;
+    sir_node_t* pn = eng->spine[p];
+    int bit_idx;
+    if      (eng->spine[cur] == pn->branch.on_true)  bit_idx = 2 * ord + 1;
+    else if (eng->spine[cur] == pn->branch.on_false) bit_idx = 2 * ord;
+    else return;
+    dst[bit_idx >> 6] |= (uint64_t)1 << (bit_idx & 63);
+}
+
 /* PHASE R + PASS B — see the block comment above CP_BRANCH_ARM_THEN. Phase R parses
  * every Branch's condition once into per-branch edge Refines (a LINEAR scan — not a
  * traversal); pass B re-derives the slot states per edge and rewires the loads. */
@@ -1758,6 +1804,17 @@ static void cp_compute_branch_refinements(cp_engine_t* eng) {
     int* b_und = (int*)bbq_arena_alloc(a, (size_t)sn * sizeof(int));
     for (int i = 0; i < sn; i++) { b_rt[i] = -1; b_rf[i] = -1; b_und[i] = -1; }
     bool any = false;
+    /* Condition-verdict fact numbering (channel (a) — see the header's
+     * verdict_words comment): every two-successor branch whose condition
+     * has a vnode contributes a fact pair. Recorded here, in phase R's
+     * single branch scan, so the vnode ids are pass-A wiring. */
+    eng->branch_fact_ord = (int*)bbq_arena_alloc(a, (size_t)sn * sizeof(int));
+    eng->branch_cond_vn  = (int*)bbq_arena_alloc(a, (size_t)sn * sizeof(int));
+    for (int i = 0; i < sn; i++) {
+        eng->branch_fact_ord[i] = -1;
+        eng->branch_cond_vn[i]  = -1;
+    }
+    int nfacts = 0;
 
     /* ── PHASE R: parse each Branch's condition once. cp_ultimate_value reads the
      * pass-A wiring, so every branch is parsed BEFORE any pass-B rewiring. */
@@ -1765,6 +1822,13 @@ static void cp_compute_branch_refinements(cp_engine_t* eng) {
         sir_node_t* sb = eng->spine[b];
         if (sb->tag != SIR_BRANCH) continue;
         sir_node_t* cmp = sb->branch.cond;
+        if (cmp && sb->branch.on_true != sb->branch.on_false) {
+            void* cf = cp_pmap_get(&eng->expr_idx, cmp);
+            if (cf) {
+                eng->branch_cond_vn[b]  = (int)((uintptr_t)cf - 1);
+                eng->branch_fact_ord[b] = nfacts++;
+            }
+        }
 
         /* ── Spec §2's `br_on_cast`: "splits pts(u) along its two successor edges the
          * same way" the cast filters it. The condition IS the InstanceOf node — the
@@ -1849,21 +1913,52 @@ static void cp_compute_branch_refinements(cp_engine_t* eng) {
                 bound_vn  = cp_cmp_operand_ultimate(eng, lhs);
                 if (bound_vn < 0) bound_vn = cp_vnode_of(eng, lhs);
             }
-            if (tested_vn < 0 || bound_vn < 0 || tested_vn == bound_vn) continue;
-            /* Spec §5 names BOTH `<` and `<=`. The carrier records which: strict (`i < B`)
-             * or inclusive (`i <= B`, i.e. `i < B+1`). `<=` used to bind nothing at all —
-             * the carrier could only say "strictly less than" — so an inclusive loop bound
-             * was thrown away. What it is worth is the consumer's business, not this
-             * transfer's: recording a weaker fact is not the same as recording none. */
-            bool incl = (cmp->tag == SIR_LE || cmp->tag == SIR_GE);
-            cp_const_t sym = { .state = CP_C_RANGE, .cwidth = CP_W_I32,
-                               .lo = INT32_MIN, .hi = INT32_MAX, .stride = 1,
-                               .hi_vn1 = bound_vn + 1, .hi_vn_incl = incl ? 1 : 0 };
-            /* Composition with an enclosing refinement is pass B's input-chaining. */
-            b_rt[b]  = cp_new_refine(eng, tested_vn, sym);
-            b_und[b] = tested_vn;
-            any = true;
-            continue;   /* the else arm gains nothing we can use */
+            if (tested_vn >= 0 && bound_vn >= 0 && tested_vn != bound_vn) {
+                /* Spec §5 names BOTH `<` and `<=`. The carrier records which: strict (`i < B`)
+                 * or inclusive (`i <= B`, i.e. `i < B+1`). `<=` used to bind nothing at all —
+                 * the carrier could only say "strictly less than" — so an inclusive loop bound
+                 * was thrown away. What it is worth is the consumer's business, not this
+                 * transfer's: recording a weaker fact is not the same as recording none. */
+                bool incl = (cmp->tag == SIR_LE || cmp->tag == SIR_GE);
+                cp_const_t sym = { .state = CP_C_RANGE, .cwidth = CP_W_I32,
+                                   .lo = INT32_MIN, .hi = INT32_MAX, .stride = 1,
+                                   .hi_vn1 = bound_vn + 1, .hi_vn_incl = incl ? 1 : 0 };
+                /* Composition with an enclosing refinement is pass B's input-chaining. */
+                b_rt[b]  = cp_new_refine(eng, tested_vn, sym);
+                b_und[b] = tested_vn;
+                any = true;
+                continue;
+            }
+            /* The FALSE-edge half of the §5 rule: the fall-through of `l > r`
+             * carries l ≤ r — an INCLUSIVE symbolic upper bound on l. This is
+             * the Mem hi-guard's shape (`(long)addr > limit`), where the true-
+             * edge arm above cannot fire (the bound side is an expression, not
+             * a slot read). One I2L descent: the guard compares the slot's
+             * long view, and I2L is order-preserving, so the bound is a fact
+             * about the slot's value; the §15 consumer reads back through the
+             * I2L. Only the inclusive GT arm is recorded — the strict mirrors
+             * (GE-false, LE-false) would invite §5's strict tightening, which
+             * is stated in the COMPARE's width and is unsound stamped onto the
+             * i32 slot carrier when the compare is the widened i64. Fires only
+             * when the true-edge arm did not: b_und holds ONE underlying. */
+            if (cmp->tag == SIR_GT) {
+                sir_node_t* l_op = (lhs->tag == SIR_I2L) ? lhs->i2_l.operand : lhs;
+                if (l_op && l_op->tag == SIR_LOADLOCAL
+                        && l_op->load_local.data_type == SIR_DTINT) {
+                    int t   = cp_cmp_operand_ultimate(eng, l_op);
+                    int bnd = cp_cmp_operand_ultimate(eng, rhs);
+                    if (bnd < 0) bnd = cp_vnode_of(eng, rhs);
+                    if (t >= 0 && bnd >= 0 && t != bnd) {
+                        cp_const_t symf = { .state = CP_C_RANGE, .cwidth = CP_W_I32,
+                                            .lo = INT32_MIN, .hi = INT32_MAX, .stride = 1,
+                                            .hi_vn1 = bnd + 1, .hi_vn_incl = 1 };
+                        b_rf[b]  = cp_new_refine(eng, t, symf);
+                        b_und[b] = t;
+                        any = true;
+                    }
+                }
+            }
+            continue;
         }
         /* Range refinement only applies to the integer widths (floats have
          * no range lattice; their comparisons don't refine). */
@@ -1889,7 +1984,7 @@ static void cp_compute_branch_refinements(cp_engine_t* eng) {
             any = true;
         }
     }
-    if (!any) return;
+    if (!any && nfacts == 0) return;
 
     /* ── PASS B: re-derive the slot states with the per-edge rule, then rewire.
      *
@@ -1920,6 +2015,30 @@ static void cp_compute_branch_refinements(cp_engine_t* eng) {
     bbq_hmap_init(&pairs.memo, 0);
     bbq_hmap compose_memo;
     bbq_hmap_init(&compose_memo, 0);
+
+    /* Verdict fact state (channel (a)) — rides the SAME optimistic sweep as the
+     * slot rows: per node a bitset over fact ids, TOP (= "unreached", the
+     * intersection identity) everywhere but the entry, met by AND at merges and
+     * extended by the crossing edge's own fact. Value facts have no kills, so
+     * the transfer is pure OR-then-AND; bits only descend from TOP, so it
+     * converges with the slot rows. */
+    int vstride = (2 * nfacts + 63) / 64;
+    uint64_t* vw   = NULL;
+    bool*     vtop = NULL;
+    uint64_t* vtmp = NULL;
+    uint64_t* vacc = NULL;
+    if (nfacts > 0) {
+        vw   = (uint64_t*)bbq_arena_alloc(a, (size_t)sn * vstride * sizeof(uint64_t));
+        vtop = (bool*)bbq_arena_alloc(a, (size_t)sn * sizeof(bool));
+        vtmp = (uint64_t*)bbq_arena_alloc(a, (size_t)vstride * sizeof(uint64_t));
+        vacc = (uint64_t*)bbq_arena_alloc(a, (size_t)vstride * sizeof(uint64_t));
+        memset(vw, 0, (size_t)sn * vstride * sizeof(uint64_t));
+        for (int n = 0; n < sn; n++) vtop[n] = (n != entry_idx);
+        eng->fact_branch = (int*)bbq_arena_alloc(a, (size_t)nfacts * sizeof(int));
+        for (int b = 0; b < sn; b++)
+            if (eng->branch_fact_ord[b] >= 0)
+                eng->fact_branch[eng->branch_fact_ord[b]] = b;
+    }
 
     /* OPTIMISTIC iterated sweeps — SCCP's executable-edge fixpoint (§4: branch refinements
      * are "per-edge facts, exactly SCCP's executable-edge mechanism"). Every non-entry row
@@ -1956,6 +2075,18 @@ static void cp_compute_branch_refinements(cp_engine_t* eng) {
                                               &pairs, p, n, pv);
                     if (nv != in2[n][s]) { in2[n][s] = nv; changed = true; }
                 }
+                if (vw && !vtop[p]) {
+                    memcpy(vtmp, vw + (size_t)p * vstride,
+                           (size_t)vstride * sizeof(uint64_t));
+                    cp_verdict_edge_or(eng, vtmp, p, n);
+                    uint64_t* row = vw + (size_t)n * vstride;
+                    if (vtop[n] || memcmp(row, vtmp,
+                                          (size_t)vstride * sizeof(uint64_t)) != 0) {
+                        memcpy(row, vtmp, (size_t)vstride * sizeof(uint64_t));
+                        vtop[n] = false;
+                        changed = true;
+                    }
+                }
             } else if (p_cnt[n] >= 2) {
                 /* A merge's row is the MEET over its recorded preds (Kildall; §4's SCCP
                  * executable-edge rule). Optimistic TOP-init lets a loop-invariant refinement
@@ -1980,9 +2111,46 @@ static void cp_compute_branch_refinements(cp_engine_t* eng) {
                     int nv = (acc == CP_R_TOP) ? in2[n][s] : acc;   /* no pred reached: unchanged */
                     if (nv != in2[n][s]) { in2[n][s] = nv; changed = true; }
                 }
+                if (vw) {
+                    bool got = false;
+                    for (int pi = 0; pi < p_cnt[n]; pi++) {
+                        int p = p_list[p_off[n] + pi];
+                        if (vtop[p]) continue;                      /* unreached: identity */
+                        memcpy(vtmp, vw + (size_t)p * vstride,
+                               (size_t)vstride * sizeof(uint64_t));
+                        cp_verdict_edge_or(eng, vtmp, p, n);
+                        if (!got) {
+                            memcpy(vacc, vtmp, (size_t)vstride * sizeof(uint64_t));
+                            got = true;
+                        } else {
+                            for (int w = 0; w < vstride; w++) vacc[w] &= vtmp[w];
+                        }
+                    }
+                    if (got) {
+                        uint64_t* row = vw + (size_t)n * vstride;
+                        if (vtop[n] || memcmp(row, vacc,
+                                              (size_t)vstride * sizeof(uint64_t)) != 0) {
+                            memcpy(row, vacc, (size_t)vstride * sizeof(uint64_t));
+                            vtop[n] = false;
+                            changed = true;
+                        }
+                    }
+                }
             }
         }
         if (!changed) break;
+    }
+    if (vw) {
+        /* A row still TOP is unreached by the sweep: publish it as NO facts —
+         * fail-closed, so a consumer never folds on a vacuous verdict. */
+        for (int n = 0; n < sn; n++)
+            if (vtop[n])
+                memset(vw + (size_t)n * vstride, 0,
+                       (size_t)vstride * sizeof(uint64_t));
+        eng->verdict_words     = vw;
+        eng->verdict_stride    = vstride;
+        eng->verdict_rows      = sn;
+        eng->branch_fact_count = nfacts;
     }
 
     /* Rewire every slot load to its CONVERGED state. Pair-states materialize into Refine
@@ -3028,7 +3196,12 @@ static cp_const_t cp_input_const(cp_engine_t* eng, int in) {
  * fold-of-congruent, §3.2.1 vanilla fold. Per-opcode facts come from
  * sir_op_gamma[]; the engine never switches on sir_node_t_tag for γ
  * work outside the engine-special set (PHI, LoadConst, LoadLocal). */
-/* SIR data-type tag → constant-lattice carrier width. */
+/* SIR data-type tag → constant-lattice carrier width. v128 deliberately has NO
+ * carrier: no γ_K fold produces a v128 KNOWN (SIMD ops fold nothing — a wrong
+ * fold is a miscompile), SimdConst carries no fold row and is not congruent, so
+ * a v128 cell only ever holds TOP/BOTTOM and its width is never read. If SIMD
+ * folding ever lands, it needs a real 128-bit carrier here FIRST — lanes never
+ * ride a narrower one (the f32-in-double lesson). */
 static cp_cwidth_t cp_dt_cwidth(sir_datatype_t dt) {
     switch (dt) {
         case SIR_DTLONG:   return CP_W_I64;
@@ -3078,8 +3251,13 @@ static cp_const_t cp_fold_wide(int tag, cp_const_t a, cp_const_t b) {
             case SIR_ADD: r = (int64_t)((uint64_t)x + (uint64_t)y); break;
             case SIR_SUB: r = (int64_t)((uint64_t)x - (uint64_t)y); break;
             case SIR_MUL: r = (int64_t)((uint64_t)x * (uint64_t)y); break;
-            case SIR_DIV: if (y==0 || (x==INT64_MIN && y==-1)) return bot; r = x/y; break;
-            case SIR_REM: if (y==0 || (x==INT64_MIN && y==-1)) return bot; r = x%y; break;
+            /* §15.16.2/.3: /0 THROWS (no fold); MIN/-1 does NOT — it is the
+             * dividend, and MIN%-1 is 0 (both C UB: fold by the spec's stated
+             * values, never by computing). */
+            case SIR_DIV: if (y==0) return bot;
+                          r = (x==INT64_MIN && y==-1) ? INT64_MIN : x/y; break;
+            case SIR_REM: if (y==0) return bot;
+                          r = (x==INT64_MIN && y==-1) ? 0 : x%y; break;
             case SIR_AND: r = x & y; break;
             case SIR_OR:  r = x | y; break;
             case SIR_XOR: r = x ^ y; break;
@@ -3248,13 +3426,46 @@ static cp_const_t cp_instanceof_const(cp_engine_t* eng, const cp_vnode_t* v,
  * which refine as the solve runs. Partitions start coarse and SPLIT, so an early "same
  * partition" can become false — and a KNOWN 0 left standing on a split-apart pair is
  * UNSOUND, not merely stale. cp_solve therefore re-arms every comparison whenever the
- * partition count moves (see cp_rearm_symbolic_compares). Monotone either way: the fact
+ * partition count moves (see cp_rearm_partition_consumers). Monotone either way: the fact
  * can only descend KNOWN → BOTTOM, and a revived arm only ever ADDS reachability. */
 static cp_const_t cp_symbolic_bound_const(cp_engine_t* eng, const cp_vnode_t* v,
                                            bool* handled) {
     *handled = false;
     cp_const_t r = { .state = CP_C_TOP };
-    if (v->kind != CP_VN_EXPR || !v->expr || v->expr->tag != SIR_GE) return r;
+    if (v->kind != CP_VN_EXPR || !v->expr) return r;
+    if (v->expr->tag == SIR_GT) {
+        /* The Mem hi-guard's shape: `x > lim` with x carrying a symbolic
+         * bound B. Either strictness refutes it when B ≡ lim — x ≤ B = lim
+         * and x < B = lim both deny x > lim — so no inclusive +1 dance.
+         * fold_convert leaves RANGE operands unfolded (BOTTOM), so when x is
+         * the I2L the guard compares through, the bound lives on the
+         * conversion's OPERAND vnode. The two `lim` expressions are congruent
+         * across adjacent guards through the MemSize memory-input keying —
+         * and NOT congruent across a grow/call kill, which is what keeps the
+         * soundness negatives standing. */
+        if (v->input_count != 2 || v->inputs[0] < 0 || v->inputs[1] < 0) return r;
+        const cp_vnode_t* xv = eng->vnodes[v->inputs[0]];
+        cp_const_t xc = xv->constant;
+        if (!(xc.state == CP_C_RANGE && xc.hi_vn1 != 0)
+                && xv->kind == CP_VN_EXPR && xv->expr && xv->expr->tag == SIR_I2L
+                && xv->input_count >= 1 && xv->inputs[0] >= 0
+                && xv->inputs[0] < eng->vnode_count)
+            xc = eng->vnodes[xv->inputs[0]]->constant;
+        if (xc.state != CP_C_RANGE || xc.hi_vn1 == 0) return r;
+        int gbound = cp_ultimate_value(eng, xc.hi_vn1 - 1);
+        int glim   = cp_ultimate_value(eng, v->inputs[1]);
+        if (gbound < 0 || gbound >= eng->vnode_count) return r;
+        if (glim   < 0 || glim   >= eng->vnode_count) return r;
+        int gbp = eng->vnodes[gbound]->partition;
+        int glp = eng->vnodes[glim]->partition;
+        if (gbp < 0 || glp < 0 || gbp != glp) return r;
+        *handled = true;
+        r.state  = CP_C_KNOWN;
+        r.cwidth = CP_W_I32;
+        r.value  = 0;
+        return r;
+    }
+    if (v->expr->tag != SIR_GE) return r;
     if (v->input_count != 2 || v->inputs[0] < 0 || v->inputs[1] < 0) return r;
 
     const cp_vnode_t* iv = eng->vnodes[v->inputs[0]];          /* the index  */
@@ -3525,7 +3736,7 @@ static cp_const_t cp_node_const(cp_engine_t* eng, const cp_vnode_t* v) {
                         && !cp_const_eq(lc, rc))
                     same = false;
             }
-            /* §15.21.1/§15.18.2: NaN breaks reflexivity — NaN != NaN
+            /* §15.20.1/§15.19.1: NaN breaks reflexivity — NaN != NaN
              * is TRUE, NaN == NaN false, NaN - NaN is NaN. The x⊙x
              * folds are sound only for integral/ref operands; skip
              * float/double (and unknown) outright. */
@@ -3543,8 +3754,10 @@ static cp_const_t cp_node_const(cp_engine_t* eng, const cp_vnode_t* v) {
                     k.value = (e->tag == SIR_EQ || e->tag == SIR_LE
                                                  || e->tag == SIR_GE);
                 } else {
-                    /* GC_ZERO (x - x): a zero of the operand's own width. */
-                    k.cwidth = cp_dt_cwidth(e->sub.data_type);
+                    /* GC_ZERO (x - x, x ^ x): a zero of the node's own
+                     * width, read through the row's type slot — the
+                     * representation authority — not a union-arm pun. */
+                    k.cwidth = cp_dt_cwidth(gcong->type_prim_dt(e));
                 }
                 return k;
             }
@@ -3625,6 +3838,7 @@ static bool cp_apply_identity_follower(cp_engine_t* eng, int v_idx);
 static bool cp_apply_phi_follower(cp_engine_t* eng, int v_idx);
 static bool cp_apply_load_follower(cp_engine_t* eng, int v_idx);
 static bool cp_apply_arraylen_follower(cp_engine_t* eng, int v_idx);
+static bool cp_apply_same_input_follower(cp_engine_t* eng, int v_idx);
 static bool cp_revert_identity_follower(cp_engine_t* eng, int v_idx);
 static bool cp_revert_phi_follower(cp_engine_t* eng, int v_idx);
 static bool cp_revert_load_follower(cp_engine_t* eng, int v_idx);
@@ -5721,6 +5935,7 @@ static void cp_apply_followers_pass(cp_engine_t* eng) {
     for (int v = 0; v < eng->vnode_count; v++) {
         if (eng->vnodes[v]->leader >= 0) continue;
         if (cp_apply_load_follower(eng, v)) continue;
+        if (cp_apply_same_input_follower(eng, v)) continue;
         cp_apply_arraylen_follower(eng, v);
     }
     if (!eng->fallen) return;
@@ -5954,6 +6169,26 @@ static bool cp_apply_arraylen_follower(cp_engine_t* eng, int v_idx) {
     return cp_become_follower(eng, v_idx, cp_value_leader(eng, cp_vnode_of(eng, size)));
 }
 
+/* §4.8's same-input IDEMPOTENT identity (x & x = x, x | x = x), declared by
+ * the row's same_in_follower. Fires when both inputs carry ONE reaching name
+ * (cp_ultimate_value identity — stable pass-A wiring, so the transition fires
+ * at most once and never needs a revert). Identity ONLY, never partitions: a
+ * follower link riding a transient coarse partition is exactly the class the
+ * cong_fold re-arm walks back, and follower links don't get walked back.
+ * Follows the INPUT, not the ultimate — §4.10's representative pick walks
+ * the chain at rewrite time (the identity follower's rule). */
+static bool cp_apply_same_input_follower(cp_engine_t* eng, int v_idx) {
+    cp_vnode_t* v = eng->vnodes[v_idx];
+    if (v->leader >= 0 || v->kind != CP_VN_EXPR || !v->expr) return false;
+    if (!sir_op_gamma[v->expr->tag].same_in_follower) return false;
+    if (v->input_count != 2) return false;
+    int li = v->inputs[0], ri = v->inputs[1];
+    if (li < 0 || ri < 0) return false;
+    int lu = cp_ultimate_value(eng, li);
+    if (lu < 0 || lu != cp_ultimate_value(eng, ri)) return false;
+    return cp_become_follower(eng, v_idx, li);
+}
+
 /* §4.7.5 step 6.1: a Follower whose identity condition no longer
  * holds must return to Leader. cp_apply_identity_follower fires optimistically
  * during the iterative fixpoint — e.g. a loop body's Add(sum, i)
@@ -6122,6 +6357,38 @@ static bool cp_revert_phi_follower(cp_engine_t* eng, int v_idx) {
 
 /* ── Reachability (UCE) ──────────────────────────────────────── */
 
+/* Channel (a) consumer: the verdict for the branch at spine index `i` with
+ * condition `cond`, or -1 when no path-invariant fact decides it. Matching is
+ * by cp_value_leader IDENTITY only — the engine's designed value walk (copies,
+ * Followers, Refines) — never by partition membership and never through
+ * vnode->constant (see the header's verdict_words comment for both whys).
+ * Fail-closed at every step: a spliced spine node (index ≥ verdict_rows), a
+ * condition with no vnode (cp_rewrite may have minted it), or an empty row all
+ * answer "no verdict". Sound mid-solve: cp_value_leader reads CURRENT follower
+ * links, which may transiently claim an identity that later reverts — the same
+ * optimistic dynamics as a KNOWN falling to BOTTOM, and reachability (the only
+ * in-solve caller) is recomputed from scratch every round. */
+static int cp_branch_verdict(cp_engine_t* eng, int i, sir_node_t* cond) {
+    if (!eng->verdict_words || i < 0 || i >= eng->verdict_rows || !cond)
+        return -1;
+    void* f = cp_pmap_get(&eng->expr_idx, cond);
+    if (!f) return -1;
+    int lv = cp_value_leader(eng, (int)((uintptr_t)f - 1));
+    const uint64_t* row = eng->verdict_words + (size_t)i * eng->verdict_stride;
+    for (int w = 0; w < eng->verdict_stride; w++) {
+        uint64_t bits = row[w];
+        while (bits) {
+            int fid = w * 64 + __builtin_ctzll(bits);
+            bits &= bits - 1;
+            int fb  = eng->fact_branch[fid >> 1];
+            int cvn = eng->branch_cond_vn[fb];
+            if (cvn >= 0 && cp_value_leader(eng, cvn) == lv)
+                return fid & 1;
+        }
+    }
+    return -1;
+}
+
 /* The constant a branch condition currently carries.
  *
  * A condition the engine has NO VNODE FOR is BOTTOM (unknown), never TOP.
@@ -6189,6 +6456,13 @@ static void cp_compute_reachability(cp_engine_t* eng) {
                 if (c.state == CP_C_TOP) continue;
                 if (c.state == CP_C_KNOWN
                         && ((i == 0) != (c.value != 0))) continue;
+                /* Channel (a): a condition the fold can't decide may still be
+                 * decided by a path-invariant verdict. KNOWN wins when present
+                 * (handled above); the verdict fills in for BOTTOM/RANGE. */
+                if (c.state != CP_C_KNOWN) {
+                    int vd = cp_branch_verdict(eng, ni, n->branch.cond);
+                    if (vd >= 0 && ((i == 0) != (vd != 0))) continue;
+                }
             }
             /* Switch (§3.7 optimistic): TOP selector → no arms;
              * KNOWN → only matching case (or default if no match);
@@ -6906,7 +7180,17 @@ static void cp_rewrite_branch_fold(cp_engine_t* eng) {
         sir_node_t* n = eng->spine[i];
         if (n->tag == SIR_BRANCH) {
             sir_node_t* cond = n->branch.cond;
-            if (!cond || cond->tag != SIR_LOADCONST) continue;
+            if (!cond) continue;
+            if (cond->tag != SIR_LOADCONST) {
+                /* Channel (a): a condition the fold left standing whose VALUE a
+                 * path-invariant verdict decided. The links are converged here,
+                 * so the identity match is final. */
+                int vd = cp_branch_verdict(eng, i, cond);
+                if (vd < 0) continue;
+                n->tag = SIR_NOP;
+                n->nop.next = vd ? n->branch.on_true : n->branch.on_false;
+                continue;
+            }
             sir_node_t* target = (cond->load_const.value != 0)
                                ? n->branch.on_true
                                : n->branch.on_false;
@@ -7078,7 +7362,16 @@ static void cp_rewrite_compact_nops_gotos(cp_engine_t* eng) {
             case SIR_ARRAYSTORE: n->array_store.next = NEXT(n->array_store.next); break;
             case SIR_ARRAYCOPY:  n->array_copy.next  = NEXT(n->array_copy.next);  break;
             case SIR_SETHEADER:  n->set_header.next  = NEXT(n->set_header.next);  break;
-            case SIR_MEMSTORE8:  n->mem_store8.next  = NEXT(n->mem_store8.next);  break;
+            case SIR_SIMDMEMSTORE:
+                n->simd_mem_store.next = NEXT(n->simd_mem_store.next); break;
+            case SIR_SIMDMEMSTORELANE:
+                n->simd_mem_store_lane.next = NEXT(n->simd_mem_store_lane.next); break;
+            case SIR_MEMSTOREI:  n->mem_store_i.next = NEXT(n->mem_store_i.next); break;
+            case SIR_MEMSTOREL:  n->mem_store_l.next = NEXT(n->mem_store_l.next); break;
+            case SIR_MEMSTOREF:  n->mem_store_f.next = NEXT(n->mem_store_f.next); break;
+            case SIR_MEMSTORED:  n->mem_store_d.next = NEXT(n->mem_store_d.next); break;
+            case SIR_MEMFILL:    n->mem_fill.next    = NEXT(n->mem_fill.next);    break;
+            case SIR_MEMCOPY:    n->mem_copy.next    = NEXT(n->mem_copy.next);    break;
             case SIR_PUTFIELD:   n->put_field.next   = NEXT(n->put_field.next);   break;
             case SIR_PUTSTATIC:  n->put_static.next  = NEXT(n->put_static.next);  break;
             case SIR_INC:        n->inc.next         = NEXT(n->inc.next);         break;
@@ -7665,6 +7958,11 @@ static sir_node_t* cp_sr_default(bbq_arena* a, sir_datatype_t dt) {
         case SIR_DTLONG:   return sir_load_long_const(a, 0);
         case SIR_DTFLOAT:  return sir_load_float_const(a, 0.0f);
         case SIR_DTDOUBLE: return sir_load_double_const(a, 0.0);
+        case SIR_DTV128:   return sir_simd_const(a, 0, 0);   /* the default arm would
+                                                              * build an i32 zero tagged
+                                                              * v128 — a miscompile the
+                                                              * first time PEA scalar-
+                                                              * replaces a v128 field */
         default:           return sir_load_const(a, 0, dt);
     }
 }
@@ -8665,21 +8963,32 @@ void cp_init_facts(cp_engine_t* eng) {
  * Loop terminates only when neither worklist nor cprop has pending
  * work AND reach_count is stable. */
 /* THE RE-ARM (the recurring bug class, and the plan predicted a fourth — this is the
- * fifth). `cp_symbolic_bound_const` reads a PARTITION: whether the bound that refined the
+ * fifth, and the cong_fold arm below is the seventh). `cp_symbolic_bound_const` reads a
+ * PARTITION: whether the bound that refined the
  * index and the length this compare reads are the same value. That fact does not arrive
  * over a def-use edge, so nothing in PROPAGATE will ever revisit the compare when it
  * changes — and it DOES change, because partitions start coarse and SPLIT as the solve
  * refines. A `KNOWN 0` left standing on a pair that has since split apart is not stale,
  * it is UNSOUND: a bounds guard deleted on a proof that no longer holds.
  *
- * So: whenever a split happened, every comparison goes back on the cprop worklist. Gated
- * on the partition count actually moving — re-arming unconditionally would keep the
- * worklist non-empty and cp_solve would never terminate. The count only grows and is
- * bounded by the vnode count, so this terminates. */
-static void cp_rearm_symbolic_compares(cp_engine_t* eng) {
+ * The §4.6 cong_fold engine block reads partitions the same off-graph way, and its
+ * premature-fold guard covers only HALF the transient: TOP operands and disagreeing
+ * KNOWNs are rejected, but two BOTTOM loads still sharing their initial opcode bucket
+ * (a[i] and b[i] before CAUSE_SPLITS tells their arrays apart) pass it and fold —
+ * BitSet.xor's `bits[i] ^ set.bits[i]` folded to 0. The fold is fine as an OPTIMISTIC
+ * transient; what was missing is exactly this re-arm, so the split that separates the
+ * loads re-runs the fold and the KNOWN falls to the γ answer. So: every vnode whose row
+ * carries a cong_fold goes back on cprop too (SUB / XOR / the six compares).
+ *
+ * Gated on the partition count actually moving — re-arming unconditionally would keep
+ * the worklist non-empty and cp_solve would never terminate. The count only grows and
+ * is bounded by the vnode count, so this terminates. */
+static void cp_rearm_partition_consumers(cp_engine_t* eng) {
     for (int v = 0; v < eng->vnode_count; v++) {
         const cp_vnode_t* vn = eng->vnodes[v];
-        if (vn->kind == CP_VN_EXPR && vn->expr && vn->expr->tag == SIR_GE)
+        if (vn->kind != CP_VN_EXPR || !vn->expr) continue;
+        int t = vn->expr->tag;
+        if (t == SIR_GE || sir_op_gamma[t].cong_fold != GC_NONE)
             cp_cprop_enqueue(eng, v);
     }
 }
@@ -8691,7 +9000,7 @@ void cp_solve(cp_engine_t* eng) {
         cp_compute_reachability(eng);
         cp_compute_facts(eng);
         cp_split_by_facts(eng);
-        if (eng->partition_count != prev_pc) cp_rearm_symbolic_compares(eng);
+        if (eng->partition_count != prev_pc) cp_rearm_partition_consumers(eng);
         /* Click §4.7.5 line 16-22: Follower-apply runs AFTER SPLIT so
          * the all-inputs-in-same-partition check reads post-split
          * partitions, not the stale pre-split groupings. */
@@ -8907,7 +9216,11 @@ void cp_pack(sir_method_t* method, const sema_ctx_t* sema,
      * authority): i32, i64, f32, f64, ref — in lat_valtype_t order. */
     #define POOL_OF(dt) ((int)lat_dt_valtype(dt))
     #define POOL_WIDTH(p) (1)
-    #define POOL_COUNT 5
+    /* One pool per WASM valtype, sized FROM the lattice enum — a literal here
+     * was the eighth copy of the "N-wide" disease: it stayed 5 when
+     * LAT_VT_V128 became the sixth valtype, so v128 slots indexed pool_max[]
+     * out of bounds and renamed past max_locals ("unknown local" at load). */
+    #define POOL_COUNT ((int)LAT_VT_V128 + 1)
 
     int* new_slot = (int*)bbq_arena_alloc(arena, (size_t)sc * sizeof(int));
     int* color    = (int*)bbq_arena_alloc(arena, (size_t)sc * sizeof(int));

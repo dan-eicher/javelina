@@ -233,19 +233,13 @@ int ddcg_arraystore_check_class(ddcg_ctx_t* ctx)  { return sema_class_reflect_id
 int ddcg_arraystore_check_method(ddcg_ctx_t* ctx) { return sema_arraystore_check_method(ctx->sema); }
 int ddcg_class_reflect_id(ddcg_ctx_t* ctx)        { return sema_class_reflect_id(ctx->sema); }
 int ddcg_class_is_instance_method(ddcg_ctx_t* ctx){ return sema_is_instance_method(ctx->sema); }
-static sir_datatype_t atype_to_dt(sir_atype_t at) {
-    switch (at) {
-    case SIR_ATBOOL: case SIR_ATBYTE: return SIR_DTBYTE;
-    case SIR_ATSHORT:  return SIR_DTSHORT;
-    case SIR_ATCHAR:   return SIR_DTCHAR;
-    case SIR_ATLONG:   return SIR_DTLONG;
-    case SIR_ATFLOAT:  return SIR_DTFLOAT;
-    case SIR_ATDOUBLE: return SIR_DTDOUBLE;
-    default:           return SIR_DTINT;
-    }
-}
 int ddcg_primarray_class_dt(ddcg_ctx_t* ctx, sir_datatype_t dt)    { return lat_primarray_class(ctx->sema, dt); }
-int ddcg_primarray_class_atype(ddcg_ctx_t* ctx, sir_atype_t atype) { return lat_primarray_class(ctx->sema, atype_to_dt(atype)); }
+/* atype → element width via the ONE authority (lat_atype_to_dt). A local copy of
+ * this map lived here with a default-to-int arm — which sent `new V128[]` to the
+ * IntArray overlay while the backing was (array v128): a §3.4.7 struct.set type
+ * mismatch the VM validator rightly rejected. The lattice header already said
+ * this file's duplicates were replaced; this one had survived. */
+int ddcg_primarray_class_atype(ddcg_ctx_t* ctx, sir_atype_t atype) { return lat_primarray_class(ctx->sema, lat_atype_to_dt(atype)); }
 int ddcg_primarray_data_field(ddcg_ctx_t* ctx) { (void)ctx; return 0; }
 
 /* §10.8 the Class object for an array-typed expression's type (its getClass()), or -1. */
@@ -499,11 +493,11 @@ bool ddcg_sema_invoke_is_void(ddcg_ctx_t* ctx, ast_expr_t* expr) {
 int ddcg_sema_new_target_class(ddcg_ctx_t* ctx, ast_expr_t* expr) {
     int32_t tc = sema_target_class(ctx->sema, expr);
     if (tc >= 0) return tc;
-    if (expr->tag != AST_NEW || !expr->new_.class_) return -1;
-    const char* name = expr->new_.class_->tag == AST_SIMPLENAME
-        ? expr->new_.class_->simple_name.id
-        : expr->new_.class_->qualified_name.id;
-    return sema_find_class(ctx->sema, name);
+    /* No name re-resolution here: sema records target_classes for every
+     * AST_NEW it accepts (§6.5.4 resolution is unit-relative — a codegen-time
+     * table lookup on the spelled name would be §7-blind). Absent = sema
+     * rejected the expression. */
+    return -1;
 }
 
 int ddcg_sema_new_ctor_cp(ddcg_ctx_t* ctx, ast_expr_t* expr) {
@@ -577,14 +571,41 @@ int ddcg_sema_math_intrinsic_kind(ddcg_ctx_t* ctx, ast_expr_t* e) {
 bool ddcg_sema_is_math_intrinsic(ddcg_ctx_t* ctx, ast_expr_t* e) {
     return sema_is_math_intrinsic(ctx->sema, e);
 }
+/* javelina.simd: a resolved intrinsic call's family / opcode / validated lane
+ * (the generated table + the sema stash — the ddcg never re-derives). */
+bool ddcg_sema_is_simd_intrinsic(ddcg_ctx_t* ctx, ast_expr_t* e) {
+    return sema_is_simd_intrinsic(ctx->sema, e);
+}
+int ddcg_sema_simd_family(ddcg_ctx_t* ctx, ast_expr_t* e) {
+    return sema_simd_family(ctx->sema, e);
+}
+int ddcg_sema_simd_op(ddcg_ctx_t* ctx, ast_expr_t* e) {
+    return sema_simd_op(ctx->sema, e);
+}
+int ddcg_sema_simd_lane(ddcg_ctx_t* ctx, ast_expr_t* e) {
+    return (int)sema_simd_lane(ctx->sema, e);
+}
+int ddcg_sema_simd_align(ddcg_ctx_t* ctx, ast_expr_t* e) {
+    return sema_simd_align(ctx->sema, e);
+}
+int ddcg_sema_simd_awidth(ddcg_ctx_t* ctx, ast_expr_t* e) {
+    return sema_simd_awidth(ctx->sema, e);
+}
+/* The 128-bit const/shuffle immediate halves do not fit an int extern: write
+ * the sema-validated stash INTO the built node, by tag. Returns 0 (extern
+ * calling convention). */
+int ddcg_sema_simd_fill(ddcg_ctx_t* ctx, sir_node_t* n, ast_expr_t* e) {
+    int64_t lo = sema_simd_lo(ctx->sema, e), hi = sema_simd_hi(ctx->sema, e);
+    if (n->tag == SIR_SIMDCONST)   { n->simd_const.lo   = lo; n->simd_const.hi   = hi; }
+    if (n->tag == SIR_SIMDSHUFFLE) { n->simd_shuffle.lo = lo; n->simd_shuffle.hi = hi; }
+    return 0;
+}
 int ddcg_sema_class_intrinsic_kind(ddcg_ctx_t* ctx, ast_expr_t* e) {
     return sema_class_intrinsic_kind(ctx->sema, e);
 }
 bool ddcg_sema_is_class_intrinsic(ddcg_ctx_t* ctx, ast_expr_t* e) {
     return sema_is_class_intrinsic(ctx->sema, e);
 }
-bool ddcg_sema_is_memload8(ddcg_ctx_t* ctx, ast_expr_t* e)  { return sema_is_memload8(ctx->sema, e); }
-bool ddcg_sema_is_memstore8(ddcg_ctx_t* ctx, ast_expr_t* e) { return sema_is_memstore8(ctx->sema, e); }
 bool ddcg_sema_class_needs_init(ddcg_ctx_t* ctx, int cls)   { return sema_class_needs_init(ctx->sema, cls); }
 int  ddcg_sema_ensure_init_cp(ddcg_ctx_t* ctx, int cls)     { return sema_ensure_init_cp(ctx->sema, cls); }
 

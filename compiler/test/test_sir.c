@@ -70,20 +70,32 @@ static bbq_arena* sess_arena(void) {
 // arena is process-lifetime by design; the OS reclaims it.
 static ast_type_decl_t** g_lib_types  = NULL;
 static int               g_lib_ntypes = -1;      /* <0 until the one-time build runs */
+static ast_program_t**   g_lib_units  = NULL;    /* per-FILE programs — §7.3 units */
+static int               g_lib_nunits = 0;
 static bbq_arena         g_prelude_arena;        /* owns the shared desugar; never freed */
 
 static void prelude_once(void) {
     if (g_lib_ntypes >= 0) return;
+    /* The full prelude (lang/util/io/simd): java.lang's own §7.5 imports name
+     * java.io types, so a lang-only environment is no longer legal Java. Each
+     * FILE stays its own §7.3 unit (its package + imports drive resolution). */
+    static const char* dirs[] = { "lib/java/lang", "lib/java/util", "lib/java/io",
+                                  "lib/javelina/simd" };
     ast_type_decl_t** t = NULL; int tc = 0, cap = 0;
-    DIR* d = opendir("lib/java/lang");
-    if (d) { struct dirent* e;
+    for (int di = 0; di < 4; di++) {
+        DIR* d = opendir(dirs[di]);
+        if (!d) { printf("  FAIL  cannot open %s\n", dirs[di]); TEST_FAILED(); continue; }
+        struct dirent* e;
         while ((e = readdir(d))) { size_t L=strlen(e->d_name);
             if (L<6 || strcmp(e->d_name+L-5,".java")) continue;
-            char path[512]; snprintf(path,sizeof path,"lib/java/lang/%s",e->d_name);
+            char path[512]; snprintf(path,sizeof path,"%s/%s",dirs[di],e->d_name);
             char* s = read_file(path); if(!s) continue;
             ast_program_t* p = parse_into(s, NULL);  /* context kept for the run */
             free(s);                       /* idents/literals are jdup'd into pc->arena */
             if(!p){printf("  FAIL parse %s\n",path);TEST_FAILED();continue;}
+            { static int ucap = 0;
+              if (g_lib_nunits==ucap){ucap=ucap?ucap*2:64;g_lib_units=realloc(g_lib_units,(size_t)ucap*sizeof(*g_lib_units));}
+              g_lib_units[g_lib_nunits++]=p; }
             for (int i=0;i<p->types_count;i++) {
                 if(tc==cap){cap=cap?cap*2:64;t=realloc(t,(size_t)cap*sizeof(*t));}
                 t[tc++]=p->types[i];
@@ -95,18 +107,20 @@ static void prelude_once(void) {
     /* Warm the desugar into permanent storage. sema_destroy releases this pass's
      * hash tables; the AST rewrite it made stays in g_prelude_arena. */
     bbq_arena_init(&g_prelude_arena, 1 << 20);
-    ast_type_decl_t** parr = bbq_arena_alloc(&g_prelude_arena, (size_t)tc*sizeof(*parr));
-    memcpy(parr, t, (size_t)tc*sizeof(*parr));
-    ast_program_t* pre = ast_program(&g_prelude_arena, NULL, NULL, 0, parr, tc);
     sema_ctx_t warm; sema_init(&warm, &g_prelude_arena);
     warm.num_library_classes = tc;
-    sema_analyze(&warm, pre);
+    sema_analyze_units(&warm, g_lib_units, g_lib_nunits);
     sema_destroy(&warm);
 }
 
 // The user source's parse context, released at the START of the next build —
 // the same "valid until the next call" lifetime the session arena documents.
 static java_parse_ctx_t* g_user_ctx = NULL;
+
+// The current §7.3 unit list (lib units + this build's user unit) — what
+// sir_analyze feeds sema_analyze_units. Rebuilt by every build_program call.
+static ast_program_t** g_units = NULL;
+static int             g_nunits = 0;
 
 static ast_program_t* build_program(const char* user_src, bbq_arena* arena, int* nlib_out) {
     prelude_once();
@@ -117,6 +131,12 @@ static ast_program_t* build_program(const char* user_src, bbq_arena* arena, int*
     ast_program_t* up = parse_into(user_src, &g_user_ctx);
     if (!up) { printf("  FAIL  parse user source\n"); TEST_FAILED(); }
 
+    free(g_units);
+    g_nunits = g_lib_nunits + (up ? 1 : 0);
+    g_units = (ast_program_t**)malloc((size_t)g_nunits * sizeof(*g_units));
+    memcpy(g_units, g_lib_units, (size_t)g_lib_nunits * sizeof(*g_units));
+    if (up) g_units[g_lib_nunits] = up;
+
     int nuser = up ? up->types_count : 0;
     int tc = nlib + nuser;
     ast_type_decl_t** arr = bbq_arena_alloc(arena,(size_t)tc*sizeof(*arr));
@@ -124,6 +144,10 @@ static ast_program_t* build_program(const char* user_src, bbq_arena* arena, int*
     for (int i = 0; i < nuser; i++) arr[nlib+i] = up->types[i];
     return ast_program(arena, NULL, NULL, 0, arr, tc);
 }
+
+// The sema entry for this suite: the §7.3-correct unit list from the last
+// build_program. (The flat program still feeds compiler_compile.)
+static bool sir_analyze(sema_ctx_t* c) { return sema_analyze_units(c, g_units, g_nunits); }
 
 // The sidecar is ONE table of all kinds (compiler.h's PAYLOAD TABLE). A pin about
 // §15 guards filters to the GUARD rows: key = the guard's Branch (an ExprEffect for
@@ -227,6 +251,43 @@ static const sir_node_t* find_tag(const sir_node_t* n, int tag, int depth) {
     return NULL;
 }
 
+/* Count DISTINCT reachable nodes of `tag` (a value node shared by two parents
+ * counts once — the visited set handles the post-Click DAG). Tests may walk;
+ * the optimizer may not. */
+static int count_tag_r(const sir_node_t* n, int tag, const sir_node_t** seen,
+                       int* nseen, int depth) {
+    if (!n || depth <= 0) return 0;
+    for (int i = 0; i < *nseen; i++) if (seen[i] == n) return 0;
+    if (*nseen < 512) seen[(*nseen)++] = n;
+    int c = ((int)n->tag == tag) ? 1 : 0;
+    for (int i = 0; i < sir_arity(n); i++)
+        c += count_tag_r(sir_child(n, i), tag, seen, nseen, depth - 1);
+    for (int i = 0; i < sir_succ_count(n); i++)
+        c += count_tag_r(sir_succ(n, i), tag, seen, nseen, depth - 1);
+    return c;
+}
+
+/* Compile, optionally Click, then count `tag` in the named USER method —
+ * the W8 guard-merge pins. -1 = method not found. */
+static int compile_count_in(const char* user_src, const char* mname, int tag, int opt) {
+    bbq_arena* arena = sess_arena();
+    int nlib = 0;
+    ast_program_t* prog = build_program(user_src, arena, &nlib);
+    sema_ctx_t sctx; sema_init(&sctx, arena); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
+    if (!sir_analyze(&sctx)) { printf("  (note: sema reported errors)\n"); }
+    compiler_ctx_t cctx; compiler_init(&cctx, arena, &sctx);
+    int mc = 0;
+    sir_method_t** methods = compiler_compile(&cctx, prog, &mc);
+    for (int i = 0; i < mc; i++) {
+        if (methods[i]->class_id < nlib) continue;
+        if (!methods[i]->name || strcmp(methods[i]->name, mname)) continue;
+        if (opt) sir_optimize(&cctx, i);
+        const sir_node_t* seen[512]; int nseen = 0;
+        return count_tag_r(methods[i]->entry, tag, seen, &nseen, 800);
+    }
+    return -1;
+}
+
 // Compile user source (merged with java.lang) to SIR; return the first node of
 // `tag` across the USER classes' methods, or NULL. The search is scoped to the
 // user source (class_id >= nlib): the bundled java.lang now has REAL compiled
@@ -237,7 +298,7 @@ static const sir_node_t* compile_find(const char* user_src, int tag, int opt) {
     int nlib = 0;
     ast_program_t* prog = build_program(user_src, arena, &nlib);
     sema_ctx_t sctx; sema_init(&sctx, arena); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
-    if (!sema_analyze(&sctx, prog)) { printf("  (note: sema reported errors)\n"); }
+    if (!sir_analyze(&sctx)) { printf("  (note: sema reported errors)\n"); }
     compiler_ctx_t cctx; compiler_init(&cctx, arena, &sctx);
     int mc = 0;
     sir_method_t** methods = compiler_compile(&cctx, prog, &mc);
@@ -258,7 +319,7 @@ static int packed_max_locals(const char* user_src, const char* mname) {
     int nlib = 0;
     ast_program_t* prog = build_program(user_src, &arena, &nlib);
     sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
-    if (!sema_analyze(&sctx, prog)) { printf("  (note: sema reported errors)\n"); }
+    if (!sir_analyze(&sctx)) { printf("  (note: sema reported errors)\n"); }
     compiler_ctx_t cctx; compiler_init(&cctx, &arena, &sctx);
     int mc = 0;
     sir_method_t** methods = compiler_compile(&cctx, prog, &mc);
@@ -458,7 +519,7 @@ static int opt_method_tag_count(const char* user_src, const char* mname, int tag
     int nlib = 0;
     ast_program_t* prog = build_program(user_src, &arena, &nlib);
     sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
-    if (!sema_analyze(&sctx, prog)) { printf("  (note: sema reported errors)\n"); }
+    if (!sir_analyze(&sctx)) { printf("  (note: sema reported errors)\n"); }
     compiler_ctx_t cctx; compiler_init(&cctx, &arena, &sctx);
     int mc = 0;
     sir_method_t** methods = compiler_compile(&cctx, prog, &mc);
@@ -481,7 +542,7 @@ static bool opt_method_keeps_rem_branch(const char* user_src, const char* mname)
     int nlib = 0;
     ast_program_t* prog = build_program(user_src, &arena, &nlib);
     sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
-    if (!sema_analyze(&sctx, prog)) { printf("  (note: sema reported errors)\n"); }
+    if (!sir_analyze(&sctx)) { printf("  (note: sema reported errors)\n"); }
     compiler_ctx_t cctx; compiler_init(&cctx, &arena, &sctx);
     int mc = 0;
     sir_method_t** methods = compiler_compile(&cctx, prog, &mc);
@@ -725,7 +786,7 @@ static void dbg_dump_method(const char* user_src, const char* mname) {
     int nlib = 0;
     ast_program_t* prog = build_program(user_src, &arena, &nlib);
     sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
-    if (!sema_analyze(&sctx, prog)) printf("  (sema errors)\n");
+    if (!sir_analyze(&sctx)) printf("  (sema errors)\n");
     compiler_ctx_t cctx; compiler_init(&cctx, &arena, &sctx);
     int mc = 0;
     sir_method_t** methods = compiler_compile(&cctx, prog, &mc);
@@ -904,7 +965,7 @@ int main(void) {
             "class C { int v; } class T { static int f(C c) { return c.v; } }",
             &arena, &nlib);
         sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
-        sema_analyze(&sctx, prog);
+        sir_analyze(&sctx);
         compiler_ctx_t cctx; compiler_init(&cctx, &arena, &sctx);
         int mc = 0;
         sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
@@ -948,7 +1009,7 @@ int main(void) {
             int nlib = 0;
             ast_program_t* prog = build_program(gk[i].src, &arena, &nlib);
             sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
-            sema_analyze(&sctx, prog);
+            sir_analyze(&sctx);
             compiler_ctx_t cctx; compiler_init(&cctx, &arena, &sctx);
             int mc = 0;
             sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
@@ -1004,7 +1065,7 @@ int main(void) {
             int nlib = 0;
             ast_program_t* prog = build_program(bk[i].src, &arena, &nlib);
             sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
-            sema_analyze(&sctx, prog);
+            sir_analyze(&sctx);
             compiler_ctx_t cctx; compiler_init(&cctx, &arena, &sctx);
             int mc = 0;
             sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
@@ -1047,11 +1108,11 @@ int main(void) {
    * the ctor chain and the §7 call-graph summaries that escape analysis reads
    * reach into the prelude, so analyze_from stays 0. */
         sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib; /* analyze_from stays 0: see below */
-        sema_analyze(&sctx, prog);
+        sir_analyze(&sctx);
         compiler_ctx_t cctx; compiler_init(&cctx, &arena, &sctx);
         int mc = 0;
         sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
-        int s_id = sema_find_class(&sctx, "String");
+        int s_id = sema_find_class(&sctx, "java.lang.String");
         int mi = -1;
         for (int k = 0; k < mc; k++)
             if (ms[k]->class_id == s_id && ms[k]->name && !strcmp(ms[k]->name, "replace")) mi = k;
@@ -1101,7 +1162,7 @@ int main(void) {
             int nlib = 0;
             ast_program_t* prog = build_program(liveness[i].src, &arena, &nlib);
             sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
-            sema_analyze(&sctx, prog);
+            sir_analyze(&sctx);
             compiler_ctx_t cctx; compiler_init(&cctx, &arena, &sctx);
             int mc = 0;
             sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
@@ -1145,7 +1206,7 @@ int main(void) {
         int nlib = 0;
         ast_program_t* prog = build_program(src, &arena, &nlib);
         sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
-        sema_analyze(&sctx, prog);
+        sir_analyze(&sctx);
         compiler_ctx_t cctx; compiler_init(&cctx, &arena, &sctx);
         int mc = 0;
         sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
@@ -1215,7 +1276,7 @@ int main(void) {
             int nlib = 0;
             ast_program_t* prog = build_program(casts[i].src, &arena, &nlib);
             sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
-            sema_analyze(&sctx, prog);
+            sir_analyze(&sctx);
             compiler_ctx_t cctx; compiler_init(&cctx, &arena, &sctx);
             int mc = 0;
             sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
@@ -1264,7 +1325,7 @@ int main(void) {
         int nlib = 0;
         ast_program_t* prog = build_program(src, &arena, &nlib);
         sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
-        sema_analyze(&sctx, prog);
+        sir_analyze(&sctx);
         compiler_ctx_t cctx; compiler_init(&cctx, &arena, &sctx);
         int mc = 0;
         sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
@@ -1308,7 +1369,7 @@ int main(void) {
         int nlib = 0;
         ast_program_t* prog = build_program(src, &arena, &nlib);
         sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
-        sema_analyze(&sctx, prog);
+        sir_analyze(&sctx);
         compiler_ctx_t cctx; compiler_init(&cctx, &arena, &sctx);
         int mc = 0;
         sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
@@ -1373,7 +1434,7 @@ int main(void) {
             int nlib = 0;
             ast_program_t* prog = build_program(dv[i].src, &arena, &nlib);
             sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
-            sema_analyze(&sctx, prog);
+            sir_analyze(&sctx);
             compiler_ctx_t cctx; compiler_init(&cctx, &arena, &sctx);
             int mc = 0;
             sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
@@ -1420,7 +1481,7 @@ int main(void) {
         int nlib = 0;
         ast_program_t* prog = build_program(src, &arena, &nlib);
         sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
-        sema_analyze(&sctx, prog);
+        sir_analyze(&sctx);
         compiler_ctx_t cctx; compiler_init(&cctx, &arena, &sctx);
         int mc = 0;
         sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
@@ -1477,7 +1538,7 @@ int main(void) {
             "     if (c) o = new C(); return o; } }";
         ast_program_t* prog = build_program(src, &arena, &nlib);
         sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
-        sema_analyze(&sctx, prog);
+        sir_analyze(&sctx);
         compiler_ctx_t cctx; compiler_init(&cctx, &arena, &sctx);
         int mc = 0;
         sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
@@ -1579,7 +1640,7 @@ int main(void) {
             int nlib = 0;
             ast_program_t* prog = build_program(cc[i].src, &arena, &nlib);
             sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
-            sema_analyze(&sctx, prog);
+            sir_analyze(&sctx);
             compiler_ctx_t cctx; compiler_init(&cctx, &arena, &sctx);
             int mc = 0;
             sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
@@ -1648,7 +1709,7 @@ int main(void) {
             int nlib = 0;
             ast_program_t* prog = build_program(dv[i].src, &arena, &nlib);
             sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
-            sema_analyze(&sctx, prog);
+            sir_analyze(&sctx);
             compiler_ctx_t cctx; compiler_init(&cctx, &arena, &sctx);
             int mc = 0;
             sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
@@ -1718,7 +1779,7 @@ int main(void) {
             int nlib = 0;
             ast_program_t* prog = build_program(as[i].src, &arena, &nlib);
             sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
-            sema_analyze(&sctx, prog);
+            sir_analyze(&sctx);
             compiler_ctx_t cctx; compiler_init(&cctx, &arena, &sctx);
             int mc = 0;
             sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
@@ -1782,7 +1843,7 @@ int main(void) {
             int nlib = 0;
             ast_program_t* prog = build_program(le[i].src, &arena, &nlib);
             sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
-            sema_analyze(&sctx, prog);
+            sir_analyze(&sctx);
             compiler_ctx_t cctx; compiler_init(&cctx, &arena, &sctx);
             int mc = 0;
             sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
@@ -1834,7 +1895,7 @@ int main(void) {
             int nlib = 0;
             ast_program_t* prog = build_program(opt[i].src, &arena, &nlib);
             sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
-            sema_analyze(&sctx, prog);
+            sir_analyze(&sctx);
             compiler_ctx_t cctx; compiler_init(&cctx, &arena, &sctx);
             int mc = 0;
             sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
@@ -1867,7 +1928,7 @@ int main(void) {
             "  while (i <= -10) { buf[--p] = (char)(48 - (i % 10)); i = i / 10; } } }",
             &arena, &nlib);
         sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
-        sema_analyze(&sctx, prog);
+        sir_analyze(&sctx);
         compiler_ctx_t cctx; compiler_init(&cctx, &arena, &sctx);
         int mc = 0;
         sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
@@ -1911,7 +1972,7 @@ int main(void) {
             "  return names; } }",
             &arena, &nlib);
         sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
-        sema_analyze(&sctx, prog);
+        sir_analyze(&sctx);
         compiler_ctx_t cctx; compiler_init(&cctx, &arena, &sctx);
         int mc = 0;
         sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
@@ -1971,7 +2032,7 @@ int main(void) {
             int nlib = 0;
             ast_program_t* prog = build_program(cv[i].src, &arena, &nlib);
             sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
-            sema_analyze(&sctx, prog);
+            sir_analyze(&sctx);
             compiler_ctx_t cctx; compiler_init(&cctx, &arena, &sctx);
             int mc = 0;
             sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
@@ -1999,7 +2060,7 @@ int main(void) {
         int nlib = 0;
         ast_program_t* prog = build_program(src, &arena, &nlib);
         sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
-        sema_analyze(&sctx, prog);
+        sir_analyze(&sctx);
         compiler_ctx_t cctx; compiler_init(&cctx, &arena, &sctx);
         int mc = 0;
         sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
@@ -2036,7 +2097,7 @@ int main(void) {
         int nlib = 0;
         ast_program_t* prog = build_program(src, &arena, &nlib);
         sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
-        sema_analyze(&sctx, prog);
+        sir_analyze(&sctx);
         compiler_ctx_t cctx; compiler_init(&cctx, &arena, &sctx);
         int mc = 0;
         sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
@@ -2113,7 +2174,7 @@ int main(void) {
    * the java.lang ctor chain, so the prelude bodies must be compiled. */
             sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib; /* analyze_from stays 0 */
             sctx.mode = (sema_mode_t)tg[i].mode;
-            sema_analyze(&sctx, prog);
+            sir_analyze(&sctx);
             compiler_ctx_t cctx; compiler_init(&cctx, &arena, &sctx);
             int mc = 0;
             sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
@@ -2162,22 +2223,22 @@ int main(void) {
           { "class C { int f; }"
             " class T { static C g(){ return new C(); } }",
             CP_ESC_ARG,
-            "an object that flows to a RETURN is ArgEscape" },
+            "an object that flows to a RETURN is ArgEscape", false },
           { "class C { int f; }"
             " class T { static C S; static void g(){ S = new C(); } }",
             CP_ESC_GLOBAL,
             "an object stored into a STATIC is GlobalEscape (§2: a global.set gives every "
-            "object in pts(x) a GlobalEscape source)" },
+            "object in pts(x) a GlobalEscape source)", false },
           { "class C { int f; }"
             " class T { static void h(C c){ } static void g(){ h(new C()); } }",
             CP_ESC_ARG,
             "an object PASSED TO A CALL is ArgEscape — with no summary the callee is a "
-            "BOTTOM METHOD, and §7 says a ref passed to one escapes" },
+            "BOTTOM METHOD, and §7 says a ref passed to one escapes", false },
           { "class C { int f; C n; }"
             " class T { static void g(C p){ p.n = new C(); } }",
             CP_ESC_ARG,
             "an object stored into a PARAM's field is ArgEscape — the param is a phantom, "
-            "which seeds at ArgEscape, and the heap rule does the rest" },
+            "which seeds at ArgEscape, and the heap rule does the rest", false },
           /* §2: "a static-field global imported from jre is EXTERNAL: pts = {Oext},
            * GlobalEscape". So what a STATIC holds is GlobalEscape, and storing THROUGH it must
            * confer GlobalEscape — §6's "stored into a field of an already-GlobalEscape object".
@@ -2187,7 +2248,7 @@ int main(void) {
             " class T { static C S; static void g(){ C x = new C(); S.n = x; } }",
             CP_ESC_GLOBAL,
             "an object stored into a field of an object read from a STATIC is GlobalEscape — "
-            "a static's contents are reachable from a global, not merely from a param" },
+            "a static's contents are reachable from a global, not merely from a param", false },
           /* §6 / JLS §11.3.1 — THE EXCEPTION VALUE REACHES THE HANDLER'S VARIABLE.
            *
            * The handler is a MERGE (spec §1), and what each exceptional edge carries into
@@ -2207,14 +2268,14 @@ int main(void) {
             CP_ESC_GLOBAL,
             "a CAUGHT exception that is then stored into a STATIC is GlobalEscape — the "
             "caught value IS the thrown object (JLS §11.3.1); an opaque landing slot severs "
-            "that edge and the leak goes unseen" },
+            "that edge and the leak goes unseen", false },
           /* The anti-overshoot control: connecting the edge must not make every caught
            * object escape globally. Contained-and-not-leaked stays where the ctor left it. */
           { "class C extends Exception { }"
             " class T { static void g(){ try { throw new C(); } catch (C e) { } } }",
             CP_ESC_ARG,
             "a caught exception that does NOT leak is not GlobalEscape — wiring the value "
-            "edge must not by itself escape the object (it is ArgEscape only via its ctor)" },
+            "edge must not by itself escape the object (it is ArgEscape only via its ctor)", false },
         };
         /* The HEAP RULE, both directions — and the only allocation stage 4 can prove local.
          *
@@ -2248,7 +2309,7 @@ int main(void) {
   /* WHOLE-program: these cases summarize the java.lang ctor chain (§7), so the
    * prelude bodies must be compiled. */
             sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib; /* analyze_from stays 0 */
-            sema_analyze(&sctx, prog);
+            sir_analyze(&sctx);
             compiler_ctx_t cctx; compiler_init(&cctx, &arena, &sctx);
             int mc = 0;
             sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
@@ -2292,7 +2353,7 @@ int main(void) {
             int nlib = 0;
             ast_program_t* prog = build_program(ea[i].src, &arena, &nlib);
             sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
-            sema_analyze(&sctx, prog);
+            sir_analyze(&sctx);
             compiler_ctx_t cctx; compiler_init(&cctx, &arena, &sctx);
             int mc = 0;
             sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
@@ -2364,11 +2425,11 @@ int main(void) {
             int nlib = 0;
             /* Two unrelated user exception classes, so "catches it" vs "catches something
              * else" is a real JLS §11.2 subtype question, not a tautology. */
-            ast_program_t* prog = build_program(
+            build_program(
                 "class E extends Exception { } class U extends Exception { } class T { }",
                 &a, &nlib);
             sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
-            sema_analyze(&sctx, prog);
+            sir_analyze(&sctx);
             int e_id = sema_find_class(&sctx, "E");
             int u_id = sema_find_class(&sctx, "U");
             CHECK(e_id >= 0 && u_id >= 0, "the two exception classes resolve");
@@ -2425,10 +2486,10 @@ int main(void) {
     {
         bbq_arena a; bbq_arena_init(&a, 1 << 16);
         int nlib = 0;
-        ast_program_t* prog = build_program(
+        build_program(
             "class D { } class C { D f; } class T { static void h(){ } }", &a, &nlib);
         sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
-        sema_analyze(&sctx, prog);
+        sir_analyze(&sctx);
         int c_id = sema_find_class(&sctx, "C");
         int d_id = sema_find_class(&sctx, "D");
         int t_id = sema_find_class(&sctx, "T");
@@ -2521,7 +2582,7 @@ int main(void) {
             int nlib = 0;
             ast_program_t* prog = build_program(srcs[i], &arena, &nlib);
             sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
-            sema_analyze(&sctx, prog);
+            sir_analyze(&sctx);
             compiler_ctx_t cctx; compiler_init(&cctx, &arena, &sctx);
             int mc = 0;
             sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
@@ -2584,7 +2645,7 @@ int main(void) {
             "  }"
             "}", &arena, &nlib);
         sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
-        sema_analyze(&sctx, prog);
+        sir_analyze(&sctx);
         compiler_ctx_t cctx; compiler_init(&cctx, &arena, &sctx);
         int mc = 0;
         sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
@@ -2645,7 +2706,7 @@ int main(void) {
             "  }"
             "}", &arena, &nlib);
         sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
-        sema_analyze(&sctx, prog);
+        sir_analyze(&sctx);
         compiler_ctx_t cctx; compiler_init(&cctx, &arena, &sctx);
         int mc = 0;
         sir_method_t** ms = compiler_compile(&cctx, prog, &mc);   /* NOT optimized: the pin
@@ -2709,9 +2770,9 @@ int main(void) {
         // §32.1 the object with a stored-and-reloaded field: replaced, and the New dies.
         bbq_arena a; bbq_arena_init(&a, 1 << 16);
         int nlib = 0;
-        ast_program_t* prog = build_program("class C { int f; } class T { }", &a, &nlib);
+        build_program("class C { int f; } class T { }", &a, &nlib);
         sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
-        sema_analyze(&sctx, prog);
+        sir_analyze(&sctx);
         int c_id = sema_find_class(&sctx, "C");
         int t_id = sema_find_class(&sctx, "T");
         CHECK(c_id >= 0 && t_id >= 0, "§32: C and T resolve");
@@ -2750,9 +2811,9 @@ int main(void) {
         //       whatever the fresh slot happened to hold.
         bbq_arena a; bbq_arena_init(&a, 1 << 16);
         int nlib = 0;
-        ast_program_t* prog = build_program("class C { int f; } class T { }", &a, &nlib);
+        build_program("class C { int f; } class T { }", &a, &nlib);
         sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
-        sema_analyze(&sctx, prog);
+        sir_analyze(&sctx);
         int c_id = sema_find_class(&sctx, "C");
         int t_id = sema_find_class(&sctx, "T");
 
@@ -2784,9 +2845,9 @@ int main(void) {
         //       the object must stay materialized (D4: unknown ⟹ keep).
         bbq_arena a; bbq_arena_init(&a, 1 << 16);
         int nlib = 0;
-        ast_program_t* prog = build_program("class C { int f; } class T { }", &a, &nlib);
+        build_program("class C { int f; } class T { }", &a, &nlib);
         sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
-        sema_analyze(&sctx, prog);
+        sir_analyze(&sctx);
         int c_id = sema_find_class(&sctx, "C");
         int t_id = sema_find_class(&sctx, "T");
 
@@ -2814,9 +2875,9 @@ int main(void) {
         //       one local), so no ONE site's slots can stand for the load.
         bbq_arena a; bbq_arena_init(&a, 1 << 16);
         int nlib = 0;
-        ast_program_t* prog = build_program("class C { int f; } class T { }", &a, &nlib);
+        build_program("class C { int f; } class T { }", &a, &nlib);
         sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
-        sema_analyze(&sctx, prog);
+        sir_analyze(&sctx);
         int c_id = sema_find_class(&sctx, "C");
         int t_id = sema_find_class(&sctx, "T");
 
@@ -2856,10 +2917,10 @@ int main(void) {
         //                   catch (E t2) { return t0.f; }
         bbq_arena a; bbq_arena_init(&a, 1 << 16);
         int nlib = 0;
-        ast_program_t* prog = build_program(
+        build_program(
             "class C { int f; } class E extends Exception { } class T { }", &a, &nlib);
         sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
-        sema_analyze(&sctx, prog);
+        sir_analyze(&sctx);
         int c_id = sema_find_class(&sctx, "C");
         int e_id = sema_find_class(&sctx, "E");
         CHECK(c_id >= 0 && e_id >= 0, "§32.5: C and E resolve");
@@ -2915,9 +2976,9 @@ int main(void) {
         //           PREVIOUS visit's object read AFTER the reset) ⟹ the site declines.
         bbq_arena a; bbq_arena_init(&a, 1 << 16);
         int nlib = 0;
-        ast_program_t* prog = build_program("class C { int f; } class T { }", &a, &nlib);
+        build_program("class C { int f; } class T { }", &a, &nlib);
         sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
-        sema_analyze(&sctx, prog);
+        sir_analyze(&sctx);
         int c_id = sema_find_class(&sctx, "C");
         int t_id = sema_find_class(&sctx, "T");
         {   /* (a) o = new C; return o.f — summary-recorded, nothing live across. */
@@ -3002,9 +3063,9 @@ int main(void) {
         //     (§1 forbids it independently: an array is monolithic, no fields to split.)
         bbq_arena a; bbq_arena_init(&a, 1 << 16);
         int nlib = 0;
-        ast_program_t* prog = build_program("class T { }", &a, &nlib);
+        build_program("class T { }", &a, &nlib);
         sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
-        sema_analyze(&sctx, prog);
+        sir_analyze(&sctx);
         int t_id = sema_find_class(&sctx, "T");
 
         /* The int PrimArray OVERLAY — sema-synthesized; its `data` field is the raw backing. */
@@ -3053,9 +3114,9 @@ int main(void) {
         //         operand, not a spine node — that is sir_arity/sir_child's job).
         bbq_arena a; bbq_arena_init(&a, 1 << 16);
         int nlib = 0;
-        ast_program_t* prog = build_program("class C { int f; } class T { }", &a, &nlib);
+        build_program("class C { int f; } class T { }", &a, &nlib);
         sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
-        sema_analyze(&sctx, prog);
+        sir_analyze(&sctx);
         int c_id = sema_find_class(&sctx, "C");
 
         /* A graph with every shape that breaks a naive walker:
@@ -3146,7 +3207,7 @@ int main(void) {
             "   static int callstatic(){ return s(); }"
             " }", &a, &nlib);
         sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
-        sema_analyze(&sctx, prog);
+        sir_analyze(&sctx);
         compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
         int mc = 0;
         sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
@@ -3236,7 +3297,7 @@ int main(void) {
                 "  static void g(){ int[] a = new int[4]; a[0] = 7; f(a); }"
                 " }", &a, &nlib);
             sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
-            sema_analyze(&sctx, prog);
+            sir_analyze(&sctx);
             compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
             int mc = 0;
             sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
@@ -3293,7 +3354,7 @@ int main(void) {
             "   static void keep(C p){ p.f = 5; }"  /* p used, not leaked ⟹ ArgEscape (seed) */
             " }", &a, &nlib);
         sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
-        sema_analyze(&sctx, prog);
+        sir_analyze(&sctx);
         compiler_ctx_t cctx; cctx.optimize = true;   /* the summary is a readout of the solve */
         compiler_init(&cctx, &a, &sctx);
         int mc = 0;
@@ -3347,7 +3408,7 @@ int main(void) {
             "   static void sink(C p){ C c = new C(); c.n = p; S = c; }"
             " }", &a, &nlib);
         sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
-        sema_analyze(&sctx, prog);
+        sir_analyze(&sctx);
         compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
         int mc = 0;
         sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
@@ -3376,7 +3437,7 @@ int main(void) {
             " class T { static void wr(C p){ p.v = 5; } }",   /* writes p.v, NOT p.w */
             &a, &nlib);
         sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
-        sema_analyze(&sctx, prog);
+        sir_analyze(&sctx);
         compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
         int mc = 0;
         sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
@@ -3421,7 +3482,7 @@ int main(void) {
             " }",
             &a, &nlib);
         sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
-        sema_analyze(&sctx, prog);
+        sir_analyze(&sctx);
         compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
         int mc = 0;
         sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
@@ -3497,7 +3558,7 @@ int main(void) {
                 dg[i].leaker);
             ast_program_t* prog = build_program(src, &a, &nlib);
             sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
-            sema_analyze(&sctx, prog);
+            sir_analyze(&sctx);
             compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
             int mc = 0;
             sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
@@ -3548,7 +3609,7 @@ int main(void) {
   /* WHOLE-program: these cases summarize the java.lang ctor chain (§7), so the
    * prelude bodies must be compiled. */
         sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; /* analyze_from stays 0 */
-        sema_analyze(&sctx, prog);
+        sir_analyze(&sctx);
         compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
         int mc = 0;
         sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
@@ -3637,7 +3698,7 @@ int main(void) {
    * the ctor chain and the §7 call-graph summaries that escape analysis reads
    * reach into the prelude, so analyze_from stays 0. */
         sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; /* analyze_from stays 0: see below */
-        sema_analyze(&sctx, prog);
+        sir_analyze(&sctx);
         compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
         int mc = 0;
         sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
@@ -3695,7 +3756,7 @@ int main(void) {
             "                              arr[0] = 7; x.m(arr); } }",
             &a, &nlib);
         sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
-        sema_analyze(&sctx, prog);
+        sir_analyze(&sctx);
         compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
         int mc = 0;
         sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
@@ -3741,7 +3802,7 @@ int main(void) {
             " }",
             &a, &nlib);
         sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
-        sema_analyze(&sctx, prog);
+        sir_analyze(&sctx);
         compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
         cctx.optimize = true;
         int mc = 0;
@@ -3795,7 +3856,7 @@ int main(void) {
             "   static void run(){ C x = new C(); C y = id(x); if (y == null) return; } }",
             &a, &nlib);
         sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
-        sema_analyze(&sctx, prog);
+        sir_analyze(&sctx);
         compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
         int mc = 0;
         sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
@@ -3839,7 +3900,7 @@ int main(void) {
                 "class D {} class C { D v; }"
                 " class T { static void store(C p, D a){ p.v = a; } }", &a, &nlib);
             sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
-            sema_analyze(&sctx, prog);
+            sir_analyze(&sctx);
             compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
             int mc = 0;
             sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
@@ -3886,7 +3947,7 @@ int main(void) {
             "                      D y = o.v; if (y == null) return; } }",
             &a, &nlib);
         sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
-        sema_analyze(&sctx, prog);
+        sir_analyze(&sctx);
         compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
         int mc = 0;
         sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
@@ -3935,7 +3996,7 @@ int main(void) {
             "   static int run(){ C o = new C(); o.x = 5; g(); return o.x; } }",
             &a, &nlib);
         sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
-        sema_analyze(&sctx, prog);
+        sir_analyze(&sctx);
         compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
         int mc = 0;
         sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
@@ -3974,7 +4035,7 @@ int main(void) {
             "   static int run(){ C o = new C(); o.x = 5; w(o); return o.x; } }",
             &a, &nlib);
         sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
-        sema_analyze(&sctx, prog);
+        sir_analyze(&sctx);
         compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
         int mc = 0;
         sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
@@ -4012,7 +4073,7 @@ int main(void) {
             "   static int run(){ C o = new C(); o.w = 5; setv(o); return o.w; } }",
             &a, &nlib);
         sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
-        sema_analyze(&sctx, prog);
+        sir_analyze(&sctx);
         compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
         int mc = 0;
         sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
@@ -4048,7 +4109,7 @@ int main(void) {
             " class T { static C m(){ return new C(); } }",
             &a, &nlib);
         sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
-        sema_analyze(&sctx, prog);
+        sir_analyze(&sctx);
         compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
         int mc = 0;
         sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
@@ -4079,7 +4140,7 @@ int main(void) {
             "           static C run(){ C x = m(); return x; } }",
             &a, &nlib);
         sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
-        sema_analyze(&sctx, prog);
+        sir_analyze(&sctx);
         compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
         int mc = 0;
         sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
@@ -4120,7 +4181,7 @@ int main(void) {
             "           static C h(){ C x = run(); return x; } }",
             &a, &nlib);
         sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
-        sema_analyze(&sctx, prog);
+        sir_analyze(&sctx);
         compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
         int mc = 0;
         sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
@@ -4171,7 +4232,7 @@ int main(void) {
             "   static int usev(boolean p){ A q = p ? new A() : new B(); return q.g(); } }",
             &a, &nlib);
         sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
-        sema_analyze(&sctx, prog);
+        sir_analyze(&sctx);
         compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
         int mc = 0;
         sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
@@ -4264,7 +4325,7 @@ int main(void) {
    * the ctor chain and the §7 call-graph summaries that escape analysis reads
    * reach into the prelude, so analyze_from stays 0. */
         sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; /* analyze_from stays 0: see below */
-        sema_analyze(&sctx, prog);
+        sir_analyze(&sctx);
         compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
         int mc = 0;
         sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
@@ -4328,7 +4389,7 @@ int main(void) {
    * the ctor chain and the §7 call-graph summaries that escape analysis reads
    * reach into the prelude, so analyze_from stays 0. */
         sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; /* analyze_from stays 0: see below */
-        sema_analyze(&sctx, prog);
+        sir_analyze(&sctx);
         compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
         int mc = 0;
         sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
@@ -4374,11 +4435,11 @@ int main(void) {
             "                      D y = o.v; if (y == null) return; } }",
             &a, &nlib);
         sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
-        sema_analyze(&sctx, prog);
+        sir_analyze(&sctx);
         compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
         int mc = 0;
         sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
-        int t_id = sema_find_class(&sctx, "T"), d_id = sema_find_class(&sctx, "D");
+        int t_id = sema_find_class(&sctx, "T");
         int i_st = -1, i_run = -1;
         for (int k = 0; k < mc; k++)
             if (ms[k]->class_id == t_id && ms[k]->name) {
@@ -4420,7 +4481,7 @@ int main(void) {
    * the ctor chain and the §7 call-graph summaries that escape analysis reads
    * reach into the prelude, so analyze_from stays 0. */
         sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; /* analyze_from stays 0: see below */
-        sema_analyze(&sctx, prog);
+        sir_analyze(&sctx);
         compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
         int mc = 0;
         sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
@@ -4481,7 +4542,7 @@ int main(void) {
    * the ctor chain and the §7 call-graph summaries that escape analysis reads
    * reach into the prelude, so analyze_from stays 0. */
             sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; /* analyze_from stays 0: see below */
-            sema_analyze(&sctx, prog);
+            sir_analyze(&sctx);
             compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
             int mc = 0;
             sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
@@ -4524,7 +4585,7 @@ int main(void) {
             "   static int leaf(){ return 1; }"
             " }", &a, &nlib);
         sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
-        sema_analyze(&sctx, prog);
+        sir_analyze(&sctx);
         compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
         int mc = 0;
         sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
@@ -4583,9 +4644,9 @@ int main(void) {
         //     t0 = new C; t1 = t0; t2 = t1; t2.f = 7; return t2.f;
         bbq_arena a; bbq_arena_init(&a, 1 << 16);
         int nlib = 0;
-        ast_program_t* prog = build_program("class C { int f; } class T { }", &a, &nlib);
+        build_program("class C { int f; } class T { }", &a, &nlib);
         sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
-        sema_analyze(&sctx, prog);
+        sir_analyze(&sctx);
         int c_id = sema_find_class(&sctx, "C");
         int t_id = sema_find_class(&sctx, "T");
         CHECK(c_id >= 0, "§32.8: class C resolves");
@@ -4668,11 +4729,11 @@ int main(void) {
         for (int i = 0; i < (int)(sizeof tr / sizeof tr[0]); i++) {
             bbq_arena a; bbq_arena_init(&a, 1 << 16);
             int nlib = 0;
-            ast_program_t* prog = build_program(
+            build_program(
                 "class E extends Exception { } class X extends Exception { } class T { }",
                 &a, &nlib);
             sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
-            sema_analyze(&sctx, prog);
+            sir_analyze(&sctx);
             int e_id = sema_find_class(&sctx, "E");
             int x_id = sema_find_class(&sctx, "X");
             int t_id = sema_find_class(&sctx, "T");
@@ -4730,7 +4791,7 @@ int main(void) {
             " class T { static void g() { try { throw new E(); } catch (E e) { } } }",
             &a, &nlib);
         sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
-        sema_analyze(&sctx, prog);
+        sir_analyze(&sctx);
         compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
         int mc = 0;
         sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
@@ -4777,6 +4838,236 @@ int main(void) {
             " void skip() { while (!ret && cur < max && (cur % 3) == 0) {"
             " cur = cur + 1; } } }",
             getenv("SIR_DUMP_METHOD") ? getenv("SIR_DUMP_METHOD") : "skip");
+
+    /* ── W8: MemSize in the fixpoint — Mem guard merging (sober-qualifying-
+     * names). Each Mem access carries a 2-branch guard chain (addr < 0;
+     * addr+width > memory.size*64Ki). MemSize reads are congruent BETWEEN
+     * kills (the memsize cell's follower rule), so two identical adjacent
+     * loads share one guard — and a grow or a call between them is a kill,
+     * so the soundness negatives MUST keep both. */
+    printf("== W8: Mem guard merging (MemSize in the fixpoint) ==\n");
+    {
+        /* The address is a PARAMETER — a constant one lets SCCP fold the
+         * `addr < 0` arms on its own and the counts stop measuring the
+         * memsize machinery (the first draft of these pins passed that way). */
+        #define SIMDI "import javelina.simd.*; "
+        const char* TWO = SIMDI
+            "class T { static int f(int p){ return Mem.i32_load(p) + Mem.i32_load(p); } }";
+        CHECK(compile_count_in(TWO, "f", SIR_BRANCH, 0) == 4,
+              "unoptimized: two loads carry two full guard chains (4 branches)");
+        /* The W8 gate: the second access's WHOLE guard chain folds. The lo
+         * arm folds on the slot's p ≥ 0 range; the hi arm folds by the §15
+         * array mechanism — the guard is emitted in the ARRAY SHAPE
+         * (`(long)p > limit − w`, tested side = the slot through one I2L),
+         * guard 1's fall-through records the inclusive symbolic bound on p,
+         * and the two limit expressions are congruent through the MemSize
+         * memory-input keying. NOT condition congruence: the lo-guard's
+         * range Refine is a partition Leader, so the two hi-CONDITIONS are
+         * never congruent — the bound expression is p-free, which is the
+         * whole point of the shape. */
+        CHECK(compile_count_in(TWO, "f", SIR_BRANCH, 1) == 2,
+              "W8: the second load's lo AND hi guards both fold");
+        const char* GROW = SIMDI
+            "class T { static int f(int p){ int a = Mem.i32_load(p);"
+            " Mem.memory_grow(1); return a + Mem.i32_load(p); } }";
+        /* 3, not 4: the SECOND `p < 0` arm folds via the first's range refine
+         * on p — sound across any kill (p is untouched). The two hi-arms
+         * (the MemSize compares) are what the kill must preserve. */
+        { int g = compile_count_in(GROW, "f", SIR_BRANCH, 1);
+          if (g != 3) printf("    (grow-between counted %d branches, want 3)\n", g);
+          CHECK(g == 3,
+              "SOUNDNESS: memory_grow between the loads keeps BOTH hi-guards"); }
+        /* The callee CAN grow (conditionally) — a summary must treat it as a
+         * memsize writer; an empty callee would be LEGITIMATELY seen through. */
+        const char* CALL = SIMDI
+            "class T { static int g(int x){ if (x > 0) Mem.memory_grow(1); return 0; }"
+            " static int f(int p){ int a = Mem.i32_load(p); g(p);"
+            " return a + Mem.i32_load(p); } }";
+        { int c = compile_count_in(CALL, "f", SIR_BRANCH, 1);
+          if (c != 3) printf("    (call-between counted %d branches, want 3)\n", c);
+          CHECK(c == 3,
+              "SOUNDNESS: a growing call between the loads keeps BOTH hi-guards"); }
+        #undef SIMDI
+    }
+
+    /* ── W9a: same-input rules — x-x/x^x fold to 0 and integer cmp(v,v)
+     * decides, with the value UNKNOWN. Float is the soundness negative
+     * (NaN: x==x is false; inf-inf is NaN). */
+    printf("== W9a: same-input rules ==\n");
+    {
+        const char* SI = "class T { static int f(int x){ return (x - x) + (x ^ x); } }";
+        CHECK(compile_count_in(SI, "f", SIR_SUB, 0) == 1 &&
+              compile_count_in(SI, "f", SIR_XOR, 0) == 1,
+              "unoptimized: the sub and xor are present");
+        CHECK(compile_count_in(SI, "f", SIR_SUB, 1) == 0 &&
+              compile_count_in(SI, "f", SIR_XOR, 1) == 0,
+              "x-x and x^x fold to 0 with x unknown");
+        const char* CB = "class T { static int f(int x){ if (x == x) return 1; return 2; } }";
+        CHECK(compile_count_in(CB, "f", SIR_BRANCH, 1) == 0,
+              "integer x==x folds TRUE and its branch deletes");
+        const char* FB = "class T { static int f(float x){ if (x == x) return 1; return 2; } }";
+        CHECK(compile_count_in(FB, "f", SIR_BRANCH, 1) == 1,
+              "SOUNDNESS: float x==x does NOT fold (NaN)");
+    }
+
+    /* ── W8 channel (a): condition-verdict identity facts. A branch whose
+     * condition VALUE was already decided on every surviving path folds;
+     * the verdict is matched by value identity (cp_value_leader), and a
+     * diamond's rejoin intersects the arms' contradictory verdicts away. */
+    printf("== W8a: condition-verdict identity ==\n");
+    {
+        /* Exit shape: branch 1's true arm returns, so the fall-through
+         * carries (c == false) to branch 2, which folds to its else arm. */
+        const char* EX = "class T { static int f(int x){ boolean c = x > 3; "
+                         "if (c) return 9; int r = 1; if (c) r = 2; return r; } }";
+        CHECK(compile_count_in(EX, "f", SIR_BRANCH, 0) == 2,
+              "unoptimized: both branches on c are present");
+        CHECK(compile_count_in(EX, "f", SIR_BRANCH, 1) == 1,
+              "exit shape: the second branch on c folds via its verdict");
+        /* Diamond: branch 1's arms REJOIN, so (c==true) meets (c==false)
+         * at the merge and no verdict survives to branch 2. */
+        const char* DI = "class T { static int g(int x){ boolean c = x > 3; int r = 0; "
+                         "if (c) r = 1; if (c) r += 2; return r; } }";
+        CHECK(compile_count_in(DI, "g", SIR_BRANCH, 1) == 2,
+              "SOUNDNESS: after a rejoined diamond no verdict survives");
+    }
+
+    /* ── §4.6 cong_fold partition channel: two loads that share an opcode
+     * bucket until CAUSE_SPLITS separates them (a[i] vs b[i]) must NOT
+     * same-input-fold — the transient coarse congruence has to be walked
+     * back by the partition-consumer re-arm (the BitSet.xor miscompile). */
+    printf("== W9a: cong_fold transient-congruence soundness ==\n");
+    {
+        const char* AB = "class T { static void f(int[] a, int[] b) { "
+                         "for (int i = 0; i < b.length; i = i + 1) a[i] = a[i] ^ b[i]; } }";
+        CHECK(compile_count_in(AB, "f", SIR_XOR, 1) == 1,
+              "SOUNDNESS: a[i] ^ b[i] never folds (distinct arrays)");
+    }
+
+    /* ── W9b/W9c: strides live end-to-end (Click §4.5). MUL/SHL PRODUCE a
+     * strided range, DIV carries it through, REM/AND consume it to a KNOWN,
+     * and EQ consumes stride disjointness by gcd. Each positive needs the
+     * whole chain; the negatives pin where the claim must stop. */
+    printf("== W9b/c: range strides produce + consume ==\n");
+    {
+        const char* MA = "class T { static int f(int x){ if (x < 0 || x > 100) return 0; "
+                         "int i = x * 4; if ((i & 3) == 0) return 1; return 2; } }";
+        CHECK(compile_count_in(MA, "f", SIR_BRANCH, 0) == 3,
+              "unoptimized: guard pair + mask test present");
+        CHECK(compile_count_in(MA, "f", SIR_BRANCH, 1) == 2,
+              "MUL stride 4 -> (i & 3) == 0 folds TRUE");
+        const char* SR = "class T { static int g(int x){ if (x < 0 || x > 100) return 0; "
+                         "int i = x << 3; if (i % 8 == 0) return 1; return 2; } }";
+        CHECK(compile_count_in(SR, "g", SIR_BRANCH, 1) == 2,
+              "SHL stride 8 -> (i % 8) == 0 folds TRUE");
+        const char* DR = "class T { static int h(int x){ if (x < 0 || x > 100) return 0; "
+                         "int i = x * 4; int j = i / 2; if (j % 2 == 0) return 1; return 2; } }";
+        CHECK(compile_count_in(DR, "h", SIR_BRANCH, 1) == 2,
+              "DIV keeps stride 4/2=2 -> (j % 2) == 0 folds TRUE");
+        const char* EQ = "class T { static int e(int x, int y){ "
+                         "if (x < 0 || x > 50) return 0; if (y < 0 || y > 50) return 0; "
+                         "int a = x * 4; int b = y * 6 + 1; if (a == b) return 9; return 1; } }";
+        CHECK(compile_count_in(EQ, "e", SIR_BRANCH, 0) == 5 &&
+              compile_count_in(EQ, "e", SIR_BRANCH, 1) == 4,
+              "gcd(4,6)=2 base parity disagrees -> a == b folds FALSE");
+        /* Negatives: a mask wider than the stride proves nothing; an
+         * unbounded multiplicand overflows the corner products so the
+         * whole chain must stay BOTTOM. */
+        const char* NM = "class T { static int n(int x){ if (x < 0 || x > 100) return 0; "
+                         "int i = x * 4 + 2; if ((i & 7) == 0) return 1; return 2; } }";
+        CHECK(compile_count_in(NM, "n", SIR_BRANCH, 1) == 3,
+              "SOUNDNESS: stride 4 cannot decide (i & 7)");
+        const char* NO = "class T { static int o(int x){ if (x > 100) return 0; "
+                         "int i = x * 4; if (i % 4 == 0) return 1; return 2; } }";
+        CHECK(compile_count_in(NO, "o", SIR_BRANCH, 1) == 2,
+              "SOUNDNESS: unbounded x -> x*4 overflows, no stride claim");
+    }
+
+    /* ── Spec §5 CONSUMER rows, pinned row by row against the doc (the
+     * transfer rows are covered above and by the machinery tests): drop
+     * /,% by-zero when the divisor range excludes 0; drop the INT_MIN/-1
+     * wrap arm when the range excludes -1; drop NegativeArraySize when
+     * the size range is ≥ 0; array.len ⟹ [0,∞); `==` narrows the taken
+     * edge. Each guard is emitted slot-vs-constant, so these ride the
+     * constant-side refine + range compare folds. */
+    printf("== spec §5: guard-consumer coverage ==\n");
+    {
+        const char* DZ = "class T { static int f(int x){ if (x < 1 || x > 100) return 0; "
+                         "return 1000 / x + 1000 % x; } }";
+        CHECK(compile_count_in(DZ, "f", SIR_BRANCH, 0) == 5,
+              "unoptimized: 2 range checks + div zero/-1 arms + rem zero arm");
+        CHECK(compile_count_in(DZ, "f", SIR_BRANCH, 1) == 2,
+              "divisor in [1,100]: by-zero AND -1-wrap guards fold");
+        const char* DK = "class T { static int g(int x){ if (x < -5 || x > 100) return 0; "
+                         "return 1000 / x; } }";
+        CHECK(compile_count_in(DK, "g", SIR_BRANCH, 1) == 4,
+              "SOUNDNESS: divisor range spans 0 and -1 -> both arms stay");
+        /* Unoptimized 3 = x<0 + NegativeArraySize + the NPE guard on
+         * a.length. Optimized 1 = only x<0 survives: the size guard folds
+         * on x's [0,MAX] refine (§5) and the NPE guard folds on the fresh
+         * allocation's NonNull (§4). */
+        const char* NS = "class T { static int h(int x){ if (x < 0) return 9; "
+                         "int[] a = new int[x]; return a.length; } }";
+        CHECK(compile_count_in(NS, "h", SIR_BRANCH, 0) == 3 &&
+              compile_count_in(NS, "h", SIR_BRANCH, 1) == 1,
+              "size range >= 0: the NegativeArraySize guard folds");
+        /* Unoptimized 2 = the NPE guard on a.length + n<0. Optimized 1:
+         * n<0 folds on array.len's [0,MAX] transfer; the NPE guard on the
+         * NULLABLE param correctly STAYS — folding it would be the unsound
+         * direction. */
+        const char* AL = "class T { static int k(int[] a){ int n = a.length; "
+                         "if (n < 0) return 9; return 1; } }";
+        CHECK(compile_count_in(AL, "k", SIR_BRANCH, 0) == 2 &&
+              compile_count_in(AL, "k", SIR_BRANCH, 1) == 1,
+              "array.len is [0, MAX): a negative test on it folds; the param NPE guard stays");
+        const char* EQ7 = "class T { static int e(int x){ if (x == 7) return 100 / x; "
+                          "return 1; } }";
+        CHECK(compile_count_in(EQ7, "e", SIR_BRANCH, 0) == 3 &&
+              compile_count_in(EQ7, "e", SIR_BRANCH, 1) == 1,
+              "== narrows the taken edge: x KNOWN 7 folds the div guards");
+    }
+
+    /* ── Two-lattice parity (the Click side of the plan's audit table; the
+     * sema twins live in test_sema's "interval parity" block — a rule
+     * added to one side must be added to the other or its twin goes red).
+     * Each pin folds a branch only the generalized rule can decide. */
+    printf("== interval parity: mask sign / div-rem ranges / i2c ==\n");
+    {
+        const char* MS = "class T { static int f(int x){ if (x > 100) return 0; "
+                         "if ((x & 7) >= 0) return 1; return 2; } }";
+        CHECK(compile_count_in(MS, "f", SIR_BRANCH, 1) == 1,
+              "mask rule holds for a SIGN-SPANNING x: (x & 7) >= 0 folds TRUE");
+        const char* DR = "class T { static int g(int d){ if (d < 2 || d > 9) return 0; "
+                         "int q = 1000 / d; if (q <= 500) return 1; return 2; } }";
+        CHECK(compile_count_in(DR, "g", SIR_BRANCH, 1) == 2,
+              "div by a RANGE divisor [2,9]: q is [111,500], q <= 500 folds TRUE");
+        const char* RS = "class T { static int h(int x){ if (x > -1) return 0; "
+                         "int r = x % 8; if (r <= 0) return 1; return 2; } }";
+        CHECK(compile_count_in(RS, "h", SIR_BRANCH, 1) == 1,
+              "rem of a NEGATIVE dividend: x%8 is [-7,0], r <= 0 folds TRUE");
+        const char* CC = "class T { static int e(int x){ if (x < 0 || x > 60000) return 0; "
+                         "char c = (char) x; if (c <= 60000) return 1; return 2; } }";
+        CHECK(compile_count_in(CC, "e", SIR_BRANCH, 1) == 2,
+              "(char)x of a FITTING range passes through: c <= 60000 folds TRUE");
+    }
+
+    /* ── §4.8 idempotent same-input followers: x&x and x|x ARE x (a
+     * follower transition — the result forwards, no constant is minted).
+     * Identity-matched only; distinct operands must survive. */
+    printf("== W9: idempotent same-input followers ==\n");
+    {
+        const char* ID = "class T { static int f(int x){ return (x & x) + (x | x); } }";
+        CHECK(compile_count_in(ID, "f", SIR_AND, 0) == 1 &&
+              compile_count_in(ID, "f", SIR_OR, 0) == 1,
+              "unoptimized: the and and or are present");
+        CHECK(compile_count_in(ID, "f", SIR_AND, 1) == 0 &&
+              compile_count_in(ID, "f", SIR_OR, 1) == 0,
+              "x&x and x|x forward to x");
+        const char* NE = "class T { static int g(int x, int y){ return (x & y) + (x | y); } }";
+        CHECK(compile_count_in(NE, "g", SIR_AND, 1) == 1 &&
+              compile_count_in(NE, "g", SIR_OR, 1) == 1,
+              "SOUNDNESS: x&y and x|y survive (distinct operands)");
+    }
 
     return TEST_SUMMARY("test_sir");
 }

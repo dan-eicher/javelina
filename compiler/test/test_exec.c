@@ -23,6 +23,7 @@
 #define JT_VERBOSE      /* a four-minute suite wants a progress log */
 #define JT_REPORT_RSS   /* this suite compiles the whole prelude per case */
 #include "javelina_test.h"
+#include "jtest_units.h"   /* JTEST_STD_IMPORTS + jtest_with_imports (§7.5 snippet header) */
 
 static char* read_file(const char* path) {
     FILE* f = fopen(path, "rb"); if (!f) return NULL;
@@ -81,6 +82,13 @@ static void glob_lib_dir(const char* dir, ast_type_decl_t*** types,
  * explicitly with a dedicated prelude arena.) */
 static ast_type_decl_t** g_lib_types = NULL;
 static int               g_lib_ntypes = 0;
+static ast_program_t**   g_lib_units  = NULL;   /* per-FILE programs — §7.3 units */
+static int               g_lib_nunits = 0;
+
+/* The current §7.3 unit list (cached lib units + this build's user unit) —
+ * what exec_analyze feeds sema_analyze_units. Rebuilt per build_program call. */
+static ast_program_t** g_units = NULL;
+static int             g_nunits = 0;
 
 static ast_program_t* build_program(const char* user_src, bbq_arena* arena, int* nlib_out,
                                     java_parse_ctx_t*** ctxs) {
@@ -90,22 +98,38 @@ static ast_program_t* build_program(const char* user_src, bbq_arena* arena, int*
         glob_lib_dir("lib/java/lang", &lt, &lib_ctxs);   /* §20 java.lang */
         glob_lib_dir("lib/java/util", &lt, &lib_ctxs);   /* §21 java.util */
         glob_lib_dir("lib/java/io",   &lt, &lib_ctxs);   /* §22 java.io */
+        glob_lib_dir("lib/javelina/simd", &lt, &lib_ctxs);   /* javelina.simd intrinsics */
         g_lib_ntypes = (int)bbq_vec_len(lt);
         g_lib_types  = (ast_type_decl_t**)malloc((size_t)g_lib_ntypes * sizeof(*g_lib_types));
         memcpy(g_lib_types, lt, (size_t)g_lib_ntypes * sizeof(*g_lib_types));
         bbq_vec_free(lt);
+        /* The units are the per-file parse results, in glob order. */
+        g_lib_nunits = 0;
+        g_lib_units = (ast_program_t**)malloc(bbq_vec_len(lib_ctxs) * sizeof(*g_lib_units));
+        for (int i = 0; i < (int)bbq_vec_len(lib_ctxs); i++)
+            if (lib_ctxs[i]->result) g_lib_units[g_lib_nunits++] = lib_ctxs[i]->result;
     }
     ast_type_decl_t** types = NULL;              /* bbq_vec: cached lib types + this test's user types */
     for (int i = 0; i < g_lib_ntypes; i++) bbq_vec_push(types, g_lib_types[i]);
     if (nlib_out) *nlib_out = g_lib_ntypes;      /* everything from the lib is library */
-    ast_program_t* up = user_src ? parse_src(user_src, ctxs) : NULL;  /* NULL user_src = prelude only (jre build) */
+    ast_program_t* up = user_src
+        ? parse_src(jtest_with_imports(JTEST_STD_IMPORTS, user_src), ctxs)
+        : NULL;                                  /* NULL user_src = prelude only (jre build) */
     if (up) for (int i=0;i<up->types_count;i++) bbq_vec_push(types, up->types[i]);
+    free(g_units);
+    g_nunits = g_lib_nunits + (up ? 1 : 0);
+    g_units = (ast_program_t**)malloc((size_t)g_nunits * sizeof(*g_units));
+    memcpy(g_units, g_lib_units, (size_t)g_lib_nunits * sizeof(*g_units));
+    if (up) g_units[g_lib_nunits] = up;
     int tc = (int)bbq_vec_len(types);
     ast_type_decl_t** arr = bbq_arena_alloc(arena,(size_t)tc*sizeof(*arr));
     memcpy(arr,types,(size_t)tc*sizeof(*arr));
     bbq_vec_free(types);
     return ast_program(arena, NULL, NULL, 0, arr, tc);
 }
+
+/* The sema entry: the §7.3 unit list from the last build_program. */
+static bool exec_analyze(sema_ctx_t* c) { return sema_analyze_units(c, g_units, g_nunits); }
 
 static int contains(const uint8_t* hay, int hn, const uint8_t* needle, int nn) {
     for (int i = 0; i + nn <= hn; i++)
@@ -133,7 +157,7 @@ static bool assemble(bbq_arena* a, const char* src, emit_wasm_ctx* out) {
     sema_ctx_t* sctx = (sema_ctx_t*)malloc(sizeof *sctx);
     sema_init(sctx, a); sctx->num_library_classes = nlib;
     sctx->mode = SEMA_MODE_PLUGIN;               /* Stage D: corpus runs as linked plugins */
-    sema_analyze(sctx, prog);
+    exec_analyze(sctx);
     bool sema_ok = true;
     if (sema_error_count(sctx) > 0) {
         sema_ok = false;
@@ -165,7 +189,7 @@ static bool assemble_jre(bbq_arena* a, emit_wasm_ctx* out) {
     ast_program_t* prog = build_program(NULL, a, &nlib, &ctxs);   /* NULL user = prelude only */
     sema_ctx_t* sctx = (sema_ctx_t*)malloc(sizeof *sctx);
     sema_init(sctx, a); sctx->num_library_classes = nlib; sctx->mode = SEMA_MODE_RUNTIME;
-    sema_analyze(sctx, prog);
+    exec_analyze(sctx);
     bool sema_ok = sema_error_count(sctx) == 0;
     if (!sema_ok) {
         int nd = 0; const sema_diag_t* diags = sema_diags(sctx, &nd);
@@ -195,7 +219,7 @@ static bool assemble_plugin(bbq_arena* a, const char* src, emit_wasm_ctx* out) {
     ast_program_t* prog = build_program(src, a, &nlib, &ctxs);
     sema_ctx_t* sctx = (sema_ctx_t*)malloc(sizeof *sctx);
     sema_init(sctx, a); sctx->num_library_classes = nlib; sctx->mode = SEMA_MODE_PLUGIN;
-    sema_analyze(sctx, prog);
+    exec_analyze(sctx);
     bool sema_ok = sema_error_count(sctx) == 0;
     if (!sema_ok) {
         int nd = 0; const sema_diag_t* diags = sema_diags(sctx, &nd);
@@ -349,6 +373,323 @@ int main(void) {
         CHECK(st == EXEC_OK, "sum: validated + instantiated + called (no trap)");
         CHECK(st == EXEC_OK && res[0].of.i32 == 38, "sum: add(3,5)+add(10,20) == 38");
         bbq_vec_free(mod.code); bbq_arena_free(&a);
+    }
+    /* (1s) javelina.simd: explicit SIMD intrinsics lower INLINE to v128 opcodes —
+     * never imports (the import path failing to instantiate is exactly what this
+     * pins: no harness echo exists for javelina.simd, by design). */
+    {
+        bbq_arena a; bbq_arena_init(&a, 1 << 18);
+        emit_wasm_ctx mod = {0};
+        assemble(&a,
+            "class T {"
+            "  static int lanes(){"
+            "    V128 x = I32x4.splat(7);"
+            "    V128 y = I32x4.splat(35);"
+            "    V128 s = I32x4.add(x, y);"
+            "    return I32x4.extract_lane(s, 2);"
+            "  }"
+            "}", &mod);
+        wasm_val_t res[1] = { WASM_INIT_VAL };
+        exec_status st = exec_call(mod.code, bbq_vec_len(mod.code), "T.lanes", NULL, 0, res, 1);
+        CHECK(st == EXEC_OK, "simd: splat/add/extract module validates + runs (no import)");
+        CHECK(st == EXEC_OK && res[0].of.i32 == 42, "simd: i32x4 splat(7)+splat(35) lane 2 == 42");
+        bbq_vec_free(mod.code); bbq_arena_free(&a);
+    }
+    /* (1s-b..e) javelina.simd: one executed case per remaining family —
+     * Un/Shift/TestI, Tern/Const/Replace, the L/F/D splat/replace/extract
+     * quartets, and Shuffle. Lane-exact expectations, computed by hand. */
+    {
+        struct { const char* src; int32_t want; const char* label; } sc[] = {
+          { "class T { static int f(){"
+            "  int a = I32x4.extract_lane(I32x4.neg(I32x4.splat(5)), 1);"      /* Un: -5 */
+            "  int b = I32x4.extract_lane(I32x4.shl(I32x4.splat(3), 2), 0);"   /* Shift: 12 */
+            "  int c = I32x4.all_true(I32x4.splat(1));"                        /* TestI: 1 */
+            "  int d = V128.any_true(I32x4.splat(0));"                         /* TestI: 0 */
+            "  return a + b + c + d; } }", 8,
+            "simd: Un/Shift/TestI (neg, shl, all_true, any_true) == 8" },
+          { "class T { static int f(){"
+            "  V128 m = V128.const_(0xFFL, 0L);"                               /* Const: lane0 mask 0xFF */
+            "  V128 s = V128.bitselect(I32x4.splat(0xF0), I32x4.splat(0x0F), m);" /* Tern: lane0 = 0xF0 */
+            "  V128 r = I32x4.replace_lane(s, 7, 3);"                          /* ReplaceI */
+            "  return I32x4.extract_lane(s, 0) + I32x4.extract_lane(r, 3); } }", 247,
+            "simd: Tern/Const/ReplaceI (bitselect mask + replace) == 240+7" },
+          { "class T { static int f(){"
+            "  long l = I64x2.extract_lane(I64x2.replace_lane(I64x2.splat(9L), 20L, 0), 0);"
+            "  float g = F32x4.extract_lane(F32x4.replace_lane(F32x4.splat(1.0f), 2.5f, 1), 1);"
+            "  double d = F64x2.extract_lane(F64x2.replace_lane(F64x2.splat(0.25), 8.5, 1), 1);"
+            "  return (int)l + (int)(g + g) + (int)d; } }", 33,
+            "simd: L/F/D splat/replace/extract == 20+5+8" },
+          { "class T { static int f(){"
+            "  V128 x = I32x4.splat(77);"
+            "  V128 y = I32x4.splat(88);"
+            "  V128 id = I8x16.shuffle(x, y, 0x0706050403020100L, 0x0F0E0D0C0B0A0908L);"
+            "  return I32x4.extract_lane(id, 3); } }", 77,
+            "simd: Shuffle identity mask reproduces the first operand" },
+        };
+        for (size_t i = 0; i < sizeof sc / sizeof sc[0]; i++) {
+            bbq_arena a; bbq_arena_init(&a, 1 << 18);
+            emit_wasm_ctx mod = {0};
+            assemble(&a, sc[i].src, &mod);
+            wasm_val_t res[1] = { WASM_INIT_VAL };
+            exec_status st = exec_call(mod.code, bbq_vec_len(mod.code), "T.f", NULL, 0, res, 1);
+            CHECK(st == EXEC_OK && res[0].of.i32 == sc[i].want, sc[i].label);
+            bbq_vec_free(mod.code); bbq_arena_free(&a);
+        }
+    }
+    /* (1s-V4) the v128 VM-hardening battery: every seam where a v128 crosses a
+     * representation boundary, run under BOTH tiers, lane-exact. Each probe's
+     * `mix` weights the four i32 lanes 1/2/3/4, so a 64-bit truncation (the
+     * `any_t` carrier risk: {s8 bits; u1 kind} cannot hold 128 bits) zeroes
+     * lanes 2/3 and CHANGES the result — the assert reads the whole vector.
+     * On mismatch the harness prints got/want per tier, not a boolean. */
+    {
+        static const char* MIX =
+            "  static int mix(V128 v){ return I32x4.extract_lane(v,0)"
+            " + 2*I32x4.extract_lane(v,1) + 3*I32x4.extract_lane(v,2)"
+            " + 4*I32x4.extract_lane(v,3); }";
+        struct { const char* pre; const char* body; int32_t want; const char* label; } pv[] = {
+          { "", "V128 r = h(I32x4.splat(41)); return mix(r);", 420,
+            "v128 param+result across a static call (locals seam)" },
+          { "", "P p = new P(); int z = mix(p.v);"
+                " p.v = I32x4.splat(9); return z + mix(p.v);", 90,
+            "v128 GC STRUCT FIELD: default init (zeros) + set/get" },
+          { "", "V128[] a = new V128[3]; a[1] = I32x4.splat(7);"
+                " return mix(a[1]) + I32x4.extract_lane(a[0], 3);", 70,
+            "V128[] element: array.new default + set/get (lane 3 of the default read)" },
+          { "", "int z = mix(G.g); G.g = I32x4.splat(5); return z + mix(G.g);", 50,
+            "v128 MODULE GLOBAL: v128.const init + mutable set/get" },
+          { "", "B b = new D(); return mix(b.m(I32x4.splat(10)));", 110,
+            "v128 through virtual dispatch (call_ref seam)" },
+          { "", "long v = I64x2.extract_lane(I64x2.replace_lane("
+                "I64x2.splat(1L), 0x123456789L, 1), 1);"
+                " return (int)(v >> 32) + (int)v;", 591751050,
+            "i64x2 HIGH lane holds all 64 bits (the truncation kill-shot)" },
+        };
+        for (size_t i = 0; i < sizeof pv / sizeof pv[0]; i++) {
+            char src[2048];
+            snprintf(src, sizeof src,
+                "class P { V128 v; }"
+                "class G { static V128 g; }"
+                "class B { V128 m(V128 x){ return x; } }"
+                "class D extends B { V128 m(V128 x){ return I32x4.add(x, I32x4.splat(1)); } }"
+                "class T {%s"
+                "  static V128 h(V128 v){ return I32x4.add(v, I32x4.splat(1)); }"
+                "  static int f(){ %s } }", MIX, pv[i].body);
+            bbq_arena a; bbq_arena_init(&a, 1 << 18);
+            emit_wasm_ctx mod = {0};
+            assemble(&a, src, &mod);
+            int32_t got[2] = {0, 0};
+            exec_status sts[2];
+            for (int tier = 0; tier < 2; tier++) {
+                g_exec_jit = tier;
+                wasm_val_t res[1] = { WASM_INIT_VAL };
+                sts[tier] = exec_call(mod.code, bbq_vec_len(mod.code), "T.f", NULL, 0, res, 1);
+                got[tier] = res[0].of.i32;
+            }
+            g_exec_jit = 0;
+            bool ok = sts[0] == EXEC_OK && sts[1] == EXEC_OK &&
+                      got[0] == pv[i].want && got[1] == pv[i].want;
+            if (!ok)
+                printf("  FAIL-DETAIL %s: want %d, interp(st=%d) %d, jit(st=%d) %d\n",
+                       pv[i].label, pv[i].want, sts[0], got[0], sts[1], got[1]);
+            CHECK(ok, pv[i].label);
+            bbq_vec_free(mod.code); bbq_arena_free(&a);
+        }
+    }
+    /* (1s-V5) linear-memory SIMD: ALL 22 memarg/memlane ops round-trip through
+     * the I/O-floor staging memory, both tiers, lane-exact. Every probe PRIMES
+     * the memory itself (zero-extension is proven against a pre-filled NONZERO
+     * pattern; lane ops assert the targeted lane AND a preserved neighbor;
+     * partial stores assert the written bytes AND an adjacent untouched byte). */
+    {
+        static const char* MIX =
+            "  static int mix(V128 v){ return I32x4.extract_lane(v,0)"
+            " + 2*I32x4.extract_lane(v,1) + 3*I32x4.extract_lane(v,2)"
+            " + 4*I32x4.extract_lane(v,3); }";
+        struct { const char* body; int32_t want; const char* label; } mv[] = {
+          /* v128.store + v128.load: 16 exact bytes there and back */
+          { "Mem.v128_store(64, V128.const_(0x0000000200000001L, 0x0000000400000003L));"
+            " return mix(Mem.v128_load(64));", 30,
+            "v128.store + v128.load: lanes 1,2,3,4 round-trip" },
+          /* load8x8: bytes 01 80 7F FF 02 FE 00 40 -> i16x8, signed vs unsigned */
+          { "Mem.v128_store(64, V128.const_(0x4000FE02FF7F8001L, 0L));"
+            " V128 e = Mem.v128_load8x8_s(64);"
+            " return I16x8.extract_lane_s(e,1) + 3*I16x8.extract_lane_s(e,3)"
+            "      + I16x8.extract_lane_s(e,7);", -67,
+            "v128.load8x8_s: byte 0x80 extends to -128" },
+          { "Mem.v128_store(64, V128.const_(0x4000FE02FF7F8001L, 0L));"
+            " V128 e = Mem.v128_load8x8_u(64);"
+            " return I16x8.extract_lane_u(e,1) + 3*I16x8.extract_lane_u(e,3)"
+            "      + I16x8.extract_lane_u(e,7);", 957,
+            "v128.load8x8_u: byte 0x80 extends to 128" },
+          /* load16x4: words 0001 8000 7FFF FFFF -> i32x4 */
+          { "Mem.v128_store(64, V128.const_(0xFFFF7FFF80000001L, 0L));"
+            " return mix(Mem.v128_load16x4_s(64));", 32762,
+            "v128.load16x4_s: word 0x8000 extends to -32768" },
+          { "Mem.v128_store(64, V128.const_(0xFFFF7FFF80000001L, 0L));"
+            " return mix(Mem.v128_load16x4_u(64));", 425978,
+            "v128.load16x4_u: word 0x8000 extends to 32768" },
+          /* load32x2: words32 [5, -7] -> i64x2 */
+          { "Mem.v128_store(64, V128.const_(0xFFFFFFF900000005L, 0L));"
+            " V128 e = Mem.v128_load32x2_s(64);"
+            " return (int)I64x2.extract_lane(e,0) + (int)I64x2.extract_lane(e,1)"
+            "      + (int)(I64x2.extract_lane(e,1) >> 32);", -3,
+            "v128.load32x2_s: word -7 sign-extends (high word -1)" },
+          { "Mem.v128_store(64, V128.const_(0xFFFFFFF900000005L, 0L));"
+            " V128 e = Mem.v128_load32x2_u(64);"
+            " return (int)I64x2.extract_lane(e,0) + (int)I64x2.extract_lane(e,1)"
+            "      + (int)(I64x2.extract_lane(e,1) >> 32);", -2,
+            "v128.load32x2_u: word -7 zero-extends (high word 0)" },
+          /* loadN_splat */
+          { "Mem.v128_store(64, V128.const_(0x2AL, 0L));"
+            " V128 e = Mem.v128_load8_splat(64);"
+            " return I8x16.extract_lane_u(e,0) + 2*I8x16.extract_lane_u(e,15);", 126,
+            "v128.load8_splat: byte 42 in lanes 0 and 15" },
+          { "Mem.v128_store(64, V128.const_(0xABCDL, 0L));"
+            " V128 e = Mem.v128_load16_splat(64);"
+            " return I16x8.extract_lane_u(e,0) + I16x8.extract_lane_u(e,7);", 87962,
+            "v128.load16_splat: word 0xABCD in lanes 0 and 7" },
+          { "Mem.v128_store(64, V128.const_(0x01020304L, 0L));"
+            " return mix(Mem.v128_load32_splat(64));", 169090600,
+            "v128.load32_splat: 0x01020304 in all four lanes" },
+          { "Mem.v128_store(64, V128.const_(0x0000000123456789L, 0L));"
+            " long v = I64x2.extract_lane(Mem.v128_load64_splat(64), 1);"
+            " return (int)(v >> 32) + (int)v;", 591751050,
+            "v128.load64_splat: all 64 bits reach lane 1" },
+          /* loadN_zero — memory PRE-FILLED nonzero, so the zeroing is proven */
+          { "Mem.v128_store(64, V128.const_(0x0000006F0000004DL, 0x0000000400000003L));"
+            " return mix(Mem.v128_load32_zero(64));", 77,
+            "v128.load32_zero: lanes 1-3 zeroed (memory was nonzero there)" },
+          { "Mem.v128_store(64, V128.const_(0x0000006F0000004DL, 0x0000000400000003L));"
+            " return mix(Mem.v128_load64_zero(64));", 299,
+            "v128.load64_zero: lanes 2-3 zeroed (memory was nonzero there)" },
+          /* loadN_lane — targeted lane replaced, neighbors preserved */
+          { "Mem.v128_store(64, V128.const_(0x0000000B00000016L, 0L));"
+            " V128 e = Mem.v128_load8_lane(64, I32x4.splat(0), 5);"
+            " return I8x16.extract_lane_u(e,5)*10 + I8x16.extract_lane_u(e,6);", 220,
+            "v128.load8_lane: byte 22 into lane 5, lane 6 preserved" },
+          { "Mem.v128_store(64, V128.const_(0x0000000B00000016L, 0L));"
+            " V128 e = Mem.v128_load16_lane(64, I16x8.splat(1), 3);"
+            " return I16x8.extract_lane_u(e,3)*100 + I16x8.extract_lane_u(e,2)"
+            "      + I16x8.extract_lane_u(e,4);", 2202,
+            "v128.load16_lane: word 22 into lane 3, lanes 2/4 preserved" },
+          { "Mem.v128_store(64, V128.const_(0x0000000B00000016L, 0L));"
+            " return mix(Mem.v128_load32_lane(64, I32x4.splat(3), 2));", 87,
+            "v128.load32_lane: word 22 into lane 2, others stay 3" },
+          { "Mem.v128_store(64, V128.const_(0x0000000123456789L, 0L));"
+            " V128 e = Mem.v128_load64_lane(64, I64x2.splat(7L), 1);"
+            " long v = I64x2.extract_lane(e,1);"
+            " return (int)(v >> 32) + (int)v + (int)I64x2.extract_lane(e,0);", 591751057,
+            "v128.load64_lane: all 64 bits into lane 1, lane 0 stays 7" },
+          /* storeN_lane — the written bytes AND an adjacent untouched byte */
+          { "Mem.v128_store(64, V128.const_(0x0807060504030201L, 0x100F0E0D0C0B0A09L));"
+            " Mem.v128_store8_lane(64, I8x16.splat(0x55), 0);"
+            " V128 r = Mem.v128_load(64);"
+            " return I8x16.extract_lane_u(r,0)*1000 + I8x16.extract_lane_u(r,1);", 85002,
+            "v128.store8_lane: ONE byte written, next byte untouched" },
+          { "Mem.v128_store(64, V128.const_(0x0807060504030201L, 0x100F0E0D0C0B0A09L));"
+            " Mem.v128_store16_lane(66, I16x8.splat(0x6666), 2);"
+            " V128 r = Mem.v128_load(64);"
+            " return I8x16.extract_lane_u(r,2)*10000 + I8x16.extract_lane_u(r,3)*100"
+            "      + I8x16.extract_lane_u(r,4);", 1030205,
+            "v128.store16_lane: two bytes written, byte 4 untouched" },
+          { "Mem.v128_store(64, V128.const_(0x0807060504030201L, 0x100F0E0D0C0B0A09L));"
+            " Mem.v128_store32_lane(72, I32x4.splat(0x11223344), 1);"
+            " V128 r = Mem.v128_load(64);"
+            " return I32x4.extract_lane(r,2) + I8x16.extract_lane_u(r,12);", 287454033,
+            "v128.store32_lane: four bytes written, byte 12 untouched" },
+          { "Mem.v128_store(64, V128.const_(0x0807060504030201L, 0x100F0E0D0C0B0A09L));"
+            " Mem.v128_store64_lane(64, I64x2.splat(0x123456789L), 0);"
+            " V128 r = Mem.v128_load(64);"
+            " long v = I64x2.extract_lane(r,0);"
+            " return (int)(v >> 32) + (int)v + I8x16.extract_lane_u(r,8);", 591751059,
+            "v128.store64_lane: eight bytes written, byte 8 untouched" },
+          /* v128.store adjacency: the 16th byte lands, the 17th does not */
+          { "Mem.v128_store(80, V128.const_(0L, 0L));"
+            " Mem.v128_store(64, V128.const_(0x0807060504030201L, 0x100F0E0D0C0B0A09L));"
+            " V128 r = Mem.v128_load(65);"
+            " return I8x16.extract_lane_u(r,14)*100 + I8x16.extract_lane_u(r,15);", 1600,
+            "v128.store writes exactly 16 bytes (unaligned re-read straddles the edge)" },
+          /* ── the scalar family: sign/zero extension + width exactness ── */
+          { "Mem.i32_store(64, 0xCAFE9081);"
+            " return Mem.i32_load8_s(64) + Mem.i32_load8_u(64)*1000"
+            "      + Mem.i32_load16_s(64);", 100330,   /* -127 + 129000 - 28543 */
+            "i32 store + load8_s/-u/load16_s: byte 0x81 is -127 / 129, word 0x9081 is -28543" },
+          { "Mem.i64_store(64, 0x8000000180000002L);"
+            " return (int)Mem.i64_load32_s(64) + (int)(Mem.i64_load32_u(64) >> 31)"
+            "      + (int)(Mem.i64_load(64) >> 62);", -2147483647,  /* -2147483646 + 1 - 2 */
+            "i64 store + load32_s/-u/full: sign vs zero extension of word 0x80000002" },
+          { "Mem.f32_store(64, 1.5f); Mem.f64_store(72, 2.25);"
+            " return (int)(Mem.f32_load(64)*4.0f) + (int)(Mem.f64_load(72)*4.0);", 15,
+            "f32/f64 store + load round-trip exact" },
+          /* Delta-form: the corpus shares the long-lived jre instance, so the
+           * interp tier's grow PERSISTS into the JIT tier — absolute sizes
+           * differ per tier, the deltas cannot. */
+          { "int before = Mem.memory_size(); int old = Mem.memory_grow(1);"
+            " return (old - before)*10 + (Mem.memory_size() - before);", 1,
+            "memory_size/grow: grow(1) returns the old size, size advances by 1" },
+          { "int before = Mem.memory_size(); Mem.memory_grow(1);"
+            " return Mem.memory_size() - before;", 1,
+            "STATEMENT-position memory_grow executes (an Effectful value is "
+            "never dropped by effect delivery)" },
+          { "Mem.memory_fill(64, 0x5A, 3); Mem.i32_store8(67, 7);"
+            " return Mem.i32_load8_u(64) + Mem.i32_load8_u(66)*10 + Mem.i32_load8_u(67);", 997,
+            "memory.fill: exactly len bytes, the next byte untouched" },
+          { "Mem.memory_fill(64, 9, 4); Mem.memory_copy(80, 64, 4);"
+            " return Mem.i32_load8_u(80) + Mem.i32_load8_u(83)*10 + Mem.i32_load8_u(84)*100;", 99,
+            "memory.copy: exactly len bytes copied, the byte after untouched" },
+          /* ── D5: OOB is a CATCHABLE Java exception, never a VM trap ── */
+          { "try { int x = Mem.i32_load(-4); return x; }"
+            " catch (IndexOutOfBoundsException e) { return 42; }", 42,
+            "OOB i32_load(-4) throws catchable IndexOutOfBoundsException (no trap)" },
+          { "int lim = Mem.memory_size() * 65536;"
+            " try { Mem.v128_store(lim - 15, I32x4.splat(1)); return 1; }"
+            " catch (IndexOutOfBoundsException e) { return 43; }", 43,
+            "v128_store straddling the memory end throws (16-byte span checked)" },
+          { "int lim = Mem.memory_size() * 65536;"
+            " Mem.i32_store8(lim - 1, 5);"
+            " return Mem.i32_load8_u(lim - 1) + 60;", 65,
+            "the LAST byte is in bounds (the guard is exact, not off-by-one)" },
+          { "try { Mem.memory_copy(64, 128, -1); return 1; }"
+            " catch (IndexOutOfBoundsException e) { return 44; }", 44,
+            "memory.copy with a negative length throws (no wrap-around)" },
+          /* ── the E8.3 bounce helpers (plain Java over the ops) ── */
+          { "byte[] s = new byte[4]; s[0]=1; s[1]=2; s[2]=3; s[3]=4;"
+            " Mem.copyIn(s, 0, 4, 64);"
+            " byte[] d = new byte[4]; Mem.copyOut(64, d, 0, 4);"
+            " return d[0] + d[1]*10 + d[2]*100 + d[3]*1000;", 4321,
+            "byte[] copyIn/copyOut round-trips through the memory" },
+          { "V128[] s = new V128[2]; s[0] = I32x4.splat(3); s[1] = I32x4.splat(7);"
+            " Mem.copyIn(s, 0, 2, 64);"
+            " V128[] d = new V128[2]; Mem.copyOut(64, d, 0, 2);"
+            " return mix(d[0]) + mix(d[1]);", 100,
+            "V128[] copyIn/copyOut round-trips lane-exact (30 + 70)" },
+        };
+        for (size_t i = 0; i < sizeof mv / sizeof mv[0]; i++) {
+            char src[4096];
+            snprintf(src, sizeof src,
+                "class T {%s"
+                "  static int f(){ %s } }", MIX, mv[i].body);
+            bbq_arena a; bbq_arena_init(&a, 1 << 18);
+            emit_wasm_ctx mod = {0};
+            assemble(&a, src, &mod);
+            int32_t got[2] = {0, 0};
+            exec_status sts[2];
+            for (int tier = 0; tier < 2; tier++) {
+                g_exec_jit = tier;
+                wasm_val_t res[1] = { WASM_INIT_VAL };
+                sts[tier] = exec_call(mod.code, bbq_vec_len(mod.code), "T.f", NULL, 0, res, 1);
+                got[tier] = res[0].of.i32;
+            }
+            g_exec_jit = 0;
+            bool ok = sts[0] == EXEC_OK && sts[1] == EXEC_OK &&
+                      got[0] == mv[i].want && got[1] == mv[i].want;
+            if (!ok)
+                printf("  FAIL-DETAIL %s: want %d, interp(st=%d) %d, jit(st=%d) %d\n",
+                       mv[i].label, mv[i].want, sts[0], got[0], sts[1], got[1]);
+            CHECK(ok, mv[i].label);
+            bbq_vec_free(mod.code); bbq_arena_free(&a);
+        }
     }
     /* (2) i32 args. */
     {
@@ -3461,8 +3802,8 @@ int main(void) {
      *    unsigned byte (200 > 127 must zero-extend) and a runtime value. ── */
     {
         const char* src = "class T { static int f(int x){"
-            "  Mem.store8(5, 65); Mem.store8(6, 200); Mem.store8(7, x & 255);"
-            "  return Mem.load8(5)*100000 + Mem.load8(6)*100 + Mem.load8(7); } }";
+            "  Mem.i32_store8(5, 65); Mem.i32_store8(6, 200); Mem.i32_store8(7, x & 255);"
+            "  return Mem.i32_load8_u(5)*100000 + Mem.i32_load8_u(6)*100 + Mem.i32_load8_u(7); } }";
         bbq_arena a; bbq_arena_init(&a, 1 << 18);
         emit_wasm_ctx mod = {0};
         bool ok = assemble(&a, src, &mod);
@@ -3478,7 +3819,7 @@ int main(void) {
      *    native reads them via wasm_memory_data (HostIO.checksum) — the host half of the fd bounce. ── */
     {
         const char* src = "class T { static int f(int x){"
-            "  Mem.store8(0, 10); Mem.store8(1, 20); Mem.store8(2, 200); return HostIO.checksum(0, 3); } }";
+            "  Mem.i32_store8(0, 10); Mem.i32_store8(1, 20); Mem.i32_store8(2, 200); return HostIO.checksum(0, 3); } }";
         bbq_arena a; bbq_arena_init(&a, 1 << 18);
         emit_wasm_ctx mod = {0};
         bool ok = assemble(&a, src, &mod);
@@ -3496,12 +3837,12 @@ int main(void) {
     {
         const char* src = "class T { static int f(int x){"
             "  int fd = HostIO.fd_open_temp();"
-            "  Mem.store8(0, 65); Mem.store8(1, 66); Mem.store8(2, 67);"
+            "  Mem.i32_store8(0, 65); Mem.i32_store8(1, 66); Mem.i32_store8(2, 67);"
             "  HostIO.fd_write(fd, 0, 3);"
             "  HostIO.fd_seek(fd, 0);"
             "  int n = HostIO.fd_read(fd, 10, 3);"
             "  HostIO.fd_close(fd);"
-            "  return n*1000000 + Mem.load8(10)*10000 + Mem.load8(11)*100 + Mem.load8(12); } }";
+            "  return n*1000000 + Mem.i32_load8_u(10)*10000 + Mem.i32_load8_u(11)*100 + Mem.i32_load8_u(12); } }";
         bbq_arena a; bbq_arena_init(&a, 1 << 18);
         emit_wasm_ctx mod = {0};
         bool ok = assemble(&a, src, &mod);
@@ -3703,7 +4044,7 @@ int main(void) {
             "  System.out.print(\"Hi!\");"
             "  HostIO.fd_seek(1, 0);"
             "  int n = HostIO.fd_read(1, 0, 8);"
-            "  return n*1000000 + Mem.load8(0)*10000 + Mem.load8(1)*100 + Mem.load8(2); } }";
+            "  return n*1000000 + Mem.i32_load8_u(0)*10000 + Mem.i32_load8_u(1)*100 + Mem.i32_load8_u(2); } }";
         bbq_arena a; bbq_arena_init(&a, 1 << 18);
         emit_wasm_ctx mod = {0};
         bool ok = assemble(&a, src, &mod);

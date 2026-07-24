@@ -13,7 +13,14 @@ static inline sir_node_t* sir_get_next(const sir_node_t* n) {
     case SIR_EXPREFFECT:     return n->expr_effect.next;
     case SIR_ARRAYSTORE:     return n->array_store.next;
     case SIR_ARRAYCOPY:      return n->array_copy.next;
-    case SIR_MEMSTORE8:      return n->mem_store8.next;
+    case SIR_SIMDMEMSTORE:   return n->simd_mem_store.next;
+    case SIR_SIMDMEMSTORELANE: return n->simd_mem_store_lane.next;
+    case SIR_MEMSTOREI:      return n->mem_store_i.next;
+    case SIR_MEMSTOREL:      return n->mem_store_l.next;
+    case SIR_MEMSTOREF:      return n->mem_store_f.next;
+    case SIR_MEMSTORED:      return n->mem_store_d.next;
+    case SIR_MEMFILL:        return n->mem_fill.next;
+    case SIR_MEMCOPY:        return n->mem_copy.next;
     case SIR_PUTFIELD:       return n->put_field.next;
     case SIR_SETHEADER:      return n->set_header.next;
     case SIR_PUTSTATIC:      return n->put_static.next;
@@ -32,7 +39,14 @@ static inline void sir_set_next(sir_node_t* n, sir_node_t* next) {
     case SIR_EXPREFFECT:     n->expr_effect.next = next; break;
     case SIR_ARRAYSTORE:     n->array_store.next = next; break;
     case SIR_ARRAYCOPY:      n->array_copy.next = next; break;
-    case SIR_MEMSTORE8:      n->mem_store8.next = next; break;
+    case SIR_SIMDMEMSTORE:   n->simd_mem_store.next = next; break;
+    case SIR_SIMDMEMSTORELANE: n->simd_mem_store_lane.next = next; break;
+    case SIR_MEMSTOREI:      n->mem_store_i.next = next; break;
+    case SIR_MEMSTOREL:      n->mem_store_l.next = next; break;
+    case SIR_MEMSTOREF:      n->mem_store_f.next = next; break;
+    case SIR_MEMSTORED:      n->mem_store_d.next = next; break;
+    case SIR_MEMFILL:        n->mem_fill.next = next; break;
+    case SIR_MEMCOPY:        n->mem_copy.next = next; break;
     case SIR_PUTFIELD:       n->put_field.next = next; break;
     case SIR_SETHEADER:      n->set_header.next = next; break;
     case SIR_PUTSTATIC:      n->put_static.next = next; break;
@@ -156,8 +170,13 @@ static inline int sir_arity(const sir_node_t* n) {
     case SIR_BRANCH: case SIR_RETURN: case SIR_THROW:
     case SIR_SWITCH:  /* only the selector is a tree child */
     case SIR_INC:     /* `value` is the LoadLocal expression for the read side */
-    case SIR_MEMLOAD8:  /* the linear-memory byte address */
+    case SIR_SIMDMEMLOAD:  /* the linear-memory address */
+    case SIR_MEMLOADI: case SIR_MEMLOADL: case SIR_MEMLOADF: case SIR_MEMLOADD:
+    case SIR_MEMGROW:   /* the page count */
     case SIR_CLASSINSTANTIABLE: case SIR_CLASSCONSTRUCT:  /* the Class reference */
+    case SIR_SIMDUN: case SIR_SIMDTESTI:
+    case SIR_SIMDSPLATI: case SIR_SIMDSPLATL: case SIR_SIMDSPLATF: case SIR_SIMDSPLATD:
+    case SIR_SIMDEXTRACTI: case SIR_SIMDEXTRACTL: case SIR_SIMDEXTRACTF: case SIR_SIMDEXTRACTD:
         return 1;
     /* 2 children */
     case SIR_ADD: case SIR_SUB: case SIR_MUL: case SIR_DIV: case SIR_REM:
@@ -166,10 +185,18 @@ static inline int sir_arity(const sir_node_t* n) {
     case SIR_ARRAYLOAD:
     case SIR_PUTFIELD:
     case SIR_SETHEADER:
-    case SIR_MEMSTORE8:  /* addr, value (next is the spine successor) */
+    case SIR_SIMDMEMSTORE:  /* addr, value (next is the spine successor) */
+    case SIR_MEMSTOREI: case SIR_MEMSTOREL: case SIR_MEMSTOREF: case SIR_MEMSTORED:
+    case SIR_SIMDMEMLOADLANE:  /* addr, vec */
+    case SIR_SIMDMEMSTORELANE: /* addr, vec (next is the spine successor) */
+    case SIR_SIMDBIN: case SIR_SIMDSHIFT: case SIR_SIMDSHUFFLE:
+    case SIR_SIMDREPLACEI: case SIR_SIMDREPLACEL: case SIR_SIMDREPLACEF: case SIR_SIMDREPLACED:
         return 2;
     /* 3 children */
     case SIR_ARRAYSTORE:
+    case SIR_SIMDTERN:
+    case SIR_MEMFILL:   /* dst, value, len (next is the spine successor) */
+    case SIR_MEMCOPY:   /* dst, src, len (next is the spine successor) */
         return 3;
     /* 5 children (dst, dst_off, src, src_off, len) */
     case SIR_ARRAYCOPY:
@@ -240,9 +267,37 @@ static inline sir_node_t* sir_child(const sir_node_t* n, int i) {
     case SIR_GE: return i == 0 ? n->ge.left : n->ge.right;
     case SIR_ARRAYLOAD: return i == 0 ? n->array_load.arr : n->array_load.index;
     case SIR_GETFIELD: return n->get_field.obj;
-    case SIR_MEMLOAD8: return n->mem_load8.addr;
     case SIR_CLASSINSTANTIABLE: return n->class_instantiable.cls;
     case SIR_CLASSCONSTRUCT:    return n->class_construct.cls;
+    /* SIMD families */
+    case SIR_SIMDBIN:      return i == 0 ? n->simd_bin.left : n->simd_bin.right;
+    case SIR_SIMDUN:       return n->simd_un.operand;
+    case SIR_SIMDSHIFT:    return i == 0 ? n->simd_shift.vec : n->simd_shift.count;
+    case SIR_SIMDTERN:
+        if (i == 0) return n->simd_tern.a;
+        if (i == 1) return n->simd_tern.b;
+        return n->simd_tern.c;
+    case SIR_SIMDTESTI:    return n->simd_test_i.operand;
+    case SIR_SIMDSPLATI:   return n->simd_splat_i.operand;
+    case SIR_SIMDSPLATL:   return n->simd_splat_l.operand;
+    case SIR_SIMDSPLATF:   return n->simd_splat_f.operand;
+    case SIR_SIMDSPLATD:   return n->simd_splat_d.operand;
+    case SIR_SIMDEXTRACTI: return n->simd_extract_i.vec;
+    case SIR_SIMDEXTRACTL: return n->simd_extract_l.vec;
+    case SIR_SIMDEXTRACTF: return n->simd_extract_f.vec;
+    case SIR_SIMDEXTRACTD: return n->simd_extract_d.vec;
+    case SIR_SIMDREPLACEI: return i == 0 ? n->simd_replace_i.vec : n->simd_replace_i.val;
+    case SIR_SIMDREPLACEL: return i == 0 ? n->simd_replace_l.vec : n->simd_replace_l.val;
+    case SIR_SIMDREPLACEF: return i == 0 ? n->simd_replace_f.vec : n->simd_replace_f.val;
+    case SIR_SIMDREPLACED: return i == 0 ? n->simd_replace_d.vec : n->simd_replace_d.val;
+    case SIR_SIMDSHUFFLE:  return i == 0 ? n->simd_shuffle.left : n->simd_shuffle.right;
+    case SIR_SIMDMEMLOAD:     return n->simd_mem_load.addr;
+    case SIR_SIMDMEMLOADLANE: return i == 0 ? n->simd_mem_load_lane.addr : n->simd_mem_load_lane.vec;
+    case SIR_MEMLOADI: return n->mem_load_i.addr;
+    case SIR_MEMLOADL: return n->mem_load_l.addr;
+    case SIR_MEMLOADF: return n->mem_load_f.addr;
+    case SIR_MEMLOADD: return n->mem_load_d.addr;
+    case SIR_MEMGROW:  return n->mem_grow.pages;
     /* Stmt data children (NOT the continuation) */
     case SIR_STORELOCAL: return n->store_local.value;
     case SIR_EXPREFFECT: return n->expr_effect.value;
@@ -250,7 +305,20 @@ static inline sir_node_t* sir_child(const sir_node_t* n, int i) {
     case SIR_INC:        return n->inc.value;
     case SIR_PUTFIELD:   return i == 0 ? n->put_field.obj : n->put_field.value;
     case SIR_SETHEADER:  return i == 0 ? n->set_header.obj : n->set_header.value;
-    case SIR_MEMSTORE8:  return i == 0 ? n->mem_store8.addr : n->mem_store8.value;
+    case SIR_SIMDMEMSTORE:     return i == 0 ? n->simd_mem_store.addr : n->simd_mem_store.value;
+    case SIR_SIMDMEMSTORELANE: return i == 0 ? n->simd_mem_store_lane.addr : n->simd_mem_store_lane.vec;
+    case SIR_MEMSTOREI: return i == 0 ? n->mem_store_i.addr : n->mem_store_i.value;
+    case SIR_MEMSTOREL: return i == 0 ? n->mem_store_l.addr : n->mem_store_l.value;
+    case SIR_MEMSTOREF: return i == 0 ? n->mem_store_f.addr : n->mem_store_f.value;
+    case SIR_MEMSTORED: return i == 0 ? n->mem_store_d.addr : n->mem_store_d.value;
+    case SIR_MEMFILL:
+        if (i == 0) return n->mem_fill.dst;
+        if (i == 1) return n->mem_fill.value;
+        return n->mem_fill.len;
+    case SIR_MEMCOPY:
+        if (i == 0) return n->mem_copy.dst;
+        if (i == 1) return n->mem_copy.src;
+        return n->mem_copy.len;
     case SIR_ARRAYSTORE:
         if (i == 0) return n->array_store.arr;
         if (i == 1) return n->array_store.index;
@@ -307,16 +375,57 @@ static inline sir_node_t** sir_child_slot(sir_node_t* n, int i) {
     SIR_CMP_CASES return sir_cmp_child_slot(n, i);
     case SIR_ARRAYLOAD: return i == 0 ? &n->array_load.arr : &n->array_load.index;
     case SIR_GETFIELD: return &n->get_field.obj;
-    case SIR_MEMLOAD8: return &n->mem_load8.addr;
     case SIR_CLASSINSTANTIABLE: return &n->class_instantiable.cls;
     case SIR_CLASSCONSTRUCT:    return &n->class_construct.cls;
+    /* SIMD families */
+    case SIR_SIMDBIN:      return i == 0 ? &n->simd_bin.left : &n->simd_bin.right;
+    case SIR_SIMDUN:       return &n->simd_un.operand;
+    case SIR_SIMDSHIFT:    return i == 0 ? &n->simd_shift.vec : &n->simd_shift.count;
+    case SIR_SIMDTERN:
+        if (i == 0) return &n->simd_tern.a;
+        if (i == 1) return &n->simd_tern.b;
+        return &n->simd_tern.c;
+    case SIR_SIMDTESTI:    return &n->simd_test_i.operand;
+    case SIR_SIMDSPLATI:   return &n->simd_splat_i.operand;
+    case SIR_SIMDSPLATL:   return &n->simd_splat_l.operand;
+    case SIR_SIMDSPLATF:   return &n->simd_splat_f.operand;
+    case SIR_SIMDSPLATD:   return &n->simd_splat_d.operand;
+    case SIR_SIMDEXTRACTI: return &n->simd_extract_i.vec;
+    case SIR_SIMDEXTRACTL: return &n->simd_extract_l.vec;
+    case SIR_SIMDEXTRACTF: return &n->simd_extract_f.vec;
+    case SIR_SIMDEXTRACTD: return &n->simd_extract_d.vec;
+    case SIR_SIMDREPLACEI: return i == 0 ? &n->simd_replace_i.vec : &n->simd_replace_i.val;
+    case SIR_SIMDREPLACEL: return i == 0 ? &n->simd_replace_l.vec : &n->simd_replace_l.val;
+    case SIR_SIMDREPLACEF: return i == 0 ? &n->simd_replace_f.vec : &n->simd_replace_f.val;
+    case SIR_SIMDREPLACED: return i == 0 ? &n->simd_replace_d.vec : &n->simd_replace_d.val;
+    case SIR_SIMDSHUFFLE:  return i == 0 ? &n->simd_shuffle.left : &n->simd_shuffle.right;
+    case SIR_SIMDMEMLOAD:     return &n->simd_mem_load.addr;
+    case SIR_SIMDMEMLOADLANE: return i == 0 ? &n->simd_mem_load_lane.addr : &n->simd_mem_load_lane.vec;
+    case SIR_MEMLOADI: return &n->mem_load_i.addr;
+    case SIR_MEMLOADL: return &n->mem_load_l.addr;
+    case SIR_MEMLOADF: return &n->mem_load_f.addr;
+    case SIR_MEMLOADD: return &n->mem_load_d.addr;
+    case SIR_MEMGROW:  return &n->mem_grow.pages;
     case SIR_STORELOCAL: return &n->store_local.value;
     case SIR_EXPREFFECT: return &n->expr_effect.value;
     case SIR_PUTSTATIC:  return &n->put_static.value;
     case SIR_INC:        return &n->inc.value;
     case SIR_PUTFIELD:   return i == 0 ? &n->put_field.obj : &n->put_field.value;
     case SIR_SETHEADER:  return i == 0 ? &n->set_header.obj : &n->set_header.value;
-    case SIR_MEMSTORE8:  return i == 0 ? &n->mem_store8.addr : &n->mem_store8.value;
+    case SIR_SIMDMEMSTORE:     return i == 0 ? &n->simd_mem_store.addr : &n->simd_mem_store.value;
+    case SIR_SIMDMEMSTORELANE: return i == 0 ? &n->simd_mem_store_lane.addr : &n->simd_mem_store_lane.vec;
+    case SIR_MEMSTOREI: return i == 0 ? &n->mem_store_i.addr : &n->mem_store_i.value;
+    case SIR_MEMSTOREL: return i == 0 ? &n->mem_store_l.addr : &n->mem_store_l.value;
+    case SIR_MEMSTOREF: return i == 0 ? &n->mem_store_f.addr : &n->mem_store_f.value;
+    case SIR_MEMSTORED: return i == 0 ? &n->mem_store_d.addr : &n->mem_store_d.value;
+    case SIR_MEMFILL:
+        if (i == 0) return &n->mem_fill.dst;
+        if (i == 1) return &n->mem_fill.value;
+        return &n->mem_fill.len;
+    case SIR_MEMCOPY:
+        if (i == 0) return &n->mem_copy.dst;
+        if (i == 1) return &n->mem_copy.src;
+        return &n->mem_copy.len;
     case SIR_ARRAYSTORE:
         if (i == 0) return &n->array_store.arr;
         if (i == 1) return &n->array_store.index;

@@ -24,7 +24,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define SIR_TAG_COUNT (SIR_PRIMARRAY + 1)   /* PrimArray is the last node tag */
+#define SIR_TAG_COUNT (SIR_MEMGROW + 1)   /* MemGrow is the last node tag */
 
 /* Type kinds — how a row produces the lattice Type for its opcode.
  * GT_NONE marks rows that don't carry a type (spine opcodes). */
@@ -170,6 +170,12 @@ typedef struct sir_op_gamma {
      * partition equality through the engine, and produces the cong
      * result (0 for GC_ZERO; per-op for GC_CMP_REFLEXIVE). */
     gt_cong_t          cong_fold;
+
+    /* §4.8's same-input IDEMPOTENT identity (x & x = x, x | x = x): the
+     * opcode is a Follower of its input when both inputs carry one
+     * reaching name. Identity only — never partitions (a follower link
+     * must not ride the transient the cong_fold re-arm walks back). */
+    bool               same_in_follower;
 
     /* Rewrite-time width: not its own slot. The width an opcode emits
      * at rewrite is its γ_T width — derivable from type_kind +

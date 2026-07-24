@@ -59,6 +59,11 @@ static const hio_prop_t harness_props[] = {
  * so the harness REPORTS why a module was rejected — no per-bug instrumentation. */
 extern int         jav_capi_last_error(const wasm_store_t* store);
 extern const char* jav_err_str(int err);
+extern void        jav_config_set_jit(wasm_config_t* c, int jit);   /* the engine tier choice */
+
+/* Tier toggle for exec_call: 0 = interpreter (the corpus default), 1 = JIT.
+ * The v128 parity probes run each module under BOTH and diff lane-exactly. */
+static int g_exec_jit = 0;
 
 /* Outcome of a call: did the module validate / instantiate, and did the call
  * complete without trapping. `results` is filled on a clean (non-trapping) call. */
@@ -77,7 +82,15 @@ static exec_status exec_call(const uint8_t* mod, size_t modlen, const char* name
     wasm_byte_vec_new_uninitialized(&bin, modlen);
     memcpy(bin.data, mod, modlen);
 
-    wasm_engine_t* engine = wasm_engine_new();
+    wasm_engine_t* engine;
+    if (g_exec_jit) {                       /* the V-probe tier toggle: run the SAME
+                                             * module under the JIT for parity diffing */
+        wasm_config_t* c = wasm_config_new();
+        jav_config_set_jit(c, 1);
+        engine = wasm_engine_new_with_config(c);
+    } else {
+        engine = wasm_engine_new();
+    }
     wasm_store_t*  store  = wasm_store_new(engine);
 
     exec_status st = EXEC_OK;

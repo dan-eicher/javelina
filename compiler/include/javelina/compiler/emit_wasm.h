@@ -21,7 +21,7 @@
  * What stays here is encoding the toml's opcode column doesn't cover: valtypes
  * and the functype tag (structural §5.3 bytes, not instructions). */
 enum {
-    W_VT_I32 = 0x7F, W_VT_I64 = 0x7E, W_VT_F32 = 0x7D, W_VT_F64 = 0x7C, /* §5.3.5 valtypes */
+    W_VT_I32 = 0x7F, W_VT_I64 = 0x7E, W_VT_F32 = 0x7D, W_VT_F64 = 0x7C, W_VT_V128 = 0x7B, /* §5.3.5 valtypes */
     W_FUNCTYPE_FORM = 0x60,                                            /* §5.3.6 functype tag */
     /* Structured-control framing bytes — §5.4.1 terminators, excluded from the
      * instruction table (they delimit, they don't compute). */

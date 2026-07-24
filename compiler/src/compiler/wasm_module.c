@@ -33,10 +33,11 @@
  * is the lattice's (lat_dt_valtype); this only picks the encoding byte. */
 static uint8_t prim_valtype(sir_datatype_t dt) {
     switch (lat_dt_valtype(dt)) {
-        case LAT_VT_I64: return W_VT_I64;
-        case LAT_VT_F32: return W_VT_F32;
-        case LAT_VT_F64: return W_VT_F64;
-        default:         return W_VT_I32;
+        case LAT_VT_I64:  return W_VT_I64;
+        case LAT_VT_F32:  return W_VT_F32;
+        case LAT_VT_F64:  return W_VT_F64;
+        case LAT_VT_V128: return W_VT_V128;
+        default:          return W_VT_I32;
     }
 }
 
@@ -165,7 +166,9 @@ static bool export_name_overloaded(const sema_ctx_t* s, int class_id, const char
  * collide. (Host-facing USER exports keep the clean "Class.method" scheme above.) Caller
  * frees the returned bytes. */
 static uint8_t* canon_method_name(const sema_ctx_t* s, int cid, const sema_method_t* m, uint32_t* len_out) {
-    const char* cn = sema_get_class(s, cid)->name;
+    /* FULLY QUALIFIED class name (§6.7): two classes may share a simple name
+     * across packages (§7), and a simple-name link name would collide. */
+    const char* cn = sema_get_class(s, cid)->fq_name;
     const char* desc = desc_from_method(s->arena, m->param_types, m->param_count, m->return_type, s);
     int cl = (int)strlen(cn), ml = (int)strlen(m->name), dl = (int)strlen(desc);
     int L = cl + 1 + ml + dl;
@@ -569,14 +572,14 @@ bool wasm_assemble_program(compiler_ctx_t* cctx, const sema_ctx_t* sctx,
         }
         for (int ci = 0; ci < wt->num_classes; ci++) {
             const sema_class_t* c = sema_get_class(sctx, ci);
-            uint32_t L; uint8_t* nb = canon_hash_name(c->name, "class", &L);
+            uint32_t L; uint8_t* nb = canon_hash_name(c->fq_name, "class", &L);
             jav_export_t ex; memset(&ex, 0, sizeof ex);
             ex.name.count = L; ex.name.bytes.data = nb; ex.name.bytes.length = (size_t)L;
             ex.kind = 0x03; ex.idx = (uint32_t)wasm_class_singleton_global_index(wt, ci);
             exports[nexp++] = ex;
             for (int lf = 0; lf < (int)bbq_vec_len(c->fields); lf++) {
                 if (!(c->fields[lf].modifiers & ACC_STATIC)) continue;
-                uint32_t L2; uint8_t* nb2 = canon_hash_name(c->name, c->fields[lf].name, &L2);
+                uint32_t L2; uint8_t* nb2 = canon_hash_name(c->fq_name, c->fields[lf].name, &L2);
                 jav_export_t ex2; memset(&ex2, 0, sizeof ex2);
                 ex2.name.count = L2; ex2.name.bytes.data = nb2; ex2.name.bytes.length = (size_t)L2;
                 ex2.kind = 0x03; ex2.idx = (uint32_t)wasm_global_index(wt, ci, lf);
@@ -675,7 +678,7 @@ bool wasm_assemble_program(compiler_ctx_t* cctx, const sema_ctx_t* sctx,
                 if (!JAV_SHARED(c) || sema_array_class_overlay(sctx, ci) >= 0) continue;  /* array Classes are plugin-local */
                 for (int lf = 0; lf < (int)bbq_vec_len(c->fields); lf++) {
                     if (!(c->fields[lf].modifiers & ACC_STATIC)) continue;
-                    uint32_t fl; uint8_t* fn = canon_hash_name(c->name, c->fields[lf].name, &fl);
+                    uint32_t fl; uint8_t* fn = canon_hash_name(c->fq_name, c->fields[lf].name, &fl);
                     uint8_t* mb = (uint8_t*)malloc(3); memcpy(mb, "jre", 3);
                     imps[gi].module.count = 3; imps[gi].module.bytes.data = mb; imps[gi].module.bytes.length = 3;
                     imps[gi].field.count = fl; imps[gi].field.bytes.data = fn; imps[gi].field.bytes.length = (size_t)fl;
@@ -689,7 +692,7 @@ bool wasm_assemble_program(compiler_ctx_t* cctx, const sema_ctx_t* sctx,
             for (int ci = 0; ci < wt->num_classes; ci++) {        /* shared Class singletons */
                 const sema_class_t* c = sema_get_class(sctx, ci);
                 if (!JAV_SHARED(c) || sema_array_class_overlay(sctx, ci) >= 0) continue;  /* array Classes are plugin-local */
-                uint32_t fl; uint8_t* fn = canon_hash_name(c->name, "class", &fl);
+                uint32_t fl; uint8_t* fn = canon_hash_name(c->fq_name, "class", &fl);
                 uint8_t* mb = (uint8_t*)malloc(3); memcpy(mb, "jre", 3);
                 imps[gi].module.count = 3; imps[gi].module.bytes.data = mb; imps[gi].module.bytes.length = 3;
                 imps[gi].field.count = fl; imps[gi].field.bytes.data = fn; imps[gi].field.bytes.length = (size_t)fl;

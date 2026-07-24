@@ -592,6 +592,32 @@ typedef struct {
      * dedup — incremented at each (call, position) iteration. */
     int           touched_gen;
 
+    /* Condition-verdict facts (spec §3.6 channel (a)): per spine node,
+     * the set of (branch, taken-bit) facts every path from entry to the
+     * node crosses — a forward must-analysis computed by the Pass-B
+     * sweep (meet = set intersection at merges). A fact means "branch
+     * b's condition VALUE is `bit` here"; value facts never die, so
+     * there are no kills. Consumers match a later branch's condition
+     * against a recorded one by cp_value_leader identity ONLY — never
+     * by partition membership (a range Refine is a partition Leader, so
+     * congruence across an interposed guard does not exist to consult),
+     * and never by writing into vnode->constant (a verdict is an edge
+     * fact; storing it as the value's constant would feed
+     * cp_split_by_facts and split the very partition that justified it).
+     *   verdict_words[i]   = bitset over fact ids at spine node i
+     *   verdict_stride     = words per node
+     *   branch_fact_ord[b] = branch spine b's fact ordinal (-1 = none);
+     *                        fact id = 2*ord + taken-bit
+     *   branch_cond_vn[b]  = the condition's vnode at phase-R time
+     * NULL until cp_compute_branch_refinements has run. */
+    uint64_t*     verdict_words;
+    int           verdict_stride;
+    int           verdict_rows;
+    int*          branch_fact_ord;
+    int*          branch_cond_vn;
+    int*          fact_branch;      /* ordinal → branch spine index */
+    int           branch_fact_count;
+
     /* Backward slot liveness — Kildall worklist over the spine,
      * computed once as the rewrite's prelude. NULL until
      * cp_compute_liveness has run.

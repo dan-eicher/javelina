@@ -31,39 +31,10 @@
 
 #include "javelina_test.h"
 
-static char* read_file(const char* path) {
-    FILE* f = fopen(path, "rb"); if (!f) return NULL;
-    fseek(f, 0, SEEK_END); long n = ftell(f); fseek(f, 0, SEEK_SET);
-    char* b = (char*)malloc((size_t)n + 1);
-    if (fread(b, 1, (size_t)n, f) != (size_t)n) { fclose(f); free(b); return NULL; }
-    b[n] = 0; fclose(f); return b;
-}
-static ast_program_t* parse_src(const char* src) {
-    java_parse_ctx_t* pc = (java_parse_ctx_t*)malloc(sizeof(*pc));
-    bbq_arena_init(&pc->arena, 1 << 16); pc->result = NULL; pc->file = NULL;
-    peg_state p; java_parser_init(&p, src, (int)strlen(src)); p.user_data = pc;
-    return java_parser_parse(&p) ? pc->result : NULL;
-}
-static ast_program_t* build_program(const char* user_src, bbq_arena* arena) {
-    ast_type_decl_t** t = NULL; int tc = 0, cap = 0;
-    #define PUSH(td) do { if(tc==cap){cap=cap?cap*2:64;t=realloc(t,(size_t)cap*sizeof(*t));} t[tc++]=(td);}while(0)
-    DIR* d = opendir("lib/java/lang");
-    if (d) { struct dirent* e;
-        while ((e = readdir(d))) { size_t L=strlen(e->d_name);
-            if (L<6 || strcmp(e->d_name+L-5,".java")) continue;
-            char path[512]; snprintf(path,sizeof path,"lib/java/lang/%s",e->d_name);
-            char* s = read_file(path); if(!s) continue;
-            ast_program_t* p = parse_src(s); if(!p) continue;
-            for (int i=0;i<p->types_count;i++) PUSH(p->types[i]);
-        } closedir(d);
-    }
-    ast_program_t* up = parse_src(user_src);
-    if (up) for (int i=0;i<up->types_count;i++) PUSH(up->types[i]);
-    ast_type_decl_t** arr = bbq_arena_alloc(arena,(size_t)tc*sizeof(*arr));
-    memcpy(arr,t,(size_t)tc*sizeof(*arr)); free(t);
-    return ast_program(arena, NULL, NULL, 0, arr, tc);
-    #undef PUSH
-}
+/* §7.3 per-unit parse (see jtest_units.h) — the flat program still feeds
+ * compiler_compile; sema gets the unit list via jtest_analyze. */
+#include "jtest_units.h"
+#define build_program jtest_build_flat
 static int contains(const uint8_t* hay, int hn, const uint8_t* needle, int nn) {
     for (int i = 0; i + nn <= hn; i++)
         if (!memcmp(hay + i, needle, (size_t)nn)) return 1;
@@ -79,10 +50,11 @@ static const uint8_t* emit(bbq_arena* a, const char* src, const char* name,
      * released here — re-initialising over them just abandoned them. */
     static sema_ctx_t sctx; static bool sctx_live = false;
     if (sctx_live) sema_destroy(&sctx);
-    sema_init(&sctx, a); sctx_live = true; sema_analyze(&sctx, prog);
+    sema_init(&sctx, a); sctx_live = true; jtest_analyze(&sctx);
     static compiler_ctx_t cctx; compiler_init(&cctx, a, &sctx);
     int mc = 0; sir_method_t** methods = compiler_compile(&cctx, prog, &mc);
     for (int i = 0; i < mc; i++) {
+        if (methods[i]->class_id < jtest_last_nlib) continue;   /* user snippet only */
         if (!methods[i]->name || strcmp(methods[i]->name, name)) continue;
         if (click) sir_optimize(&cctx, i);   /* in-place value rewrite + slot repack */
         int nsc = 0; const compiler_fact_t* sc = compiler_get_facts(&cctx, i, &nsc);

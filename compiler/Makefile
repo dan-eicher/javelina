@@ -99,6 +99,23 @@ WASM_INSTR_TOML := ../wasm/spec/instructions.toml
 $(GEN)/wasm_ops.h: $(WASM_INSTR_TOML) ../wasm/tools/gen_wasm_ops.py
 	python3 ../wasm/tools/gen_wasm_ops.py $(WASM_INSTR_TOML) > $@
 
+# ── javelina.simd intrinsics — the 7 RTL stub classes + the compiler's
+# recognition table, generated from the SAME spec table through the ONE wired
+# toml reader (the bbqc-generated parser + toml_doc, as gen_trap_reasons
+# links). The generator hard-errors unless every value row classifies (234).
+SIMD_JAVA := lib/javelina/simd/V128.java lib/javelina/simd/I8x16.java \
+             lib/javelina/simd/I16x8.java lib/javelina/simd/I32x4.java \
+             lib/javelina/simd/I64x2.java lib/javelina/simd/F32x4.java \
+             lib/javelina/simd/F64x2.java lib/javelina/simd/Mem.java
+$(B)/gen_simd_intrinsics: tools/gen_simd_intrinsics.c \
+                          ../wasm/src/gen/toml_parser.c ../wasm/src/toml/toml_doc.c | $(B)
+	$(CC) -O2 -std=c11 -Wall -Werror -I../wasm/include -I../wasm/src/gen \
+	  -I$(BBQ)/crt -I$(BBQ)/pegc/runtime -Isrc/gen \
+	  tools/gen_simd_intrinsics.c ../wasm/src/gen/toml_parser.c \
+	  ../wasm/src/toml/toml_doc.c $(BBQ)/crt/bbq_arena.c -o $@
+$(GEN)/simd_intrinsics.h $(SIMD_JAVA) &: $(WASM_INSTR_TOML) $(B)/gen_simd_intrinsics
+	$(B)/gen_simd_intrinsics $(WASM_INSTR_TOML) lib/javelina/simd $(GEN)/simd_intrinsics.h
+
 # ── Section 5: WASM backend — burgc tiles codegen_wasm.burg → matcher.
 # Routine regen is codegen-only; the slow --coverage tree-automaton gate runs
 # separately (make coverage-wasm) while the burg grammar is in flux.
@@ -148,7 +165,11 @@ $(GEN)/java_parser.h $(GEN)/java_parser.c &: grammar/Java.peg $(GEN)/java_ast.h
 .PHONY: javelinac
 javelinac: generate-parser generate-ddcg generate-codegen | $(B)
 	$(CC) $(CFLAGS) -Wno-parentheses-equality -Iinclude $(INCLUDES) $(VM_INCLUDES) \
-	    driver/javelinac.c $(EXEC_SRCS) $(VM_RW_SRCS) $(VM)/src/jav_utf8.c $(CRT)/bbq_arena.c -lm -o $(B)/javelinac
+	    driver/javelinac.c $(EXEC_SRCS) $(VM_RW_SRCS) $(VM)/src/jav_utf8.c \
+	    $(VM)/src/jav_load.c $(VM)/src/jav_view_nav.c $(VM)/src/jav_module_index.c \
+	    $(VM)/src/jav_module_validate.c $(VM)/src/jav_subtype.c $(VM)/src/validate.c \
+	    $(VM)/src/jav_error.c $(VM)/src/gen/jav_view_reader.c $(RT)/bbq_lite.c \
+	    $(CRT)/bbq_arena.c -lm -o $(B)/javelinac
 
 # ── The jre.wasm runtime artifact: the prelude compiled once in RUNTIME mode. ──
 .PHONY: jre

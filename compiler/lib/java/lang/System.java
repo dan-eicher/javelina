@@ -1,7 +1,7 @@
 package java.lang;
 
 import java.io.HostIO;
-import java.io.Mem;
+import javelina.simd.Mem;
 import java.util.Properties;
 
 public final class System {
@@ -42,12 +42,12 @@ public final class System {
         int total = HostIO.propnames(0);
         if (total <= 0) return p;
         int count = 0;
-        for (int i = 0; i < total; i++) if (Mem.load8(i) == 0) count++;
+        for (int i = 0; i < total; i++) if (Mem.i32_load8_u(i) == 0) count++;
         String[] names = new String[count];
         int idx = 0;
         StringBuffer sb = new StringBuffer();
         for (int i = 0; i < total; i++) {
-            int b = Mem.load8(i);
+            int b = Mem.i32_load8_u(i);
             if (b == 0) { names[idx++] = sb.toString(); sb = new StringBuffer(); }
             else sb.append((char) b);
         }
@@ -61,11 +61,11 @@ public final class System {
     // Stage the key at offset 0; the host writes the value bytes just past it, or answers -1 (absent).
     private static String hostProperty(String key) {
         int n = key.length();
-        for (int i = 0; i < n; i++) Mem.store8(i, key.charAt(i));
+        for (int i = 0; i < n; i++) Mem.i32_store8(i, key.charAt(i));
         int len = HostIO.getprop(0, n, n);
         if (len < 0) return null;
         StringBuffer sb = new StringBuffer();
-        for (int i = 0; i < len; i++) sb.append((char) Mem.load8(n + i));
+        for (int i = 0; i < len; i++) sb.append((char) Mem.i32_load8_u(n + i));
         return sb.toString();
     }
 

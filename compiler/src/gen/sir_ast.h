@@ -21,7 +21,8 @@ typedef enum {
     SIR_DTCHAR,
     SIR_DTLONG,
     SIR_DTFLOAT,
-    SIR_DTDOUBLE
+    SIR_DTDOUBLE,
+    SIR_DTV128
 } sir_datatype_t;
 
 typedef enum {
@@ -34,7 +35,8 @@ typedef enum {
     SIR_ATCHAR,
     SIR_ATLONG,
     SIR_ATFLOAT,
-    SIR_ATDOUBLE
+    SIR_ATDOUBLE,
+    SIR_ATV128
 } sir_atype_t;
 
 typedef enum {
@@ -99,7 +101,6 @@ typedef enum {
     SIR_NEWARRAY,
     SIR_NEWREFARRAY,
     SIR_ARRAYLOAD,
-    SIR_MEMLOAD8,
     SIR_ARRAYLENGTH,
     SIR_GETFIELD,
     SIR_GETSTATIC,
@@ -114,7 +115,14 @@ typedef enum {
     SIR_SETHEADER,
     SIR_ARRAYCOPY,
     SIR_PUTSTATIC,
-    SIR_MEMSTORE8,
+    SIR_SIMDMEMSTORE,
+    SIR_SIMDMEMSTORELANE,
+    SIR_MEMSTOREI,
+    SIR_MEMSTOREL,
+    SIR_MEMSTOREF,
+    SIR_MEMSTORED,
+    SIR_MEMFILL,
+    SIR_MEMCOPY,
     SIR_BRANCH,
     SIR_SWITCH,
     SIR_RETURN,
@@ -126,7 +134,34 @@ typedef enum {
     SIR_NOP,
     SIR_CLASSREF,
     SIR_ARRAYREF,
-    SIR_PRIMARRAY
+    SIR_PRIMARRAY,
+    SIR_SIMDBIN,
+    SIR_SIMDUN,
+    SIR_SIMDSHIFT,
+    SIR_SIMDTERN,
+    SIR_SIMDTESTI,
+    SIR_SIMDSPLATI,
+    SIR_SIMDSPLATL,
+    SIR_SIMDSPLATF,
+    SIR_SIMDSPLATD,
+    SIR_SIMDEXTRACTI,
+    SIR_SIMDEXTRACTL,
+    SIR_SIMDEXTRACTF,
+    SIR_SIMDEXTRACTD,
+    SIR_SIMDREPLACEI,
+    SIR_SIMDREPLACEL,
+    SIR_SIMDREPLACEF,
+    SIR_SIMDREPLACED,
+    SIR_SIMDCONST,
+    SIR_SIMDSHUFFLE,
+    SIR_SIMDMEMLOAD,
+    SIR_SIMDMEMLOADLANE,
+    SIR_MEMLOADI,
+    SIR_MEMLOADL,
+    SIR_MEMLOADF,
+    SIR_MEMLOADD,
+    SIR_MEMSIZE,
+    SIR_MEMGROW
 } sir_node_t_tag;
 
 /* ── Forward declarations ───────────────────────────────── */
@@ -373,9 +408,6 @@ struct sir_node_t {
             sir_node_t* elem_ref;
         } array_load;
         struct {
-            sir_node_t* addr;
-        } mem_load8;
-        struct {
             sir_node_t* arr;
         } array_length;
         struct {
@@ -471,10 +503,60 @@ struct sir_node_t {
             sir_node_t* next;
         } put_static;
         struct {
+            int32_t op;
+            int32_t align;
             sir_node_t* addr;
             sir_node_t* value;
             sir_node_t* next;
-        } mem_store8;
+        } simd_mem_store;
+        struct {
+            int32_t op;
+            int32_t align;
+            int32_t lane;
+            sir_node_t* addr;
+            sir_node_t* vec;
+            sir_node_t* next;
+        } simd_mem_store_lane;
+        struct {
+            int32_t op;
+            int32_t align;
+            sir_node_t* addr;
+            sir_node_t* value;
+            sir_node_t* next;
+        } mem_store_i;
+        struct {
+            int32_t op;
+            int32_t align;
+            sir_node_t* addr;
+            sir_node_t* value;
+            sir_node_t* next;
+        } mem_store_l;
+        struct {
+            int32_t op;
+            int32_t align;
+            sir_node_t* addr;
+            sir_node_t* value;
+            sir_node_t* next;
+        } mem_store_f;
+        struct {
+            int32_t op;
+            int32_t align;
+            sir_node_t* addr;
+            sir_node_t* value;
+            sir_node_t* next;
+        } mem_store_d;
+        struct {
+            sir_node_t* dst;
+            sir_node_t* value;
+            sir_node_t* len;
+            sir_node_t* next;
+        } mem_fill;
+        struct {
+            sir_node_t* dst;
+            sir_node_t* src;
+            sir_node_t* len;
+            sir_node_t* next;
+        } mem_copy;
         struct {
             sir_node_t* cond;
             sir_node_t* on_true;
@@ -526,6 +608,135 @@ struct sir_node_t {
             sir_datatype_t width;
             int32_t dim;
         } prim_array;
+        struct {
+            int32_t op;
+            sir_node_t* left;
+            sir_node_t* right;
+        } simd_bin;
+        struct {
+            int32_t op;
+            sir_node_t* operand;
+        } simd_un;
+        struct {
+            int32_t op;
+            sir_node_t* vec;
+            sir_node_t* count;
+        } simd_shift;
+        struct {
+            int32_t op;
+            sir_node_t* a;
+            sir_node_t* b;
+            sir_node_t* c;
+        } simd_tern;
+        struct {
+            int32_t op;
+            sir_node_t* operand;
+        } simd_test_i;
+        struct {
+            int32_t op;
+            sir_node_t* operand;
+        } simd_splat_i;
+        struct {
+            int32_t op;
+            sir_node_t* operand;
+        } simd_splat_l;
+        struct {
+            int32_t op;
+            sir_node_t* operand;
+        } simd_splat_f;
+        struct {
+            int32_t op;
+            sir_node_t* operand;
+        } simd_splat_d;
+        struct {
+            int32_t op;
+            int32_t lane;
+            sir_node_t* vec;
+        } simd_extract_i;
+        struct {
+            int32_t op;
+            int32_t lane;
+            sir_node_t* vec;
+        } simd_extract_l;
+        struct {
+            int32_t op;
+            int32_t lane;
+            sir_node_t* vec;
+        } simd_extract_f;
+        struct {
+            int32_t op;
+            int32_t lane;
+            sir_node_t* vec;
+        } simd_extract_d;
+        struct {
+            int32_t op;
+            int32_t lane;
+            sir_node_t* vec;
+            sir_node_t* val;
+        } simd_replace_i;
+        struct {
+            int32_t op;
+            int32_t lane;
+            sir_node_t* vec;
+            sir_node_t* val;
+        } simd_replace_l;
+        struct {
+            int32_t op;
+            int32_t lane;
+            sir_node_t* vec;
+            sir_node_t* val;
+        } simd_replace_f;
+        struct {
+            int32_t op;
+            int32_t lane;
+            sir_node_t* vec;
+            sir_node_t* val;
+        } simd_replace_d;
+        struct {
+            int64_t lo;
+            int64_t hi;
+        } simd_const;
+        struct {
+            int64_t lo;
+            int64_t hi;
+            sir_node_t* left;
+            sir_node_t* right;
+        } simd_shuffle;
+        struct {
+            int32_t op;
+            int32_t align;
+            sir_node_t* addr;
+        } simd_mem_load;
+        struct {
+            int32_t op;
+            int32_t align;
+            int32_t lane;
+            sir_node_t* addr;
+            sir_node_t* vec;
+        } simd_mem_load_lane;
+        struct {
+            int32_t op;
+            int32_t align;
+            sir_node_t* addr;
+        } mem_load_i;
+        struct {
+            int32_t op;
+            int32_t align;
+            sir_node_t* addr;
+        } mem_load_l;
+        struct {
+            int32_t op;
+            int32_t align;
+            sir_node_t* addr;
+        } mem_load_f;
+        struct {
+            int32_t op;
+            int32_t align;
+            sir_node_t* addr;
+        } mem_load_d;
+        struct {
+            sir_node_t* pages;
+        } mem_grow;
     };
     sir_node_t* exc;
 };
@@ -1148,15 +1359,6 @@ static inline sir_node_t* sir_array_load(bbq_arena* _a, sir_datatype_t data_type
     return _n;
 }
 
-static inline sir_node_t* sir_mem_load8(bbq_arena* _a, sir_node_t* addr) {
-    sir_node_t* _n = (sir_node_t*)bbq_arena_alloc(_a, sizeof(sir_node_t));
-    _n->loc = (sir_srcloc){0};   /* zero the common source location — arena_alloc doesn't; it's stamped later */
-    _n->tag = SIR_MEMLOAD8;
-    _n->mem_load8.addr = addr;
-    _n->exc = NULL;
-    return _n;
-}
-
 static inline sir_node_t* sir_array_length(bbq_arena* _a, sir_node_t* arr) {
     sir_node_t* _n = (sir_node_t*)bbq_arena_alloc(_a, sizeof(sir_node_t));
     _n->loc = (sir_srcloc){0};   /* zero the common source location — arena_alloc doesn't; it's stamped later */
@@ -1336,13 +1538,105 @@ static inline sir_node_t* sir_put_static(bbq_arena* _a, sir_datatype_t data_type
     return _n;
 }
 
-static inline sir_node_t* sir_mem_store8(bbq_arena* _a, sir_node_t* addr, sir_node_t* value, sir_node_t* next) {
+static inline sir_node_t* sir_simd_mem_store(bbq_arena* _a, int32_t op, int32_t align, sir_node_t* addr, sir_node_t* value, sir_node_t* next) {
     sir_node_t* _n = (sir_node_t*)bbq_arena_alloc(_a, sizeof(sir_node_t));
     _n->loc = (sir_srcloc){0};   /* zero the common source location — arena_alloc doesn't; it's stamped later */
-    _n->tag = SIR_MEMSTORE8;
-    _n->mem_store8.addr = addr;
-    _n->mem_store8.value = value;
-    _n->mem_store8.next = next;
+    _n->tag = SIR_SIMDMEMSTORE;
+    _n->simd_mem_store.op = op;
+    _n->simd_mem_store.align = align;
+    _n->simd_mem_store.addr = addr;
+    _n->simd_mem_store.value = value;
+    _n->simd_mem_store.next = next;
+    _n->exc = NULL;
+    return _n;
+}
+
+static inline sir_node_t* sir_simd_mem_store_lane(bbq_arena* _a, int32_t op, int32_t align, int32_t lane, sir_node_t* addr, sir_node_t* vec, sir_node_t* next) {
+    sir_node_t* _n = (sir_node_t*)bbq_arena_alloc(_a, sizeof(sir_node_t));
+    _n->loc = (sir_srcloc){0};   /* zero the common source location — arena_alloc doesn't; it's stamped later */
+    _n->tag = SIR_SIMDMEMSTORELANE;
+    _n->simd_mem_store_lane.op = op;
+    _n->simd_mem_store_lane.align = align;
+    _n->simd_mem_store_lane.lane = lane;
+    _n->simd_mem_store_lane.addr = addr;
+    _n->simd_mem_store_lane.vec = vec;
+    _n->simd_mem_store_lane.next = next;
+    _n->exc = NULL;
+    return _n;
+}
+
+static inline sir_node_t* sir_mem_store_i(bbq_arena* _a, int32_t op, int32_t align, sir_node_t* addr, sir_node_t* value, sir_node_t* next) {
+    sir_node_t* _n = (sir_node_t*)bbq_arena_alloc(_a, sizeof(sir_node_t));
+    _n->loc = (sir_srcloc){0};   /* zero the common source location — arena_alloc doesn't; it's stamped later */
+    _n->tag = SIR_MEMSTOREI;
+    _n->mem_store_i.op = op;
+    _n->mem_store_i.align = align;
+    _n->mem_store_i.addr = addr;
+    _n->mem_store_i.value = value;
+    _n->mem_store_i.next = next;
+    _n->exc = NULL;
+    return _n;
+}
+
+static inline sir_node_t* sir_mem_store_l(bbq_arena* _a, int32_t op, int32_t align, sir_node_t* addr, sir_node_t* value, sir_node_t* next) {
+    sir_node_t* _n = (sir_node_t*)bbq_arena_alloc(_a, sizeof(sir_node_t));
+    _n->loc = (sir_srcloc){0};   /* zero the common source location — arena_alloc doesn't; it's stamped later */
+    _n->tag = SIR_MEMSTOREL;
+    _n->mem_store_l.op = op;
+    _n->mem_store_l.align = align;
+    _n->mem_store_l.addr = addr;
+    _n->mem_store_l.value = value;
+    _n->mem_store_l.next = next;
+    _n->exc = NULL;
+    return _n;
+}
+
+static inline sir_node_t* sir_mem_store_f(bbq_arena* _a, int32_t op, int32_t align, sir_node_t* addr, sir_node_t* value, sir_node_t* next) {
+    sir_node_t* _n = (sir_node_t*)bbq_arena_alloc(_a, sizeof(sir_node_t));
+    _n->loc = (sir_srcloc){0};   /* zero the common source location — arena_alloc doesn't; it's stamped later */
+    _n->tag = SIR_MEMSTOREF;
+    _n->mem_store_f.op = op;
+    _n->mem_store_f.align = align;
+    _n->mem_store_f.addr = addr;
+    _n->mem_store_f.value = value;
+    _n->mem_store_f.next = next;
+    _n->exc = NULL;
+    return _n;
+}
+
+static inline sir_node_t* sir_mem_store_d(bbq_arena* _a, int32_t op, int32_t align, sir_node_t* addr, sir_node_t* value, sir_node_t* next) {
+    sir_node_t* _n = (sir_node_t*)bbq_arena_alloc(_a, sizeof(sir_node_t));
+    _n->loc = (sir_srcloc){0};   /* zero the common source location — arena_alloc doesn't; it's stamped later */
+    _n->tag = SIR_MEMSTORED;
+    _n->mem_store_d.op = op;
+    _n->mem_store_d.align = align;
+    _n->mem_store_d.addr = addr;
+    _n->mem_store_d.value = value;
+    _n->mem_store_d.next = next;
+    _n->exc = NULL;
+    return _n;
+}
+
+static inline sir_node_t* sir_mem_fill(bbq_arena* _a, sir_node_t* dst, sir_node_t* value, sir_node_t* len, sir_node_t* next) {
+    sir_node_t* _n = (sir_node_t*)bbq_arena_alloc(_a, sizeof(sir_node_t));
+    _n->loc = (sir_srcloc){0};   /* zero the common source location — arena_alloc doesn't; it's stamped later */
+    _n->tag = SIR_MEMFILL;
+    _n->mem_fill.dst = dst;
+    _n->mem_fill.value = value;
+    _n->mem_fill.len = len;
+    _n->mem_fill.next = next;
+    _n->exc = NULL;
+    return _n;
+}
+
+static inline sir_node_t* sir_mem_copy(bbq_arena* _a, sir_node_t* dst, sir_node_t* src, sir_node_t* len, sir_node_t* next) {
+    sir_node_t* _n = (sir_node_t*)bbq_arena_alloc(_a, sizeof(sir_node_t));
+    _n->loc = (sir_srcloc){0};   /* zero the common source location — arena_alloc doesn't; it's stamped later */
+    _n->tag = SIR_MEMCOPY;
+    _n->mem_copy.dst = dst;
+    _n->mem_copy.src = src;
+    _n->mem_copy.len = len;
+    _n->mem_copy.next = next;
     _n->exc = NULL;
     return _n;
 }
@@ -1468,6 +1762,299 @@ static inline sir_node_t* sir_prim_array(bbq_arena* _a, sir_datatype_t width, in
     _n->tag = SIR_PRIMARRAY;
     _n->prim_array.width = width;
     _n->prim_array.dim = dim;
+    _n->exc = NULL;
+    return _n;
+}
+
+static inline sir_node_t* sir_simd_bin(bbq_arena* _a, int32_t op, sir_node_t* left, sir_node_t* right) {
+    sir_node_t* _n = (sir_node_t*)bbq_arena_alloc(_a, sizeof(sir_node_t));
+    _n->loc = (sir_srcloc){0};   /* zero the common source location — arena_alloc doesn't; it's stamped later */
+    _n->tag = SIR_SIMDBIN;
+    _n->simd_bin.op = op;
+    _n->simd_bin.left = left;
+    _n->simd_bin.right = right;
+    _n->exc = NULL;
+    return _n;
+}
+
+static inline sir_node_t* sir_simd_un(bbq_arena* _a, int32_t op, sir_node_t* operand) {
+    sir_node_t* _n = (sir_node_t*)bbq_arena_alloc(_a, sizeof(sir_node_t));
+    _n->loc = (sir_srcloc){0};   /* zero the common source location — arena_alloc doesn't; it's stamped later */
+    _n->tag = SIR_SIMDUN;
+    _n->simd_un.op = op;
+    _n->simd_un.operand = operand;
+    _n->exc = NULL;
+    return _n;
+}
+
+static inline sir_node_t* sir_simd_shift(bbq_arena* _a, int32_t op, sir_node_t* vec, sir_node_t* count) {
+    sir_node_t* _n = (sir_node_t*)bbq_arena_alloc(_a, sizeof(sir_node_t));
+    _n->loc = (sir_srcloc){0};   /* zero the common source location — arena_alloc doesn't; it's stamped later */
+    _n->tag = SIR_SIMDSHIFT;
+    _n->simd_shift.op = op;
+    _n->simd_shift.vec = vec;
+    _n->simd_shift.count = count;
+    _n->exc = NULL;
+    return _n;
+}
+
+static inline sir_node_t* sir_simd_tern(bbq_arena* _a, int32_t op, sir_node_t* a, sir_node_t* b, sir_node_t* c) {
+    sir_node_t* _n = (sir_node_t*)bbq_arena_alloc(_a, sizeof(sir_node_t));
+    _n->loc = (sir_srcloc){0};   /* zero the common source location — arena_alloc doesn't; it's stamped later */
+    _n->tag = SIR_SIMDTERN;
+    _n->simd_tern.op = op;
+    _n->simd_tern.a = a;
+    _n->simd_tern.b = b;
+    _n->simd_tern.c = c;
+    _n->exc = NULL;
+    return _n;
+}
+
+static inline sir_node_t* sir_simd_test_i(bbq_arena* _a, int32_t op, sir_node_t* operand) {
+    sir_node_t* _n = (sir_node_t*)bbq_arena_alloc(_a, sizeof(sir_node_t));
+    _n->loc = (sir_srcloc){0};   /* zero the common source location — arena_alloc doesn't; it's stamped later */
+    _n->tag = SIR_SIMDTESTI;
+    _n->simd_test_i.op = op;
+    _n->simd_test_i.operand = operand;
+    _n->exc = NULL;
+    return _n;
+}
+
+static inline sir_node_t* sir_simd_splat_i(bbq_arena* _a, int32_t op, sir_node_t* operand) {
+    sir_node_t* _n = (sir_node_t*)bbq_arena_alloc(_a, sizeof(sir_node_t));
+    _n->loc = (sir_srcloc){0};   /* zero the common source location — arena_alloc doesn't; it's stamped later */
+    _n->tag = SIR_SIMDSPLATI;
+    _n->simd_splat_i.op = op;
+    _n->simd_splat_i.operand = operand;
+    _n->exc = NULL;
+    return _n;
+}
+
+static inline sir_node_t* sir_simd_splat_l(bbq_arena* _a, int32_t op, sir_node_t* operand) {
+    sir_node_t* _n = (sir_node_t*)bbq_arena_alloc(_a, sizeof(sir_node_t));
+    _n->loc = (sir_srcloc){0};   /* zero the common source location — arena_alloc doesn't; it's stamped later */
+    _n->tag = SIR_SIMDSPLATL;
+    _n->simd_splat_l.op = op;
+    _n->simd_splat_l.operand = operand;
+    _n->exc = NULL;
+    return _n;
+}
+
+static inline sir_node_t* sir_simd_splat_f(bbq_arena* _a, int32_t op, sir_node_t* operand) {
+    sir_node_t* _n = (sir_node_t*)bbq_arena_alloc(_a, sizeof(sir_node_t));
+    _n->loc = (sir_srcloc){0};   /* zero the common source location — arena_alloc doesn't; it's stamped later */
+    _n->tag = SIR_SIMDSPLATF;
+    _n->simd_splat_f.op = op;
+    _n->simd_splat_f.operand = operand;
+    _n->exc = NULL;
+    return _n;
+}
+
+static inline sir_node_t* sir_simd_splat_d(bbq_arena* _a, int32_t op, sir_node_t* operand) {
+    sir_node_t* _n = (sir_node_t*)bbq_arena_alloc(_a, sizeof(sir_node_t));
+    _n->loc = (sir_srcloc){0};   /* zero the common source location — arena_alloc doesn't; it's stamped later */
+    _n->tag = SIR_SIMDSPLATD;
+    _n->simd_splat_d.op = op;
+    _n->simd_splat_d.operand = operand;
+    _n->exc = NULL;
+    return _n;
+}
+
+static inline sir_node_t* sir_simd_extract_i(bbq_arena* _a, int32_t op, int32_t lane, sir_node_t* vec) {
+    sir_node_t* _n = (sir_node_t*)bbq_arena_alloc(_a, sizeof(sir_node_t));
+    _n->loc = (sir_srcloc){0};   /* zero the common source location — arena_alloc doesn't; it's stamped later */
+    _n->tag = SIR_SIMDEXTRACTI;
+    _n->simd_extract_i.op = op;
+    _n->simd_extract_i.lane = lane;
+    _n->simd_extract_i.vec = vec;
+    _n->exc = NULL;
+    return _n;
+}
+
+static inline sir_node_t* sir_simd_extract_l(bbq_arena* _a, int32_t op, int32_t lane, sir_node_t* vec) {
+    sir_node_t* _n = (sir_node_t*)bbq_arena_alloc(_a, sizeof(sir_node_t));
+    _n->loc = (sir_srcloc){0};   /* zero the common source location — arena_alloc doesn't; it's stamped later */
+    _n->tag = SIR_SIMDEXTRACTL;
+    _n->simd_extract_l.op = op;
+    _n->simd_extract_l.lane = lane;
+    _n->simd_extract_l.vec = vec;
+    _n->exc = NULL;
+    return _n;
+}
+
+static inline sir_node_t* sir_simd_extract_f(bbq_arena* _a, int32_t op, int32_t lane, sir_node_t* vec) {
+    sir_node_t* _n = (sir_node_t*)bbq_arena_alloc(_a, sizeof(sir_node_t));
+    _n->loc = (sir_srcloc){0};   /* zero the common source location — arena_alloc doesn't; it's stamped later */
+    _n->tag = SIR_SIMDEXTRACTF;
+    _n->simd_extract_f.op = op;
+    _n->simd_extract_f.lane = lane;
+    _n->simd_extract_f.vec = vec;
+    _n->exc = NULL;
+    return _n;
+}
+
+static inline sir_node_t* sir_simd_extract_d(bbq_arena* _a, int32_t op, int32_t lane, sir_node_t* vec) {
+    sir_node_t* _n = (sir_node_t*)bbq_arena_alloc(_a, sizeof(sir_node_t));
+    _n->loc = (sir_srcloc){0};   /* zero the common source location — arena_alloc doesn't; it's stamped later */
+    _n->tag = SIR_SIMDEXTRACTD;
+    _n->simd_extract_d.op = op;
+    _n->simd_extract_d.lane = lane;
+    _n->simd_extract_d.vec = vec;
+    _n->exc = NULL;
+    return _n;
+}
+
+static inline sir_node_t* sir_simd_replace_i(bbq_arena* _a, int32_t op, int32_t lane, sir_node_t* vec, sir_node_t* val) {
+    sir_node_t* _n = (sir_node_t*)bbq_arena_alloc(_a, sizeof(sir_node_t));
+    _n->loc = (sir_srcloc){0};   /* zero the common source location — arena_alloc doesn't; it's stamped later */
+    _n->tag = SIR_SIMDREPLACEI;
+    _n->simd_replace_i.op = op;
+    _n->simd_replace_i.lane = lane;
+    _n->simd_replace_i.vec = vec;
+    _n->simd_replace_i.val = val;
+    _n->exc = NULL;
+    return _n;
+}
+
+static inline sir_node_t* sir_simd_replace_l(bbq_arena* _a, int32_t op, int32_t lane, sir_node_t* vec, sir_node_t* val) {
+    sir_node_t* _n = (sir_node_t*)bbq_arena_alloc(_a, sizeof(sir_node_t));
+    _n->loc = (sir_srcloc){0};   /* zero the common source location — arena_alloc doesn't; it's stamped later */
+    _n->tag = SIR_SIMDREPLACEL;
+    _n->simd_replace_l.op = op;
+    _n->simd_replace_l.lane = lane;
+    _n->simd_replace_l.vec = vec;
+    _n->simd_replace_l.val = val;
+    _n->exc = NULL;
+    return _n;
+}
+
+static inline sir_node_t* sir_simd_replace_f(bbq_arena* _a, int32_t op, int32_t lane, sir_node_t* vec, sir_node_t* val) {
+    sir_node_t* _n = (sir_node_t*)bbq_arena_alloc(_a, sizeof(sir_node_t));
+    _n->loc = (sir_srcloc){0};   /* zero the common source location — arena_alloc doesn't; it's stamped later */
+    _n->tag = SIR_SIMDREPLACEF;
+    _n->simd_replace_f.op = op;
+    _n->simd_replace_f.lane = lane;
+    _n->simd_replace_f.vec = vec;
+    _n->simd_replace_f.val = val;
+    _n->exc = NULL;
+    return _n;
+}
+
+static inline sir_node_t* sir_simd_replace_d(bbq_arena* _a, int32_t op, int32_t lane, sir_node_t* vec, sir_node_t* val) {
+    sir_node_t* _n = (sir_node_t*)bbq_arena_alloc(_a, sizeof(sir_node_t));
+    _n->loc = (sir_srcloc){0};   /* zero the common source location — arena_alloc doesn't; it's stamped later */
+    _n->tag = SIR_SIMDREPLACED;
+    _n->simd_replace_d.op = op;
+    _n->simd_replace_d.lane = lane;
+    _n->simd_replace_d.vec = vec;
+    _n->simd_replace_d.val = val;
+    _n->exc = NULL;
+    return _n;
+}
+
+static inline sir_node_t* sir_simd_const(bbq_arena* _a, int64_t lo, int64_t hi) {
+    sir_node_t* _n = (sir_node_t*)bbq_arena_alloc(_a, sizeof(sir_node_t));
+    _n->loc = (sir_srcloc){0};   /* zero the common source location — arena_alloc doesn't; it's stamped later */
+    _n->tag = SIR_SIMDCONST;
+    _n->simd_const.lo = lo;
+    _n->simd_const.hi = hi;
+    _n->exc = NULL;
+    return _n;
+}
+
+static inline sir_node_t* sir_simd_shuffle(bbq_arena* _a, int64_t lo, int64_t hi, sir_node_t* left, sir_node_t* right) {
+    sir_node_t* _n = (sir_node_t*)bbq_arena_alloc(_a, sizeof(sir_node_t));
+    _n->loc = (sir_srcloc){0};   /* zero the common source location — arena_alloc doesn't; it's stamped later */
+    _n->tag = SIR_SIMDSHUFFLE;
+    _n->simd_shuffle.lo = lo;
+    _n->simd_shuffle.hi = hi;
+    _n->simd_shuffle.left = left;
+    _n->simd_shuffle.right = right;
+    _n->exc = NULL;
+    return _n;
+}
+
+static inline sir_node_t* sir_simd_mem_load(bbq_arena* _a, int32_t op, int32_t align, sir_node_t* addr) {
+    sir_node_t* _n = (sir_node_t*)bbq_arena_alloc(_a, sizeof(sir_node_t));
+    _n->loc = (sir_srcloc){0};   /* zero the common source location — arena_alloc doesn't; it's stamped later */
+    _n->tag = SIR_SIMDMEMLOAD;
+    _n->simd_mem_load.op = op;
+    _n->simd_mem_load.align = align;
+    _n->simd_mem_load.addr = addr;
+    _n->exc = NULL;
+    return _n;
+}
+
+static inline sir_node_t* sir_simd_mem_load_lane(bbq_arena* _a, int32_t op, int32_t align, int32_t lane, sir_node_t* addr, sir_node_t* vec) {
+    sir_node_t* _n = (sir_node_t*)bbq_arena_alloc(_a, sizeof(sir_node_t));
+    _n->loc = (sir_srcloc){0};   /* zero the common source location — arena_alloc doesn't; it's stamped later */
+    _n->tag = SIR_SIMDMEMLOADLANE;
+    _n->simd_mem_load_lane.op = op;
+    _n->simd_mem_load_lane.align = align;
+    _n->simd_mem_load_lane.lane = lane;
+    _n->simd_mem_load_lane.addr = addr;
+    _n->simd_mem_load_lane.vec = vec;
+    _n->exc = NULL;
+    return _n;
+}
+
+static inline sir_node_t* sir_mem_load_i(bbq_arena* _a, int32_t op, int32_t align, sir_node_t* addr) {
+    sir_node_t* _n = (sir_node_t*)bbq_arena_alloc(_a, sizeof(sir_node_t));
+    _n->loc = (sir_srcloc){0};   /* zero the common source location — arena_alloc doesn't; it's stamped later */
+    _n->tag = SIR_MEMLOADI;
+    _n->mem_load_i.op = op;
+    _n->mem_load_i.align = align;
+    _n->mem_load_i.addr = addr;
+    _n->exc = NULL;
+    return _n;
+}
+
+static inline sir_node_t* sir_mem_load_l(bbq_arena* _a, int32_t op, int32_t align, sir_node_t* addr) {
+    sir_node_t* _n = (sir_node_t*)bbq_arena_alloc(_a, sizeof(sir_node_t));
+    _n->loc = (sir_srcloc){0};   /* zero the common source location — arena_alloc doesn't; it's stamped later */
+    _n->tag = SIR_MEMLOADL;
+    _n->mem_load_l.op = op;
+    _n->mem_load_l.align = align;
+    _n->mem_load_l.addr = addr;
+    _n->exc = NULL;
+    return _n;
+}
+
+static inline sir_node_t* sir_mem_load_f(bbq_arena* _a, int32_t op, int32_t align, sir_node_t* addr) {
+    sir_node_t* _n = (sir_node_t*)bbq_arena_alloc(_a, sizeof(sir_node_t));
+    _n->loc = (sir_srcloc){0};   /* zero the common source location — arena_alloc doesn't; it's stamped later */
+    _n->tag = SIR_MEMLOADF;
+    _n->mem_load_f.op = op;
+    _n->mem_load_f.align = align;
+    _n->mem_load_f.addr = addr;
+    _n->exc = NULL;
+    return _n;
+}
+
+static inline sir_node_t* sir_mem_load_d(bbq_arena* _a, int32_t op, int32_t align, sir_node_t* addr) {
+    sir_node_t* _n = (sir_node_t*)bbq_arena_alloc(_a, sizeof(sir_node_t));
+    _n->loc = (sir_srcloc){0};   /* zero the common source location — arena_alloc doesn't; it's stamped later */
+    _n->tag = SIR_MEMLOADD;
+    _n->mem_load_d.op = op;
+    _n->mem_load_d.align = align;
+    _n->mem_load_d.addr = addr;
+    _n->exc = NULL;
+    return _n;
+}
+
+static inline sir_node_t* sir_mem_size(bbq_arena* _a) {
+    sir_node_t* _n = (sir_node_t*)bbq_arena_alloc(_a, sizeof(sir_node_t));
+    _n->loc = (sir_srcloc){0};   /* zero the common source location — arena_alloc doesn't; it's stamped later */
+    _n->tag = SIR_MEMSIZE;
+    _n->exc = NULL;
+    return _n;
+}
+
+static inline sir_node_t* sir_mem_grow(bbq_arena* _a, sir_node_t* pages) {
+    sir_node_t* _n = (sir_node_t*)bbq_arena_alloc(_a, sizeof(sir_node_t));
+    _n->loc = (sir_srcloc){0};   /* zero the common source location — arena_alloc doesn't; it's stamped later */
+    _n->tag = SIR_MEMGROW;
+    _n->mem_grow.pages = pages;
     _n->exc = NULL;
     return _n;
 }
@@ -1751,9 +2338,6 @@ static inline sir_node_t* sir_node_copy(bbq_arena* _a, sir_copy_memo* _memo, con
         _n->array_load.index = sir_node_copy(_a, _memo, _src->array_load.index);
         _n->array_load.elem_ref = sir_node_copy(_a, _memo, _src->array_load.elem_ref);
         break;
-    case SIR_MEMLOAD8:
-        _n->mem_load8.addr = sir_node_copy(_a, _memo, _src->mem_load8.addr);
-        break;
     case SIR_ARRAYLENGTH:
         _n->array_length.arr = sir_node_copy(_a, _memo, _src->array_length.arr);
         break;
@@ -1857,10 +2441,60 @@ static inline sir_node_t* sir_node_copy(bbq_arena* _a, sir_copy_memo* _memo, con
         _n->put_static.value = sir_node_copy(_a, _memo, _src->put_static.value);
         _n->put_static.next = sir_node_copy(_a, _memo, _src->put_static.next);
         break;
-    case SIR_MEMSTORE8:
-        _n->mem_store8.addr = sir_node_copy(_a, _memo, _src->mem_store8.addr);
-        _n->mem_store8.value = sir_node_copy(_a, _memo, _src->mem_store8.value);
-        _n->mem_store8.next = sir_node_copy(_a, _memo, _src->mem_store8.next);
+    case SIR_SIMDMEMSTORE:
+        _n->simd_mem_store.op = _src->simd_mem_store.op;
+        _n->simd_mem_store.align = _src->simd_mem_store.align;
+        _n->simd_mem_store.addr = sir_node_copy(_a, _memo, _src->simd_mem_store.addr);
+        _n->simd_mem_store.value = sir_node_copy(_a, _memo, _src->simd_mem_store.value);
+        _n->simd_mem_store.next = sir_node_copy(_a, _memo, _src->simd_mem_store.next);
+        break;
+    case SIR_SIMDMEMSTORELANE:
+        _n->simd_mem_store_lane.op = _src->simd_mem_store_lane.op;
+        _n->simd_mem_store_lane.align = _src->simd_mem_store_lane.align;
+        _n->simd_mem_store_lane.lane = _src->simd_mem_store_lane.lane;
+        _n->simd_mem_store_lane.addr = sir_node_copy(_a, _memo, _src->simd_mem_store_lane.addr);
+        _n->simd_mem_store_lane.vec = sir_node_copy(_a, _memo, _src->simd_mem_store_lane.vec);
+        _n->simd_mem_store_lane.next = sir_node_copy(_a, _memo, _src->simd_mem_store_lane.next);
+        break;
+    case SIR_MEMSTOREI:
+        _n->mem_store_i.op = _src->mem_store_i.op;
+        _n->mem_store_i.align = _src->mem_store_i.align;
+        _n->mem_store_i.addr = sir_node_copy(_a, _memo, _src->mem_store_i.addr);
+        _n->mem_store_i.value = sir_node_copy(_a, _memo, _src->mem_store_i.value);
+        _n->mem_store_i.next = sir_node_copy(_a, _memo, _src->mem_store_i.next);
+        break;
+    case SIR_MEMSTOREL:
+        _n->mem_store_l.op = _src->mem_store_l.op;
+        _n->mem_store_l.align = _src->mem_store_l.align;
+        _n->mem_store_l.addr = sir_node_copy(_a, _memo, _src->mem_store_l.addr);
+        _n->mem_store_l.value = sir_node_copy(_a, _memo, _src->mem_store_l.value);
+        _n->mem_store_l.next = sir_node_copy(_a, _memo, _src->mem_store_l.next);
+        break;
+    case SIR_MEMSTOREF:
+        _n->mem_store_f.op = _src->mem_store_f.op;
+        _n->mem_store_f.align = _src->mem_store_f.align;
+        _n->mem_store_f.addr = sir_node_copy(_a, _memo, _src->mem_store_f.addr);
+        _n->mem_store_f.value = sir_node_copy(_a, _memo, _src->mem_store_f.value);
+        _n->mem_store_f.next = sir_node_copy(_a, _memo, _src->mem_store_f.next);
+        break;
+    case SIR_MEMSTORED:
+        _n->mem_store_d.op = _src->mem_store_d.op;
+        _n->mem_store_d.align = _src->mem_store_d.align;
+        _n->mem_store_d.addr = sir_node_copy(_a, _memo, _src->mem_store_d.addr);
+        _n->mem_store_d.value = sir_node_copy(_a, _memo, _src->mem_store_d.value);
+        _n->mem_store_d.next = sir_node_copy(_a, _memo, _src->mem_store_d.next);
+        break;
+    case SIR_MEMFILL:
+        _n->mem_fill.dst = sir_node_copy(_a, _memo, _src->mem_fill.dst);
+        _n->mem_fill.value = sir_node_copy(_a, _memo, _src->mem_fill.value);
+        _n->mem_fill.len = sir_node_copy(_a, _memo, _src->mem_fill.len);
+        _n->mem_fill.next = sir_node_copy(_a, _memo, _src->mem_fill.next);
+        break;
+    case SIR_MEMCOPY:
+        _n->mem_copy.dst = sir_node_copy(_a, _memo, _src->mem_copy.dst);
+        _n->mem_copy.src = sir_node_copy(_a, _memo, _src->mem_copy.src);
+        _n->mem_copy.len = sir_node_copy(_a, _memo, _src->mem_copy.len);
+        _n->mem_copy.next = sir_node_copy(_a, _memo, _src->mem_copy.next);
         break;
     case SIR_BRANCH:
         _n->branch.cond = sir_node_copy(_a, _memo, _src->branch.cond);
@@ -1918,6 +2552,137 @@ static inline sir_node_t* sir_node_copy(bbq_arena* _a, sir_copy_memo* _memo, con
     case SIR_PRIMARRAY:
         _n->prim_array.width = _src->prim_array.width;
         _n->prim_array.dim = _src->prim_array.dim;
+        break;
+    case SIR_SIMDBIN:
+        _n->simd_bin.op = _src->simd_bin.op;
+        _n->simd_bin.left = sir_node_copy(_a, _memo, _src->simd_bin.left);
+        _n->simd_bin.right = sir_node_copy(_a, _memo, _src->simd_bin.right);
+        break;
+    case SIR_SIMDUN:
+        _n->simd_un.op = _src->simd_un.op;
+        _n->simd_un.operand = sir_node_copy(_a, _memo, _src->simd_un.operand);
+        break;
+    case SIR_SIMDSHIFT:
+        _n->simd_shift.op = _src->simd_shift.op;
+        _n->simd_shift.vec = sir_node_copy(_a, _memo, _src->simd_shift.vec);
+        _n->simd_shift.count = sir_node_copy(_a, _memo, _src->simd_shift.count);
+        break;
+    case SIR_SIMDTERN:
+        _n->simd_tern.op = _src->simd_tern.op;
+        _n->simd_tern.a = sir_node_copy(_a, _memo, _src->simd_tern.a);
+        _n->simd_tern.b = sir_node_copy(_a, _memo, _src->simd_tern.b);
+        _n->simd_tern.c = sir_node_copy(_a, _memo, _src->simd_tern.c);
+        break;
+    case SIR_SIMDTESTI:
+        _n->simd_test_i.op = _src->simd_test_i.op;
+        _n->simd_test_i.operand = sir_node_copy(_a, _memo, _src->simd_test_i.operand);
+        break;
+    case SIR_SIMDSPLATI:
+        _n->simd_splat_i.op = _src->simd_splat_i.op;
+        _n->simd_splat_i.operand = sir_node_copy(_a, _memo, _src->simd_splat_i.operand);
+        break;
+    case SIR_SIMDSPLATL:
+        _n->simd_splat_l.op = _src->simd_splat_l.op;
+        _n->simd_splat_l.operand = sir_node_copy(_a, _memo, _src->simd_splat_l.operand);
+        break;
+    case SIR_SIMDSPLATF:
+        _n->simd_splat_f.op = _src->simd_splat_f.op;
+        _n->simd_splat_f.operand = sir_node_copy(_a, _memo, _src->simd_splat_f.operand);
+        break;
+    case SIR_SIMDSPLATD:
+        _n->simd_splat_d.op = _src->simd_splat_d.op;
+        _n->simd_splat_d.operand = sir_node_copy(_a, _memo, _src->simd_splat_d.operand);
+        break;
+    case SIR_SIMDEXTRACTI:
+        _n->simd_extract_i.op = _src->simd_extract_i.op;
+        _n->simd_extract_i.lane = _src->simd_extract_i.lane;
+        _n->simd_extract_i.vec = sir_node_copy(_a, _memo, _src->simd_extract_i.vec);
+        break;
+    case SIR_SIMDEXTRACTL:
+        _n->simd_extract_l.op = _src->simd_extract_l.op;
+        _n->simd_extract_l.lane = _src->simd_extract_l.lane;
+        _n->simd_extract_l.vec = sir_node_copy(_a, _memo, _src->simd_extract_l.vec);
+        break;
+    case SIR_SIMDEXTRACTF:
+        _n->simd_extract_f.op = _src->simd_extract_f.op;
+        _n->simd_extract_f.lane = _src->simd_extract_f.lane;
+        _n->simd_extract_f.vec = sir_node_copy(_a, _memo, _src->simd_extract_f.vec);
+        break;
+    case SIR_SIMDEXTRACTD:
+        _n->simd_extract_d.op = _src->simd_extract_d.op;
+        _n->simd_extract_d.lane = _src->simd_extract_d.lane;
+        _n->simd_extract_d.vec = sir_node_copy(_a, _memo, _src->simd_extract_d.vec);
+        break;
+    case SIR_SIMDREPLACEI:
+        _n->simd_replace_i.op = _src->simd_replace_i.op;
+        _n->simd_replace_i.lane = _src->simd_replace_i.lane;
+        _n->simd_replace_i.vec = sir_node_copy(_a, _memo, _src->simd_replace_i.vec);
+        _n->simd_replace_i.val = sir_node_copy(_a, _memo, _src->simd_replace_i.val);
+        break;
+    case SIR_SIMDREPLACEL:
+        _n->simd_replace_l.op = _src->simd_replace_l.op;
+        _n->simd_replace_l.lane = _src->simd_replace_l.lane;
+        _n->simd_replace_l.vec = sir_node_copy(_a, _memo, _src->simd_replace_l.vec);
+        _n->simd_replace_l.val = sir_node_copy(_a, _memo, _src->simd_replace_l.val);
+        break;
+    case SIR_SIMDREPLACEF:
+        _n->simd_replace_f.op = _src->simd_replace_f.op;
+        _n->simd_replace_f.lane = _src->simd_replace_f.lane;
+        _n->simd_replace_f.vec = sir_node_copy(_a, _memo, _src->simd_replace_f.vec);
+        _n->simd_replace_f.val = sir_node_copy(_a, _memo, _src->simd_replace_f.val);
+        break;
+    case SIR_SIMDREPLACED:
+        _n->simd_replace_d.op = _src->simd_replace_d.op;
+        _n->simd_replace_d.lane = _src->simd_replace_d.lane;
+        _n->simd_replace_d.vec = sir_node_copy(_a, _memo, _src->simd_replace_d.vec);
+        _n->simd_replace_d.val = sir_node_copy(_a, _memo, _src->simd_replace_d.val);
+        break;
+    case SIR_SIMDCONST:
+        _n->simd_const.lo = _src->simd_const.lo;
+        _n->simd_const.hi = _src->simd_const.hi;
+        break;
+    case SIR_SIMDSHUFFLE:
+        _n->simd_shuffle.lo = _src->simd_shuffle.lo;
+        _n->simd_shuffle.hi = _src->simd_shuffle.hi;
+        _n->simd_shuffle.left = sir_node_copy(_a, _memo, _src->simd_shuffle.left);
+        _n->simd_shuffle.right = sir_node_copy(_a, _memo, _src->simd_shuffle.right);
+        break;
+    case SIR_SIMDMEMLOAD:
+        _n->simd_mem_load.op = _src->simd_mem_load.op;
+        _n->simd_mem_load.align = _src->simd_mem_load.align;
+        _n->simd_mem_load.addr = sir_node_copy(_a, _memo, _src->simd_mem_load.addr);
+        break;
+    case SIR_SIMDMEMLOADLANE:
+        _n->simd_mem_load_lane.op = _src->simd_mem_load_lane.op;
+        _n->simd_mem_load_lane.align = _src->simd_mem_load_lane.align;
+        _n->simd_mem_load_lane.lane = _src->simd_mem_load_lane.lane;
+        _n->simd_mem_load_lane.addr = sir_node_copy(_a, _memo, _src->simd_mem_load_lane.addr);
+        _n->simd_mem_load_lane.vec = sir_node_copy(_a, _memo, _src->simd_mem_load_lane.vec);
+        break;
+    case SIR_MEMLOADI:
+        _n->mem_load_i.op = _src->mem_load_i.op;
+        _n->mem_load_i.align = _src->mem_load_i.align;
+        _n->mem_load_i.addr = sir_node_copy(_a, _memo, _src->mem_load_i.addr);
+        break;
+    case SIR_MEMLOADL:
+        _n->mem_load_l.op = _src->mem_load_l.op;
+        _n->mem_load_l.align = _src->mem_load_l.align;
+        _n->mem_load_l.addr = sir_node_copy(_a, _memo, _src->mem_load_l.addr);
+        break;
+    case SIR_MEMLOADF:
+        _n->mem_load_f.op = _src->mem_load_f.op;
+        _n->mem_load_f.align = _src->mem_load_f.align;
+        _n->mem_load_f.addr = sir_node_copy(_a, _memo, _src->mem_load_f.addr);
+        break;
+    case SIR_MEMLOADD:
+        _n->mem_load_d.op = _src->mem_load_d.op;
+        _n->mem_load_d.align = _src->mem_load_d.align;
+        _n->mem_load_d.addr = sir_node_copy(_a, _memo, _src->mem_load_d.addr);
+        break;
+    case SIR_MEMSIZE:
+        break;
+    case SIR_MEMGROW:
+        _n->mem_grow.pages = sir_node_copy(_a, _memo, _src->mem_grow.pages);
         break;
     default: break;
     }

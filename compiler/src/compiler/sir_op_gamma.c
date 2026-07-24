@@ -33,12 +33,19 @@
 static bool gamma_fold_add (int32_t l, int32_t r, int32_t* out) { *out = (int32_t)((uint32_t)l + (uint32_t)r); return true; }
 static bool gamma_fold_sub (int32_t l, int32_t r, int32_t* out) { *out = (int32_t)((uint32_t)l - (uint32_t)r); return true; }
 static bool gamma_fold_mul (int32_t l, int32_t r, int32_t* out) { *out = (int32_t)((uint32_t)l * (uint32_t)r); return true; }
+/* §15.16.2: division by zero THROWS — refuse the fold and keep the guard.
+ * MIN/-1 does NOT throw: "integer overflow occurs and the result is equal
+ * to the dividend. Despite the overflow, no exception is thrown"; §15.16.3
+ * gives the matching remainder: "(the remainder is 0)". Both are C UB, so
+ * they fold by the spec's stated values, never by computing. */
 static bool gamma_fold_div (int32_t l, int32_t r, int32_t* out) {
-    if (r == 0 || (l == INT32_MIN && r == -1)) { *out = 0; return false; }
+    if (r == 0) { *out = 0; return false; }
+    if (l == INT32_MIN && r == -1) { *out = INT32_MIN; return true; }
     *out = l / r; return true;
 }
 static bool gamma_fold_rem (int32_t l, int32_t r, int32_t* out) {
-    if (r == 0 || (l == INT32_MIN && r == -1)) { *out = 0; return false; }
+    if (r == 0) { *out = 0; return false; }
+    if (l == INT32_MIN && r == -1) { *out = 0; return true; }
     *out = l % r; return true;
 }
 static bool gamma_fold_and (int32_t l, int32_t r, int32_t* out) { *out = l & r; return true; }
@@ -53,6 +60,7 @@ static bool gamma_fold_lognot(int32_t a, int32_t* out) { *out = (a == 0);       
 static bool gamma_fold_s2b   (int32_t a, int32_t* out) { *out = (int32_t)(int8_t)a;            return true; }
 static bool gamma_fold_i2b   (int32_t a, int32_t* out) { *out = (int32_t)(int8_t)a;            return true; }
 static bool gamma_fold_i2s   (int32_t a, int32_t* out) { *out = (int32_t)(int16_t)a;           return true; }
+static bool gamma_fold_i2c   (int32_t a, int32_t* out) { *out = a & 0xFFFF;                    return true; }
 static bool gamma_fold_s2i   (int32_t a, int32_t* out) { *out = a;                             return true; }
 
 /* ── §5.1.2/§5.1.3 primitive conversion folds ───────────────────────
@@ -84,7 +92,6 @@ static cp_const_t kc_f64(double v)  { return (cp_const_t){ .state=CP_C_KNOWN, .c
 static cp_const_t gamma_conv_i2l(cp_const_t a) { return kc_i64((int64_t)a.value); }
 static cp_const_t gamma_conv_i2f(cp_const_t a) { return kc_f32((float)a.value); }
 static cp_const_t gamma_conv_i2d(cp_const_t a) { return kc_f64((double)a.value); }
-static cp_const_t gamma_conv_i2c(cp_const_t a) { return kc_i32(a.value & 0xFFFF); }  /* (char)i: zero-extend low 16 */
 static cp_const_t gamma_conv_l2i(cp_const_t a) { return kc_i32((int32_t)a.lvalue); }
 static cp_const_t gamma_conv_l2f(cp_const_t a) { return kc_f32((float)a.lvalue); }
 static cp_const_t gamma_conv_l2d(cp_const_t a) { return kc_f64((double)a.lvalue); }
@@ -109,6 +116,27 @@ static cp_const_t gamma_f64sqrt(cp_const_t a)    { return kc_f64(sqrt(cp_known_f
 static cp_const_t gamma_f64floor(cp_const_t a)   { return kc_f64(floor(cp_known_f64(a))); }
 static cp_const_t gamma_f64ceil(cp_const_t a)    { return kc_f64(ceil(cp_known_f64(a))); }
 static cp_const_t gamma_f64nearest(cp_const_t a) { return kc_f64(rint(cp_known_f64(a))); }
+
+/* SIMD partition-init discriminators — the EXACT operator immediate(s) of a
+ * family node, per the bucket_discriminator contract (no packing loss:
+ * WOP_* < 2^16, lane < 32, so (op<<5)|lane is lossless). */
+static uint32_t gamma_simd_disc_bin(const sir_node_t* e)       { return (uint32_t)e->simd_bin.op; }
+static uint32_t gamma_simd_disc_un(const sir_node_t* e)        { return (uint32_t)e->simd_un.op; }
+static uint32_t gamma_simd_disc_shift(const sir_node_t* e)     { return (uint32_t)e->simd_shift.op; }
+static uint32_t gamma_simd_disc_tern(const sir_node_t* e)      { return (uint32_t)e->simd_tern.op; }
+static uint32_t gamma_simd_disc_test(const sir_node_t* e)      { return (uint32_t)e->simd_test_i.op; }
+static uint32_t gamma_simd_disc_splat_i(const sir_node_t* e)   { return (uint32_t)e->simd_splat_i.op; }
+static uint32_t gamma_simd_disc_splat_l(const sir_node_t* e)   { return (uint32_t)e->simd_splat_l.op; }
+static uint32_t gamma_simd_disc_splat_f(const sir_node_t* e)   { return (uint32_t)e->simd_splat_f.op; }
+static uint32_t gamma_simd_disc_splat_d(const sir_node_t* e)   { return (uint32_t)e->simd_splat_d.op; }
+static uint32_t gamma_simd_disc_extract_i(const sir_node_t* e) { return ((uint32_t)e->simd_extract_i.op << 5) | (uint32_t)e->simd_extract_i.lane; }
+static uint32_t gamma_simd_disc_extract_l(const sir_node_t* e) { return ((uint32_t)e->simd_extract_l.op << 5) | (uint32_t)e->simd_extract_l.lane; }
+static uint32_t gamma_simd_disc_extract_f(const sir_node_t* e) { return ((uint32_t)e->simd_extract_f.op << 5) | (uint32_t)e->simd_extract_f.lane; }
+static uint32_t gamma_simd_disc_extract_d(const sir_node_t* e) { return ((uint32_t)e->simd_extract_d.op << 5) | (uint32_t)e->simd_extract_d.lane; }
+static uint32_t gamma_simd_disc_replace_i(const sir_node_t* e) { return ((uint32_t)e->simd_replace_i.op << 5) | (uint32_t)e->simd_replace_i.lane; }
+static uint32_t gamma_simd_disc_replace_l(const sir_node_t* e) { return ((uint32_t)e->simd_replace_l.op << 5) | (uint32_t)e->simd_replace_l.lane; }
+static uint32_t gamma_simd_disc_replace_f(const sir_node_t* e) { return ((uint32_t)e->simd_replace_f.op << 5) | (uint32_t)e->simd_replace_f.lane; }
+static uint32_t gamma_simd_disc_replace_d(const sir_node_t* e) { return ((uint32_t)e->simd_replace_d.op << 5) | (uint32_t)e->simd_replace_d.lane; }
 
 /* CMP fold reads the op discriminator from the SIR node. EQ / NE / LT /
  * GE / GT / LE return 0 or 1 as a boolean represented in int32. */
@@ -246,6 +274,150 @@ static cp_const_t gamma_range_fold_neg(cp_const_t a) {
     return cp_range_make_strided(-hi, -lo, cp_range_stride(a), a.cwidth);
 }
 
+/* MUL: the four corner products bound the result; any corner that overflows
+ * the type forfeits the claim (§15.16.1: "the result is the low-order bits
+ * of the mathematical product" — a wrapped range is not an interval). A singleton multiplier SCALES the other side's spacing — the
+ * stride PRODUCER (Click §4.5); two proper ranges have no usable product
+ * spacing (stride 1). */
+static cp_const_t gamma_range_fold_mul(cp_const_t a, cp_const_t b) {
+    cp_const_t g;
+    if (cp_gamma_gate2(a, b, &g)) return g;
+    int64_t a_lo, a_hi, b_lo, b_hi, c[4];
+    cp_range_bounds(a, &a_lo, &a_hi);
+    cp_range_bounds(b, &b_lo, &b_hi);
+    if (__builtin_mul_overflow(a_lo, b_lo, &c[0]) ||
+        __builtin_mul_overflow(a_lo, b_hi, &c[1]) ||
+        __builtin_mul_overflow(a_hi, b_lo, &c[2]) ||
+        __builtin_mul_overflow(a_hi, b_hi, &c[3]))
+        return (cp_const_t){ .state = CP_C_BOTTOM };
+    int64_t lo = c[0], hi = c[0];
+    for (int i = 1; i < 4; i++) {
+        if (c[i] < lo) lo = c[i];
+        if (c[i] > hi) hi = c[i];
+    }
+    if (lo < cp_width_min(a.cwidth) || hi > cp_width_max(a.cwidth))
+        return (cp_const_t){ .state = CP_C_BOTTOM };
+    int64_t stride = 1, k = 0, s = 0;
+    if      (a_lo == a_hi) { k = a_lo; s = cp_range_stride(b); }
+    else if (b_lo == b_hi) { k = b_lo; s = cp_range_stride(a); }
+    if (k != 0 && k != INT64_MIN) {
+        if (s < 1) s = 1;                        /* dense RANGE side */
+        if (__builtin_mul_overflow(k < 0 ? -k : k, s, &stride) || stride < 1)
+            stride = 1;
+    }
+    return cp_range_make_strided(lo, hi, stride, a.cwidth);
+}
+
+/* SHL by a KNOWN in-range count is ×2^count — same corner/overflow
+ * discipline as MUL via delegation, and the other stride producer. A
+ * non-singleton or out-of-range count claims nothing (§15.18 masks the
+ * count to the five low bits; modeling the mask is the wrap case we
+ * refuse — the scalar fold, which masks exactly, stays the precise one). */
+static cp_const_t gamma_range_fold_shl(cp_const_t a, cp_const_t b) {
+    cp_const_t g;
+    if (cp_gamma_gate2(a, b, &g)) return g;
+    int64_t b_lo, b_hi;
+    cp_range_bounds(b, &b_lo, &b_hi);
+    int maxsh = (a.cwidth == CP_W_I64) ? 63 : 31;
+    if (b_lo != b_hi || b_lo < 0 || b_lo > maxsh)
+        return (cp_const_t){ .state = CP_C_BOTTOM };
+    int64_t f = (int64_t)1 << b_lo;
+    cp_const_t m = { .state = CP_C_KNOWN, .cwidth = a.cwidth,
+                     .value = (int32_t)f, .lvalue = f };
+    return gamma_range_fold_mul(a, m);
+}
+
+/* DIV by a divisor RANGE excluding 0 (§15.16.2: /0 THROWS — the guard
+ * stays): "integer division rounds toward 0" makes it corner-monotone once
+ * 0 and the width-min/−1 pair ("integer overflow occurs and the result is
+ * equal to the dividend") are excluded, so the four bound pairs bound the
+ * result (the sema linter's twin rule; singleton-k-only was the
+ * parity-audit gap). The stride survives only in the singleton-positive
+ * case where the divisor divides both the spacing and the non-negative
+ * base. */
+static cp_const_t gamma_range_fold_div(cp_const_t a, cp_const_t b) {
+    cp_const_t g;
+    if (cp_gamma_gate2(a, b, &g)) return g;
+    int64_t a_lo, a_hi, b_lo, b_hi;
+    cp_range_bounds(a, &a_lo, &a_hi);
+    cp_range_bounds(b, &b_lo, &b_hi);
+    if (b_lo <= 0 && b_hi >= 0) return (cp_const_t){ .state = CP_C_BOTTOM };
+    /* width-min / −1 wraps (Java: MIN/−1 == MIN) — forfeit that corner. */
+    if (a_lo == cp_width_min(a.cwidth) && b_lo <= -1 && b_hi >= -1)
+        return (cp_const_t){ .state = CP_C_BOTTOM };
+    int64_t c[4] = { a_lo / b_lo, a_lo / b_hi, a_hi / b_lo, a_hi / b_hi };
+    int64_t lo = c[0], hi = c[0];
+    for (int i = 1; i < 4; i++) {
+        if (c[i] < lo) lo = c[i];
+        if (c[i] > hi) hi = c[i];
+    }
+    int64_t k = b_lo, s = cp_range_stride(a);
+    int64_t stride = (b_lo == b_hi && k > 0 && s > 1 && s % k == 0
+                      && a_lo >= 0 && a_lo % k == 0) ? s / k : 1;
+    return cp_range_make_strided(lo, hi, stride, a.cwidth);
+}
+
+/* REM by a divisor RANGE excluding 0: the result is bounded by |divisor|−1
+ * and follows the DIVIDEND's sign (JLS §15.16.3 — the sema linter's twin
+ * rule; positive-singleton + non-negative-dividend-only was the
+ * parity-audit gap). The stride CONSUMER survives in the singleton case:
+ * spacing a multiple of k pins every value to one residue. */
+static cp_const_t gamma_range_fold_rem(cp_const_t a, cp_const_t b) {
+    cp_const_t g;
+    if (cp_gamma_gate2(a, b, &g)) return g;
+    int64_t a_lo, a_hi, b_lo, b_hi;
+    cp_range_bounds(a, &a_lo, &a_hi);
+    cp_range_bounds(b, &b_lo, &b_hi);
+    if (b_lo <= 0 && b_hi >= 0) return (cp_const_t){ .state = CP_C_BOTTOM };
+    /* |width-min| overflows — forfeit rather than mis-bound. */
+    if (b_lo == cp_width_min(b.cwidth)) return (cp_const_t){ .state = CP_C_BOTTOM };
+    int64_t blo_abs = b_lo < 0 ? -b_lo : b_lo;
+    int64_t bhi_abs = b_hi < 0 ? -b_hi : b_hi;
+    int64_t bound = (blo_abs > bhi_abs ? blo_abs : bhi_abs) - 1;
+    int64_t k = b_lo, s = cp_range_stride(a);
+    if (b_lo == b_hi && k > 0 && a_lo >= 0) {
+        if (s > 0 && s % k == 0) {
+            int64_t r = a_lo % k;
+            return (cp_const_t){ .state = CP_C_KNOWN, .cwidth = a.cwidth,
+                                 .value = (int32_t)r, .lvalue = r };
+        }
+        if (a_hi < k) return a;                  /* identity: every value < k */
+    }
+    int64_t lo = a_lo >= 0 ? 0 : (a_lo > -bound ? a_lo : -bound);
+    int64_t hi = a_hi <= 0 ? 0 : (a_hi < bound ? a_hi : bound);
+    return cp_range_make(lo, hi, a.cwidth);
+}
+
+/* AND: a KNOWN non-negative mask k bounds the result to [0, k] for ANY
+ * other side — two's complement: the mask clears the sign bit — so a
+ * sign-spanning operand forfeits nothing (the sema linter's twin rule;
+ * requiring both sides non-negative was the parity-audit gap). A LOW mask
+ * (2^m − 1) with the spacing a multiple of 2^m is the stride consumer:
+ * x ≡ x₀ (mod 2^m) determines x & (2^m−1) for all ints, negatives
+ * included. Two proper non-negative ranges bound by min(hi, hi). */
+static cp_const_t gamma_range_fold_and(cp_const_t a, cp_const_t b) {
+    cp_const_t g;
+    if (cp_gamma_gate2(a, b, &g)) return g;
+    int64_t a_lo, a_hi, b_lo, b_hi;
+    cp_range_bounds(a, &a_lo, &a_hi);
+    cp_range_bounds(b, &b_lo, &b_hi);
+    int64_t k, r_lo, r_hi, s;
+    if      (b_lo == b_hi && b_lo >= 0) { k = b_lo; r_lo = a_lo; r_hi = a_hi; s = cp_range_stride(a); }
+    else if (a_lo == a_hi && a_lo >= 0) { k = a_lo; r_lo = b_lo; r_hi = b_hi; s = cp_range_stride(b); }
+    else if (a_lo >= 0 && b_lo >= 0)      /* x & y ≤ min(x, y) for x, y ≥ 0 */
+        return cp_range_make(0, a_hi < b_hi ? a_hi : b_hi, a.cwidth);
+    else
+        return (cp_const_t){ .state = CP_C_BOTTOM };
+    if (k != INT64_MAX && ((k + 1) & k) == 0 && s > 0 && s % (k + 1) == 0) {
+        int64_t r = r_lo & k;
+        return (cp_const_t){ .state = CP_C_KNOWN, .cwidth = a.cwidth,
+                             .value = (int32_t)r, .lvalue = r };
+    }
+    /* The other side's hi tightens the bound only when it cannot be
+     * negative (x = −1 & 7 is 7, not ≤ x_hi). */
+    return cp_range_make(0, (r_lo >= 0 && r_hi < k) ? r_hi : k, a.cwidth);
+}
+
 /* Width-narrowing conversions. When the input range fits entirely
  * within the target width, the conversion is value-preserving — the
  * lattice fact passes through unchanged. When the range crosses
@@ -264,6 +436,7 @@ static cp_const_t gamma_range_fold_narrow(cp_const_t a, int32_t tgt_lo, int32_t 
 }
 
 static cp_const_t gamma_range_fold_i2s(cp_const_t a) { return gamma_range_fold_narrow(a, INT16_MIN, INT16_MAX); }
+static cp_const_t gamma_range_fold_i2c(cp_const_t a) { return gamma_range_fold_narrow(a, 0, 65535); }
 static cp_const_t gamma_range_fold_i2b(cp_const_t a) { return gamma_range_fold_narrow(a, INT8_MIN,  INT8_MAX);  }
 static cp_const_t gamma_range_fold_s2b(cp_const_t a) { return gamma_range_fold_narrow(a, INT8_MIN,  INT8_MAX);  }
 static cp_const_t gamma_range_fold_s2i(cp_const_t a) { return a; /* widening conversion: range exact */ }
@@ -302,9 +475,16 @@ static cp_const_t gamma_range_fold_cmp(int op, cp_const_t a, cp_const_t b) {  /*
         } else if (b_lo == b_hi && a_s > 1) {
             int64_t off = ((b_lo - a_lo) % a_s + a_s) % a_s;
             if (off != 0) ne_known = true;
-        } else if (a_s > 1 && b_s > 1 && a_s == b_s) {
-            int64_t off = ((a_lo - b_lo) % a_s + a_s) % a_s;
-            if (off != 0) ne_known = true;
+        } else if (a_s > 1 && b_s > 1) {
+            /* Any common value satisfies a_lo + i·a_s = b_lo + j·b_s, so
+             * a_lo ≡ b_lo (mod gcd(a_s, b_s)); a disagreeing base residue
+             * is an empty intersection. Equal strides are the gcd = a_s
+             * special case. An overflowing base difference claims nothing. */
+            int64_t d = cp_gamma_gcd(a_s, b_s), diff;
+            if (d > 1 && !__builtin_sub_overflow(a_lo, b_lo, &diff)) {
+                int64_t off = (diff % d + d) % d;
+                if (off != 0) ne_known = true;
+            }
         }
     }
     int32_t result = -1;  /* sentinel: not foldable */
@@ -583,6 +763,7 @@ const sir_op_gamma_t sir_op_gamma[SIR_TAG_COUNT] = {
                              .is_pure_if_children_pure = true, .arity = 2,
                              .type_kind = GT_PRIM_DT, .type_prim_dt = gamma_dt_arith,
                              .fold_binary = gamma_fold_mul,
+                             .fold_binary_range = gamma_range_fold_mul,
                              /* §4.8: x * 1 = x */
                              .identity_side = GS_EITHER, .identity_k = 1,
                              /* absorbing: x * 0 = 0 (when x pure) */
@@ -590,11 +771,13 @@ const sir_op_gamma_t sir_op_gamma[SIR_TAG_COUNT] = {
                              .absorbing_k = 0, .absorbing_result = 0 },
     [SIR_DIV]            = { .tag = SIR_DIV,            .mnemonic = "div",
                              .arity = 2, .fold_binary = gamma_fold_div,
+                             .fold_binary_range = gamma_range_fold_div,
                              .type_kind = GT_PRIM_DT, .type_prim_dt = gamma_dt_arith,
                              /* §4.8: x / 1 = x */
                              .identity_side = GS_RIGHT, .identity_k = 1 },
     [SIR_REM]            = { .tag = SIR_REM,            .mnemonic = "rem",
                              .arity = 2, .fold_binary = gamma_fold_rem,
+                             .fold_binary_range = gamma_range_fold_rem,
                              .type_kind = GT_PRIM_DT, .type_prim_dt = gamma_dt_arith },
     [SIR_NEG]            = { .tag = SIR_NEG,            .mnemonic = "neg",
                              .is_congruent = true,
@@ -611,6 +794,9 @@ const sir_op_gamma_t sir_op_gamma[SIR_TAG_COUNT] = {
                              .is_pure_if_children_pure = true, .arity = 2,
                              .type_kind = GT_PRIM_DT, .type_prim_dt = gamma_dt_arith,
                              .fold_binary = gamma_fold_and,
+                             .fold_binary_range = gamma_range_fold_and,
+                             /* §4.8: x & x = x (idempotent) */
+                             .same_in_follower = true,
                              /* §4.8: x & -1 = x (all-ones identity) */
                              .identity_side = GS_EITHER, .identity_k = -1,
                              /* absorbing: x & 0 = 0 (when x pure) */
@@ -621,6 +807,8 @@ const sir_op_gamma_t sir_op_gamma[SIR_TAG_COUNT] = {
                              .is_pure_if_children_pure = true, .arity = 2,
                              .type_kind = GT_PRIM_DT, .type_prim_dt = gamma_dt_arith,
                              .fold_binary = gamma_fold_or,
+                             /* §4.8: x | x = x (idempotent) */
+                             .same_in_follower = true,
                              /* §4.8: x | 0 = x */
                              .identity_side = GS_EITHER, .identity_k = 0,
                              /* absorbing: x | -1 = -1 (when x pure) */
@@ -632,12 +820,15 @@ const sir_op_gamma_t sir_op_gamma[SIR_TAG_COUNT] = {
                              .type_kind = GT_PRIM_DT, .type_prim_dt = gamma_dt_arith,
                              .fold_binary = gamma_fold_xor,
                              /* §4.8: x ^ 0 = x */
-                             .identity_side = GS_EITHER, .identity_k = 0 },
+                             .identity_side = GS_EITHER, .identity_k = 0,
+                             /* §4.6: x ^ x = 0 when operands are partition-congruent */
+                             .cong_fold = GC_ZERO },
     [SIR_SHL]            = { .tag = SIR_SHL,            .mnemonic = "shl",
                              .is_congruent = true,
                              .is_pure_if_children_pure = true, .arity = 2,
                              .type_kind = GT_PRIM_DT, .type_prim_dt = gamma_dt_arith,
                              .fold_binary = gamma_fold_shl,
+                             .fold_binary_range = gamma_range_fold_shl,
                              /* §4.8: x << 0 = x (right side only — not commutative) */
                              .identity_side = GS_RIGHT, .identity_k = 0 },
     [SIR_SHR]            = { .tag = SIR_SHR,            .mnemonic = "shr",
@@ -693,7 +884,16 @@ const sir_op_gamma_t sir_op_gamma[SIR_TAG_COUNT] = {
               .is_pure_if_children_pure = true, .arity = 1, \
               .type_kind = GT_PRIM_FIXED, .type_prim_fixed_dt = DT, \
               .fold_convert = FN }
-    CONV_ROW(SIR_I2C, "i2c", SIR_DTCHAR,   gamma_conv_i2c),
+    /* I2C is hand-written (not CONV_ROW): char stays in the i32 carrier, so
+     * it takes the same fold_unary + range-fold pair as I2S/I2B — a
+     * fold_convert row would eat RANGE operands to BOTTOM before the range
+     * dispatch ever saw them (the parity-audit gap). */
+    [SIR_I2C]            = { .tag = SIR_I2C,            .mnemonic = "i2c",
+                             .is_congruent = true,
+                             .is_pure_if_children_pure = true, .arity = 1,
+                             .type_kind = GT_PRIM_FIXED, .type_prim_fixed_dt = SIR_DTCHAR,
+                             .fold_unary = gamma_fold_i2c,
+                             .fold_unary_range = gamma_range_fold_i2c },
     CONV_ROW(SIR_I2L, "i2l", SIR_DTLONG,   gamma_conv_i2l),
     CONV_ROW(SIR_I2F, "i2f", SIR_DTFLOAT,  gamma_conv_i2f),
     CONV_ROW(SIR_I2D, "i2d", SIR_DTDOUBLE, gamma_conv_i2d),
@@ -715,6 +915,46 @@ const sir_op_gamma_t sir_op_gamma[SIR_TAG_COUNT] = {
     CONV_ROW(SIR_F64CEIL,    "f64ceil",    SIR_DTDOUBLE, gamma_f64ceil),
     CONV_ROW(SIR_F64NEAREST, "f64nearest", SIR_DTDOUBLE, gamma_f64nearest),
 #undef CONV_ROW
+
+    /* ── WASM v128 SIMD families — pure, NO folds (a wrong fold is a
+     * miscompile; folding needs its own oracle). Identity = tag + an EXACT
+     * discriminator: the `op` payload, or (op<<5)|lane for extract/replace
+     * (lossless in 32 bits — WOP_* fits 16, lane < 32). SimdConst /
+     * SimdShuffle carry 128 payload bits no exact 32-bit discriminator can
+     * hold, and a HASHED bucket would MERGE two different constants forever
+     * (equal-input nodes can never be split back by refinement) — so they
+     * are NOT congruent: singleton partitions, no CSE, no wrong merge. */
+#define SIMD_ROW(TAG, MN, AR, DT, DISC) \
+    [TAG] = { .tag = TAG, .mnemonic = MN, .is_congruent = true, \
+              .is_pure_if_children_pure = true, .arity = AR, \
+              .type_kind = GT_PRIM_FIXED, .type_prim_fixed_dt = DT, \
+              .bucket_discriminator = DISC }
+    SIMD_ROW(SIR_SIMDBIN,      "simdbin",      2, SIR_DTV128,   gamma_simd_disc_bin),
+    SIMD_ROW(SIR_SIMDUN,       "simdun",       1, SIR_DTV128,   gamma_simd_disc_un),
+    SIMD_ROW(SIR_SIMDSHIFT,    "simdshift",    2, SIR_DTV128,   gamma_simd_disc_shift),
+    SIMD_ROW(SIR_SIMDTERN,     "simdtern",     3, SIR_DTV128,   gamma_simd_disc_tern),
+    SIMD_ROW(SIR_SIMDTESTI,    "simdtesti",    1, SIR_DTINT,    gamma_simd_disc_test),
+    SIMD_ROW(SIR_SIMDSPLATI,   "simdsplati",   1, SIR_DTV128,   gamma_simd_disc_splat_i),
+    SIMD_ROW(SIR_SIMDSPLATL,   "simdsplatl",   1, SIR_DTV128,   gamma_simd_disc_splat_l),
+    SIMD_ROW(SIR_SIMDSPLATF,   "simdsplatf",   1, SIR_DTV128,   gamma_simd_disc_splat_f),
+    SIMD_ROW(SIR_SIMDSPLATD,   "simdsplatd",   1, SIR_DTV128,   gamma_simd_disc_splat_d),
+    SIMD_ROW(SIR_SIMDEXTRACTI, "simdextracti", 1, SIR_DTINT,    gamma_simd_disc_extract_i),
+    SIMD_ROW(SIR_SIMDEXTRACTL, "simdextractl", 1, SIR_DTLONG,   gamma_simd_disc_extract_l),
+    SIMD_ROW(SIR_SIMDEXTRACTF, "simdextractf", 1, SIR_DTFLOAT,  gamma_simd_disc_extract_f),
+    SIMD_ROW(SIR_SIMDEXTRACTD, "simdextractd", 1, SIR_DTDOUBLE, gamma_simd_disc_extract_d),
+    SIMD_ROW(SIR_SIMDREPLACEI, "simdreplacei", 2, SIR_DTV128,   gamma_simd_disc_replace_i),
+    SIMD_ROW(SIR_SIMDREPLACEL, "simdreplacel", 2, SIR_DTV128,   gamma_simd_disc_replace_l),
+    SIMD_ROW(SIR_SIMDREPLACEF, "simdreplacef", 2, SIR_DTV128,   gamma_simd_disc_replace_f),
+    SIMD_ROW(SIR_SIMDREPLACED, "simdreplaced", 2, SIR_DTV128,   gamma_simd_disc_replace_d),
+#undef SIMD_ROW
+    [SIR_SIMDCONST]   = { .tag = SIR_SIMDCONST,   .mnemonic = "simdconst",
+                          .is_leaf_pure = true,   /* pure, NOT congruent — see block comment */
+                          .arity = 0,
+                          .type_kind = GT_PRIM_FIXED, .type_prim_fixed_dt = SIR_DTV128 },
+    [SIR_SIMDSHUFFLE] = { .tag = SIR_SIMDSHUFFLE, .mnemonic = "simdshuffle",
+                          .is_pure_if_children_pure = true,   /* pure, NOT congruent */
+                          .arity = 2,
+                          .type_kind = GT_PRIM_FIXED, .type_prim_fixed_dt = SIR_DTV128 },
 
     /* ── Compare ───────────────────────────────────────────── *
      * CMP's commutativity and bucket-init depend on e->cmp.op (only
@@ -800,8 +1040,31 @@ const sir_op_gamma_t sir_op_gamma[SIR_TAG_COUNT] = {
                               * `i >= a.length` see the loop's `i < a.length`. */
                              .is_congruent = true,
                              .type_kind = GT_PRIM_FIXED, .type_prim_fixed_dt = SIR_DTINT },
-    [SIR_MEMLOAD8]       = { .tag = SIR_MEMLOAD8,       .mnemonic = "memload8",
-                             .type_kind = GT_PRIM_FIXED, .type_prim_fixed_dt = SIR_DTINT },  /* i32.load8_u (mutable read) */
+    /* Linear-memory loads — mutable reads: NEVER congruent (two loads of one
+     * address may see different bytes). MemSize/MemGrow are value ops with
+     * the same posture (grow MUTATES the size). */
+    [SIR_SIMDMEMLOAD]    = { .tag = SIR_SIMDMEMLOAD,    .mnemonic = "simdmemload",
+                             .type_kind = GT_PRIM_FIXED, .type_prim_fixed_dt = SIR_DTV128 },
+    [SIR_SIMDMEMLOADLANE]= { .tag = SIR_SIMDMEMLOADLANE,.mnemonic = "simdmemloadlane",
+                             .type_kind = GT_PRIM_FIXED, .type_prim_fixed_dt = SIR_DTV128 },
+    [SIR_MEMLOADI]       = { .tag = SIR_MEMLOADI,       .mnemonic = "memloadi",
+                             .type_kind = GT_PRIM_FIXED, .type_prim_fixed_dt = SIR_DTINT },
+    [SIR_MEMLOADL]       = { .tag = SIR_MEMLOADL,       .mnemonic = "memloadl",
+                             .type_kind = GT_PRIM_FIXED, .type_prim_fixed_dt = SIR_DTLONG },
+    [SIR_MEMLOADF]       = { .tag = SIR_MEMLOADF,       .mnemonic = "memloadf",
+                             .type_kind = GT_PRIM_FIXED, .type_prim_fixed_dt = SIR_DTFLOAT },
+    [SIR_MEMLOADD]       = { .tag = SIR_MEMLOADD,       .mnemonic = "memloadd",
+                             .type_kind = GT_PRIM_FIXED, .type_prim_fixed_dt = SIR_DTDOUBLE },
+    [SIR_MEMSIZE]        = { .tag = SIR_MEMSIZE,        .mnemonic = "memsize",
+                             /* CONGRUENT — soundly, because a MemSize read carries the
+                              * memsize CELL's reaching writer as its memory input (the
+                              * Gate-5 follower rule): two reads merge only between kills
+                              * (MemGrow, calls). This is what lets two Mem bounds guards
+                              * over one region become one (W8). */
+                             .is_congruent = true,
+                             .type_kind = GT_PRIM_FIXED, .type_prim_fixed_dt = SIR_DTINT },
+    [SIR_MEMGROW]        = { .tag = SIR_MEMGROW,        .mnemonic = "memgrow",
+                             .type_kind = GT_PRIM_FIXED, .type_prim_fixed_dt = SIR_DTINT },
 
     /* §20.3.6. Reading a Class's factory funcref can null-deref (the Class ref), so neither is
      * pure; ClassConstruct also allocates and runs a constructor, so it is not congruent either. */
@@ -847,7 +1110,14 @@ const sir_op_gamma_t sir_op_gamma[SIR_TAG_COUNT] = {
     [SIR_EXPREFFECT]     = { .tag = SIR_EXPREFFECT,     .mnemonic = "expreffect" },
     [SIR_ARRAYSTORE]     = { .tag = SIR_ARRAYSTORE,     .mnemonic = "arraystore" },
     [SIR_ARRAYCOPY]      = { .tag = SIR_ARRAYCOPY,      .mnemonic = "arraycopy" },
-    [SIR_MEMSTORE8]      = { .tag = SIR_MEMSTORE8,      .mnemonic = "memstore8" },  /* i32.store8 (spine) */
+    [SIR_SIMDMEMSTORE]   = { .tag = SIR_SIMDMEMSTORE,   .mnemonic = "simdmemstore" },      /* v128.store (spine) */
+    [SIR_SIMDMEMSTORELANE]={ .tag = SIR_SIMDMEMSTORELANE,.mnemonic = "simdmemstorelane" }, /* v128.storeN_lane (spine) */
+    [SIR_MEMSTOREI]      = { .tag = SIR_MEMSTOREI,      .mnemonic = "memstorei" },  /* i32.store/8/16 (spine) */
+    [SIR_MEMSTOREL]      = { .tag = SIR_MEMSTOREL,      .mnemonic = "memstorel" },
+    [SIR_MEMSTOREF]      = { .tag = SIR_MEMSTOREF,      .mnemonic = "memstoref" },
+    [SIR_MEMSTORED]      = { .tag = SIR_MEMSTORED,      .mnemonic = "memstored" },
+    [SIR_MEMFILL]        = { .tag = SIR_MEMFILL,        .mnemonic = "memfill" },    /* memory.fill (spine) */
+    [SIR_MEMCOPY]        = { .tag = SIR_MEMCOPY,        .mnemonic = "memcopy" },    /* memory.copy (spine) */
     [SIR_PUTFIELD]       = { .tag = SIR_PUTFIELD,       .mnemonic = "putfield" },
     [SIR_SETHEADER]      = { .tag = SIR_SETHEADER,      .mnemonic = "setheader" },
     [SIR_PUTSTATIC]      = { .tag = SIR_PUTSTATIC,      .mnemonic = "putstatic" },

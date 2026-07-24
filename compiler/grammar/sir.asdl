@@ -23,6 +23,7 @@ module sir {
     // crosses the sema→ddcg→SIR boundary — see docs/sema-contract.md).
     datatype = DtByte | DtShort | DtInt | DtRef
              | DtChar | DtLong | DtFloat | DtDouble
+             | DtV128    // WASM v128 (SIMD) — appended; ordinal 8 = SEMA_DT_V128
 
     // Array / type-check classification — used by NewArray,
     // InstanceOf, and CheckCast to describe the target type
@@ -31,6 +32,7 @@ module sir {
     // element type).
     atype = AtClass | AtBool | AtByte | AtShort | AtInt | AtRefArray
           | AtChar | AtLong | AtFloat | AtDouble
+          | AtV128    // WASM v128 element (javelina.simd V128[])
 
     method = Method(ident name, int32 class_id, int32 method_id,
                     int32 max_locals, node entry)
@@ -156,8 +158,6 @@ module sir {
         | ArrayLoad(datatype data_type, node arr, node index, node? elem_ref)
 
         // I/O staging linear memory access — read one byte (zero-extended) from `addr`.
-        // Backs the GC-byte[]↔linear-memory bounce copy for the host I/O floor. (i32.load8_u)
-        | MemLoad8(node addr)
         | ArrayLength(node arr)
         | GetField(datatype data_type, node obj, int32 class_id, int32 field_idx)
         | GetStatic(datatype data_type, int32 class_id, int32 field_idx)
@@ -189,9 +189,19 @@ module sir {
         | ArrayCopy(datatype width, node dst, node dst_off, node src, node src_off, node len, node next)
         | PutStatic(datatype data_type, int32 class_id, int32 field_idx, node value, node next)
 
-        // I/O staging linear memory store — write one byte (`value`'s low 8 bits) to `addr`,
-        // then thread `next`. The write half of the GC-byte[]↔linear-memory bounce copy. (i32.store8)
-        | MemStore8(node addr, node value, node next)
+
+        // Linear-memory stores (spine statements; align/lane as on the load
+        // nodes). v128.store + 4 storeN_lane + the scalar store family (op
+        // selects width: i32.store8/16/store ride MemStoreI) + the bulk ops
+        // (memory.fill: dst/val/len; memory.copy: dst/src/len).
+        | SimdMemStore(int32 op, int32 align, node addr, node value, node next)
+        | SimdMemStoreLane(int32 op, int32 align, int32 lane, node addr, node vec, node next)
+        | MemStoreI(int32 op, int32 align, node addr, node value, node next)
+        | MemStoreL(int32 op, int32 align, node addr, node value, node next)
+        | MemStoreF(int32 op, int32 align, node addr, node value, node next)
+        | MemStoreD(int32 op, int32 align, node addr, node value, node next)
+        | MemFill(node dst, node value, node len, node next)
+        | MemCopy(node dst, node src, node len, node next)
 
         // Control flow
         | Branch(node cond, node on_true, node on_false)
@@ -248,6 +258,58 @@ module sir {
         | ClassRef(int32 class_id)
         | ArrayRef(int32 class_id, int32 dim)
         | PrimArray(datatype width, int32 dim)
+
+        // ── WASM v128 SIMD intrinsic families ─────────────────────────────
+        // Per-SIGNATURE families, one node per (children shape × result
+        // valtype × immediate kind); `op` carries the generated WOP_* enum
+        // value verbatim (wasm_ops.h, from instructions.toml), so the burg
+        // tile is ew_emit(E, op) with no per-op tiles and no prefix logic.
+        // All are pure expressions; no constant folding (a wrong fold is a
+        // miscompile — folding needs its own oracle). Lane immediates are
+        // compile-time constants, checked at sema (§15.27).
+        | SimdBin(int32 op, node left, node right)          // 127: [v128 v128]→[v128]
+        | SimdUn(int32 op, node operand)                    //  54: [v128]→[v128]
+        | SimdShift(int32 op, node vec, node count)         //  12: [v128 i32]→[v128]
+        | SimdTern(int32 op, node a, node b, node c)        //  10: [v128 ×3]→[v128]
+        | SimdTestI(int32 op, node operand)                 //   9: [v128]→[i32]
+        | SimdSplatI(int32 op, node operand)                //   3: [i32]→[v128]
+        | SimdSplatL(int32 op, node operand)                //   1: [i64]→[v128]
+        | SimdSplatF(int32 op, node operand)                //   1: [f32]→[v128]
+        | SimdSplatD(int32 op, node operand)                //   1: [f64]→[v128]
+        | SimdExtractI(int32 op, int32 lane, node vec)      //   5: [v128]→[i32] + lane
+        | SimdExtractL(int32 op, int32 lane, node vec)      //   1: [v128]→[i64] + lane
+        | SimdExtractF(int32 op, int32 lane, node vec)      //   1: [v128]→[f32] + lane
+        | SimdExtractD(int32 op, int32 lane, node vec)      //   1: [v128]→[f64] + lane
+        | SimdReplaceI(int32 op, int32 lane, node vec, node val)  // 3: [v128 i32]→[v128] + lane
+        | SimdReplaceL(int32 op, int32 lane, node vec, node val)  // 1: [v128 i64]→[v128] + lane
+        | SimdReplaceF(int32 op, int32 lane, node vec, node val)  // 1: [v128 f32]→[v128] + lane
+        | SimdReplaceD(int32 op, int32 lane, node vec, node val)  // 1: [v128 f64]→[v128] + lane
+        // 16 exact immediate bytes as two int64 halves (lo = bytes 0-7,
+        // hi = 8-15, little-endian) — lanes NEVER ride a double (the f32
+        // carrier lesson). NOT congruent: 128 payload bits cannot ride an
+        // exact 32-bit partition discriminator, and a hashed bucket would
+        // MERGE two different constants (leaves have no inputs, so
+        // refinement could never split them) — singleton partitions.
+        | SimdConst(int64 lo, int64 hi)                     //   1: []→[v128]
+        | SimdShuffle(int64 lo, int64 hi, node left, node right)  // 1: i8x16.shuffle
+
+        // ── Linear-memory ops (javelina.simd.Mem over the module memory) ──
+        // `align` is the toml align column carried through the generated
+        // table — the burg emits it verbatim in the memarg (offset is 0; the
+        // address is the full operand). Loads are MUTABLE READS of memory
+        // (γ rows, NEVER congruent); stores are spine statements. Lane
+        // immediates are §15.27 constants, range 128/width, checked at sema.
+        // Scalar loads are per-RESULT-dt families (op selects width/sign:
+        // i32.load8_u and i32.load both ride MemLoadI); MemSize/MemGrow are
+        // value ops (grow MUTATES — never congruent either).
+        | SimdMemLoad(int32 op, int32 align, node addr)     //  13: [i32]→[v128]
+        | SimdMemLoadLane(int32 op, int32 align, int32 lane, node addr, node vec)  // 4: [i32 v128]→[v128]
+        | MemLoadI(int32 op, int32 align, node addr)        //   5: [i32]→[i32]
+        | MemLoadL(int32 op, int32 align, node addr)        //   7: [i32]→[i64]
+        | MemLoadF(int32 op, int32 align, node addr)        //   1: [i32]→[f32]
+        | MemLoadD(int32 op, int32 align, node addr)        //   1: [i32]→[f64]
+        | MemSize                                           //   1: []→[i32] (pages)
+        | MemGrow(node pages)                               //   1: [i32]→[i32] (old size / -1)
 
         // THE EXCEPTION CONTINUATION (spec §1 — double-barrelled CPS). An EXCEPTING node
         // (Throw, the Invoke*s, New/NewArray/NewRefArray, ClassConstruct — JLS §11.1's

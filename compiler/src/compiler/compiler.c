@@ -105,11 +105,17 @@ static sir_node_t* build_overlay_clone(ddcg_ctx_t* yctx, int class_id) {
     sir_atype_t    at    = SIR_ATINT;
     int data_field = is_ref ? 1 : 0;   /* ddcg_refarray_data_field / ddcg_primarray_data_field */
     if (!is_ref) {
-        static const sir_datatype_t si_dt[7] = { SIR_DTBYTE, SIR_DTSHORT, SIR_DTCHAR, SIR_DTINT, SIR_DTLONG, SIR_DTFLOAT, SIR_DTDOUBLE };
-        static const sir_atype_t    si_at[7] = { SIR_ATBYTE, SIR_ATSHORT, SIR_ATCHAR, SIR_ATINT, SIR_ATLONG, SIR_ATFLOAT, SIR_ATDOUBLE };
+        /* The width comes from the LATTICE's storage-index inverse — a local
+         * si→dt table here is how V128Array.clone allocated an (array i32)
+         * backing into the (ref null (array v128)) data field (a §3.4.7
+         * struct.set mismatch only the VM validator caught). */
         width = SIR_DTINT;
-        for (int si = 0; si < 7; si++)
-            if (class_id == sema_primarray_id(sema, si)) { width = si_dt[si]; at = si_at[si]; break; }
+        for (int si = 0; si < 8; si++)
+            if (class_id == sema_primarray_id(sema, si)) {
+                width = lat_prim_storage_dt(si);
+                at    = lat_dt_to_atype(width);
+                break;
+            }
     }
     int t = yctx->next_temp_++;   /* the clone overlay (slot 1, past `this`) */
 

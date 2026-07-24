@@ -40,6 +40,7 @@ static int jt_cases = 0;
 #include "javelina/compiler/sir_optimizer.h"
 #include "javelina/compiler/sir_op_gamma.h"
 #include "javelina/compiler/sir_support.h"
+#include "gen/wasm_ops.h"   /* WOP_* — the SIMD nodes' op payload vocabulary */
 
 #include <math.h>
 #include <stdbool.h>
@@ -375,6 +376,65 @@ static void test_cp_distinct_subs_not_congruent(void) {
     TEST_ASSERT_TRUE_MESSAGE(vi->partition != vo->partition,
         "Sub(Add(a,b),1) and Sub(x,i) differ in both operands and must "
         "land in different congruence partitions");
+    cp_free(e);
+    bbq_arena_free(&a);
+}
+
+/* SIMD family identity: the `op` payload is part of a Simd node's VALUE
+ * identity (γ bucket_discriminator — same mechanism as GetField's
+ * (class,field)). Two i32x4.adds over the same operands are one value; an
+ * i32x4.sub over the SAME operands is not. And SimdConst is deliberately
+ * NOT congruent (128 payload bits cannot ride an exact 32-bit
+ * discriminator; a hashed bucket would merge two DIFFERENT constants
+ * forever, since a leaf's partition can never be split by refinement) —
+ * so two identical constants stay in separate partitions: the safe
+ * direction, pinned here so nobody "optimizes" it into a miscompile. */
+static void test_cp_simd_op_payload_is_identity(void) {
+    bbq_arena a; bbq_arena_init(&a, 16384);
+    sir_node_t* add1 = sir_simd_bin(&a, WOP_I32X4_ADD,
+        sir_load_local(&a, 0, SIR_DTV128, NULL), sir_load_local(&a, 1, SIR_DTV128, NULL));
+    sir_node_t* add2 = sir_simd_bin(&a, WOP_I32X4_ADD,
+        sir_load_local(&a, 0, SIR_DTV128, NULL), sir_load_local(&a, 1, SIR_DTV128, NULL));
+    sir_node_t* sub  = sir_simd_bin(&a, WOP_I32X4_SUB,
+        sir_load_local(&a, 0, SIR_DTV128, NULL), sir_load_local(&a, 1, SIR_DTV128, NULL));
+    sir_node_t* la0  = sir_simd_extract_i(&a, WOP_I32X4_EXTRACT_LANE, 0,
+        sir_load_local(&a, 0, SIR_DTV128, NULL));
+    sir_node_t* la3  = sir_simd_extract_i(&a, WOP_I32X4_EXTRACT_LANE, 3,
+        sir_load_local(&a, 0, SIR_DTV128, NULL));
+    sir_node_t* k1   = sir_simd_const(&a, 0x1111, 0x2222);
+    sir_node_t* k2   = sir_simd_const(&a, 0x1111, 0x2222);
+    /* straight-line spine: each value stored to its own slot */
+    sir_node_t* s9 = sir_store_local(&a, 9, SIR_DTV128, NULL, k2,   NULL);
+    sir_node_t* s8 = sir_store_local(&a, 8, SIR_DTV128, NULL, k1,   s9);
+    sir_node_t* s7 = sir_store_local(&a, 7, SIR_DTINT,  NULL, la3,  s8);
+    sir_node_t* s6 = sir_store_local(&a, 6, SIR_DTINT,  NULL, la0,  s7);
+    sir_node_t* s5 = sir_store_local(&a, 5, SIR_DTV128, NULL, sub,  s6);
+    sir_node_t* s4 = sir_store_local(&a, 4, SIR_DTV128, NULL, add2, s5);
+    sir_node_t* s3 = sir_store_local(&a, 3, SIR_DTV128, NULL, add1, s4);
+    sir_method_t* m = sir_method(&a, "f", 0, 0, 10, s3);
+
+    cp_engine_t* e = cp_build(m, NULL, &a, NULL, 0);
+    TEST_ASSERT_NOT_NULL(e);
+    cp_vnode_t* v1 = cp_vnode_for(e, add1);
+    cp_vnode_t* v2 = cp_vnode_for(e, add2);
+    cp_vnode_t* vs = cp_vnode_for(e, sub);
+    TEST_ASSERT_NOT_NULL(v1); TEST_ASSERT_NOT_NULL(v2); TEST_ASSERT_NOT_NULL(vs);
+    TEST_ASSERT_TRUE_MESSAGE(v1->partition == v2->partition,
+        "two i32x4.adds over the same operands are ONE value (GVN merges)");
+    TEST_ASSERT_TRUE_MESSAGE(v1->partition != vs->partition,
+        "i32x4.sub over the SAME operands is NOT the add (op payload is identity)");
+    cp_vnode_t* ve0 = cp_vnode_for(e, la0);
+    cp_vnode_t* ve3 = cp_vnode_for(e, la3);
+    TEST_ASSERT_NOT_NULL(ve0); TEST_ASSERT_NOT_NULL(ve3);
+    TEST_ASSERT_TRUE_MESSAGE(ve0->partition != ve3->partition,
+        "extract_lane 0 and 3 of the same vector are DIFFERENT values (lane is identity)");
+    cp_vnode_t* vk1 = cp_vnode_for(e, k1);
+    cp_vnode_t* vk2 = cp_vnode_for(e, k2);
+    TEST_ASSERT_NOT_NULL(vk1); TEST_ASSERT_NOT_NULL(vk2);
+    TEST_ASSERT_TRUE_MESSAGE(vk1->partition != vk2->partition,
+        "identical SimdConsts stay SEPARATE (not congruent by design — the "
+        "128-bit payload cannot ride an exact discriminator, and a leaf "
+        "partition can never be split back)");
     cp_free(e);
     bbq_arena_free(&a);
 }
@@ -3698,12 +3758,39 @@ static void test_cp_pack_renames_arraycopy_operands(void) {
     bbq_arena_free(&a);
 }
 
-static void test_cp_pack_renames_setheader_memstore8_operands(void) {
+/* A v128 slot must land INSIDE the packed frame. The pack pools slots by
+ * lat_dt_valtype — six valtypes since LAT_VT_V128 — so a pool table sized to
+ * five is an OOB write and renames v128 slots past max_locals ("unknown
+ * local" at VM load; found by the Click-ON gate over Mem.copyIn(V128[])). */
+static void test_cp_pack_v128_slot_in_frame(void) {
+    bbq_arena a; bbq_arena_init(&a, 1 << 16);
+    sir_node_t* ld_v    = sir_load_local(&a, 4, SIR_DTV128, NULL);
+    sir_node_t* ld_addr = sir_load_local(&a, 5, SIR_DTINT, NULL);
+    sir_node_t* ret = sir_return_void(&a);
+    sir_node_t* ms  = sir_simd_mem_store(&a, WOP_V128_STORE, 4, ld_addr, ld_v, ret);
+    sir_node_t* st5 = sir_store_local(&a, 5, SIR_DTINT, NULL,
+                                      sir_load_const(&a, 64, SIR_DTINT), ms);
+    sir_node_t* st4 = sir_store_local(&a, 4, SIR_DTV128, NULL,
+                                      sir_simd_splat_i(&a, WOP_I32X4_SPLAT,
+                                          sir_load_const(&a, 7, SIR_DTINT)), st5);
+    sir_method_t* m = sir_method(&a, "f", 0, 0, 6, st4);
+
+    cp_pack(m, NULL, &a, 1);
+
+    TEST_ASSERT_TRUE_MESSAGE(ld_v->load_local.slot < m->max_locals,
+        "v128 operand slot renamed INSIDE the packed frame");
+    TEST_ASSERT_TRUE_MESSAGE(ld_addr->load_local.slot < m->max_locals,
+        "addr operand slot renamed inside the packed frame");
+    bbq_arena_free(&a);
+}
+
+static void test_cp_pack_renames_setheader_memstore_operands(void) {
     bbq_arena a; bbq_arena_init(&a, 1 << 16);
     sir_node_t* ld_obj  = sir_load_local(&a, 4, SIR_DTREF, NULL);
     sir_node_t* ld_addr = sir_load_local(&a, 5, SIR_DTINT, NULL);
     sir_node_t* ret = sir_return_void(&a);
-    sir_node_t* ms  = sir_mem_store8(&a, ld_addr, sir_load_const(&a, 7, SIR_DTINT), ret);
+    sir_node_t* ms  = sir_mem_store_i(&a, WOP_I32_STORE8, 0, ld_addr,
+                                      sir_load_const(&a, 7, SIR_DTINT), ret);
     sir_node_t* sh  = sir_set_header(&a, ld_obj, sir_load_local(&a, 0, SIR_DTREF, NULL), 3, ms);
     sir_node_t* st5 = sir_store_local(&a, 5, SIR_DTINT, NULL,
                                       sir_load_const(&a, 64, SIR_DTINT), sh);
@@ -3716,7 +3803,7 @@ static void test_cp_pack_renames_setheader_memstore8_operands(void) {
     TEST_ASSERT_TRUE_MESSAGE(ld_obj->load_local.slot < m->max_locals,
         "SetHeader obj operand renamed into the packed frame");
     TEST_ASSERT_TRUE_MESSAGE(ld_addr->load_local.slot < m->max_locals,
-        "MemStore8 addr operand renamed into the packed frame");
+        "MemStoreI addr operand renamed into the packed frame");
     bbq_arena_free(&a);
 }
 
@@ -6072,6 +6159,7 @@ void test_click_partition_suite(void) {
     RUN_TEST(test_cp_phi_at_loop_header);
     RUN_TEST(test_cp_loadlocal_copy_through_trivial_phi);
     RUN_TEST(test_cp_distinct_subs_not_congruent);
+    RUN_TEST(test_cp_simd_op_payload_is_identity);
     RUN_TEST(test_cp_branch_arm_load_locals_unify);
     RUN_TEST(test_cp_init_facts_contract);
     RUN_TEST(test_cp_propagate_drain_contract);
@@ -6182,7 +6270,8 @@ void test_click_partition_suite(void) {
     RUN_TEST(test_cp_pack_byte_short_coalesce_as_i32);
     RUN_TEST(test_cp_pack_renames_deep_value_chain);
     RUN_TEST(test_cp_pack_renames_arraycopy_operands);
-    RUN_TEST(test_cp_pack_renames_setheader_memstore8_operands);
+    RUN_TEST(test_cp_pack_v128_slot_in_frame);
+    RUN_TEST(test_cp_pack_renames_setheader_memstore_operands);
     RUN_TEST(test_cp_arraycopy_operand_keeps_store_live);
     RUN_TEST(test_cp_arraycopy_invalidates_array_cell);
     RUN_TEST(test_cp_lockstep_counters_not_congruent);

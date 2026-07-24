@@ -96,8 +96,18 @@
 #define BURG_ExprEffect SIR_EXPREFFECT
 #define BURG_ArrayStore SIR_ARRAYSTORE
 #define BURG_ArrayCopy SIR_ARRAYCOPY
-#define BURG_MemLoad8 SIR_MEMLOAD8
-#define BURG_MemStore8 SIR_MEMSTORE8
+#define BURG_MemLoadI SIR_MEMLOADI
+#define BURG_MemLoadL SIR_MEMLOADL
+#define BURG_MemLoadF SIR_MEMLOADF
+#define BURG_MemLoadD SIR_MEMLOADD
+#define BURG_MemStoreI SIR_MEMSTOREI
+#define BURG_MemStoreL SIR_MEMSTOREL
+#define BURG_MemStoreF SIR_MEMSTOREF
+#define BURG_MemStoreD SIR_MEMSTORED
+#define BURG_MemSize SIR_MEMSIZE
+#define BURG_MemGrow SIR_MEMGROW
+#define BURG_MemFill SIR_MEMFILL
+#define BURG_MemCopy SIR_MEMCOPY
 #define BURG_ClassInstantiable SIR_CLASSINSTANTIABLE
 #define BURG_ClassConstruct SIR_CLASSCONSTRUCT
 #define BURG_PutField SIR_PUTFIELD
@@ -112,6 +122,29 @@
 #define BURG_TryRegion SIR_TRYREGION
 #define BURG_Inc SIR_INC
 #define BURG_Nop SIR_NOP
+#define BURG_SimdBin SIR_SIMDBIN
+#define BURG_SimdUn SIR_SIMDUN
+#define BURG_SimdShift SIR_SIMDSHIFT
+#define BURG_SimdTern SIR_SIMDTERN
+#define BURG_SimdTestI SIR_SIMDTESTI
+#define BURG_SimdSplatI SIR_SIMDSPLATI
+#define BURG_SimdSplatL SIR_SIMDSPLATL
+#define BURG_SimdSplatF SIR_SIMDSPLATF
+#define BURG_SimdSplatD SIR_SIMDSPLATD
+#define BURG_SimdExtractI SIR_SIMDEXTRACTI
+#define BURG_SimdExtractL SIR_SIMDEXTRACTL
+#define BURG_SimdExtractF SIR_SIMDEXTRACTF
+#define BURG_SimdExtractD SIR_SIMDEXTRACTD
+#define BURG_SimdReplaceI SIR_SIMDREPLACEI
+#define BURG_SimdReplaceL SIR_SIMDREPLACEL
+#define BURG_SimdReplaceF SIR_SIMDREPLACEF
+#define BURG_SimdReplaceD SIR_SIMDREPLACED
+#define BURG_SimdConst SIR_SIMDCONST
+#define BURG_SimdShuffle SIR_SIMDSHUFFLE
+#define BURG_SimdMemLoad SIR_SIMDMEMLOAD
+#define BURG_SimdMemLoadLane SIR_SIMDMEMLOADLANE
+#define BURG_SimdMemStore SIR_SIMDMEMSTORE
+#define BURG_SimdMemStoreLane SIR_SIMDMEMSTORELANE
 
 /* ── Nonterminal indices ── */
 
@@ -121,8 +154,9 @@
 #define f32_NT 4
 #define f64_NT 5
 #define ref_NT 6
-#define tail_NT 7
-#define BURG_MAX_NT 7
+#define v128_NT 7
+#define tail_NT 8
+#define BURG_MAX_NT 8
 #define BURG_MAX_COST SHRT_MAX
 
 // ── User headers ──
@@ -282,8 +316,8 @@ typedef struct burg_state_t {
     int op;
     struct burg_state_t** children;
     int child_count;
-    short cost[8];
-    short rule[8];
+    short cost[9];
+    short rule[9];
 } burg_state_t;
 
 

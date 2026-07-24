@@ -8,6 +8,7 @@
 #include "javelina/compiler/compiler.h"
 #include "javelina/compiler/wasm_types.h"
 #include "javelina/compiler/wasm_module.h"
+#include "wasm.h"   /* the c-api — the §7.6 validity pin runs the REAL validator */
 #include "bbq_arena.h"
 #include "bbq_vec.h"
 #include <stdio.h>
@@ -17,51 +18,15 @@
 
 #include "javelina_test.h"
 
-static char* read_file(const char* path) {
-    FILE* f = fopen(path, "rb"); if (!f) return NULL;
-    fseek(f, 0, SEEK_END); long n = ftell(f); fseek(f, 0, SEEK_SET);
-    char* b = (char*)malloc((size_t)n + 1);
-    if (fread(b, 1, (size_t)n, f) != (size_t)n) { fclose(f); free(b); return NULL; }
-    b[n] = 0; fclose(f); return b;
-}
-static ast_program_t* parse_src(const char* src) {
-    java_parse_ctx_t* pc = (java_parse_ctx_t*)malloc(sizeof(*pc));
-    bbq_arena_init(&pc->arena, 1 << 16); pc->result = NULL; pc->file = NULL;
-    peg_state p; java_parser_init(&p, src, (int)strlen(src)); p.user_data = pc;
-    return java_parser_parse(&p) ? pc->result : NULL;
-}
-static ast_program_t* build_program(const char* user_src, bbq_arena* arena, int* nlib_out) {
-    ast_type_decl_t** t = NULL; int tc = 0, cap = 0;
-    #define PUSH(td) do { if(tc==cap){cap=cap?cap*2:64;t=realloc(t,(size_t)cap*sizeof(*t));} t[tc++]=(td);}while(0)
-    /* java.lang.System depends on java.io (System.out/err/in), which depends on java.util — load all. */
-    const char* dirs[] = { "lib/java/lang", "lib/java/util", "lib/java/io" };
-    for (int di = 0; di < 3; di++) {
-        DIR* d = opendir(dirs[di]);
-        if (d) { struct dirent* e;
-            while ((e = readdir(d))) { size_t L=strlen(e->d_name);
-                if (L<6 || strcmp(e->d_name+L-5,".java")) continue;
-                char path[512]; snprintf(path,sizeof path,"%s/%s",dirs[di],e->d_name);
-                char* s = read_file(path); if(!s) continue;
-                ast_program_t* p = parse_src(s); if(!p) continue;
-                for (int i=0;i<p->types_count;i++) PUSH(p->types[i]);
-            } closedir(d);
-        }
-    }
-    if (nlib_out) *nlib_out = tc;          /* library class count (lowest class_ids) */
-    ast_program_t* up = parse_src(user_src);
-    if (up) for (int i=0;i<up->types_count;i++) PUSH(up->types[i]);
-    ast_type_decl_t** arr = bbq_arena_alloc(arena,(size_t)tc*sizeof(*arr));
-    memcpy(arr,t,(size_t)tc*sizeof(*arr)); free(t);
-    return ast_program(arena, NULL, NULL, 0, arr, tc);
-    #undef PUSH
-}
+/* §7.3 per-unit parse (see jtest_units.h) — the flat program still feeds
+ * compiler_compile; sema gets the unit list via jtest_analyze. */
+#include "jtest_units.h"
 
 /* Compile + assemble `src` into `out`; returns the assembler's ok flag. */
 static bool assemble(bbq_arena* a, const char* src, emit_wasm_ctx* out) {
-    int nlib = 0;
-    ast_program_t* prog = build_program(src, a, &nlib);
+    ast_program_t* prog = jtest_build_flat(jtest_with_imports(JTEST_STD_IMPORTS, src), a);
     sema_ctx_t* sctx = (sema_ctx_t*)malloc(sizeof *sctx);
-    sema_init(sctx, a); sctx->num_library_classes = nlib; sema_analyze(sctx, prog);
+    sema_init(sctx, a); sctx->num_library_classes = jtest_last_nlib; jtest_analyze(sctx);
     compiler_ctx_t* cctx = (compiler_ctx_t*)malloc(sizeof *cctx);
     compiler_init(cctx, a, sctx);
     int mc = 0; sir_method_t** methods = compiler_compile(cctx, prog, &mc);
@@ -121,6 +86,44 @@ int main(void) {
       CHECK(ok && contains(mod.code, (int)bbq_vec_len(mod.code), run, 3),
             "locals: code section carries the i32 locals run");
       bbq_vec_free(mod.code); bbq_arena_free(&a); }
+
+    /* ── §7.6 VALIDITY of the emitted module — the compiler-owned pin. The
+     * assembler's own audit is §5.5.1 wellformedness only; nothing at the
+     * compiler level asserted "the bytes type-check" until a v128 module
+     * shipped a §3.4.7 struct.set mismatch that only the VM (rightly)
+     * rejected. Runs the REAL validation stack via the c-api. The control
+     * case guards the harness; the v128 cases are the pin. */
+    {
+        struct { const char* src; const char* label; } vc[] = {
+          { "class T { static int f(){ return 42; } }",
+            "§7.6: a plain module validates (harness control)" },
+          { "class T { static int f(){"
+            "  V128 v = I32x4.splat(7); return I32x4.extract_lane(v, 2); } }",
+            "§7.6: a v128 locals/intrinsics module validates" },
+          { "class T { static int f(){"
+            "  V128[] a = new V128[3]; a[1] = I32x4.splat(7);"
+            "  return I32x4.extract_lane(a[1], 0); } }",
+            "§7.6: a V128[] (overlay + (array v128) backing) module validates" },
+        };
+        for (size_t i = 0; i < sizeof vc / sizeof vc[0]; i++) {
+            bbq_arena a; bbq_arena_init(&a, 1 << 18);
+            emit_wasm_ctx mod = {0};
+            bool ok = assemble(&a, vc[i].src, &mod);
+            bool valid = false;
+            if (ok) {
+                wasm_engine_t* eng = wasm_engine_new();
+                wasm_store_t* st = wasm_store_new(eng);
+                wasm_byte_vec_t bin;
+                wasm_byte_vec_new_uninitialized(&bin, bbq_vec_len(mod.code));
+                memcpy(bin.data, mod.code, bbq_vec_len(mod.code));
+                valid = wasm_module_validate(st, &bin);
+                wasm_byte_vec_delete(&bin);
+                wasm_store_delete(st); wasm_engine_delete(eng);
+            }
+            CHECK(ok && valid, vc[i].label);
+            bbq_vec_free(mod.code); bbq_arena_free(&a);
+        }
+    }
 
     return TEST_SUMMARY("test_wasm_module");
 }

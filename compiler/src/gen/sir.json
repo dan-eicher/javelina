@@ -48,6 +48,10 @@
         {
           "fields": [],
           "name": "DtDouble"
+        },
+        {
+          "fields": [],
+          "name": "DtV128"
         }
       ]
     },
@@ -96,6 +100,10 @@
         {
           "fields": [],
           "name": "AtDouble"
+        },
+        {
+          "fields": [],
+          "name": "AtV128"
         }
       ]
     },
@@ -1150,18 +1158,6 @@
             {
               "flag": "none",
               "is_schema": true,
-              "name": "addr",
-              "type": "node"
-            }
-          ],
-          "name": "MemLoad8"
-        },
-        {
-          "base": "Node",
-          "fields": [
-            {
-              "flag": "none",
-              "is_schema": true,
               "name": "arr",
               "type": "node"
             }
@@ -1623,6 +1619,18 @@
           "fields": [
             {
               "flag": "none",
+              "is_schema": false,
+              "name": "op",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "align",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
               "is_schema": true,
               "name": "addr",
               "type": "node"
@@ -1640,7 +1648,253 @@
               "type": "node"
             }
           ],
-          "name": "MemStore8"
+          "name": "SimdMemStore"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "op",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "align",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "lane",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "addr",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "vec",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "next",
+              "type": "node"
+            }
+          ],
+          "name": "SimdMemStoreLane"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "op",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "align",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "addr",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "value",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "next",
+              "type": "node"
+            }
+          ],
+          "name": "MemStoreI"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "op",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "align",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "addr",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "value",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "next",
+              "type": "node"
+            }
+          ],
+          "name": "MemStoreL"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "op",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "align",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "addr",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "value",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "next",
+              "type": "node"
+            }
+          ],
+          "name": "MemStoreF"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "op",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "align",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "addr",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "value",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "next",
+              "type": "node"
+            }
+          ],
+          "name": "MemStoreD"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "dst",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "value",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "len",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "next",
+              "type": "node"
+            }
+          ],
+          "name": "MemFill"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "dst",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "src",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "len",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "next",
+              "type": "node"
+            }
+          ],
+          "name": "MemCopy"
         },
         {
           "base": "Node",
@@ -1874,6 +2128,629 @@
             }
           ],
           "name": "PrimArray"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "op",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "left",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "right",
+              "type": "node"
+            }
+          ],
+          "name": "SimdBin"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "op",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "operand",
+              "type": "node"
+            }
+          ],
+          "name": "SimdUn"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "op",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "vec",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "count",
+              "type": "node"
+            }
+          ],
+          "name": "SimdShift"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "op",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "b",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "c",
+              "type": "node"
+            }
+          ],
+          "name": "SimdTern"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "op",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "operand",
+              "type": "node"
+            }
+          ],
+          "name": "SimdTestI"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "op",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "operand",
+              "type": "node"
+            }
+          ],
+          "name": "SimdSplatI"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "op",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "operand",
+              "type": "node"
+            }
+          ],
+          "name": "SimdSplatL"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "op",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "operand",
+              "type": "node"
+            }
+          ],
+          "name": "SimdSplatF"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "op",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "operand",
+              "type": "node"
+            }
+          ],
+          "name": "SimdSplatD"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "op",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "lane",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "vec",
+              "type": "node"
+            }
+          ],
+          "name": "SimdExtractI"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "op",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "lane",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "vec",
+              "type": "node"
+            }
+          ],
+          "name": "SimdExtractL"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "op",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "lane",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "vec",
+              "type": "node"
+            }
+          ],
+          "name": "SimdExtractF"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "op",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "lane",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "vec",
+              "type": "node"
+            }
+          ],
+          "name": "SimdExtractD"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "op",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "lane",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "vec",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "val",
+              "type": "node"
+            }
+          ],
+          "name": "SimdReplaceI"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "op",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "lane",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "vec",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "val",
+              "type": "node"
+            }
+          ],
+          "name": "SimdReplaceL"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "op",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "lane",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "vec",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "val",
+              "type": "node"
+            }
+          ],
+          "name": "SimdReplaceF"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "op",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "lane",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "vec",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "val",
+              "type": "node"
+            }
+          ],
+          "name": "SimdReplaceD"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "lo",
+              "type": "int64"
+            },
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "hi",
+              "type": "int64"
+            }
+          ],
+          "name": "SimdConst"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "lo",
+              "type": "int64"
+            },
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "hi",
+              "type": "int64"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "left",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "right",
+              "type": "node"
+            }
+          ],
+          "name": "SimdShuffle"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "op",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "align",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "addr",
+              "type": "node"
+            }
+          ],
+          "name": "SimdMemLoad"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "op",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "align",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "lane",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "addr",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "vec",
+              "type": "node"
+            }
+          ],
+          "name": "SimdMemLoadLane"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "op",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "align",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "addr",
+              "type": "node"
+            }
+          ],
+          "name": "MemLoadI"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "op",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "align",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "addr",
+              "type": "node"
+            }
+          ],
+          "name": "MemLoadL"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "op",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "align",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "addr",
+              "type": "node"
+            }
+          ],
+          "name": "MemLoadF"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "op",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "align",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "addr",
+              "type": "node"
+            }
+          ],
+          "name": "MemLoadD"
+        },
+        {
+          "base": "Node",
+          "fields": [],
+          "name": "MemSize"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "pages",
+              "type": "node"
+            }
+          ],
+          "name": "MemGrow"
         }
       ]
     }

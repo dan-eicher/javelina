@@ -1,5 +1,7 @@
 package java.io;
 
+import javelina.simd.Mem;
+
 // java.io.File (JLS 1.0 §22.4) — an abstract, system-independent pathname, plus the operations that
 // query or mutate the underlying host file. Path bytes are staged into the I/O linear memory (Mem) and
 // the embedder's stat/action host ops (HostIO) operate on the real file (the host touches only linear
@@ -52,7 +54,7 @@ public class File {
     // (ASCII paths — the floor convention shared with open/FileInputStream).
     private int stagePath() {
         int n = path.length();
-        for (int i = 0; i < n; i++) Mem.store8(i, path.charAt(i));
+        for (int i = 0; i < n; i++) Mem.i32_store8(i, path.charAt(i));
         return n;
     }
 
@@ -80,7 +82,7 @@ public class File {
     public boolean renameTo(File dest) {
         int fn = stagePath();                              // from-path at [0, fn)
         int dn = dest.path.length();
-        for (int i = 0; i < dn; i++) Mem.store8(fn + i, dest.path.charAt(i));   // to-path at [fn, fn+dn)
+        for (int i = 0; i < dn; i++) Mem.i32_store8(fn + i, dest.path.charAt(i));   // to-path at [fn, fn+dn)
         return HostIO.rename(0, fn, fn, dn) == 0;
     }
 
@@ -90,12 +92,12 @@ public class File {
         int total = HostIO.list(0, n, n);   // entries written starting at offset n
         if (total < 0) return null;         // not a directory
         int count = 0;
-        for (int i = 0; i < total; i++) if (Mem.load8(n + i) == 0) count++;
+        for (int i = 0; i < total; i++) if (Mem.i32_load8_u(n + i) == 0) count++;
         String[] names = new String[count];
         int idx = 0;
         StringBuffer sb = new StringBuffer();
         for (int i = 0; i < total; i++) {
-            int b = Mem.load8(n + i);
+            int b = Mem.i32_load8_u(n + i);
             if (b == 0) { names[idx++] = sb.toString(); sb = new StringBuffer(); }
             else sb.append((char) b);
         }

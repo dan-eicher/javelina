@@ -162,6 +162,121 @@ int main(void) {
      *    this typeless TILE harness. (LoadThis now ref.casts `this` to its class —
      *    a typed op, so it can no longer be tiled without ctx->types.) ────────── */
 
+    /* ── WASM v128 SIMD families — the node's `op` payload must reach the bytes
+     *    (two DIFFERENT ops per family where the family has them; two lanes for
+     *    the lane-immediate families; two constants for SimdConst). Sub-opcodes
+     *    ≥ 0x80 are ULEB two-byte (0xAE → AE 01); relaxed rows are ≥ 0x100. ── */
+    #define V0 sir_load_local(a, 0, SIR_DTV128, NULL)
+    #define V1 sir_load_local(a, 1, SIR_DTV128, NULL)
+    #define V2c sir_load_local(a, 2, SIR_DTV128, NULL)
+    #define RV(t) sir_return(a, (t), SIR_DTV128)
+    TILE(RV(sir_simd_bin(a, WOP_I32X4_ADD, V0, V1)), "i32x4.add",
+         0x20,0, 0x20,1, 0xFD,0xAE,0x01, 0x0F);
+    TILE(RV(sir_simd_bin(a, WOP_I32X4_SUB, V0, V1)), "i32x4.sub (payload reaches bytes)",
+         0x20,0, 0x20,1, 0xFD,0xB1,0x01, 0x0F);
+    TILE(RV(sir_simd_un(a, WOP_I32X4_NEG, V0)), "i32x4.neg",
+         0x20,0, 0xFD,0xA1,0x01, 0x0F);
+    TILE(RV(sir_simd_un(a, WOP_I32X4_ABS, V0)), "i32x4.abs",
+         0x20,0, 0xFD,0xA0,0x01, 0x0F);
+    TILE(RV(sir_simd_shift(a, WOP_I32X4_SHL, V0, I0)), "i32x4.shl",
+         0x20,0, 0x20,0, 0xFD,0xAB,0x01, 0x0F);
+    TILE(RV(sir_simd_shift(a, WOP_I32X4_SHR_S, V0, I0)), "i32x4.shr_s",
+         0x20,0, 0x20,0, 0xFD,0xAC,0x01, 0x0F);
+    TILE(RV(sir_simd_tern(a, WOP_V128_BITSELECT, V0, V1, V2c)), "v128.bitselect",
+         0x20,0, 0x20,1, 0x20,2, 0xFD,0x52, 0x0F);
+    TILE(RV(sir_simd_tern(a, WOP_F32X4_RELAXED_MADD, V0, V1, V2c)), "f32x4.relaxed_madd (2-byte uleb)",
+         0x20,0, 0x20,1, 0x20,2, 0xFD,0x85,0x02, 0x0F);
+    TILE(RI(sir_simd_test_i(a, WOP_V128_ANY_TRUE, V0)), "v128.any_true",
+         0x20,0, 0xFD,0x53, 0x0F);
+    TILE(RI(sir_simd_test_i(a, WOP_I32X4_ALL_TRUE, V0)), "i32x4.all_true",
+         0x20,0, 0xFD,0xA3,0x01, 0x0F);
+    TILE(RV(sir_simd_splat_i(a, WOP_I32X4_SPLAT, I0)), "i32x4.splat",
+         0x20,0, 0xFD,0x11, 0x0F);
+    TILE(RV(sir_simd_splat_l(a, WOP_I64X2_SPLAT, L0)), "i64x2.splat",
+         0x20,0, 0xFD,0x12, 0x0F);
+    TILE(RV(sir_simd_splat_f(a, WOP_F32X4_SPLAT, F0)), "f32x4.splat",
+         0x20,0, 0xFD,0x13, 0x0F);
+    TILE(RV(sir_simd_splat_d(a, WOP_F64X2_SPLAT, D0)), "f64x2.splat",
+         0x20,0, 0xFD,0x14, 0x0F);
+    TILE(RI(sir_simd_extract_i(a, WOP_I32X4_EXTRACT_LANE, 0, V0)), "i32x4.extract_lane 0",
+         0x20,0, 0xFD,0x1B, 0x00, 0x0F);
+    TILE(RI(sir_simd_extract_i(a, WOP_I32X4_EXTRACT_LANE, 3, V0)), "i32x4.extract_lane 3 (lane reaches bytes)",
+         0x20,0, 0xFD,0x1B, 0x03, 0x0F);
+    TILE(RL(sir_simd_extract_l(a, WOP_I64X2_EXTRACT_LANE, 1, V0)), "i64x2.extract_lane 1",
+         0x20,0, 0xFD,0x1D, 0x01, 0x0F);
+    TILE(RF(sir_simd_extract_f(a, WOP_F32X4_EXTRACT_LANE, 2, V0)), "f32x4.extract_lane 2",
+         0x20,0, 0xFD,0x1F, 0x02, 0x0F);
+    TILE(RD(sir_simd_extract_d(a, WOP_F64X2_EXTRACT_LANE, 1, V0)), "f64x2.extract_lane 1",
+         0x20,0, 0xFD,0x21, 0x01, 0x0F);
+    TILE(RV(sir_simd_replace_i(a, WOP_I32X4_REPLACE_LANE, 2, V0, I0)), "i32x4.replace_lane 2",
+         0x20,0, 0x20,0, 0xFD,0x1C, 0x02, 0x0F);
+    TILE(RV(sir_simd_replace_l(a, WOP_I64X2_REPLACE_LANE, 0, V0, L1)), "i64x2.replace_lane 0",
+         0x20,0, 0x20,1, 0xFD,0x1E, 0x00, 0x0F);
+    TILE(RV(sir_simd_replace_f(a, WOP_F32X4_REPLACE_LANE, 3, V0, F1)), "f32x4.replace_lane 3",
+         0x20,0, 0x20,1, 0xFD,0x20, 0x03, 0x0F);
+    TILE(RV(sir_simd_replace_d(a, WOP_F64X2_REPLACE_LANE, 1, V0, D1)), "f64x2.replace_lane 1",
+         0x20,0, 0x20,1, 0xFD,0x22, 0x01, 0x0F);
+    TILE(RV(sir_simd_const(a, 0x0807060504030201LL, 0x100F0E0D0C0B0A09LL)), "v128.const bytes 1..16 LE",
+         0xFD,0x0C, 0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,
+                    0x09,0x0A,0x0B,0x0C,0x0D,0x0E,0x0F,0x10, 0x0F);
+    TILE(RV(sir_simd_const(a, 0, 0)), "v128.const zero (different payload)",
+         0xFD,0x0C, 0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0, 0x0F);
+    TILE(RV(sir_simd_shuffle(a, 0x0706050403020100LL, 0x0F0E0D0C0B0A0908LL, V0, V1)),
+         "i8x16.shuffle identity mask",
+         0x20,0, 0x20,1, 0xFD,0x0D, 0x00,0x01,0x02,0x03,0x04,0x05,0x06,0x07,
+                                    0x08,0x09,0x0A,0x0B,0x0C,0x0D,0x0E,0x0F, 0x0F);
+    TILE(sir_store_local(a, 3, SIR_DTV128, NULL,
+                         sir_simd_bin(a, WOP_I32X4_ADD, V0, V1), NULL),
+         "v128 StoreLocal", 0x20,0, 0x20,1, 0xFD,0xAE,0x01, 0x21,3);
+    /* A dead v128 VALUE kept for its effect (Click wraps it): value + drop.
+     * The tile family is one-per-valtype — v128 was the missing sixth. */
+    TILE(sir_expr_effect(a, sir_simd_bin(a, WOP_I32X4_ADD, V0, V1), 0, NULL),
+         "v128 ExprEffect drops", 0x20,0, 0x20,1, 0xFD,0xAE,0x01, 0x1A);
+
+    /* ── v128 linear-memory ops — memarg = (align, offset 0); the align byte
+     * is the SIR payload (carried from the toml column), so each pin reads it
+     * in the bytes. memlane adds the lane byte AFTER the memarg. ─────────── */
+    TILE(RV(sir_simd_mem_load(a, WOP_V128_LOAD, 4, I0)), "v128.load align=4",
+         0x20,0, 0xFD,0x00, 0x04,0x00, 0x0F);
+    TILE(RV(sir_simd_mem_load(a, WOP_V128_LOAD8X8_S, 3, I0)), "v128.load8x8_s align=3",
+         0x20,0, 0xFD,0x01, 0x03,0x00, 0x0F);
+    TILE(RV(sir_simd_mem_load(a, WOP_V128_LOAD32_ZERO, 2, I0)), "v128.load32_zero align=2",
+         0x20,0, 0xFD,0x5C, 0x02,0x00, 0x0F);
+    TILE(RV(sir_simd_mem_load_lane(a, WOP_V128_LOAD8_LANE, 0, 5, I0, V1)),
+         "v128.load8_lane align=0 lane=5 (lane reaches bytes)",
+         0x20,0, 0x20,1, 0xFD,0x54, 0x00,0x00, 0x05, 0x0F);
+    TILE(sir_simd_mem_store(a, WOP_V128_STORE, 4, I0, V1, NULL), "v128.store align=4",
+         0x20,0, 0x20,1, 0xFD,0x0B, 0x04,0x00);
+    TILE(sir_simd_mem_store_lane(a, WOP_V128_STORE16_LANE, 1, 7, I0, V1, NULL),
+         "v128.store16_lane align=1 lane=7",
+         0x20,0, 0x20,1, 0xFD,0x59, 0x01,0x00, 0x07);
+
+    /* ── scalar linear-memory tiles + the memory admin ops ─────────────── */
+    TILE(RI(sir_mem_load_i(a, WOP_I32_LOAD, 2, I0)), "i32.load align=2",
+         0x20,0, 0x28, 0x02,0x00, 0x0F);
+    TILE(RL(sir_mem_load_l(a, WOP_I64_LOAD32_S, 2, I0)), "i64.load32_s align=2 (op reaches bytes)",
+         0x20,0, 0x34, 0x02,0x00, 0x0F);
+    TILE(RD(sir_mem_load_d(a, WOP_F64_LOAD, 3, I0)), "f64.load align=3",
+         0x20,0, 0x2B, 0x03,0x00, 0x0F);
+    TILE(sir_mem_store_i(a, WOP_I32_STORE8, 0, I0, I1, NULL), "i32.store8 align=0",
+         0x20,0, 0x20,1, 0x3A, 0x00,0x00);
+    TILE(sir_mem_store_l(a, WOP_I64_STORE, 3, I0, L1, NULL), "i64.store align=3",
+         0x20,0, 0x20,1, 0x37, 0x03,0x00);
+    TILE(RI(sir_mem_size(a)), "memory.size",
+         0x3F, 0x00, 0x0F);
+    TILE(RI(sir_mem_grow(a, I0)), "memory.grow",
+         0x20,0, 0x40, 0x00, 0x0F);
+    TILE(sir_mem_fill(a, I0, I1, sir_load_local(a, 2, SIR_DTINT, NULL), NULL),
+         "memory.fill (one memidx)",
+         0x20,0, 0x20,1, 0x20,2, 0xFC,0x0B, 0x00);
+    TILE(sir_mem_copy(a, I0, I1, sir_load_local(a, 2, SIR_DTINT, NULL), NULL),
+         "memory.copy (two memidx)",
+         0x20,0, 0x20,1, 0x20,2, 0xFC,0x0A, 0x00,0x00);
+    #undef V0
+    #undef V1
+    #undef V2c
+    #undef RV
+
     bbq_arena_free(&arena);
     return TEST_SUMMARY("test_codegen_wasm");
 }

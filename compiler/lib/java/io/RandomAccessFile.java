@@ -1,5 +1,7 @@
 package java.io;
 
+import javelina.simd.Mem;
+
 // java.io.RandomAccessFile (JLS 1.0 §22.4) — random-access reads/writes to a host file via the
 // embedder's fd surface + the byte[]↔linear-memory bounce (Mem). Implements DataInput/DataOutput
 // with the same portable big-endian composition as Data{Input,Output}Stream, over its own read()/
@@ -12,7 +14,7 @@ public class RandomAccessFile implements DataInput, DataOutput {
         boolean rw = mode.equals("rw");
         if (!rw && !mode.equals("r")) throw new IllegalArgumentException("mode must be \"r\" or \"rw\"");
         int len = name.length();
-        for (int i = 0; i < len; i++) Mem.store8(i, name.charAt(i));
+        for (int i = 0; i < len; i++) Mem.i32_store8(i, name.charAt(i));
         int h = HostIO.open(0, len, rw ? 2 : 0);   // 2 = read+write (create, no truncate); 0 = read
         if (h < 0) throw new FileNotFoundException(name);
         fd = new FileDescriptor(h);
@@ -48,7 +50,7 @@ public class RandomAccessFile implements DataInput, DataOutput {
         int n = HostIO.fd_read(fd.fd, 0, 1);
         if (n <= 0) return -1;
         filePointer = filePointer + 1;
-        return Mem.load8(0);
+        return Mem.i32_load8_u(0);
     }
     public int read(byte[] b, int off, int len) throws IOException {
         if (b == null) throw new NullPointerException();
@@ -57,14 +59,14 @@ public class RandomAccessFile implements DataInput, DataOutput {
         int chunk = len > 65536 ? 65536 : len;
         int n = HostIO.fd_read(fd.fd, 0, chunk);
         if (n <= 0) return -1;
-        for (int j = 0; j < n; j++) b[off + j] = (byte) Mem.load8(j);
+        Mem.copyOut(0, b, off, n);
         filePointer = filePointer + n;
         return n;
     }
     public int read(byte[] b) throws IOException { return read(b, 0, b.length); }
 
     public void write(int b) throws IOException {
-        Mem.store8(0, b);
+        Mem.i32_store8(0, b);
         HostIO.fd_write(fd.fd, 0, 1);
         filePointer = filePointer + 1;
     }
@@ -74,7 +76,7 @@ public class RandomAccessFile implements DataInput, DataOutput {
         int i = 0;
         while (i < len) {
             int chunk = (len - i) > 65536 ? 65536 : (len - i);
-            for (int j = 0; j < chunk; j++) Mem.store8(j, b[off + i + j]);
+            Mem.copyIn(b, off + i, chunk, 0);
             HostIO.fd_write(fd.fd, 0, chunk);
             i = i + chunk;
         }

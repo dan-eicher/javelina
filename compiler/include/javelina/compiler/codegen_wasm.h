@@ -16,6 +16,7 @@ static inline uint8_t wasm_valtype(sir_datatype_t dt) {
         case SIR_DTLONG:   return W_VT_I64;
         case SIR_DTFLOAT:  return W_VT_F32;
         case SIR_DTDOUBLE: return W_VT_F64;
+        case SIR_DTV128:   return W_VT_V128;
         case SIR_DTREF:    return 0x6D;   /* eqref (§5.3.4) — placeholder pending GC types */
         default:           return W_VT_I32;  /* byte / short / char / int */
     }

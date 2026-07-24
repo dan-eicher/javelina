@@ -1,5 +1,7 @@
 package java.io;
 
+import javelina.simd.Mem;
+
 // javelina-internal: the program-entry argument bridge. The runner writes the command-line
 // arguments as NUL-separated UTF-8 into the shared I/O staging memory and calls the compiler-
 // synthesized `$main(argc, base)`, which delegates here to build the String[] the program's
@@ -16,23 +18,23 @@ public final class Startup {
         int p = base;
         for (int i = 0; i < argc; i++) {
             int start = p;
-            while (Mem.load8(p) != 0) p++;          // find this argument's terminating NUL
+            while (Mem.i32_load8_u(p) != 0) p++;          // find this argument's terminating NUL
             int nbytes = p - start;
             p++;                                     // step past the NUL to the next argument
             char[] cs = new char[nbytes];            // char count <= byte count (UTF-8), safe upper bound
             int n = 0, q = start, end = start + nbytes;
             while (q < end) {
-                int b = Mem.load8(q++);
+                int b = Mem.i32_load8_u(q++);
                 int c;
                 if (b < 0x80) {                                              // 1-byte (ASCII)
                     c = b;
                 } else if ((b & 0xE0) == 0xC0 && q < end) {                  // 2-byte
-                    c = ((b & 0x1F) << 6) | (Mem.load8(q++) & 0x3F);
+                    c = ((b & 0x1F) << 6) | (Mem.i32_load8_u(q++) & 0x3F);
                 } else if ((b & 0xF0) == 0xE0 && q + 1 < end) {             // 3-byte
-                    c = ((b & 0x0F) << 12) | ((Mem.load8(q++) & 0x3F) << 6) | (Mem.load8(q++) & 0x3F);
+                    c = ((b & 0x0F) << 12) | ((Mem.i32_load8_u(q++) & 0x3F) << 6) | (Mem.i32_load8_u(q++) & 0x3F);
                 } else if ((b & 0xF8) == 0xF0 && q + 2 < end) {             // 4-byte (supplementary)
-                    c = ((b & 0x07) << 18) | ((Mem.load8(q++) & 0x3F) << 12)
-                      | ((Mem.load8(q++) & 0x3F) << 6) | (Mem.load8(q++) & 0x3F);
+                    c = ((b & 0x07) << 18) | ((Mem.i32_load8_u(q++) & 0x3F) << 12)
+                      | ((Mem.i32_load8_u(q++) & 0x3F) << 6) | (Mem.i32_load8_u(q++) & 0x3F);
                 } else {
                     c = b & 0xFF;                                            // lone/invalid byte: pass through
                 }

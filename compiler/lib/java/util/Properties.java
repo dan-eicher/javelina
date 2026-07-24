@@ -1,5 +1,11 @@
 package java.util;
 
+import java.io.BufferedInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.PrintStream;
+
 // java.util.Properties (JLS 1.0 §21.6) — a Hashtable of String→String with a `.properties`
 // text format (load/save) and an optional chain of `defaults`.
 public class Properties extends Hashtable {
