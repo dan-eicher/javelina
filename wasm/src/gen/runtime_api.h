@@ -52,8 +52,9 @@ typedef enum { JAV_OK = 0, JAV_TRAP = 1, JAV_RETURN = 2, JAV_MALFORMED = 3, JAV_
 #define JV_NPUSH_ADDR(f, val, is64) do { if (is64) { (f)->stack[(f)->sp].l = (s8)(val); (f)->stack_types[(f)->sp] = T_LONG; } else { (f)->stack[(f)->sp].i = (s4)(val); (f)->stack_types[(f)->sp] = T_INT; } (f)->sp++; } while (0)
 #define JV_NPUSH(f, slotval, tag) do { (f)->stack[(f)->sp] = (slotval); (f)->stack_types[(f)->sp] = (tag); (f)->sp++; } while (0)
 #define JV_NPOP(f, sv, tv) slot_t sv; u1 tv; do { (f)->sp--; sv = (f)->stack[(f)->sp]; tv = (f)->stack_types[(f)->sp]; } while (0)
+#define JV_NMOVE(f, dst, src) do { (f)->stack[dst] = (f)->stack[src]; (f)->stack_types[dst] = (f)->stack_types[src]; } while (0)
 
-/* Structured control: the backend says where the cursors are, opgen does the walk. */
+/* Structured control: the backend says where the cursors are. */
 #ifndef OPGEN_ST_TABLE
 #define OPGEN_ST_TABLE(f)  ((f)->sidetable)
 #endif
@@ -66,10 +67,8 @@ typedef enum { JAV_OK = 0, JAV_TRAP = 1, JAV_RETURN = 2, JAV_MALFORMED = 3, JAV_
 static inline void opgen_do_transfer(frame_t* f) {
     const opgen_st_entry_t* e = &OPGEN_ST_TABLE(f)[OPGEN_ST_PTR(f)];
     if (e->pop) {
-        for (u2 i = 0; i < e->vals; i++) {
-            f->stack[f->sp - e->vals - e->pop + i]       = f->stack[f->sp - e->vals + i];
-            f->stack_types[f->sp - e->vals - e->pop + i] = f->stack_types[f->sp - e->vals + i];
-        }
+        for (u2 i = 0; i < e->vals; i++)
+            JV_NMOVE(f, (f)->sp - e->vals - e->pop + i, (f)->sp - e->vals + i);
         f->sp -= e->pop;
     }
     OPGEN_IP(f)      = (size_t)((long)OPGEN_IP(f) + e->delta_ip);

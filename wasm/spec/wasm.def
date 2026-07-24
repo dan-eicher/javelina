@@ -16,6 +16,17 @@ backend "jav_frame.h"
 # continuation (never abort); RETURN ends the function with the stack results.
 status jav_status_t JAV_OK JAV_TRAP JAV_RETURN [JAV_MALFORMED, JAV_INVALID, JAV_UNLINKABLE, JAV_UNINSTANTIABLE]
 
+# ── Structured control (§3.2 blocks, §4.4.8 branches) ──────────
+# WebAssembly branches to a LABEL, not to a byte offset, so this op set needs
+# the Titzer side table: one entry per branch, saying how many operands the
+# label keeps and how many to drop beneath them. This directive hands that
+# format to opgen, which owns both halves — `opgen_st_entry_t` (the entry the
+# validator fills) and `opgen_do_transfer` (the walk the branch handlers run) —
+# so the two can never disagree. The substrate supplies only WHERE the three
+# cursors live, via the OPGEN_ST_TABLE/OPGEN_ST_PTR/OPGEN_IP defaults that
+# jav_frame.h's frame_t already matches.
+sidetable
+
 # ── Value model (§5.3) ─────────────────────────────────────────
 # A UNIFORM 16-byte slot: every value type is exactly ONE slot (unlike the JVM's
 # 1-slot/2-slot split). v128 sets the slot width, so adding SIMD / reference

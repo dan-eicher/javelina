@@ -19,6 +19,11 @@ core.*
 compile_commands.json
 .cache/
 
+# Per-machine build overrides, read by all three makefiles (chiefly BBQ=<path>
+# to build against a working toolchain checkout instead of the submodule).
+# Untracked by design: the tracked default is the pinned submodule.
+/config.mk
+
 # The Unicode generator's compiled binary — a build artifact. The SOURCE and the
 # pinned UnicodeData.txt are tracked; rebuild per the recipe in gen_character.c.
 compiler/tools/unicode/gen_character

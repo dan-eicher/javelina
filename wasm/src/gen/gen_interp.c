@@ -2100,7 +2100,7 @@ static void gen_op_if(vm_t* vm) {
     transfer(NATIVE_ARGS);
     TAIL return jav_next(vm);
     } else {
-    f->stp = (u4)((f->stp + 1));
+    OPGEN_ST_PTR(f) = (u4)((OPGEN_ST_PTR(f) + 1));
     }
     TAIL return jav_next(vm);
 }
@@ -2133,7 +2133,7 @@ static void gen_op_br_if(vm_t* vm) {
     transfer(NATIVE_ARGS);
     TAIL return jav_next(vm);
     } else {
-    f->stp = (u4)((f->stp + 1));
+    OPGEN_ST_PTR(f) = (u4)((OPGEN_ST_PTR(f) + 1));
     }
     TAIL return jav_next(vm);
 }
@@ -2143,7 +2143,7 @@ static void gen_op_br_table(vm_t* vm) {
     u4 labels_count = 0; (void)bbq_read_uleb128_u32(&f->code, &labels_count);
     { for (u4 _bt_i = 0; _bt_i <= labels_count; _bt_i++) { u4 _bt_l = 0; (void)bbq_read_uleb128_u32(&f->code, &_bt_l); } }
     GPOP_INT(key);
-    f->stp = (u4)((f->stp + ((((u4)key) > labels_count) ? labels_count : ((u4)key))));
+    OPGEN_ST_PTR(f) = (u4)((OPGEN_ST_PTR(f) + ((((u4)key) > labels_count) ? labels_count : ((u4)key))));
     transfer(NATIVE_ARGS);
     TAIL return jav_next(vm);
 }
@@ -2313,7 +2313,7 @@ static void gen_op_br_on_null(vm_t* vm) {
     TAIL return jav_next(vm);
     } else {
     GPUSH_ANY(r);
-    f->stp = (u4)((f->stp + 1));
+    OPGEN_ST_PTR(f) = (u4)((OPGEN_ST_PTR(f) + 1));
     }
     TAIL return jav_next(vm);
 }
@@ -2328,7 +2328,7 @@ static void gen_op_br_on_non_null(vm_t* vm) {
     transfer(NATIVE_ARGS);
     TAIL return jav_next(vm);
     } else {
-    f->stp = (u4)((f->stp + 1));
+    OPGEN_ST_PTR(f) = (u4)((OPGEN_ST_PTR(f) + 1));
     }
     TAIL return jav_next(vm);
 }
@@ -2742,7 +2742,7 @@ static void gen_op_br_on_cast(vm_t* vm) {
     transfer(NATIVE_ARGS);
     TAIL return jav_next(vm);
     } else {
-    f->stp = (u4)((f->stp + 1));
+    OPGEN_ST_PTR(f) = (u4)((OPGEN_ST_PTR(f) + 1));
     }
     TAIL return jav_next(vm);
 }
@@ -2759,7 +2759,7 @@ static void gen_op_br_on_cast_fail(vm_t* vm) {
     transfer(NATIVE_ARGS);
     TAIL return jav_next(vm);
     } else {
-    f->stp = (u4)((f->stp + 1));
+    OPGEN_ST_PTR(f) = (u4)((OPGEN_ST_PTR(f) + 1));
     }
     TAIL return jav_next(vm);
 }

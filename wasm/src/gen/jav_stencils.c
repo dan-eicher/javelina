@@ -2390,7 +2390,7 @@ void STENCIL gen_st_if(vm_t* vm) {
     transfer(NATIVE_ARGS);
     TAIL return _HOLE_resync(vm);
     } else {
-    f->stp = (u4)((f->stp + 1));
+    OPGEN_ST_PTR(f) = (u4)((OPGEN_ST_PTR(f) + 1));
     }
     if (vm->trapped) TAIL return _HOLE_trap(vm);
     TAIL return _HOLE_cont(vm);
@@ -2431,7 +2431,7 @@ void STENCIL gen_st_br_if(vm_t* vm) {
     transfer(NATIVE_ARGS);
     TAIL return _HOLE_resync(vm);
     } else {
-    f->stp = (u4)((f->stp + 1));
+    OPGEN_ST_PTR(f) = (u4)((OPGEN_ST_PTR(f) + 1));
     }
     if (vm->trapped) TAIL return _HOLE_trap(vm);
     TAIL return _HOLE_cont(vm);
@@ -2442,7 +2442,7 @@ void STENCIL gen_st_br_table(vm_t* vm) {
     STENCIL_TRAP_PC(_HOLE_pc);   /* per-stencil source byte offset: the default discards it (no trap-frame); a backend that records a trap site (e.g. §7.1.8) #defines STENCIL_TRAP_PC to bake _HOLE_pc into its frame */
     u4 labels_count = (u4)_HOLE_labels_count;
     GPOP_INT(key);
-    f->stp = (u4)((f->stp + ((((u4)key) > labels_count) ? labels_count : ((u4)key))));
+    OPGEN_ST_PTR(f) = (u4)((OPGEN_ST_PTR(f) + ((((u4)key) > labels_count) ? labels_count : ((u4)key))));
     vm->frame.code.pos = (size_t)_HOLE_ip;
     transfer(NATIVE_ARGS);
     TAIL return _HOLE_resync(vm);
@@ -2634,7 +2634,7 @@ void STENCIL gen_st_br_on_null(vm_t* vm) {
     TAIL return _HOLE_resync(vm);
     } else {
     GPUSH_ANY(r);
-    f->stp = (u4)((f->stp + 1));
+    OPGEN_ST_PTR(f) = (u4)((OPGEN_ST_PTR(f) + 1));
     }
     if (vm->trapped) TAIL return _HOLE_trap(vm);
     TAIL return _HOLE_cont(vm);
@@ -2652,7 +2652,7 @@ void STENCIL gen_st_br_on_non_null(vm_t* vm) {
     transfer(NATIVE_ARGS);
     TAIL return _HOLE_resync(vm);
     } else {
-    f->stp = (u4)((f->stp + 1));
+    OPGEN_ST_PTR(f) = (u4)((OPGEN_ST_PTR(f) + 1));
     }
     if (vm->trapped) TAIL return _HOLE_trap(vm);
     TAIL return _HOLE_cont(vm);
@@ -3121,7 +3121,7 @@ void STENCIL gen_st_br_on_cast(vm_t* vm) {
     transfer(NATIVE_ARGS);
     TAIL return _HOLE_resync(vm);
     } else {
-    f->stp = (u4)((f->stp + 1));
+    OPGEN_ST_PTR(f) = (u4)((OPGEN_ST_PTR(f) + 1));
     }
     if (vm->trapped) TAIL return _HOLE_trap(vm);
     TAIL return _HOLE_cont(vm);
@@ -3141,7 +3141,7 @@ void STENCIL gen_st_br_on_cast_fail(vm_t* vm) {
     transfer(NATIVE_ARGS);
     TAIL return _HOLE_resync(vm);
     } else {
-    f->stp = (u4)((f->stp + 1));
+    OPGEN_ST_PTR(f) = (u4)((OPGEN_ST_PTR(f) + 1));
     }
     if (vm->trapped) TAIL return _HOLE_trap(vm);
     TAIL return _HOLE_cont(vm);

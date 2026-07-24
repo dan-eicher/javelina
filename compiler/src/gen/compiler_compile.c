@@ -12,77 +12,77 @@ sir_node_t* ddcg_cg_store(ddcg_ctx_t* ctx, sir_node_t* value, delta_t delta, gam
     (void)delta;
     (void)gamma;
     (void)Lnext;
-    return ({ gamma_t _mx372c5680 = gamma; sir_node_t* _rx372c5680 = NULL;
-        switch (_mx372c5680.tag) {
+    return ({ gamma_t _mx19d355e0 = gamma; sir_node_t* _rx19d355e0 = NULL;
+        switch (_mx19d355e0.tag) {
             case GAMMA_RET: {
-                _rx372c5680 = sir_return(ctx->arena, value, ddcg_current_return_dt(ctx));
+                _rx19d355e0 = sir_return(ctx->arena, value, ddcg_current_return_dt(ctx));
                 break;
             }
             case GAMMA_PAIR: {
-                __typeof__(_mx372c5680.Lt) Lt = _mx372c5680.Lt;
+                __typeof__(_mx19d355e0.Lt) Lt = _mx19d355e0.Lt;
                 (void)Lt;
-                __typeof__(_mx372c5680.Lf) Lf = _mx372c5680.Lf;
+                __typeof__(_mx19d355e0.Lf) Lf = _mx19d355e0.Lf;
                 (void)Lf;
-                _rx372c5680 = ({ delta_t _mx372c4970 = delta; sir_node_t* _rx372c4970 = NULL;
-                    switch (_mx372c4970.tag) {
+                _rx19d355e0 = ({ delta_t _mx19d348d0 = delta; sir_node_t* _rx19d348d0 = NULL;
+                    switch (_mx19d348d0.tag) {
                         case DELTA_EFFECT: {
-                            _rx372c4970 = sir_branch(ctx->arena, value, ddcg_ddcg_label(ctx, Lt), ddcg_ddcg_label(ctx, Lf));
+                            _rx19d348d0 = sir_branch(ctx->arena, value, ddcg_ddcg_label(ctx, Lt), ddcg_ddcg_label(ctx, Lf));
                             break;
                         }
                         case DELTA_LOC: {
-                            __typeof__(_mx372c4970.slot) slot = _mx372c4970.slot;
+                            __typeof__(_mx19d348d0.slot) slot = _mx19d348d0.slot;
                             (void)slot;
-                            __typeof__(_mx372c4970.dt) d = _mx372c4970.dt;
+                            __typeof__(_mx19d348d0.dt) d = _mx19d348d0.dt;
                             (void)d;
-                            _rx372c4970 = sir_store_local(ctx->arena, slot, d, NULL, value, sir_branch(ctx->arena, sir_load_local(ctx->arena, slot, d, NULL), ddcg_ddcg_label(ctx, Lt), ddcg_ddcg_label(ctx, Lf)));
+                            _rx19d348d0 = sir_store_local(ctx->arena, slot, d, NULL, value, sir_branch(ctx->arena, sir_load_local(ctx->arena, slot, d, NULL), ddcg_ddcg_label(ctx, Lt), ddcg_ddcg_label(ctx, Lf)));
                             break;
                         }
                         case DELTA_LOCREF: {
-                            __typeof__(_mx372c4970.slot) slot = _mx372c4970.slot;
+                            __typeof__(_mx19d348d0.slot) slot = _mx19d348d0.slot;
                             (void)slot;
-                            __typeof__(_mx372c4970.ref) r = _mx372c4970.ref;
+                            __typeof__(_mx19d348d0.ref) r = _mx19d348d0.ref;
                             (void)r;
-                            _rx372c4970 = sir_store_local(ctx->arena, slot, SIR_DTREF, r, value, sir_branch(ctx->arena, sir_load_local(ctx->arena, slot, SIR_DTREF, r), ddcg_ddcg_label(ctx, Lt), ddcg_ddcg_label(ctx, Lf)));
+                            _rx19d348d0 = sir_store_local(ctx->arena, slot, SIR_DTREF, r, value, sir_branch(ctx->arena, sir_load_local(ctx->arena, slot, SIR_DTREF, r), ddcg_ddcg_label(ctx, Lt), ddcg_ddcg_label(ctx, Lf)));
                             break;
                         }
                         default: break;
                     }
-                    _rx372c4970; });
+                    _rx19d348d0; });
                 break;
             }
             case GAMMA_SINGLE: {
-                __typeof__(_mx372c5680.L) L = _mx372c5680.L;
+                __typeof__(_mx19d355e0.L) L = _mx19d355e0.L;
                 (void)L;
-                _rx372c5680 = ({ delta_t _mx372c55e0 = delta; sir_node_t* _rx372c55e0 = NULL;
-                    switch (_mx372c55e0.tag) {
+                _rx19d355e0 = ({ delta_t _mx19d35540 = delta; sir_node_t* _rx19d35540 = NULL;
+                    switch (_mx19d35540.tag) {
                         case DELTA_EFFECT: {
-                            _rx372c55e0 = L;
+                            _rx19d35540 = L;
                             break;
                         }
                         case DELTA_LOC: {
-                            __typeof__(_mx372c55e0.slot) slot = _mx372c55e0.slot;
+                            __typeof__(_mx19d35540.slot) slot = _mx19d35540.slot;
                             (void)slot;
-                            __typeof__(_mx372c55e0.dt) d = _mx372c55e0.dt;
+                            __typeof__(_mx19d35540.dt) d = _mx19d35540.dt;
                             (void)d;
-                            _rx372c55e0 = sir_store_local(ctx->arena, slot, d, NULL, value, L);
+                            _rx19d35540 = sir_store_local(ctx->arena, slot, d, NULL, value, L);
                             break;
                         }
                         case DELTA_LOCREF: {
-                            __typeof__(_mx372c55e0.slot) slot = _mx372c55e0.slot;
+                            __typeof__(_mx19d35540.slot) slot = _mx19d35540.slot;
                             (void)slot;
-                            __typeof__(_mx372c55e0.ref) r = _mx372c55e0.ref;
+                            __typeof__(_mx19d35540.ref) r = _mx19d35540.ref;
                             (void)r;
-                            _rx372c55e0 = sir_store_local(ctx->arena, slot, SIR_DTREF, r, value, L);
+                            _rx19d35540 = sir_store_local(ctx->arena, slot, SIR_DTREF, r, value, L);
                             break;
                         }
                         default: break;
                     }
-                    _rx372c55e0; });
+                    _rx19d35540; });
                 break;
             }
             default: break;
         }
-        _rx372c5680; });
+        _rx19d355e0; });
 }
 
 /* fun dest_dt */
@@ -90,38 +90,38 @@ sir_datatype_t ddcg_dest_dt(ddcg_ctx_t* ctx, delta_t delta, gamma_t gamma) {
     (void)ctx;
     (void)delta;
     (void)gamma;
-    return ({ gamma_t _mx372c6350 = gamma; sir_datatype_t _rx372c6350 = (sir_datatype_t){0};
-        switch (_mx372c6350.tag) {
+    return ({ gamma_t _mx19d362b0 = gamma; sir_datatype_t _rx19d362b0 = (sir_datatype_t){0};
+        switch (_mx19d362b0.tag) {
             case GAMMA_RET: {
-                _rx372c6350 = ddcg_current_return_dt(ctx);
+                _rx19d362b0 = ddcg_current_return_dt(ctx);
                 break;
             }
             default: {
-                __typeof__(_mx372c6350) _other = _mx372c6350;
+                __typeof__(_mx19d362b0) _other = _mx19d362b0;
                 (void)_other;
-                _rx372c6350 = ({ delta_t _mx372c62b0 = delta; sir_datatype_t _rx372c62b0 = (sir_datatype_t){0};
-                    switch (_mx372c62b0.tag) {
+                _rx19d362b0 = ({ delta_t _mx19d36210 = delta; sir_datatype_t _rx19d36210 = (sir_datatype_t){0};
+                    switch (_mx19d36210.tag) {
                         case DELTA_LOC: {
-                            __typeof__(_mx372c62b0.dt) d = _mx372c62b0.dt;
+                            __typeof__(_mx19d36210.dt) d = _mx19d36210.dt;
                             (void)d;
-                            _rx372c62b0 = d;
+                            _rx19d36210 = d;
                             break;
                         }
                         case DELTA_LOCREF: {
-                            _rx372c62b0 = SIR_DTREF;
+                            _rx19d36210 = SIR_DTREF;
                             break;
                         }
                         case DELTA_EFFECT: {
-                            _rx372c62b0 = SIR_DTINT;
+                            _rx19d36210 = SIR_DTINT;
                             break;
                         }
                         default: break;
                     }
-                    _rx372c62b0; });
+                    _rx19d36210; });
                 break;
             }
         }
-        _rx372c6350; });
+        _rx19d362b0; });
 }
 
 /* fun vloc */
@@ -130,20 +130,20 @@ delta_t ddcg_vloc(ddcg_ctx_t* ctx, int slot, sir_datatype_t dt, sir_node_t* ref)
     (void)slot;
     (void)dt;
     (void)ref;
-    return ({ sir_datatype_t _mx372c69e0 = dt; delta_t _rx372c69e0 = (delta_t){0};
-        switch (_mx372c69e0) {
+    return ({ sir_datatype_t _mx19d36940 = dt; delta_t _rx19d36940 = (delta_t){0};
+        switch (_mx19d36940) {
             case SIR_DTREF: {
-                _rx372c69e0 = locref(ctx, slot, ref);
+                _rx19d36940 = locref(ctx, slot, ref);
                 break;
             }
             default: {
-                __typeof__(_mx372c69e0) _other = _mx372c69e0;
+                __typeof__(_mx19d36940) _other = _mx19d36940;
                 (void)_other;
-                _rx372c69e0 = loc(ctx, slot, dt);
+                _rx19d36940 = loc(ctx, slot, dt);
                 break;
             }
         }
-        _rx372c69e0; });
+        _rx19d36940; });
 }
 
 /* fun frem_call */
@@ -167,84 +167,84 @@ sir_node_t* ddcg_binop_op_node(ddcg_ctx_t* ctx, ast_binop_t op, sir_datatype_t d
     (void)lhs;
     (void)rhs;
     (void)r;
-    return ({ ast_binop_t _mx372ca340 = op; sir_node_t* _rx372ca340 = NULL;
-        switch (_mx372ca340) {
+    return ({ ast_binop_t _mx19d3a2a0 = op; sir_node_t* _rx19d3a2a0 = NULL;
+        switch (_mx19d3a2a0) {
             case AST_ADD: {
-                _rx372ca340 = sir_add(ctx->arena, dt, lhs, rhs);
+                _rx19d3a2a0 = sir_add(ctx->arena, dt, lhs, rhs);
                 break;
             }
             case AST_SUB: {
-                _rx372ca340 = sir_sub(ctx->arena, dt, lhs, rhs);
+                _rx19d3a2a0 = sir_sub(ctx->arena, dt, lhs, rhs);
                 break;
             }
             case AST_MUL: {
-                _rx372ca340 = sir_mul(ctx->arena, dt, lhs, rhs);
+                _rx19d3a2a0 = sir_mul(ctx->arena, dt, lhs, rhs);
                 break;
             }
             case AST_DIV: {
-                _rx372ca340 = sir_div(ctx->arena, dt, lhs, rhs);
+                _rx19d3a2a0 = sir_div(ctx->arena, dt, lhs, rhs);
                 break;
             }
             case AST_REM: {
-                _rx372ca340 = (((dt == SIR_DTFLOAT) || (dt == SIR_DTDOUBLE)) ? (sir_node_t*)ddcg_frem_call(ctx, dt, lhs, rhs, r) : (sir_node_t*)sir_rem(ctx->arena, dt, lhs, rhs));
+                _rx19d3a2a0 = (((dt == SIR_DTFLOAT) || (dt == SIR_DTDOUBLE)) ? (sir_node_t*)ddcg_frem_call(ctx, dt, lhs, rhs, r) : (sir_node_t*)sir_rem(ctx->arena, dt, lhs, rhs));
                 break;
             }
             case AST_SHL: {
-                _rx372ca340 = sir_shl(ctx->arena, dt, lhs, rhs);
+                _rx19d3a2a0 = sir_shl(ctx->arena, dt, lhs, rhs);
                 break;
             }
             case AST_SHR: {
-                _rx372ca340 = sir_shr(ctx->arena, dt, lhs, rhs);
+                _rx19d3a2a0 = sir_shr(ctx->arena, dt, lhs, rhs);
                 break;
             }
             case AST_USHR: {
-                _rx372ca340 = sir_ushr(ctx->arena, dt, lhs, rhs);
+                _rx19d3a2a0 = sir_ushr(ctx->arena, dt, lhs, rhs);
                 break;
             }
             case AST_BITAND: {
-                _rx372ca340 = sir_and(ctx->arena, dt, lhs, rhs);
+                _rx19d3a2a0 = sir_and(ctx->arena, dt, lhs, rhs);
                 break;
             }
             case AST_BITOR: {
-                _rx372ca340 = sir_or(ctx->arena, dt, lhs, rhs);
+                _rx19d3a2a0 = sir_or(ctx->arena, dt, lhs, rhs);
                 break;
             }
             case AST_BITXOR: {
-                _rx372ca340 = sir_xor(ctx->arena, dt, lhs, rhs);
+                _rx19d3a2a0 = sir_xor(ctx->arena, dt, lhs, rhs);
                 break;
             }
             case AST_EQ: {
-                _rx372ca340 = sir_eq(ctx->arena, lhs, rhs);
+                _rx19d3a2a0 = sir_eq(ctx->arena, lhs, rhs);
                 break;
             }
             case AST_NE: {
-                _rx372ca340 = sir_ne(ctx->arena, lhs, rhs);
+                _rx19d3a2a0 = sir_ne(ctx->arena, lhs, rhs);
                 break;
             }
             case AST_LT: {
-                _rx372ca340 = sir_lt(ctx->arena, lhs, rhs);
+                _rx19d3a2a0 = sir_lt(ctx->arena, lhs, rhs);
                 break;
             }
             case AST_GT: {
-                _rx372ca340 = sir_gt(ctx->arena, lhs, rhs);
+                _rx19d3a2a0 = sir_gt(ctx->arena, lhs, rhs);
                 break;
             }
             case AST_LE: {
-                _rx372ca340 = sir_le(ctx->arena, lhs, rhs);
+                _rx19d3a2a0 = sir_le(ctx->arena, lhs, rhs);
                 break;
             }
             case AST_GE: {
-                _rx372ca340 = sir_ge(ctx->arena, lhs, rhs);
+                _rx19d3a2a0 = sir_ge(ctx->arena, lhs, rhs);
                 break;
             }
             default: {
-                __typeof__(_mx372ca340) _other = _mx372ca340;
+                __typeof__(_mx19d3a2a0) _other = _mx19d3a2a0;
                 (void)_other;
-                _rx372ca340 = ddcg_panic_unreachable(ctx, "binop_op_node: And/Or use binary_logical");
+                _rx19d3a2a0 = ddcg_panic_unreachable(ctx, "binop_op_node: And/Or use binary_logical");
                 break;
             }
         }
-        _rx372ca340; });
+        _rx19d3a2a0; });
 }
 
 /* fun binop_ct */
@@ -253,28 +253,28 @@ sir_datatype_t ddcg_binop_ct(ddcg_ctx_t* ctx, ast_binop_t op, sir_datatype_t lhs
     (void)op;
     (void)lhs_dt;
     (void)rhs_dt;
-    return ({ ast_binop_t _mx372cb050 = op; sir_datatype_t _rx372cb050 = (sir_datatype_t){0};
-        switch (_mx372cb050) {
+    return ({ ast_binop_t _mx19d3afb0 = op; sir_datatype_t _rx19d3afb0 = (sir_datatype_t){0};
+        switch (_mx19d3afb0) {
             case AST_SHL: {
-                _rx372cb050 = ddcg_dt_unary(ctx, lhs_dt);
+                _rx19d3afb0 = ddcg_dt_unary(ctx, lhs_dt);
                 break;
             }
             case AST_SHR: {
-                _rx372cb050 = ddcg_dt_unary(ctx, lhs_dt);
+                _rx19d3afb0 = ddcg_dt_unary(ctx, lhs_dt);
                 break;
             }
             case AST_USHR: {
-                _rx372cb050 = ddcg_dt_unary(ctx, lhs_dt);
+                _rx19d3afb0 = ddcg_dt_unary(ctx, lhs_dt);
                 break;
             }
             default: {
-                __typeof__(_mx372cb050) _other = _mx372cb050;
+                __typeof__(_mx19d3afb0) _other = _mx19d3afb0;
                 (void)_other;
-                _rx372cb050 = ddcg_dt_promote(ctx, lhs_dt, rhs_dt);
+                _rx19d3afb0 = ddcg_dt_promote(ctx, lhs_dt, rhs_dt);
                 break;
             }
         }
-        _rx372cb050; });
+        _rx19d3afb0; });
 }
 
 /* fun cg_promote */
@@ -283,52 +283,52 @@ sir_node_t* ddcg_cg_promote(ddcg_ctx_t* ctx, sir_node_t* t, sir_datatype_t from,
     (void)t;
     (void)from;
     (void)to;
-    return ({ sema_cast_kind_t _mx372cc4a0 = ddcg_num_conv(ctx, from, to); sir_node_t* _rx372cc4a0 = NULL;
-        switch (_mx372cc4a0.tag) {
+    return ({ sema_cast_kind_t _mx19d3c400 = ddcg_num_conv(ctx, from, to); sir_node_t* _rx19d3c400 = NULL;
+        switch (_mx19d3c400.tag) {
             case SEMA_CAST_KIND_CASTI2L: {
-                _rx372cc4a0 = sir_i2_l(ctx->arena, t);
+                _rx19d3c400 = sir_i2_l(ctx->arena, t);
                 break;
             }
             case SEMA_CAST_KIND_CASTI2F: {
-                _rx372cc4a0 = sir_i2_f(ctx->arena, t);
+                _rx19d3c400 = sir_i2_f(ctx->arena, t);
                 break;
             }
             case SEMA_CAST_KIND_CASTI2D: {
-                _rx372cc4a0 = sir_i2_d(ctx->arena, t);
+                _rx19d3c400 = sir_i2_d(ctx->arena, t);
                 break;
             }
             case SEMA_CAST_KIND_CASTL2F: {
-                _rx372cc4a0 = sir_l2_f(ctx->arena, t);
+                _rx19d3c400 = sir_l2_f(ctx->arena, t);
                 break;
             }
             case SEMA_CAST_KIND_CASTL2D: {
-                _rx372cc4a0 = sir_l2_d(ctx->arena, t);
+                _rx19d3c400 = sir_l2_d(ctx->arena, t);
                 break;
             }
             case SEMA_CAST_KIND_CASTF2D: {
-                _rx372cc4a0 = sir_f2_d(ctx->arena, t);
+                _rx19d3c400 = sir_f2_d(ctx->arena, t);
                 break;
             }
             case SEMA_CAST_KIND_CASTL2I: {
-                _rx372cc4a0 = sir_l2_i(ctx->arena, t);
+                _rx19d3c400 = sir_l2_i(ctx->arena, t);
                 break;
             }
             case SEMA_CAST_KIND_CASTF2I: {
-                _rx372cc4a0 = sir_f2_i(ctx->arena, t);
+                _rx19d3c400 = sir_f2_i(ctx->arena, t);
                 break;
             }
             case SEMA_CAST_KIND_CASTD2I: {
-                _rx372cc4a0 = sir_d2_i(ctx->arena, t);
+                _rx19d3c400 = sir_d2_i(ctx->arena, t);
                 break;
             }
             default: {
-                __typeof__(_mx372cc4a0) _other = _mx372cc4a0;
+                __typeof__(_mx19d3c400) _other = _mx19d3c400;
                 (void)_other;
-                _rx372cc4a0 = t;
+                _rx19d3c400 = t;
                 break;
             }
         }
-        _rx372cc4a0; });
+        _rx19d3c400; });
 }
 
 /* fun cg_operand_tree */
@@ -336,63 +336,63 @@ sir_node_t* ddcg_cg_operand_tree(ddcg_ctx_t* ctx, ast_expr_t* e, sir_datatype_t 
     (void)ctx;
     (void)e;
     (void)op_dt;
-    return ({ ast_expr_t* _mx372cdd80 = e; sir_node_t* _rx372cdd80 = NULL;
-        switch (_mx372cdd80->tag) {
+    return ({ ast_expr_t* _mx19d3dce0 = e; sir_node_t* _rx19d3dce0 = NULL;
+        switch (_mx19d3dce0->tag) {
             case AST_INTLIT: {
-                __typeof__(_mx372cdd80->int_lit.value) v = _mx372cdd80->int_lit.value;
+                __typeof__(_mx19d3dce0->int_lit.value) v = _mx19d3dce0->int_lit.value;
                 (void)v;
-                _rx372cdd80 = sir_load_const(ctx->arena, v, op_dt);
+                _rx19d3dce0 = sir_load_const(ctx->arena, v, op_dt);
                 break;
             }
             case AST_BOOLLIT: {
-                __typeof__(_mx372cdd80->bool_lit.value) v = _mx372cdd80->bool_lit.value;
+                __typeof__(_mx19d3dce0->bool_lit.value) v = _mx19d3dce0->bool_lit.value;
                 (void)v;
-                _rx372cdd80 = sir_load_const(ctx->arena, (v ? 1 : 0), op_dt);
+                _rx19d3dce0 = sir_load_const(ctx->arena, (v ? 1 : 0), op_dt);
                 break;
             }
             case AST_NULLLIT: {
-                _rx372cdd80 = sir_load_null(ctx->arena);
+                _rx19d3dce0 = sir_load_null(ctx->arena);
                 break;
             }
             case AST_THIS: {
-                _rx372cdd80 = sir_load_this(ctx->arena, SIR_DTREF, ddcg_current_class_id(ctx));
+                _rx19d3dce0 = sir_load_this(ctx->arena, SIR_DTREF, ddcg_current_class_id(ctx));
                 break;
             }
             case AST_IDENT: {
-                _rx372cdd80 = sir_load_local(ctx->arena, ddcg_sema_ident_slot(ctx, e), ddcg_sema_ident_dt(ctx, e), ddcg_sema_ident_ref(ctx, e));
+                _rx19d3dce0 = sir_load_local(ctx->arena, ddcg_sema_ident_slot(ctx, e), ddcg_sema_ident_dt(ctx, e), ddcg_sema_ident_ref(ctx, e));
                 break;
             }
             case AST_UNARY: {
-                __typeof__(_mx372cdd80->unary.op) Neg = _mx372cdd80->unary.op;
+                __typeof__(_mx19d3dce0->unary.op) Neg = _mx19d3dce0->unary.op;
                 (void)Neg;
-                __typeof__(_mx372cdd80->unary.e) inner = _mx372cdd80->unary.e;
+                __typeof__(_mx19d3dce0->unary.e) inner = _mx19d3dce0->unary.e;
                 (void)inner;
-                _rx372cdd80 = ({ ast_expr_t* _mx372cdb80 = inner; sir_node_t* _rx372cdb80 = NULL;
-                    switch (_mx372cdb80->tag) {
+                _rx19d3dce0 = ({ ast_expr_t* _mx19d3dae0 = inner; sir_node_t* _rx19d3dae0 = NULL;
+                    switch (_mx19d3dae0->tag) {
                         case AST_INTLIT: {
-                            __typeof__(_mx372cdb80->int_lit.value) v = _mx372cdb80->int_lit.value;
+                            __typeof__(_mx19d3dae0->int_lit.value) v = _mx19d3dae0->int_lit.value;
                             (void)v;
-                            _rx372cdb80 = sir_load_const(ctx->arena, (0 - v), op_dt);
+                            _rx19d3dae0 = sir_load_const(ctx->arena, (0 - v), op_dt);
                             break;
                         }
                         default: {
-                            __typeof__(_mx372cdb80) _o = _mx372cdb80;
+                            __typeof__(_mx19d3dae0) _o = _mx19d3dae0;
                             (void)_o;
-                            _rx372cdb80 = ddcg_panic_unreachable(ctx, "cg_operand_tree: Neg on non-IntLit");
+                            _rx19d3dae0 = ddcg_panic_unreachable(ctx, "cg_operand_tree: Neg on non-IntLit");
                             break;
                         }
                     }
-                    _rx372cdb80; });
+                    _rx19d3dae0; });
                 break;
             }
             default: {
-                __typeof__(_mx372cdd80) _other = _mx372cdd80;
+                __typeof__(_mx19d3dce0) _other = _mx19d3dce0;
                 (void)_other;
-                _rx372cdd80 = ddcg_panic_unreachable(ctx, "cg_operand_tree: non-simple operand");
+                _rx19d3dce0 = ddcg_panic_unreachable(ctx, "cg_operand_tree: non-simple operand");
                 break;
             }
         }
-        _rx372cdd80; });
+        _rx19d3dce0; });
 }
 
 /* fun binop_spilled */
@@ -426,35 +426,35 @@ sir_node_t* ddcg_shortcircuit_pair(ddcg_ctx_t* ctx, ast_binop_t op, ast_expr_t* 
     (void)rho;
     (void)Lnext;
     sir_node_t* rhs_head = ddcg_compile_expr(ctx, r, rho, effect(ctx), pair(ctx, Lt, Lf), Lnext);
-    gamma_t lhs_gamma = ({ ast_binop_t _mx372d0d60 = op; gamma_t _rx372d0d60 = (gamma_t){0};
-        switch (_mx372d0d60) {
+    gamma_t lhs_gamma = ({ ast_binop_t _mx19d40cc0 = op; gamma_t _rx19d40cc0 = (gamma_t){0};
+        switch (_mx19d40cc0) {
             case AST_AND: {
-                _rx372d0d60 = pair(ctx, rhs_head, Lf);
+                _rx19d40cc0 = pair(ctx, rhs_head, Lf);
                 break;
             }
             default: {
-                __typeof__(_mx372d0d60) _other = _mx372d0d60;
+                __typeof__(_mx19d40cc0) _other = _mx19d40cc0;
                 (void)_other;
-                _rx372d0d60 = pair(ctx, Lt, rhs_head);
+                _rx19d40cc0 = pair(ctx, Lt, rhs_head);
                 break;
             }
         }
-        _rx372d0d60; });
+        _rx19d40cc0; });
     sir_node_t* head = ddcg_compile_expr(ctx, l, rho, effect(ctx), lhs_gamma, Lnext);
-    sir_node_t* shared = ({ ast_binop_t _mx372d1240 = op; sir_node_t* _rx372d1240 = NULL;
-        switch (_mx372d1240) {
+    sir_node_t* shared = ({ ast_binop_t _mx19d411a0 = op; sir_node_t* _rx19d411a0 = NULL;
+        switch (_mx19d411a0) {
             case AST_AND: {
-                _rx372d1240 = Lf;
+                _rx19d411a0 = Lf;
                 break;
             }
             default: {
-                __typeof__(_mx372d1240) _other = _mx372d1240;
+                __typeof__(_mx19d411a0) _other = _mx19d411a0;
                 (void)_other;
-                _rx372d1240 = Lt;
+                _rx19d411a0 = Lt;
                 break;
             }
         }
-        _rx372d1240; });
+        _rx19d411a0; });
     (void)ddcg_record_scope(ctx, head, shared, 3);
     return head;
 }
@@ -476,52 +476,52 @@ sir_node_t* ddcg_shortcircuit_value(ddcg_ctx_t* ctx, ast_binop_t op, ast_expr_t*
     sir_node_t* Lf = ddcg_ddcg_label(ctx, false_arm);
     sir_node_t* E2_head = ddcg_compile_expr(ctx, r, rho, effect(ctx), pair(ctx, Lt, Lf), Lnext);
     sir_node_t* Lmid = ddcg_ddcg_label(ctx, E2_head);
-    gamma_t lhs_gamma = ({ ast_binop_t _mx372d2e40 = op; gamma_t _rx372d2e40 = (gamma_t){0};
-        switch (_mx372d2e40) {
+    gamma_t lhs_gamma = ({ ast_binop_t _mx19d42da0 = op; gamma_t _rx19d42da0 = (gamma_t){0};
+        switch (_mx19d42da0) {
             case AST_AND: {
-                _rx372d2e40 = pair(ctx, Lmid, Lf);
+                _rx19d42da0 = pair(ctx, Lmid, Lf);
                 break;
             }
             default: {
-                __typeof__(_mx372d2e40) _other = _mx372d2e40;
+                __typeof__(_mx19d42da0) _other = _mx19d42da0;
                 (void)_other;
-                _rx372d2e40 = pair(ctx, Lt, Lmid);
+                _rx19d42da0 = pair(ctx, Lt, Lmid);
                 break;
             }
         }
-        _rx372d2e40; });
+        _rx19d42da0; });
     sir_node_t* head = ddcg_compile_expr(ctx, l, rho, effect(ctx), lhs_gamma, Lmid);
-    sir_node_t* shared = ({ ast_binop_t _mx372d35f0 = op; sir_node_t* _rx372d35f0 = NULL;
-        switch (_mx372d35f0) {
+    sir_node_t* shared = ({ ast_binop_t _mx19d43550 = op; sir_node_t* _rx19d43550 = NULL;
+        switch (_mx19d43550) {
             case AST_AND: {
-                _rx372d35f0 = Lf;
+                _rx19d43550 = Lf;
                 break;
             }
             default: {
-                __typeof__(_mx372d35f0) _other = _mx372d35f0;
+                __typeof__(_mx19d43550) _other = _mx19d43550;
                 (void)_other;
-                _rx372d35f0 = Lt;
+                _rx19d43550 = Lt;
                 break;
             }
         }
-        _rx372d35f0; });
+        _rx19d43550; });
     (void)ddcg_record_scope(ctx, head, shared, 3);
-    (void)({ gamma_t _mx372d3b80 = gamma; int _rx372d3b80 = 0;
-        switch (_mx372d3b80.tag) {
+    (void)({ gamma_t _mx19d43ae0 = gamma; int _rx19d43ae0 = 0;
+        switch (_mx19d43ae0.tag) {
             case GAMMA_SINGLE: {
-                __typeof__(_mx372d3b80.L) L = _mx372d3b80.L;
+                __typeof__(_mx19d43ae0.L) L = _mx19d43ae0.L;
                 (void)L;
-                _rx372d3b80 = ddcg_record_scope(ctx, head, L, 3);
+                _rx19d43ae0 = ddcg_record_scope(ctx, head, L, 3);
                 break;
             }
             default: {
-                __typeof__(_mx372d3b80) _other = _mx372d3b80;
+                __typeof__(_mx19d43ae0) _other = _mx19d43ae0;
                 (void)_other;
-                _rx372d3b80 = 0;
+                _rx19d43ae0 = 0;
                 break;
             }
         }
-        _rx372d3b80; });
+        _rx19d43ae0; });
     return head;
 }
 
@@ -535,24 +535,24 @@ sir_node_t* ddcg_binary_logical(ddcg_ctx_t* ctx, ast_binop_t op, ast_expr_t* l, 
     (void)delta;
     (void)gamma;
     (void)Lnext;
-    return ({ gamma_t _mx372d4bb0 = gamma; sir_node_t* _rx372d4bb0 = NULL;
-        switch (_mx372d4bb0.tag) {
+    return ({ gamma_t _mx19d44b10 = gamma; sir_node_t* _rx19d44b10 = NULL;
+        switch (_mx19d44b10.tag) {
             case GAMMA_PAIR: {
-                __typeof__(_mx372d4bb0.Lt) Lt = _mx372d4bb0.Lt;
+                __typeof__(_mx19d44b10.Lt) Lt = _mx19d44b10.Lt;
                 (void)Lt;
-                __typeof__(_mx372d4bb0.Lf) Lf = _mx372d4bb0.Lf;
+                __typeof__(_mx19d44b10.Lf) Lf = _mx19d44b10.Lf;
                 (void)Lf;
-                _rx372d4bb0 = ddcg_shortcircuit_pair(ctx, op, l, r, Lt, Lf, rho, Lnext);
+                _rx19d44b10 = ddcg_shortcircuit_pair(ctx, op, l, r, Lt, Lf, rho, Lnext);
                 break;
             }
             default: {
-                __typeof__(_mx372d4bb0) _other = _mx372d4bb0;
+                __typeof__(_mx19d44b10) _other = _mx19d44b10;
                 (void)_other;
-                _rx372d4bb0 = ddcg_shortcircuit_value(ctx, op, l, r, rho, delta, gamma, Lnext);
+                _rx19d44b10 = ddcg_shortcircuit_value(ctx, op, l, r, rho, delta, gamma, Lnext);
                 break;
             }
         }
-        _rx372d4bb0; });
+        _rx19d44b10; });
 }
 
 /* fun cg_jump */
@@ -560,29 +560,29 @@ sir_node_t* ddcg_cg_jump(ddcg_ctx_t* ctx, gamma_t gamma, sir_node_t* Lnext) {
     (void)ctx;
     (void)gamma;
     (void)Lnext;
-    return ({ gamma_t _mx372d5310 = gamma; sir_node_t* _rx372d5310 = NULL;
-        switch (_mx372d5310.tag) {
+    return ({ gamma_t _mx19d45270 = gamma; sir_node_t* _rx19d45270 = NULL;
+        switch (_mx19d45270.tag) {
             case GAMMA_RET: {
-                _rx372d5310 = sir_return_void(ctx->arena);
+                _rx19d45270 = sir_return_void(ctx->arena);
                 break;
             }
             case GAMMA_SINGLE: {
-                __typeof__(_mx372d5310.L) L = _mx372d5310.L;
+                __typeof__(_mx19d45270.L) L = _mx19d45270.L;
                 (void)L;
-                _rx372d5310 = L;
+                _rx19d45270 = L;
                 break;
             }
             case GAMMA_PAIR: {
-                __typeof__(_mx372d5310.Lt) Lt = _mx372d5310.Lt;
+                __typeof__(_mx19d45270.Lt) Lt = _mx19d45270.Lt;
                 (void)Lt;
-                __typeof__(_mx372d5310.Lf) Lf = _mx372d5310.Lf;
+                __typeof__(_mx19d45270.Lf) Lf = _mx19d45270.Lf;
                 (void)Lf;
-                _rx372d5310 = Lnext;
+                _rx19d45270 = Lnext;
                 break;
             }
             default: break;
         }
-        _rx372d5310; });
+        _rx19d45270; });
 }
 
 /* fun chain_block_stmts */
@@ -623,9 +623,9 @@ int ddcg_last_init_index(ddcg_ctx_t* ctx, ddcg_list_ast_var_decl_t_ptr_t decls) 
     (void)ctx;
     (void)decls;
     int last = (0 - 1);
-    for (int _i_33712 = 0; _i_33712 < (decls).count; ++_i_33712) {
-        int i = _i_33712;
-        ast_var_decl_t* d = (decls).data[_i_33712];
+    for (int _i_61584 = 0; _i_61584 < (decls).count; ++_i_61584) {
+        int i = _i_61584;
+        ast_var_decl_t* d = (decls).data[_i_61584];
         if ((d->init != NULL)) {
             last = i;
         }
@@ -640,53 +640,53 @@ sir_node_t* ddcg_cg_deliver_effectful(ddcg_ctx_t* ctx, sir_node_t* value, delta_
     (void)delta;
     (void)gamma;
     (void)Lnext;
-    return ({ gamma_t _mx372da910 = gamma; sir_node_t* _rx372da910 = NULL;
-        switch (_mx372da910.tag) {
+    return ({ gamma_t _mx19d4a870 = gamma; sir_node_t* _rx19d4a870 = NULL;
+        switch (_mx19d4a870.tag) {
             case GAMMA_SINGLE: {
-                __typeof__(_mx372da910.L) L = _mx372da910.L;
+                __typeof__(_mx19d4a870.L) L = _mx19d4a870.L;
                 (void)L;
-                _rx372da910 = ({ delta_t _mx372da300 = delta; sir_node_t* _rx372da300 = NULL;
-                    switch (_mx372da300.tag) {
+                _rx19d4a870 = ({ delta_t _mx19d4a260 = delta; sir_node_t* _rx19d4a260 = NULL;
+                    switch (_mx19d4a260.tag) {
                         case DELTA_EFFECT: {
-                            _rx372da300 = sir_expr_effect(ctx->arena, value, 0, L);
+                            _rx19d4a260 = sir_expr_effect(ctx->arena, value, 0, L);
                             break;
                         }
                         case DELTA_LOC: {
-                            __typeof__(_mx372da300.slot) slot = _mx372da300.slot;
+                            __typeof__(_mx19d4a260.slot) slot = _mx19d4a260.slot;
                             (void)slot;
-                            __typeof__(_mx372da300.dt) d = _mx372da300.dt;
+                            __typeof__(_mx19d4a260.dt) d = _mx19d4a260.dt;
                             (void)d;
-                            _rx372da300 = ddcg_cg_store(ctx, value, delta, gamma, Lnext);
+                            _rx19d4a260 = ddcg_cg_store(ctx, value, delta, gamma, Lnext);
                             break;
                         }
                         case DELTA_LOCREF: {
-                            __typeof__(_mx372da300.slot) slot = _mx372da300.slot;
+                            __typeof__(_mx19d4a260.slot) slot = _mx19d4a260.slot;
                             (void)slot;
-                            __typeof__(_mx372da300.ref) r = _mx372da300.ref;
+                            __typeof__(_mx19d4a260.ref) r = _mx19d4a260.ref;
                             (void)r;
-                            _rx372da300 = ddcg_cg_store(ctx, value, delta, gamma, Lnext);
+                            _rx19d4a260 = ddcg_cg_store(ctx, value, delta, gamma, Lnext);
                             break;
                         }
                         default: break;
                     }
-                    _rx372da300; });
+                    _rx19d4a260; });
                 break;
             }
             case GAMMA_PAIR: {
-                __typeof__(_mx372da910.Lt) Lt = _mx372da910.Lt;
+                __typeof__(_mx19d4a870.Lt) Lt = _mx19d4a870.Lt;
                 (void)Lt;
-                __typeof__(_mx372da910.Lf) Lf = _mx372da910.Lf;
+                __typeof__(_mx19d4a870.Lf) Lf = _mx19d4a870.Lf;
                 (void)Lf;
-                _rx372da910 = ddcg_cg_store(ctx, value, delta, gamma, Lnext);
+                _rx19d4a870 = ddcg_cg_store(ctx, value, delta, gamma, Lnext);
                 break;
             }
             case GAMMA_RET: {
-                _rx372da910 = ddcg_cg_store(ctx, value, delta, gamma, Lnext);
+                _rx19d4a870 = ddcg_cg_store(ctx, value, delta, gamma, Lnext);
                 break;
             }
             default: break;
         }
-        _rx372da910; });
+        _rx19d4a870; });
 }
 
 /* fun ident_static_field */
@@ -697,9 +697,9 @@ sir_node_t* ddcg_ident_static_field(ddcg_ctx_t* ctx, ast_expr_t* node, rho_t rho
     (void)delta;
     (void)gamma;
     (void)Lnext;
-    ddcg_tup_bool_sir_node_t_ptr_t _tup_41472 = ddcg_fold_const_expr(ctx, node);
-    bool folded = _tup_41472._0;
-    sir_node_t* k = _tup_41472._1;
+    ddcg_tup_bool_sir_node_t_ptr_t _tup_69344 = ddcg_fold_const_expr(ctx, node);
+    bool folded = _tup_69344._0;
+    sir_node_t* k = _tup_69344._1;
     return (folded ? ddcg_cg_deliver_effectful(ctx, k, delta, gamma, Lnext) : ddcg_init_barrier(ctx, ddcg_current_class_id(ctx), ddcg_cg_deliver_effectful(ctx, sir_get_static(ctx->arena, ddcg_sema_ident_dt(ctx, node), ddcg_current_class_id(ctx), ddcg_sema_field_index(ctx, node)), delta, gamma, Lnext), rho));
 }
 
@@ -709,28 +709,28 @@ sir_node_t* ddcg_unary_op_node(ddcg_ctx_t* ctx, ast_unop_t op, sir_datatype_t dt
     (void)op;
     (void)dt;
     (void)operand;
-    return ({ ast_unop_t _mx372dc5a0 = op; sir_node_t* _rx372dc5a0 = NULL;
-        switch (_mx372dc5a0) {
+    return ({ ast_unop_t _mx19d4c500 = op; sir_node_t* _rx19d4c500 = NULL;
+        switch (_mx19d4c500) {
             case AST_NEG: {
-                _rx372dc5a0 = sir_neg(ctx->arena, dt, operand);
+                _rx19d4c500 = sir_neg(ctx->arena, dt, operand);
                 break;
             }
             case AST_BITNOT: {
-                _rx372dc5a0 = sir_xor(ctx->arena, dt, operand, ddcg_neg_one_const(ctx, dt));
+                _rx19d4c500 = sir_xor(ctx->arena, dt, operand, ddcg_neg_one_const(ctx, dt));
                 break;
             }
             case AST_LOGNOT: {
-                _rx372dc5a0 = sir_log_not(ctx->arena, dt, operand);
+                _rx19d4c500 = sir_log_not(ctx->arena, dt, operand);
                 break;
             }
             default: {
-                __typeof__(_mx372dc5a0) _other = _mx372dc5a0;
+                __typeof__(_mx19d4c500) _other = _mx19d4c500;
                 (void)_other;
-                _rx372dc5a0 = ddcg_panic_unreachable(ctx, "unary_op_node: unexpected op");
+                _rx19d4c500 = ddcg_panic_unreachable(ctx, "unary_op_node: unexpected op");
                 break;
             }
         }
-        _rx372dc5a0; });
+        _rx19d4c500; });
 }
 
 /* fun unary_emit */
@@ -772,50 +772,50 @@ sir_node_t* ddcg_unary_op(ddcg_ctx_t* ctx, ast_unop_t op, ast_expr_t* inner, rho
     (void)gamma;
     (void)Lnext;
     sir_datatype_t dt = ddcg_sema_data_type_or(ctx, inner, SIR_DTINT);
-    return ({ ast_unop_t _mx372dfe00 = op; sir_node_t* _rx372dfe00 = NULL;
-        switch (_mx372dfe00) {
+    return ({ ast_unop_t _mx19d4fd60 = op; sir_node_t* _rx19d4fd60 = NULL;
+        switch (_mx19d4fd60) {
             case AST_LOGNOT: {
-                _rx372dfe00 = ({ gamma_t _mx372df790 = gamma; sir_node_t* _rx372df790 = NULL;
-                    switch (_mx372df790.tag) {
+                _rx19d4fd60 = ({ gamma_t _mx19d4f6f0 = gamma; sir_node_t* _rx19d4f6f0 = NULL;
+                    switch (_mx19d4f6f0.tag) {
                         case GAMMA_PAIR: {
-                            __typeof__(_mx372df790.Lt) Lt = _mx372df790.Lt;
+                            __typeof__(_mx19d4f6f0.Lt) Lt = _mx19d4f6f0.Lt;
                             (void)Lt;
-                            __typeof__(_mx372df790.Lf) Lf = _mx372df790.Lf;
+                            __typeof__(_mx19d4f6f0.Lf) Lf = _mx19d4f6f0.Lf;
                             (void)Lf;
-                            _rx372df790 = ({ delta_t _mx372df410 = delta; sir_node_t* _rx372df410 = NULL;
-                                switch (_mx372df410.tag) {
+                            _rx19d4f6f0 = ({ delta_t _mx19d4f370 = delta; sir_node_t* _rx19d4f370 = NULL;
+                                switch (_mx19d4f370.tag) {
                                     case DELTA_EFFECT: {
-                                        _rx372df410 = ddcg_compile_expr(ctx, inner, rho, effect(ctx), pair(ctx, Lf, Lt), Lnext);
+                                        _rx19d4f370 = ddcg_compile_expr(ctx, inner, rho, effect(ctx), pair(ctx, Lf, Lt), Lnext);
                                         break;
                                     }
                                     default: {
-                                        __typeof__(_mx372df410) _dloc = _mx372df410;
+                                        __typeof__(_mx19d4f370) _dloc = _mx19d4f370;
                                         (void)_dloc;
-                                        _rx372df410 = ddcg_unary_emit(ctx, op, inner, dt, rho, delta, gamma, Lnext);
+                                        _rx19d4f370 = ddcg_unary_emit(ctx, op, inner, dt, rho, delta, gamma, Lnext);
                                         break;
                                     }
                                 }
-                                _rx372df410; });
+                                _rx19d4f370; });
                             break;
                         }
                         default: {
-                            __typeof__(_mx372df790) _gother = _mx372df790;
+                            __typeof__(_mx19d4f6f0) _gother = _mx19d4f6f0;
                             (void)_gother;
-                            _rx372df790 = ddcg_unary_emit(ctx, op, inner, dt, rho, delta, gamma, Lnext);
+                            _rx19d4f6f0 = ddcg_unary_emit(ctx, op, inner, dt, rho, delta, gamma, Lnext);
                             break;
                         }
                     }
-                    _rx372df790; });
+                    _rx19d4f6f0; });
                 break;
             }
             default: {
-                __typeof__(_mx372dfe00) _other = _mx372dfe00;
+                __typeof__(_mx19d4fd60) _other = _mx19d4fd60;
                 (void)_other;
-                _rx372dfe00 = ddcg_unary_emit(ctx, op, inner, dt, rho, delta, gamma, Lnext);
+                _rx19d4fd60 = ddcg_unary_emit(ctx, op, inner, dt, rho, delta, gamma, Lnext);
                 break;
             }
         }
-        _rx372dfe00; });
+        _rx19d4fd60; });
 }
 
 /* fun incdec_value_dropped */
@@ -823,33 +823,33 @@ bool ddcg_incdec_value_dropped(ddcg_ctx_t* ctx, delta_t delta, gamma_t gamma) {
     (void)ctx;
     (void)delta;
     (void)gamma;
-    return ({ delta_t _mx372e0500 = delta; bool _rx372e0500 = false;
-        switch (_mx372e0500.tag) {
+    return ({ delta_t _mx19d50460 = delta; bool _rx19d50460 = false;
+        switch (_mx19d50460.tag) {
             case DELTA_EFFECT: {
-                _rx372e0500 = ({ gamma_t _mx372e03a0 = gamma; bool _rx372e03a0 = false;
-                    switch (_mx372e03a0.tag) {
+                _rx19d50460 = ({ gamma_t _mx19d50300 = gamma; bool _rx19d50300 = false;
+                    switch (_mx19d50300.tag) {
                         case GAMMA_PAIR: {
-                            _rx372e03a0 = false;
+                            _rx19d50300 = false;
                             break;
                         }
                         default: {
-                            __typeof__(_mx372e03a0) _other = _mx372e03a0;
+                            __typeof__(_mx19d50300) _other = _mx19d50300;
                             (void)_other;
-                            _rx372e03a0 = true;
+                            _rx19d50300 = true;
                             break;
                         }
                     }
-                    _rx372e03a0; });
+                    _rx19d50300; });
                 break;
             }
             default: {
-                __typeof__(_mx372e0500) _other = _mx372e0500;
+                __typeof__(_mx19d50460) _other = _mx19d50460;
                 (void)_other;
-                _rx372e0500 = false;
+                _rx19d50460 = false;
                 break;
             }
         }
-        _rx372e0500; });
+        _rx19d50460; });
 }
 
 /* fun pre_local */
@@ -891,35 +891,35 @@ sir_node_t* ddcg_cg_deliver_loaded(ddcg_ctx_t* ctx, sir_node_t* value, delta_t d
     (void)delta;
     (void)gamma;
     (void)Lnext;
-    return ({ delta_t _mx372e3a00 = delta; sir_node_t* _rx372e3a00 = NULL;
-        switch (_mx372e3a00.tag) {
+    return ({ delta_t _mx19d53960 = delta; sir_node_t* _rx19d53960 = NULL;
+        switch (_mx19d53960.tag) {
             case DELTA_EFFECT: {
-                _rx372e3a00 = ({ gamma_t _mx372e3740 = gamma; sir_node_t* _rx372e3740 = NULL;
-                    switch (_mx372e3740.tag) {
+                _rx19d53960 = ({ gamma_t _mx19d536a0 = gamma; sir_node_t* _rx19d536a0 = NULL;
+                    switch (_mx19d536a0.tag) {
                         case GAMMA_SINGLE: {
-                            __typeof__(_mx372e3740.L) L = _mx372e3740.L;
+                            __typeof__(_mx19d536a0.L) L = _mx19d536a0.L;
                             (void)L;
-                            _rx372e3740 = L;
+                            _rx19d536a0 = L;
                             break;
                         }
                         default: {
-                            __typeof__(_mx372e3740) _other = _mx372e3740;
+                            __typeof__(_mx19d536a0) _other = _mx19d536a0;
                             (void)_other;
-                            _rx372e3740 = ddcg_cg_store(ctx, value, delta, gamma, Lnext);
+                            _rx19d536a0 = ddcg_cg_store(ctx, value, delta, gamma, Lnext);
                             break;
                         }
                     }
-                    _rx372e3740; });
+                    _rx19d536a0; });
                 break;
             }
             default: {
-                __typeof__(_mx372e3a00) _other = _mx372e3a00;
+                __typeof__(_mx19d53960) _other = _mx19d53960;
                 (void)_other;
-                _rx372e3a00 = ddcg_cg_store(ctx, value, delta, gamma, Lnext);
+                _rx19d53960 = ddcg_cg_store(ctx, value, delta, gamma, Lnext);
                 break;
             }
         }
-        _rx372e3a00; });
+        _rx19d53960; });
 }
 
 /* fun pre_ident_field */
@@ -1162,28 +1162,28 @@ sir_node_t* ddcg_narrow_to_dt(ddcg_ctx_t* ctx, sir_datatype_t dt, sir_node_t* v)
     (void)ctx;
     (void)dt;
     (void)v;
-    return ({ sir_datatype_t _mx372fc080 = dt; sir_node_t* _rx372fc080 = NULL;
-        switch (_mx372fc080) {
+    return ({ sir_datatype_t _mx19d6bfe0 = dt; sir_node_t* _rx19d6bfe0 = NULL;
+        switch (_mx19d6bfe0) {
             case SIR_DTBYTE: {
-                _rx372fc080 = sir_i2_b(ctx->arena, v);
+                _rx19d6bfe0 = sir_i2_b(ctx->arena, v);
                 break;
             }
             case SIR_DTSHORT: {
-                _rx372fc080 = sir_i2_s(ctx->arena, v);
+                _rx19d6bfe0 = sir_i2_s(ctx->arena, v);
                 break;
             }
             case SIR_DTCHAR: {
-                _rx372fc080 = sir_i2_c(ctx->arena, v);
+                _rx19d6bfe0 = sir_i2_c(ctx->arena, v);
                 break;
             }
             default: {
-                __typeof__(_mx372fc080) _other = _mx372fc080;
+                __typeof__(_mx19d6bfe0) _other = _mx19d6bfe0;
                 (void)_other;
-                _rx372fc080 = v;
+                _rx19d6bfe0 = v;
                 break;
             }
         }
-        _rx372fc080; });
+        _rx19d6bfe0; });
 }
 
 /* fun compound_local_general */
@@ -1200,33 +1200,33 @@ sir_node_t* ddcg_compound_local_general(ddcg_ctx_t* ctx, int slot, sir_datatype_
     int t_old = ddcg_ddcg_alloc_temp(ctx, dt);
     int t_val = ddcg_ddcg_alloc_temp(ctx, dt);
     sir_node_t* op_tree = ddcg_binop_op_node(ctx, op, dt, sir_load_local(ctx->arena, t_old, dt, NULL), sir_load_local(ctx->arena, t_val, dt, NULL), rho);
-    sir_node_t* delivery = ({ delta_t _mx372fdce0 = delta; sir_node_t* _rx372fdce0 = NULL;
-        switch (_mx372fdce0.tag) {
+    sir_node_t* delivery = ({ delta_t _mx19d6dc40 = delta; sir_node_t* _rx19d6dc40 = NULL;
+        switch (_mx19d6dc40.tag) {
             case DELTA_EFFECT: {
-                _rx372fdce0 = ({ gamma_t _mx372fd950 = gamma; sir_node_t* _rx372fd950 = NULL;
-                    switch (_mx372fd950.tag) {
+                _rx19d6dc40 = ({ gamma_t _mx19d6d8b0 = gamma; sir_node_t* _rx19d6d8b0 = NULL;
+                    switch (_mx19d6d8b0.tag) {
                         case GAMMA_PAIR: {
-                            _rx372fd950 = ddcg_cg_store(ctx, sir_load_local(ctx->arena, slot, dt, NULL), delta, gamma, Lnext);
+                            _rx19d6d8b0 = ddcg_cg_store(ctx, sir_load_local(ctx->arena, slot, dt, NULL), delta, gamma, Lnext);
                             break;
                         }
                         default: {
-                            __typeof__(_mx372fd950) _other = _mx372fd950;
+                            __typeof__(_mx19d6d8b0) _other = _mx19d6d8b0;
                             (void)_other;
-                            _rx372fd950 = ddcg_cg_jump(ctx, gamma, Lnext);
+                            _rx19d6d8b0 = ddcg_cg_jump(ctx, gamma, Lnext);
                             break;
                         }
                     }
-                    _rx372fd950; });
+                    _rx19d6d8b0; });
                 break;
             }
             default: {
-                __typeof__(_mx372fdce0) _other = _mx372fdce0;
+                __typeof__(_mx19d6dc40) _other = _mx19d6dc40;
                 (void)_other;
-                _rx372fdce0 = ddcg_cg_store(ctx, sir_load_local(ctx->arena, slot, dt, NULL), delta, gamma, Lnext);
+                _rx19d6dc40 = ddcg_cg_store(ctx, sir_load_local(ctx->arena, slot, dt, NULL), delta, gamma, Lnext);
                 break;
             }
         }
-        _rx372fdce0; });
+        _rx19d6dc40; });
     sir_node_t* store = sir_store_local(ctx->arena, slot, dt, NULL, ddcg_narrow_to_dt(ctx, dt, op_tree), delivery);
     sir_node_t* v_chain = ddcg_cg_deliver_conv(ctx, value, dt, rho, loc(ctx, t_val, dt), single(ctx, store), store);
     return sir_store_local(ctx->arena, t_old, dt, NULL, sir_load_local(ctx->arena, slot, dt, NULL), v_chain);
@@ -1373,38 +1373,38 @@ sir_node_t* ddcg_assign_local(ddcg_ctx_t* ctx, ast_expr_t* target, ast_expr_t* v
     (void)Lnext;
     int slot = ddcg_sema_ident_slot(ctx, target);
     sir_datatype_t dt = ddcg_sema_ident_dt(ctx, target);
-    bool is_pair = ({ gamma_t _mx3730cfa0 = gamma; bool _rx3730cfa0 = false;
-        switch (_mx3730cfa0.tag) {
+    bool is_pair = ({ gamma_t _mx19d7cf00 = gamma; bool _rx19d7cf00 = false;
+        switch (_mx19d7cf00.tag) {
             case GAMMA_PAIR: {
-                __typeof__(_mx3730cfa0.Lt) Lt = _mx3730cfa0.Lt;
+                __typeof__(_mx19d7cf00.Lt) Lt = _mx19d7cf00.Lt;
                 (void)Lt;
-                __typeof__(_mx3730cfa0.Lf) Lf = _mx3730cfa0.Lf;
+                __typeof__(_mx19d7cf00.Lf) Lf = _mx19d7cf00.Lf;
                 (void)Lf;
-                _rx3730cfa0 = true;
+                _rx19d7cf00 = true;
                 break;
             }
             default: {
-                __typeof__(_mx3730cfa0) _other = _mx3730cfa0;
+                __typeof__(_mx19d7cf00) _other = _mx19d7cf00;
                 (void)_other;
-                _rx3730cfa0 = false;
+                _rx19d7cf00 = false;
                 break;
             }
         }
-        _rx3730cfa0; });
-    bool is_loc = ({ delta_t _mx3730d530 = delta; bool _rx3730d530 = false;
-        switch (_mx3730d530.tag) {
+        _rx19d7cf00; });
+    bool is_loc = ({ delta_t _mx19d7d490 = delta; bool _rx19d7d490 = false;
+        switch (_mx19d7d490.tag) {
             case DELTA_LOC: {
-                _rx3730d530 = true;
+                _rx19d7d490 = true;
                 break;
             }
             default: {
-                __typeof__(_mx3730d530) _other = _mx3730d530;
+                __typeof__(_mx19d7d490) _other = _mx19d7d490;
                 (void)_other;
-                _rx3730d530 = false;
+                _rx19d7d490 = false;
                 break;
             }
         }
-        _rx3730d530; });
+        _rx19d7d490; });
     return (((!is_pair) && (!is_loc)) ? ddcg_cg_deliver_conv(ctx, value, dt, rho, ddcg_vloc(ctx, slot, dt, ddcg_sema_ident_ref(ctx, target)), gamma, Lnext) : ({
         sir_node_t* delivery = ddcg_cg_store(ctx, sir_load_local(ctx->arena, slot, dt, ddcg_sema_ident_ref(ctx, target)), delta, gamma, Lnext);
         ddcg_cg_deliver_conv(ctx, value, dt, rho, ddcg_vloc(ctx, slot, dt, ddcg_sema_ident_ref(ctx, target)), single(ctx, delivery), delivery);
@@ -1457,62 +1457,62 @@ rho_t ddcg_rho_skip(ddcg_ctx_t* ctx, rho_t r, int n) {
     (void)ctx;
     (void)r;
     (void)n;
-    return ({ rho_t _mx37313660 = r; rho_t _rx37313660 = (rho_t){0};
-        switch (_mx37313660.tag) {
+    return ({ rho_t _mx19d835c0 = r; rho_t _rx19d835c0 = (rho_t){0};
+        switch (_mx19d835c0.tag) {
             case RHO_RHO_ROOT: {
-                _rx37313660 = r;
+                _rx19d835c0 = r;
                 break;
             }
             case RHO_FINALLY_FRAME: {
-                __typeof__(*_mx37313660.parent) p = *_mx37313660.parent;
+                __typeof__(*_mx19d835c0.parent) p = *_mx19d835c0.parent;
                 (void)p;
-                _rx37313660 = ddcg_rho_skip(ctx, p, n);
+                _rx19d835c0 = ddcg_rho_skip(ctx, p, n);
                 break;
             }
             case RHO_TRY_FRAME: {
-                __typeof__(*_mx37313660.parent) p = *_mx37313660.parent;
+                __typeof__(*_mx19d835c0.parent) p = *_mx19d835c0.parent;
                 (void)p;
-                _rx37313660 = ddcg_rho_skip(ctx, p, n);
+                _rx19d835c0 = ddcg_rho_skip(ctx, p, n);
                 break;
             }
             case RHO_LOOP_FRAME: {
-                __typeof__(*_mx37313660.parent) p = *_mx37313660.parent;
+                __typeof__(*_mx19d835c0.parent) p = *_mx19d835c0.parent;
                 (void)p;
-                _rx37313660 = ((n == 0) ? r : ddcg_rho_skip(ctx, p, (n - 1)));
+                _rx19d835c0 = ((n == 0) ? r : ddcg_rho_skip(ctx, p, (n - 1)));
                 break;
             }
             default: break;
         }
-        _rx37313660; });
+        _rx19d835c0; });
 }
 
 /* fun rho_in_protected */
 int ddcg_rho_in_protected(ddcg_ctx_t* ctx, rho_t r) {
     (void)ctx;
     (void)r;
-    return ({ rho_t _mx37313fc0 = r; int _rx37313fc0 = 0;
-        switch (_mx37313fc0.tag) {
+    return ({ rho_t _mx19d83f20 = r; int _rx19d83f20 = 0;
+        switch (_mx19d83f20.tag) {
             case RHO_RHO_ROOT: {
-                _rx37313fc0 = 0;
+                _rx19d83f20 = 0;
                 break;
             }
             case RHO_LOOP_FRAME: {
-                __typeof__(*_mx37313fc0.parent) p = *_mx37313fc0.parent;
+                __typeof__(*_mx19d83f20.parent) p = *_mx19d83f20.parent;
                 (void)p;
-                _rx37313fc0 = ddcg_rho_in_protected(ctx, p);
+                _rx19d83f20 = ddcg_rho_in_protected(ctx, p);
                 break;
             }
             case RHO_FINALLY_FRAME: {
-                _rx37313fc0 = 1;
+                _rx19d83f20 = 1;
                 break;
             }
             case RHO_TRY_FRAME: {
-                _rx37313fc0 = 1;
+                _rx19d83f20 = 1;
                 break;
             }
             default: break;
         }
-        _rx37313fc0; });
+        _rx19d83f20; });
 }
 
 /* fun record_except_regions */
@@ -1520,70 +1520,70 @@ int ddcg_record_except_regions(ddcg_ctx_t* ctx, sir_node_t* t, rho_t r) {
     (void)ctx;
     (void)t;
     (void)r;
-    return ({ rho_t _mx373151c0 = r; int _rx373151c0 = 0;
-        switch (_mx373151c0.tag) {
+    return ({ rho_t _mx19d85120 = r; int _rx19d85120 = 0;
+        switch (_mx19d85120.tag) {
             case RHO_RHO_ROOT: {
-                _rx373151c0 = 0;
+                _rx19d85120 = 0;
                 break;
             }
             case RHO_LOOP_FRAME: {
-                __typeof__(*_mx373151c0.parent) p = *_mx373151c0.parent;
+                __typeof__(*_mx19d85120.parent) p = *_mx19d85120.parent;
                 (void)p;
-                _rx373151c0 = ddcg_record_except_regions(ctx, t, p);
+                _rx19d85120 = ddcg_record_except_regions(ctx, t, p);
                 break;
             }
             case RHO_FINALLY_FRAME: {
-                __typeof__(_mx373151c0.region) rid = _mx373151c0.region;
+                __typeof__(_mx19d85120.region) rid = _mx19d85120.region;
                 (void)rid;
-                __typeof__(*_mx373151c0.parent) p = *_mx373151c0.parent;
+                __typeof__(*_mx19d85120.parent) p = *_mx19d85120.parent;
                 (void)p;
                 (void)ddcg_record_except(ctx, t, rid);
-                _rx373151c0 = ddcg_record_except_regions(ctx, t, p);
+                _rx19d85120 = ddcg_record_except_regions(ctx, t, p);
                 break;
             }
             case RHO_TRY_FRAME: {
-                __typeof__(_mx373151c0.region) rid = _mx373151c0.region;
+                __typeof__(_mx19d85120.region) rid = _mx19d85120.region;
                 (void)rid;
-                __typeof__(*_mx373151c0.parent) p = *_mx373151c0.parent;
+                __typeof__(*_mx19d85120.parent) p = *_mx19d85120.parent;
                 (void)p;
                 (void)ddcg_record_except(ctx, t, rid);
-                _rx373151c0 = ddcg_record_except_regions(ctx, t, p);
+                _rx19d85120 = ddcg_record_except_regions(ctx, t, p);
                 break;
             }
             default: break;
         }
-        _rx373151c0; });
+        _rx19d85120; });
 }
 
 /* fun rho_in_loop */
 int ddcg_rho_in_loop(ddcg_ctx_t* ctx, rho_t r) {
     (void)ctx;
     (void)r;
-    return ({ rho_t _mx37315ec0 = r; int _rx37315ec0 = 0;
-        switch (_mx37315ec0.tag) {
+    return ({ rho_t _mx19d85e20 = r; int _rx19d85e20 = 0;
+        switch (_mx19d85e20.tag) {
             case RHO_RHO_ROOT: {
-                _rx37315ec0 = 0;
+                _rx19d85e20 = 0;
                 break;
             }
             case RHO_LOOP_FRAME: {
-                _rx37315ec0 = 1;
+                _rx19d85e20 = 1;
                 break;
             }
             case RHO_FINALLY_FRAME: {
-                __typeof__(*_mx37315ec0.parent) p = *_mx37315ec0.parent;
+                __typeof__(*_mx19d85e20.parent) p = *_mx19d85e20.parent;
                 (void)p;
-                _rx37315ec0 = ddcg_rho_in_loop(ctx, p);
+                _rx19d85e20 = ddcg_rho_in_loop(ctx, p);
                 break;
             }
             case RHO_TRY_FRAME: {
-                __typeof__(*_mx37315ec0.parent) p = *_mx37315ec0.parent;
+                __typeof__(*_mx19d85e20.parent) p = *_mx19d85e20.parent;
                 (void)p;
-                _rx37315ec0 = ddcg_rho_in_loop(ctx, p);
+                _rx19d85e20 = ddcg_rho_in_loop(ctx, p);
                 break;
             }
             default: break;
         }
-        _rx37315ec0; });
+        _rx19d85e20; });
 }
 
 /* fun walk_for_break */
@@ -1592,36 +1592,36 @@ sir_node_t* ddcg_walk_for_break(ddcg_ctx_t* ctx, rho_t r, int n, sir_node_t* tai
     (void)r;
     (void)n;
     (void)tail;
-    return ({ rho_t _mx37317390 = r; sir_node_t* _rx37317390 = NULL;
-        switch (_mx37317390.tag) {
+    return ({ rho_t _mx19d872f0 = r; sir_node_t* _rx19d872f0 = NULL;
+        switch (_mx19d872f0.tag) {
             case RHO_RHO_ROOT: {
-                _rx37317390 = tail;
+                _rx19d872f0 = tail;
                 break;
             }
             case RHO_FINALLY_FRAME: {
-                __typeof__(_mx37317390.body) b = _mx37317390.body;
+                __typeof__(_mx19d872f0.body) b = _mx19d872f0.body;
                 (void)b;
-                __typeof__(*_mx37317390.parent) p = *_mx37317390.parent;
+                __typeof__(*_mx19d872f0.parent) p = *_mx19d872f0.parent;
                 (void)p;
                 sir_node_t* inner = ddcg_walk_for_break(ctx, p, n, tail);
-                _rx37317390 = ddcg_compile_stmt(ctx, b, p, effect(ctx), single(ctx, inner), inner);
+                _rx19d872f0 = ddcg_compile_stmt(ctx, b, p, effect(ctx), single(ctx, inner), inner);
                 break;
             }
             case RHO_TRY_FRAME: {
-                __typeof__(*_mx37317390.parent) p = *_mx37317390.parent;
+                __typeof__(*_mx19d872f0.parent) p = *_mx19d872f0.parent;
                 (void)p;
-                _rx37317390 = ddcg_walk_for_break(ctx, p, n, tail);
+                _rx19d872f0 = ddcg_walk_for_break(ctx, p, n, tail);
                 break;
             }
             case RHO_LOOP_FRAME: {
-                __typeof__(*_mx37317390.parent) p = *_mx37317390.parent;
+                __typeof__(*_mx19d872f0.parent) p = *_mx19d872f0.parent;
                 (void)p;
-                _rx37317390 = ((n == 0) ? tail : ddcg_walk_for_break(ctx, p, (n - 1), tail));
+                _rx19d872f0 = ((n == 0) ? tail : ddcg_walk_for_break(ctx, p, (n - 1), tail));
                 break;
             }
             default: break;
         }
-        _rx37317390; });
+        _rx19d872f0; });
 }
 
 /* fun walk_finally_for_return */
@@ -1629,36 +1629,36 @@ sir_node_t* ddcg_walk_finally_for_return(ddcg_ctx_t* ctx, rho_t r, sir_node_t* t
     (void)ctx;
     (void)r;
     (void)tail;
-    return ({ rho_t _mx37318520 = r; sir_node_t* _rx37318520 = NULL;
-        switch (_mx37318520.tag) {
+    return ({ rho_t _mx19d88480 = r; sir_node_t* _rx19d88480 = NULL;
+        switch (_mx19d88480.tag) {
             case RHO_RHO_ROOT: {
-                _rx37318520 = tail;
+                _rx19d88480 = tail;
                 break;
             }
             case RHO_LOOP_FRAME: {
-                __typeof__(*_mx37318520.parent) p = *_mx37318520.parent;
+                __typeof__(*_mx19d88480.parent) p = *_mx19d88480.parent;
                 (void)p;
-                _rx37318520 = ddcg_walk_finally_for_return(ctx, p, tail);
+                _rx19d88480 = ddcg_walk_finally_for_return(ctx, p, tail);
                 break;
             }
             case RHO_TRY_FRAME: {
-                __typeof__(*_mx37318520.parent) p = *_mx37318520.parent;
+                __typeof__(*_mx19d88480.parent) p = *_mx19d88480.parent;
                 (void)p;
-                _rx37318520 = ddcg_walk_finally_for_return(ctx, p, tail);
+                _rx19d88480 = ddcg_walk_finally_for_return(ctx, p, tail);
                 break;
             }
             case RHO_FINALLY_FRAME: {
-                __typeof__(_mx37318520.body) b = _mx37318520.body;
+                __typeof__(_mx19d88480.body) b = _mx19d88480.body;
                 (void)b;
-                __typeof__(*_mx37318520.parent) p = *_mx37318520.parent;
+                __typeof__(*_mx19d88480.parent) p = *_mx19d88480.parent;
                 (void)p;
                 sir_node_t* inner = ddcg_walk_finally_for_return(ctx, p, tail);
-                _rx37318520 = ddcg_compile_stmt(ctx, b, p, effect(ctx), single(ctx, inner), inner);
+                _rx19d88480 = ddcg_compile_stmt(ctx, b, p, effect(ctx), single(ctx, inner), inner);
                 break;
             }
             default: break;
         }
-        _rx37318520; });
+        _rx19d88480; });
 }
 
 /* fun try_inline_finally */
@@ -1730,203 +1730,203 @@ sir_node_t* ddcg_build_tree_op(ddcg_ctx_t* ctx, tree_op_t op, sir_node_t* value,
     (void)op;
     (void)value;
     (void)r;
-    return ({ tree_op_t _mx373222d0 = op; sir_node_t* _rx373222d0 = NULL;
-        switch (_mx373222d0.tag) {
+    return ({ tree_op_t _mx19d92230 = op; sir_node_t* _rx19d92230 = NULL;
+        switch (_mx19d92230.tag) {
             case TREE_OP_ARRAYLENGTHOP: {
-                _rx373222d0 = sir_array_length(ctx->arena, value);
+                _rx19d92230 = sir_array_length(ctx->arena, value);
                 break;
             }
             case TREE_OP_GETFIELDOP: {
-                __typeof__(_mx373222d0.dt) dt = _mx373222d0.dt;
+                __typeof__(_mx19d92230.dt) dt = _mx19d92230.dt;
                 (void)dt;
-                __typeof__(_mx373222d0.cls_id) c = _mx373222d0.cls_id;
+                __typeof__(_mx19d92230.cls_id) c = _mx19d92230.cls_id;
                 (void)c;
-                __typeof__(_mx373222d0.cp) cp = _mx373222d0.cp;
+                __typeof__(_mx19d92230.cp) cp = _mx19d92230.cp;
                 (void)cp;
-                _rx373222d0 = sir_get_field(ctx->arena, dt, value, c, cp);
+                _rx19d92230 = sir_get_field(ctx->arena, dt, value, c, cp);
                 break;
             }
             case TREE_OP_NEWARRAYOP: {
-                __typeof__(_mx373222d0.at) at = _mx373222d0.at;
+                __typeof__(_mx19d92230.at) at = _mx19d92230.at;
                 (void)at;
                 sir_node_t* n = sir_new_array(ctx->arena, at, value);
                 (void)ddcg_record_except_regions(ctx, n, r);
-                _rx373222d0 = n;
+                _rx19d92230 = n;
                 break;
             }
             case TREE_OP_NEWREFARRAYOP: {
-                __typeof__(_mx373222d0.eref) eref = _mx373222d0.eref;
+                __typeof__(_mx19d92230.eref) eref = _mx19d92230.eref;
                 (void)eref;
                 sir_node_t* n = sir_new_ref_array(ctx->arena, 0, value, eref);
                 (void)ddcg_record_except_regions(ctx, n, r);
-                _rx373222d0 = n;
+                _rx19d92230 = n;
                 break;
             }
             case TREE_OP_CHECKCASTOP: {
-                __typeof__(_mx373222d0.at) at = _mx373222d0.at;
+                __typeof__(_mx19d92230.at) at = _mx19d92230.at;
                 (void)at;
-                __typeof__(_mx373222d0.cp) cp = _mx373222d0.cp;
+                __typeof__(_mx19d92230.cp) cp = _mx19d92230.cp;
                 (void)cp;
-                _rx373222d0 = sir_check_cast(ctx->arena, value, at, cp);
+                _rx19d92230 = sir_check_cast(ctx->arena, value, at, cp);
                 break;
             }
             case TREE_OP_INSTANCEOFOP: {
-                __typeof__(_mx373222d0.at) at = _mx373222d0.at;
+                __typeof__(_mx19d92230.at) at = _mx19d92230.at;
                 (void)at;
-                __typeof__(_mx373222d0.cp) cp = _mx373222d0.cp;
+                __typeof__(_mx19d92230.cp) cp = _mx19d92230.cp;
                 (void)cp;
-                _rx373222d0 = sir_instance_of(ctx->arena, value, at, cp);
+                _rx19d92230 = sir_instance_of(ctx->arena, value, at, cp);
                 break;
             }
             case TREE_OP_S2IOP: {
-                _rx373222d0 = sir_s2_i(ctx->arena, value);
+                _rx19d92230 = sir_s2_i(ctx->arena, value);
                 break;
             }
             case TREE_OP_I2SOP: {
-                _rx373222d0 = sir_i2_s(ctx->arena, value);
+                _rx19d92230 = sir_i2_s(ctx->arena, value);
                 break;
             }
             case TREE_OP_S2BOP: {
-                _rx373222d0 = sir_s2_b(ctx->arena, value);
+                _rx19d92230 = sir_s2_b(ctx->arena, value);
                 break;
             }
             case TREE_OP_I2BOP: {
-                _rx373222d0 = sir_i2_b(ctx->arena, value);
+                _rx19d92230 = sir_i2_b(ctx->arena, value);
                 break;
             }
             case TREE_OP_I2COP: {
-                _rx373222d0 = sir_i2_c(ctx->arena, value);
+                _rx19d92230 = sir_i2_c(ctx->arena, value);
                 break;
             }
             case TREE_OP_I2LOP: {
-                _rx373222d0 = sir_i2_l(ctx->arena, value);
+                _rx19d92230 = sir_i2_l(ctx->arena, value);
                 break;
             }
             case TREE_OP_I2FOP: {
-                _rx373222d0 = sir_i2_f(ctx->arena, value);
+                _rx19d92230 = sir_i2_f(ctx->arena, value);
                 break;
             }
             case TREE_OP_I2DOP: {
-                _rx373222d0 = sir_i2_d(ctx->arena, value);
+                _rx19d92230 = sir_i2_d(ctx->arena, value);
                 break;
             }
             case TREE_OP_L2IOP: {
-                _rx373222d0 = sir_l2_i(ctx->arena, value);
+                _rx19d92230 = sir_l2_i(ctx->arena, value);
                 break;
             }
             case TREE_OP_L2FOP: {
-                _rx373222d0 = sir_l2_f(ctx->arena, value);
+                _rx19d92230 = sir_l2_f(ctx->arena, value);
                 break;
             }
             case TREE_OP_L2DOP: {
-                _rx373222d0 = sir_l2_d(ctx->arena, value);
+                _rx19d92230 = sir_l2_d(ctx->arena, value);
                 break;
             }
             case TREE_OP_F2IOP: {
-                _rx373222d0 = sir_f2_i(ctx->arena, value);
+                _rx19d92230 = sir_f2_i(ctx->arena, value);
                 break;
             }
             case TREE_OP_F2LOP: {
-                _rx373222d0 = sir_f2_l(ctx->arena, value);
+                _rx19d92230 = sir_f2_l(ctx->arena, value);
                 break;
             }
             case TREE_OP_F2DOP: {
-                _rx373222d0 = sir_f2_d(ctx->arena, value);
+                _rx19d92230 = sir_f2_d(ctx->arena, value);
                 break;
             }
             case TREE_OP_D2IOP: {
-                _rx373222d0 = sir_d2_i(ctx->arena, value);
+                _rx19d92230 = sir_d2_i(ctx->arena, value);
                 break;
             }
             case TREE_OP_D2LOP: {
-                _rx373222d0 = sir_d2_l(ctx->arena, value);
+                _rx19d92230 = sir_d2_l(ctx->arena, value);
                 break;
             }
             case TREE_OP_D2FOP: {
-                _rx373222d0 = sir_d2_f(ctx->arena, value);
+                _rx19d92230 = sir_d2_f(ctx->arena, value);
                 break;
             }
             case TREE_OP_MOVEF2IOP: {
-                _rx373222d0 = sir_move_f2_i(ctx->arena, value);
+                _rx19d92230 = sir_move_f2_i(ctx->arena, value);
                 break;
             }
             case TREE_OP_MOVEI2FOP: {
-                _rx373222d0 = sir_move_i2_f(ctx->arena, value);
+                _rx19d92230 = sir_move_i2_f(ctx->arena, value);
                 break;
             }
             case TREE_OP_MOVED2LOP: {
-                _rx373222d0 = sir_move_d2_l(ctx->arena, value);
+                _rx19d92230 = sir_move_d2_l(ctx->arena, value);
                 break;
             }
             case TREE_OP_MOVEL2DOP: {
-                _rx373222d0 = sir_move_l2_d(ctx->arena, value);
+                _rx19d92230 = sir_move_l2_d(ctx->arena, value);
                 break;
             }
             case TREE_OP_F64SQRTOP: {
-                _rx373222d0 = sir_f64_sqrt(ctx->arena, value);
+                _rx19d92230 = sir_f64_sqrt(ctx->arena, value);
                 break;
             }
             case TREE_OP_F64FLOOROP: {
-                _rx373222d0 = sir_f64_floor(ctx->arena, value);
+                _rx19d92230 = sir_f64_floor(ctx->arena, value);
                 break;
             }
             case TREE_OP_F64CEILOP: {
-                _rx373222d0 = sir_f64_ceil(ctx->arena, value);
+                _rx19d92230 = sir_f64_ceil(ctx->arena, value);
                 break;
             }
             case TREE_OP_F64NEARESTOP: {
-                _rx373222d0 = sir_f64_nearest(ctx->arena, value);
+                _rx19d92230 = sir_f64_nearest(ctx->arena, value);
                 break;
             }
             case TREE_OP_CLASSINSTANTIABLEOP: {
-                _rx373222d0 = sir_class_instantiable(ctx->arena, value);
+                _rx19d92230 = sir_class_instantiable(ctx->arena, value);
                 break;
             }
             case TREE_OP_CLASSCONSTRUCTOP: {
                 sir_node_t* n = sir_class_construct(ctx->arena, value);
                 (void)ddcg_record_except_regions(ctx, n, r);
-                _rx373222d0 = n;
+                _rx19d92230 = n;
                 break;
             }
             case TREE_OP_L2BOP: {
-                _rx373222d0 = sir_i2_b(ctx->arena, sir_l2_i(ctx->arena, value));
+                _rx19d92230 = sir_i2_b(ctx->arena, sir_l2_i(ctx->arena, value));
                 break;
             }
             case TREE_OP_L2SOP: {
-                _rx373222d0 = sir_i2_s(ctx->arena, sir_l2_i(ctx->arena, value));
+                _rx19d92230 = sir_i2_s(ctx->arena, sir_l2_i(ctx->arena, value));
                 break;
             }
             case TREE_OP_L2COP: {
-                _rx373222d0 = sir_i2_c(ctx->arena, sir_l2_i(ctx->arena, value));
+                _rx19d92230 = sir_i2_c(ctx->arena, sir_l2_i(ctx->arena, value));
                 break;
             }
             case TREE_OP_F2BOP: {
-                _rx373222d0 = sir_i2_b(ctx->arena, sir_f2_i(ctx->arena, value));
+                _rx19d92230 = sir_i2_b(ctx->arena, sir_f2_i(ctx->arena, value));
                 break;
             }
             case TREE_OP_F2SOP: {
-                _rx373222d0 = sir_i2_s(ctx->arena, sir_f2_i(ctx->arena, value));
+                _rx19d92230 = sir_i2_s(ctx->arena, sir_f2_i(ctx->arena, value));
                 break;
             }
             case TREE_OP_F2COP: {
-                _rx373222d0 = sir_i2_c(ctx->arena, sir_f2_i(ctx->arena, value));
+                _rx19d92230 = sir_i2_c(ctx->arena, sir_f2_i(ctx->arena, value));
                 break;
             }
             case TREE_OP_D2BOP: {
-                _rx373222d0 = sir_i2_b(ctx->arena, sir_d2_i(ctx->arena, value));
+                _rx19d92230 = sir_i2_b(ctx->arena, sir_d2_i(ctx->arena, value));
                 break;
             }
             case TREE_OP_D2SOP: {
-                _rx373222d0 = sir_i2_s(ctx->arena, sir_d2_i(ctx->arena, value));
+                _rx19d92230 = sir_i2_s(ctx->arena, sir_d2_i(ctx->arena, value));
                 break;
             }
             case TREE_OP_D2COP: {
-                _rx373222d0 = sir_i2_c(ctx->arena, sir_d2_i(ctx->arena, value));
+                _rx19d92230 = sir_i2_c(ctx->arena, sir_d2_i(ctx->arena, value));
                 break;
             }
             default: break;
         }
-        _rx373222d0; });
+        _rx19d92230; });
 }
 
 /* fun deliver_tree */
@@ -1937,19 +1937,19 @@ sir_node_t* ddcg_deliver_tree(ddcg_ctx_t* ctx, delivery_kind_t kind, sir_node_t*
     (void)delta;
     (void)gamma;
     (void)Lnext;
-    return ({ delivery_kind_t _mx37322f50 = kind; sir_node_t* _rx37322f50 = NULL;
-        switch (_mx37322f50.tag) {
+    return ({ delivery_kind_t _mx19d92eb0 = kind; sir_node_t* _rx19d92eb0 = NULL;
+        switch (_mx19d92eb0.tag) {
             case DELIVERY_KIND_PURE: {
-                _rx37322f50 = ddcg_cg_store(ctx, value, delta, gamma, Lnext);
+                _rx19d92eb0 = ddcg_cg_store(ctx, value, delta, gamma, Lnext);
                 break;
             }
             case DELIVERY_KIND_EFFECTFUL: {
-                _rx37322f50 = ddcg_cg_deliver_effectful(ctx, value, delta, gamma, Lnext);
+                _rx19d92eb0 = ddcg_cg_deliver_effectful(ctx, value, delta, gamma, Lnext);
                 break;
             }
             default: break;
         }
-        _rx37322f50; });
+        _rx19d92eb0; });
 }
 
 /* fun spill_or_simple */
@@ -1965,20 +1965,20 @@ sir_node_t* ddcg_spill_or_simple(ddcg_ctx_t* ctx, tree_op_t op, delivery_kind_t 
     (void)Lnext;
     int t = ddcg_ddcg_alloc_temp(ctx, op_dt);
     sir_node_t* head = ddcg_deliver_tree(ctx, kind, ddcg_build_tree_op(ctx, op, sir_load_local(ctx->arena, t, op_dt, NULL), rho), delta, gamma, Lnext);
-    delta_t dst = ({ sir_datatype_t _mx37324140 = op_dt; delta_t _rx37324140 = (delta_t){0};
-        switch (_mx37324140) {
+    delta_t dst = ({ sir_datatype_t _mx19d940a0 = op_dt; delta_t _rx19d940a0 = (delta_t){0};
+        switch (_mx19d940a0) {
             case SIR_DTREF: {
-                _rx37324140 = locref(ctx, t, ddcg_expr_ref(ctx, operand));
+                _rx19d940a0 = locref(ctx, t, ddcg_expr_ref(ctx, operand));
                 break;
             }
             default: {
-                __typeof__(_mx37324140) _other = _mx37324140;
+                __typeof__(_mx19d940a0) _other = _mx19d940a0;
                 (void)_other;
-                _rx37324140 = loc(ctx, t, op_dt);
+                _rx19d940a0 = loc(ctx, t, op_dt);
                 break;
             }
         }
-        _rx37324140; });
+        _rx19d940a0; });
     return ddcg_compile_expr(ctx, operand, rho, dst, single(ctx, head), head);
 }
 
@@ -1991,40 +1991,40 @@ sir_node_t* ddcg_cg_deliver_conv(ddcg_ctx_t* ctx, ast_expr_t* v, sir_datatype_t 
     (void)delta;
     (void)gamma;
     (void)Lnext;
-    return ({ sema_cast_kind_t _mx37326880 = ddcg_assign_conv(ctx, v, to_dt); sir_node_t* _rx37326880 = NULL;
-        switch (_mx37326880.tag) {
+    return ({ sema_cast_kind_t _mx19d967e0 = ddcg_assign_conv(ctx, v, to_dt); sir_node_t* _rx19d967e0 = NULL;
+        switch (_mx19d967e0.tag) {
             case SEMA_CAST_KIND_CASTI2L: {
-                _rx37326880 = ddcg_spill_or_simple(ctx, I2LOp(ctx), Pure(ctx), v, ddcg_sema_data_type_or(ctx, v, SIR_DTINT), rho, delta, gamma, Lnext);
+                _rx19d967e0 = ddcg_spill_or_simple(ctx, I2LOp(ctx), Pure(ctx), v, ddcg_sema_data_type_or(ctx, v, SIR_DTINT), rho, delta, gamma, Lnext);
                 break;
             }
             case SEMA_CAST_KIND_CASTI2F: {
-                _rx37326880 = ddcg_spill_or_simple(ctx, I2FOp(ctx), Pure(ctx), v, ddcg_sema_data_type_or(ctx, v, SIR_DTINT), rho, delta, gamma, Lnext);
+                _rx19d967e0 = ddcg_spill_or_simple(ctx, I2FOp(ctx), Pure(ctx), v, ddcg_sema_data_type_or(ctx, v, SIR_DTINT), rho, delta, gamma, Lnext);
                 break;
             }
             case SEMA_CAST_KIND_CASTI2D: {
-                _rx37326880 = ddcg_spill_or_simple(ctx, I2DOp(ctx), Pure(ctx), v, ddcg_sema_data_type_or(ctx, v, SIR_DTINT), rho, delta, gamma, Lnext);
+                _rx19d967e0 = ddcg_spill_or_simple(ctx, I2DOp(ctx), Pure(ctx), v, ddcg_sema_data_type_or(ctx, v, SIR_DTINT), rho, delta, gamma, Lnext);
                 break;
             }
             case SEMA_CAST_KIND_CASTL2F: {
-                _rx37326880 = ddcg_spill_or_simple(ctx, L2FOp(ctx), Pure(ctx), v, ddcg_sema_data_type_or(ctx, v, SIR_DTLONG), rho, delta, gamma, Lnext);
+                _rx19d967e0 = ddcg_spill_or_simple(ctx, L2FOp(ctx), Pure(ctx), v, ddcg_sema_data_type_or(ctx, v, SIR_DTLONG), rho, delta, gamma, Lnext);
                 break;
             }
             case SEMA_CAST_KIND_CASTL2D: {
-                _rx37326880 = ddcg_spill_or_simple(ctx, L2DOp(ctx), Pure(ctx), v, ddcg_sema_data_type_or(ctx, v, SIR_DTLONG), rho, delta, gamma, Lnext);
+                _rx19d967e0 = ddcg_spill_or_simple(ctx, L2DOp(ctx), Pure(ctx), v, ddcg_sema_data_type_or(ctx, v, SIR_DTLONG), rho, delta, gamma, Lnext);
                 break;
             }
             case SEMA_CAST_KIND_CASTF2D: {
-                _rx37326880 = ddcg_spill_or_simple(ctx, F2DOp(ctx), Pure(ctx), v, ddcg_sema_data_type_or(ctx, v, SIR_DTFLOAT), rho, delta, gamma, Lnext);
+                _rx19d967e0 = ddcg_spill_or_simple(ctx, F2DOp(ctx), Pure(ctx), v, ddcg_sema_data_type_or(ctx, v, SIR_DTFLOAT), rho, delta, gamma, Lnext);
                 break;
             }
             default: {
-                __typeof__(_mx37326880) _other = _mx37326880;
+                __typeof__(_mx19d967e0) _other = _mx19d967e0;
                 (void)_other;
-                _rx37326880 = ddcg_compile_expr(ctx, v, rho, delta, gamma, Lnext);
+                _rx19d967e0 = ddcg_compile_expr(ctx, v, rho, delta, gamma, Lnext);
                 break;
             }
         }
-        _rx37326880; });
+        _rx19d967e0; });
 }
 
 /* fun ternary_arm */
@@ -2035,62 +2035,62 @@ sir_node_t* ddcg_ternary_arm(ddcg_ctx_t* ctx, ast_expr_t* arm, rho_t rho, delta_
     (void)delta;
     (void)gamma;
     (void)Lnext;
-    return ({ delta_t _mx37327570 = delta; sir_node_t* _rx37327570 = NULL;
-        switch (_mx37327570.tag) {
+    return ({ delta_t _mx19d974d0 = delta; sir_node_t* _rx19d974d0 = NULL;
+        switch (_mx19d974d0.tag) {
             case DELTA_LOC: {
-                __typeof__(_mx37327570.dt) d = _mx37327570.dt;
+                __typeof__(_mx19d974d0.dt) d = _mx19d974d0.dt;
                 (void)d;
-                _rx37327570 = ddcg_cg_deliver_conv(ctx, arm, d, rho, delta, gamma, Lnext);
+                _rx19d974d0 = ddcg_cg_deliver_conv(ctx, arm, d, rho, delta, gamma, Lnext);
                 break;
             }
             default: {
-                __typeof__(_mx37327570) _other = _mx37327570;
+                __typeof__(_mx19d974d0) _other = _mx19d974d0;
                 (void)_other;
-                _rx37327570 = ddcg_compile_expr(ctx, arm, rho, delta, gamma, Lnext);
+                _rx19d974d0 = ddcg_compile_expr(ctx, arm, rho, delta, gamma, Lnext);
                 break;
             }
         }
-        _rx37327570; });
+        _rx19d974d0; });
 }
 
 /* fun zero_const */
 sir_node_t* ddcg_zero_const(ddcg_ctx_t* ctx, sir_datatype_t dt) {
     (void)ctx;
     (void)dt;
-    return ({ sir_datatype_t _mx37327a20 = dt; sir_node_t* _rx37327a20 = NULL;
-        switch (_mx37327a20) {
+    return ({ sir_datatype_t _mx19d97980 = dt; sir_node_t* _rx19d97980 = NULL;
+        switch (_mx19d97980) {
             case SIR_DTLONG: {
-                _rx37327a20 = sir_load_long_const(ctx->arena, 0);
+                _rx19d97980 = sir_load_long_const(ctx->arena, 0);
                 break;
             }
             default: {
-                __typeof__(_mx37327a20) _other = _mx37327a20;
+                __typeof__(_mx19d97980) _other = _mx19d97980;
                 (void)_other;
-                _rx37327a20 = sir_load_const(ctx->arena, 0, dt);
+                _rx19d97980 = sir_load_const(ctx->arena, 0, dt);
                 break;
             }
         }
-        _rx37327a20; });
+        _rx19d97980; });
 }
 
 /* fun neg_one_const */
 sir_node_t* ddcg_neg_one_const(ddcg_ctx_t* ctx, sir_datatype_t dt) {
     (void)ctx;
     (void)dt;
-    return ({ sir_datatype_t _mx37327fb0 = dt; sir_node_t* _rx37327fb0 = NULL;
-        switch (_mx37327fb0) {
+    return ({ sir_datatype_t _mx19d97f10 = dt; sir_node_t* _rx19d97f10 = NULL;
+        switch (_mx19d97f10) {
             case SIR_DTLONG: {
-                _rx37327fb0 = sir_load_long_const(ctx->arena, (0 - 1));
+                _rx19d97f10 = sir_load_long_const(ctx->arena, (0 - 1));
                 break;
             }
             default: {
-                __typeof__(_mx37327fb0) _other = _mx37327fb0;
+                __typeof__(_mx19d97f10) _other = _mx19d97f10;
                 (void)_other;
-                _rx37327fb0 = sir_load_const(ctx->arena, (0 - 1), dt);
+                _rx19d97f10 = sir_load_const(ctx->arena, (0 - 1), dt);
                 break;
             }
         }
-        _rx37327fb0; });
+        _rx19d97f10; });
 }
 
 /* fun div_overflow_arm */
@@ -2310,9 +2310,9 @@ sir_node_t* ddcg_static_field_acc(ddcg_ctx_t* ctx, ast_expr_t* obj, ast_expr_t* 
     sir_datatype_t dt = ddcg_sema_field_acc_dt(ctx, node);
     int cp = ddcg_sema_field_index(ctx, node);
     int class_id = ddcg_sema_field_decl_class(ctx, node);
-    ddcg_tup_bool_sir_node_t_ptr_t _tup_39328 = ddcg_fold_const_expr(ctx, node);
-    bool folded = _tup_39328._0;
-    sir_node_t* k = _tup_39328._1;
+    ddcg_tup_bool_sir_node_t_ptr_t _tup_67200 = ddcg_fold_const_expr(ctx, node);
+    bool folded = _tup_67200._0;
+    sir_node_t* k = _tup_67200._1;
     sir_node_t* value_tree = (folded ? (sir_node_t*)k : (sir_node_t*)sir_get_static(ctx->arena, dt, class_id, cp));
     sir_node_t* delivered = (ddcg_sema_may_have_effects(ctx, obj) ? ({
         sir_node_t* head = ddcg_cg_deliver_effectful(ctx, value_tree, delta, gamma, Lnext);
@@ -2349,22 +2349,22 @@ sir_node_t* ddcg_emit_ref_cast(ddcg_ctx_t* ctx, sir_atype_t at, int cp, ast_expr
     sir_node_t* cast_ck = sir_branch(ctx->arena, sir_instance_of(ctx->arena, sir_load_local(ctx->arena, t, SIR_DTREF, NULL), at, cp), ok_inst, ddcg_throw_new_noarg(ctx, ddcg_sema_class_cast_exc_id(ctx), rho));
     (void)ddcg_record_guard(ctx, cast_ck, 5, t, (0 - 1), 0);
     sir_node_t* guard = sir_branch(ctx->arena, sir_eq(ctx->arena, sir_load_local(ctx->arena, t, SIR_DTREF, NULL), sir_load_null(ctx->arena)), ok_null, cast_ck);
-    (void)({ gamma_t _mx3733fe90 = gamma; int _rx3733fe90 = 0;
-        switch (_mx3733fe90.tag) {
+    (void)({ gamma_t _mx19dafdf0 = gamma; int _rx19dafdf0 = 0;
+        switch (_mx19dafdf0.tag) {
             case GAMMA_SINGLE: {
-                __typeof__(_mx3733fe90.L) L = _mx3733fe90.L;
+                __typeof__(_mx19dafdf0.L) L = _mx19dafdf0.L;
                 (void)L;
-                _rx3733fe90 = ddcg_record_scope(ctx, guard, L, 3);
+                _rx19dafdf0 = ddcg_record_scope(ctx, guard, L, 3);
                 break;
             }
             default: {
-                __typeof__(_mx3733fe90) _other = _mx3733fe90;
+                __typeof__(_mx19dafdf0) _other = _mx19dafdf0;
                 (void)_other;
-                _rx3733fe90 = 0;
+                _rx19dafdf0 = 0;
                 break;
             }
         }
-        _rx3733fe90; });
+        _rx19dafdf0; });
     return ddcg_compile_expr(ctx, op, rho, locref(ctx, t, ddcg_expr_ref(ctx, op)), single(ctx, guard), guard);
 }
 
@@ -2427,20 +2427,20 @@ sir_node_t* ddcg_chain_array_init(ddcg_ctx_t* ctx, ddcg_list_ast_expr_t_ptr_t el
         int t_elem = ddcg_ddcg_alloc_temp(ctx, arr_dt);
         sir_node_t* arr_op = ((arr_dt == SIR_DTREF) ? sir_get_field(ctx->arena, SIR_DTREF, sir_load_local(ctx->arena, t_arr, SIR_DTREF, NULL), ddcg_refarray_class(ctx), ddcg_refarray_data_field(ctx)) : sir_get_field(ctx->arena, SIR_DTREF, sir_load_local(ctx->arena, t_arr, SIR_DTREF, NULL), ddcg_primarray_class_dt(ctx, arr_dt), ddcg_primarray_data_field(ctx)));
         sir_node_t* store = sir_array_store(ctx->arena, arr_dt, arr_op, sir_load_const(ctx->arena, idx, SIR_DTINT), sir_load_local(ctx->arena, t_elem, arr_dt, NULL), after, ddcg_expr_ref(ctx, (elems).data[idx]));
-        sir_node_t* chain = ({ sir_datatype_t _mx37345a10 = arr_dt; sir_node_t* _rx37345a10 = NULL;
-            switch (_mx37345a10) {
+        sir_node_t* chain = ({ sir_datatype_t _mx19db5970 = arr_dt; sir_node_t* _rx19db5970 = NULL;
+            switch (_mx19db5970) {
                 case SIR_DTREF: {
-                    _rx37345a10 = ddcg_compile_expr(ctx, (elems).data[idx], rho, locref(ctx, t_elem, ddcg_expr_ref(ctx, (elems).data[idx])), single(ctx, store), store);
+                    _rx19db5970 = ddcg_compile_expr(ctx, (elems).data[idx], rho, locref(ctx, t_elem, ddcg_expr_ref(ctx, (elems).data[idx])), single(ctx, store), store);
                     break;
                 }
                 default: {
-                    __typeof__(_mx37345a10) _other = _mx37345a10;
+                    __typeof__(_mx19db5970) _other = _mx19db5970;
                     (void)_other;
-                    _rx37345a10 = ddcg_cg_deliver_conv(ctx, (elems).data[idx], arr_dt, rho, loc(ctx, t_elem, arr_dt), single(ctx, store), store);
+                    _rx19db5970 = ddcg_cg_deliver_conv(ctx, (elems).data[idx], arr_dt, rho, loc(ctx, t_elem, arr_dt), single(ctx, store), store);
                     break;
                 }
             }
-            _rx37345a10; });
+            _rx19db5970; });
         ddcg_chain_array_init(ctx, elems, (idx - 1), t_arr, arr_dt, chain, rho);
     }));
 }
@@ -2487,22 +2487,22 @@ sir_node_t* ddcg_emit_array_cast(ddcg_ctx_t* ctx, int array_class, ast_expr_t* o
     sir_node_t* ok_inst = ddcg_cg_deliver_effectful(ctx, sir_check_cast(ctx->arena, sir_load_local(ctx->arena, t, SIR_DTREF, NULL), SIR_ATCLASS, ddcg_refarray_class(ctx)), delta, gamma, Lnext);
     sir_node_t* is_inst = sir_invoke_static(ctx->arena, ddcg_class_reflect_id(ctx), ddcg_class_is_instance_method(ctx), (({ ddcg_list_sir_node_t_ptr_t _l = ddcg_list_sir_node_t_ptr_make(ctx->arena); _l = ddcg_list_sir_node_t_ptr_push(_l, sir_load_class(ctx->arena, array_class)); _l = ddcg_list_sir_node_t_ptr_push(_l, sir_load_local(ctx->arena, t, SIR_DTREF, NULL)); _l; })).data, (({ ddcg_list_sir_node_t_ptr_t _l = ddcg_list_sir_node_t_ptr_make(ctx->arena); _l = ddcg_list_sir_node_t_ptr_push(_l, sir_load_class(ctx->arena, array_class)); _l = ddcg_list_sir_node_t_ptr_push(_l, sir_load_local(ctx->arena, t, SIR_DTREF, NULL)); _l; })).count, SIR_DTSHORT);
     sir_node_t* guard = sir_branch(ctx->arena, sir_eq(ctx->arena, sir_load_local(ctx->arena, t, SIR_DTREF, NULL), sir_load_null(ctx->arena)), ok_null, sir_branch(ctx->arena, is_inst, ok_inst, ddcg_throw_new_noarg(ctx, ddcg_sema_class_cast_exc_id(ctx), rho)));
-    (void)({ gamma_t _mx37349d60 = gamma; int _rx37349d60 = 0;
-        switch (_mx37349d60.tag) {
+    (void)({ gamma_t _mx19db9cc0 = gamma; int _rx19db9cc0 = 0;
+        switch (_mx19db9cc0.tag) {
             case GAMMA_SINGLE: {
-                __typeof__(_mx37349d60.L) L = _mx37349d60.L;
+                __typeof__(_mx19db9cc0.L) L = _mx19db9cc0.L;
                 (void)L;
-                _rx37349d60 = ddcg_record_scope(ctx, guard, L, 3);
+                _rx19db9cc0 = ddcg_record_scope(ctx, guard, L, 3);
                 break;
             }
             default: {
-                __typeof__(_mx37349d60) _other = _mx37349d60;
+                __typeof__(_mx19db9cc0) _other = _mx19db9cc0;
                 (void)_other;
-                _rx37349d60 = 0;
+                _rx19db9cc0 = 0;
                 break;
             }
         }
-        _rx37349d60; });
+        _rx19db9cc0; });
     return ddcg_compile_expr(ctx, op, rho, locref(ctx, t, ddcg_expr_ref(ctx, op)), single(ctx, guard), guard);
 }
 
@@ -2934,39 +2934,39 @@ sir_node_t* ddcg_compile_expr(ddcg_ctx_t* ctx, ast_expr_t* node, rho_t rho, delt
                 sir_datatype_t ct = ddcg_binop_ct(ctx, op, lhs_dt, rhs_dt);
                 int t_a = ddcg_ddcg_alloc_temp(ctx, lhs_dt);
                 int t_b = ddcg_ddcg_alloc_temp(ctx, rhs_dt);
-                sir_node_t* div_arm = ({ ast_binop_t _mx3736c660 = op; sir_node_t* _rx3736c660 = NULL;
-                    switch (_mx3736c660) {
+                sir_node_t* div_arm = ({ ast_binop_t _mx19ddc5c0 = op; sir_node_t* _rx19ddc5c0 = NULL;
+                    switch (_mx19ddc5c0) {
                         case AST_DIV: {
-                            _rx3736c660 = ddcg_div_overflow_arm(ctx, t_a, t_b, lhs_dt, rhs_dt, ct, delta, gamma, Lnext);
+                            _rx19ddc5c0 = ddcg_div_overflow_arm(ctx, t_a, t_b, lhs_dt, rhs_dt, ct, delta, gamma, Lnext);
                             break;
                         }
                         default: {
-                            __typeof__(_mx3736c660) _rem = _mx3736c660;
+                            __typeof__(_mx19ddc5c0) _rem = _mx19ddc5c0;
                             (void)_rem;
-                            _rx3736c660 = ddcg_cg_store(ctx, sir_rem(ctx->arena, ct, ddcg_cg_promote(ctx, sir_load_local(ctx->arena, t_a, lhs_dt, NULL), lhs_dt, ct), ddcg_cg_promote(ctx, sir_load_local(ctx->arena, t_b, rhs_dt, NULL), rhs_dt, ct)), delta, gamma, Lnext);
+                            _rx19ddc5c0 = ddcg_cg_store(ctx, sir_rem(ctx->arena, ct, ddcg_cg_promote(ctx, sir_load_local(ctx->arena, t_a, lhs_dt, NULL), lhs_dt, ct), ddcg_cg_promote(ctx, sir_load_local(ctx->arena, t_b, rhs_dt, NULL), rhs_dt, ct)), delta, gamma, Lnext);
                             break;
                         }
                     }
-                    _rx3736c660; });
+                    _rx19ddc5c0; });
                 sir_node_t* throw_arm = ddcg_throw_new_noarg(ctx, ddcg_sema_arithmetic_exc_id(ctx), rho);
                 sir_node_t* guard = sir_branch(ctx->arena, sir_eq(ctx->arena, sir_load_local(ctx->arena, t_b, rhs_dt, NULL), ddcg_zero_const(ctx, rhs_dt)), throw_arm, div_arm);
                 (void)ddcg_record_guard(ctx, guard, 4, t_b, (0 - 1), 1);
-                (void)({ gamma_t _mx3736d540 = gamma; int _rx3736d540 = 0;
-                    switch (_mx3736d540.tag) {
+                (void)({ gamma_t _mx19ddd4a0 = gamma; int _rx19ddd4a0 = 0;
+                    switch (_mx19ddd4a0.tag) {
                         case GAMMA_SINGLE: {
-                            __typeof__(_mx3736d540.L) L = _mx3736d540.L;
+                            __typeof__(_mx19ddd4a0.L) L = _mx19ddd4a0.L;
                             (void)L;
-                            _rx3736d540 = ddcg_record_scope(ctx, guard, L, 3);
+                            _rx19ddd4a0 = ddcg_record_scope(ctx, guard, L, 3);
                             break;
                         }
                         default: {
-                            __typeof__(_mx3736d540) _other = _mx3736d540;
+                            __typeof__(_mx19ddd4a0) _other = _mx19ddd4a0;
                             (void)_other;
-                            _rx3736d540 = 0;
+                            _rx19ddd4a0 = 0;
                             break;
                         }
                     }
-                    _rx3736d540; });
+                    _rx19ddd4a0; });
                 sir_node_t* rhs_chain = ddcg_compile_expr(ctx, r, rho, ddcg_vloc(ctx, t_b, rhs_dt, ddcg_expr_ref(ctx, r)), single(ctx, guard), guard);
                 _result = ddcg_compile_expr(ctx, l, rho, ddcg_vloc(ctx, t_a, lhs_dt, ddcg_expr_ref(ctx, l)), single(ctx, rhs_chain), rhs_chain);
                 break;
@@ -3307,135 +3307,135 @@ sir_node_t* ddcg_compile_expr(ddcg_ctx_t* ctx, ast_expr_t* node, rho_t rho, delt
             ast_expr_t* inner = node->cast.e;
             (void)inner;
             sir_datatype_t src_dt = ddcg_sema_data_type_or(ctx, inner, ddcg_sema_data_type(ctx, node));
-            _result = ({ sema_cast_kind_t _mx37387900 = ddcg_sema_cast_kind(ctx, node); sir_node_t* _rx37387900 = NULL;
-                switch (_mx37387900.tag) {
+            _result = ({ sema_cast_kind_t _mx19df7860 = ddcg_sema_cast_kind(ctx, node); sir_node_t* _rx19df7860 = NULL;
+                switch (_mx19df7860.tag) {
                     case SEMA_CAST_KIND_CASTIDENTITY: {
-                        _rx37387900 = ddcg_compile_expr(ctx, inner, rho, delta, gamma, Lnext);
+                        _rx19df7860 = ddcg_compile_expr(ctx, inner, rho, delta, gamma, Lnext);
                         break;
                     }
                     case SEMA_CAST_KIND_CASTS2I: {
-                        _rx37387900 = ddcg_spill_or_simple(ctx, S2IOp(ctx), Pure(ctx), inner, src_dt, rho, delta, gamma, Lnext);
+                        _rx19df7860 = ddcg_spill_or_simple(ctx, S2IOp(ctx), Pure(ctx), inner, src_dt, rho, delta, gamma, Lnext);
                         break;
                     }
                     case SEMA_CAST_KIND_CASTI2S: {
-                        _rx37387900 = ddcg_spill_or_simple(ctx, I2SOp(ctx), Pure(ctx), inner, src_dt, rho, delta, gamma, Lnext);
+                        _rx19df7860 = ddcg_spill_or_simple(ctx, I2SOp(ctx), Pure(ctx), inner, src_dt, rho, delta, gamma, Lnext);
                         break;
                     }
                     case SEMA_CAST_KIND_CASTS2B: {
-                        _rx37387900 = ddcg_spill_or_simple(ctx, S2BOp(ctx), Pure(ctx), inner, src_dt, rho, delta, gamma, Lnext);
+                        _rx19df7860 = ddcg_spill_or_simple(ctx, S2BOp(ctx), Pure(ctx), inner, src_dt, rho, delta, gamma, Lnext);
                         break;
                     }
                     case SEMA_CAST_KIND_CASTI2B: {
-                        _rx37387900 = ddcg_spill_or_simple(ctx, I2BOp(ctx), Pure(ctx), inner, src_dt, rho, delta, gamma, Lnext);
+                        _rx19df7860 = ddcg_spill_or_simple(ctx, I2BOp(ctx), Pure(ctx), inner, src_dt, rho, delta, gamma, Lnext);
                         break;
                     }
                     case SEMA_CAST_KIND_CASTI2C: {
-                        _rx37387900 = ddcg_spill_or_simple(ctx, I2COp(ctx), Pure(ctx), inner, src_dt, rho, delta, gamma, Lnext);
+                        _rx19df7860 = ddcg_spill_or_simple(ctx, I2COp(ctx), Pure(ctx), inner, src_dt, rho, delta, gamma, Lnext);
                         break;
                     }
                     case SEMA_CAST_KIND_CASTI2L: {
-                        _rx37387900 = ddcg_spill_or_simple(ctx, I2LOp(ctx), Pure(ctx), inner, src_dt, rho, delta, gamma, Lnext);
+                        _rx19df7860 = ddcg_spill_or_simple(ctx, I2LOp(ctx), Pure(ctx), inner, src_dt, rho, delta, gamma, Lnext);
                         break;
                     }
                     case SEMA_CAST_KIND_CASTI2F: {
-                        _rx37387900 = ddcg_spill_or_simple(ctx, I2FOp(ctx), Pure(ctx), inner, src_dt, rho, delta, gamma, Lnext);
+                        _rx19df7860 = ddcg_spill_or_simple(ctx, I2FOp(ctx), Pure(ctx), inner, src_dt, rho, delta, gamma, Lnext);
                         break;
                     }
                     case SEMA_CAST_KIND_CASTI2D: {
-                        _rx37387900 = ddcg_spill_or_simple(ctx, I2DOp(ctx), Pure(ctx), inner, src_dt, rho, delta, gamma, Lnext);
+                        _rx19df7860 = ddcg_spill_or_simple(ctx, I2DOp(ctx), Pure(ctx), inner, src_dt, rho, delta, gamma, Lnext);
                         break;
                     }
                     case SEMA_CAST_KIND_CASTL2I: {
-                        _rx37387900 = ddcg_spill_or_simple(ctx, L2IOp(ctx), Pure(ctx), inner, src_dt, rho, delta, gamma, Lnext);
+                        _rx19df7860 = ddcg_spill_or_simple(ctx, L2IOp(ctx), Pure(ctx), inner, src_dt, rho, delta, gamma, Lnext);
                         break;
                     }
                     case SEMA_CAST_KIND_CASTL2F: {
-                        _rx37387900 = ddcg_spill_or_simple(ctx, L2FOp(ctx), Pure(ctx), inner, src_dt, rho, delta, gamma, Lnext);
+                        _rx19df7860 = ddcg_spill_or_simple(ctx, L2FOp(ctx), Pure(ctx), inner, src_dt, rho, delta, gamma, Lnext);
                         break;
                     }
                     case SEMA_CAST_KIND_CASTL2D: {
-                        _rx37387900 = ddcg_spill_or_simple(ctx, L2DOp(ctx), Pure(ctx), inner, src_dt, rho, delta, gamma, Lnext);
+                        _rx19df7860 = ddcg_spill_or_simple(ctx, L2DOp(ctx), Pure(ctx), inner, src_dt, rho, delta, gamma, Lnext);
                         break;
                     }
                     case SEMA_CAST_KIND_CASTF2I: {
-                        _rx37387900 = ddcg_spill_or_simple(ctx, F2IOp(ctx), Pure(ctx), inner, src_dt, rho, delta, gamma, Lnext);
+                        _rx19df7860 = ddcg_spill_or_simple(ctx, F2IOp(ctx), Pure(ctx), inner, src_dt, rho, delta, gamma, Lnext);
                         break;
                     }
                     case SEMA_CAST_KIND_CASTF2L: {
-                        _rx37387900 = ddcg_spill_or_simple(ctx, F2LOp(ctx), Pure(ctx), inner, src_dt, rho, delta, gamma, Lnext);
+                        _rx19df7860 = ddcg_spill_or_simple(ctx, F2LOp(ctx), Pure(ctx), inner, src_dt, rho, delta, gamma, Lnext);
                         break;
                     }
                     case SEMA_CAST_KIND_CASTF2D: {
-                        _rx37387900 = ddcg_spill_or_simple(ctx, F2DOp(ctx), Pure(ctx), inner, src_dt, rho, delta, gamma, Lnext);
+                        _rx19df7860 = ddcg_spill_or_simple(ctx, F2DOp(ctx), Pure(ctx), inner, src_dt, rho, delta, gamma, Lnext);
                         break;
                     }
                     case SEMA_CAST_KIND_CASTD2I: {
-                        _rx37387900 = ddcg_spill_or_simple(ctx, D2IOp(ctx), Pure(ctx), inner, src_dt, rho, delta, gamma, Lnext);
+                        _rx19df7860 = ddcg_spill_or_simple(ctx, D2IOp(ctx), Pure(ctx), inner, src_dt, rho, delta, gamma, Lnext);
                         break;
                     }
                     case SEMA_CAST_KIND_CASTD2L: {
-                        _rx37387900 = ddcg_spill_or_simple(ctx, D2LOp(ctx), Pure(ctx), inner, src_dt, rho, delta, gamma, Lnext);
+                        _rx19df7860 = ddcg_spill_or_simple(ctx, D2LOp(ctx), Pure(ctx), inner, src_dt, rho, delta, gamma, Lnext);
                         break;
                     }
                     case SEMA_CAST_KIND_CASTD2F: {
-                        _rx37387900 = ddcg_spill_or_simple(ctx, D2FOp(ctx), Pure(ctx), inner, src_dt, rho, delta, gamma, Lnext);
+                        _rx19df7860 = ddcg_spill_or_simple(ctx, D2FOp(ctx), Pure(ctx), inner, src_dt, rho, delta, gamma, Lnext);
                         break;
                     }
                     case SEMA_CAST_KIND_CASTL2B: {
-                        _rx37387900 = ddcg_spill_or_simple(ctx, L2BOp(ctx), Pure(ctx), inner, src_dt, rho, delta, gamma, Lnext);
+                        _rx19df7860 = ddcg_spill_or_simple(ctx, L2BOp(ctx), Pure(ctx), inner, src_dt, rho, delta, gamma, Lnext);
                         break;
                     }
                     case SEMA_CAST_KIND_CASTL2S: {
-                        _rx37387900 = ddcg_spill_or_simple(ctx, L2SOp(ctx), Pure(ctx), inner, src_dt, rho, delta, gamma, Lnext);
+                        _rx19df7860 = ddcg_spill_or_simple(ctx, L2SOp(ctx), Pure(ctx), inner, src_dt, rho, delta, gamma, Lnext);
                         break;
                     }
                     case SEMA_CAST_KIND_CASTL2C: {
-                        _rx37387900 = ddcg_spill_or_simple(ctx, L2COp(ctx), Pure(ctx), inner, src_dt, rho, delta, gamma, Lnext);
+                        _rx19df7860 = ddcg_spill_or_simple(ctx, L2COp(ctx), Pure(ctx), inner, src_dt, rho, delta, gamma, Lnext);
                         break;
                     }
                     case SEMA_CAST_KIND_CASTF2B: {
-                        _rx37387900 = ddcg_spill_or_simple(ctx, F2BOp(ctx), Pure(ctx), inner, src_dt, rho, delta, gamma, Lnext);
+                        _rx19df7860 = ddcg_spill_or_simple(ctx, F2BOp(ctx), Pure(ctx), inner, src_dt, rho, delta, gamma, Lnext);
                         break;
                     }
                     case SEMA_CAST_KIND_CASTF2S: {
-                        _rx37387900 = ddcg_spill_or_simple(ctx, F2SOp(ctx), Pure(ctx), inner, src_dt, rho, delta, gamma, Lnext);
+                        _rx19df7860 = ddcg_spill_or_simple(ctx, F2SOp(ctx), Pure(ctx), inner, src_dt, rho, delta, gamma, Lnext);
                         break;
                     }
                     case SEMA_CAST_KIND_CASTF2C: {
-                        _rx37387900 = ddcg_spill_or_simple(ctx, F2COp(ctx), Pure(ctx), inner, src_dt, rho, delta, gamma, Lnext);
+                        _rx19df7860 = ddcg_spill_or_simple(ctx, F2COp(ctx), Pure(ctx), inner, src_dt, rho, delta, gamma, Lnext);
                         break;
                     }
                     case SEMA_CAST_KIND_CASTD2B: {
-                        _rx37387900 = ddcg_spill_or_simple(ctx, D2BOp(ctx), Pure(ctx), inner, src_dt, rho, delta, gamma, Lnext);
+                        _rx19df7860 = ddcg_spill_or_simple(ctx, D2BOp(ctx), Pure(ctx), inner, src_dt, rho, delta, gamma, Lnext);
                         break;
                     }
                     case SEMA_CAST_KIND_CASTD2S: {
-                        _rx37387900 = ddcg_spill_or_simple(ctx, D2SOp(ctx), Pure(ctx), inner, src_dt, rho, delta, gamma, Lnext);
+                        _rx19df7860 = ddcg_spill_or_simple(ctx, D2SOp(ctx), Pure(ctx), inner, src_dt, rho, delta, gamma, Lnext);
                         break;
                     }
                     case SEMA_CAST_KIND_CASTD2C: {
-                        _rx37387900 = ddcg_spill_or_simple(ctx, D2COp(ctx), Pure(ctx), inner, src_dt, rho, delta, gamma, Lnext);
+                        _rx19df7860 = ddcg_spill_or_simple(ctx, D2COp(ctx), Pure(ctx), inner, src_dt, rho, delta, gamma, Lnext);
                         break;
                     }
                     case SEMA_CAST_KIND_CASTCLASS: {
-                        __typeof__(_mx37387900.cp) cp = _mx37387900.cp;
+                        __typeof__(_mx19df7860.cp) cp = _mx19df7860.cp;
                         (void)cp;
-                        _rx37387900 = ddcg_emit_ref_cast(ctx, SIR_ATCLASS, cp, inner, rho, delta, gamma, Lnext);
+                        _rx19df7860 = ddcg_emit_ref_cast(ctx, SIR_ATCLASS, cp, inner, rho, delta, gamma, Lnext);
                         break;
                     }
                     case SEMA_CAST_KIND_CASTARRAYREFLECT: {
-                        __typeof__(_mx37387900.cp) ac = _mx37387900.cp;
+                        __typeof__(_mx19df7860.cp) ac = _mx19df7860.cp;
                         (void)ac;
-                        _rx37387900 = ddcg_emit_array_cast(ctx, ac, inner, rho, delta, gamma, Lnext);
+                        _rx19df7860 = ddcg_emit_array_cast(ctx, ac, inner, rho, delta, gamma, Lnext);
                         break;
                     }
                     case SEMA_CAST_KIND_CASTNOOP: {
-                        _rx37387900 = ddcg_compile_expr(ctx, inner, rho, delta, gamma, Lnext);
+                        _rx19df7860 = ddcg_compile_expr(ctx, inner, rho, delta, gamma, Lnext);
                         break;
                     }
                     default: break;
                 }
-                _rx37387900; });
+                _rx19df7860; });
             break;
         }
         break;
@@ -3446,27 +3446,27 @@ sir_node_t* ddcg_compile_expr(ddcg_ctx_t* ctx, ast_expr_t* node, rho_t rho, delt
             (void)inner;
             ast_type_t* ty = node->instance_of.ty;
             (void)ty;
-            _result = ({ sema_instanceof_kind_t _mx373888e0 = ddcg_sema_instanceof_kind(ctx, node); sir_node_t* _rx373888e0 = NULL;
-                switch (_mx373888e0.tag) {
+            _result = ({ sema_instanceof_kind_t _mx19df8840 = ddcg_sema_instanceof_kind(ctx, node); sir_node_t* _rx19df8840 = NULL;
+                switch (_mx19df8840.tag) {
                     case SEMA_INSTANCEOF_KIND_INSTANCEOFCLASS: {
-                        __typeof__(_mx373888e0.cp) cp = _mx373888e0.cp;
+                        __typeof__(_mx19df8840.cp) cp = _mx19df8840.cp;
                         (void)cp;
-                        _rx373888e0 = ddcg_emit_instance_of(ctx, SIR_ATCLASS, cp, inner, rho, delta, gamma, Lnext);
+                        _rx19df8840 = ddcg_emit_instance_of(ctx, SIR_ATCLASS, cp, inner, rho, delta, gamma, Lnext);
                         break;
                     }
                     case SEMA_INSTANCEOF_KIND_INSTANCEOFARRAYREFLECT: {
-                        __typeof__(_mx373888e0.cp) ac = _mx373888e0.cp;
+                        __typeof__(_mx19df8840.cp) ac = _mx19df8840.cp;
                         (void)ac;
-                        _rx373888e0 = ddcg_emit_array_instanceof(ctx, ac, inner, rho, delta, gamma, Lnext);
+                        _rx19df8840 = ddcg_emit_array_instanceof(ctx, ac, inner, rho, delta, gamma, Lnext);
                         break;
                     }
                     case SEMA_INSTANCEOF_KIND_INSTANCEOFALWAYSFALSE: {
-                        _rx373888e0 = ddcg_cg_store(ctx, sir_load_const(ctx->arena, 0, SIR_DTSHORT), delta, gamma, Lnext);
+                        _rx19df8840 = ddcg_cg_store(ctx, sir_load_const(ctx->arena, 0, SIR_DTSHORT), delta, gamma, Lnext);
                         break;
                     }
                     default: break;
                 }
-                _rx373888e0; });
+                _rx19df8840; });
             break;
         }
         break;
@@ -3488,8 +3488,8 @@ sir_node_t* ddcg_compile_expr(ddcg_ctx_t* ctx, ast_expr_t* node, rho_t rho, delt
                 ddcg_list_int_t t_args = ({ ddcg_list_int_t _l = ddcg_list_int_make(ctx->arena); _l; });
                 ddcg_list_sir_datatype_t_t arg_dts = ({ ddcg_list_sir_datatype_t_t _l = ddcg_list_sir_datatype_t_make(ctx->arena); _l; });
                 ddcg_list_sir_node_t_ptr_t arg_loads = ({ ddcg_list_sir_node_t_ptr_t _l = ddcg_list_sir_node_t_ptr_make(ctx->arena); _l; });
-                for (int _i_77136 = 0; _i_77136 < (as).count; ++_i_77136) {
-                    int i = _i_77136;
+                for (int _i_5008 = 0; _i_5008 < (as).count; ++_i_5008) {
+                    int i = _i_5008;
                     sir_datatype_t adt = ddcg_sema_param_dt(ctx, scls, cp_safe, i);
                     int ts = ddcg_ddcg_alloc_temp(ctx, adt);
                     t_args = ddcg_list_int_concat(t_args, ({ ddcg_list_int_t _l = ddcg_list_int_make(ctx->arena); _l = ddcg_list_int_push(_l, ts); _l; }));
@@ -3516,8 +3516,8 @@ sir_node_t* ddcg_compile_expr(ddcg_ctx_t* ctx, ast_expr_t* node, rho_t rho, delt
                 ddcg_list_int_t t_args = ({ ddcg_list_int_t _l = ddcg_list_int_make(ctx->arena); _l; });
                 ddcg_list_sir_datatype_t_t arg_dts = ({ ddcg_list_sir_datatype_t_t _l = ddcg_list_sir_datatype_t_make(ctx->arena); _l; });
                 ddcg_list_sir_node_t_ptr_t arg_loads = ({ ddcg_list_sir_node_t_ptr_t _l = ddcg_list_sir_node_t_ptr_make(ctx->arena); _l; });
-                for (int _i_86688 = 0; _i_86688 < (as).count; ++_i_86688) {
-                    int i = _i_86688;
+                for (int _i_14560 = 0; _i_14560 < (as).count; ++_i_14560) {
+                    int i = _i_14560;
                     sir_datatype_t adt = ddcg_sema_param_dt(ctx, target_class, cp_safe, i);
                     int ts = ddcg_ddcg_alloc_temp(ctx, adt);
                     t_args = ddcg_list_int_concat(t_args, ({ ddcg_list_int_t _l = ddcg_list_int_make(ctx->arena); _l = ddcg_list_int_push(_l, ts); _l; }));
@@ -3526,26 +3526,26 @@ sir_node_t* ddcg_compile_expr(ddcg_ctx_t* ctx, ast_expr_t* node, rho_t rho, delt
                 }
                 sir_node_t* invoke = sir_invoke_special(ctx->arena, sir_load_local(ctx->arena, 0, SIR_DTREF, NULL), target_class, cp_safe, (arg_loads).data, (arg_loads).count, SIR_DTSHORT);
                 (void)ddcg_record_except_regions(ctx, invoke, rho);
-                sir_node_t* tail = ({ gamma_t _mx37391950 = gamma; sir_node_t* _rx37391950 = NULL;
-                    switch (_mx37391950.tag) {
+                sir_node_t* tail = ({ gamma_t _mx19e018b0 = gamma; sir_node_t* _rx19e018b0 = NULL;
+                    switch (_mx19e018b0.tag) {
                         case GAMMA_RET: {
-                            _rx37391950 = sir_return_void(ctx->arena);
+                            _rx19e018b0 = sir_return_void(ctx->arena);
                             break;
                         }
                         case GAMMA_SINGLE: {
-                            __typeof__(_mx37391950.L) L = _mx37391950.L;
+                            __typeof__(_mx19e018b0.L) L = _mx19e018b0.L;
                             (void)L;
-                            _rx37391950 = L;
+                            _rx19e018b0 = L;
                             break;
                         }
                         default: {
-                            __typeof__(_mx37391950) _other = _mx37391950;
+                            __typeof__(_mx19e018b0) _other = _mx19e018b0;
                             (void)_other;
-                            _rx37391950 = Lnext;
+                            _rx19e018b0 = Lnext;
                             break;
                         }
                     }
-                    _rx37391950; });
+                    _rx19e018b0; });
                 sir_node_t* effect = sir_expr_effect(ctx->arena, invoke, 1, tail);
                 ddcg_chain_call_args(ctx, as, (as.count - 1), t_args, arg_dts, target_class, cp_safe, effect, rho);
             }));
@@ -3571,8 +3571,8 @@ sir_node_t* ddcg_compile_expr(ddcg_ctx_t* ctx, ast_expr_t* node, rho_t rho, delt
                     ddcg_list_int_t t_args = ({ ddcg_list_int_t _l = ddcg_list_int_make(ctx->arena); _l; });
                     ddcg_list_sir_datatype_t_t arg_dts = ({ ddcg_list_sir_datatype_t_t _l = ddcg_list_sir_datatype_t_make(ctx->arena); _l; });
                     ddcg_list_sir_node_t_ptr_t arg_loads = ({ ddcg_list_sir_node_t_ptr_t _l = ddcg_list_sir_node_t_ptr_make(ctx->arena); _l; });
-                    for (int _i_704 = 0; _i_704 < (as).count; ++_i_704) {
-                        int i = _i_704;
+                    for (int _i_28576 = 0; _i_28576 < (as).count; ++_i_28576) {
+                        int i = _i_28576;
                         sir_datatype_t adt = ddcg_sema_param_dt(ctx, target_class, ctor_cp, i);
                         int ts = ddcg_ddcg_alloc_temp(ctx, adt);
                         t_args = ddcg_list_int_concat(t_args, ({ ddcg_list_int_t _l = ddcg_list_int_make(ctx->arena); _l = ddcg_list_int_push(_l, ts); _l; }));
@@ -3600,28 +3600,28 @@ sir_node_t* ddcg_compile_expr(ddcg_ctx_t* ctx, ast_expr_t* node, rho_t rho, delt
             ddcg_list_ast_expr_t_ptr_t as = ddcg_list_ast_expr_t_ptr_from_arr(ctx->arena, node->method_call.args, node->method_call.args_count);
             (void)as;
             if (ddcg_sema_is_move_intrinsic(ctx, node)) {
-                _result = ({ int _mx37396db0 = ddcg_sema_move_intrinsic_kind(ctx, node); sir_node_t* _rx37396db0 = NULL;
-                    switch (_mx37396db0) {
+                _result = ({ int _mx19e06d10 = ddcg_sema_move_intrinsic_kind(ctx, node); sir_node_t* _rx19e06d10 = NULL;
+                    switch (_mx19e06d10) {
                         case 1: {
-                            _rx37396db0 = ddcg_spill_or_simple(ctx, MoveF2IOp(ctx), Pure(ctx), (as).data[0], SIR_DTFLOAT, rho, delta, gamma, Lnext);
+                            _rx19e06d10 = ddcg_spill_or_simple(ctx, MoveF2IOp(ctx), Pure(ctx), (as).data[0], SIR_DTFLOAT, rho, delta, gamma, Lnext);
                             break;
                         }
                         case 2: {
-                            _rx37396db0 = ddcg_spill_or_simple(ctx, MoveI2FOp(ctx), Pure(ctx), (as).data[0], SIR_DTINT, rho, delta, gamma, Lnext);
+                            _rx19e06d10 = ddcg_spill_or_simple(ctx, MoveI2FOp(ctx), Pure(ctx), (as).data[0], SIR_DTINT, rho, delta, gamma, Lnext);
                             break;
                         }
                         case 3: {
-                            _rx37396db0 = ddcg_spill_or_simple(ctx, MoveD2LOp(ctx), Pure(ctx), (as).data[0], SIR_DTDOUBLE, rho, delta, gamma, Lnext);
+                            _rx19e06d10 = ddcg_spill_or_simple(ctx, MoveD2LOp(ctx), Pure(ctx), (as).data[0], SIR_DTDOUBLE, rho, delta, gamma, Lnext);
                             break;
                         }
                         default: {
-                            __typeof__(_mx37396db0) _other = _mx37396db0;
+                            __typeof__(_mx19e06d10) _other = _mx19e06d10;
                             (void)_other;
-                            _rx37396db0 = ddcg_spill_or_simple(ctx, MoveL2DOp(ctx), Pure(ctx), (as).data[0], SIR_DTLONG, rho, delta, gamma, Lnext);
+                            _rx19e06d10 = ddcg_spill_or_simple(ctx, MoveL2DOp(ctx), Pure(ctx), (as).data[0], SIR_DTLONG, rho, delta, gamma, Lnext);
                             break;
                         }
                     }
-                    _rx37396db0; });
+                    _rx19e06d10; });
                 break;
             }
         }
@@ -3633,28 +3633,28 @@ sir_node_t* ddcg_compile_expr(ddcg_ctx_t* ctx, ast_expr_t* node, rho_t rho, delt
             ddcg_list_ast_expr_t_ptr_t as = ddcg_list_ast_expr_t_ptr_from_arr(ctx->arena, node->method_call.args, node->method_call.args_count);
             (void)as;
             if (ddcg_sema_is_math_intrinsic(ctx, node)) {
-                _result = ({ int _mx37398250 = ddcg_sema_math_intrinsic_kind(ctx, node); sir_node_t* _rx37398250 = NULL;
-                    switch (_mx37398250) {
+                _result = ({ int _mx19e081b0 = ddcg_sema_math_intrinsic_kind(ctx, node); sir_node_t* _rx19e081b0 = NULL;
+                    switch (_mx19e081b0) {
                         case 1: {
-                            _rx37398250 = ddcg_spill_or_simple(ctx, F64SqrtOp(ctx), Pure(ctx), (as).data[0], SIR_DTDOUBLE, rho, delta, gamma, Lnext);
+                            _rx19e081b0 = ddcg_spill_or_simple(ctx, F64SqrtOp(ctx), Pure(ctx), (as).data[0], SIR_DTDOUBLE, rho, delta, gamma, Lnext);
                             break;
                         }
                         case 2: {
-                            _rx37398250 = ddcg_spill_or_simple(ctx, F64FloorOp(ctx), Pure(ctx), (as).data[0], SIR_DTDOUBLE, rho, delta, gamma, Lnext);
+                            _rx19e081b0 = ddcg_spill_or_simple(ctx, F64FloorOp(ctx), Pure(ctx), (as).data[0], SIR_DTDOUBLE, rho, delta, gamma, Lnext);
                             break;
                         }
                         case 3: {
-                            _rx37398250 = ddcg_spill_or_simple(ctx, F64CeilOp(ctx), Pure(ctx), (as).data[0], SIR_DTDOUBLE, rho, delta, gamma, Lnext);
+                            _rx19e081b0 = ddcg_spill_or_simple(ctx, F64CeilOp(ctx), Pure(ctx), (as).data[0], SIR_DTDOUBLE, rho, delta, gamma, Lnext);
                             break;
                         }
                         default: {
-                            __typeof__(_mx37398250) _other = _mx37398250;
+                            __typeof__(_mx19e081b0) _other = _mx19e081b0;
                             (void)_other;
-                            _rx37398250 = ddcg_spill_or_simple(ctx, F64NearestOp(ctx), Pure(ctx), (as).data[0], SIR_DTDOUBLE, rho, delta, gamma, Lnext);
+                            _rx19e081b0 = ddcg_spill_or_simple(ctx, F64NearestOp(ctx), Pure(ctx), (as).data[0], SIR_DTDOUBLE, rho, delta, gamma, Lnext);
                             break;
                         }
                     }
-                    _rx37398250; });
+                    _rx19e081b0; });
                 break;
             }
         }
@@ -3667,20 +3667,20 @@ sir_node_t* ddcg_compile_expr(ddcg_ctx_t* ctx, ast_expr_t* node, rho_t rho, delt
             (void)as;
             if (ddcg_sema_is_simd_intrinsic(ctx, node)) {
                 int op = ddcg_sema_simd_op(ctx, node);
-                _result = ({ int _mx373bc4f0 = ddcg_sema_simd_family(ctx, node); sir_node_t* _rx373bc4f0 = NULL;
-                    switch (_mx373bc4f0) {
+                _result = ({ int _mx19e2c450 = ddcg_sema_simd_family(ctx, node); sir_node_t* _rx19e2c450 = NULL;
+                    switch (_mx19e2c450) {
                         case 1: {
                             int t0 = ddcg_ddcg_alloc_temp(ctx, SIR_DTV128);
                             int t1 = ddcg_ddcg_alloc_temp(ctx, SIR_DTV128);
                             sir_node_t* head = ddcg_deliver_tree(ctx, Pure(ctx), sir_simd_bin(ctx->arena, op, sir_load_local(ctx->arena, t0, SIR_DTV128, NULL), sir_load_local(ctx->arena, t1, SIR_DTV128, NULL)), delta, gamma, Lnext);
                             sir_node_t* mid = ddcg_compile_expr(ctx, (as).data[1], rho, loc(ctx, t1, SIR_DTV128), single(ctx, head), head);
-                            _rx373bc4f0 = ddcg_compile_expr(ctx, (as).data[0], rho, loc(ctx, t0, SIR_DTV128), single(ctx, mid), mid);
+                            _rx19e2c450 = ddcg_compile_expr(ctx, (as).data[0], rho, loc(ctx, t0, SIR_DTV128), single(ctx, mid), mid);
                             break;
                         }
                         case 2: {
                             int t0 = ddcg_ddcg_alloc_temp(ctx, SIR_DTV128);
                             sir_node_t* head = ddcg_deliver_tree(ctx, Pure(ctx), sir_simd_un(ctx->arena, op, sir_load_local(ctx->arena, t0, SIR_DTV128, NULL)), delta, gamma, Lnext);
-                            _rx373bc4f0 = ddcg_compile_expr(ctx, (as).data[0], rho, loc(ctx, t0, SIR_DTV128), single(ctx, head), head);
+                            _rx19e2c450 = ddcg_compile_expr(ctx, (as).data[0], rho, loc(ctx, t0, SIR_DTV128), single(ctx, head), head);
                             break;
                         }
                         case 3: {
@@ -3688,7 +3688,7 @@ sir_node_t* ddcg_compile_expr(ddcg_ctx_t* ctx, ast_expr_t* node, rho_t rho, delt
                             int t1 = ddcg_ddcg_alloc_temp(ctx, SIR_DTINT);
                             sir_node_t* head = ddcg_deliver_tree(ctx, Pure(ctx), sir_simd_shift(ctx->arena, op, sir_load_local(ctx->arena, t0, SIR_DTV128, NULL), sir_load_local(ctx->arena, t1, SIR_DTINT, NULL)), delta, gamma, Lnext);
                             sir_node_t* mid = ddcg_compile_expr(ctx, (as).data[1], rho, loc(ctx, t1, SIR_DTINT), single(ctx, head), head);
-                            _rx373bc4f0 = ddcg_compile_expr(ctx, (as).data[0], rho, loc(ctx, t0, SIR_DTV128), single(ctx, mid), mid);
+                            _rx19e2c450 = ddcg_compile_expr(ctx, (as).data[0], rho, loc(ctx, t0, SIR_DTV128), single(ctx, mid), mid);
                             break;
                         }
                         case 4: {
@@ -3698,61 +3698,61 @@ sir_node_t* ddcg_compile_expr(ddcg_ctx_t* ctx, ast_expr_t* node, rho_t rho, delt
                             sir_node_t* head = ddcg_deliver_tree(ctx, Pure(ctx), sir_simd_tern(ctx->arena, op, sir_load_local(ctx->arena, t0, SIR_DTV128, NULL), sir_load_local(ctx->arena, t1, SIR_DTV128, NULL), sir_load_local(ctx->arena, t2, SIR_DTV128, NULL)), delta, gamma, Lnext);
                             sir_node_t* m2 = ddcg_compile_expr(ctx, (as).data[2], rho, loc(ctx, t2, SIR_DTV128), single(ctx, head), head);
                             sir_node_t* m1 = ddcg_compile_expr(ctx, (as).data[1], rho, loc(ctx, t1, SIR_DTV128), single(ctx, m2), m2);
-                            _rx373bc4f0 = ddcg_compile_expr(ctx, (as).data[0], rho, loc(ctx, t0, SIR_DTV128), single(ctx, m1), m1);
+                            _rx19e2c450 = ddcg_compile_expr(ctx, (as).data[0], rho, loc(ctx, t0, SIR_DTV128), single(ctx, m1), m1);
                             break;
                         }
                         case 5: {
                             int t0 = ddcg_ddcg_alloc_temp(ctx, SIR_DTV128);
                             sir_node_t* head = ddcg_deliver_tree(ctx, Pure(ctx), sir_simd_test_i(ctx->arena, op, sir_load_local(ctx->arena, t0, SIR_DTV128, NULL)), delta, gamma, Lnext);
-                            _rx373bc4f0 = ddcg_compile_expr(ctx, (as).data[0], rho, loc(ctx, t0, SIR_DTV128), single(ctx, head), head);
+                            _rx19e2c450 = ddcg_compile_expr(ctx, (as).data[0], rho, loc(ctx, t0, SIR_DTV128), single(ctx, head), head);
                             break;
                         }
                         case 6: {
                             int t0 = ddcg_ddcg_alloc_temp(ctx, SIR_DTINT);
                             sir_node_t* head = ddcg_deliver_tree(ctx, Pure(ctx), sir_simd_splat_i(ctx->arena, op, sir_load_local(ctx->arena, t0, SIR_DTINT, NULL)), delta, gamma, Lnext);
-                            _rx373bc4f0 = ddcg_compile_expr(ctx, (as).data[0], rho, loc(ctx, t0, SIR_DTINT), single(ctx, head), head);
+                            _rx19e2c450 = ddcg_compile_expr(ctx, (as).data[0], rho, loc(ctx, t0, SIR_DTINT), single(ctx, head), head);
                             break;
                         }
                         case 7: {
                             int t0 = ddcg_ddcg_alloc_temp(ctx, SIR_DTLONG);
                             sir_node_t* head = ddcg_deliver_tree(ctx, Pure(ctx), sir_simd_splat_l(ctx->arena, op, sir_load_local(ctx->arena, t0, SIR_DTLONG, NULL)), delta, gamma, Lnext);
-                            _rx373bc4f0 = ddcg_compile_expr(ctx, (as).data[0], rho, loc(ctx, t0, SIR_DTLONG), single(ctx, head), head);
+                            _rx19e2c450 = ddcg_compile_expr(ctx, (as).data[0], rho, loc(ctx, t0, SIR_DTLONG), single(ctx, head), head);
                             break;
                         }
                         case 8: {
                             int t0 = ddcg_ddcg_alloc_temp(ctx, SIR_DTFLOAT);
                             sir_node_t* head = ddcg_deliver_tree(ctx, Pure(ctx), sir_simd_splat_f(ctx->arena, op, sir_load_local(ctx->arena, t0, SIR_DTFLOAT, NULL)), delta, gamma, Lnext);
-                            _rx373bc4f0 = ddcg_compile_expr(ctx, (as).data[0], rho, loc(ctx, t0, SIR_DTFLOAT), single(ctx, head), head);
+                            _rx19e2c450 = ddcg_compile_expr(ctx, (as).data[0], rho, loc(ctx, t0, SIR_DTFLOAT), single(ctx, head), head);
                             break;
                         }
                         case 9: {
                             int t0 = ddcg_ddcg_alloc_temp(ctx, SIR_DTDOUBLE);
                             sir_node_t* head = ddcg_deliver_tree(ctx, Pure(ctx), sir_simd_splat_d(ctx->arena, op, sir_load_local(ctx->arena, t0, SIR_DTDOUBLE, NULL)), delta, gamma, Lnext);
-                            _rx373bc4f0 = ddcg_compile_expr(ctx, (as).data[0], rho, loc(ctx, t0, SIR_DTDOUBLE), single(ctx, head), head);
+                            _rx19e2c450 = ddcg_compile_expr(ctx, (as).data[0], rho, loc(ctx, t0, SIR_DTDOUBLE), single(ctx, head), head);
                             break;
                         }
                         case 10: {
                             int t0 = ddcg_ddcg_alloc_temp(ctx, SIR_DTV128);
                             sir_node_t* head = ddcg_deliver_tree(ctx, Pure(ctx), sir_simd_extract_i(ctx->arena, op, ddcg_sema_simd_lane(ctx, node), sir_load_local(ctx->arena, t0, SIR_DTV128, NULL)), delta, gamma, Lnext);
-                            _rx373bc4f0 = ddcg_compile_expr(ctx, (as).data[0], rho, loc(ctx, t0, SIR_DTV128), single(ctx, head), head);
+                            _rx19e2c450 = ddcg_compile_expr(ctx, (as).data[0], rho, loc(ctx, t0, SIR_DTV128), single(ctx, head), head);
                             break;
                         }
                         case 11: {
                             int t0 = ddcg_ddcg_alloc_temp(ctx, SIR_DTV128);
                             sir_node_t* head = ddcg_deliver_tree(ctx, Pure(ctx), sir_simd_extract_l(ctx->arena, op, ddcg_sema_simd_lane(ctx, node), sir_load_local(ctx->arena, t0, SIR_DTV128, NULL)), delta, gamma, Lnext);
-                            _rx373bc4f0 = ddcg_compile_expr(ctx, (as).data[0], rho, loc(ctx, t0, SIR_DTV128), single(ctx, head), head);
+                            _rx19e2c450 = ddcg_compile_expr(ctx, (as).data[0], rho, loc(ctx, t0, SIR_DTV128), single(ctx, head), head);
                             break;
                         }
                         case 12: {
                             int t0 = ddcg_ddcg_alloc_temp(ctx, SIR_DTV128);
                             sir_node_t* head = ddcg_deliver_tree(ctx, Pure(ctx), sir_simd_extract_f(ctx->arena, op, ddcg_sema_simd_lane(ctx, node), sir_load_local(ctx->arena, t0, SIR_DTV128, NULL)), delta, gamma, Lnext);
-                            _rx373bc4f0 = ddcg_compile_expr(ctx, (as).data[0], rho, loc(ctx, t0, SIR_DTV128), single(ctx, head), head);
+                            _rx19e2c450 = ddcg_compile_expr(ctx, (as).data[0], rho, loc(ctx, t0, SIR_DTV128), single(ctx, head), head);
                             break;
                         }
                         case 13: {
                             int t0 = ddcg_ddcg_alloc_temp(ctx, SIR_DTV128);
                             sir_node_t* head = ddcg_deliver_tree(ctx, Pure(ctx), sir_simd_extract_d(ctx->arena, op, ddcg_sema_simd_lane(ctx, node), sir_load_local(ctx->arena, t0, SIR_DTV128, NULL)), delta, gamma, Lnext);
-                            _rx373bc4f0 = ddcg_compile_expr(ctx, (as).data[0], rho, loc(ctx, t0, SIR_DTV128), single(ctx, head), head);
+                            _rx19e2c450 = ddcg_compile_expr(ctx, (as).data[0], rho, loc(ctx, t0, SIR_DTV128), single(ctx, head), head);
                             break;
                         }
                         case 14: {
@@ -3760,7 +3760,7 @@ sir_node_t* ddcg_compile_expr(ddcg_ctx_t* ctx, ast_expr_t* node, rho_t rho, delt
                             int t1 = ddcg_ddcg_alloc_temp(ctx, SIR_DTINT);
                             sir_node_t* head = ddcg_deliver_tree(ctx, Pure(ctx), sir_simd_replace_i(ctx->arena, op, ddcg_sema_simd_lane(ctx, node), sir_load_local(ctx->arena, t0, SIR_DTV128, NULL), sir_load_local(ctx->arena, t1, SIR_DTINT, NULL)), delta, gamma, Lnext);
                             sir_node_t* mid = ddcg_compile_expr(ctx, (as).data[1], rho, loc(ctx, t1, SIR_DTINT), single(ctx, head), head);
-                            _rx373bc4f0 = ddcg_compile_expr(ctx, (as).data[0], rho, loc(ctx, t0, SIR_DTV128), single(ctx, mid), mid);
+                            _rx19e2c450 = ddcg_compile_expr(ctx, (as).data[0], rho, loc(ctx, t0, SIR_DTV128), single(ctx, mid), mid);
                             break;
                         }
                         case 15: {
@@ -3768,7 +3768,7 @@ sir_node_t* ddcg_compile_expr(ddcg_ctx_t* ctx, ast_expr_t* node, rho_t rho, delt
                             int t1 = ddcg_ddcg_alloc_temp(ctx, SIR_DTLONG);
                             sir_node_t* head = ddcg_deliver_tree(ctx, Pure(ctx), sir_simd_replace_l(ctx->arena, op, ddcg_sema_simd_lane(ctx, node), sir_load_local(ctx->arena, t0, SIR_DTV128, NULL), sir_load_local(ctx->arena, t1, SIR_DTLONG, NULL)), delta, gamma, Lnext);
                             sir_node_t* mid = ddcg_compile_expr(ctx, (as).data[1], rho, loc(ctx, t1, SIR_DTLONG), single(ctx, head), head);
-                            _rx373bc4f0 = ddcg_compile_expr(ctx, (as).data[0], rho, loc(ctx, t0, SIR_DTV128), single(ctx, mid), mid);
+                            _rx19e2c450 = ddcg_compile_expr(ctx, (as).data[0], rho, loc(ctx, t0, SIR_DTV128), single(ctx, mid), mid);
                             break;
                         }
                         case 16: {
@@ -3776,7 +3776,7 @@ sir_node_t* ddcg_compile_expr(ddcg_ctx_t* ctx, ast_expr_t* node, rho_t rho, delt
                             int t1 = ddcg_ddcg_alloc_temp(ctx, SIR_DTFLOAT);
                             sir_node_t* head = ddcg_deliver_tree(ctx, Pure(ctx), sir_simd_replace_f(ctx->arena, op, ddcg_sema_simd_lane(ctx, node), sir_load_local(ctx->arena, t0, SIR_DTV128, NULL), sir_load_local(ctx->arena, t1, SIR_DTFLOAT, NULL)), delta, gamma, Lnext);
                             sir_node_t* mid = ddcg_compile_expr(ctx, (as).data[1], rho, loc(ctx, t1, SIR_DTFLOAT), single(ctx, head), head);
-                            _rx373bc4f0 = ddcg_compile_expr(ctx, (as).data[0], rho, loc(ctx, t0, SIR_DTV128), single(ctx, mid), mid);
+                            _rx19e2c450 = ddcg_compile_expr(ctx, (as).data[0], rho, loc(ctx, t0, SIR_DTV128), single(ctx, mid), mid);
                             break;
                         }
                         case 17: {
@@ -3784,20 +3784,20 @@ sir_node_t* ddcg_compile_expr(ddcg_ctx_t* ctx, ast_expr_t* node, rho_t rho, delt
                             int t1 = ddcg_ddcg_alloc_temp(ctx, SIR_DTDOUBLE);
                             sir_node_t* head = ddcg_deliver_tree(ctx, Pure(ctx), sir_simd_replace_d(ctx->arena, op, ddcg_sema_simd_lane(ctx, node), sir_load_local(ctx->arena, t0, SIR_DTV128, NULL), sir_load_local(ctx->arena, t1, SIR_DTDOUBLE, NULL)), delta, gamma, Lnext);
                             sir_node_t* mid = ddcg_compile_expr(ctx, (as).data[1], rho, loc(ctx, t1, SIR_DTDOUBLE), single(ctx, head), head);
-                            _rx373bc4f0 = ddcg_compile_expr(ctx, (as).data[0], rho, loc(ctx, t0, SIR_DTV128), single(ctx, mid), mid);
+                            _rx19e2c450 = ddcg_compile_expr(ctx, (as).data[0], rho, loc(ctx, t0, SIR_DTV128), single(ctx, mid), mid);
                             break;
                         }
                         case 18: {
                             sir_node_t* n = sir_simd_const(ctx->arena, 0, 0);
                             (void)ddcg_sema_simd_fill(ctx, n, node);
-                            _rx373bc4f0 = ddcg_deliver_tree(ctx, Pure(ctx), n, delta, gamma, Lnext);
+                            _rx19e2c450 = ddcg_deliver_tree(ctx, Pure(ctx), n, delta, gamma, Lnext);
                             break;
                         }
                         case 20: {
                             int t0 = ddcg_ddcg_alloc_temp(ctx, SIR_DTINT);
                             sir_node_t* head = ddcg_deliver_tree(ctx, Pure(ctx), sir_simd_mem_load(ctx->arena, op, ddcg_sema_simd_align(ctx, node), sir_load_local(ctx->arena, t0, SIR_DTINT, NULL)), delta, gamma, Lnext);
                             sir_node_t* grd = ddcg_mem_bounds_guard(ctx, t0, ddcg_sema_simd_awidth(ctx, node), head, rho);
-                            _rx373bc4f0 = ddcg_compile_expr(ctx, (as).data[0], rho, loc(ctx, t0, SIR_DTINT), single(ctx, grd), grd);
+                            _rx19e2c450 = ddcg_compile_expr(ctx, (as).data[0], rho, loc(ctx, t0, SIR_DTINT), single(ctx, grd), grd);
                             break;
                         }
                         case 21: {
@@ -3807,7 +3807,7 @@ sir_node_t* ddcg_compile_expr(ddcg_ctx_t* ctx, ast_expr_t* node, rho_t rho, delt
                             sir_node_t* store = sir_simd_mem_store(ctx->arena, op, ddcg_sema_simd_align(ctx, node), sir_load_local(ctx->arena, t0, SIR_DTINT, NULL), sir_load_local(ctx->arena, t1, SIR_DTV128, NULL), done);
                             sir_node_t* grd = ddcg_mem_bounds_guard(ctx, t0, ddcg_sema_simd_awidth(ctx, node), store, rho);
                             sir_node_t* dv = ddcg_compile_expr(ctx, (as).data[1], rho, loc(ctx, t1, SIR_DTV128), single(ctx, grd), grd);
-                            _rx373bc4f0 = ddcg_compile_expr(ctx, (as).data[0], rho, loc(ctx, t0, SIR_DTINT), single(ctx, dv), dv);
+                            _rx19e2c450 = ddcg_compile_expr(ctx, (as).data[0], rho, loc(ctx, t0, SIR_DTINT), single(ctx, dv), dv);
                             break;
                         }
                         case 22: {
@@ -3816,7 +3816,7 @@ sir_node_t* ddcg_compile_expr(ddcg_ctx_t* ctx, ast_expr_t* node, rho_t rho, delt
                             sir_node_t* head = ddcg_deliver_tree(ctx, Pure(ctx), sir_simd_mem_load_lane(ctx->arena, op, ddcg_sema_simd_align(ctx, node), ddcg_sema_simd_lane(ctx, node), sir_load_local(ctx->arena, t0, SIR_DTINT, NULL), sir_load_local(ctx->arena, t1, SIR_DTV128, NULL)), delta, gamma, Lnext);
                             sir_node_t* grd = ddcg_mem_bounds_guard(ctx, t0, ddcg_sema_simd_awidth(ctx, node), head, rho);
                             sir_node_t* mid = ddcg_compile_expr(ctx, (as).data[1], rho, loc(ctx, t1, SIR_DTV128), single(ctx, grd), grd);
-                            _rx373bc4f0 = ddcg_compile_expr(ctx, (as).data[0], rho, loc(ctx, t0, SIR_DTINT), single(ctx, mid), mid);
+                            _rx19e2c450 = ddcg_compile_expr(ctx, (as).data[0], rho, loc(ctx, t0, SIR_DTINT), single(ctx, mid), mid);
                             break;
                         }
                         case 23: {
@@ -3826,35 +3826,35 @@ sir_node_t* ddcg_compile_expr(ddcg_ctx_t* ctx, ast_expr_t* node, rho_t rho, delt
                             sir_node_t* store = sir_simd_mem_store_lane(ctx->arena, op, ddcg_sema_simd_align(ctx, node), ddcg_sema_simd_lane(ctx, node), sir_load_local(ctx->arena, t0, SIR_DTINT, NULL), sir_load_local(ctx->arena, t1, SIR_DTV128, NULL), done);
                             sir_node_t* grd = ddcg_mem_bounds_guard(ctx, t0, ddcg_sema_simd_awidth(ctx, node), store, rho);
                             sir_node_t* dv = ddcg_compile_expr(ctx, (as).data[1], rho, loc(ctx, t1, SIR_DTV128), single(ctx, grd), grd);
-                            _rx373bc4f0 = ddcg_compile_expr(ctx, (as).data[0], rho, loc(ctx, t0, SIR_DTINT), single(ctx, dv), dv);
+                            _rx19e2c450 = ddcg_compile_expr(ctx, (as).data[0], rho, loc(ctx, t0, SIR_DTINT), single(ctx, dv), dv);
                             break;
                         }
                         case 24: {
                             int t0 = ddcg_ddcg_alloc_temp(ctx, SIR_DTINT);
                             sir_node_t* head = ddcg_deliver_tree(ctx, Pure(ctx), sir_mem_load_i(ctx->arena, op, ddcg_sema_simd_align(ctx, node), sir_load_local(ctx->arena, t0, SIR_DTINT, NULL)), delta, gamma, Lnext);
                             sir_node_t* grd = ddcg_mem_bounds_guard(ctx, t0, ddcg_sema_simd_awidth(ctx, node), head, rho);
-                            _rx373bc4f0 = ddcg_compile_expr(ctx, (as).data[0], rho, loc(ctx, t0, SIR_DTINT), single(ctx, grd), grd);
+                            _rx19e2c450 = ddcg_compile_expr(ctx, (as).data[0], rho, loc(ctx, t0, SIR_DTINT), single(ctx, grd), grd);
                             break;
                         }
                         case 25: {
                             int t0 = ddcg_ddcg_alloc_temp(ctx, SIR_DTINT);
                             sir_node_t* head = ddcg_deliver_tree(ctx, Pure(ctx), sir_mem_load_l(ctx->arena, op, ddcg_sema_simd_align(ctx, node), sir_load_local(ctx->arena, t0, SIR_DTINT, NULL)), delta, gamma, Lnext);
                             sir_node_t* grd = ddcg_mem_bounds_guard(ctx, t0, ddcg_sema_simd_awidth(ctx, node), head, rho);
-                            _rx373bc4f0 = ddcg_compile_expr(ctx, (as).data[0], rho, loc(ctx, t0, SIR_DTINT), single(ctx, grd), grd);
+                            _rx19e2c450 = ddcg_compile_expr(ctx, (as).data[0], rho, loc(ctx, t0, SIR_DTINT), single(ctx, grd), grd);
                             break;
                         }
                         case 26: {
                             int t0 = ddcg_ddcg_alloc_temp(ctx, SIR_DTINT);
                             sir_node_t* head = ddcg_deliver_tree(ctx, Pure(ctx), sir_mem_load_f(ctx->arena, op, ddcg_sema_simd_align(ctx, node), sir_load_local(ctx->arena, t0, SIR_DTINT, NULL)), delta, gamma, Lnext);
                             sir_node_t* grd = ddcg_mem_bounds_guard(ctx, t0, ddcg_sema_simd_awidth(ctx, node), head, rho);
-                            _rx373bc4f0 = ddcg_compile_expr(ctx, (as).data[0], rho, loc(ctx, t0, SIR_DTINT), single(ctx, grd), grd);
+                            _rx19e2c450 = ddcg_compile_expr(ctx, (as).data[0], rho, loc(ctx, t0, SIR_DTINT), single(ctx, grd), grd);
                             break;
                         }
                         case 27: {
                             int t0 = ddcg_ddcg_alloc_temp(ctx, SIR_DTINT);
                             sir_node_t* head = ddcg_deliver_tree(ctx, Pure(ctx), sir_mem_load_d(ctx->arena, op, ddcg_sema_simd_align(ctx, node), sir_load_local(ctx->arena, t0, SIR_DTINT, NULL)), delta, gamma, Lnext);
                             sir_node_t* grd = ddcg_mem_bounds_guard(ctx, t0, ddcg_sema_simd_awidth(ctx, node), head, rho);
-                            _rx373bc4f0 = ddcg_compile_expr(ctx, (as).data[0], rho, loc(ctx, t0, SIR_DTINT), single(ctx, grd), grd);
+                            _rx19e2c450 = ddcg_compile_expr(ctx, (as).data[0], rho, loc(ctx, t0, SIR_DTINT), single(ctx, grd), grd);
                             break;
                         }
                         case 28: {
@@ -3864,7 +3864,7 @@ sir_node_t* ddcg_compile_expr(ddcg_ctx_t* ctx, ast_expr_t* node, rho_t rho, delt
                             sir_node_t* store = sir_mem_store_i(ctx->arena, op, ddcg_sema_simd_align(ctx, node), sir_load_local(ctx->arena, t0, SIR_DTINT, NULL), sir_load_local(ctx->arena, t1, SIR_DTINT, NULL), done);
                             sir_node_t* grd = ddcg_mem_bounds_guard(ctx, t0, ddcg_sema_simd_awidth(ctx, node), store, rho);
                             sir_node_t* dv = ddcg_compile_expr(ctx, (as).data[1], rho, loc(ctx, t1, SIR_DTINT), single(ctx, grd), grd);
-                            _rx373bc4f0 = ddcg_compile_expr(ctx, (as).data[0], rho, loc(ctx, t0, SIR_DTINT), single(ctx, dv), dv);
+                            _rx19e2c450 = ddcg_compile_expr(ctx, (as).data[0], rho, loc(ctx, t0, SIR_DTINT), single(ctx, dv), dv);
                             break;
                         }
                         case 29: {
@@ -3874,7 +3874,7 @@ sir_node_t* ddcg_compile_expr(ddcg_ctx_t* ctx, ast_expr_t* node, rho_t rho, delt
                             sir_node_t* store = sir_mem_store_l(ctx->arena, op, ddcg_sema_simd_align(ctx, node), sir_load_local(ctx->arena, t0, SIR_DTINT, NULL), sir_load_local(ctx->arena, t1, SIR_DTLONG, NULL), done);
                             sir_node_t* grd = ddcg_mem_bounds_guard(ctx, t0, ddcg_sema_simd_awidth(ctx, node), store, rho);
                             sir_node_t* dv = ddcg_compile_expr(ctx, (as).data[1], rho, loc(ctx, t1, SIR_DTLONG), single(ctx, grd), grd);
-                            _rx373bc4f0 = ddcg_compile_expr(ctx, (as).data[0], rho, loc(ctx, t0, SIR_DTINT), single(ctx, dv), dv);
+                            _rx19e2c450 = ddcg_compile_expr(ctx, (as).data[0], rho, loc(ctx, t0, SIR_DTINT), single(ctx, dv), dv);
                             break;
                         }
                         case 30: {
@@ -3884,7 +3884,7 @@ sir_node_t* ddcg_compile_expr(ddcg_ctx_t* ctx, ast_expr_t* node, rho_t rho, delt
                             sir_node_t* store = sir_mem_store_f(ctx->arena, op, ddcg_sema_simd_align(ctx, node), sir_load_local(ctx->arena, t0, SIR_DTINT, NULL), sir_load_local(ctx->arena, t1, SIR_DTFLOAT, NULL), done);
                             sir_node_t* grd = ddcg_mem_bounds_guard(ctx, t0, ddcg_sema_simd_awidth(ctx, node), store, rho);
                             sir_node_t* dv = ddcg_compile_expr(ctx, (as).data[1], rho, loc(ctx, t1, SIR_DTFLOAT), single(ctx, grd), grd);
-                            _rx373bc4f0 = ddcg_compile_expr(ctx, (as).data[0], rho, loc(ctx, t0, SIR_DTINT), single(ctx, dv), dv);
+                            _rx19e2c450 = ddcg_compile_expr(ctx, (as).data[0], rho, loc(ctx, t0, SIR_DTINT), single(ctx, dv), dv);
                             break;
                         }
                         case 31: {
@@ -3894,17 +3894,17 @@ sir_node_t* ddcg_compile_expr(ddcg_ctx_t* ctx, ast_expr_t* node, rho_t rho, delt
                             sir_node_t* store = sir_mem_store_d(ctx->arena, op, ddcg_sema_simd_align(ctx, node), sir_load_local(ctx->arena, t0, SIR_DTINT, NULL), sir_load_local(ctx->arena, t1, SIR_DTDOUBLE, NULL), done);
                             sir_node_t* grd = ddcg_mem_bounds_guard(ctx, t0, ddcg_sema_simd_awidth(ctx, node), store, rho);
                             sir_node_t* dv = ddcg_compile_expr(ctx, (as).data[1], rho, loc(ctx, t1, SIR_DTDOUBLE), single(ctx, grd), grd);
-                            _rx373bc4f0 = ddcg_compile_expr(ctx, (as).data[0], rho, loc(ctx, t0, SIR_DTINT), single(ctx, dv), dv);
+                            _rx19e2c450 = ddcg_compile_expr(ctx, (as).data[0], rho, loc(ctx, t0, SIR_DTINT), single(ctx, dv), dv);
                             break;
                         }
                         case 32: {
-                            _rx373bc4f0 = ddcg_deliver_tree(ctx, Pure(ctx), sir_mem_size(ctx->arena), delta, gamma, Lnext);
+                            _rx19e2c450 = ddcg_deliver_tree(ctx, Pure(ctx), sir_mem_size(ctx->arena), delta, gamma, Lnext);
                             break;
                         }
                         case 33: {
                             int t0 = ddcg_ddcg_alloc_temp(ctx, SIR_DTINT);
                             sir_node_t* head = ddcg_deliver_tree(ctx, Effectful(ctx), sir_mem_grow(ctx->arena, sir_load_local(ctx->arena, t0, SIR_DTINT, NULL)), delta, gamma, Lnext);
-                            _rx373bc4f0 = ddcg_compile_expr(ctx, (as).data[0], rho, loc(ctx, t0, SIR_DTINT), single(ctx, head), head);
+                            _rx19e2c450 = ddcg_compile_expr(ctx, (as).data[0], rho, loc(ctx, t0, SIR_DTINT), single(ctx, head), head);
                             break;
                         }
                         case 34: {
@@ -3916,7 +3916,7 @@ sir_node_t* ddcg_compile_expr(ddcg_ctx_t* ctx, ast_expr_t* node, rho_t rho, delt
                             sir_node_t* grd = ddcg_mem_range_guard(ctx, t0, t2, fill, rho);
                             sir_node_t* d2 = ddcg_compile_expr(ctx, (as).data[2], rho, loc(ctx, t2, SIR_DTINT), single(ctx, grd), grd);
                             sir_node_t* d1 = ddcg_compile_expr(ctx, (as).data[1], rho, loc(ctx, t1, SIR_DTINT), single(ctx, d2), d2);
-                            _rx373bc4f0 = ddcg_compile_expr(ctx, (as).data[0], rho, loc(ctx, t0, SIR_DTINT), single(ctx, d1), d1);
+                            _rx19e2c450 = ddcg_compile_expr(ctx, (as).data[0], rho, loc(ctx, t0, SIR_DTINT), single(ctx, d1), d1);
                             break;
                         }
                         case 35: {
@@ -3929,11 +3929,11 @@ sir_node_t* ddcg_compile_expr(ddcg_ctx_t* ctx, ast_expr_t* node, rho_t rho, delt
                             sir_node_t* gdst = ddcg_mem_range_guard(ctx, t0, t2, gsrc, rho);
                             sir_node_t* d2 = ddcg_compile_expr(ctx, (as).data[2], rho, loc(ctx, t2, SIR_DTINT), single(ctx, gdst), gdst);
                             sir_node_t* d1 = ddcg_compile_expr(ctx, (as).data[1], rho, loc(ctx, t1, SIR_DTINT), single(ctx, d2), d2);
-                            _rx373bc4f0 = ddcg_compile_expr(ctx, (as).data[0], rho, loc(ctx, t0, SIR_DTINT), single(ctx, d1), d1);
+                            _rx19e2c450 = ddcg_compile_expr(ctx, (as).data[0], rho, loc(ctx, t0, SIR_DTINT), single(ctx, d1), d1);
                             break;
                         }
                         default: {
-                            __typeof__(_mx373bc4f0) _other = _mx373bc4f0;
+                            __typeof__(_mx19e2c450) _other = _mx19e2c450;
                             (void)_other;
                             int t0 = ddcg_ddcg_alloc_temp(ctx, SIR_DTV128);
                             int t1 = ddcg_ddcg_alloc_temp(ctx, SIR_DTV128);
@@ -3941,11 +3941,11 @@ sir_node_t* ddcg_compile_expr(ddcg_ctx_t* ctx, ast_expr_t* node, rho_t rho, delt
                             (void)ddcg_sema_simd_fill(ctx, n, node);
                             sir_node_t* head = ddcg_deliver_tree(ctx, Pure(ctx), n, delta, gamma, Lnext);
                             sir_node_t* mid = ddcg_compile_expr(ctx, (as).data[1], rho, loc(ctx, t1, SIR_DTV128), single(ctx, head), head);
-                            _rx373bc4f0 = ddcg_compile_expr(ctx, (as).data[0], rho, loc(ctx, t0, SIR_DTV128), single(ctx, mid), mid);
+                            _rx19e2c450 = ddcg_compile_expr(ctx, (as).data[0], rho, loc(ctx, t0, SIR_DTV128), single(ctx, mid), mid);
                             break;
                         }
                     }
-                    _rx373bc4f0; });
+                    _rx19e2c450; });
                 break;
             }
         }
@@ -3958,20 +3958,20 @@ sir_node_t* ddcg_compile_expr(ddcg_ctx_t* ctx, ast_expr_t* node, rho_t rho, delt
             (void)as;
             if (ddcg_sema_is_class_intrinsic(ctx, node)) {
                 sir_node_t* self = sir_load_this(ctx->arena, SIR_DTREF, ddcg_current_class_id(ctx));
-                _result = ({ int _mx373bd2d0 = ddcg_sema_class_intrinsic_kind(ctx, node); sir_node_t* _rx373bd2d0 = NULL;
-                    switch (_mx373bd2d0) {
+                _result = ({ int _mx19e2d230 = ddcg_sema_class_intrinsic_kind(ctx, node); sir_node_t* _rx19e2d230 = NULL;
+                    switch (_mx19e2d230) {
                         case 1: {
-                            _rx373bd2d0 = ddcg_cg_store(ctx, sir_class_instantiable(ctx->arena, self), delta, gamma, Lnext);
+                            _rx19e2d230 = ddcg_cg_store(ctx, sir_class_instantiable(ctx->arena, self), delta, gamma, Lnext);
                             break;
                         }
                         default: {
-                            __typeof__(_mx373bd2d0) _other = _mx373bd2d0;
+                            __typeof__(_mx19e2d230) _other = _mx19e2d230;
                             (void)_other;
-                            _rx373bd2d0 = ddcg_cg_store(ctx, sir_class_construct(ctx->arena, self), delta, gamma, Lnext);
+                            _rx19e2d230 = ddcg_cg_store(ctx, sir_class_construct(ctx->arena, self), delta, gamma, Lnext);
                             break;
                         }
                     }
-                    _rx373bd2d0; });
+                    _rx19e2d230; });
                 break;
             }
         }
@@ -4022,8 +4022,8 @@ sir_node_t* ddcg_compile_expr(ddcg_ctx_t* ctx, ast_expr_t* node, rho_t rho, delt
                     ddcg_list_int_t t_args = ({ ddcg_list_int_t _l = ddcg_list_int_make(ctx->arena); _l; });
                     ddcg_list_sir_datatype_t_t arg_dts = ({ ddcg_list_sir_datatype_t_t _l = ddcg_list_sir_datatype_t_make(ctx->arena); _l; });
                     ddcg_list_sir_node_t_ptr_t arg_loads = ({ ddcg_list_sir_node_t_ptr_t _l = ddcg_list_sir_node_t_ptr_make(ctx->arena); _l; });
-                    for (int _i_93600 = 0; _i_93600 < (as).count; ++_i_93600) {
-                        int i = _i_93600;
+                    for (int _i_21472 = 0; _i_21472 < (as).count; ++_i_21472) {
+                        int i = _i_21472;
                         sir_datatype_t adt = ddcg_sema_param_dt(ctx, target_class, cp, i);
                         int ts = ddcg_ddcg_alloc_temp(ctx, adt);
                         t_args = ddcg_list_int_concat(t_args, ({ ddcg_list_int_t _l = ddcg_list_int_make(ctx->arena); _l = ddcg_list_int_push(_l, ts); _l; }));
@@ -4078,17 +4078,17 @@ sir_node_t* ddcg_compile_expr(ddcg_ctx_t* ctx, ast_expr_t* node, rho_t rho, delt
             (void)th;
             ast_expr_t* el = node->ternary.else_;
             (void)el;
-            _result = ({ gamma_t _mx373c9ed0 = gamma; sir_node_t* _rx373c9ed0 = NULL;
-                switch (_mx373c9ed0.tag) {
+            _result = ({ gamma_t _mx19e39e30 = gamma; sir_node_t* _rx19e39e30 = NULL;
+                switch (_mx19e39e30.tag) {
                     case GAMMA_RET: {
                         sir_datatype_t rdt = ddcg_current_return_dt(ctx);
                         sir_node_t* Lthen = ddcg_ddcg_label(ctx, ddcg_cg_deliver_conv(ctx, th, rdt, rho, delta, gamma, Lnext));
                         sir_node_t* Lelse = ddcg_ddcg_label(ctx, ddcg_cg_deliver_conv(ctx, el, rdt, rho, delta, gamma, Lnext));
-                        _rx373c9ed0 = ddcg_compile_expr(ctx, t, rho, effect(ctx), pair(ctx, Lthen, Lelse), Lnext);
+                        _rx19e39e30 = ddcg_compile_expr(ctx, t, rho, effect(ctx), pair(ctx, Lthen, Lelse), Lnext);
                         break;
                     }
                     default: {
-                        __typeof__(_mx373c9ed0) _other = _mx373c9ed0;
+                        __typeof__(_mx19e39e30) _other = _mx19e39e30;
                         (void)_other;
                         sir_node_t* join_cont = ddcg_cg_jump(ctx, gamma, Lnext);
                         sir_node_t* Ljoin = sir_nop(ctx->arena, join_cont);
@@ -4096,11 +4096,11 @@ sir_node_t* ddcg_compile_expr(ddcg_ctx_t* ctx, ast_expr_t* node, rho_t rho, delt
                         sir_node_t* Lelse = ddcg_ddcg_label(ctx, ddcg_ternary_arm(ctx, el, rho, delta, single(ctx, Ljoin), Ljoin));
                         sir_node_t* test = ddcg_compile_expr(ctx, t, rho, effect(ctx), pair(ctx, Lthen, Lelse), Lnext);
                         (void)ddcg_record_scope(ctx, test, Ljoin, 0);
-                        _rx373c9ed0 = test;
+                        _rx19e39e30 = test;
                         break;
                     }
                 }
-                _rx373c9ed0; });
+                _rx19e39e30; });
             break;
         }
         break;
@@ -4341,26 +4341,26 @@ sir_node_t* ddcg_compile_stmt(ddcg_ctx_t* ctx, ast_stmt_t* node, rho_t rho, delt
             (void)catches;
             ast_stmt_t* f = node->try_.finally_;
             (void)f;
-            sir_node_t* l_join = (ddcg_sema_can_complete_normally(ctx, node) ? (sir_node_t*)sir_nop(ctx->arena, ({ gamma_t _mx37389060 = gamma; sir_node_t* _rx37389060 = NULL;
-                switch (_mx37389060.tag) {
+            sir_node_t* l_join = (ddcg_sema_can_complete_normally(ctx, node) ? (sir_node_t*)sir_nop(ctx->arena, ({ gamma_t _mx19df8fc0 = gamma; sir_node_t* _rx19df8fc0 = NULL;
+                switch (_mx19df8fc0.tag) {
                     case GAMMA_SINGLE: {
-                        __typeof__(_mx37389060.L) L = _mx37389060.L;
+                        __typeof__(_mx19df8fc0.L) L = _mx19df8fc0.L;
                         (void)L;
-                        _rx37389060 = L;
+                        _rx19df8fc0 = L;
                         break;
                     }
                     case GAMMA_RET: {
-                        _rx37389060 = sir_return_void(ctx->arena);
+                        _rx19df8fc0 = sir_return_void(ctx->arena);
                         break;
                     }
                     default: {
-                        __typeof__(_mx37389060) _other = _mx37389060;
+                        __typeof__(_mx19df8fc0) _other = _mx19df8fc0;
                         (void)_other;
-                        _rx37389060 = Lnext;
+                        _rx19df8fc0 = Lnext;
                         break;
                     }
                 }
-                _rx37389060; })) : (sir_node_t*)NULL);
+                _rx19df8fc0; })) : (sir_node_t*)NULL);
             int region = ddcg_next_region_id(ctx);
             rho_t body_rho = ((f == NULL) ? try_frame(ctx, region, rho) : finally_frame(ctx, f, region, rho));
             rho_t catch_rho = ((f == NULL) ? rho : finally_frame(ctx, f, (0 - 1), rho));
@@ -4471,29 +4471,29 @@ sir_node_t* ddcg_compile_stmt(ddcg_ctx_t* ctx, ast_stmt_t* node, rho_t rho, delt
             (void)t;
             ast_stmt_t* b = node->do_while.body;
             (void)b;
-            sir_node_t* Lbreak = (ddcg_sema_can_complete_normally(ctx, node) ? (sir_node_t*)({ gamma_t _mx373d9040 = gamma; sir_node_t* _rx373d9040 = NULL;
-                switch (_mx373d9040.tag) {
+            sir_node_t* Lbreak = (ddcg_sema_can_complete_normally(ctx, node) ? (sir_node_t*)({ gamma_t _mx19e48fa0 = gamma; sir_node_t* _rx19e48fa0 = NULL;
+                switch (_mx19e48fa0.tag) {
                     case GAMMA_SINGLE: {
-                        __typeof__(_mx373d9040.L) L = _mx373d9040.L;
+                        __typeof__(_mx19e48fa0.L) L = _mx19e48fa0.L;
                         (void)L;
-                        _rx373d9040 = L;
+                        _rx19e48fa0 = L;
                         break;
                     }
                     case GAMMA_RET: {
-                        _rx373d9040 = sir_return_void(ctx->arena);
+                        _rx19e48fa0 = sir_return_void(ctx->arena);
                         break;
                     }
                     case GAMMA_PAIR: {
-                        __typeof__(_mx373d9040.Lt) Lt = _mx373d9040.Lt;
+                        __typeof__(_mx19e48fa0.Lt) Lt = _mx19e48fa0.Lt;
                         (void)Lt;
-                        __typeof__(_mx373d9040.Lf) Lf = _mx373d9040.Lf;
+                        __typeof__(_mx19e48fa0.Lf) Lf = _mx19e48fa0.Lf;
                         (void)Lf;
-                        _rx373d9040 = Lnext;
+                        _rx19e48fa0 = Lnext;
                         break;
                     }
                     default: break;
                 }
-                _rx373d9040; }) : (sir_node_t*)NULL);
+                _rx19e48fa0; }) : (sir_node_t*)NULL);
             sir_node_t* Ltop = sir_nop(ctx->arena, NULL);
             sir_node_t* Lcont = sir_nop(ctx->arena, NULL);
             rho_t body_rho = loop_frame(ctx, Lbreak, Lcont, rho);
@@ -4533,56 +4533,56 @@ sir_node_t* ddcg_compile_stmt(ddcg_ctx_t* ctx, ast_stmt_t* node, rho_t rho, delt
             (void)t;
             ddcg_list_ast_var_decl_t_ptr_t ds = ddcg_list_ast_var_decl_t_ptr_from_arr(ctx->arena, node->local_var_decl.decls, node->local_var_decl.decls_count);
             (void)ds;
-            sir_datatype_t var_dt = ({ ast_type_t* _mx373dcaf0 = t; sir_datatype_t _rx373dcaf0 = (sir_datatype_t){0};
-                switch (_mx373dcaf0->tag) {
+            sir_datatype_t var_dt = ({ ast_type_t* _mx19e4ca50 = t; sir_datatype_t _rx19e4ca50 = (sir_datatype_t){0};
+                switch (_mx19e4ca50->tag) {
                     case AST_INTTYPE: {
-                        _rx373dcaf0 = SIR_DTINT;
+                        _rx19e4ca50 = SIR_DTINT;
                         break;
                     }
                     case AST_BYTETYPE: {
-                        _rx373dcaf0 = SIR_DTBYTE;
+                        _rx19e4ca50 = SIR_DTBYTE;
                         break;
                     }
                     case AST_BOOLTYPE: {
-                        _rx373dcaf0 = SIR_DTBYTE;
+                        _rx19e4ca50 = SIR_DTBYTE;
                         break;
                     }
                     case AST_SHORTTYPE: {
-                        _rx373dcaf0 = SIR_DTSHORT;
+                        _rx19e4ca50 = SIR_DTSHORT;
                         break;
                     }
                     case AST_CHARTYPE: {
-                        _rx373dcaf0 = SIR_DTCHAR;
+                        _rx19e4ca50 = SIR_DTCHAR;
                         break;
                     }
                     case AST_LONGTYPE: {
-                        _rx373dcaf0 = SIR_DTLONG;
+                        _rx19e4ca50 = SIR_DTLONG;
                         break;
                     }
                     case AST_FLOATTYPE: {
-                        _rx373dcaf0 = SIR_DTFLOAT;
+                        _rx19e4ca50 = SIR_DTFLOAT;
                         break;
                     }
                     case AST_DOUBLETYPE: {
-                        _rx373dcaf0 = SIR_DTDOUBLE;
+                        _rx19e4ca50 = SIR_DTDOUBLE;
                         break;
                     }
                     case AST_CLASSTYPE: {
-                        _rx373dcaf0 = SIR_DTREF;
+                        _rx19e4ca50 = SIR_DTREF;
                         break;
                     }
                     case AST_ARRAYTYPE: {
-                        _rx373dcaf0 = SIR_DTREF;
+                        _rx19e4ca50 = SIR_DTREF;
                         break;
                     }
                     default: {
-                        __typeof__(_mx373dcaf0) _other = _mx373dcaf0;
+                        __typeof__(_mx19e4ca50) _other = _mx19e4ca50;
                         (void)_other;
-                        _rx373dcaf0 = SIR_DTSHORT;
+                        _rx19e4ca50 = SIR_DTSHORT;
                         break;
                     }
                 }
-                _rx373dcaf0; });
+                _rx19e4ca50; });
             int last = ddcg_last_init_index(ctx, ds);
             _result = ((last < 0) ? ddcg_cg_jump(ctx, gamma, Lnext) : ddcg_chain_decls(ctx, ds, 0, last, var_dt, rho, delta, gamma, Lnext));
             break;
@@ -4592,29 +4592,29 @@ sir_node_t* ddcg_compile_stmt(ddcg_ctx_t* ctx, ast_stmt_t* node, rho_t rho, delt
     case AST_BREAK: {
         {
             int depth = ddcg_sema_break_target_depth(ctx, node);
-            _result = ((depth < 0) ? ddcg_cg_jump(ctx, gamma, Lnext) : ({ rho_t _mx373de3a0 = ddcg_rho_skip(ctx, rho, depth); sir_node_t* _rx373de3a0 = NULL;
-                switch (_mx373de3a0.tag) {
+            _result = ((depth < 0) ? ddcg_cg_jump(ctx, gamma, Lnext) : ({ rho_t _mx19e4e300 = ddcg_rho_skip(ctx, rho, depth); sir_node_t* _rx19e4e300 = NULL;
+                switch (_mx19e4e300.tag) {
                     case RHO_RHO_ROOT: {
-                        _rx373de3a0 = ddcg_cg_jump(ctx, gamma, Lnext);
+                        _rx19e4e300 = ddcg_cg_jump(ctx, gamma, Lnext);
                         break;
                     }
                     case RHO_FINALLY_FRAME: {
-                        _rx373de3a0 = ddcg_cg_jump(ctx, gamma, Lnext);
+                        _rx19e4e300 = ddcg_cg_jump(ctx, gamma, Lnext);
                         break;
                     }
                     case RHO_TRY_FRAME: {
-                        _rx373de3a0 = ddcg_cg_jump(ctx, gamma, Lnext);
+                        _rx19e4e300 = ddcg_cg_jump(ctx, gamma, Lnext);
                         break;
                     }
                     case RHO_LOOP_FRAME: {
-                        __typeof__(_mx373de3a0.break_target) bt = _mx373de3a0.break_target;
+                        __typeof__(_mx19e4e300.break_target) bt = _mx19e4e300.break_target;
                         (void)bt;
-                        _rx373de3a0 = ddcg_walk_for_break(ctx, rho, depth, ddcg_ddcg_label(ctx, bt));
+                        _rx19e4e300 = ddcg_walk_for_break(ctx, rho, depth, ddcg_ddcg_label(ctx, bt));
                         break;
                     }
                     default: break;
                 }
-                _rx373de3a0; }));
+                _rx19e4e300; }));
             break;
         }
         break;
@@ -4622,29 +4622,29 @@ sir_node_t* ddcg_compile_stmt(ddcg_ctx_t* ctx, ast_stmt_t* node, rho_t rho, delt
     case AST_CONTINUE: {
         {
             int depth = ddcg_sema_continue_target_depth(ctx, node);
-            _result = ((depth < 0) ? ddcg_cg_jump(ctx, gamma, Lnext) : ({ rho_t _mx373df8d0 = ddcg_rho_skip(ctx, rho, depth); sir_node_t* _rx373df8d0 = NULL;
-                switch (_mx373df8d0.tag) {
+            _result = ((depth < 0) ? ddcg_cg_jump(ctx, gamma, Lnext) : ({ rho_t _mx19e4f830 = ddcg_rho_skip(ctx, rho, depth); sir_node_t* _rx19e4f830 = NULL;
+                switch (_mx19e4f830.tag) {
                     case RHO_RHO_ROOT: {
-                        _rx373df8d0 = ddcg_cg_jump(ctx, gamma, Lnext);
+                        _rx19e4f830 = ddcg_cg_jump(ctx, gamma, Lnext);
                         break;
                     }
                     case RHO_FINALLY_FRAME: {
-                        _rx373df8d0 = ddcg_cg_jump(ctx, gamma, Lnext);
+                        _rx19e4f830 = ddcg_cg_jump(ctx, gamma, Lnext);
                         break;
                     }
                     case RHO_TRY_FRAME: {
-                        _rx373df8d0 = ddcg_cg_jump(ctx, gamma, Lnext);
+                        _rx19e4f830 = ddcg_cg_jump(ctx, gamma, Lnext);
                         break;
                     }
                     case RHO_LOOP_FRAME: {
-                        __typeof__(_mx373df8d0.continue_target) ct = _mx373df8d0.continue_target;
+                        __typeof__(_mx19e4f830.continue_target) ct = _mx19e4f830.continue_target;
                         (void)ct;
-                        _rx373df8d0 = ((ct == NULL) ? ddcg_cg_jump(ctx, gamma, Lnext) : ddcg_walk_for_break(ctx, rho, depth, ddcg_ddcg_label(ctx, ct)));
+                        _rx19e4f830 = ((ct == NULL) ? ddcg_cg_jump(ctx, gamma, Lnext) : ddcg_walk_for_break(ctx, rho, depth, ddcg_ddcg_label(ctx, ct)));
                         break;
                     }
                     default: break;
                 }
-                _rx373df8d0; }));
+                _rx19e4f830; }));
             break;
         }
         break;
@@ -4653,56 +4653,56 @@ sir_node_t* ddcg_compile_stmt(ddcg_ctx_t* ctx, ast_stmt_t* node, rho_t rho, delt
         {
             ast_stmt_t* b = node->labeled.body;
             (void)b;
-            bool body_is_loop_or_switch = ({ ast_stmt_t* _mx373e0250 = b; bool _rx373e0250 = false;
-                switch (_mx373e0250->tag) {
+            bool body_is_loop_or_switch = ({ ast_stmt_t* _mx19e501b0 = b; bool _rx19e501b0 = false;
+                switch (_mx19e501b0->tag) {
                     case AST_WHILE: {
-                        _rx373e0250 = true;
+                        _rx19e501b0 = true;
                         break;
                     }
                     case AST_DOWHILE: {
-                        _rx373e0250 = true;
+                        _rx19e501b0 = true;
                         break;
                     }
                     case AST_FOR: {
-                        _rx373e0250 = true;
+                        _rx19e501b0 = true;
                         break;
                     }
                     case AST_SWITCH: {
-                        _rx373e0250 = true;
+                        _rx19e501b0 = true;
                         break;
                     }
                     default: {
-                        __typeof__(_mx373e0250) _other = _mx373e0250;
+                        __typeof__(_mx19e501b0) _other = _mx19e501b0;
                         (void)_other;
-                        _rx373e0250 = false;
+                        _rx19e501b0 = false;
                         break;
                     }
                 }
-                _rx373e0250; });
+                _rx19e501b0; });
             _result = (body_is_loop_or_switch ? ddcg_compile_stmt(ctx, b, rho, delta, gamma, Lnext) : ({
-                sir_node_t* Lbreak = ({ gamma_t _mx373e09d0 = gamma; sir_node_t* _rx373e09d0 = NULL;
-                    switch (_mx373e09d0.tag) {
+                sir_node_t* Lbreak = ({ gamma_t _mx19e50930 = gamma; sir_node_t* _rx19e50930 = NULL;
+                    switch (_mx19e50930.tag) {
                         case GAMMA_SINGLE: {
-                            __typeof__(_mx373e09d0.L) L = _mx373e09d0.L;
+                            __typeof__(_mx19e50930.L) L = _mx19e50930.L;
                             (void)L;
-                            _rx373e09d0 = L;
+                            _rx19e50930 = L;
                             break;
                         }
                         case GAMMA_RET: {
-                            _rx373e09d0 = sir_return_void(ctx->arena);
+                            _rx19e50930 = sir_return_void(ctx->arena);
                             break;
                         }
                         case GAMMA_PAIR: {
-                            __typeof__(_mx373e09d0.Lt) Lt = _mx373e09d0.Lt;
+                            __typeof__(_mx19e50930.Lt) Lt = _mx19e50930.Lt;
                             (void)Lt;
-                            __typeof__(_mx373e09d0.Lf) Lf = _mx373e09d0.Lf;
+                            __typeof__(_mx19e50930.Lf) Lf = _mx19e50930.Lf;
                             (void)Lf;
-                            _rx373e09d0 = Lnext;
+                            _rx19e50930 = Lnext;
                             break;
                         }
                         default: break;
                     }
-                    _rx373e09d0; });
+                    _rx19e50930; });
                 rho_t body_rho = loop_frame(ctx, Lbreak, NULL, rho);
                 ddcg_compile_stmt(ctx, b, body_rho, delta, gamma, Lnext);
             }));

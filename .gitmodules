@@ -1,3 +1,6 @@
 [submodule "testsuite"]
 	path = testsuite
 	url = https://github.com/WebAssembly/testsuite.git
+[submodule "BBQ"]
+	path = BBQ
+	url = https://github.com/dan-eicher/BBQ.git
