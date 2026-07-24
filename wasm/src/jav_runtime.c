@@ -700,7 +700,9 @@ void jav_heap_gc_init(heap_t* heap, vm_t* vm) {
  * (a normal T_GCREF managed ref), so it rides the value stack / locals / globals
  * and survives collection exactly like any struct/array. */
 static const gc_rtt_t JAV_HOST_BOX_RTT = {
-    (uint32_t)(sizeof(gc_obj_t) + sizeof(void*)), 0, GC_KIND_STRUCT, 0, 0
+    /* designated — a POSITIONAL init here only stayed correct across the rtt's
+     * field additions because GC_KIND_STRUCT happens to be 0 */
+    .size = (uint32_t)(sizeof(gc_obj_t) + sizeof(void*)), .kind = GC_KIND_STRUCT,
 };
 gc_obj_t* jav_host_box_new(vm_t* vm, void* host) {
     gc_obj_t* o = jav_gc_new(vm, &JAV_HOST_BOX_RTT, JAV_HOST_BOX_RTT.size);
@@ -754,7 +756,12 @@ ref_t jav_struct_alloc(vm_t* vm, heap_t* h, s4 typ) { (void)h;
 }
 int jav_struct_nfields(vm_t* vm, heap_t* h, s4 typ) { (void)h;
     if ((u4)typ >= vm->frame.ctx->num_struct_rtts) return 0;
-    return (int)((vm->frame.ctx->struct_rtts[typ]->size - (u4)sizeof(gc_obj_t)) / 8);
+    const gc_rtt_t* rtt = vm->frame.ctx->struct_rtts[typ];
+    /* The RTT's own count when set; 0 = a hand-built narrow-only rtt, where the
+     * old size/8 derivation is exact (a v128 field makes size ≠ nfields*8, but
+     * wide fields only ever arrive via build_rtts, which sets nfields). */
+    return rtt->nfields ? (int)rtt->nfields
+                        : (int)((rtt->size - (u4)sizeof(gc_obj_t)) / 8);
 }
 /* write field fld (8-byte, the .l view) of the freshly-allocated object o = v. */
 
@@ -908,13 +915,14 @@ any_t jav_struct_new_default(vm_t* vm, heap_t* h, s4 typ) { (void)h;
 any_t jav_array_new_default(vm_t* vm, heap_t* h, s4 typ, s4 len) { (void)h;
     if ((u4)typ >= vm->frame.ctx->num_struct_rtts || len < 0) { JAV_TRAP_WITH(vm, JAV_TRAP_NONE); return (any_t){ 0, T_REF }; }
     const gc_rtt_t* rtt = vm->frame.ctx->struct_rtts[typ];
-    u4 size = (u4)sizeof(gc_obj_t) + GC_ARRAY_ELEMS_OFFSET + (u4)len * GC_ARRAY_ELEM_BYTES;
+    u4 size = (u4)sizeof(gc_obj_t) + GC_ARRAY_ELEMS_OFFSET + (u4)len * jav_arr_stride(rtt);
     gc_obj_t* o = jav_gc_new(vm, rtt, size);
     if (!o) { JAV_TRAP_WITH(vm, JAV_TRAP_NONE); return (any_t){ 0, T_REF }; }
     *(u4*)gc_obj_payload(o) = (u4)len;
-    s8* e = arr_elems(o);
-    s8 dflt = rtt->elem_is_ref ? (s8)(u4)JAV_NULLREF : 0;
-    for (s4 i = 0; i < len; i++) e[i] = dflt;
+    if (rtt->elem_is_ref) {                       /* scalars/v128 default 0 — the payload is zeroed */
+        s8* e = arr_elems(o);
+        for (s4 i = 0; i < len; i++) e[i] = (s8)(u4)JAV_NULLREF;
+    }
     return (any_t){ .bits = (s8)(uintptr_t)o, .kind = T_GCREF };
 }
 
@@ -923,7 +931,7 @@ any_t jav_array_new_default(vm_t* vm, heap_t* h, s4 typ, s4 len) { (void)h;
 ref_t jav_array_alloc(vm_t* vm, heap_t* h, s4 typ, s4 n) { (void)h;   /* a REF — see jav_struct_alloc */
     if ((u4)typ >= vm->frame.ctx->num_struct_rtts || n < 0) { JAV_TRAP_WITH(vm, JAV_TRAP_NONE); return 0; }
     const gc_rtt_t* rtt = vm->frame.ctx->struct_rtts[typ];
-    u4 size = (u4)sizeof(gc_obj_t) + GC_ARRAY_ELEMS_OFFSET + (u4)n * GC_ARRAY_ELEM_BYTES;
+    u4 size = (u4)sizeof(gc_obj_t) + GC_ARRAY_ELEMS_OFFSET + (u4)n * jav_arr_stride(rtt);
     gc_obj_t* o = jav_gc_new(vm, rtt, size);
     if (!o) { JAV_TRAP_WITH(vm, JAV_TRAP_NONE); return 0; }
     *(u4*)gc_obj_payload(o) = (u4)n;
@@ -946,12 +954,16 @@ any_t jav_array_new_data(vm_t* vm, heap_t* h, s4 typ, s4 seg, s4 off, s4 n) { (v
     const jav_data_seg_t* d = &vm->frame.ctx->data_segs[seg];
     u8 dseglen = vm->frame.ctx->data_dropped[seg] ? 0 : d->len;      // §4.6.7: a dropped segment is ε (length 0)
     if (n < 0 || off < 0 || (u8)off + (u8)n * w > dseglen) { JAV_TRAP_WITH(vm, JAV_TRAP_OutOfBoundsMemoryAccess); return (any_t){ 0, T_REF }; }
-    u4 size = (u4)sizeof(gc_obj_t) + GC_ARRAY_ELEMS_OFFSET + (u4)n * GC_ARRAY_ELEM_BYTES;
+    u4 size = (u4)sizeof(gc_obj_t) + GC_ARRAY_ELEMS_OFFSET + (u4)n * jav_arr_stride(rtt);
     gc_obj_t* o = jav_gc_new(vm, rtt, size);
     if (!o) { JAV_TRAP_WITH(vm, JAV_TRAP_NONE); return (any_t){ 0, T_REF }; }
     *(u4*)gc_obj_payload(o) = (u4)n;
-    s8* e = arr_elems(o);
-    for (s4 k = 0; k < n; k++) e[k] = le_load(d->bytes + off + (size_t)k * w, w);
+    u1* e = (u1*)arr_elems(o);
+    for (s4 k = 0; k < n; k++) {
+        u1* dst = e + (size_t)k * jav_arr_stride(rtt);
+        if (w == 16) memcpy(dst, d->bytes + off + (size_t)k * 16, 16);  /* v128: the 16 lane bytes verbatim (§4.6) */
+        else         *(s8*)dst = le_load(d->bytes + off + (size_t)k * w, w);
+    }
     return (any_t){ .bits = (s8)(uintptr_t)o, .kind = T_GCREF };
 }
 
@@ -986,8 +998,12 @@ void jav_array_init_data(vm_t* vm, heap_t* h, s4 typ, s4 seg, ref_t arr, s4 d, s
     if (!o) { JAV_TRAP_WITH(vm, JAV_TRAP_NullArrayReference); return; }
     if (n < 0 || d < 0 || (u8)d + (u8)n > arr_len(o)) { JAV_TRAP_WITH(vm, JAV_TRAP_OutOfBoundsArrayAccess); return; }
     if (s < 0 || (u8)s + (u8)n * w > seglen) { JAV_TRAP_WITH(vm, JAV_TRAP_OutOfBoundsMemoryAccess); return; }
-    s8* e = arr_elems(o);
-    for (s4 k = 0; k < n; k++) e[d + k] = le_load(ds->bytes + s + (size_t)k * w, w);
+    u1* e = (u1*)arr_elems(o);
+    for (s4 k = 0; k < n; k++) {
+        u1* dst = e + (size_t)(d + k) * jav_arr_stride(artt);
+        if (w == 16) memcpy(dst, ds->bytes + s + (size_t)k * 16, 16);   /* v128: 16 lane bytes verbatim */
+        else         *(s8*)dst = le_load(ds->bytes + s + (size_t)k * w, w);
+    }
 }
 
 void jav_array_init_elem(vm_t* vm, heap_t* h, s4 typ, s4 seg, ref_t arr, s4 d, s4 s, s4 n) { (void)h; (void)typ;

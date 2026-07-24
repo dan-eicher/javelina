@@ -9,7 +9,7 @@
  * NOTE: this is the STANDALONE collector unit test (IMMIX_TESTS — links the GC only, no engine), so
  * synthetic RTTs are the only option here and a build_rtts defect is out of its reach by construction.
  * That seam is covered by test_gc_roots_real.c. */
-typedef struct { uint32_t size, nrefs; uint8_t kind, elem_is_ref, elem_store_w; int32_t gid; uint32_t off[2]; } rtt_ref2_t;
+typedef struct { uint32_t size, nrefs; uint16_t nfields; uint8_t kind, elem_is_ref, elem_store_w, elem_heap_w; const uint32_t* field_off; int32_t gid; uint32_t off[2]; } rtt_ref2_t;
 static const gc_rtt_t  LEAF = { .size = (uint32_t)(sizeof(gc_obj_t) + 8), .kind = GC_KIND_STRUCT, .gid = -1 };  /* one i64 payload */
 static const rtt_ref2_t PAIR = { .size = (uint32_t)(sizeof(gc_obj_t) + 16), .nrefs = 2, .kind = GC_KIND_STRUCT, .gid = -1,  /* two refs */
                                  .off = { (uint32_t)(sizeof(gc_obj_t) + 0), (uint32_t)(sizeof(gc_obj_t) + 8) } };

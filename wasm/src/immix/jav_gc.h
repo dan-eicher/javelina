@@ -24,10 +24,20 @@ enum { GC_KIND_STRUCT = 0, GC_KIND_ARRAY = 1 };
 typedef struct gc_rtt {
     uint32_t size;          /* struct: total object size (header + fields) */
     uint32_t nrefs;         /* struct: number of reference fields */
+    uint16_t nfields;       /* struct: field count. 0 = UNSET (a hand-built narrow-only rtt —
+                             * tests, the host box): consumers fall back to (size-header)/8,
+                             * which is exact when no field is wide. build_rtts always sets it;
+                             * a v128 field only ever arrives via build_rtts. */
     uint8_t  kind;          /* GC_KIND_STRUCT / GC_KIND_ARRAY */
     uint8_t  elem_is_ref;   /* array: elements are managed references */
-    uint8_t  elem_store_w;  /* array: element STORAGE width 1/2/4/8 — the array.new_data/init_data
-                             * data-segment stride. The in-heap stride is always GC_ARRAY_ELEM_BYTES. */
+    uint8_t  elem_store_w;  /* array: element STORAGE width 1/2/4/8/16 — the array.new_data/
+                             * init_data data-segment stride (16 = v128, per §3.4.7's vectype). */
+    uint8_t  elem_heap_w;   /* array: the IN-HEAP element stride — 16 for v128 elements, else
+                             * GC_ARRAY_ELEM_BYTES. 0 = UNSET (hand-built rtt): consumers read
+                             * GC_ARRAY_ELEM_BYTES, the pre-v128 behavior. */
+    const uint32_t* field_off; /* struct: nfields+1 byte offsets of the fields from the PAYLOAD
+                             * base (off[nfields] = payload size), or NULL ⇒ uniform 8-byte
+                             * cells (no v128 field — the overwhelmingly common case) */
     int32_t  gid;           /* §4.5.2 store-global canonical type id of this rtt's type; -1 until the
                              * defining module is absorbed into the session registry. Lets a cross-
                              * instance struct/array ref resolve its runtime type for ref.test/ref.cast. */
@@ -38,9 +48,9 @@ typedef struct gc_rtt {
  * elements; this offset is where elements start. */
 #define GC_ARRAY_ELEMS_OFFSET 8
 
-/* Every array element occupies one 8-byte slot in the heap (the .l value view of a scalar/ref);
- * 16-byte v128 arrays are not carried. This invariant heap stride is a constant, NOT a per-RTT
- * field — the RTT's varying element fact is elem_store_w (the data-segment width). */
+/* The DEFAULT in-heap array element slot (the .l value view of a scalar/ref). Not an
+ * invariant: a v128 element is 16 bytes, and the per-RTT stride is elem_heap_w — every
+ * size/index computation reads the RTT, never this constant directly. */
 #define GC_ARRAY_ELEM_BYTES 8
 
 /* Object header at the base of every GC object; the payload follows. */

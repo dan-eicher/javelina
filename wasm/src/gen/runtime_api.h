@@ -30,7 +30,9 @@ typedef union {            /* 128-bit SIMD: one slot, many lane views */
 typedef u8 ref_t;   /* object reference; 0 == null (word-sized handle) */
 
 typedef union { s4 i; s8 l; f4 f; f8 d; v128_t v; ref_t r; } slot_t;
-typedef struct { s8 bits; u1 kind; } any_t;
+typedef struct { s8 bits; s8 hi; u1 kind; } any_t;   /* hi = the SECOND 64-bit half of a
+    T_V128 value (dead/zero for every other kind — compound literals zero it). Without it a
+    v128 crossing the runtime-typed carrier lost lanes 2/3. */
 
 /* One side-table entry: a taken branch keeps the top `vals` operands,
  * drops `pop` beneath them, then advances the code cursor and the

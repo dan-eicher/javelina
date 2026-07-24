@@ -67,7 +67,8 @@ uint32_t gc_obj_size(const gc_obj_t* o) {
     const gc_rtt_t* r = o->rtt;
     if (r->kind == GC_KIND_ARRAY) {
         uint32_t len = *(const uint32_t*)((const uint8_t*)o + sizeof(gc_obj_t));
-        return (uint32_t)sizeof(gc_obj_t) + GC_ARRAY_ELEMS_OFFSET + len * GC_ARRAY_ELEM_BYTES;
+        uint32_t w = r->elem_heap_w ? r->elem_heap_w : GC_ARRAY_ELEM_BYTES;   /* 0 = unset (hand-built rtt) */
+        return (uint32_t)sizeof(gc_obj_t) + GC_ARRAY_ELEMS_OFFSET + len * w;
     }
     return r->size;
 }

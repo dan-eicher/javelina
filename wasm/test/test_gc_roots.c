@@ -11,7 +11,7 @@
  * NOTE: this is a COLLECTOR unit test — the RTTs here are synthetic and the engine never produces
  * them, so nothing in this file can see a build_rtts defect. That seam is covered by
  * test_gc_roots_real.c, which drives real modules through the real RTT builder. */
-typedef struct { uint32_t size, nrefs; uint8_t kind, elem_is_ref, elem_store_w; int32_t gid; uint32_t off[2]; } rtt_ref2_t;
+typedef struct { uint32_t size, nrefs; uint16_t nfields; uint8_t kind, elem_is_ref, elem_store_w, elem_heap_w; const uint32_t* field_off; int32_t gid; uint32_t off[2]; } rtt_ref2_t;
 static const gc_rtt_t  LEAF = { .size = (uint32_t)(sizeof(gc_obj_t) + 8), .kind = GC_KIND_STRUCT, .gid = -1 };
 static const rtt_ref2_t PAIR = { .size = (uint32_t)(sizeof(gc_obj_t) + 16), .nrefs = 2, .kind = GC_KIND_STRUCT, .gid = -1,
                                  .off = { (uint32_t)(sizeof(gc_obj_t) + 0), (uint32_t)(sizeof(gc_obj_t) + 8) } };

@@ -743,7 +743,7 @@ int jav_typecheck_ex(const uint8_t* code, size_t len, const jav_vctx_t* cx,
             }
             if (!s.ok) break;
             size_t try_pc = c.pos;                        /* body start = handler install point; catch entries branch from here */
-            for (unsigned e = catch_stp; e < bbq_vec_len(s.st); e++) s.bpos[e] = try_pc;
+            for (unsigned e = catch_stp; e < (unsigned)bbq_vec_len(s.st); e++) s.bpos[e] = try_pc;
             jav_try_t tt = (jav_try_t){ (uint32_t)try_pc, catch_stp, ncatch, 0 };
             bbq_vec_push(s.trytab, tt);
             unsigned ti = (unsigned)bbq_vec_len(s.trytab) - 1;

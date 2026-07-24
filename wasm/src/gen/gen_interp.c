@@ -51,8 +51,8 @@ void jav_trap(vm_t* vm);
 #define GPUSH_REF(v) do { JV_STK[JV_SP].l = (s8)(ref_t)(v); JV_STKT[JV_SP] = T_REF; JV_SP++; } while (0)
 #define GPOP_WORD(name) slot_t name; u1 name##_wt; do { JV_SP--; name = JV_STK[JV_SP]; name##_wt = JV_STKT[JV_SP]; } while (0)
 #define GPUSH_WORD(name) do { JV_STK[JV_SP] = (name); JV_STKT[JV_SP] = name##_wt; JV_SP++; } while (0)
-#define GPOP_ANY(name) any_t name; do { JV_SP--; name.bits = JV_STK[JV_SP].l; name.kind = JV_STKT[JV_SP]; } while (0)
-#define GPUSH_ANY(v) do { any_t _a = (v); JV_STK[JV_SP].l = _a.bits; JV_STKT[JV_SP] = _a.kind; JV_SP++; } while (0)
+#define GPOP_ANY(name) any_t name; do { JV_SP--; name.bits = JV_STK[JV_SP].v.i64[0]; name.hi = JV_STK[JV_SP].v.i64[1]; name.kind = JV_STKT[JV_SP]; } while (0)
+#define GPUSH_ANY(_av) do { any_t _a = (_av); JV_STK[JV_SP].v.i64[0] = _a.bits; JV_STK[JV_SP].v.i64[1] = _a.hi; JV_STKT[JV_SP] = _a.kind; JV_SP++; } while (0)
 #define GPOP_ADDR(name, is64) u8 name; do { if (is64) name = (u8)JV_STK[--JV_SP].l; else name = (u8)(u4)JV_STK[--JV_SP].i; } while (0)
 #ifndef GLOBAL_GET
 #define GLOBAL_GET(i)        (vm->globals[(i)][0])
@@ -566,7 +566,7 @@ static void gen_op_throw(vm_t* vm) {
     {
     s4 i = (s4)(((jav_tag_nparams(NATIVE_ARGS, tag)) - 1));
     while ((i >= 0)) {
-    exn_store(NATIVE_ARGS, i, exn, ((any_t){ .bits = _vb_fields[i].l, .kind = _vt_fields[i] }));
+    exn_store(NATIVE_ARGS, i, exn, ((any_t){ .bits = _vb_fields[i].v.i64[0], .hi = _vb_fields[i].v.i64[1], .kind = _vt_fields[i] }));
     i = (s4)((i - 1));
     }
     }
@@ -2372,7 +2372,7 @@ static void gen_op_struct_new(vm_t* vm) {
     {
     s4 i = (s4)(((jav_struct_nfields(NATIVE_ARGS, type)) - 1));
     while ((i >= 0)) {
-    struct_store(NATIVE_ARGS, type, i, o, ((any_t){ .bits = _vb_fields[i].l, .kind = _vt_fields[i] }));
+    struct_store(NATIVE_ARGS, type, i, o, ((any_t){ .bits = _vb_fields[i].v.i64[0], .hi = _vb_fields[i].v.i64[1], .kind = _vt_fields[i] }));
     i = (s4)((i - 1));
     }
     }
@@ -2515,7 +2515,7 @@ static void gen_op_array_new_fixed(vm_t* vm) {
     {
     s4 i = (s4)((n - 1));
     while ((i >= 0)) {
-    array_store(NATIVE_ARGS, type, o, i, ((any_t){ .bits = _vb_fields[i].l, .kind = _vt_fields[i] }));
+    array_store(NATIVE_ARGS, type, o, i, ((any_t){ .bits = _vb_fields[i].v.i64[0], .hi = _vb_fields[i].v.i64[1], .kind = _vt_fields[i] }));
     i = (s4)((i - 1));
     }
     }

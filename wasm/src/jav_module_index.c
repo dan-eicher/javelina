@@ -340,6 +340,14 @@ void jav_typereg_absorb(jav_typereg_t* r, const jav_modidx_t* mod, int32_t* gcan
                     size_t nb = sizeof(gc_rtt_t) + (src->kind == GC_KIND_STRUCT ? (size_t)src->nrefs : 0) * sizeof(uint32_t);
                     rc = bbq_arena_alloc(&r->arena, nb);
                     memcpy(rc, src, nb);
+                    /* field_off points into the SOURCE module's arena (doomed) —
+                     * deep-copy it into the store arena alongside the rtt. */
+                    if (src->field_off) {
+                        size_t ob = ((size_t)src->nfields + 1) * sizeof(uint32_t);
+                        uint32_t* oc = bbq_arena_alloc(&r->arena, ob);
+                        memcpy(oc, src->field_off, ob);
+                        rc->field_off = oc;
+                    }
                     rc->gid = gid;
                 }
                 bbq_vec_push(r->rtts, rc);
@@ -492,29 +500,54 @@ static int build_rtts(jav_modidx_t* out, bbq_arena* arena) {
         gc_rtt_t* r = NULL;
         if (out->kinds[t] == WST_STRUCT) {
             const jav_structtype_t* st = &out->structtypes[t];
-            uint32_t nrefs = 0;
+            uint32_t nrefs = 0; int has_wide = 0;
             for (unsigned i = 0; i < st->nfields; i++) {
                 int fr = rtt_field_is_ref(st->fields[i], st->field_tidx ? st->field_tidx[i] : 0, out->kinds, out->ntypes);
                 if (fr < 0) return 0;              /* unclassified heaptype: refuse the module */
                 if (fr) nrefs++;
+                if (st->fields[i] == WVT_V128) has_wide = 1;
             }
             r = bbq_arena_alloc(arena, sizeof(gc_rtt_t) + (size_t)nrefs * sizeof(uint32_t));
-            r->size = (uint32_t)sizeof(gc_obj_t) + st->nfields * 8u;
-            r->nrefs = nrefs; r->kind = GC_KIND_STRUCT; r->elem_is_ref = 0; r->elem_store_w = 0;
+            r->nfields = (uint16_t)st->nfields;
+            /* Field layout: 8-byte cells, except a v128 field takes 16. The offset
+             * table is materialized only when a wide field exists — NULL keeps the
+             * uniform-cell fast path for every pre-v128 struct. */
+            uint32_t* off = NULL;
+            if (has_wide) {
+                off = bbq_arena_alloc(arena, ((size_t)st->nfields + 1) * sizeof(uint32_t));
+                uint32_t o2 = 0;
+                for (unsigned i = 0; i < st->nfields; i++) {
+                    off[i] = o2;
+                    /* cell = the 8-byte slot floor, widened per the ONE size map
+                     * (jav_valtype_size: v128 = 16, everything else ≤ 8). */
+                    uint32_t w = jav_valtype_size(st->fields[i]);
+                    o2 += w > 8u ? w : 8u;
+                }
+                off[st->nfields] = o2;
+            }
+            r->field_off = off;
+            r->size = (uint32_t)sizeof(gc_obj_t) + (off ? off[st->nfields] : st->nfields * 8u);
+            r->nrefs = nrefs; r->kind = GC_KIND_STRUCT; r->elem_is_ref = 0;
+            r->elem_store_w = 0; r->elem_heap_w = 0;
             uint32_t k = 0;
             for (unsigned i = 0; i < st->nfields; i++)
-                if (rtt_field_is_ref(st->fields[i], st->field_tidx ? st->field_tidx[i] : 0, out->kinds, out->ntypes) > 0) r->ref_offsets[k++] = (uint32_t)sizeof(gc_obj_t) + (uint32_t)i * 8u;
+                if (rtt_field_is_ref(st->fields[i], st->field_tidx ? st->field_tidx[i] : 0, out->kinds, out->ntypes) > 0)
+                    r->ref_offsets[k++] = (uint32_t)sizeof(gc_obj_t) + (off ? off[i] : (uint32_t)i * 8u);
         } else if (out->kinds[t] == WST_ARRAY) {
             const jav_arraytype_t* at = &out->arraytypes[t];
             int er = rtt_field_is_ref(at->elem, at->elem_tidx, out->kinds, out->ntypes);
             if (er < 0) return 0;                  /* unclassified heaptype: refuse the module */
             r = bbq_arena_alloc(arena, sizeof(gc_rtt_t));
-            r->size = (uint32_t)sizeof(gc_obj_t) + GC_ARRAY_ELEMS_OFFSET;   // base; per-new grows by len*GC_ARRAY_ELEM_BYTES
-            r->nrefs = 0; r->kind = GC_KIND_ARRAY;
+            r->size = (uint32_t)sizeof(gc_obj_t) + GC_ARRAY_ELEMS_OFFSET;   // base; per-new grows by len*elem_heap_w
+            r->nrefs = 0; r->nfields = 0; r->kind = GC_KIND_ARRAY; r->field_off = NULL;
             r->elem_is_ref = (uint8_t)er;
             uint8_t pk = (out->type_field_packs && out->type_field_packs[t]) ? out->type_field_packs[t][0] : 0;
             r->elem_store_w = pk ? pk                                  // packed i8 (1) / i16 (2) — the data-segment stride
-                : (uint8_t)((at->elem == WVT_I64 || at->elem == WVT_F64) ? 8 : 4);   // unpacked: 8 for i64/f64, else 4 (heap slot is always GC_ARRAY_ELEM_BYTES)
+                : (uint8_t)(at->elem == WVT_V128 ? 16                  // §3.4.7 array.new_data accepts vectype: 16-byte stride
+                : (at->elem == WVT_I64 || at->elem == WVT_F64) ? 8 : 4);
+            /* heap cell = the 8-byte slot floor, widened per the ONE size map. */
+            { uint32_t w = jav_valtype_size(at->elem);
+              r->elem_heap_w = (uint8_t)(w > 8u ? w : GC_ARRAY_ELEM_BYTES); }
         }
         if (r) r->gid = -1;   // §4.5.2 store-global id, assigned when this module is absorbed (jav_instance)
         out->rtts[t] = (struct gc_rtt*)r;   // NULL for a func typeidx

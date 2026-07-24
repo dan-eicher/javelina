@@ -416,16 +416,60 @@ static inline u1 jav_tos_type(const vm_t* vm) {
  * dereferenced. A union element type — anyref, eqref — has no correct per-type bit. */
 #define JAV_IS_I31(r)       (((u8)(r) & 1u) != 0)
 #define ARRAY_LEN(a)        ((s4)*(u4*)gc_obj_payload((gc_obj_t*)(uintptr_t)(a)))
-/* GC array element access (§4.6): elements are 8-byte slots after GC_ARRAY_ELEMS_OFFSET; the per-array
- * RTT says whether elements are managed refs (the runtime value-tag). Caller guards null + bounds. */
+/* GC array element access (§4.6): elements follow GC_ARRAY_ELEMS_OFFSET at the RTT's
+ * elem_heap_w stride (8 for scalars/refs/packed, 16 for v128 — lanes 2/3 live in the
+ * `hi` half of the any_t carrier). The per-array RTT says whether elements are managed
+ * refs (the runtime value-tag). Caller guards null + bounds. */
 #define ARR_ELEMS(o)            ((s8*)((u1*)gc_obj_payload((gc_obj_t*)(uintptr_t)(o)) + GC_ARRAY_ELEMS_OFFSET))
-#define ARRAY_GET(ty, o, i)     ((any_t){ .bits = ARR_ELEMS(o)[(i)], .kind = (u1)(vm->frame.ctx->struct_rtts[(ty)]->elem_is_ref ? T_GCREF : T_INT) })
-#define ARRAY_SET(ty, o, i, v)  (ARR_ELEMS(o)[(i)] = (v).bits)
-/* GC struct field access (§4.6): field `f` is the f-th 8-byte payload slot; the per-field ref-ness
- * (the runtime value-tag) comes from the RTT. Caller guards null. */
+static inline u4 jav_arr_stride(const gc_rtt_t* rtt) {
+    return rtt->elem_heap_w ? rtt->elem_heap_w : GC_ARRAY_ELEM_BYTES;   /* 0 = unset (hand-built rtt) */
+}
+static inline s8* jav_arr_elem_p(vm_t* vm, u4 ty, u8 o, u4 i) {
+    const gc_rtt_t* rtt = vm->frame.ctx->struct_rtts[ty];
+    return (s8*)((u1*)gc_obj_payload((gc_obj_t*)(uintptr_t)o) + GC_ARRAY_ELEMS_OFFSET
+                 + (size_t)i * jav_arr_stride(rtt));
+}
+static inline any_t jav_array_get_v(vm_t* vm, u4 ty, u8 o, u4 i) {
+    const gc_rtt_t* rtt = vm->frame.ctx->struct_rtts[ty];
+    s8* p = jav_arr_elem_p(vm, ty, o, i);
+    if (rtt->elem_heap_w == 16) return (any_t){ .bits = p[0], .hi = p[1], .kind = T_V128 };
+    return (any_t){ .bits = p[0], .kind = (u1)(rtt->elem_is_ref ? T_GCREF : T_INT) };
+}
+static inline void jav_array_set_v(vm_t* vm, u4 ty, u8 o, u4 i, any_t v) {
+    const gc_rtt_t* rtt = vm->frame.ctx->struct_rtts[ty];
+    s8* p = jav_arr_elem_p(vm, ty, o, i);
+    p[0] = v.bits;
+    if (rtt->elem_heap_w == 16) p[1] = v.hi;
+}
+#define ARRAY_GET(ty, o, i)     jav_array_get_v(vm, (ty), (o), (i))
+#define ARRAY_SET(ty, o, i, v)  jav_array_set_v(vm, (ty), (o), (i), (v))
+/* GC struct field access (§4.6): fields sit at the RTT's byte offsets (uniform 8-byte
+ * cells when field_off is NULL; a v128 field takes 16 bytes and rides both any_t
+ * halves). The per-field ref-ness (the runtime value-tag) comes from the RTT.
+ * Caller guards null. */
 #define STRUCT_FIELDS(o)        ((s8*)gc_obj_payload((gc_obj_t*)(uintptr_t)(o)))
-#define STRUCT_GET(ty, f, o)    ((any_t){ .bits = STRUCT_FIELDS(o)[(f)], .kind = (u1)(gc_field_is_ref(vm->frame.ctx->struct_rtts[(ty)], (f)) ? T_GCREF : T_INT) })
-#define STRUCT_SET(ty, f, o, v) (STRUCT_FIELDS(o)[(f)] = (v).bits)
+static inline s8* jav_struct_field_p(vm_t* vm, u4 ty, u4 f, u8 o) {
+    const gc_rtt_t* rtt = vm->frame.ctx->struct_rtts[ty];
+    u4 off = rtt->field_off ? rtt->field_off[f] : f * 8u;
+    return (s8*)((u1*)gc_obj_payload((gc_obj_t*)(uintptr_t)o) + off);
+}
+static inline int jav_struct_field_wide(vm_t* vm, u4 ty, u4 f) {
+    const gc_rtt_t* rtt = vm->frame.ctx->struct_rtts[ty];
+    return rtt->field_off && (rtt->field_off[f + 1] - rtt->field_off[f]) == 16u;
+}
+static inline any_t jav_struct_get_v(vm_t* vm, u4 ty, u4 f, u8 o) {
+    s8* p = jav_struct_field_p(vm, ty, f, o);
+    if (jav_struct_field_wide(vm, ty, f)) return (any_t){ .bits = p[0], .hi = p[1], .kind = T_V128 };
+    return (any_t){ .bits = p[0],
+                    .kind = (u1)(gc_field_is_ref(vm->frame.ctx->struct_rtts[(ty)], (f)) ? T_GCREF : T_INT) };
+}
+static inline void jav_struct_set_v(vm_t* vm, u4 ty, u4 f, u8 o, any_t v) {
+    s8* p = jav_struct_field_p(vm, ty, f, o);
+    p[0] = v.bits;
+    if (jav_struct_field_wide(vm, ty, f)) p[1] = v.hi;
+}
+#define STRUCT_GET(ty, f, o)    jav_struct_get_v(vm, (ty), (f), (o))
+#define STRUCT_SET(ty, f, o, v) jav_struct_set_v(vm, (ty), (f), (o), (v))
 /* §4.2.12 exception-instance layout — here, with the other object layouts, because `throw`'s body
  * writes fields through it exactly as struct.new writes through STRUCT_SET. The field VALUES are
  * the payload's slot array; their runtime TAGS are the u1 row immediately after them, so the GC
@@ -433,12 +477,12 @@ static inline u1 jav_tos_type(const vm_t* vm) {
 typedef struct { u4 tag; u4 nfields; slot_t fields[]; } exn_obj_t;
 #define EXN_OBJ(o)       ((exn_obj_t*)gc_obj_payload((gc_obj_t*)(uintptr_t)(o)))
 #define EXN_FTYPES(o)    ((u1*)&EXN_OBJ(o)->fields[EXN_OBJ(o)->nfields])
-#define EXN_SET(o, i, v) do { EXN_OBJ(o)->fields[(i)].l = (v).bits; EXN_FTYPES(o)[(i)] = (v).kind; } while (0)
+#define EXN_SET(o, i, _ev) do { EXN_OBJ(o)->fields[(i)].v.i64[0] = (_ev).bits; EXN_OBJ(o)->fields[(i)].v.i64[1] = (_ev).hi; EXN_FTYPES(o)[(i)] = (_ev).kind; } while (0)   /* both halves: a v128 tag param loses lanes 2/3 through .l alone */
 /* Packed struct field / array element read (§4.6 *.get_s/u): sign/zero-extend from the packed STORAGE
  * width. Struct widths are a per-field row in the instance context; array width is the RTT's elem_store_w. */
 #define STRUCT_PACK_W(ty, f)             ((u1)((vm->frame.ctx->type_field_packs && (u4)(ty) < vm->frame.ctx->num_type_field_packs && vm->frame.ctx->type_field_packs[(ty)]) ? vm->frame.ctx->type_field_packs[(ty)][(f)] : 0))
-#define STRUCT_GET_PACKED(ty, f, o, sgn) pack_extend((s4)STRUCT_FIELDS(o)[(f)], STRUCT_PACK_W(ty, f), (sgn))
-#define ARRAY_GET_PACKED(ty, o, i, sgn)  pack_extend((s4)ARR_ELEMS(o)[(i)], vm->frame.ctx->struct_rtts[(ty)]->elem_store_w, (sgn))
+#define STRUCT_GET_PACKED(ty, f, o, sgn) pack_extend((s4)*jav_struct_field_p(vm, (ty), (f), (o)), STRUCT_PACK_W(ty, f), (sgn))
+#define ARRAY_GET_PACKED(ty, o, i, sgn)  pack_extend((s4)*jav_arr_elem_p(vm, (ty), (o), (i)), vm->frame.ctx->struct_rtts[(ty)]->elem_store_w, (sgn))
 
 /* ── Domain natives, folded inline ────────────────────────────────────────────────────────────────
  * opgen carries NO hardcoded knowledge of these names: the spec declares each as an `inline native`,

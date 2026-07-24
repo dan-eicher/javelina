@@ -9,7 +9,7 @@
 #include <stdio.h>
 
 /* node { (ref next) @ payload+0 ; i64 val @ payload+8 } — one ref field. */
-typedef struct { uint32_t size, nrefs; uint8_t kind, elem_is_ref, elem_store_w; int32_t gid; uint32_t off[1]; } rtt_ref1_t;
+typedef struct { uint32_t size, nrefs; uint16_t nfields; uint8_t kind, elem_is_ref, elem_store_w, elem_heap_w; const uint32_t* field_off; int32_t gid; uint32_t off[1]; } rtt_ref1_t;
 static const rtt_ref1_t NODE_S = {
     .size = (uint32_t)sizeof(gc_obj_t) + 16, .nrefs = 1, .kind = GC_KIND_STRUCT, .gid = -1,
     .off = { (uint32_t)sizeof(gc_obj_t) }
