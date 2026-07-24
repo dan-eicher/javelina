@@ -11,6 +11,8 @@
 #   4. merge the RESULT lines into one side-by-side table
 #
 # Usage: bench.sh [--quick]     --quick: tiny scales, correctness gate only (the suite runs this)
+# See bench/README.md for the kernel catalog, how to read the table, the sensitivity
+# floor, and the burg-cost-analysis workflow (diff build/bench-<config>.out across changes).
 #
 # SENSITIVITY FLOOR (measured 2026-07-20, do not claim past it): min-of-reps WITHIN one process is
 # tight, but BETWEEN-process variance is ~±7% — one matrix run supports the big ratios (jit x,
@@ -20,6 +22,10 @@
 # For a small-delta claim: rerun the matrix several times and compare distributions — or dump and
 # diff the opcode streams first, because identical streams mean there is nothing to measure.
 set -e
+case "$1" in -h|--help)
+    sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'
+    exit 0 ;;
+esac
 cd "$(dirname "$0")/.."           # compiler/
 B=build
 QUICK=""; [ "$1" = "--quick" ] && QUICK=quick
@@ -32,10 +38,11 @@ QUICK=""; [ "$1" = "--quick" ] && QUICK=quick
 
 echo "== artifacts (jre + Bench at each opt level) =="
 make -s javelinac javelina
-$B/javelinac --mode jre --libdir lib/java -o $B/jre-O0.wasm
+# -O is javelinac's DEFAULT since 2026-07-24 — the O0 legs must say so explicitly.
+$B/javelinac --mode jre --libdir lib/java -O0 -o $B/jre-O0.wasm
 $B/javelinac --mode jre --libdir lib/java -O -o $B/jre-O.wasm
-$B/javelinac --libdir lib/java bench/java/Bench.java -o $B/bench-O0.wasm
-$B/javelinac --libdir lib/java bench/java/Bench.java -O -o $B/bench-O.wasm
+$B/javelinac --libdir lib/java -O0 bench/java/Bench.java -o $B/bench-O0.wasm
+$B/javelinac --libdir lib/java -O bench/java/Bench.java -o $B/bench-O.wasm
 for f in jre-O0 jre-O bench-O0 bench-O; do
     printf '  %-14s %8d bytes\n' "$f.wasm" "$(wc -c < $B/$f.wasm)"
 done
