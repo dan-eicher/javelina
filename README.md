@@ -31,7 +31,7 @@ Executed against the official [WebAssembly test suite](https://github.com/WebAss
 | binary modules (260 files) | 810 ok, 0 mismatched |
 
 The three excluded cases are non-core-3.0 text-format fixtures; every executable
-assertion in the suite runs and agrees. Reproduce with `make test-conformance`.
+assertion in the suite runs and agrees. Reproduce with `make conformance`.
 
 ## Build
 

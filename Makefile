@@ -4,7 +4,7 @@
 # built first everywhere it matters, because the compiler's execution tests link
 # its prebuilt objects and run the modules they assemble inside it.
 
-.PHONY: all bbq test test-vm test-compiler test-conformance test-cli test-bench \
+.PHONY: all bbq test test-vm test-compiler conformance test-conformance test-cli test-bench \
         test-one baseline clean help
 
 # ── the BBQ toolchain ───────────────────────────────────────────────────────
@@ -26,7 +26,7 @@ help:
 	@echo "  make test              both suites: VM, then compiler, then the CLI gate"
 	@echo "  make test-vm           the engine's gates (interp == JIT, GC, c-api, conformance)"
 	@echo "  make test-compiler     the compiler's suites"
-	@echo "  make test-conformance  the official WebAssembly testsuite, executed"
+	@echo "  make conformance       the official WebAssembly testsuite, executed both tiers"
 	@echo "  make test-java-conformance  the Java e2e corpus (E7.4 — not built yet)"
 	@echo "  make test-cli          the shipped javelinac/javelina binaries, end to end"
 	@echo "  make test-bench        the benchmark checksum gate"
@@ -95,9 +95,12 @@ test-vm:
 test-compiler:
 	@$(MAKE) --no-print-directory -C compiler test
 
-# The oracle on its own: the pinned testsuite submodule, executed both tiers.
-test-conformance:
+# The conformance story, surfaced: run the official testsuite (the pinned
+# submodule) both tiers and print the per-gate summary lines — the numbers the
+# README quotes. `test-conformance` stays as an alias.
+conformance test-conformance:
 	@$(MAKE) --no-print-directory -C wasm test-one T=test_wast || true
+	@echo "── WebAssembly conformance (testsuite $$(git -C testsuite rev-parse --short HEAD), both tiers) ──"
 	@cd wasm/test && ../build/test_wast ../../testsuite/*.wast regress_*.wast
 
 test-cli:
