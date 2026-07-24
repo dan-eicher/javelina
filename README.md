@@ -50,22 +50,25 @@ this file): `make all BBQ=/path/to/BBQ`.
 
 ## Embedding
 
-`embed.c` is a standalone embedder that links only `wasm.h` — no view into the
-engine internals. It decodes, validates, instantiates, and calls a module:
+`make lib` builds `wasm/build/libjavelina.a` — the engine as a single archive.
+Paired with the public `wasm/include/wasm.h`, that is the whole embedding
+surface. `examples/embed.c` links exactly those two and nothing else — it
+decodes, validates, instantiates, and calls a module:
 
 ```sh
-make -C wasm build/embed water  # the example embedder + the .wat assembler
+make lib                        # -> wasm/build/libjavelina.a
+cc wasm/examples/embed.c -Iwasm/include wasm/build/libjavelina.a -lm -o embed
 
+make -C wasm water              # the .wat assembler, to make a test module
 printf '(module
   (func (export "add") (param i32 i32) (result i32)
     local.get 0 local.get 1 i32.add))' | wasm/build/water - > add.wasm
 
-wasm/build/embed add.wasm       # -> add(3, 5) = 8
+./embed add.wasm                # -> add(3, 5) = 8
 ```
 
-`wasm/build/water` is javelina's `.wat` assembler. A single `libjavelina.a` +
-header set for embedders to link against is coming (the example links the loose
-objects for now).
+The test gate builds the example the same way — against the archive, not loose
+objects — so the link line above is the one an embedder actually uses.
 
 ## Layout
 

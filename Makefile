@@ -4,7 +4,7 @@
 # built first everywhere it matters, because the compiler's execution tests link
 # its prebuilt objects and run the modules they assemble inside it.
 
-.PHONY: all bbq test test-vm test-compiler conformance test-conformance test-cli test-bench \
+.PHONY: all bbq lib test test-vm test-compiler conformance test-conformance test-cli test-bench \
         test-one baseline clean help
 
 # ── the BBQ toolchain ───────────────────────────────────────────────────────
@@ -26,6 +26,7 @@ help:
 	@echo "  make test              both suites: VM, then compiler, then the CLI gate"
 	@echo "  make test-vm           the engine's gates (interp == JIT, GC, c-api, conformance)"
 	@echo "  make test-compiler     the compiler's suites"
+	@echo "  make lib               build/libjavelina.a — the embeddable engine archive"
 	@echo "  make conformance       the official WebAssembly testsuite, executed both tiers"
 	@echo "  make test-java-conformance  the Java e2e corpus (E7.4 — not built yet)"
 	@echo "  make test-cli          the shipped javelinac/javelina binaries, end to end"
@@ -88,6 +89,11 @@ test-java-conformance:
 	    echo "  SKIP  conformance/ not built yet (E7.4) — e2e breadth is NOT covered."; \
 	    echo "        Seeded by compiler/test/test_cli.sh, which runs in the gate above."; \
 	fi
+
+# The embeddable library artifact: build/libjavelina.a + the public wasm.h.
+lib:
+	@$(MAKE) --no-print-directory -C wasm lib
+	@echo "  built wasm/build/libjavelina.a  (link with -Iwasm/include)"
 
 test-vm:
 	@$(MAKE) --no-print-directory -C wasm test

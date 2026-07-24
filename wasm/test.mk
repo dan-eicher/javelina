@@ -119,8 +119,22 @@ $(B)/test_wast: test/test_wast.c test/wast_exec.c $(B)/wasm_capi.o $(WAT_OBJS) \
 CAPI_TESTS := test_capi test_capi_gc test_capi_jit
 $(CAPI_TESTS:%=$(B)/%): $(B)/%: test/%.c $(CAPI_OBJS) | $(B)
 	$(CC) $(CFLAGS) -Wno-unused-function -Iinclude -I$(PEGRT) $(LINK) -lm -o $@
-$(B)/embed: examples/embed.c $(B)/wasm_capi.o $(CLITE_OBJS) $(B)/jav_load.o $(ENGINE_OBJS) | $(B)
-	$(CC) $(CFLAGS) -Wno-unused-function -Iinclude $(LINK) -lm -o $@
+# ── the embeddable library artifact ─────────────────────────────────────────
+# libjavelina.a is exactly what a third-party embedder links: the wasm-c-api
+# shim, the zero-copy (c-lite) load path, and the engine. It deliberately omits
+# the .wat assembler and the owning reader/writer — those are tooling and tests,
+# not the embedding surface. Paired with the public include/wasm.h, this archive
+# is the whole contract.
+LIB_OBJS := $(B)/wasm_capi.o $(CLITE_OBJS) $(B)/jav_load.o $(ENGINE_OBJS)
+$(B)/libjavelina.a: $(LIB_OBJS) | $(B)
+	ar rcs $@ $(LIB_OBJS)
+.PHONY: lib
+lib: $(B)/libjavelina.a
+
+# embed.c links THE ARCHIVE + wasm.h and nothing else — it demonstrates the
+# actual artifact an embedder consumes, and the test gate builds it this way.
+$(B)/embed: examples/embed.c $(B)/libjavelina.a | $(B)
+	$(CC) $(CFLAGS) -Wno-unused-function -Iinclude examples/embed.c $(B)/libjavelina.a -lm -o $@
 
 # Everything that is a plain "build it, run it in test/, expect exit 0" gate.
 PLAIN_TESTS := $(IMMIX_TESTS) $(TESTS) $(CLITE_TESTS) test_align $(OWNING_TESTS) \
