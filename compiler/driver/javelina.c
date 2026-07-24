@@ -12,6 +12,7 @@
  * (E7.1a): argv is marshaled as NUL-separated UTF-8 into the shared staging memory,
  * and the returned i32 is the process exit code. */
 #include "host_io.h"
+#include "version.h"
 #include <stdbool.h>
 #include <time.h>
 
@@ -215,7 +216,7 @@ int main(int argc, char** argv) {
     for (; i < argc; i++) {
         const char* a = argv[i];
         if      (!strcmp(a, "-h") || !strcmp(a, "--help")) return usage(stdout, 0);
-        else if (!strcmp(a, "--version")) { printf("javelina %s\n", "0.1.0"); return 0; }
+        else if (!strcmp(a, "--version")) { printf("javelina %s\n", JAVELINA_VERSION); return 0; }
         else if (!strcmp(a, "--jre"))  { if (++i >= argc) return usage(stderr, 2); jre_path = argv[i]; }
         else if (!strcmp(a, "--call")) { if (++i >= argc) return usage(stderr, 2); call_spec = argv[i]; }
         else if (!strcmp(a, "--root")) { if (++i >= argc) return usage(stderr, 2); root = argv[i]; }

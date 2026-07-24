@@ -144,7 +144,7 @@ SIMD_JAVA := lib/javelina/simd/V128.java lib/javelina/simd/I8x16.java \
              lib/javelina/simd/F64x2.java lib/javelina/simd/Mem.java
 $(B)/gen_simd_intrinsics: tools/gen_simd_intrinsics.c \
                           ../wasm/src/gen/toml_parser.c ../wasm/src/toml/toml_doc.c | $(B)
-	$(CC) -O2 -std=c11 -Wall -Werror -I../wasm/include -I../wasm/src/gen \
+	$(CC) -O2 -std=c11 -Wall -Werror -I../wasm/include -I../wasm/src -I../wasm/src/gen \
 	  -I$(BBQ)/crt -I$(BBQ)/pegc/runtime -Isrc/gen \
 	  tools/gen_simd_intrinsics.c ../wasm/src/gen/toml_parser.c \
 	  ../wasm/src/toml/toml_doc.c $(BBQ)/crt/bbq_arena.c -o $@

@@ -30,8 +30,7 @@
 #include <dirent.h>
 #include <unistd.h>
 #include <sys/stat.h>
-
-#define JAVELINA_VERSION "0.1.0"
+#include "version.h"
 
 static const char* prog_name = "javelinac";
 

@@ -40,7 +40,7 @@ endif
 # spec-derived opcode table spec/instructions.toml. Vendored generated parser +
 # resolver; compiled with -Wall (not -Werror) like other generated artifacts.
 TOML_OBJS   = $(B)/toml_parser.o $(B)/toml_doc.o   # bbq_arena.o is in OBJS (test_instr links both)
-TOML_INC   := -Isrc/gen -Iinclude -I$(PEGRT) -I$(CRT)
+TOML_INC   := -Isrc -Isrc/gen -Iinclude -I$(PEGRT) -I$(CRT)   # -Isrc: toml_doc.h lives beside toml_doc.c (not a public header)
 
 CC      := clang
 # The VM substrate (frame_t/vm_t/heap_t) is named to opgen by the `backend "jav_frame.h"`
