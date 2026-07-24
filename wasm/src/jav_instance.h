@@ -5,10 +5,6 @@
 // defined funcs with their re-derived side-tables), the type table, and the export map.
 // jav_instance_bind PROJECTS the instance onto the vm_t fields the generated handlers
 // already read (vm->functions / vm->types / …) — a cheap pointer assignment, no copy.
-//
-// Built incrementally: this pin covers the defined-func table + type table + export map.
-// Imports, global-init eval, linear memory, active/passive segments, and the start
-// function are subsequent pins (see wasm-engine-plan.md Phase 2 steps a–f).
 #ifndef JAV_INSTANCE_H
 #define JAV_INSTANCE_H
 
