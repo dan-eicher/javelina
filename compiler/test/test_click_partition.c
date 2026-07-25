@@ -3189,7 +3189,7 @@ static void test_cp_arraylen_follower_rearms_on_leader_descent(void) {
     sir_node_t* alen = sir_array_length(&a, sir_load_local(&a, 3, SIR_DTREF, NULL));
     sir_node_t* ret  = sir_return(&a, alen, SIR_DTINT);
     sir_node_t* mkarr = sir_store_local(&a, 3, SIR_DTREF, NULL,
-        sir_new_array(&a, SIR_DTINT, sir_load_local(&a, 1, SIR_DTINT, NULL)), ret);
+        sir_new_array(&a, SIR_ATINT, sir_load_local(&a, 1, SIR_DTINT, NULL)), ret);
     sir_node_t* header = sir_nop(&a, NULL);
     sir_node_t* incC = sir_inc(&a, 1, 1, SIR_DTINT,
         sir_load_local(&a, 1, SIR_DTINT, NULL), header);         /* count++; back edge */

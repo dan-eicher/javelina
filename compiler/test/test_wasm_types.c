@@ -90,7 +90,7 @@ static int32_t vtable_row_funcidx(const uint8_t* buf, int len, int target, int w
 
 int main(void) {
     bbq_arena a; bbq_arena_init(&a, 1 << 16);
-    ast_program_t* prog = build_program("class P { int x; }", &a);
+    build_program("class P { int x; }", &a);   /* registers the units jtest_analyze reads */
     sema_ctx_t sctx; sema_init(&sctx, &a); jtest_analyze(&sctx);
 
     wasm_types_t wt; wasm_types_build(&wt, &sctx);
@@ -195,7 +195,7 @@ int main(void) {
      * absolute index the burg must add to each field's class-local index. */
     {
         bbq_arena b; bbq_arena_init(&b, 1 << 16);
-        ast_program_t* p2 = build_program(
+        build_program(
             "class A { int a; } class B extends A { int b; }", &b);
         sema_ctx_t s2; sema_init(&s2, &b); jtest_analyze(&s2);
         wasm_types_t wt2; wasm_types_build(&wt2, &s2);
@@ -217,7 +217,7 @@ int main(void) {
      * slot — else a virtual call through an A reference hits the wrong method. */
     {
         bbq_arena b; bbq_arena_init(&b, 1 << 16);
-        ast_program_t* p2 = build_program(
+        build_program(
             "class A { int m(){ return 1; } } class B extends A { int m(){ return 2; } }", &b);
         sema_ctx_t s2; sema_init(&s2, &b); jtest_analyze(&s2);
         wasm_types_t wt2; wasm_types_build(&wt2, &s2);
@@ -250,7 +250,7 @@ int main(void) {
      * sema_resolve_virtual) that must agree, or dispatch and devirt have diverged. */
     {
         bbq_arena b2; bbq_arena_init(&b2, 1 << 16);
-        ast_program_t* p3 = build_program(
+        build_program(
             "class A { int m(){ return 1; } int n(){ return 9; } }"
             " class B extends A { int m(){ return 2; } }"
             " class C extends B { }"

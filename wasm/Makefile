@@ -38,7 +38,8 @@ endif
 
 # TOML reader (pinched from yoctojc) — used by test_instr to read the
 # spec-derived opcode table spec/instructions.toml. Vendored generated parser +
-# resolver; compiled with -Wall (not -Werror) like other generated artifacts.
+# resolver, and -Werror like everything else: generated code that warns is a
+# GENERATOR bug, not a reason to stop reading warnings here.
 TOML_OBJS   = $(B)/toml_parser.o $(B)/toml_doc.o   # bbq_arena.o is in OBJS (test_instr links both)
 TOML_INC   := -Isrc -Isrc/gen -Iinclude -I$(PEGRT) -I$(CRT)   # -Isrc: toml_doc.h lives beside toml_doc.c (not a public header)
 
@@ -55,7 +56,7 @@ CFLAGS  := -O2 -std=c11 -Wall -Werror -MMD -MP -Isrc -Isrc/gen -Isrc/immix -I$(R
 # tables) the JIT can't relocate (jitterator rejects them). Keeping the SIMD lane loops
 # SCALAR in the stencils is the "supported" tier — correct, both tiers; hardware-SIMD
 # codegen (the "optimized" tier) is deferred. The interp (gen_interp.c) still vectorizes.
-STENCIL_CFLAGS := -O2 -fno-stack-protector -fno-asynchronous-unwind-tables -fno-vectorize -fno-slp-vectorize -MMD -MP -Isrc -Isrc/gen -Isrc/immix -I$(RT) -I$(CRT)
+STENCIL_CFLAGS := -O2 -Wall -Werror -fno-stack-protector -fno-asynchronous-unwind-tables -fno-vectorize -fno-slp-vectorize -MMD -MP -Isrc -Isrc/gen -Isrc/immix -I$(RT) -I$(CRT)
 
 GEN     := src/gen
 B       := build
@@ -173,13 +174,13 @@ $(B)/gen_interp.o:   $(GEN)/gen_interp.c $(GEN)/jav_trap_reason.h | $(B)
 # gen_trap_reasons only RUNS when it is relinked — the stale pair segfaulted the
 # generator the first time a rebuild happened to trigger it.
 $(B)/toml_parser.o:  src/gen/toml_parser.c | $(B)
-	$(CC) -O2 -std=c11 -Wall -MMD -MP $(TOML_INC) -c $< -o $@
+	$(CC) -O2 -std=c11 -Wall -Werror -MMD -MP $(TOML_INC) -c $< -o $@
 $(B)/toml_doc.o:     src/toml/toml_doc.c | $(B)
-	$(CC) -O2 -std=c11 -Wall -MMD -MP $(TOML_INC) -c $< -o $@
+	$(CC) -O2 -std=c11 -Wall -Werror -MMD -MP $(TOML_INC) -c $< -o $@
 $(B)/bbq_arena.o:    $(CRT)/bbq_arena.c | $(B)
-	$(CC) -O2 -std=c11 -Wall $(TOML_INC) -c $< -o $@
+	$(CC) -O2 -std=c11 -Wall -Werror $(TOML_INC) -c $< -o $@
 $(B)/bbq_htree.o:    $(CRT)/bbq_htree.c | $(B)   # jit_driver's footer-pool dedup cache
-	$(CC) -O2 -std=c11 -Wall $(TOML_INC) -c $< -o $@
+	$(CC) -O2 -std=c11 -Wall -Werror $(TOML_INC) -c $< -o $@
 $(B)/jav_reader.o:  $(GEN)/jav_reader.c | $(B)
 	$(CC) $(CFLAGS) -c $< -o $@
 $(B)/jav_writer.o:  $(GEN)/jav_writer.c | $(B)

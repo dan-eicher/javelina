@@ -142,7 +142,7 @@ endef
 # process-lifetime storage — the shared prelude AST and its arena.
 .PHONY: test-exec-asan
 test-exec-asan: generate-parser generate-ddcg generate-codegen | vm-objs $(B)
-	$(CC) -g -O0 -std=c11 -fsanitize=address -Wno-parentheses-equality \
+	$(CC) -g -O0 -std=c11 -Wall -Wextra -Werror -fsanitize=address -Wno-parentheses-equality \
 	    -Iinclude -Itest -Idriver $(INCLUDES) $(VM_INCLUDES) \
 	    test/test_exec.c $(EXEC_SRCS) $(VM_RW_SRCS) $(VM_CAPI_SRCS) $(VM_ENGINE_OBJS) \
 	    -lm -o $(B)/test_exec.asan

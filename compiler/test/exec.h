@@ -73,9 +73,12 @@ typedef enum { EXEC_OK, EXEC_INVALID, EXEC_NO_INSTANCE, EXEC_NO_EXPORT, EXEC_TRA
  * natives are the extern API — via exec_host_for), find the export named `name`, call
  * it with `args[0..nargs)`, and write up to `nres` results. Self-contained: creates and
  * tears down its own engine/store/module/instance per call. */
-static exec_status exec_call(const uint8_t* mod, size_t modlen, const char* name,
-                             const wasm_val_t* args, size_t nargs,
-                             wasm_val_t* results, size_t nres) {
+/* `static inline`, not plain `static`: this header is included by TUs that use only the
+ * jre helpers below, and a plain static definition they never call is an unused-function
+ * error under -Werror. */
+static inline exec_status exec_call(const uint8_t* mod, size_t modlen, const char* name,
+                                    const wasm_val_t* args, size_t nargs,
+                                    wasm_val_t* results, size_t nres) {
     g_io_host_extra = harness_host_for;
     g_io_props      = harness_props;
     wasm_byte_vec_t bin;

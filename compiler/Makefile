@@ -4,7 +4,7 @@
 # this tree is independent.
 
 CC      := clang
-CFLAGS  := -g -O0 -std=c11 -Wall -Wextra -MMD -MP
+CFLAGS  := -g -O0 -std=c11 -Wall -Wextra -Werror -MMD -MP
 
 # ── BBQ toolchain (the same build the engine uses) ──────────────────────────
 # BBQ ships as a submodule at the repo root. Point BBQ elsewhere to build

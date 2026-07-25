@@ -185,7 +185,7 @@ test: $(ALL_TESTS:%=$(B)/%) $(B)/test_wast $(B)/embed water
 	  echo "  PASS  embed (public wasm.h → instantiate + call)"; pass=$$((pass+1)); \
 	else echo "  FAIL  embed (public wasm.h → instantiate + call)"; fail=$$((fail+1)); failed="$$failed embed"; fi; \
 	for h in include/*.h; do \
-	  if $(CC) -std=c11 -Iinclude -c -x c -include "$$h" /dev/null -o /dev/null > $(LOGS)/hdrsweep.log 2>&1; then \
+	  if $(CC) -std=c11 -Wall -Wextra -Werror -Iinclude -c -x c -include "$$h" /dev/null -o /dev/null > $(LOGS)/hdrsweep.log 2>&1; then \
 	    echo "  PASS  public header compiles standalone ($$h)"; pass=$$((pass+1)); \
 	  else echo "  FAIL  public header not standalone ($$h)"; fail=$$((fail+1)); failed="$$failed hdr"; \
 	    sed 's/^/      | /' $(LOGS)/hdrsweep.log; fi; \
