@@ -1407,10 +1407,12 @@ static void cp_resolve(cp_engine_t* eng) {
     eng->mem_val  = (int*)bbq_arena_alloc(a, (size_t)(vc ? vc : 1) * sizeof(int));
     eng->mem_cell = (int*)bbq_arena_alloc(a, (size_t)(vc ? vc : 1) * sizeof(int));
     eng->mem_elem = (bool*)bbq_arena_alloc(a, (size_t)(vc ? vc : 1) * sizeof(bool));
+    eng->mem_spine = (int*)bbq_arena_alloc(a, (size_t)(vc ? vc : 1) * sizeof(int));
     for (int v = 0; v < vc; v++) {
         eng->mem_kind[v] = CP_MEM_NONE;
         eng->mem_prev[v] = eng->mem_obj[v] = eng->mem_val[v] = eng->mem_cell[v] = -1;
         eng->mem_elem[v] = false;
+        eng->mem_spine[v] = -1;
     }
     /* Each cell's pre-method contents are unknown → its seed is a SEED. */
     for (int c = 0; c < mc; c++) {
@@ -1432,6 +1434,7 @@ static void cp_resolve(cp_engine_t* eng) {
                     if (kv < 0 || kv >= vc) continue;
                     eng->mem_kind[kv] = CP_MEM_KILL;
                     eng->mem_cell[kv] = c;
+                    eng->mem_spine[kv] = n;      /* the call this kill belongs to */
                     eng->mem_prev[kv] = rd.in_state[n][sc + c];
                 }
             continue;
@@ -1448,6 +1451,7 @@ static void cp_resolve(cp_engine_t* eng) {
         }
         eng->mem_kind[mv] = CP_MEM_STORE;
         eng->mem_cell[mv] = cell;
+        eng->mem_spine[mv] = n;                              /* the node that wrote it */
         eng->mem_elem[mv] = (node->tag == SIR_ARRAYSTORE);   /* element cell: never strong (see .h) */
         eng->mem_prev[mv] = rd.in_state[n][sc + cell];
         if (obj) { void* f = cp_pmap_get(&eng->expr_idx, obj);
@@ -7320,6 +7324,101 @@ static void cp_rewrite_dse(cp_engine_t* eng) {
     }
 }
 
+/* Two stores write the same LOCATION, not merely the same cell. A cell is keyed by
+ * (class, field), so `a.f = 1; b.f = 2` shares one cell with two receivers and the
+ * second overwrites nothing. A static has no receiver — its cell IS the location. */
+static bool cp_mem_same_location(cp_engine_t* eng, int a_obj, int b_obj) {
+    if (a_obj < 0 && b_obj < 0) return true;              /* both statics */
+    if (a_obj < 0 || b_obj < 0) return false;
+    if (a_obj >= eng->vnode_count || b_obj >= eng->vnode_count) return false;
+    return cp_value_leader(eng, a_obj) == cp_value_leader(eng, b_obj);
+}
+
+/* Memory DSE — drop a store no one can observe.
+ *
+ * The question "can anything read this store" is a def-use query on its memory
+ * VERSION, not a walk: every reader of a cell takes the version reaching it as an
+ * input, so a version with no users but the store that overwrites it was read by
+ * nothing. That formulation carries the three liveness obligations for free, which
+ * is why it is worth stating as a query rather than a traversal:
+ *
+ *   - a handler that reads the field takes the version threaded along the
+ *     EXCEPTIONAL edge (spec §1, the recorded handler merge), so it is a user;
+ *   - a call that could read the field interrupts the version — its CP_MEM_KILL
+ *     names the interrupted version as mem_prev, so it is a user;
+ *   - a path on which the overwrite does NOT happen merges the version into a
+ *     cell-φ, so the φ is a user. That is what makes "the only user is the
+ *     overwriting store" mean "it overwrites on every path", with no dominance
+ *     query anywhere.
+ *
+ * The remaining obligation is escape, and the version graph answers it too: a store
+ * still live when the method returns has no user only if nothing in the method reads
+ * it — but the OBJECT may outlive the frame, so a lone store is never deleted. Only
+ * an overwritten one is, and then the survivor is the value any outside reader sees.
+ *
+ * Array elements are excluded: their cell is monolithic per width (§2.2, "each array
+ * as a single object"), so a second ArrayStore proves nothing about the first's
+ * index — mem_elem already marks them never-strong for the same reason. */
+static bool cp_mem_store_is_dead(cp_engine_t* eng, int mv) {
+    if (eng->mem_kind[mv] != CP_MEM_STORE) return false;
+    if (eng->mem_elem[mv]) return false;                  /* array element: no must-alias */
+    if (eng->mem_spine[mv] < 0) return false;
+    /* A version has users in BOTH indices, and both must be clean. Readers —
+     * loads, and the cell-φ a merge mints — take it as an ordinary INPUT, so they
+     * are in du_*. Writers have no inputs at all (that is why mem_dep_* exists),
+     * so the store or call-kill that supersedes it is only ever in mem_dep_*.
+     * Reading one index and calling it "no users" is how a live store looks dead. */
+    if (eng->du_cnt[mv] > 0) return false;                /* read, or merged by a φ */
+    bool overwritten = false;
+    if (!eng->mem_dep_off || !eng->mem_dep_cnt) return false;
+    for (int k = eng->mem_dep_off[mv]; k < eng->mem_dep_off[mv] + eng->mem_dep_cnt[mv]; k++) {
+        int u = eng->mem_dep_list[k];
+        if (u < 0 || u >= eng->vnode_count) return false;
+        /* A user the solve proved UNREACHABLE observes nothing. This is not a
+         * refinement, it is the difference between working and not: every §15 guard
+         * ends its throwing arm in an allocation + constructor CALL, whose wide kill
+         * names the version reaching the guard. `o.f = 1; o.f = 2` therefore has a
+         * would-be observer on each null-check's throw arm — arms the FIRST guard
+         * already proved dead. Reading them as live keeps every guarded store. */
+        int us = eng->mem_spine[u];
+        if (us >= 0 && us < eng->spine_count && !cp_spine_reachable(eng, us)) continue;
+        if (eng->mem_prev[u] != mv) return false;         /* used as a value, not superseded */
+        if (eng->mem_kind[u] == CP_MEM_STORE
+                && eng->mem_cell[u] == eng->mem_cell[mv] && !eng->mem_elem[u]
+                && cp_mem_same_location(eng, eng->mem_obj[mv], eng->mem_obj[u])) {
+            overwritten = true;
+            continue;                                     /* this one supersedes it */
+        }
+        return false;    /* a call's KILL, or a store elsewhere — both observe it */
+    }
+    return overwritten;
+}
+
+static void cp_rewrite_mem_dse(cp_engine_t* eng) {
+    if (!eng->du_off || !eng->mem_spine) return;
+    for (int mv = 0; mv < eng->vnode_count; mv++) {
+        if (!cp_mem_store_is_dead(eng, mv)) continue;
+        int i = eng->mem_spine[mv];
+        if (i < 0 || i >= eng->spine_count) continue;
+        if (!cp_spine_reachable(eng, i)) continue;
+        sir_node_t* n = eng->spine[i];
+        sir_node_t *obj = NULL, *val = NULL, *nxt = NULL;
+        switch (n->tag) {
+            case SIR_PUTFIELD:
+                obj = n->put_field.obj;  val = n->put_field.value;  nxt = n->put_field.next;  break;
+            case SIR_PUTSTATIC:
+                val = n->put_static.value;                          nxt = n->put_static.next; break;
+            default: continue;                            /* only the modelled writers */
+        }
+        /* The store goes; its operands' SIDE EFFECTS do not. Both would have to be
+         * re-threaded as separate ExprEffects, so a store with an impure operand is
+         * simply kept — the deletion is worth less than the machinery. */
+        if ((obj && !cp_expr_is_pure(obj)) || (val && !cp_expr_is_pure(val))) continue;
+        n->tag = SIR_NOP;
+        n->nop.next = nxt;
+    }
+}
+
 /* UCE-driven branch / switch folding: when the condition or selector
  * is a literal LoadConst (which it will be by here if its constant
  * was KNOWN — cp_rewrite_expr already substituted it), pick the
@@ -8914,6 +9013,7 @@ void cp_rewrite(cp_engine_t* eng) {
     cp_compute_reachability(eng);
     cp_compute_liveness(eng);
     cp_rewrite_dse(eng);
+    cp_rewrite_mem_dse(eng);
     cp_rewrite_empty_branch(eng);
     cp_rewrite_compact_nops_gotos(eng);
 }

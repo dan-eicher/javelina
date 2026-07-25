@@ -4796,6 +4796,60 @@ int main(void) {
         bbq_vec_free(mod.code); bbq_arena_free(&a);
     }
 
+    /* ── Memory DSE (W9d) — the BEHAVIOUR, which is what a wrong answer here
+     * costs. test_click_partition pins the decision and test_sir the node
+     * counts; these RUN the program and read the field back, so a store deleted
+     * when something could still observe it shows up as a wrong number. The
+     * aliasing pair is the point: identical source, one call passing the same
+     * object twice and one passing two, with different correct answers. */
+    printf("== memory DSE behaviour ==\n");
+    {
+        struct { const char* src; int32_t want; const char* label; } dse[] = {
+          { "class C { int f; }"
+            " class T { static int f(){ C o = new C(); o.f = 1; o.f = 2; return o.f; } }", 2,
+            "dse: the overwritten store goes and the surviving value is what is read" },
+          /* Two FRESH objects: provably non-null, so no guard sits between the
+           * stores and nothing else keeps the first one alive. Then the ONLY
+           * thing standing between this and a wrong answer is the must-alias
+           * test — which is what makes this case a falsifier and not decoration
+           * (with two PARAMETERS instead, each null-check leaves a reachable
+           * observer and the case passes whether must-alias works or not). */
+          { "class C { int f; }"
+            " class T { static int get(C c){ return c.f; }"
+            "           static int f(){ C a = new C(); C b = new C();"
+            "                           a.f = 1; b.f = 2; return get(a); } }", 1,
+            "dse SOUNDNESS: two fresh objects share a cell, not a location — a.f is 1" },
+          { "class C { int f; }"
+            " class T { static int g(C a, C b){ a.f = 1; b.f = 2; return a.f; }"
+            "           static int f(){ C o = new C(); return g(o, o); } }", 2,
+            "dse: ALIASED receivers — b.f = 2 really did overwrite a.f, so a.f reads 2" },
+          { "class C { int f; }"
+            " class T { static int f(){ C o = new C(); o.f = 1; int r = o.f; o.f = 2;"
+            "                           return r * 10 + o.f; } }", 12,
+            "dse SOUNDNESS: a read between the stores still sees 1" },
+          { "class T { static int s;"
+            "          static int f(){ s = 1; s = 2; return s; } }", 2,
+            "dse: a static overwritten before any read, and the survivor is read" },
+          { "class T { static int f(){ int[] a = new int[2]; a[0] = 1; a[1] = 2;"
+            "                          return a[0] * 10 + a[1]; } }", 12,
+            "dse SOUNDNESS: array elements share a cell — both stores survive" },
+          { "class C { int f; }"
+            " class T { static int f(){ C o = new C(); o.f = 1;"
+            "   try { o.f = 2; throw new Exception(); } catch (Exception e) { }"
+            "   return o.f; } }", 2,
+            "dse: a store before a throw is observable in the catch's continuation" },
+        };
+        for (size_t i = 0; i < sizeof dse / sizeof dse[0]; i++) {
+            bbq_arena a; bbq_arena_init(&a, 1 << 18);
+            emit_wasm_ctx mod = {0};
+            assemble(&a, dse[i].src, &mod);
+            wasm_val_t res[1] = { WASM_INIT_VAL };
+            exec_status st = exec_call(mod.code, bbq_vec_len(mod.code), "T.f", NULL, 0, res, 1);
+            CHECK(st == EXEC_OK && res[0].of.i32 == dse[i].want, dse[i].label);
+            bbq_vec_free(mod.code); bbq_arena_free(&a);
+        }
+    }
+
     exec_jre_teardown();                         /* tear down the shared jre + store once, at the end */
     bbq_vec_free(jre.code); bbq_arena_free(&jre_arena);
 

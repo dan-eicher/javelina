@@ -5106,5 +5106,61 @@ int main(void) {
               "SOUNDNESS: a bare x<y never folds");
     }
 
+    /* ── Memory DSE (W9d): a store nothing can observe goes; every way of
+     * observing one keeps it. The negatives ARE the liveness proof — each
+     * names one channel through which a later reader reaches the store. */
+    printf("== memory DSE ==\n");
+    {
+        const char* OVER = "class C { int f; }"
+            " class T { static void g(C o){ o.f = 1; o.f = 2; } }";
+        CHECK(compile_count_in(OVER, "g", SIR_PUTFIELD, 0) == 2,
+              "unoptimized: both stores are present");
+        CHECK(compile_count_in(OVER, "g", SIR_PUTFIELD, 1) == 1,
+              "o.f = 1 is dead: o.f = 2 overwrites the same location, unread");
+        /* SOUNDNESS: same CELL, different RECEIVER — the cell key is
+         * (class, field), so this is the aliasing case a cell-only rule gets
+         * wrong. Nothing overwrites anything here. */
+        /* FRESH receivers, so no null-guard sits between the stores to keep the
+         * first alive for an unrelated reason — the must-alias test is then the
+         * only thing preventing the deletion, and this count moves if it breaks. */
+        const char* TWOOBJ = "class C { int f; }"
+            " class T { static void g(){ C a = new C(); C b = new C(); a.f = 1; b.f = 2; } }";
+        CHECK(compile_count_in(TWOOBJ, "g", SIR_PUTFIELD, 1) == 2,
+              "SOUNDNESS: a.f and b.f share a cell but not a location — both stay");
+        /* SOUNDNESS: a read between them observes the first value. */
+        const char* READ = "class C { int f; }"
+            " class T { static int g(C o){ o.f = 1; int r = o.f; o.f = 2; return r; } }";
+        CHECK(compile_count_in(READ, "g", SIR_PUTFIELD, 1) == 2,
+              "SOUNDNESS: a read between the stores keeps the first");
+        /* SOUNDNESS: a CALL between them may read the field. */
+        const char* CALL = "class C { int f; }"
+            " class T { static void h(){} static void g(C o){ o.f = 1; h(); o.f = 2; } }";
+        CHECK(compile_count_in(CALL, "g", SIR_PUTFIELD, 1) == 2,
+              "SOUNDNESS: a call between the stores may read the field — both stay");
+        /* SOUNDNESS: a lone store is never dead — the object outlives the frame. */
+        const char* LONE = "class C { int f; }"
+            " class T { static void g(C o){ o.f = 1; } }";
+        CHECK(compile_count_in(LONE, "g", SIR_PUTFIELD, 1) == 1,
+              "SOUNDNESS: a lone store escapes with the object — never dead");
+        /* SOUNDNESS: overwritten only on ONE arm — the other path's value is
+         * observable, so the version reaches a cell-φ and is not dead. */
+        const char* COND = "class C { int f; }"
+            " class T { static void g(C o, boolean c){ o.f = 1; if (c) o.f = 2; } }";
+        CHECK(compile_count_in(COND, "g", SIR_PUTFIELD, 1) == 2,
+              "SOUNDNESS: an overwrite on only one arm keeps the first store");
+        /* Statics have no receiver: the cell IS the location. */
+        const char* ST = "class T { static int s;"
+            " static void g(){ s = 1; s = 2; } }";
+        CHECK(compile_count_in(ST, "g", SIR_PUTSTATIC, 0) == 2,
+              "unoptimized: both static stores present");
+        CHECK(compile_count_in(ST, "g", SIR_PUTSTATIC, 1) == 1,
+              "a static store overwritten before any read is dead");
+        /* SOUNDNESS: array elements are a MONOLITHIC cell — a[0] and a[1] share
+         * it, so a second ArrayStore proves nothing about the first's index. */
+        const char* ARR = "class T { static void g(int[] a){ a[0] = 1; a[1] = 2; } }";
+        CHECK(compile_count_in(ARR, "g", SIR_ARRAYSTORE, 1) == 2,
+              "SOUNDNESS: array elements share one cell — neither store is proved dead");
+    }
+
     return TEST_SUMMARY("test_sir");
 }

@@ -902,6 +902,11 @@ typedef struct {
     int*      mem_obj;
     int*      mem_val;
     int*      mem_cell;
+    /* The spine node this version is DEFINED by, or -1. The other fields say what a
+     * version is; this says where it was written, which is what a rewrite needs to
+     * retag the store it came from. Set for CP_MEM_STORE only — a WIDE/KILL version
+     * belongs to a call, which is never deletable. */
+    int*      mem_spine;
     /* mem_elem: this STORE writes an ARRAY-ELEMENT cell (ArrayStore), not a field. §2's strong
      * update needs one runtime LOCATION, and a concrete receiver only supplies that for a FIELD
      * (one `O.f` per object); an element cell is keyed by element type and summarizes EVERY

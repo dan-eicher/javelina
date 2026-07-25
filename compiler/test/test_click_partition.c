@@ -1815,6 +1815,88 @@ static void test_cp_memrange_symbolic_bound_second_guard_folds(void) {
     bbq_arena_free(&a);
 }
 
+/* ── Memory DSE at the level that decides it (W9d) ─────────────────────────
+ *
+ * Click §A.5.3: "We treat memory like any other value, and call it the STORE …
+ * STORE Nodes take in a STORE, an address, and a value and produce a new STORE.
+ * PHI Nodes merge the STORE like other values." So a dead store is a STORE VALUE
+ * WITH NO USERS, and the question is a def-use query, not a traversal. These pin
+ * the decision on hand-built SIR — the e2e counts in test_sir confirm it through
+ * the whole pipeline, but they cannot say WHY a store did or did not go.
+ *
+ * The cell is keyed by (class, field) — Click names the per-variable STORE split
+ * as the better design and this is it — so two receivers SHARE a cell and the
+ * must-alias test is what stands between this and deleting a live store. */
+static sir_node_t* mk_two_field_stores(bbq_arena* a, int obj_slot_1, int obj_slot_2,
+                                       sir_node_t** out_first) {
+    sir_node_t* ret = sir_return_void(a);
+    sir_node_t* s2  = sir_put_field(a, SIR_DTINT,
+                                    sir_load_local(a, obj_slot_2, SIR_DTREF, NULL),
+                                    7 /*class*/, 0 /*field*/,
+                                    sir_load_const(a, 2, SIR_DTINT), ret);
+    sir_node_t* s1  = sir_put_field(a, SIR_DTINT,
+                                    sir_load_local(a, obj_slot_1, SIR_DTREF, NULL),
+                                    7, 0, sir_load_const(a, 1, SIR_DTINT), s2);
+    *out_first = s1;
+    return s1;
+}
+
+static void test_cp_mem_dse_overwritten_field_store_is_dead(void) {
+    bbq_arena a; bbq_arena_init(&a, 1 << 16);
+    sir_node_t* first = NULL;
+    sir_node_t* entry = mk_two_field_stores(&a, 0, 0, &first);   /* same receiver slot */
+    sir_method_t* m = sir_method(&a, "f", 0, 1, 1, entry);
+    cp_engine_t* e = cp_build(m, NULL, &a, NULL, 0);
+    TEST_ASSERT_NOT_NULL(e);
+    cp_rewrite(e);                      /* the transform runs on CONVERGED rows */
+    TEST_ASSERT_EQUAL_INT_MESSAGE(SIR_NOP, first->tag,
+        "the overwritten store is retagged NOP: its STORE value's only user is the "
+        "store that supersedes it at the same location");
+    cp_free(e);
+    bbq_arena_free(&a);
+}
+
+/* SOUNDNESS: two receivers share the (class, field) cell but not the LOCATION. */
+static void test_cp_mem_dse_distinct_receivers_both_live(void) {
+    bbq_arena a; bbq_arena_init(&a, 1 << 16);
+    sir_node_t* first = NULL;
+    sir_node_t* entry = mk_two_field_stores(&a, 0, 1, &first);   /* a.f then b.f */
+    sir_method_t* m = sir_method(&a, "f", 0, 2, 2, entry);
+    cp_engine_t* e = cp_build(m, NULL, &a, NULL, 0);
+    TEST_ASSERT_NOT_NULL(e);
+    cp_rewrite(e);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(SIR_PUTFIELD, first->tag,
+        "SOUNDNESS: a.f and b.f share a cell but not a location — the first store "
+        "overwrites nothing and must stay");
+    cp_free(e);
+    bbq_arena_free(&a);
+}
+
+/* SOUNDNESS: a load between them reads the first value — it is a USER of that STORE. */
+static void test_cp_mem_dse_intervening_load_keeps_store(void) {
+    bbq_arena a; bbq_arena_init(&a, 1 << 16);
+    sir_node_t* ret = sir_return(&a, sir_get_field(&a, SIR_DTINT,
+                                     sir_load_local(&a, 0, SIR_DTREF, NULL), 7, 0),
+                                 SIR_DTINT);
+    sir_node_t* s2  = sir_put_field(&a, SIR_DTINT,
+                                    sir_load_local(&a, 0, SIR_DTREF, NULL), 7, 0,
+                                    sir_load_const(&a, 2, SIR_DTINT), ret);
+    sir_node_t* mid = sir_store_local(&a, 1, SIR_DTINT, NULL,
+                                      sir_get_field(&a, SIR_DTINT,
+                                        sir_load_local(&a, 0, SIR_DTREF, NULL), 7, 0), s2);
+    sir_node_t* s1  = sir_put_field(&a, SIR_DTINT,
+                                    sir_load_local(&a, 0, SIR_DTREF, NULL), 7, 0,
+                                    sir_load_const(&a, 1, SIR_DTINT), mid);
+    sir_method_t* m = sir_method(&a, "f", 0, 2, 2, s1);
+    cp_engine_t* e = cp_build(m, NULL, &a, NULL, 0);
+    TEST_ASSERT_NOT_NULL(e);
+    cp_rewrite(e);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(SIR_PUTFIELD, s1->tag,
+        "SOUNDNESS: a load between the stores is a user of the first STORE — it stays");
+    cp_free(e);
+    bbq_arena_free(&a);
+}
+
 /* ── A Refine's identity is its CONTENT, not the branch that minted it ─────
  *
  * Spec §8: "a value IS a node … GVN merges congruent nodes globally." An EXPR
@@ -6447,6 +6529,9 @@ void test_click_partition_suite(void) {
     RUN_TEST(test_cp_range_refine_i32);
     RUN_TEST(test_cp_range_refine_i64);
     RUN_TEST(test_cp_refine_keeps_incumbent_symbolic_bound);
+    RUN_TEST(test_cp_mem_dse_overwritten_field_store_is_dead);
+    RUN_TEST(test_cp_mem_dse_distinct_receivers_both_live);
+    RUN_TEST(test_cp_mem_dse_intervening_load_keeps_store);
     RUN_TEST(test_cp_refine_identity_is_canonical);
     RUN_TEST(test_cp_memsize_symbolic_bound_second_guard_folds);
     RUN_TEST(test_cp_memrange_symbolic_bound_second_guard_folds);
