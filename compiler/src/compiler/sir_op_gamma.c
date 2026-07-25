@@ -12,6 +12,7 @@
 
 #include "javelina/compiler/sir_op_gamma.h"
 #include "javelina/compiler/sir_optimizer.h"  /* cp_const_t for range folds */
+#include "javelina/compiler/jint.h"           /* the exact-arithmetic core */
 #include "gen/sir_ast.h"
 #include "bbq_vec.h"
 #include <math.h>  /* isnan, for the JLS float→int narrowing folds */
@@ -30,33 +31,28 @@
  * for arith — Java semantics, matching cp_fold's pre-refactor behaviour
  * verbatim. */
 
-static bool gamma_fold_add (int32_t l, int32_t r, int32_t* out) { *out = (int32_t)((uint32_t)l + (uint32_t)r); return true; }
-static bool gamma_fold_sub (int32_t l, int32_t r, int32_t* out) { *out = (int32_t)((uint32_t)l - (uint32_t)r); return true; }
-static bool gamma_fold_mul (int32_t l, int32_t r, int32_t* out) { *out = (int32_t)((uint32_t)l * (uint32_t)r); return true; }
-/* §15.16.2: division by zero THROWS — refuse the fold and keep the guard.
- * MIN/-1 does NOT throw: "integer overflow occurs and the result is equal
- * to the dividend. Despite the overflow, no exception is thrown"; §15.16.3
- * gives the matching remainder: "(the remainder is 0)". Both are C UB, so
- * they fold by the spec's stated values, never by computing. */
+static bool gamma_fold_add (int32_t l, int32_t r, int32_t* out) { *out = jint_add(l, r); return true; }
+static bool gamma_fold_sub (int32_t l, int32_t r, int32_t* out) { *out = jint_sub(l, r); return true; }
+static bool gamma_fold_mul (int32_t l, int32_t r, int32_t* out) { *out = jint_mul(l, r); return true; }
+/* §15.16.2: division by zero THROWS — refuse the fold and keep the guard. The
+ * core handles the non-throwing MIN/-1 case by the spec's stated value. */
 static bool gamma_fold_div (int32_t l, int32_t r, int32_t* out) {
     if (r == 0) { *out = 0; return false; }
-    if (l == INT32_MIN && r == -1) { *out = INT32_MIN; return true; }
-    *out = l / r; return true;
+    *out = jint_div(l, r); return true;
 }
 static bool gamma_fold_rem (int32_t l, int32_t r, int32_t* out) {
     if (r == 0) { *out = 0; return false; }
-    if (l == INT32_MIN && r == -1) { *out = 0; return true; }
-    *out = l % r; return true;
+    *out = jint_rem(l, r); return true;
 }
-static bool gamma_fold_and (int32_t l, int32_t r, int32_t* out) { *out = l & r; return true; }
-static bool gamma_fold_or  (int32_t l, int32_t r, int32_t* out) { *out = l | r; return true; }
-static bool gamma_fold_xor (int32_t l, int32_t r, int32_t* out) { *out = l ^ r; return true; }
-static bool gamma_fold_shl (int32_t l, int32_t r, int32_t* out) { *out = (int32_t)((uint32_t)l << ((uint32_t)r & 31)); return true; }
-static bool gamma_fold_shr (int32_t l, int32_t r, int32_t* out) { *out = l >> ((uint32_t)r & 31); return true; }
-static bool gamma_fold_ushr(int32_t l, int32_t r, int32_t* out) { *out = (int32_t)((uint32_t)l >> ((uint32_t)r & 31)); return true; }
+static bool gamma_fold_and (int32_t l, int32_t r, int32_t* out) { *out = jint_and(l, r); return true; }
+static bool gamma_fold_or  (int32_t l, int32_t r, int32_t* out) { *out = jint_or (l, r); return true; }
+static bool gamma_fold_xor (int32_t l, int32_t r, int32_t* out) { *out = jint_xor(l, r); return true; }
+static bool gamma_fold_shl (int32_t l, int32_t r, int32_t* out) { *out = jint_shl (l, r); return true; }
+static bool gamma_fold_shr (int32_t l, int32_t r, int32_t* out) { *out = jint_shr (l, r); return true; }
+static bool gamma_fold_ushr(int32_t l, int32_t r, int32_t* out) { *out = jint_ushr(l, r); return true; }
 
-static bool gamma_fold_neg   (int32_t a, int32_t* out) { *out = (int32_t)(0u - (uint32_t)a);   return true; }
-static bool gamma_fold_lognot(int32_t a, int32_t* out) { *out = (a == 0);                      return true; }
+static bool gamma_fold_neg   (int32_t a, int32_t* out) { *out = jint_neg(a); return true; }
+static bool gamma_fold_lognot(int32_t a, int32_t* out) { *out = (a == 0);    return true; }
 static bool gamma_fold_s2b   (int32_t a, int32_t* out) { *out = (int32_t)(int8_t)a;            return true; }
 static bool gamma_fold_i2b   (int32_t a, int32_t* out) { *out = (int32_t)(int8_t)a;            return true; }
 static bool gamma_fold_i2s   (int32_t a, int32_t* out) { *out = (int32_t)(int16_t)a;           return true; }

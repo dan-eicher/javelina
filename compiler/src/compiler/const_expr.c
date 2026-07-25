@@ -42,6 +42,7 @@
  * violation into a miscompile. They are sequenced together.
  */
 #include "javelina/compiler/const_expr.h"
+#include "javelina/compiler/jint.h"   /* the exact-arithmetic core */
 #include "javelina/compiler/sema.h"
 #include "javelina/compiler/type_lattice.h"   /* §5.6 promotion — the ONE authority */
 
@@ -199,31 +200,28 @@ static jls_const_t arith(ast_binop_t op, jls_const_t a, jls_const_t b) {
     if (k == JT_LONG) {
         int64_t x = as_long(a), y = as_long(b);
         switch (op) {
-        case AST_ADD: return mk_long((int64_t)((uint64_t)x + (uint64_t)y));
-        case AST_SUB: return mk_long((int64_t)((uint64_t)x - (uint64_t)y));
-        case AST_MUL: return mk_long((int64_t)((uint64_t)x * (uint64_t)y));
+        case AST_ADD: return mk_long(jlong_add(x, y));
+        case AST_SUB: return mk_long(jlong_sub(x, y));
+        case AST_MUL: return mk_long(jlong_mul(x, y));
         /* §15.27: the expression must DENOTE A VALUE. An integer division by zero denotes no
-         * value (it throws), so it is not a constant expression. */
+         * value (it throws), so it is not a constant expression. The core folds the
+         * non-throwing MIN/-1 case (§15.16.2) by its stated value. */
         case AST_DIV: if (y == 0) return NOT_CONSTANT;
-                      if (x == INT64_MIN && y == -1) return mk_long(INT64_MIN);   /* §15.16.2 overflow */
-                      return mk_long(x / y);
+                      return mk_long(jlong_div(x, y));
         case AST_REM: if (y == 0) return NOT_CONSTANT;
-                      if (x == INT64_MIN && y == -1) return mk_long(0);
-                      return mk_long(x % y);
+                      return mk_long(jlong_rem(x, y));
         default: return NOT_CONSTANT;
         }
     }
     int32_t x = as_int(a), y = as_int(b);
     switch (op) {
-    case AST_ADD: return mk_int((int32_t)((uint32_t)x + (uint32_t)y));
-    case AST_SUB: return mk_int((int32_t)((uint32_t)x - (uint32_t)y));
-    case AST_MUL: return mk_int((int32_t)((uint32_t)x * (uint32_t)y));
+    case AST_ADD: return mk_int(jint_add(x, y));
+    case AST_SUB: return mk_int(jint_sub(x, y));
+    case AST_MUL: return mk_int(jint_mul(x, y));
     case AST_DIV: if (y == 0) return NOT_CONSTANT;
-                  if (x == INT32_MIN && y == -1) return mk_int(INT32_MIN);
-                  return mk_int(x / y);
+                  return mk_int(jint_div(x, y));
     case AST_REM: if (y == 0) return NOT_CONSTANT;
-                  if (x == INT32_MIN && y == -1) return mk_int(0);
-                  return mk_int(x % y);
+                  return mk_int(jint_rem(x, y));
     default: return NOT_CONSTANT;
     }
 }
