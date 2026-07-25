@@ -2030,16 +2030,24 @@ fun mem_bounds_guard(t_addr: int, width: int, ok: ir_root, r: rho) -> ir_root {
 
 // The memory.fill/copy range form: base >= 0, len >= 0, (long)base + len <= limit.
 fun mem_range_guard(t_base: int, t_len: int, ok: ir_root, r: rho) -> ir_root {
+    // The §15 ARRAY SHAPE, as mem_bounds_guard: the tested side is the base slot
+    // alone (through one I2L), len folded into the bound — `(long)base > limit − len`
+    // ⟺ `(long)base + len > limit`, exact in i64 and evaluated with base, len ≥ 0
+    // (the lo/ln arms below run first). The bound is base-free, so the GT-false-edge
+    // mint puts base's symbolic upper bound in place and a second range op with the
+    // same len folds this guard through the existing symbolic-bound consumer — the
+    // way mem_bounds_guard's second access folds. A sum on the tested side (the old
+    // shape) carried no per-slot bound and never folded.
     let hi = build ir.Branch(
-        build ir.Gt(build ir.Add(DtLong,
-                        build ir.I2L(build ir.LoadLocal(t_base, DtInt, nil)),
-                        build ir.I2L(build ir.LoadLocal(t_len, DtInt, nil))),
-                    build ir.Mul(DtLong,
-                        build ir.I2L(build ir.MemSize()),
-                        build ir.LoadLongConst(65536))),
+        build ir.Gt(build ir.I2L(build ir.LoadLocal(t_base, DtInt, nil)),
+                    build ir.Sub(DtLong,
+                        build ir.Mul(DtLong,
+                            build ir.I2L(build ir.MemSize()),
+                            build ir.LoadLongConst(65536)),
+                        build ir.I2L(build ir.LoadLocal(t_len, DtInt, nil)))),
         throw_new_noarg(sema_index_oob_exc_id(), r),
         ok);
-    let _ = record_guard(hi, 8, t_base, t_len, 1);   // base+len > limit; throws on TRUE
+    let _ = record_guard(hi, 8, t_base, 0 - 1, 1);   // (long)base > limit-len; throws on TRUE
     let ln = build ir.Branch(
         build ir.Lt(build ir.LoadLocal(t_len, DtInt, nil), build ir.LoadConst(0, DtInt)),
         throw_new_noarg(sema_index_oob_exc_id(), r),

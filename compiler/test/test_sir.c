@@ -4887,6 +4887,25 @@ int main(void) {
           if (c != 3) printf("    (call-between counted %d branches, want 3)\n", c);
           CHECK(c == 3,
               "SOUNDNESS: a growing call between the loads keeps BOTH hi-guards"); }
+        /* mem_range_guard (fill/copy) carries a 3-branch chain (base < 0;
+         * len < 0; (long)base > limit − len) in the SAME §15 array shape as
+         * the load guard above, so two adjacent fills fold the SECOND chain
+         * whole: its lo and len arms off the first's base >= 0 / len >= 0, and
+         * its hi off the symbolic bound the first hi's ok edge recorded. The
+         * ddcg re-spills base and len into fresh temps before each fill, and
+         * that copy carries the refinement (a redefinition holding the same
+         * value keeps its proven facts). Owning-level pins:
+         * test_cp_memrange_second_full_chain_folds and
+         * test_cp_refine_survives_a_copying_redefinition. */
+        const char* FILL2 = SIMDI
+            "class T { static void f(int x, int n){ Mem.memory_fill(x, 0, n);"
+            " Mem.memory_fill(x, 0, n); } }";
+        CHECK(compile_count_in(FILL2, "f", SIR_BRANCH, 0) == 6,
+              "unoptimized: two fills carry two 3-branch range guards");
+        { int r = compile_count_in(FILL2, "f", SIR_BRANCH, 1);
+          if (r != 3) printf("    (two-fill counted %d branches, want %d)\n", r, 3);
+          CHECK(r == 3,
+              "the second fill's WHOLE range guard folds (lo, len, and the §15-shaped hi)"); }
         #undef SIMDI
     }
 

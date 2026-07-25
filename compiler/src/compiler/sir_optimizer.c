@@ -274,13 +274,115 @@ static int cp_new_opaque(cp_engine_t* eng) {
     return idx;
 }
 
+/* The value a node ultimately IS, through copies only (defined below). */
+static int cp_ultimate_value(cp_engine_t* eng, int vi);
+
+/* A Refine's IDENTITY is its whole content: the value it reads plus the fact it
+ * asserts. Two branches that refine one value with one predicate state the same
+ * fact about the same value — spec §8, "a value IS a node … GVN merges congruent
+ * nodes globally" — so they must BE one node. Compared field-wise, not by memcmp:
+ * the predicate is written with designated initializers, whose padding bytes are
+ * unspecified. Floats by their BITS, so ±0.0 stay distinct and a NaN predicate
+ * matches itself. */
+
+static bool cp_refine_pred_eq(const cp_vnode_t* v, cp_const_t p,
+                              cp_refine_pts_t pts, sir_atype_t atype, int class_id) {
+    if (v->kind != CP_VN_REFINE) return false;
+    if (v->refine_pts != pts || v->refine_atype != atype || v->refine_class != class_id)
+        return false;
+    cp_const_t q = v->refine_predicate;
+    uint32_t pf, qf; uint64_t pd, qd;
+    memcpy(&pf, &p.fvalue, sizeof pf); memcpy(&qf, &q.fvalue, sizeof qf);
+    memcpy(&pd, &p.dvalue, sizeof pd); memcpy(&qd, &q.dvalue, sizeof qd);
+    return p.state == q.state && p.cwidth == q.cwidth && p.value == q.value
+        && p.lvalue == q.lvalue && pf == qf && pd == qd
+        && p.lo == q.lo && p.hi == q.hi && p.stride == q.stride
+        && p.hi_vn1 == q.hi_vn1 && p.hi_vn_incl == q.hi_vn_incl
+        && p.lo_vn1 == q.lo_vn1 && p.lo_vn_incl == q.lo_vn_incl
+        && p.ref_kind == q.ref_kind && p.ref_id == q.ref_id;
+}
+
+static bool cp_refine_content_eq(const cp_vnode_t* v, int input_vn, cp_const_t p,
+                                 cp_refine_pts_t pts, sir_atype_t atype, int class_id) {
+    return v->kind == CP_VN_REFINE && v->input_count == 1 && v->inputs[0] == input_vn
+        && cp_refine_pred_eq(v, p, pts, atype, class_id);
+}
+
+static uint64_t cp_refine_content_hash(int input_vn, cp_const_t p,
+                                       cp_refine_pts_t pts, sir_atype_t atype,
+                                       int class_id) {
+    uint32_t fb; uint64_t db;
+    memcpy(&fb, &p.fvalue, sizeof fb);
+    memcpy(&db, &p.dvalue, sizeof db);
+    uint64_t parts[] = {
+        (uint32_t)input_vn, (uint64_t)p.state, (uint64_t)p.cwidth, (uint32_t)p.value,
+        (uint64_t)p.lvalue, fb, db, (uint64_t)p.lo, (uint64_t)p.hi, (uint64_t)p.stride,
+        (uint32_t)p.hi_vn1, (uint32_t)p.hi_vn_incl,
+        (uint32_t)p.lo_vn1, (uint32_t)p.lo_vn_incl,
+        (uint64_t)p.ref_kind, (uint64_t)p.ref_id,
+        (uint64_t)pts, (uint64_t)atype, (uint32_t)class_id,
+    };
+    uint64_t h = 1469598103934665603ULL;                  /* FNV-1a, 64-bit */
+    for (size_t i = 0; i < sizeof parts / sizeof parts[0]; i++) {
+        h ^= parts[i];
+        h *= 1099511628211ULL;
+    }
+    return h;
+}
+
 /* A Refine vnode: takes one input (the value being refined) and
  * holds a static predicate (the per-arm intersection from a Branch
  * Cmp). cp_node_const returns input.constant ⊓ predicate. Used for
  * path-sensitive lattice refinement (PoPA Ch.6) — LoadLocal vnodes
  * in the arm subtree are rewired to read this Refine, so Click §4.7
- * COPY-Follower works with Refine as the Leader. */
-static int cp_new_refine(cp_engine_t* eng, int input_vn, cp_const_t predicate) {
+ * COPY-Follower works with Refine as the Leader.
+ *
+ * INTERNED on the full content, so a fact is one node however many branches
+ * assert it. Sharing is safe because a Refine is immutable once built: the
+ * three constructors below are the only writers of the refine_* fields, and
+ * pass B's rewiring only ever re-points an EXPR LoadLocal's input, never a
+ * Refine's. On a hash collision (verified field-wise on hit) this mints a
+ * fresh unshared node — correct, just not canonical, which costs a fold and
+ * never soundness. */
+static int cp_new_refine_full(cp_engine_t* eng, int input_vn, cp_const_t predicate,
+                              cp_refine_pts_t pts, sir_atype_t atype, int class_id) {
+    /* §1: COPIES DON'T EXIST. A range refine names a fact about a VALUE, and a
+     * LoadLocal chain is not a distinct value — refining `t`'s spilled copy and
+     * refining `t` state the same thing, so both must land on the same node.
+     * Without this the key is a NODE key and the arm refines (already minted on
+     * the ultimate, from cp_cmp_operand_ultimate) come out incongruent with the
+     * ones composed over a spilled slot's state — which is exactly how a
+     * re-spilled argument loses a proven bound between two guards.
+     *
+     * NOT for a pts refine. That one is deliberately OUTSIDE value identity — it
+     * is a §4.7 COPY Follower so that a pts fact can never move a partition — and
+     * its place IN THE CHAIN is what carries the connection-graph edge (spec §6
+     * rides the same graph). Re-pointing it at the root skips the node the edge
+     * runs through: a caught exception stored into a static stopped reaching
+     * GlobalEscape, because the leak was applied to the root instead of to the
+     * landing slot's value. Range facts have no such edge to sever. */
+    if (pts == CP_REFINE_PTS_NONE) input_vn = cp_ultimate_value(eng, input_vn);
+    /* IDEMPOTENCE. Asserting a fact the input already asserts adds nothing: ⊓ is
+     * idempotent, so Refine(Refine(x,P),P).constant = (x.c ⊓ P) ⊓ P = Refine(x,P)
+     * .constant, and a pts filter applied twice is the same filter. The stacked node
+     * would be a DISTINCT value naming an identical fact — §1's "copies don't exist",
+     * which is why a trivial φ is subsumed rather than built. Nested guards make this
+     * the common case: two adjacent range guards refine len ≥ 0 twice, and without
+     * this the inner one's bound stops being congruent with the outer one's. */
+    if (input_vn >= 0 && input_vn < eng->vnode_count
+            && cp_refine_pred_eq(eng->vnodes[input_vn], predicate, pts, atype, class_id))
+        return input_vn;
+    uint64_t key = cp_refine_content_hash(input_vn, predicate, pts, atype, class_id);
+    void* hit = bbq_hmap_get(&eng->refine_intern, key);
+    bool collision = false;
+    if (hit) {
+        int prev = (int)((uintptr_t)hit - 1);
+        if (prev >= 0 && prev < eng->vnode_count
+                && cp_refine_content_eq(eng->vnodes[prev], input_vn, predicate,
+                                        pts, atype, class_id))
+            return prev;
+        collision = true;
+    }
     int idx;
     cp_vnode_t* v = cp_alloc_vnode(eng, &idx);
     v->kind = CP_VN_REFINE;
@@ -290,25 +392,30 @@ static int cp_new_refine(cp_engine_t* eng, int input_vn, cp_const_t predicate) {
     v->inputs = in;
     v->input_count = 1;
     v->refine_predicate = predicate;
+    v->refine_pts       = pts;
+    v->refine_atype     = atype;
+    v->refine_class     = class_id;
+    if (!collision) bbq_hmap_put(&eng->refine_intern, key, (void*)(uintptr_t)(idx + 1));
     return idx;
+}
+
+static int cp_new_refine(cp_engine_t* eng, int input_vn, cp_const_t predicate) {
+    return cp_new_refine_full(eng, input_vn, predicate, CP_REFINE_PTS_NONE, 0, 0);
 }
 
 /* A Refine over a REFERENCE: it narrows the points-to set, not the constant
  * lattice, so its constant predicate is the identity (BOTTOM = "no refinement").
  * Spec §4's nullability lives entirely in pts, so this is all a null test needs. */
 static int cp_new_refine_pts(cp_engine_t* eng, int input_vn, cp_refine_pts_t filter) {
-    int idx = cp_new_refine(eng, input_vn, (cp_const_t){ .state = CP_C_BOTTOM });
-    eng->vnodes[idx]->refine_pts = filter;
-    return idx;
+    return cp_new_refine_full(eng, input_vn, (cp_const_t){ .state = CP_C_BOTTOM },
+                              filter, 0, 0);
 }
 
 /* …and the class flavour (spec §2's `br_on_cast`), which carries the type it tested. */
 static int cp_new_refine_isa(cp_engine_t* eng, int input_vn, cp_refine_pts_t filter,
                              sir_atype_t atype, int class_id) {
-    int idx = cp_new_refine_pts(eng, input_vn, filter);
-    eng->vnodes[idx]->refine_atype = atype;
-    eng->vnodes[idx]->refine_class = class_id;
-    return idx;
+    return cp_new_refine_full(eng, input_vn, (cp_const_t){ .state = CP_C_BOTTOM },
+                              filter, atype, class_id);
 }
 
 /* ── The sidecar, read ───────────────────────────────────────
@@ -1636,15 +1743,13 @@ static int cp_ultimate_thru(cp_engine_t* eng, int vi) {
  * Refine carrying r's predicate but reading v2, so its constant intersects BOTH predicates
  * (PoPA Ch.6 refinement stacked; cp_const_intersect carries the symbolic bound through).
  *
- * Memoized on (r, v2): a pure function of its inputs, minting each composite ONCE, so no
- * existing vnode is ever mutated and re-derivation across sweeps returns the same node
- * (monotone). This is the discipline the removed in-place input-rebasing violated — that
- * rewrote a shared arm Refine's input during the fixpoint (§8/§3.2.1). A name here is a
- * function of its inputs, as it must be. */
-static int cp_compose_refine(cp_engine_t* eng, bbq_hmap* memo, int r, int v2) {
-    uint64_t key = ((uint64_t)(uint32_t)r << 32) | (uint32_t)v2;
-    void* hit = bbq_hmap_get(memo, key);
-    if (hit) return (int)((uintptr_t)hit - 1);
+ * A pure function of its inputs, minting each composite ONCE, so no existing vnode is ever
+ * mutated and re-derivation across sweeps returns the same node (monotone). This is the
+ * discipline the removed in-place input-rebasing violated — that rewrote a shared arm
+ * Refine's input during the fixpoint (§8/§3.2.1). A name here is a function of its inputs,
+ * as it must be — which is now the CONSTRUCTOR's rule (cp_new_refine_full interns on the
+ * content), so composing needs no table of its own: (r's content, v2) IS the key. */
+static int cp_compose_refine(cp_engine_t* eng, int r, int v2) {
     /* Read the arm's fields into locals BEFORE minting — cp_new_refine may grow (realloc)
      * the vnode array, invalidating the `rv` pointer. */
     cp_vnode_t* rv = eng->vnodes[r];
@@ -1652,11 +1757,9 @@ static int cp_compose_refine(cp_engine_t* eng, bbq_hmap* memo, int r, int v2) {
     cp_refine_pts_t pts   = rv->refine_pts;
     sir_atype_t     atype = rv->refine_atype;
     int             cls   = rv->refine_class;
-    int idx = (pts != CP_REFINE_PTS_NONE)
+    return (pts != CP_REFINE_PTS_NONE)
         ? cp_new_refine_isa(eng, v2, pts, atype, cls)
         : cp_new_refine(eng, v2, pred);
-    bbq_hmap_put(memo, key, (void*)(uintptr_t)(idx + 1));
-    return idx;
 }
 
 /* ── Pass B's PURE refinement state (Click ch.2 §2.3) ─────────────────────────────
@@ -2051,8 +2154,6 @@ static void cp_compute_branch_refinements(cp_engine_t* eng) {
     cp_pb_pairs_t pairs;
     pairs.r = NULL; pairs.in = NULL;
     bbq_hmap_init(&pairs.memo, 0);
-    bbq_hmap compose_memo;
-    bbq_hmap_init(&compose_memo, 0);
 
     /* Verdict fact state (channel (a)) — rides the SAME optimistic sweep as the
      * slot rows: per node a bitset over fact ids, TOP (= "unreached", the
@@ -2217,14 +2318,13 @@ static void cp_compute_branch_refinements(cp_engine_t* eng) {
             }
             if (st < 0) continue;                 /* overdeep/degenerate: keep pass-A */
             for (int d = depth - 1; d >= 0; d--)
-                st = cp_compose_refine(eng, &compose_memo, chain[d], st);
+                st = cp_compose_refine(eng, chain[d], st);
         }
         if (st >= 0) v->inputs[0] = st;   /* TOP(-2)/no-def(-1) keep pass-A */
     }
     bbq_vec_free(pairs.r);
     bbq_vec_free(pairs.in);
     bbq_hmap_free(&pairs.memo);
-    bbq_hmap_free(&compose_memo);
 }
 
 /* ── Reverse def-use index ───────────────────────────────────── */
@@ -8976,6 +9076,7 @@ cp_engine_t* cp_build_no_solve(sir_method_t* method, const sema_ctx_t* sema,
     cp_pmap_init(&eng->spine_idx);
     cp_pmap_init(&eng->expr_idx);
     cp_pmap_init(&eng->scalar_subst);
+    bbq_hmap_init(&eng->refine_intern, 0);
     cp_collect_spine(eng, method->entry);
     cp_index_except_edges(eng);     /* the exceptional CFG edges — before cp_resolve */
     cp_scan_slot_types(eng->spine, eng->spine_count, eng->slot_count,
@@ -9109,6 +9210,7 @@ void cp_free(cp_engine_t* eng) {
     cp_pmap_free(&eng->spine_idx);
     cp_pmap_free(&eng->expr_idx);
     cp_pmap_free(&eng->scalar_subst);
+    bbq_hmap_free(&eng->refine_intern);
     if (eng->mem_cell_idx) bbq_htree_destroy(eng->mem_cell_idx);
     if (eng->callee_idx)   bbq_htree_destroy(eng->callee_idx);
     bbq_vec_free(eng->mem_cell_keys);

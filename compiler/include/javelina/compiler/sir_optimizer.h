@@ -538,6 +538,14 @@ typedef struct {
     int           vnode_count;
     cp_pmap_t     expr_idx;     /* expression sir_node_t* -> (index + 1) */
 
+    /* Refine identity: hash(input, predicate, pts, atype, class) -> (index + 1).
+     * An EXPR node gets its congruence from cp_partition_init's opcode buckets +
+     * CAUSE_SPLITS; a Refine is not a SIR op and has no row there, so without this
+     * the same fact refined at two branches would be two values and every
+     * expression over them incongruent. Interning at construction is the same
+     * "a name is a function of its inputs" rule, applied where Refines are made. */
+    bbq_hmap      refine_intern;
+
     /* Reverse def-use: value node v is used by du_user[k] at operand
      * position du_input[k], for k in du_off[v] .. du_off[v]+du_cnt[v]. */
     int* du_off;

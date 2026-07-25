@@ -1718,6 +1718,255 @@ static void test_cp_refine_keeps_incumbent_symbolic_bound(void) {
     bbq_arena_free(&a);
 }
 
+/* The Mem hi-guard's condition, exactly as mem_bounds_guard emits it:
+ * `(long)addr > (long)memory.size*64Ki − width`. The tested side rides the
+ * addr slot through one I2L; the bound is an addr-free expression. Each call
+ * mints FRESH MemSize/const reads, the way every Java mention re-reads. */
+static sir_node_t* mk_mem_hi_guard(bbq_arena* a, int addr_slot, int width) {
+    sir_node_t* limit = sir_sub(a, SIR_DTLONG,
+        sir_mul(a, SIR_DTLONG, sir_i2_l(a, sir_mem_size(a)),
+                               sir_load_long_const(a, 65536)),
+        sir_load_long_const(a, width));
+    return sir_gt(a, sir_i2_l(a, sir_load_local(a, addr_slot, SIR_DTINT, NULL)), limit);
+}
+
+/* ── The Mem hi-guard's MemSize symbolic bound: the SECOND guard folds ─────
+ *
+ * The array-length pin above proves the symbolic-bound machinery for
+ * a.length; this is its MemSize twin — the shape mem_bounds_guard emits,
+ * which until now was pinned ONLY at e2e (test_sir's "Mem guard merging"),
+ * so a reshape that leans on this consumer had no owning-level lock. Two
+ * adjacent hi-guards on one addr: guard 1's FALSE edge records
+ * `addr ≤ memory.size*64Ki − width` (the GT-false mint), and guard 2's
+ * bound is congruent through the MemSize memory-input keying, so guard 2's
+ * GT folds KNOWN-false. Falsify by neutering the GT-false mint (§ near the
+ * SIR_GT arm of cp_symbolic_bound_const / its phase-R producer): v2 drops to
+ * BOTTOM and this goes red. */
+static void test_cp_memsize_symbolic_bound_second_guard_folds(void) {
+    bbq_arena a; bbq_arena_init(&a, 1 << 16);
+    sir_node_t* g2  = mk_mem_hi_guard(&a, 0, 4);
+    sir_node_t* br2 = sir_branch(&a, g2,
+        sir_return(&a, sir_load_const(&a, 1, SIR_DTINT), SIR_DTINT),
+        sir_return(&a, sir_load_const(&a, 2, SIR_DTINT), SIR_DTINT));
+    sir_node_t* g1  = mk_mem_hi_guard(&a, 0, 4);
+    sir_node_t* br1 = sir_branch(&a, g1,
+        sir_return(&a, sir_load_const(&a, 3, SIR_DTINT), SIR_DTINT),  /* throw on TRUE */
+        br2);                                                         /* ok edge → guard 2 */
+    sir_method_t* m = sir_method(&a, "f", 0, 1, 1, br1);
+
+    cp_engine_t* e = cp_build(m, NULL, &a, NULL, 0);
+    TEST_ASSERT_NOT_NULL(e);
+    cp_vnode_t* v2 = cp_vnode_for(e, g2);
+    TEST_ASSERT_NOT_NULL(v2);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(CP_C_KNOWN, v2->constant.state,
+        "the second MemSize hi-guard folds: guard 1's FALSE edge records "
+        "addr <= memory.size*64Ki - width, and the two bounds are congruent "
+        "through the MemSize memory-input keying");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, v2->constant.value,
+        "`(long)addr > limit` is FALSE on guard 1's ok edge");
+    cp_free(e);
+    bbq_arena_free(&a);
+}
+
+/* The mem_range_guard (fill/copy) hi-guard, exactly as reshaped:
+ * `(long)base > (long)memory.size*64Ki − (long)len` — identical to the
+ * bounds-guard shape except the bound subtracts a LEN SLOT (through I2L)
+ * instead of a constant width. Same base+len slots on both calls. */
+static sir_node_t* mk_mem_range_hi_guard(bbq_arena* a, int base_slot, int len_slot) {
+    sir_node_t* limit = sir_sub(a, SIR_DTLONG,
+        sir_mul(a, SIR_DTLONG, sir_i2_l(a, sir_mem_size(a)),
+                               sir_load_long_const(a, 65536)),
+        sir_i2_l(a, sir_load_local(a, len_slot, SIR_DTINT, NULL)));
+    return sir_gt(a, sir_i2_l(a, sir_load_local(a, base_slot, SIR_DTINT, NULL)), limit);
+}
+
+/* ── The RANGE hi-guard (fill/copy) with a variable len: does the second
+ * fold? ─────────────────────────────────────────────────────────────────
+ *
+ * The reshape put mem_range_guard on the same array shape as the load guard
+ * above; the ONLY difference is the bound subtracts `(long)len` (a slot read
+ * through I2L) instead of a constant width. Same base and len slots on both
+ * guards, no memory write between them (memory.fill does not advance the
+ * memsize cell), so by the load pin above the second guard should fold
+ * KNOWN-false. This isolates the variable-len bound — the exact thing the
+ * e2e fill/copy count could not tell apart from a re-arm gap. */
+static void test_cp_memrange_symbolic_bound_second_guard_folds(void) {
+    bbq_arena a; bbq_arena_init(&a, 1 << 16);
+    sir_node_t* g2  = mk_mem_range_hi_guard(&a, 0, 1);
+    sir_node_t* br2 = sir_branch(&a, g2,
+        sir_return(&a, sir_load_const(&a, 1, SIR_DTINT), SIR_DTINT),
+        sir_return(&a, sir_load_const(&a, 2, SIR_DTINT), SIR_DTINT));
+    sir_node_t* g1  = mk_mem_range_hi_guard(&a, 0, 1);
+    sir_node_t* br1 = sir_branch(&a, g1,
+        sir_return(&a, sir_load_const(&a, 3, SIR_DTINT), SIR_DTINT),  /* throw on TRUE */
+        br2);                                                         /* ok edge → guard 2 */
+    sir_method_t* m = sir_method(&a, "f", 0, 2, 2, br1);
+
+    cp_engine_t* e = cp_build(m, NULL, &a, NULL, 0);
+    TEST_ASSERT_NOT_NULL(e);
+    cp_vnode_t* v2 = cp_vnode_for(e, g2);
+    TEST_ASSERT_NOT_NULL(v2);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(CP_C_KNOWN, v2->constant.state,
+        "the second RANGE hi-guard folds too — the variable-len bound is "
+        "congruent across the two guards exactly as the constant-width one is");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, v2->constant.value,
+        "`(long)base > memory.size*64Ki - (long)len` is FALSE on guard 1's ok edge");
+    cp_free(e);
+    bbq_arena_free(&a);
+}
+
+/* ── A Refine's identity is its CONTENT, not the branch that minted it ─────
+ *
+ * Spec §8: "a value IS a node … GVN merges congruent nodes globally." An EXPR
+ * node gets that from cp_partition_init's opcode buckets; a Refine is not a SIR
+ * op and has no bucket, so its identity has to come from the constructor. Two
+ * PARALLEL arms of a diamond each prove `len <= 100` then `len >= 0` about the
+ * same value: same fact, same input, so the composite each arm's load reads must
+ * be ONE node. Parallel (not sequential) is the point — neither arm sees the
+ * other's refinement, so nothing collapses by idempotence and only canonical
+ * construction can make them equal. Without it the two are distinct singleton
+ * partitions and every expression over them is incongruent — the disease the
+ * pts-refine Follower comment names ("the entire graph downstream of every
+ * deref"), which is why this must hold for range refines too. */
+static void test_cp_refine_identity_is_canonical(void) {
+    bbq_arena a; bbq_arena_init(&a, 1 << 16);
+    /* slot 0 = the diamond selector, slot 1 = len */
+    sir_node_t* loadA = sir_load_local(&a, 1, SIR_DTINT, NULL);
+    sir_node_t* loadB = sir_load_local(&a, 1, SIR_DTINT, NULL);
+    sir_node_t* armA  = sir_branch(&a,
+        sir_gt(&a, sir_load_local(&a, 1, SIR_DTINT, NULL), sir_load_const(&a, 100, SIR_DTINT)),
+        sir_return(&a, sir_load_const(&a, 1, SIR_DTINT), SIR_DTINT),
+        sir_branch(&a,
+            sir_lt(&a, sir_load_local(&a, 1, SIR_DTINT, NULL), sir_load_const(&a, 0, SIR_DTINT)),
+            sir_return(&a, sir_load_const(&a, 2, SIR_DTINT), SIR_DTINT),
+            sir_return(&a, loadA, SIR_DTINT)));
+    sir_node_t* armB  = sir_branch(&a,
+        sir_gt(&a, sir_load_local(&a, 1, SIR_DTINT, NULL), sir_load_const(&a, 100, SIR_DTINT)),
+        sir_return(&a, sir_load_const(&a, 3, SIR_DTINT), SIR_DTINT),
+        sir_branch(&a,
+            sir_lt(&a, sir_load_local(&a, 1, SIR_DTINT, NULL), sir_load_const(&a, 0, SIR_DTINT)),
+            sir_return(&a, sir_load_const(&a, 4, SIR_DTINT), SIR_DTINT),
+            sir_return(&a, loadB, SIR_DTINT)));
+    sir_node_t* top = sir_branch(&a,
+        sir_eq(&a, sir_load_local(&a, 0, SIR_DTINT, NULL), sir_load_const(&a, 0, SIR_DTINT)),
+        armA, armB);
+    sir_method_t* m = sir_method(&a, "f", 0, 2, 2, top);
+
+    cp_engine_t* e = cp_build(m, NULL, &a, NULL, 0);
+    TEST_ASSERT_NOT_NULL(e);
+    cp_vnode_t* va = cp_vnode_for(e, loadA);
+    cp_vnode_t* vb = cp_vnode_for(e, loadB);
+    TEST_ASSERT_NOT_NULL(va);
+    TEST_ASSERT_NOT_NULL(vb);
+    TEST_ASSERT_TRUE_MESSAGE(va->input_count == 1 && vb->input_count == 1,
+        "each load reads exactly one reaching state");
+    TEST_ASSERT_TRUE_MESSAGE(va->inputs[0] >= 0
+            && e->vnodes[va->inputs[0]]->kind == CP_VN_REFINE,
+        "the load is rewired to the refined state, not the raw parameter");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(va->inputs[0], vb->inputs[0],
+        "the same fact about the same value is ONE node, whichever arm proved it "
+        "(spec §8: GVN merges congruent nodes globally)");
+    cp_free(e);
+    bbq_arena_free(&a);
+}
+
+/* Emit a full mem_range_guard chain (lo: base<0, ln: len<0, hi) reaching `ok`,
+ * exactly as the ddcg does, and hand back the hi CONDITION node so a test can
+ * read its folded state. Each arm reads the base/len slots; the hi arm is the
+ * §15 array shape. */
+static sir_node_t* mk_mem_range_guard_chain(bbq_arena* a, int base_slot, int len_slot,
+                                            sir_node_t* ok, sir_node_t** out_hi) {
+    sir_node_t* hi = mk_mem_range_hi_guard(a, base_slot, len_slot);
+    *out_hi = hi;
+    sir_node_t* br_hi = sir_branch(a, hi,
+        sir_return(a, sir_load_const(a, 9, SIR_DTINT), SIR_DTINT), ok);
+    sir_node_t* br_ln = sir_branch(a,
+        sir_lt(a, sir_load_local(a, len_slot, SIR_DTINT, NULL), sir_load_const(a, 0, SIR_DTINT)),
+        sir_return(a, sir_load_const(a, 8, SIR_DTINT), SIR_DTINT), br_hi);
+    sir_node_t* br_lo = sir_branch(a,
+        sir_lt(a, sir_load_local(a, base_slot, SIR_DTINT, NULL), sir_load_const(a, 0, SIR_DTINT)),
+        sir_return(a, sir_load_const(a, 7, SIR_DTINT), SIR_DTINT), br_ln);
+    return br_lo;
+}
+
+/* ── Two full range-guard chains: the SECOND hi folds (fill/copy adjacency) ─
+ *
+ * The reshape put mem_range_guard on the array shape and the isolated hi folds
+ * above — but the REAL chain runs each guard as lo (base<0), ln (len<0), hi,
+ * so the len slot is refined (len >= 0) before EACH hi, and the hi bound
+ * `... − (long)len` reads it. Two adjacent guards on the same base+len — the
+ * shape of `Mem.memory_fill(x,0,n); Mem.memory_fill(x,0,n)` — must fold the
+ * second hi just as two array accesses do: the len-refine before guard 2's hi
+ * is the SAME fact on the SAME value as before guard 1's, so the two bounds
+ * are congruent and the consumer's partition test passes. This is the
+ * owning-level pin for the fill/copy fold; it is RED until identical range
+ * refines are made congruent (GVN over refine nodes), which is the whole
+ * point — a refine minted twice for one value+predicate is one value. */
+static void test_cp_memrange_second_full_chain_folds(void) {
+    bbq_arena a; bbq_arena_init(&a, 1 << 16);
+    sir_node_t* end = sir_return(&a, sir_load_const(&a, 0, SIR_DTINT), SIR_DTINT);
+    sir_node_t* hi2 = NULL;
+    sir_node_t* g2  = mk_mem_range_guard_chain(&a, 0, 1, end, &hi2);
+    sir_node_t* hi1 = NULL;
+    sir_node_t* g1  = mk_mem_range_guard_chain(&a, 0, 1, g2, &hi1);   /* g1 ok → guard 2 */
+    sir_method_t* m = sir_method(&a, "f", 0, 2, 2, g1);
+
+    cp_engine_t* e = cp_build(m, NULL, &a, NULL, 0);
+    TEST_ASSERT_NOT_NULL(e);
+    cp_vnode_t* v2 = cp_vnode_for(e, hi2);
+    TEST_ASSERT_NOT_NULL(v2);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(CP_C_KNOWN, v2->constant.state,
+        "the second full range guard's hi folds: the len-refine before it is the "
+        "same fact on the same value as before the first, so the bounds are congruent");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, v2->constant.value,
+        "`(long)base > memory.size*64Ki - (long)len` is FALSE on the first guard's ok edge");
+    cp_free(e);
+    bbq_arena_free(&a);
+}
+
+/* ── A re-spilled argument still folds the second guard ────────────────────
+ *
+ * The shape the ddcg actually emits for two adjacent fills: base and len are
+ * spilled into fresh temps before EACH call, so a re-store sits between the two
+ * guard chains and the second chain's slots start unrefined. That much is fine —
+ * the second chain re-proves base >= 0 and len >= 0 with its own lo/ln arms. What
+ * matters is WHERE those re-proved facts land: a refine names a fact about a
+ * VALUE, and a spilled copy is not a distinct value (§1), so the fact has to land
+ * on the same node the first chain refined. Otherwise the second chain's bound
+ * `limit - (long)len` reads a different node, the two Subs stop being congruent,
+ * and the hi cannot fold however it is emitted. */
+static void test_cp_memrange_folds_across_a_respill(void) {
+    bbq_arena a; bbq_arena_init(&a, 1 << 16);
+    /* slots: 0 = base param, 1 = len param, 2 = base temp, 3 = len temp */
+    sir_node_t* end = sir_return(&a, sir_load_const(&a, 0, SIR_DTINT), SIR_DTINT);
+    sir_node_t* hi2 = NULL;
+    sir_node_t* g2  = mk_mem_range_guard_chain(&a, 2, 3, end, &hi2);
+    sir_node_t* rs1 = sir_store_local(&a, 3, SIR_DTINT, NULL,
+                                      sir_load_local(&a, 1, SIR_DTINT, NULL), g2);
+    sir_node_t* rs0 = sir_store_local(&a, 2, SIR_DTINT, NULL,
+                                      sir_load_local(&a, 0, SIR_DTINT, NULL), rs1);
+    sir_node_t* hi1 = NULL;
+    sir_node_t* g1  = mk_mem_range_guard_chain(&a, 2, 3, rs0, &hi1);
+    sir_node_t* s1  = sir_store_local(&a, 3, SIR_DTINT, NULL,
+                                      sir_load_local(&a, 1, SIR_DTINT, NULL), g1);
+    sir_node_t* s0  = sir_store_local(&a, 2, SIR_DTINT, NULL,
+                                      sir_load_local(&a, 0, SIR_DTINT, NULL), s1);
+    sir_method_t* m = sir_method(&a, "f", 0, 4, 4, s0);
+
+    cp_engine_t* e = cp_build(m, NULL, &a, NULL, 0);
+    TEST_ASSERT_NOT_NULL(e);
+    cp_vnode_t* v2 = cp_vnode_for(e, hi2);
+    TEST_ASSERT_NOT_NULL(v2);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(CP_C_KNOWN, v2->constant.state,
+        "the second chain folds across the re-spill: the re-proved fact lands on the "
+        "same node, because a spilled copy is not a distinct value");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, v2->constant.value,
+        "the second hi is FALSE, not merely narrowed");
+    cp_free(e);
+    bbq_arena_free(&a);
+}
+
+
 /* ── Refinement survives an all-agree interior merge (spec §4 = SCCP) ─────
  *
  * Spec §4: the branch refinement is "per-edge facts, exactly SCCP's
@@ -6198,6 +6447,11 @@ void test_click_partition_suite(void) {
     RUN_TEST(test_cp_range_refine_i32);
     RUN_TEST(test_cp_range_refine_i64);
     RUN_TEST(test_cp_refine_keeps_incumbent_symbolic_bound);
+    RUN_TEST(test_cp_refine_identity_is_canonical);
+    RUN_TEST(test_cp_memsize_symbolic_bound_second_guard_folds);
+    RUN_TEST(test_cp_memrange_symbolic_bound_second_guard_folds);
+    RUN_TEST(test_cp_memrange_second_full_chain_folds);
+    RUN_TEST(test_cp_memrange_folds_across_a_respill);
     RUN_TEST(test_cp_refine_survives_all_agree_merge);
     RUN_TEST(test_cp_refine_dropped_when_merge_paths_disagree);
     RUN_TEST(test_cp_refine_dropped_when_merge_arms_refine_apart);
