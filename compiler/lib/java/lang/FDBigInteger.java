@@ -759,6 +759,8 @@ class FDBigInteger {
         return big5powRec(p);
     }
 
+    // Non-tail recursion, but bounded: p halves at each level, so the depth is
+    // O(log p) — at most ~31 for an int p. Safe against stack exhaustion.
     private static FDBigInteger big5powRec(int p) {
         if (p < MAX_FIVE_POW) {
             return POW_5_CACHE[p];

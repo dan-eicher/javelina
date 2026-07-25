@@ -36,6 +36,9 @@ public final class Class {
     // (i.e. is this assignable FROM other)? Walk other's DIRECT supertypes — its
     // superclass and its declared interfaces — transitively, looking for this. Internal;
     // the runtime subtype query for the §10.10 ArrayStore check.
+    // Non-tail recursion, but bounded: it recurses on componentType (array
+    // nesting depth) and on the superclass chain (class hierarchy depth), both
+    // finite. Safe against stack exhaustion.
     boolean assignableFrom(Class other) {
         if (other == null) return false;
         if (other == this) return true;
