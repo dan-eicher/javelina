@@ -6,6 +6,7 @@
 #include "javelina/compiler/sir_optimizer.h"
 #include "javelina/compiler/sir_op_gamma.h"
 #include "javelina/compiler/sir_support.h"
+#include "javelina/compiler/jbound.h"   /* the bound-arithmetic core */
 #include "bbq_vec.h"
 
 #include <stdbool.h>
@@ -1531,55 +1532,37 @@ static void cp_resolve(cp_engine_t* eng) {
  * ELSE: the negation. Returns the cp_const_t predicate stored on
  * the Refine vnode. CP_C_BOTTOM means "no useful refinement"
  * (no Refine vnode is created for this arm). */
+static bool cp_cmp_to_jbound(int op, jbound_cmp_t* out) {
+    switch (op) {
+        case SIR_LT: *out = JB_LT; return true;
+        case SIR_LE: *out = JB_LE; return true;
+        case SIR_GT: *out = JB_GT; return true;
+        case SIR_GE: *out = JB_GE; return true;
+        case SIR_EQ: *out = JB_EQ; return true;
+        case SIR_NE: *out = JB_NE; return true;
+        default:     return false;
+    }
+}
+
 static cp_const_t cp_branch_predicate_refine(int op, int64_t k, cp_cwidth_t w,
                                               bool tested_on_left, int arm_bit) {
-    /* When the LoadLocal we're refining is on the RIGHT of the Cmp,
-     * flip the op so the predicate is "k op refinable" -> "refinable
-     * (flipped op) k". */
-    if (!tested_on_left) {
-        switch (op) {
-            case SIR_LT: op = SIR_GT; break;
-            case SIR_LE: op = SIR_GE; break;
-            case SIR_GT: op = SIR_LT; break;
-            case SIR_GE: op = SIR_LE; break;
-            case SIR_EQ: case SIR_NE: break;
-        }
-    }
-    /* Else-arm inverts the predicate. */
-    if (arm_bit == CP_BRANCH_ARM_ELSE) {
-        switch (op) {
-            case SIR_LT: op = SIR_GE; break;
-            case SIR_LE: op = SIR_GT; break;
-            case SIR_GT: op = SIR_LE; break;
-            case SIR_GE: op = SIR_LT; break;
-            case SIR_EQ: op = SIR_NE; break;
-            case SIR_NE: op = SIR_EQ; break;
-        }
-    }
     cp_const_t bot = { .state = CP_C_BOTTOM };  /* "no refinement" sentinel */
-    int64_t wmin = cp_width_min(w), wmax = cp_width_max(w);
-    switch (op) {
-        case SIR_LT:  /* x < k  → x in [MIN, k-1] */
-            if (k == wmin) return bot;
-            return (cp_const_t){ .state = CP_C_RANGE, .cwidth = w, .lo = wmin,
-                                 .hi = k - 1, .stride = 1 };
-        case SIR_LE:  /* x ≤ k  → x in [MIN, k] */
-            return (cp_const_t){ .state = CP_C_RANGE, .cwidth = w, .lo = wmin,
-                                 .hi = k, .stride = 1 };
-        case SIR_GT:  /* x > k  → x in [k+1, MAX] */
-            if (k == wmax) return bot;
-            return (cp_const_t){ .state = CP_C_RANGE, .cwidth = w, .lo = k + 1,
-                                 .hi = wmax, .stride = 1 };
-        case SIR_GE:  /* x ≥ k  → x in [k, MAX] */
-            return (cp_const_t){ .state = CP_C_RANGE, .cwidth = w, .lo = k,
-                                 .hi = wmax, .stride = 1 };
-        case SIR_EQ:  /* x == k → KNOWN(k) */
-            return (cp_const_t){ .state = CP_C_KNOWN, .cwidth = w,
-                                 .value = (int32_t)k, .lvalue = k };
-        case SIR_NE:  /* x != k → no useful range refinement */
-            return bot;
-    }
-    return bot;
+    jbound_cmp_t c;
+    if (!cp_cmp_to_jbound(op, &c)) return bot;
+    /* The tested operand on the RIGHT states the flipped comparison; the else
+     * arm states the negation. Both are jbound.h's normalisation, shared with
+     * the linter's twin table. */
+    if (!tested_on_left)               c = jbound_cmp_flip(c);
+    if (arm_bit == CP_BRANCH_ARM_ELSE) c = jbound_cmp_negate(c);
+    /* This lattice compares against a CONSTANT, which is the kernel's k_lo ==
+     * k_hi case; the interval form is what the linter's twin passes. */
+    jbound_t r = jbound_narrow_by_cmp(c, k, k, cp_width_min(w), cp_width_max(w));
+    if (!r.ok) return bot;
+    if (r.lo == r.hi)
+        return (cp_const_t){ .state = CP_C_KNOWN, .cwidth = w,
+                             .value = (int32_t)r.lo, .lvalue = r.lo };
+    return (cp_const_t){ .state = CP_C_RANGE, .cwidth = w, .lo = r.lo,
+                         .hi = r.hi, .stride = 1 };
 }
 
 /* Intersection on the constant lattice (greatest lower bound on

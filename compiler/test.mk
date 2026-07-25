@@ -71,7 +71,7 @@ vm-objs:
 	@$(MAKE) --no-print-directory -C $(VM) $(patsubst $(VM)/%,%,$(VM_ENGINE_OBJS))
 
 # ── per-test link sets ──────────────────────────────────────────────────────
-COMPILER_TESTS := test_parse test_jint test_lattice test_sema test_sir test_gamma \
+COMPILER_TESTS := test_parse test_jint test_jbound test_lattice test_sema test_sir test_gamma \
                   test_click_partition test_sir_copy test_emit_wasm \
                   test_codegen_wasm test_scope_sidecar test_codegen_structured \
                   test_control_audit test_wasm_module test_wasm_types \
@@ -80,6 +80,7 @@ COMPILER_TESTS := test_parse test_jint test_lattice test_sema test_sir test_gamm
 
 OBJS_test_parse              := $(PARSER_OBJ) $(ARENA_OBJ)
 OBJS_test_jint               :=   # header-only core (jint.h) — no object deps
+OBJS_test_jbound             :=   # header-only core (jbound.h) — no object deps
 OBJS_test_lattice            := $(SEMA_OBJS) $(PARSER_OBJ) $(CRT_OBJS)
 OBJS_test_sema               := $(SEMA_OBJS) $(PARSER_OBJ) $(CRT_OBJS)
 OBJS_test_sir                := $(SEMA_OBJS) $(DDCG_OBJS) $(CLICK_OBJS) $(PARSER_OBJ) $(CRT_OBJS)

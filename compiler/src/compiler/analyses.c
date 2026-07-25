@@ -2,6 +2,7 @@
 
 #include "javelina/compiler/analyses.h"
 #include "javelina/compiler/const_expr.h"
+#include "javelina/compiler/jbound.h"   /* the bound-arithmetic core */
 #include "bbq_vec.h"
 
 #include <stdarg.h>
@@ -1268,19 +1269,25 @@ static int64_t iv_mul_sat(int64_t a, int64_t b) {
 
 /* --- per-value lattice ops --- */
 
+/* The lattice ops. The interval algebra is jbound.h's, shared with the
+ * optimizer's lattice; what stays here is this side's ⊥ handling — the linter's
+ * "no fact" is BOT, and BOT is the join identity but the meet's annihilator. */
+
 /* Join (LUB): enclose both. */
 static interval_val_t iv_join(interval_val_t a, interval_val_t b) {
     if (interval_is_bot(a)) return b;
     if (interval_is_bot(b)) return a;
-    interval_val_t r = { i64_min(a.lo, b.lo), i64_max(a.hi, b.hi) };
+    jbound_t j = jbound_hull(a.lo, a.hi, b.lo, b.hi);
+    interval_val_t r = { j.lo, j.hi };
     return r;
 }
 
 /* Meet (GLB): intersect — used for narrowing, not CFG meet. */
 static interval_val_t iv_intersect(interval_val_t a, interval_val_t b) {
     if (interval_is_bot(a) || interval_is_bot(b)) return interval_bot();
-    interval_val_t r = { i64_max(a.lo, b.lo), i64_min(a.hi, b.hi) };
-    if (r.lo > r.hi) return interval_bot();
+    jbound_t m = jbound_meet(a.lo, a.hi, b.lo, b.hi);
+    if (!m.ok) return interval_bot();                 /* empty intersection */
+    interval_val_t r = { m.lo, m.hi };
     return r;
 }
 
@@ -1288,44 +1295,72 @@ static interval_val_t iv_intersect(interval_val_t a, interval_val_t b) {
 static bool iv_le_val(interval_val_t a, interval_val_t b) {
     if (interval_is_bot(a)) return true;
     if (interval_is_bot(b)) return false;
-    return a.lo >= b.lo && a.hi <= b.hi;
+    return jbound_contains(a.lo, a.hi, b.lo, b.hi);
 }
 
-/* Widening: preserve bounds that held; send growing ones to ±∞. */
+/* Widening: preserve bounds that held; send growing ones to ±∞. The DECISION is
+ * the shared one; ±∞ is this side's replacement policy (the optimizer snaps to
+ * its per-method K set instead — same rule, a longer chain). */
 static interval_val_t iv_widen(interval_val_t prev, interval_val_t in) {
     if (interval_is_bot(prev)) return in;
     if (interval_is_bot(in)) return prev;
     interval_val_t r;
-    r.lo = (in.lo < prev.lo) ? INTERVAL_NEG_INF : prev.lo;
-    r.hi = (in.hi > prev.hi) ? INTERVAL_POS_INF : prev.hi;
+    r.lo = jbound_widen_lo_grew(prev.lo, in.lo) ? INTERVAL_NEG_INF : prev.lo;
+    r.hi = jbound_widen_hi_grew(prev.hi, in.hi) ? INTERVAL_POS_INF : prev.hi;
     return r;
 }
 
 /* --- interval arithmetic --- */
 
+/* WHICH CORNERS bound the result is jbound.h's — the same algebra the optimizer's
+ * range folds run. What differs, and stays here, is the response when a corner
+ * leaves the rails: this lattice SATURATES to ±∞ (a diagnostic interval is
+ * unbounded, and the int32 wrap rule is applied separately by iv_int_wrap_guard),
+ * where the optimizer forfeits to its no-fact element. Same rule, two policies —
+ * which is why the core reports the overflow instead of deciding it. */
 static interval_val_t iv_arith_add(interval_val_t a, interval_val_t b) {
     if (interval_is_bot(a) || interval_is_bot(b)) return interval_bot();
-    interval_val_t r = { iv_add_sat(a.lo, b.lo), iv_add_sat(a.hi, b.hi) };
+    jbound_t j = jbound_add(a.lo, a.hi, b.lo, b.hi, INTERVAL_NEG_INF, INTERVAL_POS_INF);
+    if (!j.ok || j.overflow) {
+        interval_val_t s = { iv_add_sat(a.lo, b.lo), iv_add_sat(a.hi, b.hi) };
+        return s;
+    }
+    interval_val_t r = { j.lo, j.hi };
     return r;
 }
 static interval_val_t iv_arith_sub(interval_val_t a, interval_val_t b) {
     if (interval_is_bot(a) || interval_is_bot(b)) return interval_bot();
-    interval_val_t r = { iv_sub_sat(a.lo, b.hi), iv_sub_sat(a.hi, b.lo) };
+    jbound_t j = jbound_sub(a.lo, a.hi, b.lo, b.hi, INTERVAL_NEG_INF, INTERVAL_POS_INF);
+    if (!j.ok || j.overflow) {
+        interval_val_t s = { iv_sub_sat(a.lo, b.hi), iv_sub_sat(a.hi, b.lo) };
+        return s;
+    }
+    interval_val_t r = { j.lo, j.hi };
     return r;
 }
 static interval_val_t iv_arith_mul(interval_val_t a, interval_val_t b) {
     if (interval_is_bot(a) || interval_is_bot(b)) return interval_bot();
-    int64_t p1 = iv_mul_sat(a.lo, b.lo);
-    int64_t p2 = iv_mul_sat(a.lo, b.hi);
-    int64_t p3 = iv_mul_sat(a.hi, b.lo);
-    int64_t p4 = iv_mul_sat(a.hi, b.hi);
-    interval_val_t r = { i64_min(i64_min(p1, p2), i64_min(p3, p4)),
-                         i64_max(i64_max(p1, p2), i64_max(p3, p4)) };
+    jbound_t j = jbound_mul(a.lo, a.hi, b.lo, b.hi, INTERVAL_NEG_INF, INTERVAL_POS_INF);
+    if (!j.ok || j.overflow) {
+        int64_t p1 = iv_mul_sat(a.lo, b.lo);
+        int64_t p2 = iv_mul_sat(a.lo, b.hi);
+        int64_t p3 = iv_mul_sat(a.hi, b.lo);
+        int64_t p4 = iv_mul_sat(a.hi, b.hi);
+        interval_val_t s = { i64_min(i64_min(p1, p2), i64_min(p3, p4)),
+                             i64_max(i64_max(p1, p2), i64_max(p3, p4)) };
+        return s;
+    }
+    interval_val_t r = { j.lo, j.hi };
     return r;
 }
 static interval_val_t iv_arith_neg(interval_val_t a) {
     if (interval_is_bot(a)) return interval_bot();
-    interval_val_t r = { iv_neg_sat(a.hi), iv_neg_sat(a.lo) };
+    jbound_t j = jbound_neg(a.lo, a.hi, INTERVAL_NEG_INF, INTERVAL_POS_INF);
+    if (!j.ok || j.overflow) {
+        interval_val_t s = { iv_neg_sat(a.hi), iv_neg_sat(a.lo) };
+        return s;
+    }
+    interval_val_t r = { j.lo, j.hi };
     return r;
 }
 
@@ -1344,12 +1379,27 @@ static int64_t iv_div_sat(int64_t a, int64_t b) {
     return a / b;
 }
 
+/* An unbounded end is a SENTINEL, not a number: dividing it would name a finite
+ * bound the value set does not have. So the shared corner rule applies exactly
+ * when every end is finite — which is the case the optimizer's width-bounded
+ * lattice is always in, and is why only this side carries the ±∞ arms below. */
+static bool iv_finite(interval_val_t v) {
+    return v.lo != INTERVAL_NEG_INF && v.lo != INTERVAL_POS_INF
+        && v.hi != INTERVAL_NEG_INF && v.hi != INTERVAL_POS_INF;
+}
+
 static interval_val_t iv_arith_div(interval_val_t a, interval_val_t b) {
     if (interval_is_bot(a) || interval_is_bot(b)) return interval_bot();
     /* Zero-in-divisor — runtime throws ArithmeticException, so the
      * fallthrough post-stmt is effectively unreachable. Conservative
      * TOP here; upstream users treat TOP as "don't emit diags". */
     if (b.lo <= 0 && b.hi >= 0) return interval_top();
+    if (iv_finite(a) && iv_finite(b)) {
+        jbound_t j = jbound_div(a.lo, a.hi, b.lo, b.hi, INT64_MIN);
+        if (!j.ok) return interval_top();
+        interval_val_t r = { j.lo, j.hi };
+        return r;
+    }
     int64_t p1 = iv_div_sat(a.lo, b.lo);
     int64_t p2 = iv_div_sat(a.lo, b.hi);
     int64_t p3 = iv_div_sat(a.hi, b.lo);
@@ -1362,6 +1412,12 @@ static interval_val_t iv_arith_div(interval_val_t a, interval_val_t b) {
 static interval_val_t iv_arith_rem(interval_val_t a, interval_val_t b) {
     if (interval_is_bot(a) || interval_is_bot(b)) return interval_bot();
     if (b.lo <= 0 && b.hi >= 0) return interval_top();
+    if (iv_finite(a) && iv_finite(b)) {
+        jbound_t j = jbound_rem(a.lo, a.hi, b.lo, b.hi, INT64_MIN);
+        if (!j.ok) return interval_top();
+        interval_val_t r = { j.lo, j.hi };
+        return r;
+    }
     /* max |b| — guard against INT64_MIN abs overflow. */
     int64_t blo_abs = (b.lo == INTERVAL_NEG_INF) ? INTERVAL_POS_INF
                       : (b.lo < 0 ? -b.lo : b.lo);
@@ -1594,29 +1650,29 @@ static interval_val_t iv_eval(const ast_expr_t* e, const interval_state_t* s) {
 /* Given `l OP r` on the `true_branch` side, compute the interval
  * implied for l (rhs-value is `rhs_v`). Conservative TOP for ops we
  * don't handle. */
+/* The linter's half of the branch-narrow rule. The normalisation and the bound
+ * reading are jbound.h's, shared with the optimizer's twin table; what stays here
+ * is this lattice's policy — "proves nothing" is TOP, and the rails are ±∞
+ * rather than a type width, because a diagnostic interval is not width-bound
+ * until iv_int_wrap_guard says so. */
 static interval_val_t iv_range_for_lhs(ast_binop_t op, bool true_branch,
                                        interval_val_t rhs_v) {
-    if (!true_branch) {
-        switch (op) {
-        case AST_EQ: op = AST_NE; break;
-        case AST_NE: op = AST_EQ; break;
-        case AST_LT: op = AST_GE; break;
-        case AST_LE: op = AST_GT; break;
-        case AST_GT: op = AST_LE; break;
-        case AST_GE: op = AST_LT; break;
-        default: return interval_top();
-        }
-    }
-    interval_val_t r = interval_top();
+    jbound_cmp_t c;
     switch (op) {
-    case AST_EQ: return rhs_v;
-    case AST_NE: return interval_top();  /* != doesn't usefully narrow */
-    case AST_LT: r.hi = iv_sub_sat(rhs_v.hi, 1); return r;
-    case AST_LE: r.hi = rhs_v.hi;                return r;
-    case AST_GT: r.lo = iv_add_sat(rhs_v.lo, 1); return r;
-    case AST_GE: r.lo = rhs_v.lo;                return r;
+    case AST_EQ: c = JB_EQ; break;
+    case AST_NE: c = JB_NE; break;
+    case AST_LT: c = JB_LT; break;
+    case AST_LE: c = JB_LE; break;
+    case AST_GT: c = JB_GT; break;
+    case AST_GE: c = JB_GE; break;
     default: return interval_top();
     }
+    if (!true_branch) c = jbound_cmp_negate(c);
+    jbound_t r = jbound_narrow_by_cmp(c, rhs_v.lo, rhs_v.hi,
+                                      INTERVAL_NEG_INF, INTERVAL_POS_INF);
+    if (!r.ok) return interval_top();          /* no interval proved */
+    interval_val_t out = { r.lo, r.hi };
+    return out;
 }
 
 static ast_binop_t iv_swap_op(ast_binop_t op) {

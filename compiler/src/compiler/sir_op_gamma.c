@@ -13,6 +13,7 @@
 #include "javelina/compiler/sir_op_gamma.h"
 #include "javelina/compiler/sir_optimizer.h"  /* cp_const_t for range folds */
 #include "javelina/compiler/jint.h"           /* the exact-arithmetic core */
+#include "javelina/compiler/jbound.h"         /* …and the bound-arithmetic core */
 #include "gen/sir_ast.h"
 #include "bbq_vec.h"
 #include <math.h>  /* isnan, for the JLS float→int narrowing folds */
@@ -226,36 +227,41 @@ static cp_const_t cp_range_make_strided(int64_t lo, int64_t hi, int64_t stride,
                          .stride = stride };
 }
 
+/* The range folds carry Click's POLICY over jbound.h's algebra: this lattice's
+ * "no fact" is BOTTOM, so both of the core's refusals — a spec-level `!ok` and a
+ * width-escape `overflow` (§15.16.1's wrap rule; the sema linter answers the same
+ * report by saturating instead) — land there. Strides are Click §4.5 and stay
+ * here: a spacing is an analysis refinement of an interval, not Java arithmetic. */
+static cp_const_t cp_range_from_jbound(jbound_t r, int64_t stride, cp_cwidth_t w) {
+    if (!r.ok || r.overflow) return (cp_const_t){ .state = CP_C_BOTTOM };
+    return cp_range_make_strided(r.lo, r.hi, stride, w);
+}
+
 static cp_const_t gamma_range_fold_add(cp_const_t a, cp_const_t b) {
     cp_const_t g;
     if (cp_gamma_gate2(a, b, &g)) return g;
-    int64_t a_lo, a_hi, b_lo, b_hi, lo, hi;
+    int64_t a_lo, a_hi, b_lo, b_hi;
     cp_range_bounds(a, &a_lo, &a_hi);
     cp_range_bounds(b, &b_lo, &b_hi);
-    if (__builtin_add_overflow(a_lo, b_lo, &lo) ||
-        __builtin_add_overflow(a_hi, b_hi, &hi) ||
-        lo < cp_width_min(a.cwidth) || hi > cp_width_max(a.cwidth))
-        return (cp_const_t){ .state = CP_C_BOTTOM };
     /* Strides add by gcd (Click §4.5): the sum-set's spacing is the
      * gcd of the input spacings. KNOWN's "stride 0" is gcd-identity,
      * so KNOWN ⊕ RANGE(s) propagates s. */
     int64_t stride = cp_gamma_gcd(cp_range_stride(a), cp_range_stride(b));
-    return cp_range_make_strided(lo, hi, stride, a.cwidth);
+    return cp_range_from_jbound(
+        jbound_add(a_lo, a_hi, b_lo, b_hi,
+                   cp_width_min(a.cwidth), cp_width_max(a.cwidth)), stride, a.cwidth);
 }
 
 static cp_const_t gamma_range_fold_sub(cp_const_t a, cp_const_t b) {
     cp_const_t g;
     if (cp_gamma_gate2(a, b, &g)) return g;
-    int64_t a_lo, a_hi, b_lo, b_hi, lo, hi;
+    int64_t a_lo, a_hi, b_lo, b_hi;
     cp_range_bounds(a, &a_lo, &a_hi);
     cp_range_bounds(b, &b_lo, &b_hi);
-    /* a - b: min when a is smallest and b is largest; max symmetric. */
-    if (__builtin_sub_overflow(a_lo, b_hi, &lo) ||
-        __builtin_sub_overflow(a_hi, b_lo, &hi) ||
-        lo < cp_width_min(a.cwidth) || hi > cp_width_max(a.cwidth))
-        return (cp_const_t){ .state = CP_C_BOTTOM };
     int64_t stride = cp_gamma_gcd(cp_range_stride(a), cp_range_stride(b));
-    return cp_range_make_strided(lo, hi, stride, a.cwidth);
+    return cp_range_from_jbound(
+        jbound_sub(a_lo, a_hi, b_lo, b_hi,
+                   cp_width_min(a.cwidth), cp_width_max(a.cwidth)), stride, a.cwidth);
 }
 
 static cp_const_t gamma_range_fold_neg(cp_const_t a) {
@@ -263,11 +269,10 @@ static cp_const_t gamma_range_fold_neg(cp_const_t a) {
     if (cp_gamma_gate1(a, &g)) return g;
     int64_t lo, hi;
     cp_range_bounds(a, &lo, &hi);
-    /* -MIN overflows the width. If lo == width-min, the range straddles
-     * the unrepresentable result. */
-    if (lo == cp_width_min(a.cwidth)) return (cp_const_t){ .state = CP_C_BOTTOM };
     /* Negation preserves stride: -{lo, lo+s, ..., hi} = {-hi, -hi+s, ..., -lo}. */
-    return cp_range_make_strided(-hi, -lo, cp_range_stride(a), a.cwidth);
+    return cp_range_from_jbound(
+        jbound_neg(lo, hi, cp_width_min(a.cwidth), cp_width_max(a.cwidth)),
+        cp_range_stride(a), a.cwidth);
 }
 
 /* MUL: the four corner products bound the result; any corner that overflows
@@ -278,21 +283,13 @@ static cp_const_t gamma_range_fold_neg(cp_const_t a) {
 static cp_const_t gamma_range_fold_mul(cp_const_t a, cp_const_t b) {
     cp_const_t g;
     if (cp_gamma_gate2(a, b, &g)) return g;
-    int64_t a_lo, a_hi, b_lo, b_hi, c[4];
+    int64_t a_lo, a_hi, b_lo, b_hi;
     cp_range_bounds(a, &a_lo, &a_hi);
     cp_range_bounds(b, &b_lo, &b_hi);
-    if (__builtin_mul_overflow(a_lo, b_lo, &c[0]) ||
-        __builtin_mul_overflow(a_lo, b_hi, &c[1]) ||
-        __builtin_mul_overflow(a_hi, b_lo, &c[2]) ||
-        __builtin_mul_overflow(a_hi, b_hi, &c[3]))
-        return (cp_const_t){ .state = CP_C_BOTTOM };
-    int64_t lo = c[0], hi = c[0];
-    for (int i = 1; i < 4; i++) {
-        if (c[i] < lo) lo = c[i];
-        if (c[i] > hi) hi = c[i];
-    }
-    if (lo < cp_width_min(a.cwidth) || hi > cp_width_max(a.cwidth))
-        return (cp_const_t){ .state = CP_C_BOTTOM };
+    jbound_t r = jbound_mul(a_lo, a_hi, b_lo, b_hi,
+                            cp_width_min(a.cwidth), cp_width_max(a.cwidth));
+    if (!r.ok || r.overflow) return (cp_const_t){ .state = CP_C_BOTTOM };
+    int64_t lo = r.lo, hi = r.hi;
     int64_t stride = 1, k = 0, s = 0;
     if      (a_lo == a_hi) { k = a_lo; s = cp_range_stride(b); }
     else if (b_lo == b_hi) { k = b_lo; s = cp_range_stride(a); }
@@ -317,6 +314,8 @@ static cp_const_t gamma_range_fold_shl(cp_const_t a, cp_const_t b) {
     int maxsh = (a.cwidth == CP_W_I64) ? 63 : 31;
     if (b_lo != b_hi || b_lo < 0 || b_lo > maxsh)
         return (cp_const_t){ .state = CP_C_BOTTOM };
+    /* ×2^k through the MUL fold, so the stride PRODUCER arm applies to a shift
+     * exactly as it does to the multiply the spec makes it (§15.18 / §15.16.1). */
     int64_t f = (int64_t)1 << b_lo;
     cp_const_t m = { .state = CP_C_KNOWN, .cwidth = a.cwidth,
                      .value = (int32_t)f, .lvalue = f };
@@ -337,20 +336,12 @@ static cp_const_t gamma_range_fold_div(cp_const_t a, cp_const_t b) {
     int64_t a_lo, a_hi, b_lo, b_hi;
     cp_range_bounds(a, &a_lo, &a_hi);
     cp_range_bounds(b, &b_lo, &b_hi);
-    if (b_lo <= 0 && b_hi >= 0) return (cp_const_t){ .state = CP_C_BOTTOM };
-    /* width-min / −1 wraps (Java: MIN/−1 == MIN) — forfeit that corner. */
-    if (a_lo == cp_width_min(a.cwidth) && b_lo <= -1 && b_hi >= -1)
-        return (cp_const_t){ .state = CP_C_BOTTOM };
-    int64_t c[4] = { a_lo / b_lo, a_lo / b_hi, a_hi / b_lo, a_hi / b_hi };
-    int64_t lo = c[0], hi = c[0];
-    for (int i = 1; i < 4; i++) {
-        if (c[i] < lo) lo = c[i];
-        if (c[i] > hi) hi = c[i];
-    }
+    jbound_t r = jbound_div(a_lo, a_hi, b_lo, b_hi, cp_width_min(a.cwidth));
+    if (!r.ok) return (cp_const_t){ .state = CP_C_BOTTOM };
     int64_t k = b_lo, s = cp_range_stride(a);
     int64_t stride = (b_lo == b_hi && k > 0 && s > 1 && s % k == 0
                       && a_lo >= 0 && a_lo % k == 0) ? s / k : 1;
-    return cp_range_make_strided(lo, hi, stride, a.cwidth);
+    return cp_range_from_jbound(r, stride, a.cwidth);
 }
 
 /* REM by a divisor RANGE excluding 0: the result is bounded by |divisor|−1
@@ -364,24 +355,20 @@ static cp_const_t gamma_range_fold_rem(cp_const_t a, cp_const_t b) {
     int64_t a_lo, a_hi, b_lo, b_hi;
     cp_range_bounds(a, &a_lo, &a_hi);
     cp_range_bounds(b, &b_lo, &b_hi);
-    if (b_lo <= 0 && b_hi >= 0) return (cp_const_t){ .state = CP_C_BOTTOM };
-    /* |width-min| overflows — forfeit rather than mis-bound. */
-    if (b_lo == cp_width_min(b.cwidth)) return (cp_const_t){ .state = CP_C_BOTTOM };
-    int64_t blo_abs = b_lo < 0 ? -b_lo : b_lo;
-    int64_t bhi_abs = b_hi < 0 ? -b_hi : b_hi;
-    int64_t bound = (blo_abs > bhi_abs ? blo_abs : bhi_abs) - 1;
+    /* The stride CONSUMER arms run first: they yield a KNOWN residue or the
+     * dividend itself, both stronger than the interval the core returns. */
     int64_t k = b_lo, s = cp_range_stride(a);
     if (b_lo == b_hi && k > 0 && a_lo >= 0) {
         if (s > 0 && s % k == 0) {
-            int64_t r = a_lo % k;
+            int64_t res = a_lo % k;
             return (cp_const_t){ .state = CP_C_KNOWN, .cwidth = a.cwidth,
-                                 .value = (int32_t)r, .lvalue = r };
+                                 .value = (int32_t)res, .lvalue = res };
         }
         if (a_hi < k) return a;                  /* identity: every value < k */
     }
-    int64_t lo = a_lo >= 0 ? 0 : (a_lo > -bound ? a_lo : -bound);
-    int64_t hi = a_hi <= 0 ? 0 : (a_hi < bound ? a_hi : bound);
-    return cp_range_make(lo, hi, a.cwidth);
+    jbound_t r = jbound_rem(a_lo, a_hi, b_lo, b_hi, cp_width_min(b.cwidth));
+    if (!r.ok) return (cp_const_t){ .state = CP_C_BOTTOM };
+    return cp_range_make(r.lo, r.hi, a.cwidth);
 }
 
 /* AND: a KNOWN non-negative mask k bounds the result to [0, k] for ANY
@@ -397,21 +384,20 @@ static cp_const_t gamma_range_fold_and(cp_const_t a, cp_const_t b) {
     int64_t a_lo, a_hi, b_lo, b_hi;
     cp_range_bounds(a, &a_lo, &a_hi);
     cp_range_bounds(b, &b_lo, &b_hi);
-    int64_t k, r_lo, r_hi, s;
-    if      (b_lo == b_hi && b_lo >= 0) { k = b_lo; r_lo = a_lo; r_hi = a_hi; s = cp_range_stride(a); }
-    else if (a_lo == a_hi && a_lo >= 0) { k = a_lo; r_lo = b_lo; r_hi = b_hi; s = cp_range_stride(b); }
-    else if (a_lo >= 0 && b_lo >= 0)      /* x & y ≤ min(x, y) for x, y ≥ 0 */
-        return cp_range_make(0, a_hi < b_hi ? a_hi : b_hi, a.cwidth);
-    else
-        return (cp_const_t){ .state = CP_C_BOTTOM };
-    if (k != INT64_MAX && ((k + 1) & k) == 0 && s > 0 && s % (k + 1) == 0) {
-        int64_t r = r_lo & k;
+    /* The stride CONSUMER arm runs first — a low mask over a matching spacing
+     * pins one residue, which is stronger than the core's interval. */
+    int64_t k, r_lo, s;
+    if      (b_lo == b_hi && b_lo >= 0) { k = b_lo; r_lo = a_lo; s = cp_range_stride(a); }
+    else if (a_lo == a_hi && a_lo >= 0) { k = a_lo; r_lo = b_lo; s = cp_range_stride(b); }
+    else                                { k = -1;  r_lo = 0;    s = 0; }
+    if (k >= 0 && k != INT64_MAX && ((k + 1) & k) == 0 && s > 0 && s % (k + 1) == 0) {
+        int64_t res = r_lo & k;
         return (cp_const_t){ .state = CP_C_KNOWN, .cwidth = a.cwidth,
-                             .value = (int32_t)r, .lvalue = r };
+                             .value = (int32_t)res, .lvalue = res };
     }
-    /* The other side's hi tightens the bound only when it cannot be
-     * negative (x = −1 & 7 is 7, not ≤ x_hi). */
-    return cp_range_make(0, (r_lo >= 0 && r_hi < k) ? r_hi : k, a.cwidth);
+    jbound_t r = jbound_and(a_lo, a_hi, b_lo, b_hi);
+    if (!r.ok) return (cp_const_t){ .state = CP_C_BOTTOM };
+    return cp_range_make(r.lo, r.hi, a.cwidth);
 }
 
 /* Width-narrowing conversions. When the input range fits entirely
@@ -428,7 +414,8 @@ static cp_const_t gamma_range_fold_narrow(cp_const_t a, int32_t tgt_lo, int32_t 
     int64_t lo, hi;
     cp_range_bounds(a, &lo, &hi);
     if (lo >= tgt_lo && hi <= tgt_hi) return a;  /* fits — pass through (stride preserved by identity) */
-    return cp_range_make(tgt_lo, tgt_hi, CP_W_I32);  /* truncated — full target range */
+    jbound_t r = jbound_narrow(lo, hi, tgt_lo, tgt_hi);
+    return cp_range_make(r.lo, r.hi, CP_W_I32);  /* truncated — full target range */
 }
 
 static cp_const_t gamma_range_fold_i2s(cp_const_t a) { return gamma_range_fold_narrow(a, INT16_MIN, INT16_MAX); }
