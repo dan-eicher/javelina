@@ -1541,8 +1541,23 @@ cp_const_t cp_const_intersect(cp_const_t a, cp_const_t b) {
     } else if (b.state == CP_C_RANGE && b.hi_vn1) {
         sym = b.hi_vn1; sym_incl = b.hi_vn_incl;
     }
+    /* The symbolic LOWER bound rides through the same way. Strict still wins:
+     * `x > B` (⟹ x ≥ B+1) is a stronger lower bound than `x >= B`. */
+    int lsym = 0, lsym_incl = 0;
+    if (a.state == CP_C_RANGE && b.state == CP_C_RANGE && a.lo_vn1 && b.lo_vn1) {
+        if (a.lo_vn1 == b.lo_vn1) {
+            lsym = a.lo_vn1;
+            lsym_incl = (a.lo_vn_incl && b.lo_vn_incl) ? 1 : 0;   /* strict wins */
+        }
+        /* different bounds: keep neither */
+    } else if (a.state == CP_C_RANGE && a.lo_vn1) {
+        lsym = a.lo_vn1; lsym_incl = a.lo_vn_incl;
+    } else if (b.state == CP_C_RANGE && b.lo_vn1) {
+        lsym = b.lo_vn1; lsym_incl = b.lo_vn_incl;
+    }
     return (cp_const_t){ .state = CP_C_RANGE, .cwidth = w, .lo = lo, .hi = hi,
-                         .stride = stride, .hi_vn1 = sym, .hi_vn_incl = sym_incl };
+                         .stride = stride, .hi_vn1 = sym, .hi_vn_incl = sym_incl,
+                         .lo_vn1 = lsym, .lo_vn_incl = lsym_incl };
 }
 
 static int cp_ultimate_value(cp_engine_t* eng, int vi);
@@ -1903,6 +1918,29 @@ static void cp_compute_branch_refinements(cp_engine_t* eng) {
              * bound is a value — so the range carries the bounding vnode itself,
              * and the existing arm rewiring puts the fact on i's uses in the
              * body. That is what makes the §15 upper-bounds guard fall. */
+            /* `x == y` (neither constant), TRUE edge: x inherits y as BOTH an
+             * inclusive upper and lower symbolic bound — x <= y AND x >= y. The
+             * twin of the `i < B` mint below; the lower half feeds lo_vn1, which
+             * the consumer reads to fold a lower guard on x exactly as hi_vn1
+             * folds an upper one. Inclusive on both sides is the sound choice: the
+             * SIR_GE consumer only folds `x >= L` when `L ≡ B+1`, so `x == y` does
+             * not wrongly fold `x >= y`. The FALSE edge (x != y) binds nothing. */
+            if (cmp->tag == SIR_EQ) {
+                int xvn = cp_cmp_operand_ultimate(eng, lhs);
+                if (xvn < 0) xvn = cp_vnode_of(eng, lhs);
+                int yvn = cp_cmp_operand_ultimate(eng, rhs);
+                if (yvn < 0) yvn = cp_vnode_of(eng, rhs);
+                if (xvn >= 0 && yvn >= 0 && xvn != yvn) {
+                    cp_const_t sym = { .state = CP_C_RANGE, .cwidth = CP_W_I32,
+                                       .lo = INT32_MIN, .hi = INT32_MAX, .stride = 1,
+                                       .hi_vn1 = yvn + 1, .hi_vn_incl = 1,
+                                       .lo_vn1 = yvn + 1, .lo_vn_incl = 1 };
+                    b_rt[b]  = cp_new_refine(eng, xvn, sym);
+                    b_und[b] = xvn;
+                    any = true;
+                    continue;
+                }
+            }
             int tested_vn = -1, bound_vn = -1;
             if (cmp->tag == SIR_LT || cmp->tag == SIR_LE) {
                 tested_vn = cp_cmp_operand_ultimate(eng, lhs);   /* i < B */
@@ -2978,8 +3016,14 @@ cp_const_t cp_const_meet(cp_const_t a, cp_const_t b) {
                  && a.hi_vn1 && a.hi_vn1 == b.hi_vn1);
     int sym      = both ? a.hi_vn1 : 0;
     int sym_incl = both ? ((a.hi_vn_incl || b.hi_vn_incl) ? 1 : 0) : 0;
+    /* The symbolic lower bound joins the same way — weaker inclusivity wins. */
+    bool lboth = (a.state == CP_C_RANGE && b.state == CP_C_RANGE
+                  && a.lo_vn1 && a.lo_vn1 == b.lo_vn1);
+    int lsym      = lboth ? a.lo_vn1 : 0;
+    int lsym_incl = lboth ? ((a.lo_vn_incl || b.lo_vn_incl) ? 1 : 0) : 0;
     return (cp_const_t){ .state = CP_C_RANGE, .cwidth = w, .lo = lo, .hi = hi,
-                         .stride = stride, .hi_vn1 = sym, .hi_vn_incl = sym_incl };
+                         .stride = stride, .hi_vn1 = sym, .hi_vn_incl = sym_incl,
+                         .lo_vn1 = lsym, .lo_vn_incl = lsym_incl };
 }
 
 /* Static K-set: type boundaries the bitwidth folds care about, plus
@@ -3126,7 +3170,7 @@ static bool cp_const_eq(cp_const_t a, cp_const_t b) {
     }
     if (a.state == CP_C_RANGE)
         return a.lo == b.lo && a.hi == b.hi && a.stride == b.stride
-            && a.hi_vn1 == b.hi_vn1;   /* the symbolic bound is part of the fact */
+            && a.hi_vn1 == b.hi_vn1 && a.lo_vn1 == b.lo_vn1;   /* both symbolic bounds are part of the fact */
     if (a.state == CP_C_REF)
         return a.ref_kind == b.ref_kind && a.ref_id == b.ref_id;
     return true;  /* TOP / BOTTOM */
@@ -3453,6 +3497,29 @@ static cp_const_t cp_symbolic_bound_const(cp_engine_t* eng, const cp_vnode_t* v,
             xc = eng->vnodes[xv->inputs[0]]->constant;
         if (xc.state != CP_C_RANGE || xc.hi_vn1 == 0) return r;
         int gbound = cp_ultimate_value(eng, xc.hi_vn1 - 1);
+        int glim   = cp_ultimate_value(eng, v->inputs[1]);
+        if (gbound < 0 || gbound >= eng->vnode_count) return r;
+        if (glim   < 0 || glim   >= eng->vnode_count) return r;
+        int gbp = eng->vnodes[gbound]->partition;
+        int glp = eng->vnodes[glim]->partition;
+        if (gbp < 0 || glp < 0 || gbp != glp) return r;
+        *handled = true;
+        r.state  = CP_C_KNOWN;
+        r.cwidth = CP_W_I32;
+        r.value  = 0;
+        return r;
+    }
+    if (v->expr->tag == SIR_LT) {
+        /* The mirror of the SIR_GT case, on the symbolic LOWER bound: `x < lim`
+         * with x carrying lo_vn1 = B. Either strictness refutes it when B ≡ lim —
+         * x >= B = lim and x > B = lim both deny x < lim — so no inclusive dance.
+         * This is what `x == y` feeds: on the true edge x >= y, so a `x < y` guard
+         * (or any `x < L` with L ≡ y) is false. Same partition-dependence, same
+         * re-arm — it is one more read of the carried fact, not a walk. */
+        if (v->input_count != 2 || v->inputs[0] < 0 || v->inputs[1] < 0) return r;
+        cp_const_t xc = eng->vnodes[v->inputs[0]]->constant;
+        if (xc.state != CP_C_RANGE || xc.lo_vn1 == 0) return r;
+        int gbound = cp_ultimate_value(eng, xc.lo_vn1 - 1);
         int glim   = cp_ultimate_value(eng, v->inputs[1]);
         if (gbound < 0 || gbound >= eng->vnode_count) return r;
         if (glim   < 0 || glim   >= eng->vnode_count) return r;
@@ -10174,10 +10241,10 @@ void sir_optimize(compiler_ctx_t* ctx, int method_idx) {
             if (vn->kind != CP_VN_REFINE) continue;
             const cp_const_t* p = &vn->refine_predicate;
             const cp_const_t* c = &vn->constant;
-            fprintf(stderr, "[refine] vn%d in=vn%d pts=%d pred{st=%d lo=%lld hi=%lld vn1=%d} "
+            fprintf(stderr, "[refine] vn%d in=vn%d pts=%d pred{st=%d lo=%lld hi=%lld hi_vn1=%d lo_vn1=%d} "
                             "const{st=%d v=%d lo=%lld hi=%lld}\n",
                     v, vn->input_count >= 1 ? vn->inputs[0] : -1, (int)vn->refine_pts,
-                    (int)p->state, (long long)p->lo, (long long)p->hi, p->hi_vn1,
+                    (int)p->state, (long long)p->lo, (long long)p->hi, p->hi_vn1, p->lo_vn1,
                     (int)c->state, c->value, (long long)c->lo, (long long)c->hi);
         }
         /* …every ArrayLength's follower linkage: its leader chain and solved const (§10.7's

@@ -5069,5 +5069,23 @@ int main(void) {
               "SOUNDNESS: x&y and x|y survive (distinct operands)");
     }
 
+    /* ── x==y refines the symbolic LOWER bound (lo_vn1), the mirror of the
+     * `i < a.length` upper-bound fold. On the `x == y` true edge x inherits y as
+     * both an inclusive upper and lower bound, so a `x < y` guard inside proves
+     * false (x >= y) and its branch folds. A general shape — x and y are ordinary
+     * user params, not the RTL. */
+    printf("== x==y refines the symbolic lower bound ==\n");
+    {
+        const char* EQ = "class T { static int f(int x, int y){ if (x == y) { if (x < y) return 1; return 2; } return 3; } }";
+        CHECK(compile_count_in(EQ, "f", SIR_BRANCH, 0) == 2,
+              "unoptimized: both the == and the inner < branch are present");
+        CHECK(compile_count_in(EQ, "f", SIR_BRANCH, 1) == 1,
+              "x==y folds the inner x<y branch via lo_vn1 (x >= y)");
+        /* SOUNDNESS: with no ==, x<y is a real test on unrelated values — keep it. */
+        const char* NEG = "class T { static int f(int x, int y){ if (x < y) return 1; return 2; } }";
+        CHECK(compile_count_in(NEG, "f", SIR_BRANCH, 1) == 1,
+              "SOUNDNESS: a bare x<y never folds");
+    }
+
     return TEST_SUMMARY("test_sir");
 }

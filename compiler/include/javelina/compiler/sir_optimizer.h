@@ -200,6 +200,15 @@ typedef struct cp_const_t {
      * NOTHING, and must not: i reaches len, and the read is out of bounds.) */
     int              hi_vn1;
     int              hi_vn_incl;
+    /* The symbolic LOWER bound, the mirror of hi_vn1: the value is strictly
+     * greater than (lo_vn_incl 0) or ≥ (lo_vn_incl 1) whatever the named vnode
+     * computes. Same vnode-id-PLUS-ONE encoding (0 = none). Minted on an
+     * `x == y`-taken edge — where x inherits y as BOTH bounds, so `x == y` pins
+     * x to y from both sides — and consumed by a lower-bound guard arm
+     * (`x >= L` folds true when x's symbolic lower bound is L). `x < B` refines
+     * the upper bound (hi_vn1); `x > B` / `x >= B` refine this one. */
+    int              lo_vn1;
+    int              lo_vn_incl;
     cp_ref_kind_t    ref_kind;    /* valid iff state == CP_C_REF */
     uint32_t         ref_id;      /* valid iff state == CP_C_REF */
 } cp_const_t;
