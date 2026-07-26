@@ -76,6 +76,14 @@ int main(void) {
         }
     }
 
+    /* The premise of this whole file, now CHECKED rather than assumed. Every assertion below
+     * verifies that references were rewritten correctly when objects moved — which proves nothing
+     * at all if nothing ever moves. Record where the rooted heads live before the churn; at least
+     * one of them must be somewhere else afterwards. (Roots are visited and updated in place by
+     * gc_visit_root, so an evacuated head is observable right here.) */
+    gc_obj_t* before[NCHAIN];
+    for (int i = 0; i < NCHAIN; i++) before[i] = heads[i];
+
     /* Churn ~128× the budget as pure garbage — forces many threshold collections, each of which
      * opportunistically evacuates the (now heavily fragmented) live chains to new locations. */
     const size_t churn = (size_t)GC_INITIAL_THRESHOLD * 128;
@@ -101,6 +109,11 @@ int main(void) {
         if (j != -1 || n != NULL) { printf("  chain %d wrong length (stopped j=%d)\n", i, j); all_ok = 0; }
     }
     CK(all_ok, "all chains intact + correctly valued after churn-driven evacuation");
+
+    int moved = 0;
+    for (int i = 0; i < NCHAIN; i++) if (heads[i] != before[i]) moved++;
+    printf("  (evacuated heads: %d of %d)\n", moved, NCHAIN);
+    CK(moved > 0, "opportunistic evacuation MOVED at least one live object");
 
     int arr_ok = (*arr_len(g_arr) == ARRLEN);
     for (int i = 0; i < ARRLEN && arr_ok; i++) {

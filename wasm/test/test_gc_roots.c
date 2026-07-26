@@ -52,7 +52,7 @@ int main(void){
     vm.frame.sp = 0; vm.frame.stack_types[0] = T_VOID;
     size_t total = imx_space_total_blocks(&gh->space);
     heap.gc.collect(heap.gc.self);
-    CK(imx_space_free_blocks(&gh->space) == total && total >= 1, "drop root -> all reclaimed");
+    CK(imx_space_all_reclaimed(&gh->space) && total >= 1, "drop root -> no block holds live data");
 
     jav_heap_gc_destroy(&heap);
     jav_vm_free(&vm);

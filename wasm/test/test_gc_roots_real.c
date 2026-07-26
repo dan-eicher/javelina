@@ -238,13 +238,12 @@ int main(void) {
     CK(call("global_drop", NULL) && call("table_drop", NULL) && call("init_global_drop", NULL),
        "drop the global + table + init-global roots");
     collect2();
-    size_t total = imx_space_total_blocks(&gh->space);
-    CK(imx_space_free_blocks(&gh->space) == total, "all roots dropped -> heap fully reclaimed");
+    CK(imx_space_all_reclaimed(&gh->space), "all roots dropped -> heap fully reclaimed");
     int allocated = 0;
     for (int i = 0; i < 64; i++) allocated += call("garbage", NULL);
     CK(allocated == 64, "allocate 64 immediately-unreachable structs");
     collect2();
-    CK(imx_space_free_blocks(&gh->space) == total, "64 unreachable allocations -> fully reclaimed");
+    CK(imx_space_all_reclaimed(&gh->space), "64 unreachable allocations -> fully reclaimed");
 
     printf("\nGC roots over real modules: %s\n", fails ? "FAIL" : "ALL PASS");
     jav_heap_gc_destroy(&HEAP); jav_instance_free(&INST); jav_vm_free(&VM);

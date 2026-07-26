@@ -19,10 +19,18 @@ typedef struct imx_block {
     imx_object_bitmap_t object_starts;  /* 512 B — object-header words */
     uint8_t  state;                     /* IMX_BLOCK_* */
     uint16_t hole_count;
-    uint8_t  _pad;
+    /* Defragmentation statistics, recorded by classify during the sweep at the END of a
+     * collection and DELIBERATELY NOT cleared by clear_marks — Immix §3.2.1 selects
+     * candidates from "conservative statistics from the previous collection", so these
+     * have to outlive the mark phase that erases line_marks/hole_count. Reading the live
+     * recyclable list instead is what made evacuation unreachable: the allocator drains
+     * it between collections, so it is empty at exactly the moment a collection runs. */
+    uint16_t defrag_holes;              /* hole count at the last sweep */
+    uint16_t defrag_marked;             /* marked data lines at the last sweep */
+    uint8_t  defrag_candidate;          /* selected as an evacuation source this collection */
 } imx_block_t;
 
-#define IMX_METADATA_BYTES   (sizeof(imx_line_bitmap_t) + sizeof(imx_object_bitmap_t) + 1u + 2u + 1u)
+#define IMX_METADATA_BYTES   (sizeof(imx_line_bitmap_t) + sizeof(imx_object_bitmap_t) + 1u + 2u + 2u + 2u + 1u)
 #define IMX_METADATA_LINES   ((IMX_METADATA_BYTES + IMX_LINE_SIZE - 1u) / IMX_LINE_SIZE)
 #define IMX_DATA_START_LINE  IMX_METADATA_LINES
 #define IMX_DATA_START_OFFSET (IMX_DATA_START_LINE * IMX_LINE_SIZE)

@@ -56,9 +56,8 @@ int main(void){
 
     /* drop the root -> both unreachable -> reclaimed */
     vm.frame.sp = 0; vm.frame.stack_types[0] = T_VOID;
-    size_t total = imx_space_total_blocks(&gh->space);
     heap.gc.collect(heap.gc.self);
-    CK(imx_space_free_blocks(&gh->space) == total, "drop root -> box + leaf reclaimed");
+    CK(imx_space_all_reclaimed(&gh->space), "drop root -> box + leaf reclaimed (no live lines)");
 
     jav_heap_gc_destroy(&heap); jav_vm_free(&vm); bbq_vec_free(st);
     printf("\nGC tracing through struct ref fields: %s\n", fails?"FAIL":"ALL PASS");

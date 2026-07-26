@@ -53,7 +53,36 @@ int main(void){
     g_root = NULL;
     size_t total = imx_space_total_blocks(&h.space);
     gc_collect(&h);
-    CK(imx_space_free_blocks(&h.space) == total && total >= 1, "drop root: all blocks reclaimed to free");
+    CK(imx_space_all_reclaimed(&h.space) && total >= 1, "drop root: no block holds live data");
+
+    /* Per-RTT element stride. Every array type stores 8 bytes per element in the
+     * heap EXCEPT a v128 array, which stores 16 (jav_module_index.c sets
+     * elem_heap_w to the element width when it exceeds 8). gc_obj_size has to
+     * read it: an object sized with the default stride is HALF its real extent,
+     * so the collector would mark it and then let the allocator hand out its
+     * tail. The visible consequence is that the LOS boundary sits at a different
+     * LENGTH for a V128[] than for anything else, and both are pinned here —
+     * these are the exact lengths conformance/src/Simd.java builds. */
+    {
+        static const gc_rtt_t V128ARR = { .size = (uint32_t)(sizeof(gc_obj_t) + GC_ARRAY_ELEMS_OFFSET),
+                                          .kind = GC_KIND_ARRAY, .elem_heap_w = 16, .gid = -1 };
+        static const gc_rtt_t REFARR  = { .size = (uint32_t)(sizeof(gc_obj_t) + GC_ARRAY_ELEMS_OFFSET),
+                                          .kind = GC_KIND_ARRAY, .elem_heap_w = 8,  .gid = -1 };
+        const uint32_t base = (uint32_t)sizeof(gc_obj_t) + GC_ARRAY_ELEMS_OFFSET;
+
+        gc_obj_t* v = gc_alloc(&h, RTT(V128ARR), base + 2006u * 16u);
+        gc_obj_t* r = gc_alloc(&h, RTT(REFARR),  base + 4012u * 8u);
+        CK(v && r, "alloc a v128-stride and an 8-byte-stride array");
+        *(uint32_t*)((uint8_t*)v + sizeof(gc_obj_t)) = 2006u;
+        *(uint32_t*)((uint8_t*)r + sizeof(gc_obj_t)) = 4012u;
+
+        CK(gc_obj_size(v) == base + 2006u * 16u, "gc_obj_size reads elem_heap_w (v128: 16 bytes/elem)");
+        CK(gc_obj_size(r) == base + 4012u * 8u,  "gc_obj_size: the 8-byte default stride");
+        CK(gc_obj_size(v) == IMX_MEDIUM_MAX, "V128[2006] is exactly the largest medium object");
+        CK(gc_obj_size(r) == IMX_MEDIUM_MAX, "Object[4012] is exactly the largest medium object");
+        CK(base + 2007u * 16u > IMX_MEDIUM_MAX && base + 4013u * 8u > IMX_MEDIUM_MAX,
+           "one more element on either crosses into the LOS");
+    }
 
     gc_heap_destroy(&h);
     printf("\nwasm GC (Immix shell): %s\n", fails?"FAIL":"ALL PASS");

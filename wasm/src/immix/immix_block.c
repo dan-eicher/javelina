@@ -10,13 +10,17 @@ void imx_block_init(imx_block_t* b) {
     imx_ob_clear(&b->object_starts);
     b->state = IMX_BLOCK_FREE;
     b->hole_count = 0;
-    b->_pad = 0;
+    b->defrag_holes = 0;
+    b->defrag_marked = 0;
+    b->defrag_candidate = 0;
 }
 
 void imx_block_clear_marks(imx_block_t* b) {
     imx_lb_clear(&b->line_marks);
     b->state = IMX_BLOCK_FREE;
     b->hole_count = 0;
+    /* defrag_holes/defrag_marked survive on purpose — see immix_block.h. They are the
+     * previous collection's statistics, and the mark phase is exactly when they are read. */
 }
 
 void imx_block_record_allocation(imx_block_t* b, const void* obj) {
@@ -48,6 +52,10 @@ void imx_block_mark_object(imx_block_t* b, const void* obj, size_t size) {
 void imx_block_classify(imx_block_t* b) {
     size_t marked = imx_lb_count_set(&b->line_marks, IMX_DATA_START_LINE, IMX_LINES_PER_BLOCK);
     b->hole_count = (uint16_t)imx_lb_count_holes(&b->line_marks, IMX_DATA_START_LINE, IMX_LINES_PER_BLOCK);
+    /* §3.2.1: "The mark histogram is constructed eagerly during the coarse-grain sweep at
+     * the end of each collection." This IS that sweep — record the two volumes it needs. */
+    b->defrag_holes  = b->hole_count;
+    b->defrag_marked = (uint16_t)marked;
     if (marked == 0)                b->state = IMX_BLOCK_FREE;
     else if (marked == IMX_DATA_LINES) b->state = IMX_BLOCK_UNAVAILABLE;
     else                            b->state = IMX_BLOCK_RECYCLABLE;

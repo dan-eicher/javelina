@@ -133,11 +133,17 @@ static void los_sweep(gc_heap_t* h) {
     while ((int)bbq_vec_len(h->large_objs) > w) bbq_vec_pop(h->large_objs);
 }
 
+/* §3.2: "By default immix reserves 2.5% of the heap as compaction headroom" — total/40.
+ * The blocks are set aside by reclaim at the END of a collection and drawn on at the start
+ * of the next, because the mutator empties the free list in between. */
+static size_t evac_headroom(const gc_heap_t* h) {
+    size_t n = imx_space_total_blocks((imx_space_t*)&h->space) / h->evac_headroom_div;
+    return n < 1 ? 1 : n;
+}
+
 void gc_collect(gc_heap_t* h) {
     imx_space_clear_marks(&h->space);
-    size_t headroom = imx_space_total_blocks(&h->space) / h->evac_headroom_div;
-    if (headroom < 1) headroom = 1;
-    imx_space_begin_evacuation(&h->space, headroom);
+    imx_space_begin_evacuation(&h->space, evac_headroom(h));
 
     h->live_bytes = 0;                       /* the tracer sums survivors as it marks */
     bbq_vec_clear(h->worklist);
@@ -161,7 +167,7 @@ void gc_collect(gc_heap_t* h) {
     }
 
     imx_space_end_evacuation(&h->space);
-    imx_space_reclaim(&h->space);            /* reclassify blocks; dead-line blocks become free */
+    imx_space_reclaim(&h->space, evac_headroom(h));   /* reclassify; set aside the next cycle's headroom */
     los_sweep(h);                            /* free unmarked large objects (independent of the block engine) */
     h->epoch++;
 
