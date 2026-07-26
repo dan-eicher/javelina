@@ -41,6 +41,16 @@ line 1; no clock, no `Math.random`, no identity-hash iteration order):
 vacuously when every config prints nothing, which is the same defect as an
 exclusion counter stuck at zero.
 
+3. **The compiler's own memory**, checked by running `javelinac -O` over this
+   corpus under valgrind. It has to be here because this is the only place the
+   gate compiles a real non-RTL program, and it has to be valgrind: `bbq_arena`
+   bump-allocates sub-ranges inside one `malloc`'d block, so an over-read of a
+   sub-array never crosses a redzone and **ASAN cannot see it** — `test-exec-asan`
+   is not a substitute. It earns its ~6 minutes: the optimizer's DSE indexed
+   `mem_kind`/`mem_elem`/`mem_spine` to `vnode_count` when they are sized
+   `mem_rows`, and that shipped green through every other leg because reading past
+   an arena array lands on zeroes.
+
 ## Coverage, and its limits
 
 Stated as measured, not as intended. Where a shape is not reachable it says so

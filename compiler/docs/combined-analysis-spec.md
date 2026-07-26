@@ -458,7 +458,6 @@ with a fully solved engine across every method of the jre (the `[verifyload]` di
 | per vnode | `constant` | load-immediate substitution |
 | per vnode | `type` (τ̂) | devirtualization, ClassCast / ArrayStore drops |
 | per vnode | `pts` | guard drops, DSE aliasing, scalar replacement |
-| per vnode | `heap` (`Obj ↦ pts` per cell, memory-state nodes only) | memory DSE / store→load forwarding read the solved cell contents |
 | per vnode | `kind` (EXPR/PHI/REFINE/OPAQUE) | classification during rewrite |
 | per spine node | `reachable` + `reach_count` | `cp_compute_reachability` runs INSIDE `cp_solve`'s loop — executable-edge reachability is an ELEMENT OF THE FIXPOINT (§3.7's UCE+CCP), and `cp_scalar_replace` reads it before `cp_rewrite` recomputes it |
 | per object | escape state, `obj_first_site`, `obj_count`, `vnode_of_obj` / `obj_of_vnode` | the §6 scalar-replacement consumer and the census |
@@ -471,8 +470,12 @@ same recompute-avoidance error in reverse:
   the 34 `eng->vnodes` reads in the rewrite tree are `->expr`, a back-pointer, not a fact.)
 - **the memory-SSA STRUCTURE** — `mem_kind`, `mem_cell`, `mem_obj`, `mem_prev`, `mem_elem`,
   `mem_spine`, `du_*`, `mem_dep_*`. `cp_resolve` builds all of it during CONSTRUCTION, before
-  any solve, so a rebuild reproduces it exactly. Only the solved cell CONTENTS (`heap`) is a
-  fact. (This row previously listed the structure as published — wrong, and measured so.)
+  any solve, so a rebuild reproduces it exactly.
+- **`heap`** — the solved cell contents. It looks like a fact and is not one HERE: every
+  reader (`cp_update_heap`, `cp_mark_bottom`, `cp_follow_field`, `cp_node_pts`,
+  `cp_summary_differ`) is an ANALYSIS transfer; nothing in the rewrite tree touches it.
+  Publishing it changed no output and no census, and cost 1.4 GB. The scope of this table is
+  facts the APPLICATION reads.
 - `obj_alloced` — built by `cp_scalar_qualify` DURING the rewrite; the census deliberately
   counts only sites the optimized graph still allocates.
 - `live_in`, `live_out`, `part_canon_phi`, `scalar_subst`, `scalar_count`, `devirt_count` —
@@ -488,8 +491,8 @@ inspection:
   its own arena, so a published `const Type*` both dangles (the analysis's arena is freed) and
   compares unequal (τ̂ comparison is pointer comparison). Publish re-interns into a context
   pool; load re-interns into the engine's.
-- **`pts`/`heap` bitsets are copied, not aliased**, in both directions — the application must
-  not write through into the published facts.
+- **`pts` bitsets are copied, not aliased**, in both directions — the application must not
+  write through into the published facts.
 
 **And the ordering rule that makes the facts self-consistent:** the summary is produced by
 whichever pass performed the ANALYSIS, before anything mutates the graph (Choi §4.2). When

@@ -71,6 +71,40 @@ $B/javelinac --mode jre --libdir $LIBDIR -O  -o $B/conf-jre-O.wasm
 $B/javelinac --libdir $LIBDIR -O0 $SRC -o $B/conf-gct-O0.wasm
 $B/javelinac --libdir $LIBDIR -O  $SRC -o $B/conf-gct-O.wasm
 
+# ── the compiler's OWN memory, checked ──────────────────────────────────────
+# A whole class of defect is invisible to every behavioural suite: the optimizer's
+# DSE indexed mem_kind/mem_elem/mem_spine to vnode_count when they are sized
+# mem_rows, and that over-read shipped green through 60113 wast execution cases,
+# the compiler suite, the CLI suite and the four-config gate below — because
+# reading past an arena array lands on zeroes. Nothing here can catch that; a
+# memory checker can, and this is the one place the gate runs javelinac over a
+# real non-RTL program.
+#
+# It must be VALGRIND, not ASAN, and test-exec-asan does not substitute: bbq_arena
+# bump-allocates sub-ranges inside one big malloc'd block, so an over-read of a
+# sub-array never crosses a redzone and ASAN sees nothing. Memcheck tracks
+# definedness per byte, so it reports the uninitialised read — which is how this
+# one was found. Costs ~6 min; that is the price of the only check that covers it.
+#
+# Skipped (loudly) when valgrind is absent, so the gate still runs on a machine
+# without it — but never silently, because a check that quietly does nothing is
+# indistinguishable from one that passes.
+if command -v valgrind > /dev/null 2>&1; then
+    if valgrind --error-exitcode=9 --quiet \
+                $B/javelinac --libdir $LIBDIR -O $SRC -o /dev/null > /dev/null 2>&1; then
+        echo "  ....  javelinac -O under valgrind (the corpus, non-RTL)"
+    else
+        echo "  FAIL  javelinac -O under valgrind — memory error compiling conformance/src"
+        valgrind --error-exitcode=9 --num-callers=10 \
+                 $B/javelinac --libdir $LIBDIR -O $SRC -o /dev/null 2>&1 >/dev/null \
+            | sed 's/^/        | /' | head -40
+        echo "java e2e conformance: 0 passed, 1 failed"
+        exit 1
+    fi
+else
+    echo "  SKIP  valgrind not installed — the compiler's own memory is NOT checked"
+fi
+
 # ── the matrix ──────────────────────────────────────────────────────────────
 if [ "$MODE" = quick ]; then ARG=quick; else ARG=full; fi
 
