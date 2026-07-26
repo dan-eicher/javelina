@@ -3393,6 +3393,168 @@ int main(void) {
         sema_destroy(&sctx); bbq_arena_free(&a);
     }
     {
+        // ── §37c spec §8.1.1 — THE PUBLISHED FACTS EQUAL THE SOLVE ─────────────────
+        //
+        //     Click §4.10 applies results by walking the solved partitioning, which is only
+        //     possible if the solve's facts outlive the engine. cp_publish_facts copies them
+        //     into the context; this pins that the copy is FAITHFUL — every vnode's partition,
+        //     leader, constant, type and kind, every object's escape state, and the rebuilt
+        //     node index, equal what a live engine over the same graph reports. A publisher
+        //     that merely allocates the right shape passes nothing here.
+        //
+        //     Compared against sir_summarize, which publishes WITHOUT rewriting: the facts are
+        //     a function of the analysis (Choi §4.2), so the comparison engine must see the
+        //     same graph the analysis saw.
+        bbq_arena a; bbq_arena_init(&a, 1 << 16);
+        int nlib = 0;
+        ast_program_t* prog = build_program(
+            "class C { int f; }"
+            " class T {"
+            "   static C S;"
+            "   static int m(C p, int k){ int t = k + 1; C q = new C(); q.f = t;"
+            "                             if (k > 3) { S = q; } return q.f + t; }"
+            " }", &a, &nlib);
+        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
+        sir_analyze(&sctx);
+        compiler_ctx_t cctx; cctx.optimize = true;
+        compiler_init(&cctx, &a, &sctx);
+        int mc = 0;
+        sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
+        int t_id = sema_find_class(&sctx, "T");
+        int i_m = -1;
+        for (int k = 0; k < mc; k++)
+            if (ms[k]->class_id == t_id && ms[k]->name && !strcmp(ms[k]->name, "m")) i_m = k;
+        CHECK(ms != NULL && i_m >= 0, "§37c: the program compiles and m resolves");
+
+        sir_summarize(&cctx, i_m);      /* publishes; never mutates the SIR */
+        const struct compiler_click_facts* pf = compiler_click_facts_of(&cctx, i_m);
+        CHECK(pf != NULL, "§37c: m's facts were published");
+
+        int nf = 0;
+        const compiler_fact_t* fv = compiler_get_facts(&cctx, i_m, &nf);
+        cp_engine_t* live = cp_build_ctx(&cctx, ms[i_m], fv, nf);
+        CHECK(live != NULL, "§37c: a live engine builds over the same graph");
+        if (pf && live) {
+            CHECK(pf->vnode_count == live->vnode_count,
+                  "§37c: published vnode_count matches the solve");
+            CHECK(pf->obj_count == live->obj_count && pf->obj_words == live->obj_words
+                  && pf->obj_first_site == live->obj_first_site,
+                  "§37c: published object model matches the solve");
+            bool all = (pf->vnode_count == live->vnode_count);
+            int bad = -1;
+            for (int k = 0; all && k < live->vnode_count; k++) {
+                const cp_vnode_t* vn = live->vnodes[k];
+                if (!vn) continue;
+                /* τ̂ is compared by CONTENT: each pool hash-conses independently, so the
+                 * published type is a different pointer to the same lattice element. */
+                bool ty = (pf->v[k].type == NULL) == (vn->type == NULL);
+                if (ty && vn->type) {
+                    ty = pf->v[k].type->kind == vn->type->kind;
+                    if (ty) switch (vn->type->kind) {
+                        case TK_PRIM: ty = pf->v[k].type->prim.width == vn->type->prim.width; break;
+                        case TK_REF:  ty = pf->v[k].type->ref.class_id == vn->type->ref.class_id; break;
+                        case TK_ARRAY: ty = pf->v[k].type->array.dim == vn->type->array.dim
+                                         && pf->v[k].type->array.class_id == vn->type->array.class_id; break;
+                        case TK_PRIM_ARRAY: ty = pf->v[k].type->prim_array.dim == vn->type->prim_array.dim
+                                              && pf->v[k].type->prim_array.width == vn->type->prim_array.width; break;
+                        default: break;   /* TOP/BOTTOM/NULL carry no payload */
+                    }
+                }
+                if (pf->v[k].partition != vn->partition
+                    || pf->v[k].leader != vn->leader
+                    || pf->v[k].kind != (uint8_t)vn->kind
+                    || !ty
+                    || pf->v[k].constant.state != vn->constant.state
+                    || pf->v[k].constant.value != vn->constant.value) { all = false; bad = k; }
+            }
+            if (!all) printf("  §37c detail: first mismatching vnode = %d\n", bad);
+            CHECK(all, "§37c: every published vnode fact (partition/leader/kind/type/"
+                       "constant) equals the live solve's");
+            bool esc_ok = (pf->obj_count == live->obj_count);
+            for (int o = 0; esc_ok && o < live->obj_count; o++)
+                if (pf->obj_escape[o] != (uint8_t)cp_escape_of(live, o)) esc_ok = false;
+            CHECK(esc_ok, "§37c: every published object's escape state equals the solve's");
+            bool idx_ok = true;
+            for (int k = 0; idx_ok && k < live->vnode_count; k++) {
+                const cp_vnode_t* vn = live->vnodes[k];
+                if (!vn || vn->kind != CP_VN_EXPR || !vn->expr) continue;
+                if (compiler_click_vnode_of(pf, vn->expr) != k) idx_ok = false;
+            }
+            CHECK(idx_ok, "§37c: the rebuilt SIR-node→vnode index resolves every EXPR node");
+            cp_free(live);
+        }
+        /* ── §37d spec §8.1.1 — A LOADED ENGINE EQUALS A SOLVED ONE ────────────────
+         *
+         *   Click §4.10 applies results by walking the solved partitioning, so the engine the
+         *   application runs on must hold exactly what the analysis concluded. cp_build_ctx_loaded
+         *   rebuilds the graph and restores the published facts instead of re-solving; this
+         *   compares it field-for-field against a fully solved engine over the same method.
+         *
+         *   Any divergence means the published set is INCOMPLETE — a solved fact the
+         *   application reads that nobody published. It names the field and the vnode so the
+         *   missing fact can be added, which is the fix; the design is not in question.
+         */
+        /* Over EVERY method, not just one: the field that mattered (`heap`) only appeared on
+         * memory-state nodes, and the summary-ordering defect only showed on methods with
+         * callees. A single-method pin would have passed through both. */
+        int built = 0; const char* diverged = NULL; int at = -1, in_m = -1;
+        for (int mi = 0; mi < mc; mi++) {
+            if (!ms[mi] || !ms[mi]->entry || diverged) continue;
+            sir_summarize(&cctx, mi);
+            int nf2 = 0;
+            const compiler_fact_t* fv2 = compiler_get_facts(&cctx, mi, &nf2);
+            const struct compiler_click_facts* pf2 = compiler_click_facts_of(&cctx, mi);
+            if (!pf2) continue;
+            /* The loaded engine lives in its own arena — the method lifetime — so the
+             * comparison owns and releases one, exactly as sir_optimize does. */
+            bbq_arena marena; bbq_arena_init(&marena, 1 << 18);
+            cp_engine_t* L = cp_build_ctx_loaded(&cctx, ms[mi], fv2, nf2, pf2, &marena);
+            cp_engine_t* S = cp_build_ctx(&cctx, ms[mi], fv2, nf2);
+            if (!L || !S) { diverged = "engine-build"; in_m = mi;
+                            if (L) cp_free(L); if (S) cp_free(S);
+                            bbq_arena_free(&marena); continue; }
+            built++;
+            if (L->vnode_count != S->vnode_count || L->obj_count != S->obj_count
+                || L->obj_words != S->obj_words || L->spine_count != S->spine_count) {
+                diverged = "shape"; in_m = mi;
+            }
+            int nwv = S->obj_words;
+            for (int k = 0; !diverged && k < S->vnode_count; k++) {
+                const cp_vnode_t* a = L->vnodes[k]; const cp_vnode_t* b = S->vnodes[k];
+                if (!a || !b) continue;
+                if (a->partition != b->partition)        { diverged = "partition"; at = k; in_m = mi; }
+                else if (a->leader != b->leader)         { diverged = "leader";    at = k; in_m = mi; }
+                else if (a->constant.state != b->constant.state
+                      || a->constant.value != b->constant.value) { diverged = "constant"; at = k; in_m = mi; }
+                else if ((a->pts.bits == NULL) != (b->pts.bits == NULL)) { diverged = "pts(presence)"; at = k; in_m = mi; }
+                else if (a->pts.bits && b->pts.bits
+                         && memcmp(a->pts.bits, b->pts.bits, (size_t)nwv * sizeof(uint64_t)))
+                                                         { diverged = "pts(bits)"; at = k; in_m = mi; }
+                /* `heap` is deliberately NOT compared: it is analysis-internal. Every reader
+                 * (cp_update_heap, cp_mark_bottom, cp_follow_field, cp_node_pts,
+                 * cp_summary_differ) is an analysis transfer between lines 5049-6020; nothing
+                 * in the rewrite tree touches it. Publishing it cost 1.4 GB and changed no
+                 * output. The scope here is "facts the APPLICATION reads" — §8.1.1. */
+            }
+            for (int o = 0; !diverged && o < S->obj_count; o++)
+                if (cp_escape_of(L, o) != cp_escape_of(S, o)) { diverged = "escape"; at = o; in_m = mi; }
+            for (int s = 0; !diverged && s < S->spine_count; s++)
+                if ((L->reachable ? L->reachable[s] : false)
+                    != (S->reachable ? S->reachable[s] : false)) { diverged = "reachable"; at = s; in_m = mi; }
+            cp_free(L); cp_free(S);
+            bbq_arena_free(&marena);
+        }
+        CHECK(built > 1, "§37d: more than one method was compared (a single-method pin would "
+                         "miss `heap`, which only exists on memory-state nodes)");
+        if (diverged)
+            printf("  §37d detail: method %d, field %s at %d\n", in_m, diverged, at);
+        CHECK(diverged == NULL,
+              "§37d: over EVERY method, a loaded engine equals a solved one — every solved "
+              "fact the application reads survives the round trip (a divergence NAMES the "
+              "unpublished fact)");
+        sema_destroy(&sctx); bbq_arena_free(&a);
+    }
+    {
         // §37b THE TRANSITIVE CASE — a formal stored into a LOCAL that then escapes must NOT
         //      read CLEAN. A one-pass "is the store's receiver already escaping" scan misses
         //      this (the receiver escapes LATER); only the escape FIXPOINT catches it. This

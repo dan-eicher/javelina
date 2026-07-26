@@ -7088,25 +7088,25 @@ static sir_node_t* cp_rewrite_expr(cp_engine_t* eng, sir_node_t* e) {
             case CP_W_I64:
                 if (e->tag == SIR_LOADLONGCONST
                         && e->load_long_const.value == v->constant.lvalue) return e;
-                return sir_load_long_const(eng->arena, v->constant.lvalue);
+                return sir_load_long_const(eng->out, v->constant.lvalue);
             case CP_W_F32: {
                 /* Bit-compare, not ==: a NaN is never == itself, and ±0.0 are
                  * == but distinct values. Reuse the node iff its bits match. */
                 float k = cp_known_f32(v->constant);
                 if (e->tag == SIR_LOADFLOATCONST
                         && memcmp(&e->load_float_const.value, &k, sizeof k) == 0) return e;
-                return sir_load_float_const(eng->arena, k);
+                return sir_load_float_const(eng->out, k);
             }
             case CP_W_F64: {
                 double k = cp_known_f64(v->constant);
                 if (e->tag == SIR_LOADDOUBLECONST
                         && memcmp(&e->load_double_const.value, &k, sizeof k) == 0) return e;
-                return sir_load_double_const(eng->arena, k);
+                return sir_load_double_const(eng->out, k);
             }
             default:
                 if (e->tag == SIR_LOADCONST && e->load_const.value == v->constant.value)
                     return e;
-                return sir_load_const(eng->arena, v->constant.value,
+                return sir_load_const(eng->out, v->constant.value,
                                       cp_replace_width(v, e));
         }
     }
@@ -7171,7 +7171,7 @@ static sir_node_t* cp_rewrite_expr(cp_engine_t* eng, sir_node_t* e) {
         if (cp_call_target_set(eng, cp_vnode_of(eng, obj), decl_cls, decl_midx,
                                &impl_cls, &impl_midx)) {
             eng->devirt_count++;
-            return sir_invoke_special(eng->arena, obj, impl_cls, impl_midx,
+            return sir_invoke_special(eng->out, obj, impl_cls, impl_midx,
                                       iface ? e->invoke_interface.args
                                             : e->invoke_virtual.args,
                                       iface ? e->invoke_interface.args_count
@@ -7265,7 +7265,7 @@ static sir_node_t* cp_rewrite_expr(cp_engine_t* eng, sir_node_t* e) {
                         int rd = eng->slot_in[eng->rewrite_spine_idx][canon_slot];
                         if (rd >= 0 && rd < eng->vnode_count
                                 && eng->vnodes[rd]->partition == pv->partition)
-                            return sir_load_local(eng->arena, canon_slot,
+                            return sir_load_local(eng->out, canon_slot,
                                                   e->load_local.data_type,
                                                   e->load_local.ref_type);
                     }
@@ -7360,6 +7360,9 @@ static bool cp_mem_same_location(cp_engine_t* eng, int a_obj, int b_obj) {
  * as a single object"), so a second ArrayStore proves nothing about the first's
  * index — mem_elem already marks them never-strong for the same reason. */
 static bool cp_mem_store_is_dead(cp_engine_t* eng, int mv) {
+    /* The memory rows are sized at cp_resolve time; the solve mints more vnodes after that
+     * (refines), and those have no memory row. Indexing them reads past the arrays. */
+    if (mv < 0 || mv >= eng->mem_rows) return false;
     if (eng->mem_kind[mv] != CP_MEM_STORE) return false;
     if (eng->mem_elem[mv]) return false;                  /* array element: no must-alias */
     if (eng->mem_spine[mv] < 0) return false;
@@ -7396,7 +7399,7 @@ static bool cp_mem_store_is_dead(cp_engine_t* eng, int mv) {
 
 static void cp_rewrite_mem_dse(cp_engine_t* eng) {
     if (!eng->du_off || !eng->mem_spine) return;
-    for (int mv = 0; mv < eng->vnode_count; mv++) {
+    for (int mv = 0; mv < eng->mem_rows; mv++) {   /* only vnodes that HAVE a memory row */
         if (!cp_mem_store_is_dead(eng, mv)) continue;
         int i = eng->mem_spine[mv];
         if (i < 0 || i >= eng->spine_count) continue;
@@ -7881,7 +7884,7 @@ static void cp_clone_seed(cp_engine_t* eng, sir_node_t* e, sir_copy_memo* memo, 
                           const cp_sr_slot_t* rows, int nrows, int o) {
     if (!e || sir_copy_memo_get(memo, e)) return;
     if (e->tag == SIR_LOADLOCAL && e->load_local.slot != 0) {
-        sir_copy_memo_put(memo, e, sir_load_local(eng->arena, base + e->load_local.slot,
+        sir_copy_memo_put(memo, e, sir_load_local(eng->out, base + e->load_local.slot,
                                                   e->load_local.data_type, e->load_local.ref_type));
         return;
     }
@@ -7891,8 +7894,8 @@ static void cp_clone_seed(cp_engine_t* eng, sir_node_t* e, sir_copy_memo* memo, 
             const sema_class_t* sc = sema_get_class(eng->sema, e->get_field.class_id);
             sir_datatype_t dt = e->get_field.data_type;
             sir_node_t* ref = (dt == SIR_DTREF && sc)
-                ? sir_ref_descriptor(eng->arena, sc->fields[e->get_field.field_idx].type) : NULL;
-            sir_copy_memo_put(memo, e, sir_load_local(eng->arena, slot, dt, ref));
+                ? sir_ref_descriptor(eng->out, sc->fields[e->get_field.field_idx].type) : NULL;
+            sir_copy_memo_put(memo, e, sir_load_local(eng->out, slot, dt, ref));
             return;                                      /* subtree replaced — do not recurse */
         }
     }
@@ -7904,7 +7907,7 @@ static sir_node_t* cp_clone_rebased(cp_engine_t* eng, sir_node_t* e, int base,
                                     const cp_sr_slot_t* rows, int nrows, int o) {
     sir_copy_memo memo = { NULL };
     cp_clone_seed(eng, e, &memo, base, rows, nrows, o);
-    sir_node_t* copy = sir_node_copy(eng->arena, &memo, e);
+    sir_node_t* copy = sir_node_copy(eng->out, &memo, e);
     sir_copy_memo_dispose(&memo);
     return copy;
 }
@@ -7937,8 +7940,8 @@ static bool cp_ctor_emit(cp_engine_t* eng, const sir_method_t* ctor,
         for (int i = 0; i < pcount && i < call_argc; i++) {
             java_type_t pt = cm->param_types[i];
             sir_datatype_t pdt = lat_tag_to_dt(pt.tag);
-            bbq_vec_push(*out, sir_store_local(eng->arena, base + 1 + i, pdt,
-                                               sir_ref_descriptor(eng->arena, pt),
+            bbq_vec_push(*out, sir_store_local(eng->out, base + 1 + i, pdt,
+                                               sir_ref_descriptor(eng->out, pt),
                                                call_args[i], NULL));
         }
     sir_node_t** spine = sir_collect_spine(ctor->entry);
@@ -7960,7 +7963,7 @@ static bool cp_ctor_emit(cp_engine_t* eng, const sir_method_t* ctor,
                 int s = n->store_local.slot;
                 if (s == 0 || !cp_init_expr_ok(n->store_local.value)) { ok = false; break; }
                 if (out)
-                    bbq_vec_push(*out, sir_store_local(eng->arena, base + s,
+                    bbq_vec_push(*out, sir_store_local(eng->out, base + s,
                         n->store_local.data_type, n->store_local.ref_type,
                         cp_clone_rebased(eng, n->store_local.value, base, rows, nrows, o), NULL));
                 break;
@@ -7975,11 +7978,11 @@ static bool cp_ctor_emit(cp_engine_t* eng, const sir_method_t* ctor,
                     sir_datatype_t dt = n->put_field.data_type;
                     const sema_class_t* fc = sema_get_class(eng->sema, n->put_field.class_id);
                     sir_node_t* ref = (dt == SIR_DTREF && fc)
-                        ? sir_ref_descriptor(eng->arena, fc->fields[n->put_field.field_idx].type)
+                        ? sir_ref_descriptor(eng->out, fc->fields[n->put_field.field_idx].type)
                         : NULL;
-                    sir_node_t* v = sir_narrow_to_storage(eng->arena, dt,
+                    sir_node_t* v = sir_narrow_to_storage(eng->out, dt,
                         cp_clone_rebased(eng, n->put_field.value, base, rows, nrows, o));
-                    bbq_vec_push(*out, sir_store_local(eng->arena, slot, dt, ref, v, NULL));
+                    bbq_vec_push(*out, sir_store_local(eng->out, slot, dt, ref, v, NULL));
                 }
                 break;
             }
@@ -8307,7 +8310,7 @@ static sir_node_t* cp_pea_materialize(cp_engine_t* eng, const cp_pea_cand_t* pc,
                                       const cp_sr_slot_t* rows, int nrows,
                                       const uint64_t* alias, int aw,
                                       sir_node_t* cont) {
-    bbq_arena* a = eng->arena;
+    bbq_arena* a = eng->out;   /* every allocation here MINTS SIR: it outlives the engine */
     sir_node_t* eref = pc->def_store->store_local.ref_type;
     sir_node_t* head = cont;
     /* Alias copies LAST (they read the carrier). */
@@ -8366,7 +8369,8 @@ static void cp_pea(cp_engine_t* eng, const bool* sr_cand) {
     if (eng->method && eng->method->name && eng->method->name[0] == '$') return;
     int oc = eng->obj_count, vc = eng->vnode_count, sn = eng->spine_count;
     if (oc <= eng->obj_first_site || sn == 0) return;
-    bbq_arena* a = eng->arena;
+    bbq_arena* a    = eng->arena;   /* analysis scratch — dies with the engine */
+    bbq_arena* mint = eng->out;     /* SIR this pass creates — outlives it */
 
     /* ── Candidates: cp_scalar_qualify's gates MINUS the whole-method escape gate. ── */
     cp_pea_cand_t* pcs = NULL;
@@ -8756,11 +8760,11 @@ static void cp_pea(cp_engine_t* eng, const bool* sr_cand) {
                                          n->put_field.field_idx);
                 if (slot >= 0) {
                     sir_datatype_t dt = n->put_field.data_type;
-                    sir_node_t* val  = sir_narrow_to_storage(a, dt, n->put_field.value);
+                    sir_node_t* val  = sir_narrow_to_storage(mint, dt, n->put_field.value);
                     sir_node_t* next = n->put_field.next;
                     const sema_class_t* sc = sema_get_class(eng->sema, n->put_field.class_id);
                     sir_node_t* ref = (dt == SIR_DTREF && sc)
-                        ? sir_ref_descriptor(a, sc->fields[n->put_field.field_idx].type) : NULL;
+                        ? sir_ref_descriptor(mint, sc->fields[n->put_field.field_idx].type) : NULL;
                     n->tag = SIR_STORELOCAL;
                     n->store_local.slot      = slot;
                     n->store_local.data_type = dt;
@@ -8842,10 +8846,10 @@ static void cp_pea(cp_engine_t* eng, const bool* sr_cand) {
                     if (!sc) continue;
                     java_type_t ft = sc->fields[rows[r].field_idx].type;
                     sir_datatype_t dt = lat_tag_to_dt(ft.tag);
-                    head = sir_store_local(a, rows[r].slot, dt, sir_ref_descriptor(a, ft),
-                                           cp_sr_default(a, dt), head);
+                    head = sir_store_local(mint, rows[r].slot, dt, sir_ref_descriptor(mint, ft),
+                                           cp_sr_default(mint, dt), head);
                 }
-                n->store_local.value = sir_load_null(a);
+                n->store_local.value = sir_load_null(mint);
                 n->store_local.next  = head;
             }
         }
@@ -8866,7 +8870,7 @@ static void cp_pea(cp_engine_t* eng, const bool* sr_cand) {
         const sema_class_t* sc = sema_get_class(eng->sema, e->get_field.class_id);
         sir_datatype_t dt = e->get_field.data_type;
         sir_node_t* ref = (dt == SIR_DTREF && sc)
-            ? sir_ref_descriptor(a, sc->fields[e->get_field.field_idx].type) : NULL;
+            ? sir_ref_descriptor(mint, sc->fields[e->get_field.field_idx].type) : NULL;
         cp_pmap_put(&eng->scalar_subst, e, sir_load_local(a, slot, dt, ref));
     }
 
@@ -9146,6 +9150,7 @@ cp_engine_t* cp_build_no_solve(sir_method_t* method, const sema_ctx_t* sema,
     cp_engine_t* eng = (cp_engine_t*)bbq_arena_alloc(arena, sizeof *eng);
     memset(eng, 0, sizeof *eng);
     eng->arena      = arena;
+    eng->out        = arena;   /* overridden when the engine's arena is a freed scratch */
     eng->method     = method;
     eng->sema       = sema;
     /* The facts attach HERE, not after the build: cp_resolve places the φs, and a
@@ -10279,6 +10284,170 @@ static void cp_summarize(compiler_ctx_t* ctx, int method_idx,
     }
 }
 
+/* ── Publish the solved facts (spec §8.1.1) ──────────────────────────────────
+ *
+ * Copies into ctx->arena, so the facts survive cp_free and the application phase can walk the
+ * solved partitioning without a second solve (Click §4.10).
+ *
+ * The node index is REBUILT from the vnodes rather than copied: cp_enum_expr is the only
+ * writer of eng->expr_idx and always writes `expr -> idx+1` while setting `v->expr = e`, so
+ * the map is the inverse of the EXPR vnodes' back-pointers. */
+const struct compiler_click_facts* compiler_click_facts_of(const compiler_ctx_t* ctx,
+                                                           int method_idx) {
+    if (!ctx || !ctx->click_facts || method_idx < 0 || method_idx >= ctx->method_count)
+        return NULL;
+    const struct compiler_click_facts* f = &ctx->click_facts[method_idx];
+    return f->computed ? f : NULL;
+}
+
+/* Re-intern `t` (hash-consed in the engine's own pool, off the engine's arena) into `dst`.
+ * Same content ⟹ same pointer within dst, so τ̂ comparison stays pointer comparison. */
+static const Type* cp_reintern_type(type_pool_t* dst, const Type* t) {
+    if (!t) return NULL;
+    switch (t->kind) {
+    case TK_TOP:        return type_top(dst);
+    case TK_BOTTOM:     return type_bottom(dst);
+    case TK_NULL:       return type_null(dst);
+    case TK_PRIM:       return type_make_prim(dst, t->prim.width);
+    case TK_REF:        return type_make_ref(dst, t->ref.class_id);
+    case TK_ARRAY:      return type_make_array(dst, t->array.dim, t->array.class_id);
+    case TK_PRIM_ARRAY: return type_make_prim_array(dst, t->prim_array.dim, t->prim_array.width);
+    }
+    return type_bottom(dst);   /* fail-closed: an unknown kind is no information */
+}
+
+int compiler_click_vnode_of(const struct compiler_click_facts* f, const sir_node_t* e) {
+    if (!f || !e) return -1;
+    void* v = cp_pmap_get(&f->expr_idx, e);
+    return v ? (int)((uintptr_t)v - 1) : -1;
+}
+
+void cp_publish_facts(compiler_ctx_t* ctx, int method_idx, cp_engine_t* eng) {
+    if (!ctx || !eng || method_idx < 0 || method_idx >= ctx->method_count) return;
+    if (!ctx->click_facts) {
+        ctx->click_facts = (struct compiler_click_facts*)bbq_arena_alloc(
+            ctx->arena, (size_t)ctx->method_count * sizeof *ctx->click_facts);
+        memset(ctx->click_facts, 0, (size_t)ctx->method_count * sizeof *ctx->click_facts);
+    }
+    if (!ctx->click_types_init) {
+        type_pool_init(&ctx->click_types, ctx->arena);
+        ctx->click_types_init = true;
+    }
+    struct compiler_click_facts* f = &ctx->click_facts[method_idx];
+
+    int nv = eng->vnode_count, no = eng->obj_count, nw = eng->obj_words;
+    f->vnode_count = nv;
+    f->obj_count = no; f->obj_first_site = eng->obj_first_site; f->obj_words = nw;
+
+    f->v = (compiler_click_vfact_t*)bbq_arena_alloc(ctx->arena,
+               (size_t)(nv > 0 ? nv : 1) * sizeof *f->v);
+    memset(f->v, 0, (size_t)(nv > 0 ? nv : 1) * sizeof *f->v);
+
+    cp_pmap_init(&f->expr_idx);
+    for (int i = 0; i < nv; i++) {
+        const cp_vnode_t* vn = eng->vnodes[i];
+        if (!vn) continue;
+        compiler_click_vfact_t* d = &f->v[i];
+        d->partition = vn->partition;
+        d->leader    = vn->leader;
+        d->constant  = vn->constant;
+        d->type      = cp_reintern_type(&ctx->click_types, vn->type);
+        d->kind      = (uint8_t)vn->kind;
+        if (vn->pts.bits && nw > 0) {          /* the bitset is engine-arena owned: copy it */
+            d->pts.bits = (uint64_t*)bbq_arena_alloc(ctx->arena, (size_t)nw * sizeof(uint64_t));
+            memcpy(d->pts.bits, vn->pts.bits, (size_t)nw * sizeof(uint64_t));
+        } else {
+            d->pts.bits = NULL;                /* ∅ */
+        }
+        if (vn->kind == CP_VN_EXPR && vn->expr)
+            cp_pmap_put(&f->expr_idx, vn->expr, (void*)(uintptr_t)(i + 1));
+    }
+
+    f->spine_count = eng->spine_count;
+    f->reach_count = eng->reach_count;
+    if (eng->reachable && eng->spine_count > 0) {
+        f->reachable = (bool*)bbq_arena_alloc(ctx->arena,
+                           (size_t)eng->spine_count * sizeof(bool));
+        memcpy(f->reachable, eng->reachable, (size_t)eng->spine_count * sizeof(bool));
+    } else {
+        f->reachable = NULL;
+    }
+
+    size_t on = (size_t)(no > 0 ? no : 1);
+    f->obj_escape  = (uint8_t*)bbq_arena_alloc(ctx->arena, on * sizeof(uint8_t));
+    f->obj_alloced = (bool*)bbq_arena_alloc(ctx->arena, on * sizeof(bool));
+    f->vnode_of_obj = (int*)bbq_arena_alloc(ctx->arena, on * sizeof(int));
+    for (int o = 0; o < no; o++) {
+        f->obj_escape[o]   = (uint8_t)cp_escape_of(eng, o);
+        f->obj_alloced[o]  = eng->obj_alloced ? eng->obj_alloced[o] : true;
+        f->vnode_of_obj[o] = eng->vnode_of_obj ? eng->vnode_of_obj[o] : -1;
+    }
+    f->computed = true;
+}
+
+/* Build the graph for `method` and LOAD the published facts into it, in place of solving.
+ *
+ * Construction is deterministic over an unchanged SIR, so vnode k here is vnode k in the
+ * facts (test_sir §37c pins that index-for-index against a fresh build). cp_build_no_solve
+ * already produces everything structural the application phase needs — the spine, the
+ * def-use index, the memory-SSA rows (cp_resolve builds them), the node index — so only the
+ * lattice values are restored. Returns NULL if the shapes disagree, and the caller solves.
+ *
+ * Types are re-interned into THIS engine's pool: the application hash-conses into eng->pool
+ * and compares τ̂ by pointer, so a fact carrying a ctx-pool pointer would never compare equal.
+ * pts bits are copied for the same reason in reverse — the application must not write through
+ * into the published facts. */
+cp_engine_t* cp_build_ctx_loaded(compiler_ctx_t* ctx, sir_method_t* method,
+                                 const compiler_fact_t* facts, int fact_count,
+                                 const struct compiler_click_facts* pf,
+                                 bbq_arena* scratch) {
+    cp_engine_t* eng = cp_build_no_solve(method, ctx ? ctx->sema : NULL,
+                                         scratch, facts, fact_count);
+    if (!eng) return NULL;
+    eng->ctx = ctx;
+    eng->out = ctx->arena;   /* THE METHOD LIFETIME: the engine lives in `scratch`, which the
+                              * caller frees; only the SIR cp_rewrite mints outlives it. */
+    cp_index_recorded_merges(eng);
+    cp_index_try_regions(eng);
+    cp_index_concrete_objects(eng);
+    cp_init_facts(eng);
+
+    if (eng->vnode_count != pf->vnode_count || eng->obj_count != pf->obj_count
+            || eng->obj_words != pf->obj_words || eng->spine_count != pf->spine_count)
+        return NULL;
+
+    if (pf->reachable && eng->spine_count > 0) {
+        eng->reachable = (bool*)bbq_arena_alloc(eng->arena,
+                             (size_t)eng->spine_count * sizeof(bool));
+        memcpy(eng->reachable, pf->reachable, (size_t)eng->spine_count * sizeof(bool));
+        eng->reachable_rows = eng->spine_count;
+    }
+    eng->reach_count = pf->reach_count;
+
+    for (int i = 0; i < eng->vnode_count; i++) {
+        cp_vnode_t* vn = eng->vnodes[i];
+        if (!vn) continue;
+        vn->partition = pf->v[i].partition;
+        vn->leader    = pf->v[i].leader;
+        vn->constant  = pf->v[i].constant;
+        vn->type      = cp_reintern_type(&eng->pool, pf->v[i].type);
+        if (pf->v[i].pts.bits && eng->obj_words > 0) {
+            vn->pts.bits = (uint64_t*)bbq_arena_alloc(eng->arena,
+                               (size_t)eng->obj_words * sizeof(uint64_t));
+            memcpy(vn->pts.bits, pf->v[i].pts.bits,
+                   (size_t)eng->obj_words * sizeof(uint64_t));
+        } else {
+            vn->pts.bits = NULL;
+        }
+    }
+    /* escape only. obj_alloced is APPLICATION state — cp_scalar_qualify builds it during the
+     * rewrite and the census counts only what the optimized graph still allocates. */
+    for (int o = 0; o < eng->obj_count; o++)
+        eng->escape[o] = (cp_escape_t)pf->obj_escape[o];
+
+    return eng;
+}
+
 /* Build + solve + summarize ONE method WITHOUT rewriting it — the summarize-only step Choi's
  * iterate-to-convergence loop runs over the call graph. Never mutates the SIR (no cp_rewrite /
  * cp_pack) and does not touch the census (that stays with sir_optimize's single rewrite pass). */
@@ -10303,7 +10472,11 @@ void sir_summarize(compiler_ctx_t* ctx, int method_idx) {
     bbq_arena scratch;
     bbq_arena_init(&scratch, 1 << 18);
     cp_engine_t* e = cp_build_ctx_in(ctx, method, facts, fact_count, &scratch);
-    if (e) { cp_summarize(ctx, method_idx, method, e); cp_free(e); }
+    if (e) {
+        cp_summarize(ctx, method_idx, method, e);
+        cp_publish_facts(ctx, method_idx, e);   /* into ctx->arena — `scratch` dies below */
+        cp_free(e);
+    }
     bbq_arena_free(&scratch);
 }
 
@@ -10346,6 +10519,14 @@ void compiler_summarize_to_convergence(compiler_ctx_t* ctx) {
             if (cal >= 0 && cal < mc) cr_list[cr_off[cal] + cur[cal]++] = m;
         }
 
+    /* Position in the reverse-topological order, so the re-arm can tell a BACK edge from a
+     * forward one. Methods absent from `order` get a position past the end: they are always
+     * re-armed, which is the conservative side. */
+    int* pos = (int*)bbq_arena_alloc(ctx->arena, (size_t)nm * sizeof(int));
+    for (int m = 0; m < mc; m++) pos[m] = no;
+    for (int oi = 0; oi < no; oi++)
+        if (order[oi] >= 0 && order[oi] < mc) pos[order[oi]] = oi;
+
     bool* need = (bool*)bbq_arena_alloc(ctx->arena, (size_t)nm * sizeof(bool));
     memset(need, 1, (size_t)nm * sizeof(bool));       /* round 1: everyone */
     ctx->sum_changed = (bool*)bbq_arena_alloc(ctx->arena, (size_t)nm * sizeof(bool));
@@ -10361,9 +10542,16 @@ void compiler_summarize_to_convergence(compiler_ctx_t* ctx) {
         moved = false;
         for (int m = 0; m < mc; m++) {
             if (!ctx->sum_changed[m]) continue;
-            moved = true;
-            for (int ci = cr_off[m]; ci < cr_off[m] + cr_cnt[m]; ci++)
-                need[cr_list[ci]] = true;
+            for (int ci = cr_off[m]; ci < cr_off[m] + cr_cnt[m]; ci++) {
+                int caller = cr_list[ci];
+                /* Only a caller ALREADY summarized this round can have read a stale value.
+                 * A caller later in the reverse-topological order is summarized after its
+                 * callee, so it has already seen this new summary — re-arming it schedules a
+                 * solve guaranteed to recompute the identical answer. That is what made round
+                 * 1's "every summary changed (from empty)" re-solve nearly the whole program
+                 * in round 2. `<=` keeps self-recursion, where caller and callee coincide. */
+                if (pos[caller] <= pos[m]) { need[caller] = true; moved = true; }
+            }
         }
     } while (moved && --guard > 0);
     ctx->sum_changed = NULL;   /* disarm: the rewrite pass's summarize is not a round */
@@ -10401,7 +10589,25 @@ void sir_optimize(compiler_ctx_t* ctx, int method_idx) {
     const char* dump_cn = dump_cls ? dump_cls->name : NULL;
     cp_debug_dump_spine(method, dump_cn, "pre");
 
-    cp_engine_t* e = cp_build_ctx(ctx, method, facts, fact_count);
+    /* Click §4.10: applying the results is a walk over the SOLVED partitioning, not a second
+     * analysis. When the analysis already published this method's facts, load them; solve
+     * only when there are none (the <clinit> path, and any method the driver never analyzed). */
+    /* THE METHOD LIFETIME. The engine — vnodes, partitions, pts bitsets, the §42 inject
+     * matrix, the indices — is read by nothing after this method is applied, so it lives in
+     * an arena freed at the end of this call. What must outlive it does, by construction:
+     * the published facts were copied into ctx->arena by the analysis, and the SIR the
+     * rewrite mints comes from eng->out. A fallback solve keeps ctx->arena, because that
+     * path is also the analysis and cp_summarize reads engine state below. */
+    const struct compiler_click_facts* pf = compiler_click_facts_of(ctx, method_idx);
+    bbq_arena method_arena; bool method_arena_live = false;
+    cp_engine_t* e = NULL;
+    if (pf) {
+        bbq_arena_init(&method_arena, 1 << 18);
+        method_arena_live = true;
+        e = cp_build_ctx_loaded(ctx, method, facts, fact_count, pf, &method_arena);
+        if (!e) { bbq_arena_free(&method_arena); method_arena_live = false; }
+    }
+    if (!e) e = cp_build_ctx(ctx, method, facts, fact_count);
     if (e && getenv("JAVELINA_DUMP_PHIS") && method->name
           && strstr(method->name, getenv("JAVELINA_DUMP_PHIS"))) {
         for (int v = 0; v < e->vnode_count; v++) {
@@ -10472,6 +10678,21 @@ void sir_optimize(compiler_ctx_t* ctx, int method_idx) {
         }
     }
     if (e) {
+        /* Choi §4.2: the summary is computed from the connection graph at method exit, "after
+         * completing intraprocedural escape analysis" — a function of the ANALYSIS. Both it
+         * and the rest of the solved facts are read out here, before cp_rewrite mutates the
+         * graph they describe. Summarizing after the rewrite instead let callee summaries keep
+         * changing during the rewrite pass, so a caller analyzed later saw summaries the
+         * converged analysis never produced. */
+        /* Whoever performs the ANALYSIS produces the summary (Choi §4.2 computes it from the
+         * connection graph at method exit, after the intraprocedural analysis). When facts
+         * were loaded the analysis already ran and already summarized, and re-deriving it here
+         * would read engine state the load does not restore — the §7.2 write set is a readout
+         * of the clobber facts, which are analysis-internal. When we had to solve, this call
+         * IS the analysis. Either way the readout precedes cp_rewrite, which mutates the graph
+         * it describes. */
+        if (!pf) cp_summarize(ctx, method_idx, method, e);
+        cp_publish_facts(ctx, method_idx, e);
         cp_rewrite(e);
         ctx->devirt_total += e->devirt_count;   /* the census reads it off the context */
         ctx->scalar_total += e->scalar_count;
@@ -10498,9 +10719,12 @@ void sir_optimize(compiler_ctx_t* ctx, int method_idx) {
             else if (an && (an->tag == SIR_NEWARRAY
                          || an->tag == SIR_NEWREFARRAY)) ctx->noescape_array++;
         }
-        cp_summarize(ctx, method_idx, method, e);
         cp_free(e);
     }
+    /* After cp_free and after the census above has read the engine: the method's analysis
+     * memory has no remaining reader, so it goes. cp_pack works off ctx->arena. */
+    if (method_arena_live) bbq_arena_free(&method_arena);
+
     cp_debug_dump_spine(method, dump_cn, "mid");   /* post-rewrite, PRE-pack slot numbers */
     cp_pack(method, sema, arena, initial_max_locals);
 

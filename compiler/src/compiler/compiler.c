@@ -567,12 +567,32 @@ void compiler_destroy(compiler_ctx_t* ctx) {
  * The map from a callee's (declaring class, class-local index) to a METHOD INDEX. A miss
  * is not a failure: it is §7's bottom-method boundary (abstract declaration, native, a
  * cross-module jre import) — the site has a target the analysis has no body for. */
-int compiler_method_index(const compiler_ctx_t* ctx, int class_id, int method_id) {
+/* THE (class, method) → method-index key. One definition, shared by every lookup. */
+#define CG_MI_KEY(c, m) (((uint64_t)(uint32_t)(c) << 32) | (uint32_t)(m))
+
+/* Build (or rebuild) the shared index. Values are index+1 so a miss reads back as -1. */
+static void mi_build(compiler_ctx_t* ctx) {
+    if (ctx->mi_built) bbq_hmap_free(&ctx->method_index);
+    bbq_hmap_init(&ctx->method_index, 0);
     for (int i = 0; i < ctx->method_count; i++) {
         const sir_method_t* m = ctx->methods[i];
-        if (m && m->class_id == class_id && m->method_id == method_id) return i;
+        if (!m) continue;
+        bbq_hmap_put(&ctx->method_index, CG_MI_KEY(m->class_id, m->method_id),
+                     (void*)(intptr_t)(i + 1));
     }
-    return -1;
+    ctx->mi_built = true;
+    ctx->mi_count = ctx->method_count;
+}
+
+int compiler_method_index(const compiler_ctx_t* ctx, int class_id, int method_id) {
+    /* Hashed, not scanned. The analysis asks this per dispatch target, per call site, per
+     * fixpoint iteration; a linear scan makes it quadratic-on-quadratic, which is precisely
+     * what the call-graph builder's local index was introduced to avoid — and this is the
+     * same question, so it is the same index. Mutable-through-const because the index is a
+     * derived cache of ctx->methods, not state of its own. */
+    compiler_ctx_t* mut = (compiler_ctx_t*)ctx;
+    if (!ctx->mi_built || ctx->mi_count != ctx->method_count) mi_build(mut);
+    return (int)(intptr_t)bbq_hmap_get(&mut->method_index, CG_MI_KEY(class_id, method_id)) - 1;
 }
 
 /* Every method index this call site can reach, pushed onto `out` (a bbq_vec<int>).
@@ -588,7 +608,7 @@ static void cg_push_targets(compiler_ctx_t* ctx, bbq_hmap* midx,
     const sema_ctx_t* s = ctx->sema;
     int decl_cls, decl_m;
     bool virt;
-    #define CG_KEY(c, m) (((uint64_t)(uint32_t)(c) << 32) | (uint32_t)(m))
+    #define CG_KEY(c, m) CG_MI_KEY((c), (m))
     #define CG_LOOKUP(c, m) ((int)(intptr_t)bbq_hmap_get(midx, CG_KEY((c), (m))) - 1)
     switch (call->tag) {
     case SIR_INVOKESTATIC:
@@ -655,22 +675,17 @@ void compiler_build_callgraph(compiler_ctx_t* ctx) {
     ctx->cg_off = (int*)bbq_arena_alloc(ctx->arena, (size_t)(n > 0 ? n : 1) * sizeof(int));
     ctx->cg_cnt = (int*)bbq_arena_alloc(ctx->arena, (size_t)(n > 0 ? n : 1) * sizeof(int));
 
-    /* (declaring class, class-local index) → method index, built ONCE. Without it every
-     * target of every site is a linear scan of the method table, which on the jre is
-     * quadratic-on-quadratic (a virtual site enumerates every subtype, and each subtype
-     * costs a full table scan). Value is index+1 so a miss reads back as -1. */
-    bbq_hmap midx; bbq_hmap_init(&midx, 0);
-    for (int i = 0; i < n; i++) {
-        const sir_method_t* m = ctx->methods[i];
-        if (!m) continue;
-        bbq_hmap_put(&midx, ((uint64_t)(uint32_t)m->class_id << 32) | (uint32_t)m->method_id,
-                     (void*)(intptr_t)(i + 1));
-    }
+    /* THE shared (declaring class, class-local index) → method index. This used to be a local
+     * hmap here, which fixed the quadratic-on-quadratic scan for the call-graph builder and
+     * left compiler_method_index — the same lookup, asked far more often from inside the
+     * analysis fixpoint — still scanning. One index, both callers. */
+    if (!ctx->mi_built || ctx->mi_count != ctx->method_count) mi_build(ctx);
+    bbq_hmap* midx = &ctx->method_index;
 
     int* flat = NULL;                       /* bbq_vec<int>: the CSR's edge array */
     for (int m = 0; m < n; m++) {
         int* tg = NULL;                     /* this method's callees, with duplicates */
-        cg_scan_method(ctx, &midx, ctx->methods[m], &tg);
+        cg_scan_method(ctx, midx, ctx->methods[m], &tg);
         ctx->cg_off[m] = (int)bbq_vec_len(flat);
         int cnt = 0;
         for (int i = 0; i < (int)bbq_vec_len(tg); i++) {   /* dedup: one edge per callee */
@@ -687,8 +702,7 @@ void compiler_build_callgraph(compiler_ctx_t* ctx) {
     int ne = (int)bbq_vec_len(flat);
     ctx->cg_edge = (int*)bbq_arena_alloc(ctx->arena, (size_t)(ne > 0 ? ne : 1) * sizeof(int));
     for (int i = 0; i < ne; i++) ctx->cg_edge[i] = flat[i];
-    bbq_vec_free(flat);
-    bbq_hmap_free(&midx);
+    bbq_vec_free(flat);   /* the index is ctx-owned now — it outlives this build on purpose */
     ctx->cg_built = true;
 }
 

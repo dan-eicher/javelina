@@ -8,8 +8,35 @@ lattice elements, **with no dominator tree anywhere**.
 
 ## 0. The unifying observation
 
-Both papers build a **value-flow graph** and then do reachability / monotone fixpoint on
-it. The Click sea-of-nodes over pure-CPS SIR *is* that graph:
+**Read the PAPERS, not this file.** This document is a derived summary; where it and a paper
+disagree, the paper wins, and quoting a sentence of this file back at a design decision is not
+an argument. Everything cited here is on disk:
+
+| what | paper | path (all under `~/Documents/`) |
+|---|---|---|
+| the combined fixpoint + how results are applied | Click, *Combining Analyses, Combining Optimizations* | `Combining Analyses, Combining Optimizations.pdf` — **PDF page = printed + 12** |
+| escape / connection graph / summaries | Choi et al., *Escape Analysis for Java* | `Escape Analysis for Java.pdf` |
+| the scalar-replacement consumer | Stadler et al., *Partial Escape Analysis…* | `Partial Escape Analysis and Scalar Replacement for Java.pdf` |
+| **why the SIR is a functional term, and why dominance is structural** | Appel, *SSA is Functional Programming* | `SSA is Functional Programming.pdf` |
+| **SSA↔ANF, and the dominator tree as scope nesting** | Chakravarty/Keller/Zadarnowski | `A Functional Perspective on SSA Optimisation Algorithms.pdf` |
+| ANF itself | Flanagan et al., *The Essence of Compiling with Continuations* | `The Essence of Compiling with Continuations.pdf` |
+| CPS as an IR, and its costs | Kennedy, *Compiling with Continuations, Continued* | `Compiling with Continuations, Continued.pdf` |
+| the `call_ref` target set | Danvy & Nielsen, *Defunctionalization at Work* | `Defunctionalization at Work.pdf` |
+| how the SIR is emitted | Dybvig/Hieb/Bruggeman, *Destination-Driven Code Generation* | `Destination-Driven Code Generation.pdf` |
+
+The SIR is the functional form those middle papers describe: values are SSA names, merges are
+φ/γ, control edges are calls to continuations, and the DDCG emits it from the CPS structure
+while *recording* the scope nesting. Two consequences are load-bearing and are spelled out in
+§8/§8.1 — dominance is the recorded nesting (never computed), and a transformation produces a
+new term rather than mutating one. One honest note, since the SIR is described elsewhere as
+"pure CPS": Chakravarty et al. §1 record that Flanagan et al. *"showed that, for data flow
+analysis, there is no real advantage to using CPS over direct-style representations, such as
+ANF. In fact, CPS requires additional transformations and, without special measures,
+non-distributive flow analysis in CPS is more costly than necessary."* The analyses here are
+written against the ANF reading.
+
+Both analysis papers build a **value-flow graph** and then do reachability / monotone fixpoint
+on it. The Click sea-of-nodes over the SIR *is* that graph:
 
 | paper concept | SIR / Click |
 |---|---|
@@ -283,9 +310,38 @@ graph — the summary is a compile artifact, exactly like the type section.
 
 ## 8. Why there is no dominator tree (the whole point)
 
-Every lattice above is a **per-node monotone element whose transfer reads only (a) def-use
-edges and (b) φ/region inputs** — that is the membership test for the Click combined fixpoint,
-and it is *precisely* the shape that needs no dominators:
+**THE REASON, from the literature, because "we don't need one" is not a reason and has not
+stopped anyone.** The papers are on disk; read them before arguing with this section.
+
+Appel, *SSA is Functional Programming* (`~/Documents/SSA is Functional Programming.pdf`),
+final section, verbatim:
+
+> *"An important property of SSA form is that the definition of a variable dominates every
+> use (or, in the case of a uses within a φ-function, dominates the a predecessor of the use
+> node). This property is often unstated in explanations of SSA… **In a functional program
+> with nested scope, this restriction is explicitly and statically encoded into the structure
+> of function nesting.**"*
+
+Chakravarty, Keller & Zadarnowski, *A Functional Perspective on SSA Optimisation Algorithms*
+(`~/Documents/A Functional Perspective on SSA Optimisation Algorithms.pdf`), §2.1, verbatim:
+
+> *"Figure 1 presents an abstract syntax of the **structured SSA form**; i.e., to our variant
+> of SSA in which **the dominator tree is explicitly encoded in the block structure**… the
+> braces provide a traditional scoping hierarchy for block labels."*
+
+So: **the dominator tree IS the scope nesting.** Our SIR is that functional form — the DDCG
+emits it from the CPS/ANF structure and *records* the nesting as SCOPE rows. Computing a
+dominator tree is therefore not "extra machinery we happen to avoid"; it is **recomputing
+information the IR already carries structurally**, and every time it has been added it has
+been a rediscovery of the recorded scopes under a different name (`structurer.c`, the CSE
+lift's schedule-early/schedule-late, a "natural loop finder", an SCC condensation over the
+call graph). If you find yourself needing dominance, the question to ask is *"which recorded
+scope row answers this?"* — not *"where do I put the dominator tree?"*
+
+The same correspondence is why the analysis is a per-node fixpoint at all. Every lattice
+above is a **per-node monotone element whose transfer reads only (a) def-use edges and (b)
+φ/region inputs** — that is the membership test for the Click combined fixpoint, and it is
+*precisely* the shape that needs no dominators:
 
 - "Is value X available here?" — a value **is** a node; using it **is** an edge; GVN merges
   congruent nodes globally. No availability query.
@@ -305,6 +361,184 @@ and it is *precisely* the shape that needs no dominators:
   natural-loop finder.
 - The *one* classic use of dominators — Click's GCM scheduling of the sea-of-nodes back to a
   CFG — you already don't do: **DDCG emits from the CPS structure**. So it's zero, end to end.
+
+## 8.1 PHASES — what may mutate what (added 2026-07-25, from the papers)
+
+This section exists because its absence cost a full session of wrong proposals: reschedule
+the passes, add an SCC condensation, move the readout, "iterate the driver". Every one of
+them was an attempt to reason about phase structure the spec never stated. It is stated here,
+with the source text, so the next reader does not have to reconstruct it.
+
+**The analysis is PURE. The application is a CONSTRUCTION. Nothing else is a phase.**
+
+Click, *Combining Analyses, Combining Optimizations*
+(`~/Documents/Combining Analyses, Combining Optimizations.pdf`, **PDF page = printed + 12**),
+§4.10 "Using the Results", printed p.64, verbatim:
+
+> *"**When the algorithm stops**, we have a partitioning over our Nodes. All Nodes in a
+> partition are congruent and compute the same value. The algorithm replaces such Nodes by a
+> single representative (Leader) from the partition… We pre-order walk the program graph from
+> the exit, following the use-def chains. For every visited Node, we make sure the
+> corresponding partition has a representative (**O(N) time**), creating one if necessary. We
+> also make the representative Nodes' use-def chains point to other representatives (**O(E)
+> time**). Then the graph formed by the representatives becomes our new program graph. **We
+> discard the old graph.**"*
+
+Three obligations follow, and they are not negotiable by convenience:
+
+1. **The analysed graph is never written to.** Application builds the representative graph and
+   discards the original. This is what makes the fixpoint re-runnable: an analysis that
+   destroys its input cannot be iterated, and an interprocedural fixpoint *must* iterate.
+   In the functional reading this is the ordinary situation — a transformation on an ANF/CPS
+   term produces a new term; in-place mutation has no counterpart in the calculus.
+2. **Applying results costs O(N)+O(E).** If applying results requires re-running the solve,
+   that is not Click's algorithm. A full re-solve per method is ~25× the cost of the walk
+   (measured 07-25: 33.4s of solving vs a rewrite walk that is not on the profile).
+3. **Optimism is why (1) is mandatory, not stylistic.** Click's fixpoint starts at ⊤ and
+   refines downward; an assumption may be revoked at any point before it settles, so a node
+   transformed early can be transformed on a fact that later turns out false.
+
+**The summary is a function of the ANALYSIS, not of the transformed code.** Choi et al.,
+*Escape Analysis for Java* (`~/Documents/Escape Analysis for Java.pdf`), §4.2 "Connection
+Graph at Method Exit", verbatim:
+
+> *"**After completing intraprocedural escape analysis for a method**, we use the ByPass
+> function… to eliminate all the deferred edges in the CG… We then do reachability analysis on
+> the CG **holding at the return statement of the method** to update the escape state of
+> objects."*
+
+Stack allocation — *"All objects in LocalGraph that are created in the current method are
+marked stack-allocatable"* — is a **consumer** of that result, downstream of it. So the
+readout is taken from the solved connection graph at method exit, before anything is
+transformed. A summary read after a transformation is a summary of a different graph, and two
+code paths that read it at different points **will disagree**.
+
+**Interprocedurally**, §7's order is Choi §4 verbatim: *"We iterate over the nodes in the call
+graph in a reverse topological order until the data flow solution converges"*, fn 7: *"We
+ignore back edges in determining the reverse topological order."* Postorder ignoring back
+edges, plus iterate-to-convergence, plus §7's bottom methods for not-yet-analysed callees.
+**That is the whole algorithm.** Chakravarty et al. §1 note the property that makes this fit
+our IR at all: *"ANF naturally integrates intra-procedural with inter-procedural analysis."*
+
+### The invariant, stated so it can be checked
+
+> **A pass that mutates the SIR belongs to the application phase. Anything the fixpoint
+> iterates must be pure. If applying the results needs the analysis re-run, the phases have
+> been merged wrongly — fix the merge, do not add a second analysis.**
+
+Checkable, and it is what today's tree violates: `sir_summarize` and `sir_optimize` each build
+and solve an engine for the same method, one discarding the result. The correct shape is one
+solve whose converged state is applied; the obstacle is only that `cp_rewrite` mints SIR from
+the engine arena (16 of 80 engine-arena uses; the other 64 are scratch), so the engine cannot
+outlive its own scratch. Splitting engine arenas into scratch + output is the prerequisite —
+**not** a reordering of the two passes, and **not** anything added to the call graph.
+
+### 8.1.1 The mechanism: the analysis PUBLISHES into the sidecar
+
+`compiler.h`'s contract is *"Each stage **ADDS what it learns** to it and **TAKES what it
+needs** from it"*, and the Click analysis is the one stage that adds almost nothing — it
+learns partitions, constants, types, pts and escape, keeps them in `cp_engine_t`, and frees
+them. That, and not pass ordering, is why applying the results needs a second solve.
+
+**So the analysis publishes its solved facts into the context, the engine dies, and the
+application phase reads facts.** Not "retain the engine": facts are ~48–64 bytes per vnode
+against ~12 MB per engine (measured: ~3 070 vnodes/method on the conformance corpus), i.e.
+60–80× smaller, so the peak-RSS problem dissolves instead of being relocated.
+
+**The exact set, read off the application phase's uses (`cp_rewrite` and its subtree), not
+guessed:**
+
+**The set below is VERIFIED, not proposed**: an engine loaded from it agrees field-for-field
+with a fully solved engine across every method of the jre (the `[verifyload]` differential,
+07-26 — it found each of the three corrections recorded under the table).
+
+| scope | fact | why it must persist |
+|---|---|---|
+| per vnode | `partition`, `leader` | §4.10's representative replacement — the core of application |
+| per vnode | `constant` | load-immediate substitution |
+| per vnode | `type` (τ̂) | devirtualization, ClassCast / ArrayStore drops |
+| per vnode | `pts` | guard drops, DSE aliasing, scalar replacement |
+| per vnode | `heap` (`Obj ↦ pts` per cell, memory-state nodes only) | memory DSE / store→load forwarding read the solved cell contents |
+| per vnode | `kind` (EXPR/PHI/REFINE/OPAQUE) | classification during rewrite |
+| per spine node | `reachable` + `reach_count` | `cp_compute_reachability` runs INSIDE `cp_solve`'s loop — executable-edge reachability is an ELEMENT OF THE FIXPOINT (§3.7's UCE+CCP), and `cp_scalar_replace` reads it before `cp_rewrite` recomputes it |
+| per object | escape state, `obj_first_site`, `obj_count`, `vnode_of_obj` / `obj_of_vnode` | the §6 scalar-replacement consumer and the census |
+| index | **SIR node → vnode** (`cp_vnode_of`) | without it nothing above is addressable |
+
+**Explicitly NOT persisted** — this half matters as much, because persisting it would be the
+same recompute-avoidance error in reverse:
+
+- `expr`, `inputs`, `input_count`, `phi_slot` — graph structure, already in the SIR. (30 of
+  the 34 `eng->vnodes` reads in the rewrite tree are `->expr`, a back-pointer, not a fact.)
+- **the memory-SSA STRUCTURE** — `mem_kind`, `mem_cell`, `mem_obj`, `mem_prev`, `mem_elem`,
+  `mem_spine`, `du_*`, `mem_dep_*`. `cp_resolve` builds all of it during CONSTRUCTION, before
+  any solve, so a rebuild reproduces it exactly. Only the solved cell CONTENTS (`heap`) is a
+  fact. (This row previously listed the structure as published — wrong, and measured so.)
+- `obj_alloced` — built by `cp_scalar_qualify` DURING the rewrite; the census deliberately
+  counts only sites the optimized graph still allocates.
+- `live_in`, `live_out`, `part_canon_phi`, `scalar_subst`, `scalar_count`, `devirt_count` —
+  produced during application.
+- `spine`/`spine_count` as arrays (rebuilt by construction; the COUNT is carried only to
+  validate that the graph still has the shape the facts describe), `facts` (already the
+  sidecar), and plumbing (`arena`, `sema`, `ctx`, `pool`, `method`).
+
+**Two lifetime rules the payload forces**, both found by the differential rather than by
+inspection:
+
+- **τ̂ is re-interned into the consuming pool.** Each engine hash-conses into its own pool off
+  its own arena, so a published `const Type*` both dangles (the analysis's arena is freed) and
+  compares unequal (τ̂ comparison is pointer comparison). Publish re-interns into a context
+  pool; load re-interns into the engine's.
+- **`pts`/`heap` bitsets are copied, not aliased**, in both directions — the application must
+  not write through into the published facts.
+
+**And the ordering rule that makes the facts self-consistent:** the summary is produced by
+whichever pass performed the ANALYSIS, before anything mutates the graph (Choi §4.2). When
+`sir_optimize` re-summarized *after* `cp_rewrite`, callee summaries kept changing during the
+application pass, so a caller analyzed later saw summaries the converged analysis never
+produced: 51 methods diverged. Moving the readout before the rewrite left 9; summarizing only
+when that pass actually solved left **0**.
+
+### 8.1.2 Lifetimes — where an allocation lives
+
+The compiler had ONE lifetime: a single arena created in the driver, never freed, backing the
+AST, sema, the SIR, the recorded facts and every Click engine. That is not a memory design;
+it is "everything is global", and it is why the optimizer's engines could never be released —
+nothing could say what of an engine was still needed once a method was done.
+
+The published facts answer exactly that question, so there are now three:
+
+| arena | holds | released |
+|---|---|---|
+| **compile** | sema tables, SIR, DDCG facts, published Click facts, emitted bytes | by the DRIVER, per compile |
+| **method** | the engine — vnodes, partitions, pts bitsets, the §42 inject matrix, the indices | by `sir_optimize`, once the census has read it |
+| **parse** | per-file AST arenas | with the compile (facts are AST-pointer-keyed) |
+
+**The rule: an allocation belongs to the arena of its last reader.** Checkable — if you can
+name a reader that runs after the arena dies, it is in the wrong one.
+
+`eng->out` is the single documented escape from the method lifetime: the SIR `cp_rewrite`
+mints becomes part of the program graph and is read by codegen. Everything else the engine
+allocates dies with it. A function that needs both must keep them separate — two of them
+aliased `bbq_arena* a = eng->arena` and used the alias for scratch AND minting, which is a
+use-after-free the moment the method arena is real.
+
+**This class of bug is invisible to behavioural testing.** The DSE loop indexing `mem_kind`
+to `vnode_count` when it is sized `mem_rows` shipped green through 60113 wast cases, the
+compiler suite, the CLI suite and the four-config corpus, because reading past an arena array
+lands on zeroes. Run a memory checker over `javelinac` on a real program; the suites cannot
+substitute for it.
+
+### Recorded dead ends (each was proposed, each is wrong)
+
+- **SCC/Tarjan over the call graph.** §7 already handles cycles with bottom methods +
+  iteration. An SCC pass here is §8's dominator tree in a new costume.
+- **Iterating the driver** (re-running `sir_optimize` to convergence). Tried 07-25: it runs
+  the destructive rewrite over already-rewritten SIR — invalid module on the corpus, segfault
+  on the jre. It is obligation (1) failing loudly.
+- **Byte-identical output as the gate for a correctness fix.** Right gate for a reordering
+  (proves no behaviour changed); wrong gate for fixing a spec violation, where better code is
+  the *expected* outcome and the gate would demand reverting it. Use: suite green, four-config
+  agreement, and the guard/scalar censuses to show the direction of the change.
 
 ## 9. Staging (each step gate-verified, suite green)
 

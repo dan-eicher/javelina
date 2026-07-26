@@ -525,6 +525,11 @@ typedef struct { bbq_hmap map; } cp_pmap_t;
  * cp_build. cp_free releases the non-arena tables. */
 typedef struct {
     bbq_arena*        arena;
+    /* Where the application phase MINTS SIR. cp_rewrite creates nodes that become part of the
+     * program graph and must outlive the engine, so they cannot come from `arena` when that is
+     * a per-method scratch the caller frees. Defaults to `arena`, so a build that owns its
+     * allocations behaves exactly as before. */
+    bbq_arena*        out;
     sir_method_t*     method;
     const sema_ctx_t* sema;     /* may be NULL — degrades, stays sound */
 
@@ -950,6 +955,69 @@ typedef struct {
  * harness's entry: a hand-made sir_method_t, for which there is no context.) */
 cp_engine_t* cp_build_ctx(compiler_ctx_t* ctx, sir_method_t* method,
                           const compiler_fact_t* facts, int fact_count);
+
+/* ── The published analysis facts (spec §8.1.1) ──────────────────────────────
+ *
+ * Click §4.10 applies results by walking the SOLVED partitioning — O(N)+O(E) — so the solved
+ * facts must outlive the engine. These are exactly the ones the application phase reads.
+ * What it computes for itself (reachability, liveness, the canonical φ choice, the scalar
+ * substitution) is not here, and must not be added. */
+typedef struct {
+    int         partition;      /* congruence class — §4.10's "partition" */
+    int         leader;         /* -1 = Leader; else the vnode this one follows (§4.8) */
+    cp_const_t  constant;       /* the solved constant-propagation fact */
+    const Type* type;           /* τ̂, the type-lattice fact */
+    cp_pts_t    pts;            /* lattice A; bits arena-copied, NULL bits == ∅ */
+    uint8_t     kind;           /* cp_vn_kind_t: EXPR / PHI / REFINE / OPAQUE */
+} compiler_click_vfact_t;
+
+struct compiler_click_facts {
+    bool computed;              /* false = this method was never analyzed (a §7 bottom method) */
+    int  vnode_count;
+    int  obj_count, obj_first_site, obj_words;
+
+    /* Executable-edge reachability, [spine_count]. cp_compute_reachability runs INSIDE
+     * cp_solve's loop — it is an element of the fixpoint (§3.7's UCE+CCP), so it is solve
+     * output like any other lattice fact, not something a consumer re-derives. */
+    int   spine_count;
+    bool* reachable;
+    int   reach_count;
+
+    compiler_click_vfact_t* v;  /* [vnode_count] */
+
+    /* Per abstract object: the §6 escape state and the object model the scalar-replacement
+     * consumer and the census walk. */
+    uint8_t* obj_escape;        /* [obj_count], cp_escape_t */
+    bool*    obj_alloced;       /* [obj_count] */
+    int*     vnode_of_obj;      /* [obj_count] */
+
+    /* The index without which none of the above is addressable: SIR node -> vnode+1.
+     * Owned here (the engine's own map dies with it). */
+    cp_pmap_t expr_idx;
+};
+
+/* Publish `eng`'s solved facts for `method_idx` into ctx->click_facts. Called at the point
+ * the analysis finishes — before anything transforms the graph, per Choi §4.2 (the summary,
+ * and by the same argument every other solved fact, is a function of the ANALYSIS). */
+void cp_publish_facts(compiler_ctx_t* ctx, int method_idx, cp_engine_t* eng);
+
+/* The published facts for a method, or NULL if it was never analyzed. */
+const struct compiler_click_facts* compiler_click_facts_of(const compiler_ctx_t* ctx,
+                                                           int method_idx);
+
+/* The vnode index a SIR node was solved as, or -1. The application phase's entry point into
+ * the facts — every per-node lookup goes through it. */
+int compiler_click_vnode_of(const struct compiler_click_facts* f, const sir_node_t* e);
+
+/* Build the graph for `method` and LOAD `pf` into it in place of solving — what the
+ * application phase runs on. NULL if the shapes disagree (the caller then solves).
+ *
+ * The engine is built in `scratch`, which the CALLER frees once it is done with the engine:
+ * that is the method lifetime. Only the SIR the rewrite mints escapes, into ctx->arena. */
+cp_engine_t* cp_build_ctx_loaded(compiler_ctx_t* ctx, sir_method_t* method,
+                                 const compiler_fact_t* facts, int fact_count,
+                                 const struct compiler_click_facts* pf,
+                                 bbq_arena* scratch);
 
 /* Build the value graph for `method`: collect the spine, enumerate
  * every reachable expression node, then resolve operand edges —

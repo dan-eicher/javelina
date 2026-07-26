@@ -13,7 +13,9 @@
 #include <stdint.h>
 
 #include "javelina/compiler/sema.h"
+#include "javelina/compiler/type_lattice.h"   /* type_pool_t — published τ̂ interning */
 #include "gen/sir_ast.h"
+#include "bbq_hmap.h"
 
 /* ── THE SIDECAR: one fact row ───────────────────────────────
  *
@@ -360,6 +362,30 @@ typedef struct {
     int* cg_off;
     int* cg_cnt;
     bool cg_built;
+
+    /* (declaring class, class-local index) → method index. THE lookup, built once and shared:
+     * the call-graph builder and compiler_method_index are the same question and must not be
+     * two implementations of it. A linear scan here is quadratic-on-quadratic — a virtual site
+     * enumerates every subtype and each subtype costs a full table scan — and the analysis
+     * queries it per dispatch target, per call site, per fixpoint iteration. `mi_count` is the
+     * method_count the index was built at, so a table that grew rebuilds instead of missing. */
+    bbq_hmap method_index;
+    bool     mi_built;
+    int      mi_count;
+
+    /* The Click analysis's solved facts, one entry per method index, lazily allocated: the
+     * partitions, leaders, constants, types, pts and escape states the application phase
+     * reads (spec §8.1.1 lists the set, and what is deliberately not in it).
+     *
+     * Opaque here: the payload is the optimizer's lattice types, defined in sir_optimizer.h.
+     * The context holds THAT the analysis published, not what its lattices look like. */
+    struct compiler_click_facts* click_facts;   /* arena array [method_count] */
+    /* The pool published τ̂ types are interned in. Each engine hash-conses into its OWN pool
+     * off its own arena, so a published `const Type*` would dangle the moment that arena is
+     * freed; re-interning here keeps both the lifetime and pointer-equality (τ̂ comparison is
+     * pointer comparison). Lives on ctx->arena. */
+    type_pool_t click_types;
+    bool        click_types_init;
 
     /* §7's per-method ESCAPE SUMMARY — see compiler_summary_t. One entry per method index,
      * allocated lazily; a NULL array or an entry with computed=false is a §7 BOTTOM METHOD.

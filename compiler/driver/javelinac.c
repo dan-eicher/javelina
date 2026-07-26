@@ -88,6 +88,26 @@ static ast_program_t* parse_src(const char* src, const char* file, java_parse_ct
     return prog;
 }
 
+/* Release the compile. ONE arena backs the AST, sema, and every compiler-side allocation
+ * (SIR, recorded facts, the Click engines and their published facts); each parsed file owns a
+ * small arena of its own. The DRIVER owns both and frees them here.
+ *
+ * This is what gives a compile a lifetime. Without it nothing a compile allocates is ever
+ * reclaimable, so a process that compiles more than once accumulates every compile it has
+ * run — and the only alternative is rationing individual phases, which is a bandaid for a
+ * missing lifetime rather than a memory design. `sctx` may be NULL (failure before sema).
+ * Order matters: sema_destroy reads arena-backed memory, so it runs before the arena dies. */
+static void release_compile(bbq_arena* arena, java_parse_ctx_t** ctxs, sema_ctx_t* sctx) {
+    if (sctx) { sema_destroy(sctx); free(sctx); }
+    for (int i = 0; i < (int)bbq_vec_len(ctxs); i++) {
+        if (!ctxs[i]) continue;
+        bbq_arena_free(&ctxs[i]->arena);
+        free(ctxs[i]);
+    }
+    bbq_vec_free(ctxs);
+    bbq_arena_free(arena);
+}
+
 /* Glob one prelude package dir, parsing every *.java into `types`. The per-file
  * `package` decl (not the directory) drives package resolution in sema. */
 static void glob_dir(const char* dir, ast_type_decl_t*** types, java_parse_ctx_t*** ctxs) {
@@ -205,13 +225,13 @@ int main(int argc, char** argv) {
     int nlib = (int)bbq_vec_len(types);
     if (nlib == 0) {
         fprintf(stderr, "%s: no prelude classes found under '%s' (wrong --libdir?)\n", prog_name, libdir);
-        return 2;
+        bbq_vec_free(types); release_compile(&arena, ctxs, NULL); free(inputs); return 2;
     }
 
     bool parse_ok = true;
     for (int i = 0; i < ninputs; i++)
         if (!add_input(inputs[i], &types, &ctxs)) parse_ok = false;   /* file or directory tree */
-    if (!parse_ok) { bbq_vec_free(types); return 2; }
+    if (!parse_ok) { bbq_vec_free(types); release_compile(&arena, ctxs, NULL); free(inputs); return 2; }
 
     int tc = (int)bbq_vec_len(types);
     ast_type_decl_t** arr = bbq_arena_alloc(&arena, (size_t)tc * sizeof(*arr));
@@ -243,7 +263,7 @@ int main(int argc, char** argv) {
     if (sema_error_count(sctx) > 0) {
         fprintf(stderr, "%s: compilation failed (%d error%s)\n",
                 prog_name, sema_error_count(sctx), sema_error_count(sctx) == 1 ? "" : "s");
-        sema_destroy(sctx); free(sctx); return 1;
+        release_compile(&arena, ctxs, sctx); return 1;
     }
 
     /* ── Compile + assemble. ── */
@@ -260,7 +280,7 @@ int main(int argc, char** argv) {
 
     if (!ok) {
         fprintf(stderr, "%s: assembly failed (backend produced an invalid module)\n", prog_name);
-        sema_destroy(sctx); free(sctx); return 1;
+        release_compile(&arena, ctxs, sctx); return 1;
     }
 
     /* ── Fail-closed §7 gate: run the VM's OWN validator over the bytes
@@ -274,7 +294,7 @@ int main(int argc, char** argv) {
         if (jav_validate_bytes(out.code, len, &verr) != JAV_OK) {
             fprintf(stderr, "%s: emitted module FAILS validation: %s — refusing to write\n",
                     prog_name, jav_err_str(verr));
-            sema_destroy(sctx); free(sctx); return 1;
+            release_compile(&arena, ctxs, sctx); return 1;
         }
     }
     char derived[512] = {0};
@@ -295,20 +315,20 @@ int main(int argc, char** argv) {
     FILE* of;
     if (!strcmp(out_path, "-")) {
         if (isatty(1)) { fprintf(stderr, "%s: refusing to write a module to a terminal\n", prog_name);
-                         sema_destroy(sctx); free(sctx); return 2; }
+                         release_compile(&arena, ctxs, sctx); return 2; }
         of = stdout;
     } else {
         of = fopen(out_path, "wb");
         if (!of) { fprintf(stderr, "%s: cannot write '%s'\n", prog_name, out_path);
-                   sema_destroy(sctx); free(sctx); return 2; }
+                   release_compile(&arena, ctxs, sctx); return 2; }
     }
     if (len && fwrite(out.code, 1, len, of) != len) {
         fprintf(stderr, "%s: short write to '%s'\n", prog_name, out_path);
         if (of != stdout) fclose(of);
-        sema_destroy(sctx); free(sctx); return 2;
+        release_compile(&arena, ctxs, sctx); return 2;
     }
     if (of != stdout) fclose(of);
 
-    sema_destroy(sctx); free(sctx);
+    release_compile(&arena, ctxs, sctx);
     return 0;
 }
