@@ -281,7 +281,7 @@ static bool is_sign_char(char c) {
 }
 
 static bool java_ws_predicate(char c) {
-    return ((((c == 13) || (c == 10)) || (c == 9)) || (c == 32));
+    return (((((c == 13) || (c == 10)) || (c == 9)) || (c == 32)) || (c == 12));
 }
 
 static void java_setup_skip(peg_state* p) {
@@ -2872,7 +2872,7 @@ static bool java_parse_constructor_decl(peg_state* p, ast_member_t** result, ast
 static bool java_parse_field_rest(peg_state* p, ast_member_t** result, ast_type_t* ty, peg_span ns, ast_modifier_t* mods, int mc) {
     ast_var_decl_t** decls = NULL; int dc = 0;
        int32_t dims = 0; ast_expr_t* init = NULL;
-    {
+    for (;;) {
         peg_mark _m0 = peg_save(p);
         bool _ok0 = false;
         do {
@@ -2880,10 +2880,10 @@ static bool java_parse_field_rest(peg_state* p, ast_member_t** result, ast_type_
             if (!peg_match(p, "[")) break;
             peg_skip(p);
             if (!peg_match(p, "]")) break;
-            dims = 1;
+            dims++;
             _ok0 = true;
         } while(0);
-        if (!_ok0) peg_restore(p, _m0);
+        if (!_ok0) { peg_restore(p, _m0); break; }
     }
     {
         peg_mark _m1 = peg_save(p);
@@ -2921,7 +2921,7 @@ static bool java_parse_var_decl_item(peg_state* p, ast_var_decl_t*** decls, int*
     peg_span ns; int32_t dims = 0; ast_expr_t* init = NULL;
     peg_skip(p);
     if (!java_ident(p, &ns)) return false;
-    {
+    for (;;) {
         peg_mark _m0 = peg_save(p);
         bool _ok0 = false;
         do {
@@ -2929,10 +2929,10 @@ static bool java_parse_var_decl_item(peg_state* p, ast_var_decl_t*** decls, int*
             if (!peg_match(p, "[")) break;
             peg_skip(p);
             if (!peg_match(p, "]")) break;
-            dims = 1;
+            dims++;
             _ok0 = true;
         } while(0);
-        if (!_ok0) peg_restore(p, _m0);
+        if (!_ok0) { peg_restore(p, _m0); break; }
     }
     {
         peg_mark _m1 = peg_save(p);
@@ -2999,6 +2999,16 @@ static bool java_parse_array_init_expr(peg_state* p, ast_expr_t** result) {
             _ok0 = true;
         } while(0);
         if (!_ok0) peg_restore(p, _m0);
+    }
+    {
+        peg_mark _m2 = peg_save(p);
+        bool _ok2 = false;
+        do {
+            peg_skip(p);
+            if (!peg_match(p, ",")) break;
+            _ok2 = true;
+        } while(0);
+        if (!_ok2) peg_restore(p, _m2);
     }
     peg_skip(p);
     if (!peg_match(p, "}")) return false;
@@ -4799,7 +4809,7 @@ static bool java_parse_unary_expr_npm(peg_state* p, ast_expr_t** result) {
                 if (!peg_match(p, "(")) break;
                 peg_skip(p);
                 if (!java_parse_prim_type(p, &ty)) break;
-                {
+                for (;;) {
                     peg_mark _m2 = peg_save(p);
                     bool _ok2 = false;
                     do {
@@ -4810,7 +4820,7 @@ static bool java_parse_unary_expr_npm(peg_state* p, ast_expr_t** result) {
                         ty = ast_array_type(A, ty);
                         _ok2 = true;
                     } while(0);
-                    if (!_ok2) peg_restore(p, _m2);
+                    if (!_ok2) { peg_restore(p, _m2); break; }
                 }
                 peg_skip(p);
                 if (!peg_match(p, ")")) break;
@@ -4832,7 +4842,7 @@ static bool java_parse_unary_expr_npm(peg_state* p, ast_expr_t** result) {
                 peg_skip(p);
                 if (!java_parse_qual_name(p, &n)) break;
                 ty = ast_class_type(A, n);
-                {
+                for (;;) {
                     peg_mark _m4 = peg_save(p);
                     bool _ok4 = false;
                     do {
@@ -4843,7 +4853,7 @@ static bool java_parse_unary_expr_npm(peg_state* p, ast_expr_t** result) {
                         ty = ast_array_type(A, ty);
                         _ok4 = true;
                     } while(0);
-                    if (!_ok4) peg_restore(p, _m4);
+                    if (!_ok4) { peg_restore(p, _m4); break; }
                 }
                 peg_skip(p);
                 if (!peg_match(p, ")")) break;

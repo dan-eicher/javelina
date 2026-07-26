@@ -380,7 +380,9 @@ TOKENS
 COMMENTS FROM "//" TO "\n"
 COMMENTS FROM "/*" TO "*/"
 
-IGNORE '\r' + '\n' + '\t' + ' '
+/* §3.6 WhiteSpace: SP, HT, FF, and LineTerminator (§3.4: LF, CR, CR LF). FF is not
+   decoration — the spec lists it, and `1 +<FF>2` is legal Java that did not compile. */
+IGNORE '\r' + '\n' + '\t' + ' ' + '\f'
 
 PRODUCTIONS
 
@@ -521,7 +523,7 @@ FieldRest <. ast_member_t** result, ast_type_t* ty, peg_span ns,
              ast_modifier_t* mods, int mc .>
     (. ast_var_decl_t** decls = NULL; int dc = 0;
        int32_t dims = 0; ast_expr_t* init = NULL; .)
-    = [ "[" "]" (. dims = 1; .) ]
+    = { "[" "]" (. dims++; .) }
       [ "=" VarInit<&init> ]
       (. decls = (ast_var_decl_t**)jpush(A, (void**)decls, &dc,
              ast_var_decl(A, jdup(A, ns), dims, init)); .)
@@ -533,7 +535,7 @@ FieldRest <. ast_member_t** result, ast_type_t* ty, peg_span ns,
 VarDeclItem <. ast_var_decl_t*** decls, int* dc .>
     (. peg_span ns; int32_t dims = 0; ast_expr_t* init = NULL; .)
     = ident<&ns>
-      [ "[" "]" (. dims = 1; .) ]
+      { "[" "]" (. dims++; .) }
       [ "=" VarInit<&init> ]
     (. *decls = (ast_var_decl_t**)jpush(A, (void**)*decls, dc,
            ast_var_decl(A, jdup(A, ns), dims, init)); .)
@@ -546,9 +548,15 @@ VarInit <. ast_expr_t** result .>
 
 ArrayInitExpr <. ast_expr_t** result .>
     (. ast_expr_t** elems = NULL; int ec = 0; ast_expr_t* e; .)
+    /* §10.6: `{ VariableInitializers_opt ,_opt }` — BOTH the list and the trailing comma
+       are optional, so `{ }`, `{ , }`, `{ 1 }`, `{ 1, }` and `{ 1, 2, }` are all legal. The
+       trailing `[ "," ]` is reachable because a repetition rewinds a partially-matched item:
+       on `1, }` the last `{ "," VarInit }` pass consumes the comma, fails on VarInit, and
+       restores the mark taken before the comma. */
     = "{" [ VarInit<&e>  (. elems = (ast_expr_t**)jpush(A, (void**)elems, &ec, e); .)
             { "," VarInit<&e>  (. elems = (ast_expr_t**)jpush(A, (void**)elems, &ec, e); .) }
           ]
+      [ "," ]
       "}"
     (. *result = ast_array_init(A, elems, ec); .)
 .
@@ -967,14 +975,14 @@ UnaryExpr <. ast_expr_t** result .>
 UnaryExprNPM <. ast_expr_t** result .>
     (. ast_type_t* ty; ast_expr_t* e; ast_name_t* n; ast_srcloc _ul; .)
     // 1. Primitive cast: (byte)expr — keyword after ( is unambiguous
-    = (. _ul = LOC; .) "(" PrimType<&ty> [ "[" "]" (. ty = ast_array_type(A, ty); .) ]
+    = (. _ul = LOC; .) "(" PrimType<&ty> { "[" "]" (. ty = ast_array_type(A, ty); .) }
       ")" UnaryExpr<&e>
       (. *result = ast_cast(A, ty, e); (*result)->loc = _ul; .)
     // 2. Reference cast: (ast_name_t)expr or (ast_name_t[])expr
     //    PEG backtracks if not followed by UENPM
     | (. _ul = LOC; .) "(" QualName<&n>
       (. ty = ast_class_type(A, n); .)
-      [ "[" "]" (. ty = ast_array_type(A, ty); .) ]
+      { "[" "]" (. ty = ast_array_type(A, ty); .) }
       ")" UnaryExprNPM<&e>
       (. *result = ast_cast(A, ty, e); (*result)->loc = _ul; .)
     | (. _ul = LOC; .) "~" UnaryExpr<result>  (. *result = ast_unary(A, AST_BITNOT, *result); (*result)->loc = _ul; .)

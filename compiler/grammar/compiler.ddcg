@@ -915,20 +915,26 @@ fun chain_decls(decls: list<ast.var_decl>, idx: int, last_init: int,
                  var_dt: ir.datatype,
                  rho: rho, delta: delta, gamma: gamma,
                  Lnext: ir_root) -> ir_root {
+    // §10.2: the datatype is PER DECLARATOR, not per declaration. `int i = 0, v[] = ...`
+    // declares an int and an int[] off one IntType node, so deriving the slot's datatype
+    // from that shared node types the array slot as an int and the store fails validation.
+    // sema already resolved each declarator (dims included) and sema_var_ref is nil exactly
+    // for a primitive local, so it IS the predicate — no second derivation.
+    let dt = sema_var_ref(decls[idx]) == nil ? var_dt : DtRef;
     idx > last_init
       ? cg_jump(gamma, Lnext)
       : (decls[idx].init == nil
           ? chain_decls(decls, idx + 1, last_init, var_dt,
                          rho, delta, gamma, Lnext)
           : (idx == last_init
-              ? cg_deliver_conv(decls[idx].init, var_dt, rho,
-                    vloc(sema_var_slot(decls[idx]), var_dt,
+              ? cg_deliver_conv(decls[idx].init, dt, rho,
+                    vloc(sema_var_slot(decls[idx]), dt,
                         expr_ref(decls[idx].init) == nil ? sema_var_ref(decls[idx]) : expr_ref(decls[idx].init)),
                     gamma, Lnext)
               : { let tail = chain_decls(decls, idx + 1, last_init, var_dt,
                                           rho, delta, gamma, Lnext);
-                  cg_deliver_conv(decls[idx].init, var_dt, rho,
-                      vloc(sema_var_slot(decls[idx]), var_dt,
+                  cg_deliver_conv(decls[idx].init, dt, rho,
+                      vloc(sema_var_slot(decls[idx]), dt,
                         expr_ref(decls[idx].init) == nil ? sema_var_ref(decls[idx]) : expr_ref(decls[idx].init)),
                       single(tail), tail); }));
 }
@@ -2290,7 +2296,14 @@ fun emit_ref_cast(at: ir.atype, cp: int, op: ast.expr,
     // not per diamond arm (two casts per branch × an if-else-if chain otherwise
     // compounds). ret/pair γ: no shared re-emittable tail (see the div guard).
     let _ = match (gamma) { single(L) => record_scope(guard, L, 3) | _other => 0 };
-    gen(op, rho, locref(t, expr_ref(op)), single(guard), guard);
+    // The spill temp's REF type is the operand's own descriptor, EXCEPT a `null` literal has
+    // none (expr_ref = nil, because the null type names no class) — then type it from the
+    // cast's TARGET, which is what the CheckCast on both arms narrows to. Without this the
+    // slot is a DtRef with no typeidx and the backend refuses the module: `(String) null` is
+    // legal Java (§5.5 — "a null reference may be cast to any reference type") and did not
+    // compile. Same rule as chain_call_args below.
+    let oref = expr_ref(op);
+    gen(op, rho, locref(t, oref == nil ? build ir.ClassRef(cp) : oref), single(guard), guard);
 }
 
 // Right-to-left chain of arg evaluations into pre-allocated temps,
@@ -2424,7 +2437,11 @@ fun emit_array_cast(array_class: int, op: ast.expr,
     // Same diamond as emit_ref_cast: ok_null/ok_inst share the γ continuation —
     // record it as a MERGE label for single-label γ (§2.1).
     let _ = match (gamma) { single(L) => record_scope(guard, L, 3) | _other => 0 };
-    gen(op, rho, locref(t, expr_ref(op)), single(guard), guard);
+    // Same null-literal rule as emit_ref_cast: the target here is the RefArray overlay both
+    // arms narrow to. `(String[]) null` has no descriptor of its own either.
+    let oref = expr_ref(op);
+    gen(op, rho, locref(t, oref == nil ? build ir.ClassRef(refarray_class()) : oref),
+        single(guard), guard);
 }
 
 // ── JLS §15.10 array creation (incl. multi-dimensional) ───────────────────

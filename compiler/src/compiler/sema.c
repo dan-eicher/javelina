@@ -50,6 +50,15 @@ static java_type_t* arena_type(sema_ctx_t* ctx, java_type_t t) {
     return p;
 }
 
+/* §10.2: a declarator's own bracket pairs add to the type written before the name, so
+ * `int v[][]` and `int[] v[]` and `int[][] v` all declare int[][]. `dims` is the COUNT of
+ * those pairs, not a flag — wrapping once regardless of the count would silently give
+ * `int v[][]` the type int[]. */
+static java_type_t declarator_type(sema_ctx_t* ctx, java_type_t base, int32_t dims) {
+    for (int32_t i = 0; i < dims; i++) base = jt_array(arena_type(ctx, base));
+    return base;
+}
+
 static const char* arena_strdup(sema_ctx_t* ctx, const char* s) {
     if (!s) return NULL;
     size_t len = strlen(s) + 1;
@@ -1546,8 +1555,7 @@ static void register_members(sema_ctx_t* ctx) {
                         }
                     }
                     if (dup) continue;
-                    java_type_t vtype = ftype;
-                    if (vd->dims > 0) vtype = jt_array(arena_type(ctx, ftype));
+                    java_type_t vtype = declarator_type(ctx, ftype, vd->dims);
                     sema_field_t sf = {
                         .name = arena_strdup(ctx, vd->name),
                         .type = vtype,
@@ -2928,8 +2936,7 @@ static void analyze_stmt(sema_ctx_t* ctx, ast_stmt_t* s) {
         bool is_final = (lmods & ACC_FINAL) != 0;
         for (int i = 0; i < s->local_var_decl.decls_count; i++) {
             ast_var_decl_t* vd = s->local_var_decl.decls[i];
-            java_type_t vtype = ty;
-            if (vd->dims > 0) vtype = jt_array(arena_type(ctx, ty));
+            java_type_t vtype = declarator_type(ctx, ty, vd->dims);
             if (vd->init) {
                 java_type_t init_type = analyze_expr(ctx, vd->init);
                 int32_t cv = 0;
@@ -3412,8 +3419,7 @@ static void analyze_bodies(sema_ctx_t* ctx) {
                         for (int di = 0; di < fm->field_decl.decls_count; di++) {
                             ast_var_decl_t* vd = fm->field_decl.decls[di];
                             if (vd->init) {
-                                java_type_t vtype = ftype;
-                                if (vd->dims > 0) vtype = jt_array(arena_type(ctx, ftype));
+                                java_type_t vtype = declarator_type(ctx, ftype, vd->dims);
                                 scope_push(ctx);
                                 /* §8.3.3: in a static field init, only
                                  * fields declared before this one are
