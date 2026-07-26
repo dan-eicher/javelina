@@ -45,8 +45,22 @@ void jav_capi_set_probe(wasm_store_t* s, void (*cb)(void* ctx, uint8_t op), void
 // jav_capi_jit_count returns how many funcinsts the store actually placed on the JIT tier — 0 on a
 // default engine. It is the observable that distinguishes "asked for the JIT" from "got the JIT"
 // (a body carrying a `flag:no_jit` opcode falls back to the interpreter rather than failing).
+//
+// jav_config_set_verify_heap asks the collector to check its own invariants at the end of every
+// collection. Corruption surfaces two or three collections after its cause, so the end of the
+// cycle that produced it is the only place it can still be attributed. Off by default (it walks
+// the whole reachable graph); a config option rather than a build flag because the programs worth
+// checking are the ones the shipped binaries run.
+//
+// A violation is an ENGINE defect, and it is reported the way stack exhaustion is: the vm stops
+// executing guest code and the host gets a wasm_trap_t whose message names the invariant, with
+// jav_capi_last_status reading JAV_TRAP. The store is then finished — every later call on it
+// returns the same trap rather than running on a heap known to be unsound. The engine does NOT
+// end the process: it is a library, and one that aborts turns any bug an attacker can provoke
+// into a way to kill the application. §1.1.3 places that policy with the embedder.
 typedef struct wasm_config_t wasm_config_t;
 void     jav_config_set_jit(wasm_config_t* c, int jit);
+void     jav_config_set_verify_heap(wasm_config_t* c, int on);
 uint32_t jav_capi_jit_count(const wasm_store_t* s);
 
 #endif // JAV_EXTERN_H

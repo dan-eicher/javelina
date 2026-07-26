@@ -76,6 +76,10 @@ s8   mem_grow_inst(jav_mem_t* m, s8 delta);
 
 /* Bind the heap's collector (Immix today) with the runtime's root source = `vm`. */
 void      jav_heap_gc_init(heap_t* heap, vm_t* vm);
+/* Arm (or disarm) the collector's heap-invariant checker. On a violation the vm stops executing
+ * guest code and the outcome reaches the host as a trap carrying the invariant's name — the engine
+ * never ends the host process. Off by default: the check walks the whole reachable graph. */
+void      jav_heap_gc_verify(heap_t* heap, vm_t* vm, int on);
 void      jav_heap_gc_destroy(heap_t* heap);
 /* Allocate a `size`-byte managed object of type `rtt` through the heap's collector. */
 gc_obj_t* jav_gc_new(vm_t* vm, const gc_rtt_t* rtt, u4 size);

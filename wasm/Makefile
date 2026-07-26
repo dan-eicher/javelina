@@ -197,7 +197,7 @@ $(GC_OBJS): $(B)/%.o: src/immix/%.c | $(B)
 # ── the ported Immix GC engine (standalone: pure C, bbq_vec, no generated runtime) ──
 IMMIX_SRC    := src/immix/immix_line_map.c src/immix/immix_block.c \
                 src/immix/immix_block_allocator.c src/immix/immix_space.c src/immix/jav_gc.c
-IMMIX_TESTS  := test_immix_line test_immix_block test_immix_pool test_immix_space test_gc test_gc_churn test_gc_evac_stress test_gc_los
+IMMIX_TESTS  := test_immix_line test_immix_block test_immix_pool test_immix_space test_gc test_gc_churn test_gc_evac_stress test_gc_los test_gc_verify
 IMMIX_CFLAGS := -O2 -std=c11 -Wall -Werror -Isrc/immix -I$(CRT)
 
 # ── tests ──────────────────────────────────────────────────────────

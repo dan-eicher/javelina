@@ -251,6 +251,12 @@ struct vm_s {
                                           * guard through OPGEN_GUARD_TRAP, or named directly by a
                                           * substrate native. JAV_TRAP_NONE (0) = cause not yet carried;
                                           * the vocabulary is generated from instructions.toml. */
+    const char* engine_fault;           /* An ENGINE defect, not a program one: the heap checker's named
+                                         * invariant (a static string). It is not a trap_reason because that
+                                         * vocabulary is the spec's, generated from instructions.toml, and no
+                                         * spec trap describes a broken collector. Once set the vm is finished
+                                         * — execution stops like stack exhaustion, and the store refuses to
+                                         * run again rather than execute on a heap known to be unsound. */
     const void* dispatch;               /* the interp's per-vm dispatch table (Titzer's DISPATCH register);
                                          * void* avoids coupling this header to gen_interp.h's handler type */
     void (*probe)(struct vm_s*, u1 op); /* §3.3.3 instrumentation seam: if set, called by jav_next BEFORE

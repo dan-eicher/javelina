@@ -141,6 +141,134 @@ static size_t evac_headroom(const gc_heap_t* h) {
     return n < 1 ? 1 : n;
 }
 
+/* ── The heap-invariant checker (see jav_gc.h) ───────────────────────────────── */
+
+#define GC_VFAIL(inv, obj, det) do { \
+        v->fail.invariant = (inv); v->fail.object = (obj); v->fail.detail = (det); \
+        return; \
+    } while (0)
+
+typedef struct {
+    gc_heap_t*  h;
+    gc_verify_t fail;
+    gc_obj_t**  work;      /* bbq_vec: transitive walk, mirroring gc_collect's */
+    gc_obj_t**  seen;      /* bbq_vec: visited, so a cycle terminates */
+} gc_verify_ctx_t;
+
+static bool gcv_seen(gc_verify_ctx_t* v, const gc_obj_t* o) {
+    for (int i = 0; i < (int)bbq_vec_len(v->seen); i++) if (v->seen[i] == o) return true;
+    return false;
+}
+
+/* Is `o` a live LOS entry? Large objects are malloc'd, so they are in no block and the
+ * block-residency checks below must not run on them. */
+static bool gcv_in_los(gc_heap_t* h, const gc_obj_t* o) {
+    for (int i = 0; i < (int)bbq_vec_len(h->large_objs); i++) if (h->large_objs[i] == o) return true;
+    return false;
+}
+
+static bool gcv_block_known(imx_space_t* s, const imx_block_t* b) {
+    for (int i = 0; i < (int)bbq_vec_len(s->all_blocks); i++) if (s->all_blocks[i] == b) return true;
+    return false;
+}
+
+/* Check one reference and enqueue its target. `slot` is where the reference lives, so a
+ * failure can say WHICH field pointed at the bad object rather than only naming the object. */
+static void gcv_visit(gc_verify_ctx_t* v, gc_obj_t* o, const void* slot) {
+    if (v->fail.invariant) return;
+    if (!o) return;
+    if ((uintptr_t)o & (IMX_OBJECT_ALIGN - 1u)) return;   /* a tagged non-pointer (ref.i31) */
+    if (gcv_seen(v, o)) return;
+    bbq_vec_push(v->seen, o);
+
+    gc_heap_t* h = v->h;
+
+    if (!o->rtt) GC_VFAIL("header: reachable object has a NULL rtt", o, slot);
+
+    /* THE forwarding invariant, and the one a missed slot update trips. When a collection
+     * has finished, every reference to an evacuated object must have been rewritten to its
+     * new address — so nothing REACHABLE may still be a forwarding source. */
+    if (o->forward)
+        GC_VFAIL("forwarding: a reachable reference still points at an EVACUATED source "
+                 "(its slot was never updated)", o, slot);
+
+    /* gc_obj_live is the authority for "marked this cycle" — the epoch is bumped at the end
+     * of gc_collect, so a survivor carries epoch == h->epoch - 1, not h->epoch. */
+    if (!gc_obj_live(h, o))
+        GC_VFAIL("mark: a reachable object is not marked live for this epoch", o, slot);
+
+    uint32_t sz = gc_obj_size(o);
+    if (sz == 0) GC_VFAIL("size: reachable object computes a zero size", o, slot);
+
+    if (sz > IMX_MEDIUM_MAX) {
+        if (!gcv_in_los(h, o))
+            GC_VFAIL("LOS: an object larger than a block's data area is not in large_objs", o, slot);
+    } else {
+        imx_block_t* b = imx_block_of(o);
+        if (!gcv_block_known(&h->space, b))
+            GC_VFAIL("residency: reachable object is not inside any block this space owns", o, b);
+        uint8_t* ds = imx_block_data_start(b);
+        uint8_t* de = imx_block_data_end(b);
+        if ((uint8_t*)o < ds || (uint8_t*)o + sz > de)
+            GC_VFAIL("residency: object straddles or sits outside its block's data region", o, b);
+        /* The lines the object occupies must be marked, or the allocator may hand its storage
+         * out again while it is still reachable. The rule is imx_block_mark_object's, not a
+         * stricter one of our own: CONSERVATIVE line marking marks the line of the object's
+         * start, and only spans further when the object is larger than a line — a small object
+         * straddling two lines leaves the second unmarked on purpose, and imx_lb_next_hole
+         * compensates by skipping the first free line after a marked run. */
+        size_t first = imx_line_of(o);
+        size_t last  = sz > IMX_LINE_SIZE
+                     ? imx_line_of((const void*)((uintptr_t)o + sz - 1)) : first;
+        for (size_t ln = first; ln <= last; ln++)
+            if (!imx_lb_test(&b->line_marks, ln))
+                GC_VFAIL("line map: a live object occupies a line the map records as free", o, b);
+    }
+    bbq_vec_push(v->work, o);
+}
+
+static void gcv_root(gc_obj_t** slot, void* ctx) {
+    gc_verify_ctx_t* v = (gc_verify_ctx_t*)ctx;
+    gcv_visit(v, *slot, slot);
+}
+
+bool gc_verify(gc_heap_t* h, gc_verify_t* out) {
+    gc_verify_ctx_t v = { h, { NULL, NULL, NULL }, NULL, NULL };
+
+    h->enum_roots(h, gcv_root, &v);
+    while (!v.fail.invariant && bbq_vec_len(v.work)) {
+        gc_obj_t* o = bbq_vec_pop(v.work);
+        const gc_rtt_t* rtt = o->rtt;
+        if (rtt->kind == GC_KIND_ARRAY) {
+            if (rtt->elem_is_ref) {
+                uint32_t len = *(uint32_t*)((uint8_t*)o + sizeof(gc_obj_t));
+                gc_obj_t** e = (gc_obj_t**)((uint8_t*)o + sizeof(gc_obj_t) + GC_ARRAY_ELEMS_OFFSET);
+                for (uint32_t i = 0; i < len && !v.fail.invariant; i++) gcv_visit(&v, e[i], &e[i]);
+            }
+        } else {
+            for (uint32_t i = 0; i < rtt->nrefs && !v.fail.invariant; i++) {
+                gc_obj_t** f = (gc_obj_t**)((uint8_t*)o + rtt->ref_offsets[i]);
+                gcv_visit(&v, *f, f);
+            }
+        }
+    }
+
+    /* The LOS half: a swept list must contain only this epoch's survivors. An entry the
+     * sweep should have freed is a leak; one freed while reachable would have failed above. */
+    for (int i = 0; !v.fail.invariant && i < (int)bbq_vec_len(h->large_objs); i++) {
+        gc_obj_t* o = h->large_objs[i];
+        if (!o) { v.fail.invariant = "LOS: a NULL entry survived the sweep"; v.fail.object = NULL; break; }
+        if (!gc_obj_live(h, o)) {
+            v.fail.invariant = "LOS: an entry that is not marked for this epoch survived the sweep";
+            v.fail.object = o;
+        }
+    }
+
+    bbq_vec_free(v.work); bbq_vec_free(v.seen);
+    if (out) *out = v.fail;
+    return v.fail.invariant == NULL;
+}
+
 void gc_collect(gc_heap_t* h) {
     imx_space_clear_marks(&h->space);
     imx_space_begin_evacuation(&h->space, evac_headroom(h));
@@ -178,15 +306,28 @@ void gc_collect(gc_heap_t* h) {
         size_t base = h->bytes_allocated > h->gc_threshold ? h->bytes_allocated : h->gc_threshold;
         h->gc_threshold = base + base / 2;
     }
+
+    /* The oracle, opt-in. Corruption surfaces two or three collections after its cause, so the
+     * only place it can be attributed is HERE, at the end of the cycle that produced it. What
+     * happens next is the embedder's call, not ours: this is a library, and a library that ends
+     * its host's process hands anyone who can provoke the bug a way to kill the application. */
+    if (h->on_corruption) {
+        gc_verify_t r;
+        if (!gc_verify(h, &r)) h->on_corruption(h->on_corruption_ctx, &r);
+    }
 }
 
 /* ── Immix as a swappable collector ── */
 static gc_obj_t* immix_v_alloc(void* self, const gc_rtt_t* rtt, uint32_t size) { return gc_alloc((gc_heap_t*)self, rtt, size); }
 static void      immix_v_collect(void* self)                    { gc_collect((gc_heap_t*)self); }
 static void      immix_v_destroy(void* self)                    { gc_heap_destroy((gc_heap_t*)self); free(self); }
+static void      immix_v_set_handler(void* self, void (*cb)(void*, const gc_verify_t*), void* ctx) {
+    gc_heap_t* h = (gc_heap_t*)self;
+    h->on_corruption = cb; h->on_corruption_ctx = ctx;
+}
 
 jav_collector_t jav_immix_collector_create(gc_enum_roots_fn enum_roots, void* user) {
     gc_heap_t* h = malloc(sizeof *h);
     gc_heap_init(h, enum_roots, user);
-    return (jav_collector_t){ h, immix_v_alloc, immix_v_collect, immix_v_destroy };
+    return (jav_collector_t){ h, immix_v_alloc, immix_v_collect, immix_v_destroy, immix_v_set_handler };
 }

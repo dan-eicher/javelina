@@ -690,8 +690,26 @@ static void jav_gc_enum_roots(gc_heap_t* gch, gc_root_visit_fn visit, void* ctx)
     if (vm->extra_roots) vm->extra_roots(vm->extra_roots_ctx, (jav_root_visit_fn)visit, ctx);
 }
 
+/* The heap checker found a broken invariant. This is the engine's own defect, so it is reported
+ * the way stack exhaustion is — stop executing guest code and hand the outcome to the host — and
+ * NOT by ending the process: javelina is a library, and a library that aborts turns any bug an
+ * attacker can provoke into a way to kill the application. §1.1.3 puts the policy on the embedder
+ * ("Such considerations are an embedder's responsibility"), so all that happens here is that the
+ * vm stops. The invariant is a static string; retaining the pointer is safe. */
+static void jav_gc_corruption(void* ctx, const gc_verify_t* what) {
+    vm_t* vm = (vm_t*)ctx;
+    vm->engine_fault = what->invariant ? what->invariant : "heap invariant violated";
+    vm->trapped = 1;
+    vm->frame.code.pos = vm->frame.code.length;   /* bail at the next check, as jav_call_fn does */
+}
+
 void jav_heap_gc_init(heap_t* heap, vm_t* vm) {
     heap->gc = jav_immix_collector_create(jav_gc_enum_roots, vm);
+}
+
+void jav_heap_gc_verify(heap_t* heap, vm_t* vm, int on) {
+    if (heap->gc.set_corruption_handler)
+        heap->gc.set_corruption_handler(heap->gc.self, on ? jav_gc_corruption : NULL, vm);
 }
 
 /* ── host externref boxing (§4.5.1 ref.host) ─────────────────────────────────

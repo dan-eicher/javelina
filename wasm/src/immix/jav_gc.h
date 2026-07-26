@@ -15,6 +15,7 @@
 
 #include "immix_space.h"
 #include <stdint.h>
+#include <stdbool.h>
 
 /* Run-time type descriptor: object layout for alloc + tracing. `size` is the total
  * object size (header + payload); `ref_offsets` are byte offsets from the object
@@ -62,6 +63,7 @@ typedef struct gc_obj {
 } gc_obj_t;
 
 struct gc_heap;
+struct gc_verify;   /* the checker's verdict, defined below with the checker itself */
 typedef void (*gc_root_visit_fn)(gc_obj_t** slot, void* ctx);
 /* The embedder enumerates its roots, calling `visit(&slot, ctx)` for each slot that
  * holds a GC reference (the collector may rewrite *slot to a forwarded address). */
@@ -85,7 +87,39 @@ typedef struct gc_heap {
     size_t           bytes_allocated;     /* live + floating bytes since the last collection */
     size_t           gc_threshold;        /* collect when bytes_allocated would cross this */
     size_t           live_bytes;          /* survivors of the in-progress collection (tracer sums it) */
+    /* Non-NULL ⇒ run gc_verify at the end of every collection and report a violation here. It is
+     * both the switch and the policy in one field: a checker armed with nowhere to report has no
+     * answer but to kill the process, which is the thing a library must never do. NULL (default)
+     * means the check does not run — it walks the whole reachable graph. */
+    void           (*on_corruption)(void* ctx, const struct gc_verify* what);
+    void*            on_corruption_ctx;
 } gc_heap_t;
+
+/* ── The heap-invariant checker ──────────────────────────────────────────────
+ *
+ * "It didn't crash" proves nothing about a collector: corruption surfaces two or three
+ * collections later as a mangled graph, by which time the cause is gone. This walks the
+ * REACHABLE graph after a collection and checks the invariants that must hold, naming the
+ * first one that does not.
+ *
+ * It walks from the ROOTS, not over the blocks: imx_block_for_each_object reads the
+ * object-start bitmap, which is never cleared on reclaim or block reuse, so it yields the
+ * accumulated union of every object ever started at each word — a block walk reads dead
+ * headers. Reachability is the only honest enumeration.
+ *
+ * The second half of the point (Wasmtime's framing) is that this catches heap corruption
+ * "or misoptimizations in our compiler": a wrongly-dropped ArrayStore check or a bad
+ * memory-DSE writes a heap no compiler unit test would ever look at.
+ *
+ * Returns true when the heap is sound. On failure `out` names the invariant and the object
+ * it failed on — never just a boolean, and never a crash. */
+typedef struct gc_verify {
+    const char* invariant;   /* NULL iff the heap verified; a static string, safe to retain */
+    const gc_obj_t* object;  /* the object the invariant failed on, if any */
+    const void* detail;      /* the referring slot / block, when it aids triage */
+} gc_verify_t;
+
+bool      gc_verify(gc_heap_t* h, gc_verify_t* out);
 
 void      gc_heap_init(gc_heap_t* h, gc_enum_roots_fn enum_roots, void* user);
 void      gc_heap_destroy(gc_heap_t* h);
@@ -106,6 +140,11 @@ typedef struct {
     gc_obj_t* (*alloc)(void* self, const gc_rtt_t* rtt, uint32_t size);
     void      (*collect)(void* self);
     void      (*destroy)(void* self);
+    /* Ask the collector to check its own invariants after every collection and report a violation
+     * to `cb`. On the vtable rather than reached through `self` so the store never casts to a
+     * collector it does not name; NULL for one that has no checker. The collector DETECTS; what to
+     * do about it belongs to the embedder, per §1.1.3 ("an embedder's responsibility"). */
+    void      (*set_corruption_handler)(void* self, void (*cb)(void*, const struct gc_verify*), void* ctx);
 } jav_collector_t;
 
 /* Build a collector backed by the ported Immix engine (heap-allocates the gc_heap;

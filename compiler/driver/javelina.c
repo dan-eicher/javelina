@@ -23,6 +23,7 @@ extern int         jav_capi_last_error(const wasm_store_t* store);
 extern const char* jav_err_str(int err);
 extern void        jav_capi_set_probe(wasm_store_t*, void (*)(void*, uint8_t), void*);
 extern void        jav_config_set_jit(wasm_config_t*, int);
+extern void        jav_config_set_verify_heap(wasm_config_t*, int);
 extern uint32_t    jav_capi_jit_count(const wasm_store_t*);
 
 /* Where `make install` puts the runtime. Overridden by the build (-DJAVELINA_JRE_PATH=...). */
@@ -47,6 +48,8 @@ static int usage(FILE* f, int code) {
         "  --root DIR        filesystem root guest paths resolve under (default: cwd)\n"
         "  -nojit            run the interpreter tier (default)\n"
         "  -jit              run the copy-and-patch JIT tier\n"
+        "  --verify-heap     check the collector's invariants after every collection and\n"
+        "                    abort naming the one that failed (slow; walks the live graph)\n"
         "  --version         print the version and exit\n"
         "  -h, --help        print this help and exit\n",
         prog_name, JAVELINA_JRE_PATH);
@@ -73,10 +76,11 @@ static struct {
     wasm_exporttype_vec_t expt; wasm_extern_vec_t exp;
 } jre;
 
-static bool jre_init(const uint8_t* bytes, size_t len, int jit) {
-    if (jit) {
+static bool jre_init(const uint8_t* bytes, size_t len, int jit, int verify_heap) {
+    if (jit || verify_heap) {
         wasm_config_t* cfg = wasm_config_new();
-        jav_config_set_jit(cfg, 1);
+        if (jit) jav_config_set_jit(cfg, 1);
+        if (verify_heap) jav_config_set_verify_heap(cfg, 1);
         jre.engine = wasm_engine_new_with_config(cfg);   /* consumes cfg */
     } else {
         jre.engine = wasm_engine_new();
@@ -210,7 +214,7 @@ int main(int argc, char** argv) {
     const char* root      = ".";
     const char* prog_path = NULL;
     int prog_argc = 0; char** prog_argv = NULL;
-    int want_jit = 0;
+    int want_jit = 0, want_verify = 0;
 
     int i = 1;
     for (; i < argc; i++) {
@@ -222,6 +226,7 @@ int main(int argc, char** argv) {
         else if (!strcmp(a, "--root")) { if (++i >= argc) return usage(stderr, 2); root = argv[i]; }
         else if (!strcmp(a, "-jit")  || !strcmp(a, "--jit"))   want_jit = 1;
         else if (!strcmp(a, "-nojit")|| !strcmp(a, "--nojit")) want_jit = 0;
+        else if (!strcmp(a, "--verify-heap")) want_verify = 1;
         else if (a[0] == '-' && a[1]) { fprintf(stderr, "%s: unknown option '%s'\n", prog_name, a); return usage(stderr, 2); }
         else { prog_path = a; prog_argv = &argv[i + 1]; prog_argc = argc - i - 1; break; }
     }
@@ -257,7 +262,7 @@ int main(int argc, char** argv) {
     g_io_props  = runner_props;
 
     int rc = 1;
-    if (!jre_init(jbytes, jlen, want_jit)) goto out;
+    if (!jre_init(jbytes, jlen, want_jit, want_verify)) goto out;
 
     plugin_t p;
     if (!plugin_link(&p, pbytes, plen)) goto out;

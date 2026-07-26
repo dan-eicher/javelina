@@ -455,11 +455,14 @@ typedef struct {
     jav_functype_t   jtype;       // {jparams, nparams, NULL, 0} — the import-match key
 } capi_tag_t;
 
-// The embedder-options object wasm.h leaves opaque and field-less. javelina's one option is the
-// execution tier; an engine carries the choice, and every store built on it hands it to the
-// instantiator, which places each defined function on the copy-and-patch tier (jav_extern.h).
-struct wasm_config_t { uint8_t jit; };
-struct wasm_engine_t { uint8_t jit; };
+// The embedder-options object wasm.h leaves opaque and field-less. javelina's options are the
+// execution tier and the heap checker; an engine carries the choice, and every store built on it
+// hands it to the instantiator, which places each defined function on the copy-and-patch tier
+// (jav_extern.h). `verify_heap` runs gc_verify at the end of every collection and aborts on a
+// violation — the only point at which corruption can still be attributed to the cycle that caused
+// it. An option rather than a build flag: it is the release binaries the corpus runs.
+struct wasm_config_t { uint8_t jit, verify_heap; };
+struct wasm_engine_t { uint8_t jit, verify_heap; };
 struct wasm_store_t  {
     wasm_engine_t* engine; vm_t vm; heap_t heap;
     capi_global_t** host_globals;   // bbq_vecs: host-created store objects, kept for GC rooting
@@ -545,11 +548,12 @@ static void exn_unroot(wasm_store_t* s, wasm_exception_t* e) {
 wasm_config_t* wasm_config_new(void) { return calloc(1, sizeof(wasm_config_t)); }
 void wasm_config_delete(wasm_config_t* c) { free(c); }
 void jav_config_set_jit(wasm_config_t* c, int jit) { if (c) c->jit = jit ? 1 : 0; }
+void jav_config_set_verify_heap(wasm_config_t* c, int on) { if (c) c->verify_heap = on ? 1 : 0; }
 
 wasm_engine_t* wasm_engine_new(void) { return calloc(1, sizeof(wasm_engine_t)); }
 wasm_engine_t* wasm_engine_new_with_config(wasm_config_t* c) {   // consumes c (wasm.h: `own`)
     wasm_engine_t* e = wasm_engine_new();
-    if (e && c) e->jit = c->jit;
+    if (e && c) { e->jit = c->jit; e->verify_heap = c->verify_heap; }
     wasm_config_delete(c);
     return e;
 }
@@ -566,6 +570,7 @@ wasm_store_t* wasm_store_new(wasm_engine_t* engine) {
     s->vm.extra_roots = capi_extra_roots; s->vm.extra_roots_ctx = s;   // root host-created objects
     s->vm.on_inst_alloc = capi_track_inst; s->vm.on_inst_alloc_ctx = s;   // §4.7.2 step 24: root each instance from allocation
     jav_heap_gc_init(&s->heap, &s->vm);   // a live collector — GC modules + host externref boxes
+    if (engine && engine->verify_heap) jav_heap_gc_verify(&s->heap, &s->vm, 1);
     return s;
 }
 void wasm_store_delete(wasm_store_t* s) {
@@ -1144,6 +1149,11 @@ wasm_trap_t* wasm_func_call(const wasm_func_t* f, const wasm_val_vec_t* args, wa
         if (fn->inst_ctx) vm->frame.ctx = fn->inst_ctx;  // so a host callback re-entering the engine can't
     }                                                 //   corrupt the suspended guest's context (frame.ctx rides the frame).
 
+    // A heap the checker has already condemned does not get to run guest code again. Refusing
+    // here — before any argument is boxed into it — is what keeps a detected corruption from
+    // becoming an exploited one, and it costs the host nothing but a dead store.
+    if (vm->engine_fault) { vm->frame = outer; return trap_make(vm->engine_fault); }
+
     // Push args as the initial operand stack (params occupy the low slots). sp advances per
     // arg so an externref box already placed is a GC root before the next box is allocated.
     vm->frame.sp = 0;
@@ -1172,7 +1182,13 @@ wasm_trap_t* wasm_func_call(const wasm_func_t* f, const wasm_val_vec_t* args, wa
         // The message is the §7.10 reason the raise site named, which is what a
         // conformance runner matches an assert_trap string against. Reasons the
         // engine does not carry yet fall back to the bare "trap".
-        wasm_trap_t* t = trap_make(jav_trap_reason_str((jav_trap_reason_t)vm->trap_reason));
+        // An engine fault outranks the §7.10 reason: the program did nothing wrong, the collector
+        // did. It is carried as the trap's MESSAGE (as "uncaught exception" below is) rather than
+        // as a trap_reason, because that vocabulary is generated from the spec's table and no spec
+        // trap describes a broken heap.
+        wasm_trap_t* t = trap_make(vm->engine_fault
+                                 ? vm->engine_fault
+                                 : jav_trap_reason_str((jav_trap_reason_t)vm->trap_reason));
         t->inst = in;
         size_t n = (size_t)bbq_vec_len(vm->trap_trace);
         t->nframes = n; t->frames = n ? malloc(n * sizeof(uint32_t)) : NULL;

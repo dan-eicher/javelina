@@ -103,13 +103,30 @@ nullable, hence defaultable."* So no Java program can exercise a non-null ref,
 and this corpus does not pretend to. It belongs to the stage that emits raw
 modules.
 
-### What a Java-level oracle cannot do
+### What a Java-level oracle cannot do — and the checker that closes it
 
 Breaking the tracer so it skips the last reference field of every struct makes
 this corpus **segfault** rather than name an invariant — a dangling reference
 faults before any Java check can run. The gate still fails, loudly, but that is
-the ceiling of an in-program oracle and it is the gap a heap-invariant checker on
-the C side is for.
+the ceiling of an in-program oracle.
+
+That gap is why one config runs again under `--verify-heap`: the collector checks
+its own invariants at the end of every collection. Measured on the same sabotage
+(dropping the forwarding-slot update in `gc_mark1`):
+
+| | without the checker | with it |
+|---|---|---|
+| where it surfaces | one kernel later, inside a jre function | the collection that caused it |
+| what you are told | `uncaught trap: null structure reference` | `forwarding: a reachable reference still points at an EVACUATED source` |
+
+Both fail the gate. Only one names the defect.
+
+A violation is an **engine** defect, so it stops the vm and reaches the host as a
+trap carrying the invariant's name, and the store then refuses to run again — the
+engine never ends the host process. A library that aborts turns any bug an
+attacker can provoke into a way to kill the application, and §1.1.3 places that
+policy with the embedder. `wasm/test/test_gc_verify.c` pins both halves: six
+invariants, each deliberately broken, plus the reporting path itself.
 
 ## What it has found
 

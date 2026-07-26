@@ -157,5 +157,42 @@ for cfg in O0-jit O-interp O-jit; do
     fi
 done
 
+# ── the heap-invariant checker, over the corpus ─────────────────────────────
+# The four configs above agree on a checksum; that is a strong oracle for VALUES
+# and a weak one for the HEAP. A collector can leave a stale forwarding pointer,
+# an unmarked live object or an inconsistent line map and still hand back every
+# right answer for several collections — which is exactly what happened here:
+# breaking gc_mark1's forwarding update changed no checksum anywhere in this
+# corpus back when evacuation never ran.
+#
+# So one config runs again with the collector checking its own invariants after
+# every collection (--verify-heap). A violation stops the vm and surfaces as a trap
+# naming the invariant, at the end of the cycle that broke it — the only point where
+# the cause is still attributable. -O -jit is the config chosen: the most optimizer
+# transformation and the tier whose stencils write heap references directly, i.e.
+# the one where a wrongly-dropped ArrayStore check or a bad memory-DSE would land.
+#
+# Its RESULT lines join the star-diff, so this leg cannot pass by not running.
+if $B/javelina --jre $B/conf-jre-O.wasm -jit --verify-heap $B/conf-gct-O.wasm \
+               "$ARG" "$SEED" > $B/conf-verify.out 2> $B/conf-verify.err; then
+    awk '/^RESULT/' $B/conf-verify.out > $B/conf-verify.chk
+    if diff $B/conf-ref.chk $B/conf-verify.chk > /dev/null; then
+        echo "  ....  gc-torture O-jit under --verify-heap"
+    else
+        echo "  FAIL  gc-torture --verify-heap: results differ from O0-interp"
+        diff $B/conf-ref.chk $B/conf-verify.chk | sed 's/^/        | /' || true
+        echo "java e2e conformance: 0 passed, 1 failed"
+        exit 1
+    fi
+else
+    echo "  FAIL  gc-torture --verify-heap (exit $?, seed $SEED) — a heap invariant broke"
+    sed 's/^/        | /' $B/conf-verify.out
+    sed 's/^/        | /' $B/conf-verify.err
+    echo "        replay: $B/javelina --jre $B/conf-jre-O.wasm -jit --verify-heap \\"
+    echo "                $B/conf-gct-O.wasm $ARG $SEED"
+    echo "java e2e conformance: 0 passed, 1 failed"
+    exit 1
+fi
+
 echo "  PASS  gc-torture ($EXPECT_KERNELS kernels × 4 configs agree, seed $SEED, $MODE)"
 echo "java e2e conformance: 1 passed, 0 failed"
