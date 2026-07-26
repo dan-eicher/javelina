@@ -55,6 +55,12 @@ EXPECT_KERNELS=11
 
 fail=0
 
+# ── the JLS coverage ledger ─────────────────────────────────────────────────
+# Runs first and needs no build: it gates the INVENTORY, not the programs. Every leaf
+# section of java-langspec-1.0.pdf has a row, and a dropped row fails here rather than
+# silently shrinking what "covered" means.
+sh conformance/check-ledger.sh
+
 # ── artifacts ───────────────────────────────────────────────────────────────
 # Built here rather than assumed: this target has no prerequisites, so a bare
 # `make test-java-conformance` has to stand on its own. javelina links the VM's
