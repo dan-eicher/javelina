@@ -456,6 +456,12 @@ int main(void) {
           { "", "V128[] a = new V128[3]; a[1] = I32x4.splat(7);"
                 " return mix(a[1]) + I32x4.extract_lane(a[0], 3);", 70,
             "V128[] element: array.new default + set/get (lane 3 of the default read)" },
+          { "", "Object o = new V128[3]; V128[] a = (V128[]) o; a[1] = I32x4.splat(7);"
+                " return mix(a[1]) + I32x4.extract_lane(a[0], 3);", 70,
+            "V128[] through Object and back: (V128[]) casts to the V128Array overlay" },
+          { "", "Object o = new V128[3];"
+                " return (o instanceof V128[] ? 70 : 0) + (o instanceof int[] ? 5 : 0);", 70,
+            "instanceof V128[] is precise: true for V128[], false for int[]" },
           { "", "int z = mix(G.g); G.g = I32x4.splat(5); return z + mix(G.g);", 50,
             "v128 MODULE GLOBAL: v128.const init + mutable set/get" },
           { "", "B b = new D(); return mix(b.m(I32x4.splat(10)));", 110,

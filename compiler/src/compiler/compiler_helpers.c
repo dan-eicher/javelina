@@ -804,13 +804,16 @@ sema_cast_kind_t ddcg_sema_cast_kind(ddcg_ctx_t* ctx, ast_expr_t* expr) {
     if (tgt.tag == JT_CLASS)
         return CastClass(ctx, tgt.class_id);
     if (tgt.tag == JT_ARRAY && tgt.element) {
-        /* A single-dim primitive array IS precisely its PrimArray overlay → plain ref.cast the
-         * struct. A reference/multi-dim array shares one RefArray struct, so its element type
-         * needs the §15.19.2 runtime Class.isInstance check before the (structural) ref.cast. */
-        if (jt_is_numeric(*tgt.element) || tgt.element->tag == JT_BOOL) {
+        /* A single-dim array of a NON-REFERENCE element IS precisely its PrimArray overlay →
+         * plain ref.cast the struct. A reference/multi-dim array shares one RefArray struct, so
+         * its element type needs the §15.19.2 runtime Class.isInstance check before the
+         * (structural) ref.cast. The §4.2 predicate is the divider, not a list of tags: V128 is
+         * not a JLS numeric type but it is the 8th packed width and has its own overlay, and
+         * spelling the rule as "numeric or boolean" sent V128[] down the reflect path to a
+         * structural cast at RefArray — a type mismatch the module validator rejected. */
+        if (!jt_is_reference(*tgt.element)) {
             int overlay = lat_array_overlay_class(ctx->sema, tgt);
-            if (overlay < 0) overlay = lat_refarray_class(ctx->sema);
-            return CastClass(ctx, overlay);
+            if (overlay >= 0) return CastClass(ctx, overlay);
         }
         return CastArrayReflect(ctx, sema_array_class_id(ctx->sema, tgt));
     }
@@ -860,10 +863,10 @@ sema_instanceof_kind_t ddcg_sema_instanceof_kind(ddcg_ctx_t* ctx, ast_expr_t* ex
     if (tgt.tag == JT_CLASS)
         return InstanceOfClass(ctx, tgt.class_id);
     if (tgt.tag == JT_ARRAY && tgt.element) {
-        if (jt_is_numeric(*tgt.element) || tgt.element->tag == JT_BOOL) {
+        /* Same divider as the cast above, and for the same reason — one rule, both sites. */
+        if (!jt_is_reference(*tgt.element)) {
             int overlay = lat_array_overlay_class(ctx->sema, tgt);
-            if (overlay < 0) overlay = lat_refarray_class(ctx->sema);
-            return InstanceOfClass(ctx, overlay);
+            if (overlay >= 0) return InstanceOfClass(ctx, overlay);
         }
         return InstanceOfArrayReflect(ctx, sema_array_class_id(ctx->sema, tgt));
     }
