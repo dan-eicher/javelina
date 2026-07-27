@@ -116,6 +116,29 @@ public final class Stitching {
         for (int i = 0; i < kids.length; i++) kids[i].collect(into);
     }
 
+    /** Companion type declarations this stitching needs, its children's included. Deduplicated
+     *  by text, because a helper reached through two different holes is still one declaration
+     *  and a case is one compilation unit. */
+    public void collectDecls(java.util.Vector into) {
+        if (snip instanceof Declaring) {
+            String[] d = ((Declaring) snip).decls();
+            for (int i = 0; i < d.length; i++) if (!into.contains(d[i])) into.addElement(d[i]);
+        }
+        for (int i = 0; i < kids.length; i++) kids[i].collectDecls(into);
+    }
+
+    /** Single-type-import names this stitching needs, its children's included. Deduplicated for
+     *  the same reason as decls(): §7.5 makes importing the same name twice legal but importing
+     *  two different types under one simple name an error, so one entry per name is also the
+     *  form that would surface such a clash. */
+    public void collectImports(java.util.Vector into) {
+        if (snip instanceof Declaring) {
+            String[] m = ((Declaring) snip).imports();
+            for (int i = 0; i < m.length; i++) if (!into.contains(m[i])) into.addElement(m[i]);
+        }
+        for (int i = 0; i < kids.length; i++) kids[i].collectImports(into);
+    }
+
     /** 1 for a leaf; 1 + the deepest child otherwise. */
     public int depth() {
         int d = 0;

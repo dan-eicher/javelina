@@ -13,7 +13,27 @@
 # wants explaining rather than absorbing. The distinction is the whole point, so a raise
 # carries its reason here.
 #
-# 368 -> 325 (this commit): NOT new tests — coverage that already existed and was not being
+# 321 -> 319 (this commit): §4.4 and §4.5.3, the last two rows of chapter 4, by giving the
+# generator the one capability it lacked. Both sections are ABOUT declarations — §4.5.3 names
+# seven kinds of variable and three of them (class variable, instance variable, constructor
+# parameter) cannot be introduced by any statement, and §4.4's list of positions a type name
+# may occupy is half field/parameter/result positions. A Snippet renders an expression or a
+# statement, so neither section was reachable, and I twice wrote that down as a blocker instead
+# of removing it. `Declaring` is the removal: a snippet may also carry whole top-level type
+# declarations, which Emit hoists to file scope and dedupes by text.
+#
+# The two are covered by ENUMERATION, not by sampling: Sn4Kinds sums one contribution per kind
+# to 127, so a kind that silently failed to be created changes the total, and Sn4Positions uses
+# a single named type in every position §4.4 lists.
+#
+# 325 -> 321 (previous, and recorded late — the number moved in 521df0b without this entry):
+# chapters 1 and 2, plus §4.5. All three had been N/A on a chapter-level hypothesis the plan
+# explicitly says does not authorise skipping a section; read against the sections it held for
+# none of them. §1.1 prints a program AND its output, §2.2's "white space and comments are
+# discarded" is a claim about meaning, and §2.4's bracket notation applied to ForStatement is
+# the claim that all eight `for` forms are legal Java.
+#
+# 368 -> 325 (previous): NOT new tests — coverage that already existed and was not being
 # counted. conformance/gen's snippet libraries claim their sections through the `// JLS <n>`
 # markers Emit writes into each generated case, but nothing ran the generator, so
 # conformance/generated was empty and the join read no markers. Wiring run-generated.sh into
@@ -68,5 +88,5 @@
 # pure Java needing no thread and no host capability; it is unwritten, not inapplicable. An N/A
 # row is invisible to this ratchet forever, so that was a permanent hiding place. ClassLoader,
 # Process, Runtime, SecurityManager and StreamTokenizer are now UNCOVERED, which is what
-# unwritten means, and check-ledger.sh now rejects an N/A justified by implementation state.
-321
+# unwritten means, and the status gate now rejects an N/A justified by implementation state.
+319

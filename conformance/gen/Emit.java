@@ -86,6 +86,27 @@ public class Emit {
         src.append("//\n");
         for (int i = 0; i < sorted.length; i++) src.append("// JLS ").append(sorted[i]).append("\n");
         src.append("\n");
+
+        // --- single-type imports, ahead of every declaration (§7.5) --------------------
+        java.util.Vector imps = new java.util.Vector();
+        for (int i = 0; i < batch.length; i++) batch[i].collectImports(imps);
+        if (imps.size() > 0) {
+            for (int i = 0; i < imps.size(); i++)
+                src.append("import ").append((String) imps.elementAt(i)).append(";\n");
+            src.append("\n");
+        }
+
+        // --- companion type declarations, hoisted to file scope ------------------------
+        // Some sections cannot be reached from an expression: §4.5.3's class variable,
+        // instance variable and constructor parameter are declarations, not statements. A
+        // snippet that needs one implements Declaring and its text is emitted here, ahead of
+        // the case class, deduplicated across the whole batch — a case is one compilation
+        // unit, so two snippets naming the same helper must not declare it twice.
+        java.util.Vector decls = new java.util.Vector();
+        for (int i = 0; i < batch.length; i++) batch[i].collectDecls(decls);
+        for (int i = 0; i < decls.size(); i++)
+            src.append((String) decls.elementAt(i)).append("\n\n");
+
         src.append("public class ").append(cls).append(" {\n\n");
 
         src.append("    public static void main(String[] args) {\n");

@@ -52,6 +52,7 @@ public class Lib4 {
     // not, and -O coalesces the slots and takes either. Groups here are at most twelve.
     public static void install(Registry r) {
         F4.selfCheck();
+        kindsAndPositions(r);
         ranges(r);
         overflow(r);
         integerOps(r);
@@ -62,6 +63,84 @@ public class Lib4 {
         booleans(r);
         defaults(r);
         variables(r);
+    }
+
+    /* ── §4.5.3 the seven kinds of variable, and §4.4 where a type may be used ──────────
+     *
+     * §4.5.3 (p.45) names seven: "A class variable is a field declared using the keyword
+     * static"; "An instance variable is a field declared without the keyword static"; "Array
+     * components are unnamed variables"; "Method parameters name argument values passed to a
+     * method"; "Constructor parameters name argument values passed to a constructor"; "An
+     * exception-handler parameter is created each time an exception is caught by a catch
+     * clause"; "Local variables are declared by local variable declaration statements".
+     *
+     * Four of the seven are statements a snippet can already render. Three — class variable,
+     * instance variable, constructor parameter — are DECLARATIONS, which is why this is the
+     * first user of Declaring. Covering §4.5.3 on the four that happen to be reachable would
+     * mark the section covered while three of its seven kinds went untested.
+     *
+     * §4.4 (pp.42-43) is the same shape and gets ELEVEN snippets, one per position, because
+     * the section is a closed bulleted list — seven places a type is used in DECLARATIONS
+     * ("Imported types (§7.5)", "Fields", "Method parameters (§8.4.1)", "Method results
+     * (§8.4)", "Constructor parameters (§8.6.1)", "Local variables (§14.3, §14.12)",
+     * "Exception handler parameters (§14.18)") and, "in expressions of the following kinds",
+     * four more ("Class instance creations (§15.8)", "Array creations (§15.9)", "Casts
+     * (§15.15)", "The instanceof operator (§15.19.2)").
+     *
+     * One snippet per position rather than one snippet using several, so a position that stops
+     * compiling is a count that drops rather than a line inside a program that still passes.
+     * They are NOT a cardinality.tsv row: eleven is obtained by counting bullets, and that file
+     * takes only counts the spec's own text names — the same reason §2.4's eight `for` forms
+     * are not a row either.
+     *
+     * All eleven share one pair of declarations, deduplicated by Emit, so each names the SAME
+     * type in a different place — which is what the section is about. `T4Node` is deliberately
+     * used at every position it can occupy; where the position admits only a primitive or
+     * another type (an interface constant, the imported name) the bullet's own example does
+     * the same. */
+    private static void kindsAndPositions(Registry r) {
+        r.register(new Sn4Kinds());
+
+        // the seven declaration positions
+        r.register(new Sn4Pos("import", "java.util.Vector",
+                              "{ Vector v = new Vector(); v.addElement(\"q\");"
+                            + " System.out.println(v.size()); }", Val.ofInt(1)));
+        r.register(new Sn4Pos("field",
+                              "{ T4Node.shared = new T4Node(2L);"
+                            + " T4Node.shared.tag = T4Node.shared.tag + T4Const.LIMIT;"
+                            + " System.out.println(T4Node.shared.tag); }", Val.ofLong(9L)));
+        r.register(new Sn4Pos("methodparam",
+                              "{ System.out.println(T4Node.tagOf(new T4Node(11L))); }",
+                              Val.ofLong(11L)));
+        r.register(new Sn4Pos("methodresult",
+                              "{ T4Node n = T4Node.make(12L); System.out.println(n.tag); }",
+                              Val.ofLong(12L)));
+        r.register(new Sn4Pos("ctorparam",
+                              "{ T4Node a = new T4Node(20L); T4Node b = new T4Node(a);"
+                            + " System.out.println(b.tag); }", Val.ofLong(21L)));
+        r.register(new Sn4Pos("local",
+                              "{ T4Node n = new T4Node(13L); System.out.println(n.tag); }",
+                              Val.ofLong(13L)));
+        r.register(new Sn4Pos("handler",
+                              "{ long got = 0L;"
+                            + " try { throw new T4Trouble(); }"
+                            + " catch (T4Trouble e) { got = (e == null) ? 0L : 14L; }"
+                            + " System.out.println(got); }", Val.ofLong(14L)));
+
+        // the four expression positions
+        r.register(new Sn4Pos("new",
+                              "{ System.out.println(new T4Node(15L).tag); }", Val.ofLong(15L)));
+        r.register(new Sn4Pos("arraynew",
+                              "{ T4Node[] a = new T4Node[3]; a[2] = new T4Node(16L);"
+                            + " System.out.println(a[2].tag + a.length); }", Val.ofLong(19L)));
+        r.register(new Sn4Pos("cast",
+                              "{ Object o = new T4Node(17L); T4Node n = (T4Node) o;"
+                            + " System.out.println(n.tag); }", Val.ofLong(17L)));
+        // both directions, so a `instanceof` that answered a constant would fail one of them.
+        r.register(new Sn4Pos("instanceof",
+                              "{ Object o = new T4Node(18L); Object s = \"text\";"
+                            + " System.out.println((o instanceof T4Node)"
+                            + " && !(s instanceof T4Node)); }", Val.ofBoolean(true)));
     }
 
     private static void ranges(Registry r) {
@@ -1009,4 +1088,96 @@ class Sn4VarCharExact implements Snippet {
         if (h[0].isThrows()) return h[0];
         return Val.ofInt(h[0].asInt() & 0xFFFF);
     }
+}
+
+/** §4.5.3's seven kinds of variable, each written to and read back so the value proves the
+ *  variable exists and holds what was put in it. The sum is composed here, not observed:
+ *  1 + 2 + 4 + 8 + 16 + 32 + 64 = 127, so a kind that silently failed to store would change
+ *  the total and name itself by which bit went missing. */
+class Sn4Kinds implements Snippet, Declaring {
+    public String   id()          { return "t4.kinds.seven"; }
+    public String[] sections()    { return Strs.of("4.5.3"); }
+    public String   type()        { return "void"; }
+    public String[] holeTypes()   { return Strs.none(); }
+    public String[] decls() {
+        String[] d = { "class T4Kinds {\n"
+                     + "    static int classVar;          // a class variable\n"
+                     + "    int instanceVar;              // an instance variable\n"
+                     + "    T4Kinds(int ctorParam) { instanceVar = ctorParam; }\n"
+                     + "    static int viaMethod(int methodParam) { return methodParam; }\n"
+                     + "}" };
+        return d;
+    }
+    public String[] imports() { return Strs.none(); }
+    public String render(String[] h) {
+        return "{ int local = 1;"                                    // local variable
+             + " int[] comp = new int[1]; comp[0] = 2;"               // array component
+             + " T4Kinds.classVar = 4;"                               // class variable
+             + " T4Kinds o = new T4Kinds(8);"                         // constructor parameter
+             + " int inst = o.instanceVar;"                           // instance variable
+             + " int viaM = T4Kinds.viaMethod(16);"                   // method parameter
+             + " int handler = 0;"
+             + " try { throw new ArithmeticException(); }"
+             + " catch (ArithmeticException e) { handler = (e == null) ? 0 : 32; }" // handler param
+             + " System.out.println(local + comp[0] + T4Kinds.classVar + inst + viaM"
+             + " + handler + 64); }";
+    }
+    public Val expect(Val[] h) { return Val.ofInt(127); }
+}
+
+/** §4.4: ONE of the eleven positions a type name may occupy. Each instance witnesses exactly
+ *  one bullet, so the section's coverage is a count of positions rather than a single program
+ *  in which a broken position could hide behind the ten that still work.
+ *
+ *  Every instance carries the SAME two declarations, which Emit deduplicates to one copy per
+ *  compilation unit — the point of the section being that one type name appears in all these
+ *  places, not that eleven types do. `T4Trouble` exists because §14.18's position needs a type
+ *  in a catch clause and reusing a library exception would make the position about the library. */
+class Sn4Pos implements Snippet, Declaring {
+
+    // Not `final`: §8.3.1.2 says a final field's "declarator must include a variable
+    // initializer or a compile-time error occurs", so Java 1.0 has no blank finals at all.
+    private String what;
+    private String body;
+    private Val    value;
+    private String imported;
+
+    Sn4Pos(String what, String body, Val value) { this(what, null, body, value); }
+
+    Sn4Pos(String what, String imported, String body, Val value) {
+        this.what     = what;
+        this.imported = imported;
+        this.body     = body;
+        this.value    = value;
+    }
+
+    public String   id()          { return "t4.pos." + what; }
+    public String[] sections()    { return Strs.of("4.4"); }
+    public String   type()        { return "void"; }
+    public String[] holeTypes()   { return Strs.none(); }
+
+    public String[] imports() { return imported == null ? Strs.none() : Strs.of(imported); }
+
+    public String[] decls() {
+        String[] d = {
+            "interface T4Const {\n"
+          + "    int LIMIT = 7;\n"
+          + "}",
+
+            "class T4Node implements T4Const {\n"
+          + "    static T4Node shared;\n"
+          + "    long tag;\n"
+          + "    T4Node(long tag)   { this.tag = tag; }\n"
+          + "    T4Node(T4Node src) { this.tag = src.tag + 1; }\n"
+          + "    static T4Node make(long tag)   { return new T4Node(tag); }\n"
+          + "    static long   tagOf(T4Node n)  { return n.tag; }\n"
+          + "}",
+
+            "class T4Trouble extends RuntimeException {\n"
+          + "}" };
+        return d;
+    }
+
+    public String render(String[] h) { return body; }
+    public Val    expect(Val[] h)    { return value; }
 }
