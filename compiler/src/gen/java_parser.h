@@ -135,15 +135,26 @@ static inline ast_expr_t* jstr_to_array(bbq_arena* a, peg_span raw) {
     return ast_array_init(a, elems, count);
 }
 
-/* JLS §3.10.5 / §15.8.1: a string literal is a reference to a String object. Lower
-   it to `new String(<the char[] of its code units>)` — the backing char[] is the
-   array-init above (char elements → char[] naturally), and String(char[]) is the
-   compiled overlay ctor that stores it. (Literal interning, §3.10.5, is a later
-   refinement; each occurrence currently builds a fresh String.) */
+/* JLS §3.10.5 / §15.8.1: a string literal is a reference to a String object, and
+   "literal strings ... are interned so as to share unique instances" — two occurrences
+   of the same literal ARE the same object, so `"a" == "a"` is true.
+
+   Lower it to `new String(<the char[] of its code units>).intern()`: the backing char[]
+   is the array-init above (char elements → char[] naturally), String(char[]) is the
+   compiled overlay ctor that stores it, and §20.12.30 intern() canonicalises through
+   String's pool (a.intern() == b.intern() iff a.equals(b)), which is exactly the
+   sharing §3.10.5 asks for. One pool, one rule — the pool String.intern() already
+   maintains, not a second mechanism beside it.
+
+   The remaining half of §3.10.5 — that a compile-time CONSTANT EXPRESSION such as
+   ("He" + "llo") is also interned — needs a StringLit node to survive into the AST so
+   §15.27 can fold it; const_expr.c records that it was blocked on interning. This
+   unblocks it; it does not yet do it. */
 static inline ast_expr_t* jstr_to_string(bbq_arena* a, peg_span raw) {
     ast_expr_t** args = NULL; int ac = 0;
     args = (ast_expr_t**)jpush(a, (void**)args, &ac, jstr_to_array(a, raw));
-    return ast_new(a, ast_simple_name(a, "String"), args, ac);
+    ast_expr_t* fresh = ast_new(a, ast_simple_name(a, "String"), args, ac);
+    return ast_method_call(a, fresh, "intern", NULL, 0);
 }
 
 /* JLS §14.8: an ExpressionStatement only allows certain expression
