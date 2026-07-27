@@ -33,4 +33,4 @@
 # row is invisible to this ratchet forever, so that was a permanent hiding place. ClassLoader,
 # Process, Runtime, SecurityManager and StreamTokenizer are now UNCOVERED, which is what
 # unwritten means, and check-ledger.sh now rejects an N/A justified by implementation state.
-440
+439

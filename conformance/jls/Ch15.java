@@ -16,6 +16,7 @@ class Ch15Other { static String hello = "Hello"; }
 public class Ch15 {
 
     // JLS 15.27
+    // JLS 3.10.5
     static void s15_27() {
         String hello = "Hello", lo = "lo";
 

@@ -32,7 +32,7 @@
 3.10.2	Floating-Point Literals	22	UNCOVERED		f/F suffix yields float and otherwise double, with a compile-time error if a nonzero literal rounds to infinity or to zero
 3.10.3	Boolean Literals	23	UNCOVERED		`true` and `false` are the two values of type boolean
 3.10.4	Character Literals	24	UNCOVERED		a character literal is always type char and always exactly one character; ' ' is a compile-time error while '\\n' is not
-3.10.5	String Literals	25	UNCOVERED		string literals and compile-time constant expressions are interned so `==` is true across classes, while runtime-computed strings are distinct until .intern()
+3.10.5	String Literals	25	COVERED	Ch15	string literals and compile-time constant expressions are interned so `==` is true across classes, while runtime-computed strings are distinct until .intern()
 3.10.6	Escape Sequences for Character and String Literals	26	UNCOVERED		\\b \\t \\n \\f \\r \\" \\' \\\\ map to their code points and octal escapes cover \0-ÿ (so '\\101' == 'A')
 3.10.7	The Null Literal	27	UNCOVERED		`null` is the single value of the null type and is assignable to any reference variable
 3.11	Separators	27	UNCOVERED		the nine ASCII characters ( ) { } [ ] ; , . each lex as a single separator token

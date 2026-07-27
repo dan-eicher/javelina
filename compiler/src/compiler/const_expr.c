@@ -35,11 +35,13 @@
  * both promotion rules — two implementations, in two vocabularies, free to disagree. They are
  * gone.
  *
- * NOT YET COVERED, and deliberately absent rather than approximated: the String half. The parser
- * desugars a string literal into `new String(char[]{…})` (grammar/Java.peg §3.10.5), so there is no
- * StringLit node to recognise, and §3.10.5 interning is not implemented either — `"a" == "a"` is
- * false on this target. Folding String constants before those two land would convert a spec
- * violation into a miscompile. They are sequenced together.
+ * The String half is NOT here, and that is now a division of labour rather than a gap. It was
+ * blocked on two things — no StringLit node surviving the parser, and no §3.10.5 interning —
+ * and both have landed. Folding a constant String needs the literal's CHARACTERS, not a
+ * numeric value, so it lives where the characters are: sema's fold_string_concat splices the
+ * operands' char arrays and rewrites the node to a single StringLit, which then desugars to
+ * `new String(chars).intern()` like any literal. This file stays the §15.27 authority for
+ * PRIMITIVES; sema owns the String case because that is where the AST is.
  */
 #include "javelina/compiler/const_expr.h"
 #include "javelina/compiler/jint.h"   /* the exact-arithmetic core */
