@@ -666,7 +666,12 @@ const Type* gamma_type_for_node(const sema_ctx_t* sema,
             /* NewArray's primitive element kind → dim-1 array of the
              * lattice's atype→dt width (boolean packs as byte). A ref
              * element atype never reaches here (NewRefArray is GT_ARRAY). */
-            sir_datatype_t width = lat_atype_to_dt(e->new_array.elem_type);
+            /* Read the atype through the node's OWN union member — ArrayNewData shares this
+             * arm with NewArray but not its layout, and a coincidental overlap holds only
+             * until someone reorders a field. */
+            sir_datatype_t width = lat_atype_to_dt(
+                e->tag == SIR_ARRAYNEWDATA ? e->array_new_data.elem_type
+                                           : e->new_array.elem_type);
             return (width == SIR_DTREF)
                  ? type_bottom(pool)
                  : type_make_prim_array(pool, 1, width);
@@ -997,6 +1002,10 @@ const sir_op_gamma_t sir_op_gamma[SIR_TAG_COUNT] = {
     /* ── Array ─────────────────────────────────────────────── *
      * All array ops can null-deref / OOB-throw — not is_pure_if_children_pure. */
     [SIR_NEWARRAY]       = { .tag = SIR_NEWARRAY,       .mnemonic = "newarray",
+                             .type_kind = GT_PRIM_ARRAY },
+    /* Same γ as NewArray — a fresh primitive array — and impure for the same reason: it
+     * allocates, so two occurrences are not congruent however equal their immediates. */
+    [SIR_ARRAYNEWDATA]   = { .tag = SIR_ARRAYNEWDATA,   .mnemonic = "arraynewdata",
                              .type_kind = GT_PRIM_ARRAY },
     [SIR_NEWREFARRAY]    = { .tag = SIR_NEWREFARRAY,    .mnemonic = "newrefarray",
                              .type_kind = GT_ARRAY, .type_class_id = gamma_class_new_ref_array },

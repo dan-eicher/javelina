@@ -152,6 +152,7 @@ static inline int sir_arity(const sir_node_t* n) {
     case SIR_NEW: case SIR_GETSTATIC:
     case SIR_RETURNVOID: case SIR_NOP:
     case SIR_EXCEPTIONENTRY: case SIR_TRYREGION:
+    case SIR_ARRAYNEWDATA:  /* segment/offset/count are immediates — the tile emits the operands */
         return 0;
     /* 1 child */
     case SIR_NEG: case SIR_LOGNOT:

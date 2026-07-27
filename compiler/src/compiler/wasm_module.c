@@ -24,6 +24,7 @@
 #include "jav_reader.h"                          /* jav_func_body_read, jav_type_section_read */
 #include "jav_writer.h"                          /* jav_module_write */
 #include "jav_validate_module.h"                 /* jav_module_wf — §5.5.1 audit */
+#include "jav_limits.h"                          /* MAX_LOCALS — the engine's per-frame cap */
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -108,6 +109,21 @@ static void collect_slots(wasm_types_t* wt, const sir_node_t* n,
 static bool emit_locals_vec_pr(wasm_types_t* wt, const sir_method_t* method,
                                int param_region, emit_wasm_ctx* fb) {
     int total = method->max_locals;
+
+    /* The engine's per-frame cap (jav_limits.h). Nothing in §7.6 bounds the local count, so a
+     * function over it VALIDATES and then traps when its frame is carved — at every call, from
+     * every caller. Rejecting here turns that into a compile-time error naming the method,
+     * which is the difference between "this method is too big" and a frame index in a trap. */
+    if (total > MAX_LOCALS) {
+        const sema_class_t* mc = method->class_id >= 0 ? sema_get_class(wt->sema, method->class_id) : NULL;
+        fprintf(stderr, "wasm_assemble: %s.%s needs %d locals; this engine admits %d per frame "
+                "— the method is too large to run here, split it\n",
+                mc ? mc->name : "<clinit>",
+                (mc && method->method_id >= 0) ? mc->methods[method->method_id].name : "<clinit>",
+                total, MAX_LOCALS);
+        return false;
+    }
+
     int nlocals = total - param_region;
     if (nlocals <= 0) { ew_u32(fb, 0); return true; }
 
@@ -274,7 +290,14 @@ bool wasm_assemble_program(compiler_ctx_t* cctx, const sema_ctx_t* sctx,
                     if (strstr(qual, t)) match = true;
             }
             if (match) sir_optimize(cctx, m);
+            else       sir_pack_slots(cctx, m);   /* CLICK_ONLY skipped it — it still needs a frame */
         }
+    } else {
+        /* -O0 still packs. Not for speed: an unpacked frame carries one local per SIR
+         * temporary, and a method past the engine's per-frame local cap emits a function that
+         * cannot be called. Leaving this inside the -O branch made `-O0`, the bisection mode,
+         * unusable on exactly the methods worth bisecting. */
+        for (int m = 0; m < mc; m++) sir_pack_slots(cctx, m);
     }
 
     for (int ai = 0; ai < mc && ok; ai++) {
@@ -478,6 +501,7 @@ bool wasm_assemble_program(compiler_ctx_t* cctx, const sema_ctx_t* sctx,
         burg_ctx_t bc = {0};
         if (user_clinit) {                      /* locals vec: the user <clinit>'s (else none) */
             if (cctx->optimize) sir_optimize(cctx, SIR_OPT_CLINIT);
+            else                sir_pack_slots(cctx, SIR_OPT_CLINIT);
             burg_ctx_init(&bc); bc.types = wt;
             codegen_method_structured(cctx->clinit, cctx->clinit_facts,
                                       cctx->clinit_fact_count, &bc);
@@ -736,25 +760,45 @@ bool wasm_assemble_program(compiler_ctx_t* cctx, const sema_ctx_t* sctx,
     jav_module_t mod; memset(&mod, 0, sizeof mod);
     mod.magic = 0x6d736100u; mod.version = 1u;
 
-    jav_section_t secs[10];
-    memset(secs, 0, sizeof secs);
-    int ns = 0;
-    secs[ns].id = 1;  secs[ns].body.tag = 1;  secs[ns].body.u.case_1 = typesec; ns++;
+    /* A bbq_vec, not a fixed array. It WAS `jav_section_t secs[10]` against nine emit sites —
+     * one spare — so the next section added overflowed it in exactly the configurations that
+     * emit every optional one (whole/jre: memory, tag, global and start all present). A
+     * one-slot overrun of a stack array is invisible to the §5.5.1 audit below AND to
+     * valgrind, which sees no heap block; it surfaced arbitrarily far away, as a module whose
+     * first byte was 0x0b — the section id being stored, landing on the magic.
+     *
+     * The crt vector removes the bound rather than restating it, so there is nothing left to
+     * keep in sync when a section kind is added. */
+    jav_section_t* secs = NULL;                  /* bbq_vec */
+    jav_section_t s;
+
+    memset(&s, 0, sizeof s);
+    s.id = 1; s.body.tag = 1; s.body.u.case_1 = typesec;
+    bbq_vec_push(secs, s);
+
     if (nimp + gimp > 0) {
-        secs[ns].id = 2; secs[ns].body.tag = 2; secs[ns].body.u.case_2 = impsec; ns++;
+        memset(&s, 0, sizeof s);
+        s.id = 2; s.body.tag = 2; s.body.u.case_2 = impsec;
+        bbq_vec_push(secs, s);
     }
-    secs[ns].id = 3;  secs[ns].body.tag = 3;
-    secs[ns].body.u.case_3.count = (uint32_t)nfuncs;
-    secs[ns].body.u.case_3.type_indices.items = fidxs; secs[ns].body.u.case_3.type_indices.count = (size_t)nfuncs; ns++;
+
+    memset(&s, 0, sizeof s);
+    s.id = 3; s.body.tag = 3;
+    s.body.u.case_3.count = (uint32_t)nfuncs;
+    s.body.u.case_3.type_indices.items = fidxs;
+    s.body.u.case_3.type_indices.count = (size_t)nfuncs;
+    bbq_vec_push(secs, s);
     if (sctx->mode != SEMA_MODE_PLUGIN) {       /* RUNTIME/WHOLE DEFINE the memory; PLUGIN imports jre's */
         /* One linear memory (1 page = 64 KiB) as the I/O staging buffer — the standard GC↔host bridge
          * (§7.1 gives the embedder mem_read/mem_write; a byte[] crosses by copying to/from it). */
         jav_mem_entry_t* iomem = (jav_mem_entry_t*)malloc(sizeof *iomem);   /* jav_module_free frees mems.items */
         memset(iomem, 0, sizeof *iomem);
         iomem->limits.flag = 0; iomem->limits.min = 1;   /* flag 0 = min only, no max */
-        secs[ns].id = 5;  secs[ns].body.tag = 5;   /* memory section (§5.5.8) — the I/O staging buffer */
-        secs[ns].body.u.case_5.count = 1;
-        secs[ns].body.u.case_5.mems.items = iomem; secs[ns].body.u.case_5.mems.count = 1; ns++;
+        memset(&s, 0, sizeof s);
+        s.id = 5; s.body.tag = 5;                  /* memory section (§5.5.8) — the I/O staging buffer */
+        s.body.u.case_5.count = 1;
+        s.body.u.case_5.mems.items = iomem; s.body.u.case_5.mems.count = 1;
+        bbq_vec_push(secs, s);
     }
     /* Tag section (id 13): one exception tag → its functype. PLUGIN imports jre's
      * tag instead of defining one, so a cross-boundary throw/catch shares one tag
@@ -769,12 +813,16 @@ bool wasm_assemble_program(compiler_ctx_t* cctx, const sema_ctx_t* sctx,
         jav_tag_type_t* exn_tag = (jav_tag_type_t*)malloc(sizeof *exn_tag);
         exn_tag->attr = 0x00;                /* attribute 0 = exception tag */
         exn_tag->type = (uint32_t)wasm_tag_functype_idx(wt);
-        secs[ns].id = 13; secs[ns].body.tag = 13;
-        secs[ns].body.u.case_13.count = 1;
-        secs[ns].body.u.case_13.tags.items = exn_tag; secs[ns].body.u.case_13.tags.count = 1; ns++;
+        memset(&s, 0, sizeof s);
+        s.id = 13; s.body.tag = 13;
+        s.body.u.case_13.count = 1;
+        s.body.u.case_13.tags.items = exn_tag; s.body.u.case_13.tags.count = 1;
+        bbq_vec_push(secs, s);
     }
     if (has_globals) {
-        secs[ns].id = 6;  secs[ns].body.tag = 6;  secs[ns].body.u.case_6 = globalsec; ns++;
+        memset(&s, 0, sizeof s);
+        s.id = 6; s.body.tag = 6; s.body.u.case_6 = globalsec;
+        bbq_vec_push(secs, s);
     }
     /* Export the I/O staging memory as "memory" so the embedder reaches its bytes via wasm_memory_data
      * (and a PLUGIN links its memory import to it). Only the module that DEFINES it exports it. */
@@ -785,19 +833,64 @@ bool wasm_assemble_program(compiler_ctx_t* cctx, const sema_ctx_t* sctx,
         ex.kind = 2;   /* export kind 2 = memory */ ex.idx = 0;
         exports[nexp++] = ex;
     }
-    secs[ns].id = 7;  secs[ns].body.tag = 7;
-    secs[ns].body.u.case_7.count = (uint32_t)nexp;
-    secs[ns].body.u.case_7.exports.items = exports;  secs[ns].body.u.case_7.exports.count = (size_t)nexp; ns++;
-    if (has_clinit) {                        /* start section → the module initializer (funcidx past imports) */
-        secs[ns].id = 8;  secs[ns].body.tag = 8;  secs[ns].body.u.case_8.func = (uint32_t)(wt->nimports + nf); ns++;
-    }
-    secs[ns].id = 10; secs[ns].body.tag = 10;
-    secs[ns].body.u.case_10.count = (uint32_t)nfuncs;
-    secs[ns].body.u.case_10.entries.items = entries; secs[ns].body.u.case_10.entries.count = (size_t)nfuncs; ns++;
+    memset(&s, 0, sizeof s);
+    s.id = 7; s.body.tag = 7;
+    s.body.u.case_7.count = (uint32_t)nexp;
+    s.body.u.case_7.exports.items = exports; s.body.u.case_7.exports.count = (size_t)nexp;
+    bbq_vec_push(secs, s);
 
-    jav_section_t* secarr = (jav_section_t*)malloc((size_t)ns * sizeof(jav_section_t));
-    memcpy(secarr, secs, (size_t)ns * sizeof(jav_section_t));
-    mod.sections.items = secarr; mod.sections.count = (size_t)ns;
+    if (has_clinit) {                        /* start section → the module initializer (funcidx past imports) */
+        memset(&s, 0, sizeof s);
+        s.id = 8; s.body.tag = 8; s.body.u.case_8.func = (uint32_t)(wt->nimports + nf);
+        bbq_vec_push(secs, s);
+    }
+
+    /* §5.5.15 data count, then code, then §5.5.14 data. The order is the SPEC's, which is not
+     * id order: jav_validate_module's rank table puts datacount before code and data last, so
+     * a decoder knows how many segments exist before it reaches an array.new_data in a body.
+     *
+     * ONE passive segment holds every compile-time-known primitive array in the module.
+     * Passive rather than active because nothing copies it into linear memory —
+     * array.new_data reads the segment directly to build a GC array, so an active segment
+     * would need a memory this module may not even have. */
+    size_t ndata = bbq_vec_len(cctx->const_data);
+    if (ndata > 0) {
+        memset(&s, 0, sizeof s);
+        s.id = 12; s.body.tag = 12; s.body.u.case_12.count = 1;
+        bbq_vec_push(secs, s);
+    }
+
+    memset(&s, 0, sizeof s);
+    s.id = 10; s.body.tag = 10;
+    s.body.u.case_10.count = (uint32_t)nfuncs;
+    s.body.u.case_10.entries.items = entries; s.body.u.case_10.entries.count = (size_t)nfuncs;
+    bbq_vec_push(secs, s);
+
+    if (ndata > 0) {
+        uint8_t* db = (uint8_t*)malloc(ndata);        /* jav_module_free owns it */
+        memcpy(db, cctx->const_data, ndata);
+        jav_data_t* seg = (jav_data_t*)malloc(sizeof *seg);
+        memset(seg, 0, sizeof *seg);
+        seg->flag = 1;                                /* §5.5.14 flag 1 = passive */
+        seg->body.tag = 1;                            /* case_1 = data1 (bytes only) */
+        seg->body.u.case_1.data.count = (uint32_t)ndata;
+        seg->body.u.case_1.data.bytes.data = db;
+        seg->body.u.case_1.data.bytes.length = ndata;
+        memset(&s, 0, sizeof s);
+        s.id = 11; s.body.tag = 11;
+        s.body.u.case_11.count = 1;
+        s.body.u.case_11.datas.items = seg; s.body.u.case_11.datas.count = 1;
+        bbq_vec_push(secs, s);
+    }
+
+    /* Hand over a plain malloc'd block: jav_module_free releases sections.items with free(),
+     * and a bbq_vec's data pointer is not that — its allocation starts at the header before
+     * the elements. The crt has no detach, so the copy is the handover. */
+    size_t ns = bbq_vec_len(secs);
+    jav_section_t* secarr = (jav_section_t*)malloc(ns * sizeof(jav_section_t));
+    memcpy(secarr, secs, ns * sizeof(jav_section_t));
+    mod.sections.items = secarr; mod.sections.count = ns;
+    bbq_vec_free(secs);
 
     /* §5.5.1 structural audit of the FINISHED module, before it is serialized.
      * The per-body jav_func_body_read above is construction — it decodes the

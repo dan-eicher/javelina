@@ -44,7 +44,9 @@ B   := build
 # so the compiler and the VM assert the same way.
 TESTKIT := ../testkit
 
-INCLUDES := -I$(GEN) -Isrc -I$(PEGRT) -I$(RT) -I$(CRT) -I$(TESTKIT)
+# -I../wasm/include: jav_limits.h, the engine's per-frame caps. A module whose function
+# exceeds them validates and then traps at every call, so the producer has to know them.
+INCLUDES := -I$(GEN) -Isrc -I$(PEGRT) -I$(RT) -I$(CRT) -I$(TESTKIT) -I../wasm/include
 
 # ── VM execution oracle ─────────────────────────────────────────────────────
 # The compiler's E-phase tests RUN the modules they assemble, in javelina's VM.

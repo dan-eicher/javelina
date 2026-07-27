@@ -50,6 +50,19 @@
 
 void sir_optimize(compiler_ctx_t* ctx, int method_idx);
 
+/* Slot-bin-pack `method_idx` and nothing else — no analysis, no rewrite.
+ *
+ * Packing is NOT an optimization. The DDCG mints a fresh slot per SIR temporary, so an
+ * unpacked frame grows with the method's expression count, and past the engine's per-frame
+ * local cap the emitted function cannot be CALLED at all — the module validates and then
+ * traps, naming no cause, at every call site. `-O0` is the bisection mode, i.e. exactly the
+ * mode you reach for on a method too big to reason about, so shipping it inside `sir_optimize`
+ * made the largest methods the ones -O0 could not run.
+ *
+ * `sir_optimize` still packs as its final step; this is the same call without the parts that
+ * are optional. */
+void sir_pack_slots(compiler_ctx_t* ctx, int method_idx);
+
 /* Build + solve + summarize `method_idx` WITHOUT rewriting it — the summarize-only pass. */
 void sir_summarize(compiler_ctx_t* ctx, int method_idx);
 

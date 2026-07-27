@@ -75,6 +75,7 @@ TERM New             = SIR_NEW
 TERM InstanceOf      = SIR_INSTANCEOF
 TERM CheckCast       = SIR_CHECKCAST
 TERM NewArray        = SIR_NEWARRAY
+TERM ArrayNewData    = SIR_ARRAYNEWDATA
 TERM NewRefArray     = SIR_NEWREFARRAY
 TERM ArrayLoad       = SIR_ARRAYLOAD
 TERM ArrayLength     = SIR_ARRAYLENGTH
@@ -575,6 +576,13 @@ stmt: MemCopy(i32, i32, i32) = 1 (. ew_emit(E, WOP_MEMORY_COPY); ew_u32(E, 0); e
 //    sub-int elements are unpacked i32 (array.get, not _s/_u). Ref-element
 //    arrays (NewRefArray, ref load/store) need the element class — later. ──
 ref: NewArray(i32) = 1 (. ew_emit(E, WOP_ARRAY_NEW_DEFAULT); ew_u32(E, wasm_types_array_for_atype(ctx->types, node->new_array.elem_type)); .);
+// array.new_data $t $d takes offset and count as OPERANDS; both are compile-time constants
+// here, so the leaf pushes them itself rather than carrying two child trees.
+ref: ArrayNewData    = 1 (. ew_emit(E, WOP_I32_CONST); ew_i32(E, node->array_new_data.byte_off);
+                            ew_emit(E, WOP_I32_CONST); ew_i32(E, node->array_new_data.count);
+                            ew_emit(E, WOP_ARRAY_NEW_DATA);
+                            ew_u32(E, wasm_types_array_for_atype(ctx->types, node->array_new_data.elem_type));
+                            ew_u32(E, (uint32_t)node->array_new_data.seg); .);
 
 // §3.4: packed (i8/i16) array elements read via array.get_s/get_u; int is plain.
 i32: ArrayLoad(ref,i32) where (. node->array_load.data_type == SIR_DTINT .)    = 1 (. ew_emit(E, WOP_ARRAY_GET);   ew_u32(E, wasm_types_array_for_dt(ctx->types, node->array_load.data_type)); .);

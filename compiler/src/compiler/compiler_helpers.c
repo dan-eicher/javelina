@@ -470,6 +470,123 @@ sir_datatype_t ddcg_sema_arrayinit_dt(ddcg_ctx_t* ctx, ast_expr_t* expr) {
     return lat_tag_to_dt((java_type_tag_t)jt);  /* the one type authority — full set */
 }
 
+/* djb2 over a LENGTH, not a NUL-terminated string — sema's str_hash cannot be reused here
+ * because a pooled run is arbitrary bytes and UTF-16LE ASCII carries a 0x00 every other one.
+ * Same multiplier and the same key-0 avoidance (bbq_htree reserves it). */
+static uint32_t bytes_hash(const uint8_t* b, size_t n) {
+    uint32_t h = 5381;
+    for (size_t i = 0; i < n; i++) h = h * 33 + b[i];
+    return h ? h : 1;
+}
+
+/* Intern a run of bytes into the module's constant-data pool; answer its BYTE OFFSET.
+ *
+ * Takes raw bytes, NOT an AST node, deliberately. The pool is the module's read-only data —
+ * today its only client is §10.6 constant array initializers, but the section is general and
+ * a later producer (debug data, say) has bytes and no expression to hand. Keeping the
+ * primitive at the byte level is what lets it have a second client without being rewritten.
+ *
+ * CONTENT-ADDRESSED: keyed by the run's hash, so an identical run is one lookup rather than a
+ * scan over everything pooled so far. A hit still memcmps — the key is a uint32_t over
+ * arbitrary bytes, so two distinct runs can collide, and sharing them would silently hand one
+ * client another's contents. On a collision the run is appended and left unindexed, which
+ * costs a dedup opportunity and never correctness. */
+int const_pool_intern(uint8_t** pool, bbq_htree** index, const uint8_t* run, size_t runlen) {
+    if (!*index) *index = bbq_htree_create();
+    uint32_t key = bytes_hash(run, runlen);
+
+    void* found = bbq_htree_search(*index, key);
+    if (found) {
+        size_t off = (size_t)(uintptr_t)found - 1;          /* stored +1: offset 0 is valid */
+        if (off + runlen <= (size_t)bbq_vec_len(*pool) &&
+            memcmp(*pool + off, run, runlen) == 0) return (int)off;
+    }
+
+    size_t off = (size_t)bbq_vec_len(*pool);
+    for (size_t k = 0; k < runlen; k++) bbq_vec_push(*pool, run[k]);
+    if (!found) bbq_htree_insert(*index, key, (void*)(uintptr_t)(off + 1));
+    return (int)off;
+}
+
+/* Element stride in data-segment bytes. The engine reads a segment with
+ * `le_load(bytes + off + k*w, w)` where w is the RTT's packed store width, so this must be
+ * that same width. A ref element has no data-segment form at all. */
+static int const_elem_stride(java_type_tag_t jt) {
+    switch (jt) {
+    case JT_BOOL: case JT_BYTE:    return 1;
+    case JT_SHORT: case JT_CHAR:   return 2;
+    case JT_INT: case JT_FLOAT:    return 4;
+    case JT_LONG: case JT_DOUBLE:  return 8;
+    default:                       return 0;   /* not a primitive: no segment form */
+    }
+}
+
+/* One constant element as the raw bits its stride-many bytes carry. Floats go in by their
+ * IEEE 754 pattern, which is what a load of the array reads back — a decimal round-trip
+ * would be a second, lossier representation of a value the evaluator already has exactly. */
+static bool const_elem_bits(const sema_ctx_t* sema, const ast_expr_t* e,
+                            java_type_tag_t jt, uint64_t* out) {
+    jls_const_t c = jls_const_eval(sema, e);
+    if (c.tag == JT_VOID) return false;
+    /* §5.2 / §10.6: the element assignment-converts to the array's element type, so an int
+     * constant in a byte[] narrows here exactly as it would at a store. */
+    switch (jt) {
+    case JT_BOOL:   *out = (c.tag == JT_BOOL) ? (c.v.b ? 1u : 0u) : ((uint32_t)c.v.i & 1u); return true;
+    case JT_BYTE:   *out = (uint8_t)(int8_t)c.v.i;            return true;
+    case JT_SHORT:
+    case JT_CHAR:   *out = (uint16_t)c.v.i;                   return true;
+    case JT_INT:    *out = (uint32_t)c.v.i;                   return true;
+    case JT_LONG:   *out = (uint64_t)(c.tag == JT_LONG ? c.v.l : (int64_t)c.v.i); return true;
+    case JT_FLOAT: {
+        float f = (c.tag == JT_FLOAT)  ? c.v.f
+                : (c.tag == JT_DOUBLE) ? (float)c.v.d
+                : (c.tag == JT_LONG)   ? (float)c.v.l : (float)c.v.i;
+        uint32_t bits; memcpy(&bits, &f, 4); *out = bits; return true;
+    }
+    case JT_DOUBLE: {
+        double d = (c.tag == JT_DOUBLE) ? c.v.d
+                 : (c.tag == JT_FLOAT)  ? (double)c.v.f
+                 : (c.tag == JT_LONG)   ? (double)c.v.l : (double)c.v.i;
+        uint64_t bits; memcpy(&bits, &d, 8); *out = bits; return true;
+    }
+    default: return false;
+    }
+}
+
+bool ddcg_arrayinit_is_const(ddcg_ctx_t* ctx, ast_expr_t* expr) {
+    if (!expr || expr->tag != AST_ARRAYINIT || !ctx->const_data_) return false;
+    java_type_tag_t jt = (java_type_tag_t)sema_array_init_elem_type(ctx->sema, expr);
+    if (const_elem_stride(jt) == 0) return false;
+    /* An EMPTY initializer stays on the ordinary path: `new char[0]` is already one
+     * allocation and no stores, so there is nothing to win and a zero-length run would be a
+     * needless special case downstream. */
+    if (expr->array_init.elems_count == 0) return false;
+    for (int i = 0; i < expr->array_init.elems_count; i++) {
+        uint64_t bits;
+        if (!const_elem_bits(ctx->sema, expr->array_init.elems[i], jt, &bits)) return false;
+    }
+    return true;
+}
+
+int ddcg_const_data_offset(ddcg_ctx_t* ctx, ast_expr_t* expr) {
+    java_type_tag_t jt = (java_type_tag_t)sema_array_init_elem_type(ctx->sema, expr);
+    size_t w = (size_t)const_elem_stride(jt);
+    size_t n = (size_t)expr->array_init.elems_count;
+
+    /* Serialize into a scratch run first, so the pool can be searched for an identical one.
+     * Arena memory: small, dies with the compile, same lifetime as the pool it may join. */
+    uint8_t* run = (uint8_t*)bbq_arena_alloc(ctx->arena, n * w);
+    for (size_t i = 0; i < n; i++) {
+        uint64_t bits = 0;
+        (void)const_elem_bits(ctx->sema, expr->array_init.elems[i], jt, &bits);
+        for (size_t b = 0; b < w; b++)          /* little-endian, per jav_array_new_data */
+            run[i * w + b] = (uint8_t)((bits >> (8 * b)) & 0xFF);
+    }
+
+    return const_pool_intern((uint8_t**)ctx->const_data_,
+                             (bbq_htree**)ctx->const_data_index_, run, n * w);
+}
+
 int ddcg_sema_invoke_kind(ddcg_ctx_t* ctx, ast_expr_t* expr) {
     return (int)sema_invoke_kind(ctx->sema, expr);
 }
@@ -531,6 +648,34 @@ int ddcg_sema_array_store_exc_id(ddcg_ctx_t* ctx) {
 }
 int ddcg_sema_noarg_ctor_index(ddcg_ctx_t* ctx, int class_id) {
     return sema_noarg_ctor_index(ctx->sema, class_id);
+}
+int ddcg_sema_string_arg_ctor_index(ddcg_ctx_t* ctx, int class_id) {
+    return sema_string_arg_ctor_index(ctx->sema, class_id);
+}
+int ddcg_sema_string_chars_ctor_index(ddcg_ctx_t* ctx) {
+    return sema_string_chars_ctor_index(ctx->sema);
+}
+int ddcg_sema_string_class_id(ddcg_ctx_t* ctx) {
+    return sema_string_class_id(ctx->sema);
+}
+
+/* Pool an ASCII message as UTF-16LE code units and answer its byte offset. The messages are
+ * the spec's own ("/ by zero"), so one byte per unit and the high half is always zero — but
+ * the units are written in full, because what lands in the segment must be exactly what a
+ * `(array i16)` reads back. */
+int ddcg_const_string_offset(ddcg_ctx_t* ctx, const char* s) {
+    size_t n = strlen(s);
+    uint8_t* run = (uint8_t*)bbq_arena_alloc(ctx->arena, n * 2);
+    for (size_t i = 0; i < n; i++) {
+        run[i * 2]     = (uint8_t)s[i];
+        run[i * 2 + 1] = 0;
+    }
+    return const_pool_intern((uint8_t**)ctx->const_data_,
+                             (bbq_htree**)ctx->const_data_index_, run, n * 2);
+}
+
+int ddcg_const_string_length(ddcg_ctx_t* ctx, const char* s) {
+    (void)ctx; return (int)strlen(s);
 }
 
 /* JLS §15.17.3: `%` on float/double is the truncated remainder and WASM has no

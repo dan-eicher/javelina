@@ -66,6 +66,7 @@ jav_status_t jav_call_fn(vm_t* vm, heap_t* h, const jav_func_t* fn) {
     u4 depth_limit = vm->max_call_depth;   /* tunable; 0 or over the ceiling → the default */
     if (depth_limit == 0 || depth_limit > MAX_CALL_DEPTH) depth_limit = MAX_CALL_DEPTH;
     if (vm->call_depth >= depth_limit) {   /* stack exhaustion: trap, don't overflow the C stack */
+        vm->exhausted = "call stack exhausted";
         vm->trapped = 1; vm->frame.code.pos = vm->frame.code.length; return JAV_TRAP;
     }
     frame_t saved = *caller;          /* lightweight save (~80 bytes — base ptrs, not arrays) */
@@ -89,11 +90,26 @@ jav_status_t jav_call_fn(vm_t* vm, heap_t* h, const jav_func_t* fn) {
     jav_status_t st;
     for (;;) {
         u4 nlocals = np + fn->num_locals;
-        /* Reserve guard: room for this frame's per-frame caps (the validator rejects
-         * functions exceeding MAX_STACK/MAX_LOCALS) — a clean trap, never an overflow. */
-        if ((size_t)(base_stack  - vm->value_stack)  + MAX_STACK > POOL_SLOTS ||
-            (size_t)(base_locals - vm->locals_store) + nlocals  > POOL_SLOTS ||
-            nlocals > MAX_LOCALS) { st = JAV_TRAP; break; }
+        /* Reserve guard: room for this frame's per-frame caps — a clean trap, never an
+         * overflow. Each arm names itself: the three are different conditions with different
+         * fixes (recurse less, use fewer locals per frame, compile the function differently),
+         * and collapsing them into one anonymous trap is what made a function over the local
+         * cap indistinguishable from deep recursion.
+         *
+         * MAX_LOCALS is checked HERE and not only in the validator: §7.6 types a body against
+         * the locals it declares and says nothing about how many an engine will admit, so this
+         * cap is ours (§A "Implementation Limitations"), and a module carrying such a function
+         * is well-formed — it just cannot run on this engine. */
+        if ((size_t)(base_stack - vm->value_stack) + MAX_STACK > POOL_SLOTS) {
+            vm->exhausted = "value stack exhausted"; st = JAV_TRAP; break;
+        }
+        if ((size_t)(base_locals - vm->locals_store) + nlocals > POOL_SLOTS) {
+            vm->exhausted = "locals store exhausted"; st = JAV_TRAP; break;
+        }
+        if (nlocals > MAX_LOCALS) {
+            vm->exhausted = "function exceeds the engine's per-frame local limit";
+            st = JAV_TRAP; break;
+        }
 
         frame_t* callee = &vm->frame;
         bbq_ctx_init(&callee->code, fn->code, fn->code_len);

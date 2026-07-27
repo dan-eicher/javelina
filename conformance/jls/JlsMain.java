@@ -14,6 +14,10 @@ public class JlsMain {
         Ch3.run();
         Ch10.run();
         Ch10b.run();
+        Ch4.run();
+        Ch5.run();
+        Ch11.run();
+        Ch14.run();
         Ch15.run();
 
         System.out.println("RESULT jls checks=" + Check.checks + " fails=" + Check.fails);

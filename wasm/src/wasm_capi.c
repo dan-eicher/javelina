@@ -1186,8 +1186,11 @@ wasm_trap_t* wasm_func_call(const wasm_func_t* f, const wasm_val_vec_t* args, wa
         // did. It is carried as the trap's MESSAGE (as "uncaught exception" below is) rather than
         // as a trap_reason, because that vocabulary is generated from the spec's table and no spec
         // trap describes a broken heap.
-        wasm_trap_t* t = trap_make(vm->engine_fault
-                                 ? vm->engine_fault
+        // Precedence: a broken engine outranks a resource limit outranks the §7.10 reason. The
+        // middle one exists because the frame guards raise a trap the spec's generated
+        // vocabulary cannot name, and without it they fell through to the bare "trap".
+        wasm_trap_t* t = trap_make(vm->engine_fault ? vm->engine_fault
+                                 : vm->exhausted    ? vm->exhausted
                                  : jav_trap_reason_str((jav_trap_reason_t)vm->trap_reason));
         t->inst = in;
         size_t n = (size_t)bbq_vec_len(vm->trap_trace);

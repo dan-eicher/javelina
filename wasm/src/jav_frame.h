@@ -40,8 +40,9 @@
         (vm)->frame.code.pos = (vm)->frame.code.length;     \
     } while (0)
 
-#define MAX_STACK  1024
-#define MAX_LOCALS 1024
+/* MAX_STACK / MAX_LOCALS — the producer-facing contract, so javelinac can refuse to emit a
+ * function this engine could not call. One definition, included by both sides. */
+#include "jav_limits.h"
 
 /* The null reference value (any ref type), and the ONLY one.
  *
@@ -251,6 +252,16 @@ struct vm_s {
                                           * guard through OPGEN_GUARD_TRAP, or named directly by a
                                           * substrate native. JAV_TRAP_NONE (0) = cause not yet carried;
                                           * the vocabulary is generated from instructions.toml. */
+    const char* exhausted;              /* A RESOURCE limit, not a spec trap and not a defect: the frame
+                                         * guards in jav_call_fn (call depth, value-stack/locals pool, the
+                                         * per-frame local cap). §A "Implementation Limitations" places these
+                                         * outside the semantics, so no generated trap_reason describes one,
+                                         * and the bare "trap" they used to produce named nothing at all —
+                                         * a program that hit one got a frame list and no cause.
+                                         *
+                                         * Distinct from `engine_fault` below because the store stays USABLE:
+                                         * running out of stack says nothing about the heap, so poisoning the
+                                         * store would turn a recoverable condition into a dead vm. */
     const char* engine_fault;           /* An ENGINE defect, not a program one: the heap checker's named
                                          * invariant (a static string). It is not a trap_reason because that
                                          * vocabulary is the spec's, generated from instructions.toml, and no

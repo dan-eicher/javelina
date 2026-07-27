@@ -34,7 +34,12 @@ trap 'rm -rf "$TMP"' EXIT
 # ── collect the markers ─────────────────────────────────────────────────────
 # `// JLS <section>` in any .java under the corpus. The file that carries the marker is the
 # covering artifact, so the ledger records WHICH test covers a section, not merely that one does.
-find conformance/jls conformance/generated -name '*.java' 2>/dev/null \
+#
+# conformance/reject counts the same way. A rule of the form "a compile-time error occurs" is
+# covered by a program that FAILS to compile for that reason — there is no runnable assertion
+# to write, and leaving those sections UNCOVERED would say the work was outstanding when the
+# only artifact the rule admits already exists.
+find conformance/jls conformance/reject conformance/generated -name '*.java' 2>/dev/null \
   | sort \
   | while IFS= read -r f; do
       sed -n 's|^[[:space:]]*//[[:space:]]*JLS[[:space:]]\{1,\}\([0-9][0-9.]*\).*|\1|p' "$f" \

@@ -154,6 +154,11 @@ module sir {
         | InstanceOf(node obj, atype atype, int32 class_id)
         | CheckCast(node obj, atype atype, int32 class_id)
         | NewArray(atype elem_type, node size)
+        // A primitive array whose contents are known at compile time: the elements live in a
+        // passive data segment and the array is built by one array.new_data, instead of an
+        // allocation plus a store per element. A LEAF — the segment index, byte offset and
+        // element count are immediates, so the tile emits its own i32.const operands.
+        | ArrayNewData(atype elem_type, int32 seg, int32 byte_off, int32 count)
         | NewRefArray(int32 class_id, node size, node? elem_ref)
         | ArrayLoad(datatype data_type, node arr, node index, node? elem_ref)
 

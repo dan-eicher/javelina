@@ -40,6 +40,7 @@ jav_status_t interp_run(vm_t* vm, heap_t* h) {
     vm->heap = h;
     vm->trapped = 0;
     vm->trap_reason = JAV_TRAP_NONE;   // clear with `trapped`, or the previous run's reason leaks into this one
+    vm->exhausted = NULL;              // same: a stale limit message would mislabel the next trap
     vm->frame.stp = 0;
     jav_next(vm);
     return vm->trapped ? JAV_TRAP : JAV_RETURN;

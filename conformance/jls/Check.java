@@ -84,4 +84,16 @@ public class Check {
         checks++;
         bad(section, what, "reached code that the rule makes unreachable");
     }
+
+    /** An exception escaped a section's own body.
+     *
+     *  Without this the throw propagates out of main and the vm reports an uncaught trap with
+     *  a frame list — which says the program died but not which RULE was being checked, and
+     *  takes every later section down with it. Reporting it as a failure against the section
+     *  keeps the remaining sections running and names the one that broke, which is the whole
+     *  premise of a suite whose output is a count. */
+    public static void crashed(String section, Throwable t) {
+        checks++;
+        bad(section, "the section threw instead of asserting", t.getClass().getName());
+    }
 }

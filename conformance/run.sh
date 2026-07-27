@@ -71,6 +71,11 @@ sh conformance/check-ledger.sh
 sh conformance/join-ledger.sh --check
 sh conformance/check-deferrals.sh
 
+# The number of assertions conformance/jls declares. Same reason as EXPECT_KERNELS: a chapter
+# that stops running, or a section quietly dropped from a run() list, changes this count, and
+# that has to FAIL rather than shrink the corpus into a smaller green.
+EXPECT_JLS_CHECKS=440
+
 # ── artifacts ───────────────────────────────────────────────────────────────
 # Built here rather than assumed: this target has no prerequisites, so a bare
 # `make test-java-conformance` has to stand on its own. javelina links the VM's
@@ -86,6 +91,8 @@ $B/javelinac --mode jre --libdir $LIBDIR -O0 -o $B/conf-jre-O0.wasm
 $B/javelinac --mode jre --libdir $LIBDIR -O  -o $B/conf-jre-O.wasm
 $B/javelinac --libdir $LIBDIR -O0 $SRC -o $B/conf-gct-O0.wasm
 $B/javelinac --libdir $LIBDIR -O  $SRC -o $B/conf-gct-O.wasm
+$B/javelinac --libdir $LIBDIR -O0 conformance/jls -o $B/conf-jls-O0.wasm
+$B/javelinac --libdir $LIBDIR -O  conformance/jls -o $B/conf-jls-O.wasm
 
 # ── the compiler's OWN memory, checked ──────────────────────────────────────
 # A whole class of defect is invisible to every behavioural suite: the optimizer's
@@ -211,4 +218,49 @@ else
 fi
 
 echo "  PASS  gc-torture ($EXPECT_KERNELS kernels × 4 configs agree, seed $SEED, $MODE)"
+
+# ── the JLS suite ───────────────────────────────────────────────────────────
+# gc-torture is a differential oracle: it proves the four configs AGREE, which is a strong
+# check on the engine and says nothing about whether the agreed answer is the one the
+# language specifies. conformance/jls is the other half — every assertion cites the JLS
+# section it comes from, so a failure names a RULE rather than a checksum.
+#
+# Run on all four configs for the same reason: a §5.1.3 narrowing that the interpreter gets
+# right and the JIT gets wrong is a config being WRONG, and the count makes it visible.
+for cfg in O0-interp O0-jit O-interp O-jit; do
+    case $cfg in
+        O0-*) jre=conf-jre-O0.wasm; plug=conf-jls-O0.wasm ;;
+        O-*)  jre=conf-jre-O.wasm;  plug=conf-jls-O.wasm  ;;
+    esac
+    case $cfg in
+        *-interp) tier=-nojit ;;
+        *-jit)    tier=-jit   ;;
+    esac
+    if ! $B/javelina --jre $B/$jre $tier $B/$plug > $B/jls-$cfg.out 2> $B/jls-$cfg.err; then
+        echo "  FAIL  jls $cfg — a cited JLS rule does not hold (or the program died)"
+        sed 's/^/        | /' $B/jls-$cfg.out
+        sed 's/^/        | /' $B/jls-$cfg.err
+        echo "java e2e conformance: 0 passed, 1 failed"
+        exit 1
+    fi
+    # The RESULT line carries the count, and the count is asserted: `fails=0` alone passes
+    # vacuously on a suite that ran nothing, which is the same defect EXPECT_KERNELS guards.
+    got=$(sed -n 's/^RESULT jls checks=\([0-9]*\) fails=.*/\1/p' $B/jls-$cfg.out)
+    bad=$(sed -n 's/^RESULT jls checks=[0-9]* fails=\([0-9]*\)/\1/p' $B/jls-$cfg.out)
+    if [ "$got" != "$EXPECT_JLS_CHECKS" ] || [ "$bad" != "0" ]; then
+        echo "  FAIL  jls $cfg: $got checks / $bad failures, expected $EXPECT_JLS_CHECKS / 0"
+        grep '^FAIL' $B/jls-$cfg.out | sed 's/^/        | /'
+        echo "java e2e conformance: 0 passed, 1 failed"
+        exit 1
+    fi
+    echo "  ....  jls $cfg ($got checks)"
+done
+echo "  PASS  jls ($EXPECT_JLS_CHECKS cited-section checks × 4 configs)"
+
+# ── the negative half ───────────────────────────────────────────────────────
+# The programs the spec says must NOT compile. Their oracle is javelinac's exit code and
+# diagnostic, so they cannot live in the suite above — the program that would demonstrate
+# the rule is exactly the one that must not build.
+sh conformance/run-reject.sh
+
 echo "java e2e conformance: 1 passed, 0 failed"

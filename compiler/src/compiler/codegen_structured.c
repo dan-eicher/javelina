@@ -173,6 +173,22 @@ static bool emit_spine(sir_node_t* node, sir_node_t* stop,
      * `wasm_live` for the function epilogue; NULL when a caller doesn't need it.) */
     bool left = false;
     bool live = true;
+    /* The if-join the ddcg recorded for the construct we are currently inside, carried from
+     * the node it is KEYED ON to the Branch that consumes it.
+     *
+     * `record_scope(test, Ljoin, 0)` keys the join on the head of the CONDITION's code. When
+     * the condition spills — a field read, an array length, anything needing a temp — that
+     * head is a StoreLocal, and by the time the walk reaches the SIR_BRANCH the lookup by
+     * node finds nothing. `ljoin` then fell back to `stop`, i.e. the end of the enclosing
+     * region, so BOTH arms were emitted all the way to it and the whole tail of the method
+     * was duplicated into each arm — once per such if, so 2^k. Measured on Graph.los: 130
+     * branches lost their anchor and were re-emitted 5599 times, overflowing javelinac's own
+     * C stack; the same shape also nests wasm control frames past the validator's depth cap.
+     *
+     * Reading the recorded fact and carrying it forward is what the sidecar is for. The
+     * alternative — recovering the join by walking the graph to find where the arms converge
+     * — is the merge-rediscovery this design exists to avoid. */
+    sir_node_t* pending_join = NULL;
     while (node && node != stop) {
         /* Emit-once merge labels (docs/ddcg-merge-labels.md §2.2). A SIR node a
          * branch's transfers converge on is a label whose code must be emitted ONCE;
@@ -224,6 +240,11 @@ static bool emit_spine(sir_node_t* node, sir_node_t* stop,
                     continue;
                 }
             }
+            /* Not framed here (no merge labels, or no room): remember the join so the Branch
+             * ending this condition still finds it. `mjoin` is already NULL when the join sits
+             * on the scope stack — there the branch resolves it by br_depth — or when it IS
+             * `stop`, where the fallback is right anyway. */
+            if (mjoin) pending_join = mjoin;
         }
         const compiler_fact_t* loop = loop_scope_at(sc, nsc, node);
         if (loop && sd + 2 <= MAXSCOPE) {
@@ -271,6 +292,8 @@ static bool emit_spine(sir_node_t* node, sir_node_t* stop,
              * spilled condition's StoreLocal), so on arrival here they resolve on the
              * scope stack and the branch emits through the transfer paths below. */
             const compiler_fact_t* js = block_scope_at(sc, nsc, node);
+            sir_node_t* carried = pending_join;   /* this branch ends the condition it belongs to */
+            pending_join = NULL;
             sir_node_t* cond = node->branch.cond;
             sir_node_t* on_t = node->branch.on_true;
             sir_node_t* on_f = node->branch.on_false;
@@ -304,7 +327,9 @@ static bool emit_spine(sir_node_t* node, sir_node_t* stop,
                  * `end` is the join; one-armed if (false arm IS the join) emits no
                  * else. Compound short-circuit conditions were framed above, so the
                  * condition here is a single Branch. */
-                sir_node_t* ljoin = js ? js->aux : stop;
+                sir_node_t* ljoin = js ? js->aux
+                                  : carried ? carried
+                                  : stop;
                 emit_value(cond, ctx);
                 ew_emit(&ctx->emit, WOP_IF); ew_byte(&ctx->emit, WBT_VOID);
                 /* The WASM `if` is itself a control frame: a br out of an arm (a

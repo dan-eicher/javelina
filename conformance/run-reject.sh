@@ -1,0 +1,96 @@
+#!/bin/sh
+# run-reject.sh — the NEGATIVE half of the corpus.
+#
+# A large fraction of the JLS is not "this evaluates to that" but "a compile-time error
+# occurs". A running program can never assert those: the program that would demonstrate the
+# rule is exactly the program that must not compile. So they get their own corpus, where the
+# artifact under test is javelinac's EXIT CODE and its DIAGNOSTIC.
+#
+# One file per case in conformance/reject/, each carrying two directives:
+#
+#     // JLS 5.2          the section whose rule the file violates — the SAME marker the
+#                         coverage join reads, so a rejection counts as coverage
+#     // EXPECT <text>    a substring the diagnostic must contain
+#
+# EXPECT is what stops this from being a rubber stamp. Without it any file that fails to
+# compile passes, including one that fails for a typo — the case would "cover" §5.2 while
+# demonstrating nothing about §5.2. Requiring the message to name the right thing means the
+# compiler has to reject it for the STATED reason. It is a substring rather than a full match
+# so diagnostics can be reworded without a corpus-wide edit; it must still be specific enough
+# that a different error does not satisfy it.
+#
+# Each file is compiled ALONE (with the RTL on --libdir), so one case cannot mask another and
+# the diagnostic belongs to the file that expected it.
+#
+# Usage:  sh conformance/run-reject.sh          compile every case, report, exit nonzero on any failure
+#         sh conformance/run-reject.sh -v       also print each accepted diagnostic
+
+set -e
+cd "$(dirname "$0")/.."
+
+B=compiler/build
+LIBDIR=compiler/lib/java
+DIR=conformance/reject
+VERBOSE=0
+[ "$1" = "-v" ] && VERBOSE=1
+
+[ -d "$DIR" ] || { echo "  FAIL  run-reject: $DIR missing"; exit 1; }
+
+TMP=$(mktemp -d)
+trap 'rm -rf "$TMP"' EXIT
+
+pass=0
+fail=0
+
+for f in "$DIR"/*.java; do
+    [ -e "$f" ] || continue
+    name=$(basename "$f" .java)
+
+    want=$(sed -n 's|^[[:space:]]*//[[:space:]]*EXPECT[[:space:]]\{1,\}||p' "$f")
+    sec=$(sed -n 's|^[[:space:]]*//[[:space:]]*JLS[[:space:]]\{1,\}\([0-9][0-9.]*\).*|\1|p' "$f" | head -1)
+
+    # A case with no EXPECT is not a case. It would pass on any failure at all, which is the
+    # exact defect this file exists to prevent, so it is a HARD error rather than a skip.
+    if [ -z "$want" ]; then
+        echo "  FAIL  reject/$name: no \`// EXPECT <text>\` directive — it would pass on any error"
+        fail=$((fail + 1))
+        continue
+    fi
+    if [ -z "$sec" ]; then
+        echo "  FAIL  reject/$name: no \`// JLS <section>\` marker — the rejection covers nothing"
+        fail=$((fail + 1))
+        continue
+    fi
+
+    # Compiled alone. stdout and stderr both captured: where a diagnostic goes is not part of
+    # the rule being tested, and a case must not turn into a stream-routing test.
+    if $B/javelinac --libdir $LIBDIR -O0 "$f" -o "$TMP/$name.wasm" > "$TMP/$name.log" 2>&1; then
+        echo "  FAIL  reject/$name (JLS $sec): COMPILED — the spec says this is a compile-time error"
+        fail=$((fail + 1))
+        continue
+    fi
+
+    if grep -qF -- "$want" "$TMP/$name.log"; then
+        pass=$((pass + 1))
+        [ "$VERBOSE" -eq 1 ] && sed 's/^/        | /' "$TMP/$name.log"
+    else
+        echo "  FAIL  reject/$name (JLS $sec): rejected, but not for the stated reason"
+        echo "        expected the diagnostic to contain: $want"
+        sed 's/^/        | /' "$TMP/$name.log" | head -8
+        fail=$((fail + 1))
+    fi
+done
+
+# Zero cases is a green run that checked nothing — the same vacuous pass the RESULT-line count
+# guards against on the positive side.
+if [ $((pass + fail)) -eq 0 ]; then
+    echo "  FAIL  run-reject: no cases found in $DIR"
+    exit 1
+fi
+
+if [ $fail -ne 0 ]; then
+    echo "  FAIL  reject corpus: $pass rejected correctly, $fail wrong"
+    exit 1
+fi
+
+echo "  ....  reject corpus: $pass programs rejected, each naming its own rule"

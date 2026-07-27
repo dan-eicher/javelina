@@ -13,7 +13,32 @@
 # wants explaining rather than absorbing. The distinction is the whole point, so a raise
 # carries its reason here.
 #
-# 441 -> 440 (this commit): §15.27 covered by conformance/jls/Ch15.java.
+# 398 -> 368 (this commit): all thirty of chapter 14's remaining sections, by
+# conformance/jls/Ch14.java plus six conformance/reject cases. Statements are where the DDCG's
+# destination-driven lowering lives, so these are the shapes the backend has to frame right —
+# loop headers, join labels, break/continue targets, finally on every exit path — and they are
+# the reason §14.19's reachability rules are compile-time errors rather than assertions.
+#
+# 409 -> 398 (previous): eleven of chapter 11's fourteen sections, by conformance/jls/Ch11.java.
+# §11.4 needed a compiler fix to land, not a weaker test: its worked output prints
+# ArithmeticException WITH "/ by zero", and the divide guard used throw_new_noarg, so
+# getMessage() was null. The guard now builds `new ArithmeticException(new String(<pooled
+# char[]>))` through throw_new_msg — which only became expressible once the constant-data pool
+# took raw bytes, since `rule string_lit` panics by design and a synthesized guard has no AST
+# literal for sema to desugar.
+#
+# §11.5.2.2 stays UNCOVERED: stack exhaustion arrives as an untrappable wasm trap rather than a
+# catchable Error, and making it catchable means synthesizing a Java exception at jav_call_fn's
+# frame guard — a VM change. One row in the ratchet, which is where an unmet rule belongs.
+#
+# 423 -> 409 (previous): all of chapter 5 (conformance/jls/Ch5.java + the first
+# conformance/reject cases) and the rest of chapter 4. Chapter 5 is the one that states its own
+# cardinality — 19 widening and 23 narrowing primitive conversions — so both are enumerated in
+# full rather than sampled.
+#
+# 439 -> 423 (previous): chapter 4 by conformance/jls/Ch4.java.
+#
+# 441 -> 440 (previous): §15.27 covered by conformance/jls/Ch15.java.
 #
 # 443 -> 441 (previous): §3.8 and §3.9 covered by conformance/jls/Ch3.java — the first
 # lowering, and the direction this number is supposed to move.
@@ -33,4 +58,4 @@
 # row is invisible to this ratchet forever, so that was a permanent hiding place. ClassLoader,
 # Process, Runtime, SecurityManager and StreamTokenizer are now UNCOVERED, which is what
 # unwritten means, and check-ledger.sh now rejects an N/A justified by implementation state.
-439
+368

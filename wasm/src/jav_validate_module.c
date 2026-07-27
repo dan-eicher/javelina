@@ -1,8 +1,13 @@
 #include "jav_validate_module.h"
 
-// Prescribed section order as a rank per id (spec/decode order: type, import,
-// function, table, memory, TAG, global, export, start, element, DATACOUNT, code,
-// data). id 0 (custom) ranks -1 and is skipped — custom may appear anywhere.
+// Prescribed section order as a rank per id. Transcribed from §5.5.17's `module` production,
+// which lists: typesec(1) importsec(2) funcsec(3) tablesec(4) memsec(5) TAGSEC(13)
+// globalsec(6) exportsec(7) startsec(8) elemsec(9) DATACNTSEC(12) codesec(10) datasec(11).
+// Not id order — §5.5.2's own note says so ("Section ids do not always correspond to the
+// order of sections"), and the two that move are the ones easy to get wrong: tag sits between
+// memory and global, and the data count precedes the code it exists to let a single pass
+// validate. id 0 (custom) ranks -1 and is skipped — "Custom sections may be inserted at any
+// place in this sequence".
 static int section_rank(int id) {
     static const signed char R[14] = { -1, 0, 1, 2, 3, 4, 6, 7, 8, 9, 11, 12, 10, 5 };
     return (id >= 0 && id <= 13) ? R[id] : 127;
@@ -28,8 +33,10 @@ static bool instr_uses_data(const jav_instr_t *in) {
         case 0x1F:                                    // try_table
             return instrs_use_data(in->body.u.case_15.instrs.items,
                                    in->body.u.case_15.instrs.count);
-        case 0xFC:                                    // misc prefix
+        case 0xFC:                                    // misc prefix: memory.init (8), data.drop (9)
             return in->body.u.case_30.sub == 8 || in->body.u.case_30.sub == 9;
+        case 0xFB:                                    // GC prefix: array.new_data (9), array.init_data (18)
+            return in->body.u.case_29.sub == 9 || in->body.u.case_29.sub == 18;
         default:
             return false;
     }

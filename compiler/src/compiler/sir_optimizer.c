@@ -10582,6 +10582,27 @@ void compiler_summarize_to_convergence(compiler_ctx_t* ctx) {
                 "(non-monotone?) — summaries are sound but may be imprecise\n", mc + 8);
 }
 
+/* The method/arena resolution both entry points need. Returns NULL when there is nothing to
+ * work on (an unknown index, a native method with no body). */
+static sir_method_t* cp_method_of(compiler_ctx_t* ctx, int method_idx) {
+    sir_method_t* method;
+    if (method_idx == SIR_OPT_CLINIT) {
+        method = ctx->clinit;
+    } else {
+        if (method_idx < 0 || method_idx >= ctx->method_count) return NULL;
+        method = ctx->methods ? ctx->methods[method_idx] : NULL;
+    }
+    return (method && method->entry) ? method : NULL;
+}
+
+void sir_pack_slots(compiler_ctx_t* ctx, int method_idx) {
+    if (!ctx) return;
+    sir_method_t* method = cp_method_of(ctx, method_idx);
+    if (!method) return;
+    int initial_max_locals = method->max_locals > 0 ? method->max_locals : 1;
+    cp_pack(method, ctx->sema, ctx->arena, initial_max_locals);
+}
+
 void sir_optimize(compiler_ctx_t* ctx, int method_idx) {
     if (!ctx) return;
     /* Everything comes out of the ONE context — the method, the sema, the arena,

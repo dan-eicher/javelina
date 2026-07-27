@@ -1103,6 +1103,36 @@
           "fields": [
             {
               "flag": "none",
+              "is_schema": true,
+              "name": "elem_type",
+              "type": "atype"
+            },
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "seg",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "byte_off",
+              "type": "int32"
+            },
+            {
+              "flag": "none",
+              "is_schema": false,
+              "name": "count",
+              "type": "int32"
+            }
+          ],
+          "name": "ArrayNewData"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
               "is_schema": false,
               "name": "class_id",
               "type": "int32"

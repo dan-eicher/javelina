@@ -69,7 +69,7 @@ static void closure_v128(burg_state_t* p, int c, BURG_NODE_TYPE node) {
     (void)node;
     if (c + 405 < p->cost[1]) {
         p->cost[1] = c + 405;
-        p->rule[1] = 246;
+        p->rule[1] = 247;
     }
 }
 
@@ -77,7 +77,7 @@ static void closure_ref(burg_state_t* p, int c, BURG_NODE_TYPE node) {
     (void)node;
     if (c + 404 < p->cost[1]) {
         p->cost[1] = c + 404;
-        p->rule[1] = 245;
+        p->rule[1] = 246;
     }
 }
 
@@ -85,7 +85,7 @@ static void closure_f64(burg_state_t* p, int c, BURG_NODE_TYPE node) {
     (void)node;
     if (c + 403 < p->cost[1]) {
         p->cost[1] = c + 403;
-        p->rule[1] = 244;
+        p->rule[1] = 245;
     }
 }
 
@@ -93,7 +93,7 @@ static void closure_i64(burg_state_t* p, int c, BURG_NODE_TYPE node) {
     (void)node;
     if (c + 401 < p->cost[1]) {
         p->cost[1] = c + 401;
-        p->rule[1] = 242;
+        p->rule[1] = 243;
     }
 }
 
@@ -101,7 +101,7 @@ static void closure_f32(burg_state_t* p, int c, BURG_NODE_TYPE node) {
     (void)node;
     if (c + 402 < p->cost[1]) {
         p->cost[1] = c + 402;
-        p->rule[1] = 243;
+        p->rule[1] = 244;
     }
 }
 
@@ -109,7 +109,7 @@ static void closure_i32(burg_state_t* p, int c, BURG_NODE_TYPE node) {
     (void)node;
     if (c + 400 < p->cost[1]) {
         p->cost[1] = c + 400;
-        p->rule[1] = 241;
+        p->rule[1] = 242;
     }
 }
 
@@ -123,7 +123,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
             int c = 0 + 1;
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 239;
+                p->rule[1] = 240;
             }
         }
         break;
@@ -132,7 +132,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
             int c = p->children[0]->cost[6] + 1;
             if (c < p->cost[6]) {
                 p->cost[6] = c;
-                p->rule[6] = 238;
+                p->rule[6] = 239;
                 closure_ref(p, c, node);
             }
         }
@@ -142,7 +142,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
             int c = p->children[0]->cost[6] + 6;
             if (c < p->cost[2]) {
                 p->cost[2] = c;
-                p->rule[2] = 227;
+                p->rule[2] = 228;
                 closure_i32(p, c, node);
             }
         }
@@ -150,7 +150,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
             int c = p->children[0]->cost[6] + 6;
             if (c < p->cost[3]) {
                 p->cost[3] = c;
-                p->rule[3] = 228;
+                p->rule[3] = 229;
                 closure_i64(p, c, node);
             }
         }
@@ -158,7 +158,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
             int c = p->children[0]->cost[6] + 6;
             if (c < p->cost[4]) {
                 p->cost[4] = c;
-                p->rule[4] = 229;
+                p->rule[4] = 230;
                 closure_f32(p, c, node);
             }
         }
@@ -166,7 +166,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
             int c = p->children[0]->cost[6] + 6;
             if (c < p->cost[5]) {
                 p->cost[5] = c;
-                p->rule[5] = 230;
+                p->rule[5] = 231;
                 closure_f64(p, c, node);
             }
         }
@@ -174,7 +174,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
             int c = p->children[0]->cost[6] + 6;
             if (c < p->cost[6]) {
                 p->cost[6] = c;
-                p->rule[6] = 231;
+                p->rule[6] = 232;
                 closure_ref(p, c, node);
             }
         }
@@ -182,7 +182,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
             int c = p->children[0]->cost[6] + 6;
             if (c < p->cost[7]) {
                 p->cost[7] = c;
-                p->rule[7] = 232;
+                p->rule[7] = 233;
                 closure_v128(p, c, node);
             }
         }
@@ -190,7 +190,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
             int c = p->children[0]->cost[6] + 6;
             if (c < p->cost[8]) {
                 p->cost[8] = c;
-                p->rule[8] = 236;
+                p->rule[8] = 237;
             }
         }
         break;
@@ -199,7 +199,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
             int c = p->children[0]->cost[6] + 5;
             if (c < p->cost[2]) {
                 p->cost[2] = c;
-                p->rule[2] = 221;
+                p->rule[2] = 222;
                 closure_i32(p, c, node);
             }
         }
@@ -207,7 +207,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
             int c = p->children[0]->cost[6] + 5;
             if (c < p->cost[3]) {
                 p->cost[3] = c;
-                p->rule[3] = 222;
+                p->rule[3] = 223;
                 closure_i64(p, c, node);
             }
         }
@@ -215,7 +215,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
             int c = p->children[0]->cost[6] + 5;
             if (c < p->cost[4]) {
                 p->cost[4] = c;
-                p->rule[4] = 223;
+                p->rule[4] = 224;
                 closure_f32(p, c, node);
             }
         }
@@ -223,7 +223,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
             int c = p->children[0]->cost[6] + 5;
             if (c < p->cost[5]) {
                 p->cost[5] = c;
-                p->rule[5] = 224;
+                p->rule[5] = 225;
                 closure_f64(p, c, node);
             }
         }
@@ -231,7 +231,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
             int c = p->children[0]->cost[6] + 5;
             if (c < p->cost[6]) {
                 p->cost[6] = c;
-                p->rule[6] = 225;
+                p->rule[6] = 226;
                 closure_ref(p, c, node);
             }
         }
@@ -239,7 +239,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
             int c = p->children[0]->cost[6] + 5;
             if (c < p->cost[7]) {
                 p->cost[7] = c;
-                p->rule[7] = 226;
+                p->rule[7] = 227;
                 closure_v128(p, c, node);
             }
         }
@@ -247,7 +247,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
             int c = p->children[0]->cost[6] + 5;
             if (c < p->cost[8]) {
                 p->cost[8] = c;
-                p->rule[8] = 235;
+                p->rule[8] = 236;
             }
         }
         break;
@@ -256,7 +256,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
             int c = p->children[0]->cost[6] + 1;
             if (c < p->cost[2]) {
                 p->cost[2] = c;
-                p->rule[2] = 215;
+                p->rule[2] = 216;
                 closure_i32(p, c, node);
             }
         }
@@ -264,7 +264,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
             int c = p->children[0]->cost[6] + 1;
             if (c < p->cost[3]) {
                 p->cost[3] = c;
-                p->rule[3] = 216;
+                p->rule[3] = 217;
                 closure_i64(p, c, node);
             }
         }
@@ -272,7 +272,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
             int c = p->children[0]->cost[6] + 1;
             if (c < p->cost[4]) {
                 p->cost[4] = c;
-                p->rule[4] = 217;
+                p->rule[4] = 218;
                 closure_f32(p, c, node);
             }
         }
@@ -280,7 +280,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
             int c = p->children[0]->cost[6] + 1;
             if (c < p->cost[5]) {
                 p->cost[5] = c;
-                p->rule[5] = 218;
+                p->rule[5] = 219;
                 closure_f64(p, c, node);
             }
         }
@@ -288,7 +288,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
             int c = p->children[0]->cost[6] + 1;
             if (c < p->cost[6]) {
                 p->cost[6] = c;
-                p->rule[6] = 219;
+                p->rule[6] = 220;
                 closure_ref(p, c, node);
             }
         }
@@ -296,7 +296,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
             int c = p->children[0]->cost[6] + 1;
             if (c < p->cost[7]) {
                 p->cost[7] = c;
-                p->rule[7] = 220;
+                p->rule[7] = 221;
                 closure_v128(p, c, node);
             }
         }
@@ -304,7 +304,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
             int c = p->children[0]->cost[6] + 1;
             if (c < p->cost[8]) {
                 p->cost[8] = c;
-                p->rule[8] = 234;
+                p->rule[8] = 235;
             }
         }
         break;
@@ -313,7 +313,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
             int c = p->children[0]->cost[6] + 1;
             if (c < p->cost[2]) {
                 p->cost[2] = c;
-                p->rule[2] = 204;
+                p->rule[2] = 205;
                 closure_i32(p, c, node);
             }
         }
@@ -323,42 +323,42 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
             int c = p->children[0]->cost[6] + p->children[1]->cost[2] + p->children[2]->cost[2] + 1;
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 199;
+                p->rule[1] = 200;
             }
         }
         if (p->child_count >= 3 && p->children[0]->rule[6] && p->children[1]->rule[2] && p->children[2]->rule[3]) {
             int c = p->children[0]->cost[6] + p->children[1]->cost[2] + p->children[2]->cost[3] + 1;
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 200;
+                p->rule[1] = 201;
             }
         }
         if (p->child_count >= 3 && p->children[0]->rule[6] && p->children[1]->rule[2] && p->children[2]->rule[4]) {
             int c = p->children[0]->cost[6] + p->children[1]->cost[2] + p->children[2]->cost[4] + 1;
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 201;
+                p->rule[1] = 202;
             }
         }
         if (p->child_count >= 3 && p->children[0]->rule[6] && p->children[1]->rule[2] && p->children[2]->rule[5]) {
             int c = p->children[0]->cost[6] + p->children[1]->cost[2] + p->children[2]->cost[5] + 1;
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 202;
+                p->rule[1] = 203;
             }
         }
         if (p->child_count >= 3 && p->children[0]->rule[6] && p->children[1]->rule[2] && p->children[2]->rule[7]) {
             int c = p->children[0]->cost[6] + p->children[1]->cost[2] + p->children[2]->cost[7] + 1;
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 203;
+                p->rule[1] = 204;
             }
         }
         if (p->child_count >= 3 && p->children[0]->rule[6] && p->children[1]->rule[2] && p->children[2]->rule[6]) {
             int c = p->children[0]->cost[6] + p->children[1]->cost[2] + p->children[2]->cost[6] + 1;
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 207;
+                p->rule[1] = 208;
             }
         }
         break;
@@ -367,7 +367,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
             int c = 0 + 0;
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 240;
+                p->rule[1] = 241;
             }
         }
         break;
@@ -443,7 +443,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
             int c = p->children[0]->cost[6] + 1;
             if (c < p->cost[2]) {
                 p->cost[2] = c;
-                p->rule[2] = 237;
+                p->rule[2] = 238;
                 closure_i32(p, c, node);
             }
         }
@@ -1004,7 +1004,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
             int c = p->children[0]->cost[2] + 1;
             if (c < p->cost[6]) {
                 p->cost[6] = c;
-                p->rule[6] = 205;
+                p->rule[6] = 206;
                 closure_ref(p, c, node);
             }
         }
@@ -1090,7 +1090,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
             int c = p->children[0]->cost[6] + p->children[1]->cost[2] + 1;
             if (c < p->cost[2]) {
                 p->cost[2] = c;
-                p->rule[2] = 192;
+                p->rule[2] = 193;
                 closure_i32(p, c, node);
             }
         }
@@ -1098,7 +1098,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
             int c = p->children[0]->cost[6] + p->children[1]->cost[2] + 1;
             if (c < p->cost[2]) {
                 p->cost[2] = c;
-                p->rule[2] = 193;
+                p->rule[2] = 194;
                 closure_i32(p, c, node);
             }
         }
@@ -1106,7 +1106,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
             int c = p->children[0]->cost[6] + p->children[1]->cost[2] + 1;
             if (c < p->cost[2]) {
                 p->cost[2] = c;
-                p->rule[2] = 194;
+                p->rule[2] = 195;
                 closure_i32(p, c, node);
             }
         }
@@ -1114,7 +1114,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
             int c = p->children[0]->cost[6] + p->children[1]->cost[2] + 1;
             if (c < p->cost[3]) {
                 p->cost[3] = c;
-                p->rule[3] = 195;
+                p->rule[3] = 196;
                 closure_i64(p, c, node);
             }
         }
@@ -1122,7 +1122,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
             int c = p->children[0]->cost[6] + p->children[1]->cost[2] + 1;
             if (c < p->cost[4]) {
                 p->cost[4] = c;
-                p->rule[4] = 196;
+                p->rule[4] = 197;
                 closure_f32(p, c, node);
             }
         }
@@ -1130,7 +1130,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
             int c = p->children[0]->cost[6] + p->children[1]->cost[2] + 1;
             if (c < p->cost[5]) {
                 p->cost[5] = c;
-                p->rule[5] = 197;
+                p->rule[5] = 198;
                 closure_f64(p, c, node);
             }
         }
@@ -1138,7 +1138,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
             int c = p->children[0]->cost[6] + p->children[1]->cost[2] + 1;
             if (c < p->cost[7]) {
                 p->cost[7] = c;
-                p->rule[7] = 198;
+                p->rule[7] = 199;
                 closure_v128(p, c, node);
             }
         }
@@ -1146,7 +1146,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
             int c = p->children[0]->cost[6] + p->children[1]->cost[2] + 1;
             if (c < p->cost[6]) {
                 p->cost[6] = c;
-                p->rule[6] = 206;
+                p->rule[6] = 207;
                 closure_ref(p, c, node);
             }
         }
@@ -1394,7 +1394,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
             int c = p->children[0]->cost[6] + p->children[1]->cost[2] + p->children[2]->cost[6] + p->children[3]->cost[2] + p->children[4]->cost[2] + 1;
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 208;
+                p->rule[1] = 209;
             }
         }
         break;
@@ -1725,6 +1725,16 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 p->cost[2] = c;
                 p->rule[2] = 96;
                 closure_i32(p, c, node);
+            }
+        }
+        break;
+    case BURG_ArrayNewData:
+        {
+            int c = 0 + 1;
+            if (c < p->cost[6]) {
+                p->cost[6] = c;
+                p->rule[6] = 192;
+                closure_ref(p, c, node);
             }
         }
         break;
@@ -2120,7 +2130,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
             int c = 0 + 1;
             if (c < p->cost[2]) {
                 p->cost[2] = c;
-                p->rule[2] = 209;
+                p->rule[2] = 210;
                 closure_i32(p, c, node);
             }
         }
@@ -2128,7 +2138,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
             int c = 0 + 1;
             if (c < p->cost[3]) {
                 p->cost[3] = c;
-                p->rule[3] = 210;
+                p->rule[3] = 211;
                 closure_i64(p, c, node);
             }
         }
@@ -2136,7 +2146,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
             int c = 0 + 1;
             if (c < p->cost[4]) {
                 p->cost[4] = c;
-                p->rule[4] = 211;
+                p->rule[4] = 212;
                 closure_f32(p, c, node);
             }
         }
@@ -2144,7 +2154,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
             int c = 0 + 1;
             if (c < p->cost[5]) {
                 p->cost[5] = c;
-                p->rule[5] = 212;
+                p->rule[5] = 213;
                 closure_f64(p, c, node);
             }
         }
@@ -2152,7 +2162,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
             int c = 0 + 1;
             if (c < p->cost[6]) {
                 p->cost[6] = c;
-                p->rule[6] = 213;
+                p->rule[6] = 214;
                 closure_ref(p, c, node);
             }
         }
@@ -2160,7 +2170,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
             int c = 0 + 1;
             if (c < p->cost[7]) {
                 p->cost[7] = c;
-                p->rule[7] = 214;
+                p->rule[7] = 215;
                 closure_v128(p, c, node);
             }
         }
@@ -2168,7 +2178,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
             int c = 0 + 1;
             if (c < p->cost[8]) {
                 p->cost[8] = c;
-                p->rule[8] = 233;
+                p->rule[8] = 234;
             }
         }
         break;
@@ -3886,13 +3896,15 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_ARRAY_NEW_DEFAULT); ew_u32(E, wasm_types_array_for_atype(ctx->types, node->new_array.elem_type));
         break;
     }
-    case 192: { // i32: ArrayLoad(ref, i32)
-        burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
-        burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
-        for (int _ci = 2; _ci < state->child_count; _ci++) {
+    case 192: { // ref: ArrayNewData
+        for (int _ci = 0; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        ew_emit(E, WOP_ARRAY_GET);   ew_u32(E, wasm_types_array_for_dt(ctx->types, node->array_load.data_type));
+        ew_emit(E, WOP_I32_CONST); ew_i32(E, node->array_new_data.byte_off);
+                            ew_emit(E, WOP_I32_CONST); ew_i32(E, node->array_new_data.count);
+                            ew_emit(E, WOP_ARRAY_NEW_DATA);
+                            ew_u32(E, wasm_types_array_for_atype(ctx->types, node->array_new_data.elem_type));
+                            ew_u32(E, (uint32_t)node->array_new_data.seg);
         break;
     }
     case 193: { // i32: ArrayLoad(ref, i32)
@@ -3901,7 +3913,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        ew_emit(E, WOP_ARRAY_GET_S); ew_u32(E, wasm_types_array_for_dt(ctx->types, node->array_load.data_type));
+        ew_emit(E, WOP_ARRAY_GET);   ew_u32(E, wasm_types_array_for_dt(ctx->types, node->array_load.data_type));
         break;
     }
     case 194: { // i32: ArrayLoad(ref, i32)
@@ -3910,10 +3922,19 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
+        ew_emit(E, WOP_ARRAY_GET_S); ew_u32(E, wasm_types_array_for_dt(ctx->types, node->array_load.data_type));
+        break;
+    }
+    case 195: { // i32: ArrayLoad(ref, i32)
+        burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
+        burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
+        for (int _ci = 2; _ci < state->child_count; _ci++) {
+            burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
+        }
         ew_emit(E, WOP_ARRAY_GET_U); ew_u32(E, wasm_types_array_for_dt(ctx->types, node->array_load.data_type));
         break;
     }
-    case 195: { // i64: ArrayLoad(ref, i32)
+    case 196: { // i64: ArrayLoad(ref, i32)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -3922,7 +3943,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_ARRAY_GET); ew_u32(E, wasm_types_array_for_dt(ctx->types, node->array_load.data_type));
         break;
     }
-    case 196: { // f32: ArrayLoad(ref, i32)
+    case 197: { // f32: ArrayLoad(ref, i32)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -3931,7 +3952,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_ARRAY_GET); ew_u32(E, wasm_types_array_for_dt(ctx->types, node->array_load.data_type));
         break;
     }
-    case 197: { // f64: ArrayLoad(ref, i32)
+    case 198: { // f64: ArrayLoad(ref, i32)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -3940,7 +3961,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_ARRAY_GET); ew_u32(E, wasm_types_array_for_dt(ctx->types, node->array_load.data_type));
         break;
     }
-    case 198: { // v128: ArrayLoad(ref, i32)
+    case 199: { // v128: ArrayLoad(ref, i32)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -3949,7 +3970,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_ARRAY_GET); ew_u32(E, wasm_types_array_for_dt(ctx->types, node->array_load.data_type));
         break;
     }
-    case 199: { // stmt: ArrayStore(ref, i32, i32)
+    case 200: { // stmt: ArrayStore(ref, i32, i32)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 2, ctx);
@@ -3959,7 +3980,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_ARRAY_SET); ew_u32(E, wasm_types_array_for_dt(ctx->types, node->array_store.data_type)); cg_jump(E, node);
         break;
     }
-    case 200: { // stmt: ArrayStore(ref, i32, i64)
+    case 201: { // stmt: ArrayStore(ref, i32, i64)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 3, ctx);
@@ -3969,7 +3990,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_ARRAY_SET); ew_u32(E, wasm_types_array_for_dt(ctx->types, node->array_store.data_type)); cg_jump(E, node);
         break;
     }
-    case 201: { // stmt: ArrayStore(ref, i32, f32)
+    case 202: { // stmt: ArrayStore(ref, i32, f32)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 4, ctx);
@@ -3979,7 +4000,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_ARRAY_SET); ew_u32(E, wasm_types_array_for_dt(ctx->types, node->array_store.data_type)); cg_jump(E, node);
         break;
     }
-    case 202: { // stmt: ArrayStore(ref, i32, f64)
+    case 203: { // stmt: ArrayStore(ref, i32, f64)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 5, ctx);
@@ -3989,7 +4010,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_ARRAY_SET); ew_u32(E, wasm_types_array_for_dt(ctx->types, node->array_store.data_type)); cg_jump(E, node);
         break;
     }
-    case 203: { // stmt: ArrayStore(ref, i32, v128)
+    case 204: { // stmt: ArrayStore(ref, i32, v128)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 7, ctx);
@@ -3999,7 +4020,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_ARRAY_SET); ew_u32(E, wasm_types_array_for_dt(ctx->types, node->array_store.data_type)); cg_jump(E, node);
         break;
     }
-    case 204: { // i32: ArrayLength(ref)
+    case 205: { // i32: ArrayLength(ref)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -4007,7 +4028,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_ARRAY_LEN);
         break;
     }
-    case 205: { // ref: NewRefArray(i32)
+    case 206: { // ref: NewRefArray(i32)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -4015,7 +4036,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_ARRAY_NEW_DEFAULT); ew_u32(E, wasm_types_array_for_dt(ctx->types, SIR_DTREF));
         break;
     }
-    case 206: { // ref: ArrayLoad(ref, i32)
+    case 207: { // ref: ArrayLoad(ref, i32)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -4024,7 +4045,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_ARRAY_GET); ew_u32(E, wasm_types_array_for_dt(ctx->types, SIR_DTREF)); ew_emit(E, WOP_REF_CAST_NULL); ew_i32(E, wasm_types_ref_typeidx(ctx->types, node->array_load.elem_ref));
         break;
     }
-    case 207: { // stmt: ArrayStore(ref, i32, ref)
+    case 208: { // stmt: ArrayStore(ref, i32, ref)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 6, ctx);
@@ -4034,7 +4055,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_ARRAY_SET); ew_u32(E, wasm_types_array_for_dt(ctx->types, SIR_DTREF)); cg_jump(E, node);
         break;
     }
-    case 208: { // stmt: ArrayCopy(ref, i32, ref, i32, i32)
+    case 209: { // stmt: ArrayCopy(ref, i32, ref, i32, i32)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 6, ctx);
@@ -4046,49 +4067,49 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_ARRAY_COPY); ew_u32(E, wasm_types_array_for_dt(ctx->types, node->array_copy.width)); ew_u32(E, wasm_types_array_for_dt(ctx->types, node->array_copy.width)); cg_jump(E, node);
         break;
     }
-    case 209: { // i32: InvokeStatic
+    case 210: { // i32: InvokeStatic
         for (int _ci = 0; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
         ew_emit(E, WOP_CALL); ew_u32(E, wasm_func_index(ctx->types, node->invoke_static.class_id, node->invoke_static.method_idx));
         break;
     }
-    case 210: { // i64: InvokeStatic
+    case 211: { // i64: InvokeStatic
         for (int _ci = 0; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
         ew_emit(E, WOP_CALL); ew_u32(E, wasm_func_index(ctx->types, node->invoke_static.class_id, node->invoke_static.method_idx));
         break;
     }
-    case 211: { // f32: InvokeStatic
+    case 212: { // f32: InvokeStatic
         for (int _ci = 0; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
         ew_emit(E, WOP_CALL); ew_u32(E, wasm_func_index(ctx->types, node->invoke_static.class_id, node->invoke_static.method_idx));
         break;
     }
-    case 212: { // f64: InvokeStatic
+    case 213: { // f64: InvokeStatic
         for (int _ci = 0; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
         ew_emit(E, WOP_CALL); ew_u32(E, wasm_func_index(ctx->types, node->invoke_static.class_id, node->invoke_static.method_idx));
         break;
     }
-    case 213: { // ref: InvokeStatic
+    case 214: { // ref: InvokeStatic
         for (int _ci = 0; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
         ew_emit(E, WOP_CALL); ew_u32(E, wasm_func_index(ctx->types, node->invoke_static.class_id, node->invoke_static.method_idx));
         break;
     }
-    case 214: { // v128: InvokeStatic
+    case 215: { // v128: InvokeStatic
         for (int _ci = 0; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
         ew_emit(E, WOP_CALL); ew_u32(E, wasm_func_index(ctx->types, node->invoke_static.class_id, node->invoke_static.method_idx));
         break;
     }
-    case 215: { // i32: InvokeSpecial(ref)
+    case 216: { // i32: InvokeSpecial(ref)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -4096,7 +4117,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_CALL); ew_u32(E, wasm_func_index(ctx->types, node->invoke_special.class_id, node->invoke_special.method_idx));
         break;
     }
-    case 216: { // i64: InvokeSpecial(ref)
+    case 217: { // i64: InvokeSpecial(ref)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -4104,7 +4125,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_CALL); ew_u32(E, wasm_func_index(ctx->types, node->invoke_special.class_id, node->invoke_special.method_idx));
         break;
     }
-    case 217: { // f32: InvokeSpecial(ref)
+    case 218: { // f32: InvokeSpecial(ref)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -4112,7 +4133,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_CALL); ew_u32(E, wasm_func_index(ctx->types, node->invoke_special.class_id, node->invoke_special.method_idx));
         break;
     }
-    case 218: { // f64: InvokeSpecial(ref)
+    case 219: { // f64: InvokeSpecial(ref)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -4120,7 +4141,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_CALL); ew_u32(E, wasm_func_index(ctx->types, node->invoke_special.class_id, node->invoke_special.method_idx));
         break;
     }
-    case 219: { // ref: InvokeSpecial(ref)
+    case 220: { // ref: InvokeSpecial(ref)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -4128,7 +4149,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_CALL); ew_u32(E, wasm_func_index(ctx->types, node->invoke_special.class_id, node->invoke_special.method_idx));
         break;
     }
-    case 220: { // v128: InvokeSpecial(ref)
+    case 221: { // v128: InvokeSpecial(ref)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -4136,7 +4157,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_CALL); ew_u32(E, wasm_func_index(ctx->types, node->invoke_special.class_id, node->invoke_special.method_idx));
         break;
     }
-    case 221: { // i32: InvokeVirtual(ref)
+    case 222: { // i32: InvokeVirtual(ref)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -4144,7 +4165,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         VCALL(node->invoke_virtual.obj, node->invoke_virtual.class_id, node->invoke_virtual.method_idx);
         break;
     }
-    case 222: { // i64: InvokeVirtual(ref)
+    case 223: { // i64: InvokeVirtual(ref)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -4152,7 +4173,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         VCALL(node->invoke_virtual.obj, node->invoke_virtual.class_id, node->invoke_virtual.method_idx);
         break;
     }
-    case 223: { // f32: InvokeVirtual(ref)
+    case 224: { // f32: InvokeVirtual(ref)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -4160,7 +4181,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         VCALL(node->invoke_virtual.obj, node->invoke_virtual.class_id, node->invoke_virtual.method_idx);
         break;
     }
-    case 224: { // f64: InvokeVirtual(ref)
+    case 225: { // f64: InvokeVirtual(ref)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -4168,7 +4189,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         VCALL(node->invoke_virtual.obj, node->invoke_virtual.class_id, node->invoke_virtual.method_idx);
         break;
     }
-    case 225: { // ref: InvokeVirtual(ref)
+    case 226: { // ref: InvokeVirtual(ref)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -4176,7 +4197,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         VCALL(node->invoke_virtual.obj, node->invoke_virtual.class_id, node->invoke_virtual.method_idx);
         break;
     }
-    case 226: { // v128: InvokeVirtual(ref)
+    case 227: { // v128: InvokeVirtual(ref)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -4184,7 +4205,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         VCALL(node->invoke_virtual.obj, node->invoke_virtual.class_id, node->invoke_virtual.method_idx);
         break;
     }
-    case 227: { // i32: InvokeInterface(ref)
+    case 228: { // i32: InvokeInterface(ref)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -4192,7 +4213,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         IVCALL(node->invoke_interface.obj, node->invoke_interface.class_id, node->invoke_interface.method_idx);
         break;
     }
-    case 228: { // i64: InvokeInterface(ref)
+    case 229: { // i64: InvokeInterface(ref)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -4200,7 +4221,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         IVCALL(node->invoke_interface.obj, node->invoke_interface.class_id, node->invoke_interface.method_idx);
         break;
     }
-    case 229: { // f32: InvokeInterface(ref)
+    case 230: { // f32: InvokeInterface(ref)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -4208,7 +4229,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         IVCALL(node->invoke_interface.obj, node->invoke_interface.class_id, node->invoke_interface.method_idx);
         break;
     }
-    case 230: { // f64: InvokeInterface(ref)
+    case 231: { // f64: InvokeInterface(ref)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -4216,7 +4237,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         IVCALL(node->invoke_interface.obj, node->invoke_interface.class_id, node->invoke_interface.method_idx);
         break;
     }
-    case 231: { // ref: InvokeInterface(ref)
+    case 232: { // ref: InvokeInterface(ref)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -4224,7 +4245,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         IVCALL(node->invoke_interface.obj, node->invoke_interface.class_id, node->invoke_interface.method_idx);
         break;
     }
-    case 232: { // v128: InvokeInterface(ref)
+    case 233: { // v128: InvokeInterface(ref)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -4232,14 +4253,14 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         IVCALL(node->invoke_interface.obj, node->invoke_interface.class_id, node->invoke_interface.method_idx);
         break;
     }
-    case 233: { // tail: InvokeStatic
+    case 234: { // tail: InvokeStatic
         for (int _ci = 0; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
         ew_emit(E, WOP_RETURN_CALL); ew_u32(E, wasm_func_index(ctx->types, node->invoke_static.class_id, node->invoke_static.method_idx));
         break;
     }
-    case 234: { // tail: InvokeSpecial(ref)
+    case 235: { // tail: InvokeSpecial(ref)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -4247,7 +4268,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_RETURN_CALL); ew_u32(E, wasm_func_index(ctx->types, node->invoke_special.class_id, node->invoke_special.method_idx));
         break;
     }
-    case 235: { // tail: InvokeVirtual(ref)
+    case 236: { // tail: InvokeVirtual(ref)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -4255,7 +4276,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         TVCALL(node->invoke_virtual.obj, node->invoke_virtual.class_id, node->invoke_virtual.method_idx);
         break;
     }
-    case 236: { // tail: InvokeInterface(ref)
+    case 237: { // tail: InvokeInterface(ref)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -4263,7 +4284,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         TIVCALL(node->invoke_interface.obj, node->invoke_interface.class_id, node->invoke_interface.method_idx);
         break;
     }
-    case 237: { // i32: InstanceOf(ref)
+    case 238: { // i32: InstanceOf(ref)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -4277,7 +4298,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
     }
         break;
     }
-    case 238: { // ref: CheckCast(ref)
+    case 239: { // ref: CheckCast(ref)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -4287,7 +4308,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
     ew_emit(E, WOP_REF_CAST_NULL); ew_i32(E, struct_idx(_to));
         break;
     }
-    case 239: { // stmt: ExceptionEntry
+    case 240: { // stmt: ExceptionEntry
         for (int _ci = 0; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
@@ -4295,34 +4316,34 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
     cg_jump(E, node);
         break;
     }
-    case 240: { // stmt: Nop
+    case 241: { // stmt: Nop
         for (int _ci = 0; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
         /* label anchor — structurer owns the scope */
         break;
     }
-    case 241: { // stmt: i32
+    case 242: { // stmt: i32
         burg_reduce(node, state, 2, ctx);
         break;
     }
-    case 242: { // stmt: i64
+    case 243: { // stmt: i64
         burg_reduce(node, state, 3, ctx);
         break;
     }
-    case 243: { // stmt: f32
+    case 244: { // stmt: f32
         burg_reduce(node, state, 4, ctx);
         break;
     }
-    case 244: { // stmt: f64
+    case 245: { // stmt: f64
         burg_reduce(node, state, 5, ctx);
         break;
     }
-    case 245: { // stmt: ref
+    case 246: { // stmt: ref
         burg_reduce(node, state, 6, ctx);
         break;
     }
-    case 246: { // stmt: v128
+    case 247: { // stmt: v128
         burg_reduce(node, state, 7, ctx);
         break;
     }

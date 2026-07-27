@@ -83,6 +83,7 @@
 #define BURG_InstanceOf SIR_INSTANCEOF
 #define BURG_CheckCast SIR_CHECKCAST
 #define BURG_NewArray SIR_NEWARRAY
+#define BURG_ArrayNewData SIR_ARRAYNEWDATA
 #define BURG_NewRefArray SIR_NEWREFARRAY
 #define BURG_ArrayLoad SIR_ARRAYLOAD
 #define BURG_ArrayLength SIR_ARRAYLENGTH

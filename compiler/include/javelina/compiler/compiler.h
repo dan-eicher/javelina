@@ -308,6 +308,26 @@ typedef struct {
      * default; javelinac -O / --optimize sets it. */
     bool optimize;
 
+    /* THE CONSTANT-DATA POOL — the bytes of every compile-time-known primitive array in the
+     * module, concatenated, little-endian per element (jav_array_new_data reads its segment
+     * that way). Emitted as ONE passive data segment and referenced by SIR_ARRAYNEWDATA's
+     * (byte_off, count).
+     *
+     * It lives here because it is per-MODULE: the ddcg appends while lowering each method and
+     * wasm_module.c reads it once at assembly, which by the arena rule (the arena of its LAST
+     * reader) puts it on ctx->arena, the same lifetime as the emitted bytes.
+     *
+     * Identical runs are shared — the same literal in two methods contributes one region.
+     * That is a size win, not a semantic one: each array.new_data still allocates a fresh
+     * array, so no two Java arrays alias. */
+    uint8_t* const_data;                      /* bbq_vec of bytes */
+
+    /* run-content hash → its byte offset in const_data, +1 (htree reserves key/value 0).
+     * The pool is content-addressed, so an identical run is found in one lookup instead of a
+     * scan over everything pooled so far. A hit still memcmps: the key is a uint32_t, so two
+     * different runs can collide, and the compare is what makes sharing them impossible. */
+    bbq_htree* const_data_index;
+
     /* THE SIDECAR — every recorded fact, all kinds, one table per method.
      * Populated by compiler_compile from the DDCG's per-method accumulator. */
     compiler_fact_t** all_facts;              /* arena array of bbq_vecs, one per method */
@@ -411,6 +431,15 @@ typedef struct {
 void compiler_init(compiler_ctx_t* ctx, bbq_arena* arena, const sema_ctx_t* sema);
 sir_method_t** compiler_compile(compiler_ctx_t* ctx, ast_program_t* program, int* out_count);
 void compiler_destroy(compiler_ctx_t* ctx);
+
+/* Intern `runlen` bytes into a constant-data pool (`&ctx->const_data`) and its content index
+ * (`&ctx->const_data_index`); answers the run's BYTE OFFSET in the pool.
+ *
+ * Takes RAW BYTES, not an expression. §10.6 constant array initializers are its only client
+ * today, but the section it fills is the module's read-only data generally — a later producer
+ * such as debug data has bytes and no AST node to hand, and would otherwise have to duplicate
+ * the pooling rather than share it. */
+int const_pool_intern(uint8_t** pool, bbq_htree** index, const uint8_t* run, size_t runlen);
 
 /* THE ONE GETTER. Every fact recorded for this method, all kinds, in RECORD ORDER —
  * which for SCOPEs is nesting order (rules build inner scopes first), and for

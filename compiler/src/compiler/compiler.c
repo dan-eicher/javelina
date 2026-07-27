@@ -554,7 +554,13 @@ void compiler_init(compiler_ctx_t* ctx, bbq_arena* arena, const sema_ctx_t* sema
 }
 
 void compiler_destroy(compiler_ctx_t* ctx) {
-    (void)ctx;
+    /* The constant-data index is the one thing here that is NOT arena-backed — bbq_htree owns
+     * its own nodes — so it is the one thing that has to be released by hand. The pool it
+     * indexes is a bbq_vec on ctx->arena and goes with the compile. */
+    if (ctx && ctx->const_data_index) {
+        bbq_htree_destroy(ctx->const_data_index);
+        ctx->const_data_index = NULL;
+    }
 }
 
 /* ── §7's DEFUNCTIONALIZED CALL GRAPH ──────────────────────────────────────────
@@ -779,6 +785,11 @@ sir_method_t** compiler_compile(compiler_ctx_t* ctx,
     memset(&yctx, 0, sizeof(yctx));
     yctx.arena = ctx->arena;
     yctx.sema  = ctx->sema;
+    /* Per MODULE: handed in once, appended to across every method walk, read by wasm_module.c
+     * when it emits the data section. Unlike facts_ it is never cleared between methods —
+     * which is why it is the address OF the context's field, not a vec this function owns. */
+    yctx.const_data_ = &ctx->const_data;
+    yctx.const_data_index_ = &ctx->const_data_index;
 
     sir_method_t** methods = NULL;
     int mc = 0;

@@ -620,6 +620,14 @@ typedef struct ddcg_ctx {
     // DSL's view, so this preamble needs only compiler_runtime.h, not compiler.h —
     // symmetric with every other type the DSL touches.
     void*             facts_;
+    // THE CONSTANT-DATA POOL — per MODULE, not per method, so unlike facts_ it is not reset
+    // between method walks: it is `&compiler_ctx_t.const_data`, handed in once and appended
+    // to by const_data_offset. Opaque here for the same reason facts_ is; the AUX body in
+    // compiler_helpers.c is the one place that knows it is a bbq_vec of bytes.
+    void*             const_data_;
+    // The pool's content index (`&compiler_ctx_t.const_data_index`), handed in beside the pool
+    // it indexes. Opaque here for the same reason const_data_ is.
+    void*             const_data_index_;
 } ddcg_ctx_t;
 
 /* ─── Auxiliaries / predicates (caller supplies) ─── */
@@ -695,6 +703,7 @@ int ddcg_sema_super_field_cp(ddcg_ctx_t* ctx, ast_expr_t* _arg0);
 int ddcg_sema_super_parent_class_id(ddcg_ctx_t* ctx);
 sir_atype_t ddcg_sema_arrayinit_atype(ddcg_ctx_t* ctx, ast_expr_t* _arg0);
 sir_datatype_t ddcg_sema_arrayinit_dt(ddcg_ctx_t* ctx, ast_expr_t* _arg0);
+int ddcg_const_data_offset(ddcg_ctx_t* ctx, ast_expr_t* _arg0);
 sema_cast_kind_t ddcg_sema_cast_kind(ddcg_ctx_t* ctx, ast_expr_t* _arg0);
 sema_cast_kind_t ddcg_assign_conv(ddcg_ctx_t* ctx, ast_expr_t* _arg0, sir_datatype_t _arg1);
 sema_instanceof_kind_t ddcg_sema_instanceof_kind(ddcg_ctx_t* ctx, ast_expr_t* _arg0);
@@ -726,6 +735,11 @@ int ddcg_sema_class_cast_exc_id(ddcg_ctx_t* ctx);
 int ddcg_sema_index_oob_exc_id(ddcg_ctx_t* ctx);
 int ddcg_sema_array_store_exc_id(ddcg_ctx_t* ctx);
 int ddcg_sema_noarg_ctor_index(ddcg_ctx_t* ctx, int _arg0);
+int ddcg_sema_string_arg_ctor_index(ddcg_ctx_t* ctx, int _arg0);
+int ddcg_sema_string_chars_ctor_index(ddcg_ctx_t* ctx);
+int ddcg_sema_string_class_id(ddcg_ctx_t* ctx);
+int ddcg_const_string_offset(ddcg_ctx_t* ctx, const char* _arg0);
+int ddcg_const_string_length(ddcg_ctx_t* ctx, const char* _arg0);
 bool ddcg_sema_super_method_resolved(ddcg_ctx_t* ctx, ast_expr_t* _arg0);
 int ddcg_sema_ctor_call_target_class(ddcg_ctx_t* ctx, ast_expr_t* _arg0);
 int ddcg_sema_catch_class_id(ddcg_ctx_t* ctx, ast_catch_clause_t* _arg0);
@@ -743,6 +757,7 @@ sir_node_t* ddcg_on_dispatch_result(ddcg_ctx_t* ctx, sir_node_t* _arg0);
 ast_expr_t* ddcg_field_acc_obj(ddcg_ctx_t* ctx, ast_expr_t* _arg0);
 ast_expr_t* ddcg_array_acc_arr(ddcg_ctx_t* ctx, ast_expr_t* _arg0);
 ast_expr_t* ddcg_array_acc_index(ddcg_ctx_t* ctx, ast_expr_t* _arg0);
+bool ddcg_arrayinit_is_const(ddcg_ctx_t* ctx, ast_expr_t* _arg0);
 bool ddcg_sema_binary_is_concat(ddcg_ctx_t* ctx, ast_expr_t* _arg0);
 bool ddcg_is_guarded_intdiv(ddcg_ctx_t* ctx, ast_expr_t* _arg0);
 bool ddcg_sema_is_arraycopy(ddcg_ctx_t* ctx, ast_expr_t* _arg0);
@@ -830,6 +845,7 @@ sir_node_t* ddcg_ternary_arm(ddcg_ctx_t* ctx, ast_expr_t* arm, rho_t rho, delta_
 sir_node_t* ddcg_zero_const(ddcg_ctx_t* ctx, sir_datatype_t dt);
 sir_node_t* ddcg_neg_one_const(ddcg_ctx_t* ctx, sir_datatype_t dt);
 sir_node_t* ddcg_div_overflow_arm(ddcg_ctx_t* ctx, int t_a, int t_b, sir_datatype_t lhs_dt, sir_datatype_t rhs_dt, sir_datatype_t ct, delta_t delta, gamma_t gamma, sir_node_t* Lnext);
+sir_node_t* ddcg_throw_new_msg(ddcg_ctx_t* ctx, int exc_class, const char* msg, rho_t r);
 sir_node_t* ddcg_throw_new_noarg(ddcg_ctx_t* ctx, int exc_class, rho_t r);
 sir_node_t* ddcg_mem_bounds_guard(ddcg_ctx_t* ctx, int t_addr, int width, sir_node_t* ok, rho_t r);
 sir_node_t* ddcg_mem_range_guard(ddcg_ctx_t* ctx, int t_base, int t_len, sir_node_t* ok, rho_t r);
@@ -848,7 +864,7 @@ sir_node_t* ddcg_emit_ref_cast(ddcg_ctx_t* ctx, sir_atype_t at, int cp, ast_expr
 sir_node_t* ddcg_chain_call_args(ddcg_ctx_t* ctx, ddcg_list_ast_expr_t_ptr_t args, int idx, ddcg_list_int_t t_args, ddcg_list_sir_datatype_t_t arg_dts, int dcl, int cp, sir_node_t* after, rho_t rho);
 sir_node_t* ddcg_build_invoke_node(ddcg_ctx_t* ctx, int kind, int target_class, int cp, sir_node_t* recv_load, ddcg_list_sir_node_t_ptr_t arg_loads, sir_datatype_t dt, rho_t r);
 sir_node_t* ddcg_call_delivery(ddcg_ctx_t* ctx, sir_node_t* invoke_node, bool is_void, sir_datatype_t dt, delta_t delta, gamma_t gamma, sir_node_t* Lnext);
-sir_node_t* ddcg_chain_array_init(ddcg_ctx_t* ctx, ddcg_list_ast_expr_t_ptr_t elems, int idx, int t_arr, sir_datatype_t arr_dt, sir_node_t* after, rho_t rho);
+sir_node_t* ddcg_chain_array_init(ddcg_ctx_t* ctx, ddcg_list_ast_expr_t_ptr_t elems, int idx, int t_arr, sir_datatype_t arr_dt, sir_node_t* eref, sir_node_t* after, rho_t rho);
 sir_node_t* ddcg_emit_instance_of(ddcg_ctx_t* ctx, sir_atype_t at, int cp, ast_expr_t* op, rho_t rho, delta_t delta, gamma_t gamma, sir_node_t* Lnext);
 sir_node_t* ddcg_emit_array_instanceof(ddcg_ctx_t* ctx, int array_class, ast_expr_t* op, rho_t rho, delta_t delta, gamma_t gamma, sir_node_t* Lnext);
 sir_node_t* ddcg_emit_array_cast(ddcg_ctx_t* ctx, int array_class, ast_expr_t* op, rho_t rho, delta_t delta, gamma_t gamma, sir_node_t* Lnext);
@@ -858,6 +874,7 @@ sir_node_t* ddcg_array_backing(ddcg_ctx_t* ctx, int t_a, sir_node_t* eref, sir_d
 sir_node_t* ddcg_build_refarray_into(ddcg_ctx_t* ctx, int t_ra, sir_node_t* size, int elem_class, int array_class, int in_loop, sir_node_t* next, rho_t r);
 sir_node_t* ddcg_cg_ref_array_new(ddcg_ctx_t* ctx, ast_expr_t* size, int elem_class, int array_class, rho_t rho, delta_t delta, gamma_t gamma, sir_node_t* Lnext);
 sir_node_t* ddcg_build_primarray_into(ddcg_ctx_t* ctx, int t_pa, sir_atype_t atype, int array_class, sir_node_t* size, int in_loop, sir_node_t* next, rho_t r);
+sir_node_t* ddcg_build_primarray_data_into(ddcg_ctx_t* ctx, int t_pa, sir_atype_t atype, int array_class, int byte_off, int count, int in_loop, sir_node_t* next, rho_t r);
 sir_node_t* ddcg_cg_prim_array_new(ddcg_ctx_t* ctx, ast_expr_t* size, sir_atype_t atype, int array_class, rho_t rho, delta_t delta, gamma_t gamma, sir_node_t* Lnext);
 sir_node_t* ddcg_cg_alloc_level(ddcg_ctx_t* ctx, ast_expr_t* node, int level, int sized, int rank, ddcg_list_int_t t_sz, int in_loop, rho_t rho, delta_t delta, gamma_t gamma, sir_node_t* Lnext);
 sir_node_t* ddcg_cg_eval_dims(ddcg_ctx_t* ctx, ast_expr_t* node, ddcg_list_int_t t_sz, int k, int sized, sir_node_t* alloc_head, rho_t rho);

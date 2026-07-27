@@ -50,13 +50,14 @@ CC      := clang
 # the BBQ runtime headers under $(RT)/$(CRT) that live outside this tree — so a change to,
 # say, bbq_read.h rebuilds the objects that include it. No more manual cleans to pick up
 # upstream header edits. The .d files are pulled in via the -include at the bottom.
-CFLAGS  := -O2 -std=c11 -Wall -Werror -MMD -MP -Isrc -Isrc/gen -Isrc/immix -I$(RT) -I$(JITRT) -I$(CRT)
+# -Iinclude: jav_limits.h — the per-frame caps the engine enforces and javelinac must respect.
+CFLAGS  := -O2 -std=c11 -Wall -Werror -MMD -MP -Isrc -Isrc/gen -Isrc/immix -Iinclude -I$(RT) -I$(JITRT) -I$(CRT)
 # -fno-vectorize/-fno-slp-vectorize: a copy-and-patch stencil must be position-independent
 # and relocation-free, but clang's auto-vectorizer emits .rodata vector constants (mask
 # tables) the JIT can't relocate (jitterator rejects them). Keeping the SIMD lane loops
 # SCALAR in the stencils is the "supported" tier — correct, both tiers; hardware-SIMD
 # codegen (the "optimized" tier) is deferred. The interp (gen_interp.c) still vectorizes.
-STENCIL_CFLAGS := -O2 -Wall -Werror -fno-stack-protector -fno-asynchronous-unwind-tables -fno-vectorize -fno-slp-vectorize -MMD -MP -Isrc -Isrc/gen -Isrc/immix -I$(RT) -I$(CRT)
+STENCIL_CFLAGS := -O2 -Wall -Werror -fno-stack-protector -fno-asynchronous-unwind-tables -fno-vectorize -fno-slp-vectorize -MMD -MP -Isrc -Isrc/gen -Isrc/immix -Iinclude -I$(RT) -I$(CRT)
 
 GEN     := src/gen
 B       := build

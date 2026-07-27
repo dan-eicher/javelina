@@ -722,15 +722,12 @@ int sema_catch_class_id(const sema_ctx_t* ctx, const ast_catch_clause_t* cc);
 /* Query resolved field for an access (returns NULL if not found). */
 const sema_field_t* sema_resolved_field(const sema_ctx_t* ctx, const ast_expr_t* access);
 
-/* Compile-time constant query (JLS §15.28). Returns true and writes
- * *out_value iff `e` is an integer constant expression — a literal,
- * a reference to a static final primitive whose initializer is a
- * constant expression, or a castx of same. Used by the compiler to
- * inline references to constants like ISO7816.SW_NO_ERROR rather
- * than emit getstatic + a CP entry the Export file marks token=255
- * (inline-me), which the verifier rejects at load. */
-bool sema_int_constant(const sema_ctx_t* ctx, const ast_expr_t* e,
-                        int32_t* out_value);
+/* Constructor lookups for compiler-SYNTHESIZED objects (no AST call site to resolve):
+ * the `(String)` constructor of an exception class, `String(char[])`, and String's class id.
+ * -1 when absent, so a caller fails closed rather than emitting a call to nothing. */
+int sema_string_arg_ctor_index(const sema_ctx_t* ctx, int class_id);
+int sema_string_chars_ctor_index(const sema_ctx_t* ctx);
+int sema_string_class_id(const sema_ctx_t* ctx);
 
 /* Look up a class by name (returns -1 if not found). */
 int sema_find_class(const sema_ctx_t* ctx, const char* name);
@@ -868,11 +865,6 @@ static inline bool sema_field_is_inlined_constant(const sema_field_t* f) {
     return f->type.tag == JT_BYTE || f->type.tag == JT_SHORT
         || f->type.tag == JT_INT  || f->type.tag == JT_BOOL;
 }
-
-/* If the field has a compile-time integer-constant initializer (a literal
- * or negated literal), write its value and return true. Used by the
- * assembler to bake non-default static field values into the §6.10 image. */
-bool sema_field_const_int(const sema_field_t* f, int32_t* out);
 
 /* Spec→sema modifier-bit translations. The CAP §6.14 tables use a
  * different bit layout from sema's internal modifier set, and each of

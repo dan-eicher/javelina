@@ -37,40 +37,40 @@
 3.10.7	The Null Literal	27	UNCOVERED		`null` is the single value of the null type and is assignable to any reference variable
 3.11	Separators	27	UNCOVERED		the nine ASCII characters ( ) { } [ ] ; , . each lex as a single separator token
 3.12	Operators	28	UNCOVERED		the 37 operator tokens each lex as one token, including the three-and-four character forms >>> and >>>=
-4.1	The Kinds of Types and Values	30	UNCOVERED		the null reference is the only value of the null type and can be cast to any reference type (and no variable may be declared of the null type)
-4.2	Primitive Types and Values	30	UNCOVERED		primitive values share no state — a primitive variable's value changes only by assignment to that variable; boolean has exactly two values and the integral/floating widths are 8/16/32/64-bit
-4.2.1	Integral Types and Values	31	UNCOVERED		the exact inclusive ranges of byte, short, int, long, and char (0..65535)
-4.2.2	Integer Operations	31	UNCOVERED		integer ops are 32-bit unless an operand is long (then 64-bit), overflow is silent and wraps, and / or % by zero throws ArithmeticException
-4.2.3	Floating-Point Types and Values	33	UNCOVERED		IEEE 754 values: 0.0==-0.0 is true but 1.0/0.0 is +Inf and 1.0/-0.0 is -Inf, and NaN is unordered so x!=x is true exactly when x is NaN
-4.2.4	Floating-Point Operations	34	UNCOVERED		binary float ops promote to double if either operand is double, round to nearest, produce no exceptions (overflow→signed infinity, gradual underflow, no flush-to-zero)
-4.2.5	The boolean Type and boolean Values	36	UNCOVERED		only boolean expressions drive if/while/do/for and ?:, boolean casts only to boolean, and string conversion of a boolean yields "true"/"false"
-4.3	Reference Types and Values	37	UNCOVERED		a variable or field may be declared with a class type, an interface type, or an array type written Type[], and all three are usable
-4.3.1	Objects	38	UNCOVERED		references alias: mutation of an object's state through one reference is observed through another reference to the same object
-4.3.2	The Class Object	40	UNCOVERED		every class and array inherits Object's methods — getClass, toString, equals, hashCode, clone — and an Object variable holds any instance or array
-4.3.3	The Class String	41	UNCOVERED		a String's value is constant (unchanging), string literals are references to String instances, and + creates a new String
-4.3.4	When Reference Types Are the Same	42	UNCOVERED		type identity: same fully-qualified name means the same class/interface, and two array types are the same type iff their component types are (observable via getClass() identity)
+4.1	The Kinds of Types and Values	30	COVERED	Ch4	the null reference is the only value of the null type and can be cast to any reference type (and no variable may be declared of the null type)
+4.2	Primitive Types and Values	30	COVERED	Ch4	primitive values share no state — a primitive variable's value changes only by assignment to that variable; boolean has exactly two values and the integral/floating widths are 8/16/32/64-bit
+4.2.1	Integral Types and Values	31	COVERED	Ch4	the exact inclusive ranges of byte, short, int, long, and char (0..65535)
+4.2.2	Integer Operations	31	COVERED	Ch4	integer ops are 32-bit unless an operand is long (then 64-bit), overflow is silent and wraps, and / or % by zero throws ArithmeticException
+4.2.3	Floating-Point Types and Values	33	COVERED	Ch4	IEEE 754 values: 0.0==-0.0 is true but 1.0/0.0 is +Inf and 1.0/-0.0 is -Inf, and NaN is unordered so x!=x is true exactly when x is NaN
+4.2.4	Floating-Point Operations	34	COVERED	Ch4	binary float ops promote to double if either operand is double, round to nearest, produce no exceptions (overflow→signed infinity, gradual underflow, no flush-to-zero)
+4.2.5	The boolean Type and boolean Values	36	COVERED	Ch4	only boolean expressions drive if/while/do/for and ?:, boolean casts only to boolean, and string conversion of a boolean yields "true"/"false"
+4.3	Reference Types and Values	37	COVERED	Ch4	a variable or field may be declared with a class type, an interface type, or an array type written Type[], and all three are usable
+4.3.1	Objects	38	COVERED	Ch4	references alias: mutation of an object's state through one reference is observed through another reference to the same object
+4.3.2	The Class Object	40	COVERED	Ch4	every class and array inherits Object's methods — getClass, toString, equals, hashCode, clone — and an Object variable holds any instance or array
+4.3.3	The Class String	41	COVERED	Ch4	a String's value is constant (unchanging), string literals are references to String instances, and + creates a new String
+4.3.4	When Reference Types Are the Same	42	COVERED	Ch4	type identity: same fully-qualified name means the same class/interface, and two array types are the same type iff their component types are (observable via getClass() identity)
 4.4	Where Types Are Used	42	UNCOVERED		a type name is usable in each listed position — field, method parameter, method result, constructor parameter, local, catch parameter, new, array creation, cast, instanceof
 4.5	Variables	43	UNCOVERED		a variable always holds a value assignment-compatible with its declared type, checked at compile time except the one run-time array-store check
-4.5.1	Variables of Primitive Type	44	UNCOVERED		a primitive variable holds a value of exactly its declared type, so a narrower type keeps no widened residue (e.g. byte b=(byte)200 reads back as -56)
-4.5.2	Variables of Reference Type	44	UNCOVERED		a reference variable holds null or a reference to any object whose class is assignment compatible with the variable's type
+4.5.1	Variables of Primitive Type	44	COVERED	Ch4	a primitive variable holds a value of exactly its declared type, so a narrower type keeps no widened residue (e.g. byte b=(byte)200 reads back as -56)
+4.5.2	Variables of Reference Type	44	COVERED	Ch4	a reference variable holds null or a reference to any object whose class is assignment compatible with the variable's type
 4.5.3	Kinds of Variables	44	UNCOVERED		variable creation and extent per kind: one class variable per class, one instance variable per object, and a fresh parameter/local created per invocation or per block/for entry
-4.5.4	Initial Values of Variables	46	UNCOVERED		fields and array components are initialized to type defaults (0, 0L, 0.0f, 0.0d, '\0', false, null) before use
-4.5.5	Variables Have Types, Objects Have Classes	47	UNCOVERED		a variable's declared type differs from the object's class: an interface-typed variable holds any implementing instance, and an array's class name is e.g. "[I"
+4.5.4	Initial Values of Variables	46	COVERED	Ch4	fields and array components are initialized to type defaults (0, 0L, 0.0f, 0.0d, '\0', false, null) before use
+4.5.5	Variables Have Types, Objects Have Classes	47	COVERED	Ch4	a variable's declared type differs from the object's class: an interface-typed variable holds any implementing instance, and an array's class name is e.g. "[I"
 5.1	Kinds of Conversion	54	N/A	The section body is a single taxonomic sentence — "Specific type conversions in Java are divided into six categories." (p. 54) — naming the buckets its subsections define; it states no rule a program's compilation or execution can exhibit.	
-5.1.1	Identity Conversions	54	UNCOVERED		a redundant cast to a value's own type is permitted and value-preserving, and boolean's only conversion is boolean-to-boolean
-5.1.2	Widening Primitive Conversions	54	UNCOVERED		the 19 widenings never throw: signed integrals sign-extend, char zero-extends, and int/long to float/double rounds IEEE-nearest with possible precision loss (1234567890 to float loses 46)
-5.1.3	Narrowing Primitive Conversions	55	UNCOVERED		float/double to integral rounds toward zero, NaN yields 0, out-of-range clamps to the type's MIN/MAX, integral narrowing keeps the low n bits, and none of the 23 ever throws
-5.1.4	Widening Reference Conversions	58	UNCOVERED		subclass-to-superclass, class-to-implemented-interface, null-to-any-reference, array-to-Object/Cloneable, and SC[]-to-TC[] all succeed with no run-time check
-5.1.5	Narrowing Reference Conversions	59	UNCOVERED		a narrowing reference conversion tests the value at run time and throws ClassCastException when the actual class is not assignment compatible
-5.1.6	String Conversions	60	UNCOVERED		every type including the null type has a string conversion, so "" + anyValue produces a String (null yields "null")
-5.1.7	Forbidden Conversions	60	UNCOVERED		javelinac rejects the forbidden set — reference-to-primitive, primitive-to-reference, any non-identity conversion to/from boolean, casts between unrelated class types, array to a class type other than Object/String
-5.2	Assignment Conversion	61	UNCOVERED		an int constant expression narrows implicitly to byte/short/char when representable (byte b = 42;), non-constant narrowing is a compile-time error, and assignment itself never throws except an array-element ArrayStoreException
-5.3	Method Invocation Conversion	66	UNCOVERED		argument conversion allows only identity/widening — the implicit constant narrowing of §5.2 is excluded, so m(12, 2) against m(byte,int)/m(short,short) is a compile-time error
-5.4	String Conversion	67	UNCOVERED		string conversion fires only for binary + when one operand is a String, converting the other operand and yielding the concatenation
-5.5	Casting Conversion	67	UNCOVERED		a reference cast checks the run-time class against the target (null always passes) and throws ClassCastException otherwise; provably impossible casts, e.g. to an unrelated class or an interface a final class lacks, are compile-time errors
-5.6	Numeric Promotions	72	UNCOVERED		promotion contexts admit only identity and widening primitive conversions, so an arithmetic operand is never narrowed
-5.6.1	Unary Numeric Promotion	73	UNCOVERED		byte/short/char promote to int for array dimension and index expressions, unary +, -, and ~, and for each shift operand separately, so a long shift distance does not promote the shifted value
-5.6.2	Binary Numeric Promotion	74	UNCOVERED		binary operands promote by the double > float > long > int ladder for * / %, + -, < <= > >=, == !=, & ^ |, and ?: — so char & byte computes as int & int
+5.1.1	Identity Conversions	54	COVERED	Ch5	a redundant cast to a value's own type is permitted and value-preserving, and boolean's only conversion is boolean-to-boolean
+5.1.2	Widening Primitive Conversions	54	COVERED	Ch5	the 19 widenings never throw: signed integrals sign-extend, char zero-extends, and int/long to float/double rounds IEEE-nearest with possible precision loss (1234567890 to float loses 46)
+5.1.3	Narrowing Primitive Conversions	55	COVERED	Ch5	float/double to integral rounds toward zero, NaN yields 0, out-of-range clamps to the type's MIN/MAX, integral narrowing keeps the low n bits, and none of the 23 ever throws
+5.1.4	Widening Reference Conversions	58	COVERED	Ch5	subclass-to-superclass, class-to-implemented-interface, null-to-any-reference, array-to-Object/Cloneable, and SC[]-to-TC[] all succeed with no run-time check
+5.1.5	Narrowing Reference Conversions	59	COVERED	Ch5	a narrowing reference conversion tests the value at run time and throws ClassCastException when the actual class is not assignment compatible
+5.1.6	String Conversions	60	COVERED	Ch5	every type including the null type has a string conversion, so "" + anyValue produces a String (null yields "null")
+5.1.7	Forbidden Conversions	60	COVERED	ch5_forbidden_final_to_interface,ch5_forbidden_from_boolean,ch5_forbidden_interface_return_clash,ch5_forbidden_interface_to_final,ch5_forbidden_null_to_prim,ch5_forbidden_prim_to_ref,ch5_forbidden_ref_to_prim,ch5_forbidden_to_boolean,ch5_forbidden_unrelated_classes	javelinac rejects the forbidden set — reference-to-primitive, primitive-to-reference, any non-identity conversion to/from boolean, casts between unrelated class types, array to a class type other than Object/String
+5.2	Assignment Conversion	61	COVERED	Ch5,ch5_assign_char_to_short,ch5_assign_constant_not_representable,ch5_assign_short_to_char	an int constant expression narrows implicitly to byte/short/char when representable (byte b = 42;), non-constant narrowing is a compile-time error, and assignment itself never throws except an array-element ArrayStoreException
+5.3	Method Invocation Conversion	66	COVERED	Ch5,ch5_method_invocation_no_narrowing	argument conversion allows only identity/widening — the implicit constant narrowing of §5.2 is excluded, so m(12, 2) against m(byte,int)/m(short,short) is a compile-time error
+5.4	String Conversion	67	COVERED	Ch5	string conversion fires only for binary + when one operand is a String, converting the other operand and yielding the concatenation
+5.5	Casting Conversion	67	COVERED	Ch5	a reference cast checks the run-time class against the target (null always passes) and throws ClassCastException otherwise; provably impossible casts, e.g. to an unrelated class or an interface a final class lacks, are compile-time errors
+5.6	Numeric Promotions	72	COVERED	Ch5,ch5_promotion_no_implicit_narrowing	promotion contexts admit only identity and widening primitive conversions, so an arithmetic operand is never narrowed
+5.6.1	Unary Numeric Promotion	73	COVERED	Ch5	byte/short/char promote to int for array dimension and index expressions, unary +, -, and ~, and for each shift operand separately, so a long shift distance does not promote the shifted value
+5.6.2	Binary Numeric Promotion	74	COVERED	Ch5	binary operands promote by the double > float > long > int ladder for * / %, + -, < <= > >=, == !=, & ^ |, and ?: — so char & byte computes as int & int
 6.1	Declarations	78	UNCOVERED		a constructor declaration introduces no name, so a class may also declare a method whose name is the class name
 6.2	Names and Identifiers	79	UNCOVERED		statement labels are a separate namespace: a label may reuse a local variable's identifier without hiding it
 6.3	Scope of a Simple Name	81	UNCOVERED		forward reference in a field initializer is a compile-time error while a constructor may use a later-declared field; type declarations need not precede use
@@ -221,19 +221,19 @@
 10.8	Class Objects for Arrays	199	COVERED	Ch10	getClass() on arrays of the same component type yields the same Class object named "[I" for int[], whose getSuperclass() is java.lang.Object
 10.9	An Array of Characters is Not a String	199	COVERED	Ch10	char[] is not a String and is not NUL-terminated; String.toCharArray() returns a separate mutable array with the same characters
 10.10	Array Store Exception	199	COVERED	Ch10	ArrayStoreException on storing a supertype instance into an array whose actual element type is a subtype, while reads through the widened reference succeed
-11.1	The Causes of Exceptions	202	UNCOVERED		a VM-detected condition (e.g. integer divide by zero) throws at the specified expression/statement point, not an arbitrary one
+11.1	The Causes of Exceptions	202	COVERED	Ch11	a VM-detected condition (e.g. integer divide by zero) throws at the specified expression/statement point, not an arbitrary one
 11.2	Compile-Time Checking of Exceptions	203	UNCOVERED		a checked exception not named in the throws clause (incl. an overriding method widening throws, or a field/static initializer) is a compile-time error
-11.2.1	Why Errors are Not Checked	203	UNCOVERED		Error and its subclasses need no throws clause: throwing one from an undeclared method compiles
-11.2.2	Why Runtime Exceptions are Not Checked	203	UNCOVERED		RuntimeException and its subclasses need no throws clause: throwing one from an undeclared method compiles
-11.3	Handling of an Exception	204	UNCOVERED		the nearest dynamically-enclosing catch whose parameter type is the exception class or a superclass handles it; finally runs during propagation and its abrupt completion discards the original reason
-11.3.1	Exceptions are Precise	205	UNCOVERED		side effects before the throw point are all visible and none after it are, even under optimization
+11.2.1	Why Errors are Not Checked	203	COVERED	Ch11	Error and its subclasses need no throws clause: throwing one from an undeclared method compiles
+11.2.2	Why Runtime Exceptions are Not Checked	203	COVERED	Ch11	RuntimeException and its subclasses need no throws clause: throwing one from an undeclared method compiles
+11.3	Handling of an Exception	204	COVERED	Ch11	the nearest dynamically-enclosing catch whose parameter type is the exception class or a superclass handles it; finally runs during propagation and its abrupt completion discards the original reason
+11.3.1	Exceptions are Precise	205	COVERED	Ch11	side effects before the throw point are all visible and none after it are, even under optimization
 11.3.2	Handling Asynchronous Exceptions	205	N/A	the only sources of an asynchronous exception are Thread.stop/ThreadGroup.stop (threads, absent on this target) and an InternalError raised by a VM/hardware fault; no Java construct can produce either, so the delay/precision rule has nothing to observe	
-11.4	An Example of Exceptions	206	UNCOVERED		the worked program's exact output: ArithmeticException "/ by zero", NullPointerException, a user checked exception, and finally printing on every invocation
-11.5	The Exception Hierarchy	208	UNCOVERED		the hierarchy Object > Throwable > {Exception > RuntimeException, Error} is observable via catch and instanceof
-11.5.1	The Classes Exception and RuntimeException	208	UNCOVERED		catch (Exception e) catches every Exception, including any RuntimeException and any user subclass of Exception
-11.5.1.1	Standard Runtime Exceptions	208	UNCOVERED		each listed unchecked exception is thrown by its specific operation (zero divisor, bad covariant array store, bad cast, negative array size, null use, index out of range, bad numeric parse) and requires no throws clause
-11.5.1.2	Standard Checked Exceptions	210	UNCOVERED		each listed checked exception (CloneNotSupportedException from clone on a non-Cloneable, ClassNotFoundException, InstantiationException, IOException and its subclasses) must be caught or declared
-11.5.2	The Class Error	211	UNCOVERED		Error is a subclass of Throwable disjoint from Exception, so catch (Exception e) does not catch a thrown Error but catch (Throwable t) does
+11.4	An Example of Exceptions	206	COVERED	Ch11	the worked program's exact output: ArithmeticException "/ by zero", NullPointerException, a user checked exception, and finally printing on every invocation
+11.5	The Exception Hierarchy	208	COVERED	Ch11	the hierarchy Object > Throwable > {Exception > RuntimeException, Error} is observable via catch and instanceof
+11.5.1	The Classes Exception and RuntimeException	208	COVERED	Ch11	catch (Exception e) catches every Exception, including any RuntimeException and any user subclass of Exception
+11.5.1.1	Standard Runtime Exceptions	208	COVERED	Ch11	each listed unchecked exception is thrown by its specific operation (zero divisor, bad covariant array store, bad cast, negative array size, null use, index out of range, bad numeric parse) and requires no throws clause
+11.5.1.2	Standard Checked Exceptions	210	COVERED	Ch11	each listed checked exception (CloneNotSupportedException from clone on a non-Cloneable, ClassNotFoundException, InstantiationException, IOException and its subclasses) must be caught or declared
+11.5.2	The Class Error	211	COVERED	Ch11	Error is a subclass of Throwable disjoint from Exception, so catch (Exception e) does not catch a thrown Error but catch (Throwable t) does
 11.5.2.1	Loading and Linkage Errors	211	UNCOVERED		a static initializer or static-field initializer whose exception is not an Error surfaces as ExceptionInInitializerError
 11.5.2.2	Virtual Machine Errors	212	UNCOVERED		unbounded recursion throws StackOverflowError and an unsatisfiable allocation throws OutOfMemoryError, both catchable as VirtualMachineError/Error
 12.1	Virtual Machine Start-Up	215	UNCOVERED		execution starts by invoking main with the command-line arguments as a String array, in order
@@ -294,39 +294,39 @@
 13.5.3	The Interface Members	260	UNCOVERED		Observable through the jre/plugin seam: javelinac --mode jre builds jre.wasm and a plugin IMPORTS from it, so a plugin compiled against one jre and run against a changed one IS the pre-existing-binary scenario. On this target the break surfaces as a link/validation failure rather than the class-file error the section names.
 13.5.4	Field Declarations	260	UNCOVERED		interface fields are implicitly static and final, so a constant-expression initializer is inlined at each use (and a non-constant initializer such as new Boolean(true).booleanValue() is not)
 13.5.5	Abstract Method Declarations	261	UNCOVERED		interface abstract methods follow the class-method rules: overloaded interface methods are selected at compile time by static argument types, with no run-time overload resolution
-14.1	Normal and Abrupt Completion of Statements	264	UNCOVERED		abrupt completion of an evaluated expression or substatement immediately aborts the enclosing statement with the same reason, and its succeeding steps do not run
-14.2	Blocks	265	UNCOVERED		a block executes its statements in order first to last, and completes abruptly for the reason of the first one that does
-14.3	Local Variable Declaration Statements	265	UNCOVERED		a local declaration may be intermixed anywhere among the statements of a block, and one in a for header executes as if it were such a statement
-14.3.1	Local Variable Declarators and Types	266	UNCOVERED		trailing brackets on a declarator add array dimensions to the base type: `int a, b[], c[][]` declares int, int[], int[][]
-14.3.2	Scope of Local Variable Declarations	267	UNCOVERED		a local's scope is the rest of the block including its own initializer, so `int x = x;` is an error while same-named locals in disjoint blocks compile
-14.3.3	Hiding of Names by Local Variables	268	UNCOVERED		a local hides a same-named field throughout its scope, and `this.x` still reaches the hidden field
-14.3.4	Execution of Local Variable Declarations	269	UNCOVERED		declarators are initialized left to right, and a declarator's initializer runs only if the preceding one completed normally
+14.1	Normal and Abrupt Completion of Statements	264	COVERED	Ch14	abrupt completion of an evaluated expression or substatement immediately aborts the enclosing statement with the same reason, and its succeeding steps do not run
+14.2	Blocks	265	COVERED	Ch14	a block executes its statements in order first to last, and completes abruptly for the reason of the first one that does
+14.3	Local Variable Declaration Statements	265	COVERED	Ch14	a local declaration may be intermixed anywhere among the statements of a block, and one in a for header executes as if it were such a statement
+14.3.1	Local Variable Declarators and Types	266	COVERED	Ch14	trailing brackets on a declarator add array dimensions to the base type: `int a, b[], c[][]` declares int, int[], int[][]
+14.3.2	Scope of Local Variable Declarations	267	COVERED	Ch14	a local's scope is the rest of the block including its own initializer, so `int x = x;` is an error while same-named locals in disjoint blocks compile
+14.3.3	Hiding of Names by Local Variables	268	COVERED	Ch14	a local hides a same-named field throughout its scope, and `this.x` still reaches the hidden field
+14.3.4	Execution of Local Variable Declarations	269	COVERED	Ch14	declarators are initialized left to right, and a declarator's initializer runs only if the preceding one completed normally
 14.4	Statements	269	UNCOVERED		a dangling `else` binds to the innermost `if` it could possibly belong to
-14.5	The Empty Statement	271	UNCOVERED		the empty statement `;` does nothing and always completes normally
-14.6	Labeled Statements	271	UNCOVERED		a labeled statement completes normally when its body completes abruptly via `break` with that label; a duplicate enclosing label is a compile error
-14.7	Expression Statements	272	UNCOVERED		an expression statement evaluates its expression and discards the value; only the listed expression forms are legal statements
-14.8	The if Statement	273	UNCOVERED		the `if` condition must have type boolean — `if (1)` is a compile-time error
-14.8.1	The if-then Statement	273	UNCOVERED		if-then executes the body when the condition is true and takes no action when false
-14.8.2	The if-then-else Statement	273	UNCOVERED		if-then-else executes exactly one of the two branches according to the condition
-14.9	The switch Statement	274	UNCOVERED		switch on char/byte/short/int jumps to the matching case and falls through to following labels; unlabeled `break` exits; `default` runs when no case matches; duplicate case values are compile errors
-14.10	The while Statement	277	UNCOVERED		while re-evaluates its boolean condition before each iteration, and executes the body zero times if the condition is false first
-14.10.1	Abrupt Completion	278	UNCOVERED		inside while, unlabeled break exits and continue restarts the loop; continue with label L re-loops only when the while carries L, else propagates
-14.11	The do Statement	278	UNCOVERED		do-while always executes its body at least once, testing the condition after each iteration
-14.11.1	Abrupt Completion	279	UNCOVERED		inside do, unlabeled break exits and continue jumps to the condition evaluation; labeled continue re-tests only when the do carries that label
-14.11.2	Example of do statement	280	UNCOVERED		the do-loop toHexString implementation shown computes the same string as Integer.toHexString, emitting one digit for input 0
-14.12	The for Statement	280	UNCOVERED		a for statement runs ForInit, then condition/body/ForUpdate repeatedly; the condition must be boolean
-14.12.1	Initialization of for statement	281	UNCOVERED		ForInit expressions evaluate left to right and stop at the first abrupt one; a ForInit declaration's scope covers the condition, update, and body
-14.12.2	Iteration of for statement	281	UNCOVERED		each iteration evaluates the condition, then the body, then ForUpdate left to right; an absent condition loops forever unless broken
-14.12.3	Abrupt Completion of for statement	282	UNCOVERED		in for, unlabeled break exits while continue still runs ForUpdate before the next iteration test
-14.13	The break Statement	283	UNCOVERED		break transfers control out of the innermost switch/while/do/for or the named labeled statement, running intervening finally clauses innermost to outermost first
-14.14	The continue Statement	285	UNCOVERED		continue ends the current iteration of the innermost (or labeled) iteration statement, running intervening finally clauses first
-14.15	The return Statement	286	UNCOVERED		return hands its evaluated value to the invoker as the method's value, after executing the finally clauses of enclosing try statements
-14.16	The throw Statement	287	UNCOVERED		throw transfers control to the nearest catch that can accept the value, running intervening finally clauses; a null throw operand and unhandled checked exceptions are observable
+14.5	The Empty Statement	271	COVERED	Ch14	the empty statement `;` does nothing and always completes normally
+14.6	Labeled Statements	271	COVERED	Ch14	a labeled statement completes normally when its body completes abruptly via `break` with that label; a duplicate enclosing label is a compile error
+14.7	Expression Statements	272	COVERED	Ch14	an expression statement evaluates its expression and discards the value; only the listed expression forms are legal statements
+14.8	The if Statement	273	COVERED	ch14_if_condition_not_boolean	the `if` condition must have type boolean — `if (1)` is a compile-time error
+14.8.1	The if-then Statement	273	COVERED	Ch14	if-then executes the body when the condition is true and takes no action when false
+14.8.2	The if-then-else Statement	273	COVERED	Ch14	if-then-else executes exactly one of the two branches according to the condition
+14.9	The switch Statement	274	COVERED	Ch14,ch14_duplicate_case_value	switch on char/byte/short/int jumps to the matching case and falls through to following labels; unlabeled `break` exits; `default` runs when no case matches; duplicate case values are compile errors
+14.10	The while Statement	277	COVERED	Ch14	while re-evaluates its boolean condition before each iteration, and executes the body zero times if the condition is false first
+14.10.1	Abrupt Completion	278	COVERED	Ch14	inside while, unlabeled break exits and continue restarts the loop; continue with label L re-loops only when the while carries L, else propagates
+14.11	The do Statement	278	COVERED	Ch14	do-while always executes its body at least once, testing the condition after each iteration
+14.11.1	Abrupt Completion	279	COVERED	Ch14	inside do, unlabeled break exits and continue jumps to the condition evaluation; labeled continue re-tests only when the do carries that label
+14.11.2	Example of do statement	280	COVERED	Ch14	the do-loop toHexString implementation shown computes the same string as Integer.toHexString, emitting one digit for input 0
+14.12	The for Statement	280	COVERED	Ch14	a for statement runs ForInit, then condition/body/ForUpdate repeatedly; the condition must be boolean
+14.12.1	Initialization of for statement	281	COVERED	Ch14	ForInit expressions evaluate left to right and stop at the first abrupt one; a ForInit declaration's scope covers the condition, update, and body
+14.12.2	Iteration of for statement	281	COVERED	Ch14	each iteration evaluates the condition, then the body, then ForUpdate left to right; an absent condition loops forever unless broken
+14.12.3	Abrupt Completion of for statement	282	COVERED	Ch14	in for, unlabeled break exits while continue still runs ForUpdate before the next iteration test
+14.13	The break Statement	283	COVERED	Ch14	break transfers control out of the innermost switch/while/do/for or the named labeled statement, running intervening finally clauses innermost to outermost first
+14.14	The continue Statement	285	COVERED	Ch14	continue ends the current iteration of the innermost (or labeled) iteration statement, running intervening finally clauses first
+14.15	The return Statement	286	COVERED	Ch14,ch14_return_without_value	return hands its evaluated value to the invoker as the method's value, after executing the finally clauses of enclosing try statements
+14.16	The throw Statement	287	COVERED	Ch14	throw transfers control to the nearest catch that can accept the value, running intervening finally clauses; a null throw operand and unhandled checked exceptions are observable
 14.17	The synchronized Statement	289	N/A	specifies acquiring and releasing a mutual-exclusion lock (§17.13) on behalf of the executing thread; the target is Java 1.0 minus `synchronized`, with no threads, so no program on it can contain or observe this statement	
 14.18	The try statement	290	UNCOVERED		a catch parameter must be Throwable or a subclass, its scope is the catch block, handlers are considered left to right, and finally runs however control leaves try/catch
-14.18.1	Execution of try-catch	291	UNCOVERED		the first (leftmost) catch whose parameter type accepts the thrown value's run-time type handles it; unmatched values propagate
-14.18.2	Execution of try-catch-finally	292	UNCOVERED		finally executes on every exit path, and a finally that completes abruptly replaces and discards the pending reason (including a pending throw)
-14.19	Unreachable Statements	295	UNCOVERED		an unreachable statement is a compile-time error: `while (false) { x=3; }` is rejected while `if (false) { x=3; }` is accepted
+14.18.1	Execution of try-catch	291	COVERED	Ch14	the first (leftmost) catch whose parameter type accepts the thrown value's run-time type handles it; unmatched values propagate
+14.18.2	Execution of try-catch-finally	292	COVERED	Ch14	finally executes on every exit path, and a finally that completes abruptly replaces and discards the pending reason (including a pending throw)
+14.19	Unreachable Statements	295	COVERED	ch14_unreachable_after_break,ch14_unreachable_after_return,ch14_unreachable_while_false	an unreachable statement is a compile-time error: `while (false) { x=3; }` is rejected while `if (false) { x=3; }` is accepted
 15.1	Evaluation, Denotation, and Result	301	UNCOVERED		a non-void method call used as an expression statement compiles and quietly discards its result, while a void call cannot appear where a value is required
 15.2	Variables as Values	302	UNCOVERED		an expression denoting a variable yields that variable's current value when a value is required
 15.3	Type of an Expression	302	UNCOVERED		an expression's value is always assignment-compatible with its compile-time type; a final class type F holds only null or an F

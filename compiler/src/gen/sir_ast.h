@@ -99,6 +99,7 @@ typedef enum {
     SIR_INSTANCEOF,
     SIR_CHECKCAST,
     SIR_NEWARRAY,
+    SIR_ARRAYNEWDATA,
     SIR_NEWREFARRAY,
     SIR_ARRAYLOAD,
     SIR_ARRAYLENGTH,
@@ -396,6 +397,12 @@ struct sir_node_t {
             sir_atype_t elem_type;
             sir_node_t* size;
         } new_array;
+        struct {
+            sir_atype_t elem_type;
+            int32_t seg;
+            int32_t byte_off;
+            int32_t count;
+        } array_new_data;
         struct {
             int32_t class_id;
             sir_node_t* size;
@@ -1332,6 +1339,18 @@ static inline sir_node_t* sir_new_array(bbq_arena* _a, sir_atype_t elem_type, si
     _n->tag = SIR_NEWARRAY;
     _n->new_array.elem_type = elem_type;
     _n->new_array.size = size;
+    _n->exc = NULL;
+    return _n;
+}
+
+static inline sir_node_t* sir_array_new_data(bbq_arena* _a, sir_atype_t elem_type, int32_t seg, int32_t byte_off, int32_t count) {
+    sir_node_t* _n = (sir_node_t*)bbq_arena_alloc(_a, sizeof(sir_node_t));
+    _n->loc = (sir_srcloc){0};   /* zero the common source location — arena_alloc doesn't; it's stamped later */
+    _n->tag = SIR_ARRAYNEWDATA;
+    _n->array_new_data.elem_type = elem_type;
+    _n->array_new_data.seg = seg;
+    _n->array_new_data.byte_off = byte_off;
+    _n->array_new_data.count = count;
     _n->exc = NULL;
     return _n;
 }
@@ -2326,6 +2345,12 @@ static inline sir_node_t* sir_node_copy(bbq_arena* _a, sir_copy_memo* _memo, con
     case SIR_NEWARRAY:
         _n->new_array.elem_type = _src->new_array.elem_type;
         _n->new_array.size = sir_node_copy(_a, _memo, _src->new_array.size);
+        break;
+    case SIR_ARRAYNEWDATA:
+        _n->array_new_data.elem_type = _src->array_new_data.elem_type;
+        _n->array_new_data.seg = _src->array_new_data.seg;
+        _n->array_new_data.byte_off = _src->array_new_data.byte_off;
+        _n->array_new_data.count = _src->array_new_data.count;
         break;
     case SIR_NEWREFARRAY:
         _n->new_ref_array.class_id = _src->new_ref_array.class_id;

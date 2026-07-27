@@ -338,6 +338,11 @@ AUXILIARIES
   sema_arrayinit_atype        : (ast.expr) -> ir.atype     // BYTE default
   sema_arrayinit_dt           : (ast.expr) -> ir.datatype  // BYTE default
 
+  // Intern this ArrayInit's elements into the module's constant-data pool and answer the
+  // BYTE OFFSET the run starts at. Only meaningful when arrayinit_is_const holds; call once
+  // per lowering (identical runs are shared, so a second call is wasteful, not wrong).
+  const_data_offset           : (ast.expr) -> int
+
   // JLS-level kind classifiers. ddcg used to match on AST type tags
   // (`ast.ByteType` / `ast.ClassType` / etc.) inside rule bodies to
   // decide which lowering path to take; sema is the JLS authority,
@@ -408,6 +413,18 @@ AUXILIARIES
   sema_index_oob_exc_id       : ()    -> int            // §20.18.16 base IndexOutOfBoundsException (NOT the array subclass)
   sema_array_store_exc_id     : ()    -> int            // §10.10 ArrayStoreException
   sema_noarg_ctor_index       : (int) -> int            // -1 if none
+  // A compiler-SYNTHESIZED exception carries its reason (§11.4 prints "/ by zero"), so the
+  // guard needs the (String) ctor of the exception class, String(char[]) to build the
+  // argument, and String's own class id. Each is -1 when absent, so the caller falls back to
+  // the no-arg form rather than emitting a call to nothing.
+  sema_string_arg_ctor_index  : (int) -> int
+  sema_string_chars_ctor_index: ()    -> int
+  sema_string_class_id        : ()    -> int
+  // Pool a message into the module's constant data; its byte offset and its length in code
+  // units. The pool takes raw bytes, so a synthesized message needs no AST literal to
+  // desugar — which is what made this possible at all (rule string_lit panics by design).
+  const_string_offset         : (string) -> int
+  const_string_length         : (string) -> int
 
   // SuperCall / ConstructorCall — sema_resolved_super_method tells
   // us whether the parent-class method was found.
@@ -522,6 +539,13 @@ AUXILIARIES
   array_acc_index          : (ast.expr) -> ast.expr
 
 PREDICATES
+  // JLS §10.6: an array initializer whose element type is PRIMITIVE and whose every element
+  // is a §15.27 constant expression. Its contents are known now, so the array is built by one
+  // array.new_data out of the constant-data pool instead of an allocation plus a store per
+  // element — which is what every string literal became once §3.10.5 interning desugared it
+  // to `new String(new char[]{...})`.
+  arrayinit_is_const       : (ast.expr) -> bool
+
   // JLS §15.18.1: a `+` whose sema result type is String — string concatenation
   // (guards the string_concat rule; falls through to the numeric binary rules).
   sema_binary_is_concat    : (ast.expr) -> bool
@@ -614,6 +638,14 @@ MEMBERS (.
     // DSL's view, so this preamble needs only compiler_runtime.h, not compiler.h —
     // symmetric with every other type the DSL touches.
     void*             facts_;
+    // THE CONSTANT-DATA POOL — per MODULE, not per method, so unlike facts_ it is not reset
+    // between method walks: it is `&compiler_ctx_t.const_data`, handed in once and appended
+    // to by const_data_offset. Opaque here for the same reason facts_ is; the AUX body in
+    // compiler_helpers.c is the one place that knows it is a bbq_vec of bytes.
+    void*             const_data_;
+    // The pool's content index (`&compiler_ctx_t.const_data_index`), handed in beside the pool
+    // it indexes. Opaque here for the same reason const_data_ is.
+    void*             const_data_index_;
 .)
 
 // IntLit is an anchor rule — one per sum, so ddcgc emits both
@@ -1981,6 +2013,57 @@ fun div_overflow_arm(t_a: int, t_b: int, lhs_dt: ir.datatype, rhs_dt: ir.datatyp
 // regions enclosing this guard are on ρ — RECORD them. (Threading ρ through the guard
 // helpers is the price of that; recovering the enclosure by walking the SIR afterwards
 // is not an option — §8.)
+// JLS §11.4: a VM-detected exception carries the reason. The spec's worked program prints
+// `java.lang.ArithmeticException` with the message "/ by zero", so a guard that constructed
+// its exception with the no-arg ctor could not produce the specified output.
+//
+// `new Exc(new String(<pooled char[]>))`. The message's code units go in the module's
+// constant data and the char[] is one array.new_data — the same path a §10.6 constant
+// initializer takes, which is what makes a synthesized literal expressible here at all
+// (`rule string_lit` panics by design: sema desugars AST literals, and a guard has no AST).
+//
+// Falls back to the no-arg form when either constructor is missing, so a runtime whose
+// exception class lacks a (String) ctor still gets a throw rather than a call to nothing.
+fun throw_new_msg(exc_class: int, msg: string, r: rho) -> ir_root {
+    let ctor_cp = sema_string_arg_ctor_index(exc_class);
+    let str_cls = sema_string_class_id();
+    let str_cp  = sema_string_chars_ctor_index();
+    (ctor_cp < 0 or str_cls < 0 or str_cp < 0)
+      ? throw_new_noarg(exc_class, r)
+      : { let t_obj = ddcg_alloc_temp(DtRef);
+          let t_str = ddcg_alloc_temp(DtRef);
+          let t_arr = ddcg_alloc_temp(DtRef);
+
+          let throw_node = build ir.Throw(build ir.LoadLocal(t_obj, DtRef, nil));
+          let _          = record_except_regions(throw_node, r);
+
+          // new Exc(t_str)
+          let exc_args: list<ir_root> = [build ir.LoadLocal(t_str, DtRef,
+                                               build ir.ClassRef(str_cls))];
+          let exc_ctor = build ir.InvokeSpecial(build ir.LoadLocal(t_obj, DtRef, nil),
+                                                exc_class, ctor_cp, exc_args, DtShort);
+          let _        = record_except_regions(exc_ctor, r);
+          let exc_new  = build ir.New(exc_class);
+          let _        = record_except_regions(exc_new, r);
+          let after_exc = build ir.StoreLocal(t_obj, DtRef, build ir.ClassRef(exc_class),
+                              exc_new, build ir.ExprEffect(exc_ctor, 1, throw_node));
+
+          // new String(t_arr)
+          let str_args: list<ir_root> = [build ir.LoadLocal(t_arr, DtRef, nil)];
+          let str_ctor = build ir.InvokeSpecial(build ir.LoadLocal(t_str, DtRef, nil),
+                                                str_cls, str_cp, str_args, DtShort);
+          let _        = record_except_regions(str_ctor, r);
+          let str_new  = build ir.New(str_cls);
+          let _        = record_except_regions(str_new, r);
+          let after_str = build ir.StoreLocal(t_str, DtRef, build ir.ClassRef(str_cls),
+                              str_new, build ir.ExprEffect(str_ctor, 1, after_exc));
+
+          // the char[] itself, out of the constant-data pool
+          build_primarray_data_into(t_arr, AtChar, 0 - 1,
+                                    const_string_offset(msg), const_string_length(msg),
+                                    rho_in_loop(r), after_str, r); };
+}
+
 fun throw_new_noarg(exc_class: int, r: rho) -> ir_root {
     let ctor_cp    = sema_noarg_ctor_index(exc_class);
     let t_obj      = ddcg_alloc_temp(DtRef);
@@ -2364,8 +2447,13 @@ fun call_delivery(invoke_node: ir_root, is_void: bool, dt: ir.datatype,
 // Right-to-left chain: each elems[idx] evaluates into a fresh temp,
 // then ArrayStore writes the temp into t_arr[idx], chaining into the
 // chain built so far. Recursion base case (idx < 0) returns `after`.
+// `eref` is the array's CONTEXTUAL element descriptor (JLS §10.6: the component type comes
+// from the target, not from the literals). It types the per-element temp and the store, in
+// place of the element expression's own descriptor — because `null` has the null type (§4.1)
+// and carries no descriptor at all, so `String[] x = { "p", null, "q" };` left the temp slot
+// untyped and the assembler rejected the module rather than guess `ref Object`.
 fun chain_array_init(elems: list<ast.expr>, idx: int, t_arr: int,
-                      arr_dt: ir.datatype, after: ir_root,
+                      arr_dt: ir.datatype, eref: ir_root, after: ir_root,
                       rho: rho) -> ir_root {
     idx < 0
       ? after
@@ -2381,17 +2469,17 @@ fun chain_array_init(elems: list<ast.expr>, idx: int, t_arr: int,
                           arr_op,
                           build ir.LoadConst(idx, DtInt),
                           build ir.LoadLocal(t_elem, arr_dt, nil),
-                          after, expr_ref(elems[idx]));
+                          after, eref);
           // JLS §10.6/§5.2: each initializer element is assignment-converted to
           // the element type (int literal → long/float/double element, etc.);
           // ref elements need no numeric conversion.
           let chain  = match (arr_dt) {
-              DtRef  => gen(elems[idx], rho, locref(t_elem, expr_ref(elems[idx])),
+              DtRef  => gen(elems[idx], rho, locref(t_elem, eref),
                             single(store), store)
             | _other => cg_deliver_conv(elems[idx], arr_dt, rho, loc(t_elem, arr_dt),
                             single(store), store)
           };
-          chain_array_init(elems, idx - 1, t_arr, arr_dt, chain, rho); };
+          chain_array_init(elems, idx - 1, t_arr, arr_dt, eref, chain, rho); };
 }
 
 // InstanceOf emit. Same spill shape as ref cast but the result is
@@ -2542,6 +2630,28 @@ fun build_primarray_into(t_pa: int, atype: ir.atype, array_class: int, size: ir_
               : build ir.SetHeader(build ir.LoadLocal(t_pa, DtRef, build ir.ClassRef(pc)),
                                    build ir.LoadClass(array_class), pc, next);
     let backing  = build ir.NewArray(atype, size);
+    let _        = record_alloc(backing, in_loop);
+    let _        = record_except_regions(backing, r);   // §11.1: OOM is specified AT the `new`
+    let set_data = build ir.PutField(DtRef,
+                      build ir.LoadLocal(t_pa, DtRef, build ir.ClassRef(pc)),
+                      pc, primarray_data_field(),
+                      backing, hdr);
+    let wrapper = build ir.New(pc);
+    let _       = record_alloc(wrapper, in_loop);
+    let _       = record_except_regions(wrapper, r);
+    build ir.StoreLocal(t_pa, DtRef, build ir.ClassRef(pc), wrapper, set_data);
+}
+
+// The constant-contents twin of build_primarray_into: identical overlay (wrapper, header,
+// `data` field), but the backing arrives already filled, so there is nothing to store after.
+fun build_primarray_data_into(t_pa: int, atype: ir.atype, array_class: int,
+                              byte_off: int, count: int,
+                              in_loop: int, next: ir_root, r: rho) -> ir_root {
+    let pc = primarray_class_atype(atype);
+    let hdr = array_class < 0 ? next   // §10.8: point field-0 at this array type's Class object
+              : build ir.SetHeader(build ir.LoadLocal(t_pa, DtRef, build ir.ClassRef(pc)),
+                                   build ir.LoadClass(array_class), pc, next);
+    let backing  = build ir.ArrayNewData(atype, 0, byte_off, count);
     let _        = record_alloc(backing, in_loop);
     let _        = record_except_regions(backing, r);   // §11.1: OOM is specified AT the `new`
     let set_data = build ir.PutField(DtRef,
@@ -2876,7 +2986,8 @@ rule binary_intdiv_guarded : ast.Binary(op: op, lhs: l, rhs: r)
                              cg_promote(build ir.LoadLocal(t_b, rhs_dt, nil), rhs_dt, ct)),
                          delta, gamma, Lnext)
     };
-    let throw_arm = throw_new_noarg(sema_arithmetic_exc_id(), rho);
+    // §11.4's worked output names the message as well as the class.
+    let throw_arm = throw_new_msg(sema_arithmetic_exc_id(), "/ by zero", rho);
     let guard = build ir.Branch(
                     build ir.Eq(build ir.LoadLocal(t_b, rhs_dt, nil), zero_const(rhs_dt)),
                     throw_arm, div_arm);
@@ -3862,7 +3973,23 @@ rule method_call : ast.MethodCall(obj: rcvr, method: m, args: as)
 // a temp slot for the array reference. Chain runs right-to-left so
 // the StoreLocal of t_arr ends up at the spine head and the result
 // (a LoadLocal of t_arr) lands at the tail.
-rule array_init : ast.ArrayInit(elems: es) {
+// JLS §10.6, the constant case. Every element is a §15.27 constant and the element type is
+// primitive, so the contents go in the module's data segment and ONE array.new_data builds the
+// backing — no per-element store. This is the shape every string literal takes, so a literal's
+// cost stops scaling with its LENGTH in both emitted bytes and compile time.
+//
+// The overlay is still built the ordinary way — a PrimArray wrapper whose `data` field holds
+// the wasm array — because that is what every other array operation reads. Only the fill changes.
+rule array_init_const : ast.ArrayInit(elems: es) where arrayinit_is_const(node) {
+    let t_arr    = ddcg_alloc_temp(DtRef);
+    let atype    = sema_arrayinit_atype(node);
+    let delivery = cg_store(build ir.LoadLocal(t_arr, DtRef, nil), delta, gamma, Lnext);
+    build_primarray_data_into(t_arr, atype, array_class_id(node),
+                              const_data_offset(node), es.count,
+                              rho_in_loop(rho), delivery, rho);
+}
+
+rule array_init : ast.ArrayInit(elems: es) where not arrayinit_is_const(node) {
     // A reference element type (class, or a nested array for a multi-dim init) carries
     // a ref descriptor and must allocate via NewRefArray so the array's element type is
     // the concrete reference; only a primitive element uses the atype-tagged NewArray.
@@ -3871,7 +3998,7 @@ rule array_init : ast.ArrayInit(elems: es) {
     let t_arr  = ddcg_alloc_temp(DtRef);
     let delivery = cg_store(build ir.LoadLocal(t_arr, DtRef, nil),
                              delta, gamma, Lnext);
-    let chain    = chain_array_init(es, es.count - 1, t_arr, arr_dt,
+    let chain    = chain_array_init(es, es.count - 1, t_arr, arr_dt, eref,
                                      delivery, rho);
     let size     = build ir.LoadConst(es.count, DtInt);
     // A primitive array is one concrete allocation; a reference array is the RefArray

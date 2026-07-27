@@ -592,55 +592,38 @@ static bool is_widening_ref(const sema_ctx_t* ctx, java_type_t from, java_type_t
     return false;
 }
 
-/* Check if expression is a compile-time int constant. Returns value via *out. */
-static bool is_int_constant(const ast_expr_t* e, int32_t* out) {
+/* §15.27 constant expressions, as sema's own rules need them. Both ask the ONE evaluator
+ * (const_expr.h). This file used to pattern-match the AST instead — a literal, a char
+ * literal, or a negated literal, plus one level of static-final indirection — which is a
+ * strictly smaller language than §15.27 defines, and the gap was observable: `byte b = 40+2;`
+ * was rejected though §5.2's condition ("a constant expression of type int") plainly holds.
+ * The codegen side had already been moved onto the evaluator; this was the remaining copy.
+ *
+ * A constant's TYPE matters here, not just its value, which is why the evaluator keeps the
+ * integral tags distinct and why these are two functions rather than one. */
+
+/* §5.2's first condition, exactly: "The expression is a constant expression of type int." */
+static bool is_const_int_expr(const sema_ctx_t* ctx, const ast_expr_t* e, int32_t* out) {
     if (!e) return false;
-    if (e->tag == AST_INTLIT) { *out = e->int_lit.value; return true; }
-    /* JLS §15.28: a char literal is a constant expression; its value is the
-     * code point (an int in 0..65535), usable as a switch case value (§14.11). */
-    if (e->tag == AST_CHARLIT) { *out = e->char_lit.value; return true; }
-    /* -literal is a constant */
-    if (e->tag == AST_UNARY && e->unary.op == AST_NEG &&
-        e->unary.e->tag == AST_INTLIT) {
-        /* two's-complement negation via unsigned — defined for INT_MIN (−INT_MIN in
-         * signed int is UB; the unsigned form yields the same bit pattern, INT_MIN). */
-        *out = (int32_t)(0u - (uint32_t)e->unary.e->int_lit.value);
+    jls_const_t c = jls_const_eval(ctx, e);
+    if (c.tag != JT_INT) return false;
+    if (out) *out = c.v.i;
+    return true;
+}
+
+/* §14.11 case labels: a constant expression of any integral type, whose VALUE is then
+ * range-checked against the selector. `case 'a':` on an `int` switch is legal, so this one
+ * accepts every integral tag rather than int alone. */
+static bool is_const_integral_expr(const sema_ctx_t* ctx, const ast_expr_t* e, int32_t* out) {
+    if (!e) return false;
+    jls_const_t c = jls_const_eval(ctx, e);
+    switch (c.tag) {
+    case JT_BYTE: case JT_SHORT: case JT_CHAR: case JT_INT:
+        if (out) *out = c.v.i;
         return true;
+    default:
+        return false;
     }
-    return false;
-}
-
-bool sema_field_const_int(const sema_field_t* f, int32_t* out) {
-    if (!f || !f->init_expr) return false;
-    return is_int_constant(f->init_expr, out);
-}
-
-/* JLS §15.28: a reference to a static final primitive field whose
- * initializer is a constant expression is itself a constant
- * expression. Plain `is_int_constant` only handles literals; this
- * variant follows one level of field indirection through resolved
- * field info. Depth-bounded to prevent cycles through pathological
- * mutually-referencing finals. */
-static bool is_int_constant_ctx(const sema_ctx_t* ctx,
-                                const ast_expr_t* e, int32_t* out,
-                                int depth) {
-    if (depth > 8 || !e) return false;
-    if (is_int_constant(e, out)) return true;
-    const sema_field_t* f = NULL;
-    if (e->tag == AST_FIELDACCESS)
-        f = sema_resolved_field(ctx, e);
-    else if (e->tag == AST_IDENT) {
-        const sema_ident_info_t* info = sema_ident_kind(ctx, e);
-        if (info && (info->kind == SEMA_IDENT_INSTANCE_FIELD ||
-                     info->kind == SEMA_IDENT_STATIC_FIELD))
-            f = info->field;
-    }
-    if (f && (f->modifiers & ACC_STATIC) && (f->modifiers & ACC_FINAL)
-        && (f->type.tag == JT_BYTE || f->type.tag == JT_SHORT ||
-            f->type.tag == JT_INT)
-        && f->init_expr)
-        return is_int_constant_ctx(ctx, f->init_expr, out, depth + 1);
-    return false;
 }
 
 static bool is_assignable(const sema_ctx_t* ctx, java_type_t target, java_type_t value,
@@ -664,13 +647,14 @@ static bool is_assignable(const sema_ctx_t* ctx, java_type_t target, java_type_t
 
 /* Array initializer narrowing: {1, 2, 3} assigned to byte[]/short[]
  * succeeds if every element is a constant that fits (JLS §5.2). */
-static bool is_array_init_narrowable(java_type_t target, const ast_expr_t* init) {
+static bool is_array_init_narrowable(const sema_ctx_t* ctx, java_type_t target,
+                                     const ast_expr_t* init) {
     if (!init || init->tag != AST_ARRAYINIT) return false;
     if (target.tag != JT_ARRAY || !target.element) return false;
     java_type_tag_t et = target.element->tag;
     for (int i = 0; i < init->array_init.elems_count; i++) {
         int32_t cv = 0;
-        if (!is_int_constant(init->array_init.elems[i], &cv)) return false;
+        if (!is_const_int_expr(ctx, init->array_init.elems[i], &cv)) return false;
         /* JLS §10.6 → §5.2: each int-constant element assignment-converts to the
          * element type — byte/short/char accept it iff it fits; int/long/float/
          * double accept any int constant (identity or widening). */
@@ -2693,18 +2677,67 @@ static java_type_t analyze_expr(sema_ctx_t* ctx, ast_expr_t* e) {
                       (jt_is_reference(value) && jt_is_reference(target));
             if (!ok)
                 sema_error(ctx, e->loc, "illegal cast");
-            /* §5.5: reject provably impossible ref casts — if both
-             * types are final classes and neither is a subtype of
-             * the other, no instance can satisfy the cast. */
+            /* §5.5: "Some casts can be proven incorrect at compile time; such casts result
+             * in a compile-time error." Which ones is §5.1.7's forbidden list, and its
+             * reference bullets are transcribed below — each is a case where NO run-time
+             * value could satisfy the cast, so deferring to a ClassCastException reports at
+             * run time what the spec says to report at compile time.
+             *
+             * This used to fire only when BOTH classes were final, which is a much smaller
+             * rule than the one cited: `class A {} class B {} (B) someA` was accepted. */
             if (ok && target.tag == JT_CLASS && value.tag == JT_CLASS) {
                 const sema_class_t* tc = &ctx->classes[target.class_id];
                 const sema_class_t* vc = &ctx->classes[value.class_id];
-                if ((tc->modifiers & ACC_FINAL) && (vc->modifiers & ACC_FINAL) &&
-                    !is_subclass_of(ctx, target.class_id, value.class_id) &&
-                    !is_subclass_of(ctx, value.class_id, target.class_id))
-                    sema_error(ctx, e->loc,
-                        "impossible cast: both '%s' and '%s' are final",
-                        tc->name, vc->name);
+                bool t_iface = tc->is_interface, v_iface = vc->is_interface;
+                bool t_sub_v = is_subclass_of(ctx, target.class_id, value.class_id);
+                bool v_sub_t = is_subclass_of(ctx, value.class_id, target.class_id);
+
+                if (!t_iface && !v_iface) {
+                    /* "from class type S to a different class type T if S is not a subclass
+                     * of T and T is not a subclass of S" — unconditional: single inheritance
+                     * means no object is ever an instance of two unrelated classes. */
+                    if (!t_sub_v && !v_sub_t)
+                        sema_error(ctx, e->loc,
+                            "impossible cast: '%s' and '%s' are unrelated classes (§5.1.7)",
+                            vc->name, tc->name);
+                } else if (!v_iface && t_iface) {
+                    /* "from class type S to interface type K if S is final and does not
+                     * implement K". A non-final S may have a subclass that implements K. */
+                    if ((vc->modifiers & ACC_FINAL) &&
+                        !implements_interface(ctx, value.class_id, target.class_id))
+                        sema_error(ctx, e->loc,
+                            "impossible cast: '%s' is final and does not implement '%s' (§5.1.7)",
+                            vc->name, tc->name);
+                } else if (v_iface && !t_iface) {
+                    /* "from interface type J to class type T if T is final and does not
+                     * implement J" — the mirror of the bullet above. */
+                    if ((tc->modifiers & ACC_FINAL) &&
+                        !implements_interface(ctx, target.class_id, value.class_id))
+                        sema_error(ctx, e->loc,
+                            "impossible cast: '%s' is final and does not implement '%s' (§5.1.7)",
+                            tc->name, vc->name);
+                } else {
+                    /* "from interface type J to interface type K if J and K declare methods
+                     * with the same signature but different return types" — a class could
+                     * only implement both by declaring one method with two return types. */
+                    for (int vi = 0; vi < (int)bbq_vec_len(vc->methods); vi++) {
+                        const sema_method_t* vm = &vc->methods[vi];
+                        for (int ti = 0; ti < (int)bbq_vec_len(tc->methods); ti++) {
+                            const sema_method_t* tm = &tc->methods[ti];
+                            if (strcmp(vm->name, tm->name) != 0 ||
+                                vm->param_count != tm->param_count) continue;
+                            bool params_eq = true;
+                            for (int p = 0; p < vm->param_count; p++)
+                                if (!jt_eq(vm->param_types[p], tm->param_types[p]))
+                                    { params_eq = false; break; }
+                            if (params_eq && !jt_eq(vm->return_type, tm->return_type))
+                                sema_error(ctx, e->loc,
+                                    "impossible cast: '%s' and '%s' both declare '%s' with "
+                                    "different return types (§5.1.7)",
+                                    vc->name, tc->name, vm->name);
+                        }
+                    }
+                }
             }
         }
         result = target;
@@ -2850,8 +2883,8 @@ static java_type_t analyze_expr(sema_ctx_t* ctx, ast_expr_t* e) {
                 "assignment requires a variable, field, or array element");
         check_not_final_local(ctx, e->assign.target, e->loc);
         check_not_final_field(ctx, e->assign.target, e->loc);
-        int32_t cv_tmp; bool is_const = is_int_constant(e->assign.value, &cv_tmp);
-        int32_t cv = is_const ? e->assign.value->int_lit.value : 0;
+        int32_t cv = 0;
+        bool is_const = is_const_int_expr(ctx, e->assign.value, &cv);
         if (!is_assignable(ctx, target, value, is_const, cv) &&
             !jt_is_error(target) && !jt_is_error(value)) {
             sema_error(ctx, e->loc, "incompatible types in assignment");
@@ -3032,9 +3065,9 @@ static void analyze_stmt(sema_ctx_t* ctx, ast_stmt_t* s) {
             if (vd->init) {
                 java_type_t init_type = analyze_expr(ctx, vd->init);
                 int32_t cv = 0;
-                bool is_const = is_int_constant(vd->init, &cv);
+                bool is_const = is_const_int_expr(ctx, vd->init, &cv);
                 if (!is_assignable(ctx, vtype, init_type, is_const, cv) &&
-                    !is_array_init_narrowable(vtype, vd->init) &&
+                    !is_array_init_narrowable(ctx, vtype, vd->init) &&
                     !jt_is_error(init_type)) {
                     sema_error(ctx, s->loc, "incompatible initializer for '%s'",
                                vd->name);
@@ -3169,7 +3202,7 @@ static void analyze_stmt(sema_ctx_t* ctx, ast_stmt_t* s) {
             if (sc->value) {
                 analyze_expr(ctx, sc->value);
                 int32_t cv = 0;
-                if (!is_int_constant_ctx(ctx, sc->value, &cv, 0)) {
+                if (!is_const_integral_expr(ctx, sc->value, &cv)) {
                     sema_error(ctx, s->loc,
                         "switch case value must be a compile-time constant");
                 } else {
@@ -3183,7 +3216,7 @@ static void analyze_stmt(sema_ctx_t* ctx, ast_stmt_t* s) {
                     for (int j = 0; j < i; j++) {
                         ast_switch_case_t* prev = s->switch_.cases[j];
                         int32_t pv = 0;
-                        if (prev->value && is_int_constant_ctx(ctx, prev->value, &pv, 0)
+                        if (prev->value && is_const_integral_expr(ctx, prev->value, &pv)
                             && pv == cv) {
                             sema_error(ctx, s->loc,
                                 "duplicate case value %d", cv);
@@ -3229,7 +3262,7 @@ static void analyze_stmt(sema_ctx_t* ctx, ast_stmt_t* s) {
             ast_switch_case_t* sc = s->switch_.cases[i];
             if (!sc->value) continue;
             int32_t cv = 0;
-            (void)is_int_constant_ctx(ctx, sc->value, &cv, 0);
+            (void)is_const_integral_expr(ctx, sc->value, &cv);
             info->case_values[k] = cv;
             info->case_ast_indices[k] = i;
             k++;
@@ -3380,7 +3413,7 @@ static void analyze_stmt(sema_ctx_t* ctx, ast_stmt_t* s) {
                     "'return' with value not allowed in constructor");
             } else {
                 int32_t cv = 0;
-                bool is_const = is_int_constant(s->return_.value, &cv);
+                bool is_const = is_const_int_expr(ctx, s->return_.value, &cv);
                 if (!is_assignable(ctx, ctx->current_return_type, t, is_const, cv) &&
                     !jt_is_error(t)) {
                     sema_error(ctx, s->loc, "incompatible return type");
@@ -3530,9 +3563,9 @@ static void analyze_bodies(sema_ctx_t* ctx) {
                                 ctx->static_init_field_limit = prev_limit;
                                 scope_pop(ctx);
                                 int32_t cv = 0;
-                                bool is_const = is_int_constant(vd->init, &cv);
+                                bool is_const = is_const_int_expr(ctx, vd->init, &cv);
                                 if (!is_assignable(ctx, vtype, it, is_const, cv) &&
-                                    !is_array_init_narrowable(vtype, vd->init) &&
+                                    !is_array_init_narrowable(ctx, vtype, vd->init) &&
                                     !jt_is_error(it))
                                     sema_error(ctx, fm->loc,
                                         "incompatible initializer for field '%s'", vd->name);
@@ -4304,14 +4337,6 @@ const sema_field_t* sema_resolved_field(const sema_ctx_t* ctx, const ast_expr_t*
     return decode_field_loc(ctx, bbq_htree_search(ctx->resolved_fields, ptr_key(access)));
 }
 
-bool sema_int_constant(const sema_ctx_t* ctx, const ast_expr_t* e,
-                        int32_t* out_value) {
-    int32_t v = 0;
-    if (!is_int_constant_ctx(ctx, e, &v, 0)) return false;
-    if (out_value) *out_value = v;
-    return true;
-}
-
 int sema_find_class(const sema_ctx_t* ctx, const char* name) {
     if (!name) return -1;
     /* FQN-keyed (§7.5.1: "the compiler keeps track of types by their fully
@@ -4754,6 +4779,33 @@ int sema_noarg_ctor_index(const sema_ctx_t* ctx, int class_id) {
     if (!m) return -1;
     return m->index;                     /* stamped class-local position */
 }
+
+/* The `(String)` constructor of `class_id` — how a compiler-synthesized exception carries the
+ * reason. §11.4's worked program prints `ArithmeticException` WITH the message "/ by zero", so
+ * a guard that used the no-arg constructor could not produce the specified output. */
+int sema_string_arg_ctor_index(const sema_ctx_t* ctx, int class_id) {
+    if (class_id < 0 || ctx->wk.string_id < 0) return -1;
+    java_type_t arg = jt_class(ctx->wk.string_id);
+    bool has_explicit;
+    const sema_method_t* m = find_constructor(ctx, class_id, 1, &arg, &has_explicit);
+    /* Only a genuine (String) match: find_constructor falls back to any 1-arg constructor,
+     * and handing a char[] to, say, `Foo(int)` would be a silent miscompile. */
+    if (!m || m->param_count != 1 || !jt_eq(m->param_types[0], arg)) return -1;
+    return m->index;
+}
+
+/* §20.12.9 `String(char[])` — how a pooled run of code units becomes a String. */
+int sema_string_chars_ctor_index(const sema_ctx_t* ctx) {
+    if (ctx->wk.string_id < 0) return -1;
+    java_type_t elem = jt_prim(JT_CHAR);
+    java_type_t arg = jt_array(&elem);
+    bool has_explicit;
+    const sema_method_t* m = find_constructor(ctx, ctx->wk.string_id, 1, &arg, &has_explicit);
+    if (!m || m->param_count != 1 || m->param_types[0].tag != JT_ARRAY) return -1;
+    return m->index;
+}
+
+int sema_string_class_id(const sema_ctx_t* ctx) { return ctx->wk.string_id; }
 
 int32_t sema_target_class(const sema_ctx_t* ctx, const ast_expr_t* call) {
     void* v = bbq_htree_search(ctx->target_classes, ptr_key(call));
