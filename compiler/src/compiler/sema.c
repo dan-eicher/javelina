@@ -3913,8 +3913,9 @@ static void resolve_wellknown_methods(sema_ctx_t* ctx) {
      * override that returned null would be a different (unstamped) method. Only the
      * short-circuit in cp_invoke_ret_fresh skips resolution, and it additionally requires the
      * class or method to be final. String is final and Object.getClass is a final method, so
-     * those short-circuit; this RTL's StringBuffer is NOT final, so its stamps take the
-     * resolved-target path instead — still sound, just not free. */
+     * those short-circuit; StringBuffer is NOT final — §20.13 declares `public class
+     * StringBuffer`, and later Java making it final is not this spec — so its stamps take the
+     * resolved-target path instead. Still sound, just not free. */
     stamp_ret_nonnull(ctx, ctx->wk.object_id, "getClass");        /* §20.1.5 — final method */
 
     stamp_ret_nonnull(ctx, ctx->wk.string_id, "intern");          /* §20.12.47 canonical instance */

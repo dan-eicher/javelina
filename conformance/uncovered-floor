@@ -1,0 +1,11 @@
+# The UNCOVERED ceiling. check-ledger.sh fails if the ledger's UNCOVERED count RISES above it.
+#
+# Why a checked-in number and not just a printed one: a printed count is something you can
+# stop reading. This one has to be edited DOWN by hand, in a commit, which makes progress and
+# regression both visible in the diff — and makes "the corpus quietly shrank" impossible,
+# because deleting a test raises the count and breaks the build.
+#
+# Lower it whenever coverage lands. Never raise it to make a build pass: a rise means a test
+# was deleted, a marker was dropped, or a section was reclassified out of COVERED, and each of
+# those wants explaining rather than accommodating.
+422

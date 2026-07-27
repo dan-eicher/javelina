@@ -56,10 +56,20 @@ EXPECT_KERNELS=11
 fail=0
 
 # ── the JLS coverage ledger ─────────────────────────────────────────────────
-# Runs first and needs no build: it gates the INVENTORY, not the programs. Every leaf
-# section of java-langspec-1.0.pdf has a row, and a dropped row fails here rather than
-# silently shrinking what "covered" means.
+# Runs first and needs no build: it gates the INVENTORY and the CLAIM, not the programs.
+#
+#   check-ledger  every leaf section of java-langspec-1.0.pdf has a row, the transcription
+#                 invariants hold, and UNCOVERED never RISES above the checked-in ceiling —
+#                 so a deleted test breaks the build instead of shrinking the corpus quietly.
+#   join-ledger   coverage is COMPUTED from `// JLS <n>` markers and reconciled BOTH ways:
+#                 a claim with no test fails, and a test the ledger has not recorded fails.
+#                 --check never writes, so the gate cannot "fix" itself into passing.
+#   check-deferrals  a comment that DEFERS a cited §section must not coexist with a COVERED
+#                 claim for it. "A later refinement" written in a source file is not a record,
+#                 it is a place things go to be forgotten — this turns one into a ledger row.
 sh conformance/check-ledger.sh
+sh conformance/join-ledger.sh --check
+sh conformance/check-deferrals.sh
 
 # ── artifacts ───────────────────────────────────────────────────────────────
 # Built here rather than assumed: this target has no prerequisites, so a bare

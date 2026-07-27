@@ -23,7 +23,11 @@ cd "$(dirname "$0")"
 LEDGER=jls-ledger.tsv
 [ -f "$LEDGER" ] || { echo "  FAIL  check-ledger: $LEDGER missing"; exit 1; }
 
-awk -F'\t' '
+# The ratchet's ceiling — the last number, so the file can carry its own explanation.
+FLOOR=$(grep -vE '^[[:space:]]*(#|$)' uncovered-floor 2>/dev/null | tail -1)
+[ -n "$FLOOR" ] || { echo "  FAIL  check-ledger: conformance/uncovered-floor missing or empty"; exit 1; }
+
+awk -F'\t' -v FLOOR="$FLOOR" '
 BEGIN {
     # Chapter start pages, read off the ToC chapter lines (java-langspec-1.0.pdf pp.7-19).
     # 23 is a sentinel: the body ends at 765, Index begins at 767.
@@ -85,8 +89,20 @@ END {
     # rows simply never appear and nothing is left to leave a hole in.
     for (c = 1; c <= 22; c++)
         if (!seen_ch[c]) { printf "  FAIL  chapter %d has no rows at all\n", c; fails++ }
-    printf "\n  ledger: %d rows — %d covered, %d n/a, %d UNCOVERED\n", rows, covered, n_a, uncovered
+    printf "\n  ledger: %d rows — %d covered, %d n/a, %d UNCOVERED (ceiling %d)\n",
+           rows, covered, n_a, uncovered, FLOOR
+    # THE RATCHET. Standing still is allowed; going backwards is not. A rise means a test was
+    # deleted, a marker dropped, or a section reclassified out of COVERED — each of which
+    # wants explaining, and none of which should be absorbable by a number nobody reads.
+    if (uncovered > FLOOR + 0) {
+        printf "  FAIL  UNCOVERED rose from %d to %d — coverage went BACKWARDS.\n", FLOOR, uncovered
+        printf "        Do not raise conformance/uncovered-floor to make this pass.\n"
+        fails++
+    } else if (uncovered < FLOOR + 0) {
+        printf "  ....  UNCOVERED fell to %d (ceiling %d) — lower the floor in conformance/uncovered-floor\n",
+               uncovered, FLOOR
+    }
     if (fails) { printf "  FAIL  check-ledger: %d problem(s)\n", fails; exit 1 }
-    printf "  ....  check-ledger: numbering gapless, pages monotone, chapters anchored\n"
+    printf "  ....  check-ledger: numbering gapless, pages monotone, chapters anchored, ratchet held\n"
 }
 ' "$LEDGER"

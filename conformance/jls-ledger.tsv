@@ -211,16 +211,16 @@
 9.4.3	Examples of Abstract Method Declarations	190	N/A	a single lead-in sentence ("The following examples illustrate some (possibly subtle) points about abstract method declarations") stating no rule; the observable content is in 9.4.3.1 and 9.4.3.2	
 9.4.3.1	Example: Overriding	190	UNCOVERED		an overriding interface method may narrow the throws clause (InfiniteBuffer.get throws only BufferError), so a call through the subinterface need not handle the dropped exception
 9.4.3.2	Example: Overloading	191	UNCOVERED		a subinterface overloading an inherited method has all three signatures; an implementing class must supply all three and calls dispatch by argument type
-10.1	Array Types	194	UNCOVERED		an array whose component type is an interface or abstract class holds null or instances of any implementing/concrete-subclass type; length is not part of the array type
-10.2	Array Variables	194	UNCOVERED		declaring an array variable creates no array (stays null) while `T[] v` and `T v[]` declare the same type, and one variable can successively hold arrays of different lengths
-10.3	Array Creation	195	UNCOVERED		`new T[n]` and an array initializer both create an array whose `length` is a final field and whose every component is initialized
-10.4	Array Access	195	UNCOVERED		array access is 0-origin with byte/short/char indices promoted to int, and an index < 0 or >= length throws IndexOutOfBoundsException
-10.5	Arrays: A Simple Example	196	UNCOVERED		the Gauss program filling int[101] via ia.length and summing it prints 5050
-10.6	Arrays Initializers	196	UNCOVERED		an initializer's array length equals the expression count, initializers nest, a trailing comma is ignored, and indexing a null subarray element throws NullPointerException
-10.7	Array Members	197	UNCOVERED		arrays have a public final `length`, implement Cloneable, and clone() returns a distinct array that is a shallow copy sharing subarrays
-10.8	Class Objects for Arrays	199	UNCOVERED		getClass() on arrays of the same component type yields the same Class object named "[I" for int[], whose getSuperclass() is java.lang.Object
-10.9	An Array of Characters is Not a String	199	UNCOVERED		char[] is not a String and is not NUL-terminated; String.toCharArray() returns a separate mutable array with the same characters
-10.10	Array Store Exception	199	UNCOVERED		ArrayStoreException on storing a supertype instance into an array whose actual element type is a subtype, while reads through the widened reference succeed
+10.1	Array Types	194	COVERED	Ch10	an array whose component type is an interface or abstract class holds null or instances of any implementing/concrete-subclass type; length is not part of the array type
+10.2	Array Variables	194	COVERED	Ch10,Ch10b	declaring an array variable creates no array (stays null) while `T[] v` and `T v[]` declare the same type, and one variable can successively hold arrays of different lengths
+10.3	Array Creation	195	COVERED	Ch10	`new T[n]` and an array initializer both create an array whose `length` is a final field and whose every component is initialized
+10.4	Array Access	195	COVERED	Ch10	array access is 0-origin with byte/short/char indices promoted to int, and an index < 0 or >= length throws IndexOutOfBoundsException
+10.5	Arrays: A Simple Example	196	COVERED	Ch10	the Gauss program filling int[101] via ia.length and summing it prints 5050
+10.6	Arrays Initializers	196	COVERED	Ch10,Ch10b	an initializer's array length equals the expression count, initializers nest, a trailing comma is ignored, and indexing a null subarray element throws NullPointerException
+10.7	Array Members	197	COVERED	Ch10	arrays have a public final `length`, implement Cloneable, and clone() returns a distinct array that is a shallow copy sharing subarrays
+10.8	Class Objects for Arrays	199	COVERED	Ch10	getClass() on arrays of the same component type yields the same Class object named "[I" for int[], whose getSuperclass() is java.lang.Object
+10.9	An Array of Characters is Not a String	199	COVERED	Ch10	char[] is not a String and is not NUL-terminated; String.toCharArray() returns a separate mutable array with the same characters
+10.10	Array Store Exception	199	COVERED	Ch10	ArrayStoreException on storing a supertype instance into an array whose actual element type is a subtype, while reads through the widened reference succeed
 11.1	The Causes of Exceptions	202	UNCOVERED		a VM-detected condition (e.g. integer divide by zero) throws at the specified expression/statement point, not an arbitrary one
 11.2	Compile-Time Checking of Exceptions	203	UNCOVERED		a checked exception not named in the throws clause (incl. an overriding method widening throws, or a field/static initializer) is a compile-time error
 11.2.1	Why Errors are Not Checked	203	UNCOVERED		Error and its subclasses need no throws clause: throwing one from an undeclared method compiles
@@ -386,7 +386,7 @@
 15.14.4	Unary Minus Operator -	349	UNCOVERED		negating the most negative int/long returns itself with no exception, and -0.0 differs from 0.0-x for x==+0.0
 15.14.5	Bitwise Complement Operator ~	349	UNCOVERED		~x equals (-x)-1 on the promoted operand
 15.14.6	Logical Complement Operator !	349	UNCOVERED		! yields true for false and false for true
-15.15	Cast Expressions	350	UNCOVERED		a reference cast that is impermissible at run time throws ClassCastException; the result is a value, not a variable
+15.15	Cast Expressions	350	COVERED	Ch10b	a reference cast that is impermissible at run time throws ClassCastException; the result is a value, not a variable
 15.16	Multiplicative Operators	351	UNCOVERED		*, / and % are left-associative and apply binary numeric promotion, so `10/3*3` is 9 and byte*byte is int arithmetic
 15.16.1	Multiplication Operator *	351	UNCOVERED		integer multiplication overflow keeps the low-order bits and never throws; IEEE 754 rules govern NaN/infinity/zero products
 15.16.2	Division Operator /	352	UNCOVERED		integer division truncates toward zero, MIN_VALUE/-1 is MIN_VALUE, and division by integer zero throws ArithmeticException while float division never throws
