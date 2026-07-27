@@ -53,32 +53,30 @@ if [ "$ncase" -eq 0 ]; then
     exit 1
 fi
 
+# Build and run every case — make's job, not a shell loop's. The cases are independent, so
+# -j turns four serial minutes into one core's worth, and the dependency edges mean an
+# unchanged case is not recompiled at all. The case list is a wildcard inside cases.mk, which
+# is why this is a separate invocation: the generator above had to write them first.
+JOBS=$( (nproc 2>/dev/null) || echo 4 )
+if ! make -f conformance/cases.mk -j"$JOBS" OUT="$OUT" B="$B" LIBDIR="$LIBDIR" all; then
+    echo "  FAIL  stitched corpus: a case failed to compile or died at run time"
+    exit 1
+fi
+
+# The verdict. Still shell for the moment, and it should not be: comparing an output against
+# its composed expectation is judgement, and crisp-tallying-chapters §3 puts the instrument in
+# Java on the VM. Next step is a guest program reading these files, which it can — the RTL has
+# FileInputStream; what it cannot do is spawn javelinac, which is the whole reason a driver
+# exists at all.
 fail=0
 for f in "$OUT"/Case*.java; do
     name=$(basename "$f" .java)
     exp="$OUT/$name.expected"
     [ -f "$exp" ] || { echo "  FAIL  $name has no composed expectation"; fail=1; continue; }
-
-    # Each case is its own module: one failing case must not take the others' results with it,
-    # and the case name has to appear in the failure.
-    if ! $B/javelinac --libdir $LIBDIR -O0 "$f" -o "$B/conf-$name.wasm" > "$B/conf-$name.log" 2>&1; then
-        echo "  FAIL  $name did not compile — a generator bug or a javelinac bug, never a test bug"
-        sed 's/^/        | /' "$B/conf-$name.log" | head -6
-        fail=1
-        continue
-    fi
-
-    for tier in -nojit -jit; do
-        if ! $B/javelina --jre $B/conf-jre-O0.wasm $tier "$B/conf-$name.wasm" \
-                 > "$B/conf-$name$tier.out" 2>&1; then
-            echo "  FAIL  $name died at run time ($tier)"
-            sed 's/^/        | /' "$B/conf-$name$tier.out" | head -6
-            fail=1
-            continue
-        fi
-        if ! diff -q "$exp" "$B/conf-$name$tier.out" > /dev/null; then
+    for tier in nojit jit; do
+        if ! diff -q "$exp" "$OUT/$name.$tier.out" > /dev/null 2>&1; then
             echo "  FAIL  $name ($tier): output differs from its COMPOSED expectation"
-            diff "$exp" "$B/conf-$name$tier.out" | sed 's/^/        | /' | head -12
+            diff "$exp" "$OUT/$name.$tier.out" 2>&1 | sed 's/^/        | /' | head -12
             fail=1
         fi
     done
