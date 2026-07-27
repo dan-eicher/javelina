@@ -25,6 +25,10 @@ public class GatesMain {
 
     public static void main(String[] args) {
         String dir = args.length > 0 ? args[0] : "conformance";
+        // `update` rewrites the ledger's computed columns instead of checking them. It is the
+        // SAME join either way -- one implementation deciding and one implementation writing
+        // would be two authorities free to disagree, which is what the join exists to prevent.
+        boolean update = args.length > 1 && args[1].equals("update");
 
         Ledger L = Ledger.load(dir + "/jls-ledger.tsv");
         if (L == null) { fail("gates: " + dir + "/jls-ledger.tsv is unreadable"); return; }
@@ -35,6 +39,12 @@ public class GatesMain {
         fails += statusDiscipline(L);
 
         Markers m = Markers.scan(dir);
+        if (update) {
+            int changed = rewrite(L, m, dir + "/jls-ledger.tsv");
+            if (changed < 0) { fail("gates: could not write the ledger"); return; }
+            System.out.println("  ....  ledger updated (" + changed + " row(s) changed)");
+            return;
+        }
         fails += join(L, m);
         fails += ratchet(L, dir);
         fails += cardinality(dir);
@@ -180,6 +190,65 @@ public class GatesMain {
             }
         }
         return fails;
+    }
+
+    /* ── the update path ────────────────────────────────────────────────────────────── */
+
+    /** Recompute the status and reason columns from the markers and write the ledger back.
+     *  Returns how many rows changed, or -1 on a write failure.
+     *
+     *  Only those two columns are computed. Section, title and page are the TRANSCRIPTION and
+     *  are never touched here -- they come from the ToC, and a program that could rewrite them
+     *  could quietly repair the very holes the transcription invariants exist to catch. An N/A
+     *  row is left alone too: its reason is written by a human against the spec, and a marker
+     *  claiming an N/A section is a contradiction the CHECK path reports rather than something
+     *  the update path silently resolves. */
+    private static int rewrite(Ledger L, Markers m, String path) {
+        // The header first. Tsv skips comment lines, so rewriting from the parsed rows alone
+        // would silently delete the file's own explanation of what it is and how it is
+        // maintained -- fourteen lines that are the reason anyone can read the ledger at all.
+        StringBuffer b = new StringBuffer();
+        byte[] raw = Tsv.readAll(path);
+        if (raw != null) {
+            String text = new String(raw, 0, 0, raw.length);
+            int i = 0;
+            while (i < text.length()) {
+                int e = text.indexOf('\n', i);
+                if (e < 0) e = text.length();
+                String line = text.substring(i, e);
+                if (line.length() > 0 && line.charAt(0) != '#') break;
+                b.append(line).append('\n');
+                i = e + 1;
+            }
+        }
+        int changed = 0;
+        for (int i = 0; i < L.rows; i++) {
+            String st = L.status[i], why = L.reason[i];
+            if (!st.equals("N/A")) {
+                boolean claimed = m.covers(L.sec[i]);
+                String newSt  = claimed ? "COVERED" : "UNCOVERED";
+                String newWhy = claimed ? m.by(L.sec[i]) : "";
+                if (!newSt.equals(st) || !newWhy.equals(why)) changed++;
+                st = newSt; why = newWhy;
+            }
+            b.append(L.sec[i]).append('\t').append(L.title[i]).append('\t')
+             .append(L.page[i]).append('\t').append(st).append('\t').append(why)
+             .append('\t').append(L.behaviour[i]).append('\n');
+        }
+        return write(path, b.toString()) ? changed : -1;
+    }
+
+    private static boolean write(String path, String text) {
+        java.io.FileOutputStream out = null;
+        try {
+            out = new java.io.FileOutputStream(path);
+            for (int i = 0; i < text.length(); i++) out.write((int) text.charAt(i) & 0xFF);
+            return true;
+        } catch (java.io.IOException e) {
+            return false;
+        } finally {
+            if (out != null) { try { out.close(); } catch (java.io.IOException e) { } }
+        }
     }
 
     /* ── the ratchet ────────────────────────────────────────────────────────────────── */

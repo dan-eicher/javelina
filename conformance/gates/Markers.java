@@ -95,13 +95,27 @@ public class Markers {
         return false;
     }
 
-    /** The artifacts claiming `sec`, comma-joined -- what the ledger's reason column records. */
+    /** The artifacts claiming `sec`, comma-joined -- what the ledger's reason column records.
+     *
+     *  SORTED, because this string is written into a checked-in file: File.list returns
+     *  directory order, so an unsorted join would rewrite dozens of rows with the same set of
+     *  artifacts in a different sequence every time the directory changed, and the diff would
+     *  say coverage moved when nothing had. */
     public String by(String sec) {
+        java.util.Vector v = new java.util.Vector();
+        for (int i = 0; i < count; i++) if (section[i].equals(sec)) v.addElement(artifact[i]);
+        String[] a = new String[v.size()];
+        v.copyInto(a);
+        for (int i = 1; i < a.length; i++) {          // insertion sort: JLS 1.0 has no Arrays
+            String x = a[i];
+            int j = i - 1;
+            while (j >= 0 && a[j].compareTo(x) > 0) { a[j + 1] = a[j]; j--; }
+            a[j + 1] = x;
+        }
         StringBuffer b = new StringBuffer();
-        for (int i = 0; i < count; i++) {
-            if (!section[i].equals(sec)) continue;
-            if (b.length() > 0) b.append(',');
-            b.append(artifact[i]);
+        for (int i = 0; i < a.length; i++) {
+            if (i > 0) b.append(',');
+            b.append(a[i]);
         }
         return b.toString();
     }
