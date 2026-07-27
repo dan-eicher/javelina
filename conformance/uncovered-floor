@@ -13,7 +13,9 @@
 # wants explaining rather than absorbing. The distinction is the whole point, so a raise
 # carries its reason here.
 #
-# 443 -> 441 (this commit): §3.8 and §3.9 covered by conformance/jls/Ch3.java — the first
+# 441 -> 440 (this commit): §15.27 covered by conformance/jls/Ch15.java.
+#
+# 443 -> 441 (previous): §3.8 and §3.9 covered by conformance/jls/Ch3.java — the first
 # lowering, and the direction this number is supposed to move.
 #
 # 427 -> 443 (previous): sixteen §13 sections were marked N/A on the premise that javelina
@@ -31,4 +33,4 @@
 # row is invisible to this ratchet forever, so that was a permanent hiding place. ClassLoader,
 # Process, Runtime, SecurityManager and StreamTokenizer are now UNCOVERED, which is what
 # unwritten means, and check-ledger.sh now rejects an N/A justified by implementation state.
-441
+440

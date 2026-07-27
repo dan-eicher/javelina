@@ -83,6 +83,11 @@ module ast {
          | DoubleLit(float64 value)
          | CharLit(int32 value)
          | BoolLit(bool value)
+         // 3.10.5. `chars` is the ArrayInit of UTF-16 code units the literal denotes. The node
+         // survives into sema so 15.27 can fold a constant String expression and 3.10.5 can
+         // intern the result; the parser used to desugar straight to new String(chars).intern(),
+         // which left no literal for either rule to see. sema desugars it after folding.
+         | StringLit(expr chars)
          | NullLit
          | Ident(ident name)
          | FieldAccess(expr obj, ident field)

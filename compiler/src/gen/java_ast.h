@@ -86,6 +86,7 @@ typedef enum {
     AST_DOUBLELIT,
     AST_CHARLIT,
     AST_BOOLLIT,
+    AST_STRINGLIT,
     AST_NULLLIT,
     AST_IDENT,
     AST_FIELDACCESS,
@@ -362,6 +363,9 @@ struct ast_expr_t {
         struct {
             bool value;
         } bool_lit;
+        struct {
+            ast_expr_t* chars;
+        } string_lit;
         struct {
             const char* name;
         } ident;
@@ -911,6 +915,15 @@ static inline ast_expr_t* ast_bool_lit(bbq_arena* _a, bool value) {
     _n->loc = (ast_srcloc){0};   /* zero the common source location — arena_alloc doesn't; the parser stamps set nodes */
     _n->tag = AST_BOOLLIT;
     _n->bool_lit.value = value;
+    _n->etype = 0;
+    return _n;
+}
+
+static inline ast_expr_t* ast_string_lit(bbq_arena* _a, ast_expr_t* chars) {
+    ast_expr_t* _n = (ast_expr_t*)bbq_arena_alloc(_a, sizeof(ast_expr_t));
+    _n->loc = (ast_srcloc){0};   /* zero the common source location — arena_alloc doesn't; the parser stamps set nodes */
+    _n->tag = AST_STRINGLIT;
+    _n->string_lit.chars = chars;
     _n->etype = 0;
     return _n;
 }

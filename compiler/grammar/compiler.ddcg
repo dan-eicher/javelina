@@ -2734,6 +2734,15 @@ rule null_lit : ast.NullLit() {
     cg_store(build ir.LoadNull(), delta, gamma, Lnext);
 }
 
+// §3.10.5 string literal. It must NOT reach codegen: sema rewrites every StringLit into
+// `new String(chars).intern()` once §15.27 has had its chance to fold constant String
+// expressions — folding is why the node survives the parser at all, and interning is why the
+// folded result is a literal rather than a fresh object. Reaching here means that rewrite was
+// skipped, which would silently produce a program with no String in it.
+rule string_lit : ast.StringLit(chars: _) {
+    panic_unreachable("string_lit: sema must desugar StringLit to new String(chars).intern()");
+}
+
 // char literal: an int32-representable constant, carried with DtChar.
 rule char_lit : ast.CharLit(value: v) {
     cg_store(build ir.LoadConst(v, DtChar), delta, gamma, Lnext);

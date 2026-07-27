@@ -2257,6 +2257,69 @@ static int qualified_type_base(sema_ctx_t* ctx, const ast_expr_t* e) {
     return sema_resolve_type(ctx, cur_unit(ctx), buf, e->loc, true);
 }
 
+/* §15.27's String half. Is `e` a constant String expression, and if so, which code units does
+ * it denote? Returns its ArrayInit of chars, or NULL.
+ *
+ * "Constant expression" here is §15.27's: a String literal, or a `+` of two constant String
+ * expressions. It must run on the UN-DESUGARED tree — once desugar_string_literal has rewritten
+ * a StringLit into `new String(chars).intern()` there is no literal left to recognise, which is
+ * exactly the ordering const_expr.c called a blocker. */
+static ast_expr_t* string_const_chars(ast_expr_t* e) {
+    if (!e) return NULL;
+    if (e->tag == AST_STRINGLIT) return e->string_lit.chars;
+    if (e->tag == AST_BINARY && e->binary.op == AST_ADD) {
+        ast_expr_t* l = string_const_chars(e->binary.lhs);
+        ast_expr_t* r = string_const_chars(e->binary.rhs);
+        if (l && r) return e;      /* foldable; the caller splices the two element lists */
+    }
+    return NULL;
+}
+
+/* Append every char element of a constant String expression to `out` (a bbq_vec), in order. */
+static void string_const_flatten(ast_expr_t* e, ast_expr_t*** out) {
+    if (e->tag == AST_STRINGLIT) {
+        ast_expr_t* ci = e->string_lit.chars;
+        if (ci->tag == AST_ARRAYINIT)
+            for (int i = 0; i < ci->array_init.elems_count; i++)
+                bbq_vec_push(*out, ci->array_init.elems[i]);
+        return;                    /* an empty literal is new char[0] — it contributes none */
+    }
+    string_const_flatten(e->binary.lhs, out);
+    string_const_flatten(e->binary.rhs, out);
+}
+
+/* §15.27 + §3.10.5: replace a constant String concatenation with the single literal it
+ * denotes, so it is interned like any other literal rather than built fresh by the ddcg's
+ * StringBuffer desugar. This is what makes the spec's own example hold:
+ *
+ *     hello == ("Hel" + "lo")     true   — a constant expression, folded to a literal
+ *     hello == ("Hel" + lo)       false  — computed at run time, a distinct object
+ *
+ * Returns true if `e` was folded in place. */
+static bool fold_string_concat(sema_ctx_t* ctx, ast_expr_t* e) {
+    if (!string_const_chars(e) || e->tag != AST_BINARY) return false;
+    ast_expr_t** elems = NULL;
+    string_const_flatten(e, &elems);
+    int n = (int)bbq_vec_len(elems);
+    ast_expr_t* chars;
+    if (n == 0) {
+        /* §10.6: an empty initializer has no element type to infer, so the empty literal is
+         * an explicit `new char[0]` — the same shape jstr_to_array produces. */
+        ast_expr_t** dims = (ast_expr_t**)bbq_arena_alloc(ctx->arena, sizeof(ast_expr_t*));
+        dims[0] = ast_int_lit(ctx->arena, 0);
+        chars = ast_new_array(ctx->arena, ast_char_type(ctx->arena), dims, 1);
+    } else {
+        ast_expr_t** arr = (ast_expr_t**)bbq_arena_alloc(ctx->arena, (size_t)n * sizeof(*arr));
+        memcpy(arr, elems, (size_t)n * sizeof(*arr));
+        chars = ast_array_init(ctx->arena, arr, n);
+    }
+    bbq_vec_free(elems);
+    ast_srcloc loc = e->loc;
+    *e = *ast_string_lit(ctx->arena, chars);   /* in place: the parent already holds this node */
+    e->loc = loc;
+    return true;
+}
+
 static java_type_t analyze_expr(sema_ctx_t* ctx, ast_expr_t* e) {
     if (!e) return jt_error();
     java_type_t result = jt_error();
@@ -2268,6 +2331,30 @@ static java_type_t analyze_expr(sema_ctx_t* ctx, ast_expr_t* e) {
          * point — NOT by pre-tagging the literal's type.) */
         result = jt_prim(JT_INT);
         break;
+
+    /* §3.10.5: "A string literal is always of type String." The node is rewritten into
+     * `new String(chars).intern()` by desugar_string_literals, AFTER §15.27 has folded any
+     * constant String expression around it — that ordering is the whole reason the literal
+     * survives the parser. Typing it here is what lets §15.17.1's concatenation rule see a
+     * String on either side while it is still a literal. */
+    case AST_STRINGLIT: {
+        /* §3.10.5: the literal IS a String, and literals "are interned so as to share unique
+         * instances". Desugar to `new String(chars).intern()` — HERE and not in the parser,
+         * because a parser-side rewrite leaves no literal for §15.27's fold (above) to
+         * recognise. By the time control reaches this node every enclosing constant
+         * concatenation has already folded, so what remains is a genuine literal.
+         *
+         * Rewritten IN PLACE: the parent already holds this node, and the ddcg has no rule for
+         * a StringLit that survives (it panics, deliberately). */
+        ast_expr_t* chars = e->string_lit.chars;
+        ast_expr_t** args = (ast_expr_t**)bbq_arena_alloc(ctx->arena, sizeof(ast_expr_t*));
+        args[0] = chars;
+        ast_srcloc loc = e->loc;
+        ast_expr_t* fresh = ast_new(ctx->arena, ast_simple_name(ctx->arena, "String"), args, 1);
+        *e = *ast_method_call(ctx->arena, fresh, "intern", NULL, 0);
+        e->loc = loc;
+        return analyze_expr(ctx, e);      /* now an AST_METHODCALL — terminates */
+    }
 
     case AST_LONGLIT:   result = jt_prim(JT_LONG);   e->etype = JT_LONG;   break;
     case AST_FLOATLIT:  result = jt_prim(JT_FLOAT);  e->etype = JT_FLOAT;  break;
@@ -2637,6 +2724,11 @@ static java_type_t analyze_expr(sema_ctx_t* ctx, ast_expr_t* e) {
     }
 
     case AST_BINARY: {
+        /* §15.27: a constant String concatenation is computed at compile time and "then
+         * treated as if [it] were literals" — so it interns like one. This must run BEFORE the
+         * operands are analysed: analysing a StringLit desugars it to new String(..).intern(),
+         * and after that there is no literal left to fold. */
+        if (fold_string_concat(ctx, e)) return analyze_expr(ctx, e);
         java_type_t lhs = analyze_expr(ctx, e->binary.lhs);
         java_type_t rhs = analyze_expr(ctx, e->binary.rhs);
         if (jt_is_error(lhs) || jt_is_error(rhs)) break;

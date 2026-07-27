@@ -227,10 +227,7 @@ static inline ast_expr_t* jstr_to_array(bbq_arena* a, peg_span raw) {
    §15.27 can fold it; const_expr.c records that it was blocked on interning. This
    unblocks it; it does not yet do it. */
 static inline ast_expr_t* jstr_to_string(bbq_arena* a, peg_span raw) {
-    ast_expr_t** args = NULL; int ac = 0;
-    args = (ast_expr_t**)jpush(a, (void**)args, &ac, jstr_to_array(a, raw));
-    ast_expr_t* fresh = ast_new(a, ast_simple_name(a, "String"), args, ac);
-    return ast_method_call(a, fresh, "intern", NULL, 0);
+    return ast_string_lit(a, jstr_to_array(a, raw));
 }
 
 /* JLS §3.8 — Identifier: JavaLetter { JavaLetterOrDigit }, where a Java letter is any Unicode

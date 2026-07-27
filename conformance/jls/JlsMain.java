@@ -14,6 +14,7 @@ public class JlsMain {
         Ch3.run();
         Ch10.run();
         Ch10b.run();
+        Ch15.run();
 
         System.out.println("RESULT jls checks=" + Check.checks + " fails=" + Check.fails);
         if (Check.fails != 0) System.exit(1);

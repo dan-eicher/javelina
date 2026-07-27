@@ -905,6 +905,18 @@
         },
         {
           "base": "Expr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "chars",
+              "type": "expr"
+            }
+          ],
+          "name": "StringLit"
+        },
+        {
+          "base": "Expr",
           "fields": [],
           "name": "NullLit"
         },
