@@ -268,6 +268,10 @@ static bool is_hex_digit(char c) {
     return ((is_digit(c) || (c >= 97 && c <= 102)) || (c >= 65 && c <= 70));
 }
 
+static bool is_utf8_tail(char c) {
+    return (c >= -128 && c <= -65);
+}
+
 static bool is_letter_or_digit(char c) {
     return (is_letter(c) || is_digit(c));
 }
@@ -1338,24 +1342,53 @@ static bool java_char_lit(peg_state* p, peg_span* out) {
             bool _ok1 = false;
             do {
                 if (!peg_match(p, "\\")) break;
-                if (!peg_match(p, "u")) break;
-                for (;;) {
+                {
                     peg_mark _m2 = peg_save(p);
                     bool _ok2 = false;
                     do {
                         if (!peg_match(p, "u")) break;
                         _ok2 = true;
                     } while(0);
-                    if (!_ok2) { peg_restore(p, _m2); break; }
+                    peg_restore(p, _m2);
+                    if (_ok2) break;
                 }
-                if (peg_at_end(p) || !is_hex_digit(peg_peek_char(p))) break;
-                peg_advance(p);
-                if (peg_at_end(p) || !is_hex_digit(peg_peek_char(p))) break;
-                peg_advance(p);
-                if (peg_at_end(p) || !is_hex_digit(peg_peek_char(p))) break;
-                peg_advance(p);
-                if (peg_at_end(p) || !is_hex_digit(peg_peek_char(p))) break;
-                peg_advance(p);
+                {
+                    peg_mark _m3 = peg_save(p);
+                    {
+                        bool _ok4 = false;
+                        do {
+                            if (peg_at_end(p) || !is_octal_digit(peg_peek_char(p))) break;
+                            peg_advance(p);
+                            {
+                                peg_mark _m5 = peg_save(p);
+                                bool _ok5 = false;
+                                do {
+                                    if (peg_at_end(p) || !is_octal_digit(peg_peek_char(p))) break;
+                                    peg_advance(p);
+                                    {
+                                        peg_mark _m6 = peg_save(p);
+                                        bool _ok6 = false;
+                                        do {
+                                            if (peg_at_end(p) || !is_octal_digit(peg_peek_char(p))) break;
+                                            peg_advance(p);
+                                            _ok6 = true;
+                                        } while(0);
+                                        if (!_ok6) peg_restore(p, _m6);
+                                    }
+                                    _ok5 = true;
+                                } while(0);
+                                if (!_ok5) peg_restore(p, _m5);
+                            }
+                            _ok4 = true;
+                        } while(0);
+                        if (!_ok4) {
+                            peg_restore(p, _m3);
+                        } else goto _choice_done3;
+                    }
+                    if (peg_at_end(p)) break;
+                    peg_advance(p);
+                _choice_done3:;
+                }
                 _ok1 = true;
             } while(0);
             if (!_ok1) {
@@ -1363,67 +1396,30 @@ static bool java_char_lit(peg_state* p, peg_span* out) {
             } else goto _choice_done0;
         }
         {
-            bool _ok3 = false;
+            peg_mark _m7 = peg_save(p);
+            bool _ok7 = false;
+            do {
+                if (!peg_match(p, "'")) break;
+                _ok7 = true;
+            } while(0);
+            peg_restore(p, _m7);
+            if (_ok7) return false;
+        }
+        {
+            peg_mark _m8 = peg_save(p);
+            bool _ok8 = false;
             do {
                 if (!peg_match(p, "\\")) break;
-                {
-                    peg_mark _m4 = peg_save(p);
-                    bool _ok4 = false;
-                    do {
-                        if (!peg_match(p, "u")) break;
-                        _ok4 = true;
-                    } while(0);
-                    peg_restore(p, _m4);
-                    if (_ok4) break;
-                }
-                {
-                    peg_mark _m5 = peg_save(p);
-                    {
-                        bool _ok6 = false;
-                        do {
-                            if (peg_at_end(p) || !is_octal_digit(peg_peek_char(p))) break;
-                            peg_advance(p);
-                            {
-                                peg_mark _m7 = peg_save(p);
-                                bool _ok7 = false;
-                                do {
-                                    if (peg_at_end(p) || !is_octal_digit(peg_peek_char(p))) break;
-                                    peg_advance(p);
-                                    {
-                                        peg_mark _m8 = peg_save(p);
-                                        bool _ok8 = false;
-                                        do {
-                                            if (peg_at_end(p) || !is_octal_digit(peg_peek_char(p))) break;
-                                            peg_advance(p);
-                                            _ok8 = true;
-                                        } while(0);
-                                        if (!_ok8) peg_restore(p, _m8);
-                                    }
-                                    _ok7 = true;
-                                } while(0);
-                                if (!_ok7) peg_restore(p, _m7);
-                            }
-                            _ok6 = true;
-                        } while(0);
-                        if (!_ok6) {
-                            peg_restore(p, _m5);
-                        } else goto _choice_done5;
-                    }
-                    if (peg_at_end(p)) break;
-                    peg_advance(p);
-                _choice_done5:;
-                }
-                _ok3 = true;
+                _ok8 = true;
             } while(0);
-            if (!_ok3) {
-                peg_restore(p, _m0);
-            } else goto _choice_done0;
+            peg_restore(p, _m8);
+            if (_ok8) return false;
         }
         {
             peg_mark _m9 = peg_save(p);
             bool _ok9 = false;
             do {
-                if (!peg_match(p, "'")) break;
+                if (!peg_match(p, "\r")) break;
                 _ok9 = true;
             } while(0);
             peg_restore(p, _m9);
@@ -1433,34 +1429,24 @@ static bool java_char_lit(peg_state* p, peg_span* out) {
             peg_mark _m10 = peg_save(p);
             bool _ok10 = false;
             do {
-                if (!peg_match(p, "\\")) break;
+                if (!peg_match(p, "\n")) break;
                 _ok10 = true;
             } while(0);
             peg_restore(p, _m10);
             if (_ok10) return false;
         }
-        {
+        if (peg_at_end(p)) return false;
+        peg_advance(p);
+        for (;;) {
             peg_mark _m11 = peg_save(p);
             bool _ok11 = false;
             do {
-                if (!peg_match(p, "\r")) break;
+                if (peg_at_end(p) || !is_utf8_tail(peg_peek_char(p))) break;
+                peg_advance(p);
                 _ok11 = true;
             } while(0);
-            peg_restore(p, _m11);
-            if (_ok11) return false;
+            if (!_ok11) { peg_restore(p, _m11); break; }
         }
-        {
-            peg_mark _m12 = peg_save(p);
-            bool _ok12 = false;
-            do {
-                if (!peg_match(p, "\n")) break;
-                _ok12 = true;
-            } while(0);
-            peg_restore(p, _m12);
-            if (_ok12) return false;
-        }
-        if (peg_at_end(p)) return false;
-        peg_advance(p);
     _choice_done0:;
     }
     if (!peg_match(p, "'")) return false;
@@ -1481,23 +1467,17 @@ static bool java_string_lit(peg_state* p, peg_span* out) {
                     bool _ok2 = false;
                     do {
                         if (!peg_match(p, "\\")) break;
-                        if (!peg_match(p, "u")) break;
-                        for (;;) {
+                        {
                             peg_mark _m3 = peg_save(p);
                             bool _ok3 = false;
                             do {
                                 if (!peg_match(p, "u")) break;
                                 _ok3 = true;
                             } while(0);
-                            if (!_ok3) { peg_restore(p, _m3); break; }
+                            peg_restore(p, _m3);
+                            if (_ok3) break;
                         }
-                        if (peg_at_end(p) || !is_hex_digit(peg_peek_char(p))) break;
-                        peg_advance(p);
-                        if (peg_at_end(p) || !is_hex_digit(peg_peek_char(p))) break;
-                        peg_advance(p);
-                        if (peg_at_end(p) || !is_hex_digit(peg_peek_char(p))) break;
-                        peg_advance(p);
-                        if (peg_at_end(p) || !is_hex_digit(peg_peek_char(p))) break;
+                        if (peg_at_end(p)) break;
                         peg_advance(p);
                         _ok2 = true;
                     } while(0);
@@ -1506,32 +1486,30 @@ static bool java_string_lit(peg_state* p, peg_span* out) {
                     } else goto _choice_done1;
                 }
                 {
+                    peg_mark _m4 = peg_save(p);
                     bool _ok4 = false;
                     do {
-                        if (!peg_match(p, "\\")) break;
-                        {
-                            peg_mark _m5 = peg_save(p);
-                            bool _ok5 = false;
-                            do {
-                                if (!peg_match(p, "u")) break;
-                                _ok5 = true;
-                            } while(0);
-                            peg_restore(p, _m5);
-                            if (_ok5) break;
-                        }
-                        if (peg_at_end(p)) break;
-                        peg_advance(p);
+                        if (!peg_match(p, "\"")) break;
                         _ok4 = true;
                     } while(0);
-                    if (!_ok4) {
-                        peg_restore(p, _m1);
-                    } else goto _choice_done1;
+                    peg_restore(p, _m4);
+                    if (_ok4) break;
+                }
+                {
+                    peg_mark _m5 = peg_save(p);
+                    bool _ok5 = false;
+                    do {
+                        if (!peg_match(p, "\\")) break;
+                        _ok5 = true;
+                    } while(0);
+                    peg_restore(p, _m5);
+                    if (_ok5) break;
                 }
                 {
                     peg_mark _m6 = peg_save(p);
                     bool _ok6 = false;
                     do {
-                        if (!peg_match(p, "\"")) break;
+                        if (!peg_match(p, "\r")) break;
                         _ok6 = true;
                     } while(0);
                     peg_restore(p, _m6);
@@ -1541,31 +1519,11 @@ static bool java_string_lit(peg_state* p, peg_span* out) {
                     peg_mark _m7 = peg_save(p);
                     bool _ok7 = false;
                     do {
-                        if (!peg_match(p, "\\")) break;
+                        if (!peg_match(p, "\n")) break;
                         _ok7 = true;
                     } while(0);
                     peg_restore(p, _m7);
                     if (_ok7) break;
-                }
-                {
-                    peg_mark _m8 = peg_save(p);
-                    bool _ok8 = false;
-                    do {
-                        if (!peg_match(p, "\r")) break;
-                        _ok8 = true;
-                    } while(0);
-                    peg_restore(p, _m8);
-                    if (_ok8) break;
-                }
-                {
-                    peg_mark _m9 = peg_save(p);
-                    bool _ok9 = false;
-                    do {
-                        if (!peg_match(p, "\n")) break;
-                        _ok9 = true;
-                    } while(0);
-                    peg_restore(p, _m9);
-                    if (_ok9) break;
                 }
                 if (peg_at_end(p)) break;
                 peg_advance(p);

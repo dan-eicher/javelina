@@ -5607,32 +5607,54 @@ static bool cp_escape_update(cp_engine_t* eng) {
  * NonNull (a `new` never returns null), so the Oret result drops ⊥null. Static/special: one callee.
  * Virtual/interface: ALL targets must be FRESH, else conservative (keep maybe-null). A bottom /
  * not-yet-summarized callee has no summary ⟹ false ⟹ maybe-null, exactly as before. */
+/* Either a DERIVED summary (a body was analysed) or a STATED well-known contract says this
+ * (class, method) never returns null. The second exists because the RTL is not recompiled with
+ * every plugin: with a compiled java.lang there is no body to derive from, and the fact would
+ * silently vanish — which is what made every §3.10.5 string literal carry an unfoldable guard. */
+/* Is the DECLARED (class, method) both stamped never-null AND unoverridable? A final class or a
+ * final method admits exactly one implementation, so the stated contract binds every call site
+ * without resolving a target set — which is the point, since resolving one needs body knowledge
+ * a compiled-library build does not have. */
+static bool cp_decl_final_and_nonnull(compiler_ctx_t* ctx, int class_id, int method_idx) {
+    if (!sema_method_ret_nonnull(ctx->sema, class_id, method_idx)) return false;
+    const sema_class_t* c = sema_get_class(ctx->sema, class_id);
+    if (!c || method_idx < 0 || method_idx >= (int)bbq_vec_len(c->methods)) return false;
+    return (c->modifiers & ACC_FINAL) || (c->methods[method_idx].modifiers & ACC_FINAL);
+}
+
+static bool cp_target_never_returns_null(compiler_ctx_t* ctx, int class_id, int method_idx) {
+    if (sema_method_ret_nonnull(ctx->sema, class_id, method_idx)) return true;
+    const compiler_summary_t* s = compiler_method_summary(ctx,
+        compiler_method_index(ctx, class_id, method_idx));
+    return s && (s->ret_kind == COMPILER_RET_FRESH || s->ret_kind == COMPILER_RET_NONNULL);
+}
+
 static bool cp_invoke_ret_fresh(cp_engine_t* eng, const sir_node_t* call) {
     compiler_ctx_t* ctx = eng->ctx;
     if (!ctx) return false;
     switch (call->tag) {
-    case SIR_INVOKESPECIAL: {
-        const compiler_summary_t* s = compiler_method_summary(ctx,
-            compiler_method_index(ctx, call->invoke_special.class_id, call->invoke_special.method_idx));
-        return s && (s->ret_kind == COMPILER_RET_FRESH || s->ret_kind == COMPILER_RET_NONNULL);
-    }
-    case SIR_INVOKESTATIC: {
-        const compiler_summary_t* s = compiler_method_summary(ctx,
-            compiler_method_index(ctx, call->invoke_static.class_id, call->invoke_static.method_idx));
-        return s && (s->ret_kind == COMPILER_RET_FRESH || s->ret_kind == COMPILER_RET_NONNULL);
-    }
+    case SIR_INVOKESPECIAL:
+        return cp_target_never_returns_null(ctx, call->invoke_special.class_id,
+                                          call->invoke_special.method_idx);
+    case SIR_INVOKESTATIC:
+        return cp_target_never_returns_null(ctx, call->invoke_static.class_id,
+                                          call->invoke_static.method_idx);
     case SIR_INVOKEVIRTUAL: case SIR_INVOKEINTERFACE: {
         bool iface = (call->tag == SIR_INVOKEINTERFACE);
         sir_node_t* recv = iface ? call->invoke_interface.obj : call->invoke_virtual.obj;
         int dc = iface ? call->invoke_interface.class_id  : call->invoke_virtual.class_id;
         int dm = iface ? call->invoke_interface.method_idx : call->invoke_virtual.method_idx;
+        /* A STATED contract on the DECLARED method short-circuits target resolution — and it has
+         * to, or it is useless in the case it exists for. cp_virtual_target_set needs to know the
+         * receiver's exact class or that the callee is defined, and with a compiled java.lang
+         * neither is available, so it bails before any summary is consulted. When the declaring
+         * class or the method is FINAL no override can exist, so the declared method IS the only
+         * target and its contract holds unconditionally. */
+        if (cp_decl_final_and_nonnull(ctx, dc, dm)) return true;
         int cls[16], mid[16], n = 0;
         if (!cp_virtual_target_set(eng, cp_vnode_of(eng, recv), dc, dm, cls, mid, 16, &n)) return false;
-        for (int t = 0; t < n; t++) {
-            const compiler_summary_t* s = compiler_method_summary(ctx, compiler_method_index(ctx, cls[t], mid[t]));
-            if (!s || (s->ret_kind != COMPILER_RET_FRESH
-                       && s->ret_kind != COMPILER_RET_NONNULL)) return false;
-        }
+        for (int t = 0; t < n; t++)
+            if (!cp_target_never_returns_null(ctx, cls[t], mid[t])) return false;
         return n > 0;
     }
     default: return false;

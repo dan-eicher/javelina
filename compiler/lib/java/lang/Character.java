@@ -1,7 +1,11 @@
 package java.lang;
 
 public final class Character {
-    public static final char MIN_VALUE = (char)0;       // spec MIN_VALUE, \u deferred
+    // §20.5.1 MIN_VALUE, spelled (char)0 rather than as a unicode escape. Writing the escape
+    // in a COMMENT is not free: §3.2 translates escapes over the raw stream BEFORE comments
+    // are discarded, so a backslash-u with fewer than four hex digits after it is a
+    // compile-time error wherever it appears. This line used to carry exactly that.
+    public static final char MIN_VALUE = (char)0;
     public static final char MAX_VALUE = (char)0xffff;  // spec MAX_VALUE
     public static final int MIN_RADIX = 2;
     public static final int MAX_RADIX = 36;

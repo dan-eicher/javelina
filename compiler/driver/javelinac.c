@@ -15,6 +15,7 @@
  * a non-zero exit and no output — a real toolchain must not emit code for a program
  * that failed type-checking. */
 #include "java_parser.h"
+#include "javelina/compiler/java_source.h"   /* §3.2 step 1 — the ONE parse entry (see header) */
 #include "javelina/compiler/sema.h"
 #include "javelina/compiler/compiler.h"
 #include "javelina/compiler/wasm_types.h"
@@ -81,9 +82,17 @@ static char* read_file(const char* path) {
 static ast_program_t* parse_src(const char* src, const char* file, java_parse_ctx_t*** ctxs) {
     java_parse_ctx_t* pc = (java_parse_ctx_t*)malloc(sizeof(*pc));
     bbq_arena_init(&pc->arena, 1 << 16); pc->result = NULL; pc->file = file;
-    peg_state p; java_parser_init(&p, src, (int)strlen(src)); p.user_data = pc;
+    /* §3.2 step 1 before step 3 — see javelina/compiler/java_source.h. */
+    peg_state p; char* tsrc = NULL; const char* terr = NULL;
+    if (!java_source_init(&p, src, &tsrc, &terr)) {
+        fprintf(stderr, "%s: %s in '%s'\n", prog_name, terr, file ? file : "<stdin>");
+        bbq_vec_push(*ctxs, pc);
+        return NULL;
+    }
+    p.user_data = pc;
     ast_program_t* prog = java_parser_parse(&p) ? pc->result : NULL;
     if (!prog) fprintf(stderr, "%s: parse error in '%s'\n", prog_name, file ? file : "<stdin>");
+    free(tsrc);                       /* idents/literals are duplicated into the arena */
     bbq_vec_push(*ctxs, pc);
     return prog;
 }

@@ -26,6 +26,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "java_parser.h"
+#include "javelina/compiler/java_source.h"   /* §3.2 step 1 — the ONE parse entry (see header) */
 #include "javelina/compiler/sema.h"
 #include "javelina_test.h"
 
@@ -49,11 +50,12 @@ static ast_program_t* jtest_parse(const char* src, const char* file) {
     java_parse_ctx_t* pc = (java_parse_ctx_t*)malloc(sizeof *pc);
     bbq_arena_init(&pc->arena, 1 << 16);
     pc->result = NULL; pc->file = file;
-    peg_state p;
-    java_parser_init(&p, src, (int)strlen(src));
+    peg_state p; char* tsrc = NULL; const char* terr = NULL;
+    if (!java_source_init(&p, src, &tsrc, &terr)) return NULL;   /* §3.2 step 1 */
     p.user_data = pc;
-    if (!java_parser_parse(&p)) return NULL;
-    return pc->result;
+    bool ok = java_parser_parse(&p);
+    free(tsrc);
+    return ok ? pc->result : NULL;
 }
 
 /* The prelude package roots, in registration order (java.lang lowest ids). */

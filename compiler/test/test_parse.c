@@ -4,6 +4,7 @@
 // faithful Java.peg/Java.asdl port, it does not discover it. Assertions read the
 // generated ast_* tagged unions directly.
 #include "java_parser.h"
+#include "javelina/compiler/java_source.h"   /* §3.2 step 1 — the ONE parse entry (see header) */
 #include "bbq_arena.h"
 #include <stdio.h>
 #include <string.h>
@@ -15,11 +16,12 @@ static ast_program_t* do_parse(const char* src) {
     bbq_arena_init(&pctx.arena, 4096);
     pctx.result = NULL;
     pctx.file = NULL;
-    peg_state p;
-    java_parser_init(&p, src, (int)strlen(src));
+    peg_state p; char* tsrc = NULL; const char* terr = NULL;
+    if (!java_source_init(&p, src, &tsrc, &terr)) return NULL;   /* §3.2 step 1 */
     p.user_data = &pctx;
-    if (!java_parser_parse(&p)) return NULL;
-    return pctx.result;
+    bool ok = java_parser_parse(&p);
+    free(tsrc);
+    return ok ? pctx.result : NULL;
 }
 
 // Expect a source to FAIL parsing (negative test).

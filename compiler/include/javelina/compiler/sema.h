@@ -201,6 +201,11 @@ typedef struct {
     int index;                    /* method's (class, position) is READ off the struct, never recovered */
     int move_kind;                /* bit-accessor intrinsic kind (0 none, 1 F2I, 2 I2F, 3 D2L, 4 L2D), */
     int math_kind;                /* f64 math-op intrinsic (0 none, 1 sqrt, 2 floor, 3 ceil, 4 rint) — §20.11 */
+    bool ret_nonnull;             /* STATED, not derived: this method's reference result is never null.
+                                   * The §7 summary derives that from a body, and the RTL is NOT recompiled
+                                   * with every plugin — a compiled-library build has no java.lang bodies to
+                                   * analyse — so a contract the spec guarantees has to be declared here or
+                                   * it is lost. Read through sema_method_ret_nonnull. */
     int class_kind;               /* §20.3.6 Class.newInstance intrinsic over the receiver Class:
                                    * 0 none, 1 instantiable? (i32), 2 construct (ref) — lowers inline, never a call */
     int simd_id;                  /* javelina.simd intrinsic: 0 none, else 1 + the row index into the
@@ -626,6 +631,9 @@ int sema_array_store_exc_id(const sema_ctx_t* ctx); /* ArrayStoreException (§10
 bool sema_is_arraycopy(const sema_ctx_t* ctx, const ast_expr_t* node); /* §20.18.16 System.arraycopy w/ concrete-array src */
 int  sema_move_intrinsic_kind(const sema_ctx_t* ctx, const ast_expr_t* node); /* Float/Double raw bit accessor → Move* (0 none, 1 F2I, 2 I2F, 3 D2L, 4 L2D) */
 bool sema_is_move_intrinsic(const sema_ctx_t* ctx, const ast_expr_t* node);   /* the predicate form (move_kind != 0) — the ddcg where-guard */
+/* A STATED library contract: (class_id, method_idx)'s reference result is never null. The §7
+ * summary can only derive that from a body, and the RTL is not recompiled with every plugin. */
+bool sema_method_ret_nonnull(const sema_ctx_t* ctx, int class_id, int method_idx);
 int  sema_math_intrinsic_kind(const sema_ctx_t* ctx, const ast_expr_t* node); /* Math.sqrt/floor/ceil/rint → f64 op (0 none, 1 sqrt, 2 floor, 3 ceil, 4 rint) */
 bool sema_is_math_intrinsic(const sema_ctx_t* ctx, const ast_expr_t* node);   /* the predicate form (math_kind != 0) — the ddcg where-guard */
 

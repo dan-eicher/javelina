@@ -6,6 +6,7 @@
  * Not a byte-shape test (that's test_wasm_module): here the bytes must actually
  * RUN and compute the right value. */
 #include "java_parser.h"
+#include "javelina/compiler/java_source.h"   /* §3.2 step 1 — the ONE parse entry (see header) */
 #include "javelina/compiler/sema.h"
 #include "javelina/compiler/compiler.h"
 #include "javelina/compiler/wasm_types.h"
@@ -39,8 +40,11 @@ static char* read_file(const char* path) {
 static ast_program_t* parse_src(const char* src, java_parse_ctx_t*** ctxs) {
     java_parse_ctx_t* pc = (java_parse_ctx_t*)malloc(sizeof(*pc));
     bbq_arena_init(&pc->arena, 1 << 16); pc->result = NULL; pc->file = NULL;
-    peg_state p; java_parser_init(&p, src, (int)strlen(src)); p.user_data = pc;
+    peg_state p; char* tsrc = NULL; const char* terr = NULL;
+    if (!java_source_init(&p, src, &tsrc, &terr)) return NULL;
+    p.user_data = pc;
     ast_program_t* prog = java_parser_parse(&p) ? pc->result : NULL;
+    free(tsrc);
     bbq_vec_push(*ctxs, pc);
     return prog;
 }
@@ -115,6 +119,12 @@ static ast_program_t* build_program(const char* user_src, bbq_arena* arena, int*
     ast_program_t* up = user_src
         ? parse_src(jtest_with_imports(JTEST_STD_IMPORTS, user_src), ctxs)
         : NULL;                                  /* NULL user_src = prelude only (jre build) */
+    /* A user source that did not PARSE is a failure, not an empty contribution. Without this
+     * the library alone assembles and assemble_plugin returns true, so a case with a syntax
+     * error passes vacuously — the harness could not express "must not compile", and any test
+     * whose snippet silently stopped parsing would go green. (NULL user_src is the legitimate
+     * prelude-only build and keeps its meaning.) */
+    if (user_src && !up) { bbq_vec_free(types); return NULL; }
     if (up) for (int i=0;i<up->types_count;i++) bbq_vec_push(types, up->types[i]);
     free(g_units);
     g_nunits = g_lib_nunits + (up ? 1 : 0);
@@ -154,6 +164,7 @@ static bool assemble(bbq_arena* a, const char* src, emit_wasm_ctx* out) {
     java_parse_ctx_t** ctxs = NULL;          /* bbq_vec of parse contexts to free post-compile */
     int nlib = 0;
     ast_program_t* prog = build_program(src, a, &nlib, &ctxs);
+    if (!prog) return false;                     /* did not parse — see build_program */
     sema_ctx_t* sctx = (sema_ctx_t*)malloc(sizeof *sctx);
     sema_init(sctx, a); sctx->num_library_classes = nlib;
     sctx->mode = SEMA_MODE_PLUGIN;               /* Stage D: corpus runs as linked plugins */
@@ -217,6 +228,7 @@ static bool assemble_plugin(bbq_arena* a, const char* src, emit_wasm_ctx* out) {
     java_parse_ctx_t** ctxs = NULL;
     int nlib = 0;
     ast_program_t* prog = build_program(src, a, &nlib, &ctxs);
+    if (!prog) return false;                     /* did not parse — see build_program */
     sema_ctx_t* sctx = (sema_ctx_t*)malloc(sizeof *sctx);
     sema_init(sctx, a); sctx->num_library_classes = nlib; sctx->mode = SEMA_MODE_PLUGIN;
     exec_analyze(sctx);
@@ -329,12 +341,12 @@ int main(void) {
         bbq_vec_free(mod.code); bbq_arena_free(&a);
     }
 
-    /* §3.3 Unicode escapes in string/char LITERALS + §3.10.6 escapes + UTF-8 source decode.
+    /* §3.2 step 1 / §3.3 Unicode escapes + §3.10.6 escapes + UTF-8 source decode.
      * `char` is a UTF-16 code unit, so a decoded escape/byte becomes one (or, for astral, two)
      * char[] elements. Covers: \u in string and char, multiple 'u', the even/odd-backslash rule
-     * (`"\\u0041"` is a literal backslash + u0041), no re-participation (`"\u005a"` → '\' +
-     * literal u005a, NOT 'Z'), UTF-8 (`café`'s é = U+00E9 = one code unit), and octal/\t.
-     * Identifier/keyword \u is NOT covered (a separate cursor-level item). */
+     * (`"\\u0041"` is a literal backslash + u0041), UTF-8 (`café`'s é = U+00E9 = one code
+     * unit), octal/\t, and — since §3.3 is now a translation over the RAW stream rather than a
+     * per-literal decode — an escape spelling an IDENTIFIER and a KEYWORD. */
     {
         bbq_arena a; bbq_arena_init(&a, 1 << 18); emit_wasm_ctx mod = {0};
         bool pb = assemble_plugin(&a,
@@ -347,15 +359,38 @@ int main(void) {
             "  if (utf.length()!=4 || utf.charAt(3)!=0x00e9) return 0;"
             "  String bs = \"\\\\u0041\";"
             "  if (bs.length()!=6 || bs.charAt(0)!=92 || bs.charAt(1)!=117) return 0;"
-            "  String nr = \"\\u005cu005a\";"
-            "  if (nr.length()!=6 || nr.charAt(0)!=92 || nr.charAt(5)!=97) return 0;"
             "  String oc = \"\\101\\t\";"
             "  if (oc.length()!=2 || oc.charAt(0)!=65 || oc.charAt(1)!=9) return 0;"
+            "  \\u0069\\u006e\\u0074 \\u0041 = 7; if (\\u0041 != 7) return 0;"
+            "  char om = '\\u03a9'; if (om != 0x03a9) return 0;"
             "  return 1; } }", &mod);
         wasm_val_t res[1] = { WASM_INIT_VAL };
         exec_status st = pb ? exec_call_shared(mod.code, bbq_vec_len(mod.code), "T.f", NULL, 0, res, 1) : EXEC_INVALID;
         CHECK(pb && st == EXEC_OK && res[0].of.i32 == 1,
-              "§3.3 \\u escapes (string/char, multi-u, even/odd, no-reparticipation) + §3.10.6 + UTF-8");
+              "§3.3 \\u escapes: literals, multi-u, even/odd, UTF-8, §3.10.6 octal — and an "
+              "escape spelling an identifier and the keyword `int`");
+        bbq_vec_free(mod.code); bbq_arena_free(&a);
+    }
+
+    /* §3.3's no-re-participation rule, which is a REJECTION and not a value.
+     *
+     *   "The character produced by a Unicode escape does not participate in further Unicode
+     *    escapes ... \u005cu005a results in the six characters \ u 0 0 5 a ... It does not
+     *    result in the character Z."
+     *
+     * Those six characters are then tokenized, and §3.10.5's StringCharacter is
+     * `InputCharacter but not " or \` OR an EscapeSequence — a bare backslash must begin an
+     * EscapeSequence, and §3.10.6 has no \u. So the literal is invalid in step 3, exactly as
+     * §3.10.5 says of "\u000a": "the string literal is not valid in step 3".
+     *
+     * This check previously asserted a 6-character string, which is neither Z nor Java — it
+     * pinned a per-literal \u decoder that ran AFTER translation and so contradicted §3.3. */
+    {
+        bbq_arena a; bbq_arena_init(&a, 1 << 18); emit_wasm_ctx mod = {0};
+        bool pb = assemble_plugin(&a,
+            "class T { static int f(){ String nr = \"\\u005cu005a\"; return nr.length(); } }", &mod);
+        CHECK(!pb, "§3.3 no re-participation: \\u005cu005a yields a bare backslash, and "
+                   "§3.10.5/§3.10.6 make that an invalid string literal — REJECTED, not 'Z'");
         bbq_vec_free(mod.code); bbq_arena_free(&a);
     }
 

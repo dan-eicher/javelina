@@ -3832,6 +3832,23 @@ static void stamp_math_kind(sema_ctx_t* ctx, int class_id, const char* name, int
         if (strcmp(c->methods[i].name, name) == 0) { c->methods[i].math_kind = kind; return; }
 }
 
+/* Stamp the first method named `name` in `class_id` as never returning null.
+ *
+ * The §7 summary derives COMPILER_RET_NONNULL by proving no reachable `return` can yield null —
+ * but only from a BODY, and the whole point of the well-known table is that the RTL is not
+ * recompiled with every plugin. A compiled-library build has no java.lang bodies to analyse, so
+ * a contract the library spec guarantees is simply lost unless it is stated. */
+static void stamp_ret_nonnull(sema_ctx_t* ctx, int class_id, const char* name) {
+    if (class_id < 0) return;
+    sema_class_t* c = &ctx->classes[class_id];
+    /* EVERY overload, not the first: String.valueOf has nine, StringBuffer.append and insert
+     * have a dozen each, substring has two. The contract is the name's, and stamping one of
+     * nine would be a mechanism that silently covers a ninth of what it claims. (The other
+     * stampers here return after one match because their targets have unique names.) */
+    for (int i = 0; i < (int)bbq_vec_len(c->methods); i++)
+        if (strcmp(c->methods[i].name, name) == 0) c->methods[i].ret_nonnull = true;
+}
+
 /* §20.3.6: stamp Class's two newInstance helper natives with their intrinsic kind, so each lowers
  * to a ClassInstantiable/ClassConstruct SIR node over the receiver Class (never a real call/import).
  * Same one-time-at-resolution model as move_kind/math_kind. */
@@ -3881,6 +3898,50 @@ static void resolve_wellknown_methods(sema_ctx_t* ctx) {
     stamp_move_kind(ctx, ctx->wk.double_id, "longBitsToDouble",    4);
     /* §20.11 Math f64 ops with a direct wasm opcode → inline intrinsics (never a host import). The
      * transcendentals with no opcode stay real methods (a Java fdlibm impl). */
+    /* ── §20 library contracts: reference results that are never null ────────────────────
+     * STATED, not derived. The §7 summary proves this from a body, and the RTL is not
+     * recompiled with every plugin — against a compiled java.lang there is no body — so a
+     * contract the library spec guarantees is simply lost unless it is declared here.
+     *
+     * The list is the SPEC's, not what today's tests happen to exercise: each of these
+     * returns a freshly built object, `this`, or a canonical instance, and none has a
+     * `return null` anywhere in the RTL (verified per class; java.lang.Class is the one class
+     * that does return null — getClassLoader, §20.3.7 "this model has no class loaders" — and
+     * is therefore NOT stamped).
+     *
+     * Soundness for a subclass override: the stamp is consulted per RESOLVED TARGET, so an
+     * override that returned null would be a different (unstamped) method. Only the
+     * short-circuit in cp_invoke_ret_fresh skips resolution, and it additionally requires the
+     * class or method to be final. String is final and Object.getClass is a final method, so
+     * those short-circuit; this RTL's StringBuffer is NOT final, so its stamps take the
+     * resolved-target path instead — still sound, just not free. */
+    stamp_ret_nonnull(ctx, ctx->wk.object_id, "getClass");        /* §20.1.5 — final method */
+
+    stamp_ret_nonnull(ctx, ctx->wk.string_id, "intern");          /* §20.12.47 canonical instance */
+    stamp_ret_nonnull(ctx, ctx->wk.string_id, "toString");        /* §20.12.13 returns this      */
+    stamp_ret_nonnull(ctx, ctx->wk.string_id, "substring");       /* §20.12.35/36               */
+    stamp_ret_nonnull(ctx, ctx->wk.string_id, "concat");          /* §20.12.37                  */
+    stamp_ret_nonnull(ctx, ctx->wk.string_id, "replace");         /* §20.12.38                  */
+    stamp_ret_nonnull(ctx, ctx->wk.string_id, "toLowerCase");     /* §20.12.39                  */
+    stamp_ret_nonnull(ctx, ctx->wk.string_id, "toUpperCase");     /* §20.12.41                  */
+    stamp_ret_nonnull(ctx, ctx->wk.string_id, "trim");            /* §20.12.43                  */
+    stamp_ret_nonnull(ctx, ctx->wk.string_id, "toCharArray");     /* §20.12.45 — a fresh char[] */
+    stamp_ret_nonnull(ctx, ctx->wk.string_id, "valueOf");         /* §20.12.48-56 — never null  */
+    stamp_ret_nonnull(ctx, ctx->wk.string_id, "copyValueOf");     /* §20.12.9/10                */
+
+    /* java.lang.Class. NOT getSuperclass — it is null for Object (§20.3.4) — and NOT
+     * getClassLoader, which this model returns null from by design (§20.3.7). Nor newInstance:
+     * it bottoms out in a native, so its result cannot be verified by reading the RTL, and a
+     * contract stated on faith is the thing this table exists to avoid. */
+    stamp_ret_nonnull(ctx, ctx->wk.class_reflect_id, "getName");   /* §20.3.1 — a fresh String */
+    stamp_ret_nonnull(ctx, ctx->wk.class_reflect_id, "toString");  /* §20.3.2 — concat, never null */
+    stamp_ret_nonnull(ctx, ctx->wk.class_reflect_id, "forName");   /* §20.3.8 — returns or throws */
+
+    stamp_ret_nonnull(ctx, ctx->wk.string_buffer_id, "append");   /* §20.13.9-24 — returns this */
+    stamp_ret_nonnull(ctx, ctx->wk.string_buffer_id, "insert");   /* §20.13.26-36 — returns this*/
+    stamp_ret_nonnull(ctx, ctx->wk.string_buffer_id, "reverse");  /* §20.13.25 — returns this   */
+    stamp_ret_nonnull(ctx, ctx->wk.string_buffer_id, "toString"); /* §20.13.8                   */
+
     int math_id = sema_find_class(ctx, "java.lang.Math");
     stamp_math_kind(ctx, math_id, "sqrt",  1);
     stamp_math_kind(ctx, math_id, "floor", 2);
@@ -4498,6 +4559,15 @@ int sema_move_intrinsic_kind(const sema_ctx_t* ctx, const ast_expr_t* node) {
 /* Predicate form (the where-guard): is this call a Move* bit-accessor intrinsic? */
 bool sema_is_move_intrinsic(const sema_ctx_t* ctx, const ast_expr_t* node) {
     return sema_move_intrinsic_kind(ctx, node) != 0;
+}
+
+/* Does (class_id, method_idx) name a well-known method whose reference result is never null?
+ * Stated in resolve_wellknown_methods, because the RTL is not recompiled with every plugin and
+ * a body-derived summary is therefore unavailable for java.lang. */
+bool sema_method_ret_nonnull(const sema_ctx_t* ctx, int class_id, int method_idx) {
+    const sema_class_t* c = sema_get_class(ctx, class_id);
+    if (!c || method_idx < 0 || method_idx >= (int)bbq_vec_len(c->methods)) return false;
+    return c->methods[method_idx].ret_nonnull;
 }
 
 /* §20.11 Math.sqrt/floor/ceil/rint → an inline f64 opcode. Reads the kind stamped in

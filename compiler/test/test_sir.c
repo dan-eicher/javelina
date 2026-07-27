@@ -3,6 +3,7 @@
 // structurally — never an op-dispatched Cmp. Also the full-Java-1.0
 // constant leaves (LoadLongConst/Float/Double).
 #include "java_parser.h"
+#include "javelina/compiler/java_source.h"   /* §3.2 step 1 — the ONE parse entry (see header) */
 #include "javelina/compiler/sema.h"
 #include "javelina/compiler/compiler.h"
 #include "javelina/compiler/sir_support.h"
@@ -32,8 +33,11 @@ static char* read_file(const char* path) {
 static ast_program_t* parse_into(const char* src, java_parse_ctx_t** ctx_out) {
     java_parse_ctx_t* pc = (java_parse_ctx_t*)malloc(sizeof(*pc));
     bbq_arena_init(&pc->arena, 1 << 16); pc->result = NULL; pc->file = NULL;
-    peg_state p; java_parser_init(&p, src, (int)strlen(src)); p.user_data = pc;
+    peg_state p; char* tsrc = NULL; const char* terr = NULL;
+    if (!java_source_init(&p, src, &tsrc, &terr)) return NULL;
+    p.user_data = pc;
     ast_program_t* prog = java_parser_parse(&p) ? pc->result : NULL;
+    free(tsrc);
     if (ctx_out) *ctx_out = pc;
     return prog;
 }
@@ -2638,8 +2642,11 @@ int main(void) {
             "class E {"
             "  static void boom(int n) { if (n == 0) throw new RuntimeException(); }"
             "  static int f(int n) {"
-            "    String x = \"alive\";"                 /* NonNull at try entry          */
-            "    try { x = null; boom(n); }"            /* …null BEFORE a throwing call  */
+            /* A fresh allocation, NOT a string literal: since §3.10.5 a literal lowers to
+             * new String(...).intern(), and intern() is a CALL whose result has unknown
+             * nullness — which would silently destroy this probe's premise. */
+            "    String x = new String(new char[5]);"  /* NonNull at try entry          */
+            "    try { x = null; boom(n); }"           /* …null BEFORE a throwing call  */
             "    catch (RuntimeException e) { return x.length(); }"   /* must NPE at run time */
             "    return 7;"
             "  }"
@@ -2657,15 +2664,24 @@ int main(void) {
             sir_optimize(&cctx, mi);
             int ng = 0;
             const compiler_fact_t* gs = guards_of(&cctx, mi, &ng);
-            int npe = -1;
+            /* Select by SURVIVAL, not by position. The method carries a second NPE guard now:
+             * `"alive"` lowers to new String(...).intern() (§3.10.5), whose receiver is a
+             * fresh allocation and therefore provably NonNull, so that guard folds. Taking
+             * the LAST guard picked up the folded one and read it as a regression.
+             * What §11.3.1 asserts is that the catch block's x.length() guard is NOT folded,
+             * so ask exactly that. If the handler merged the try-ENTRY state (x NonNull),
+             * every NPE guard here would fold and none would remain a branch. */
+            int npe = 0, npe_live = 0;
             for (int g = 0; g < ng; g++)
-                if (gs[g].a == COMPILER_GUARD_NPE) npe = g;
-            CHECK(npe >= 0, "the catch block's `x.length()` emitted an NPE guard");
-            if (npe >= 0)
-                CHECK(gs[npe].key->tag == SIR_BRANCH,
-                      "JLS §11.3.1: the NPE guard in the CATCH block SURVIVES — the handler "
-                      "merges the state at the excepting call, where x is null, not the "
-                      "try-entry state where it was NonNull");
+                if (gs[g].a == COMPILER_GUARD_NPE) {
+                    npe++;
+                    if (gs[g].key->tag == SIR_BRANCH) npe_live++;
+                }
+            CHECK(npe > 0, "the catch block's `x.length()` emitted an NPE guard");
+            CHECK(npe_live > 0,
+                  "JLS §11.3.1: the NPE guard in the CATCH block SURVIVES — the handler "
+                  "merges the state at the excepting call, where x is null, not the "
+                  "try-entry state where it was NonNull");
         }
         sema_destroy(&sctx); bbq_arena_free(&arena);
     }
