@@ -67,8 +67,9 @@ fail=0
 #   check-deferrals  a comment that DEFERS a cited §section must not coexist with a COVERED
 #                 claim for it. "A later refinement" written in a source file is not a record,
 #                 it is a place things go to be forgotten — this turns one into a ledger row.
-sh conformance/check-ledger.sh
-sh conformance/join-ledger.sh --check
+# check-deferrals scans the COMPILER's and the VM's sources, which live outside the tree the
+# guest can reach through --root, so it stays shell. The inventory and coverage gates do not:
+# they run on javelina, below, once there is a jre to run them against.
 sh conformance/check-deferrals.sh
 
 # The number of assertions conformance/jls declares. Same reason as EXPECT_KERNELS: a chapter
@@ -265,16 +266,16 @@ echo "  PASS  jls ($EXPECT_JLS_CHECKS cited-section checks × 4 configs)"
 # exists, which is how 41 covered sections went uncounted until this leg was wired up.
 sh conformance/run-generated.sh
 
-# A marker says SOMETHING covering a section was written; it cannot say how much. For a section
-# whose own text states a count — §5.1.2's nineteen — that difference is the whole question, and
-# the per-type cap makes "one case out of nineteen" the normal outcome rather than a corner.
-# This is the gate the plan calls "the check that makes stitching impossible to skip".
-sh conformance/check-cardinality.sh
-
-# The join runs AGAIN here, after generation, and this time it must be CURRENT: the earlier
-# --check ran against whatever conformance/generated held from a previous run. A marker the
-# generator has just stopped emitting — because its snippet was deleted — has to fail here.
-sh conformance/join-ledger.sh --check
+# ── the inventory and coverage gates, ON the VM ─────────────────────────────
+# Transcription invariants, status discipline, the join in both directions, the ratchet, and
+# the declared cardinalities — one Java program rather than three dialects of awk, because
+# every one of them is a decision about files on disk and §3 puts the instrument in Java.
+#
+# It runs HERE, after generation, so the join reads the markers the generator just wrote: a
+# section whose snippet was deleted must stop being COVERED in the same run that stopped
+# emitting it, not in the next one.
+$B/javelinac --libdir $LIBDIR -O0 conformance/gates -o $B/conf-gates.wasm
+$B/javelina --jre $B/conf-jre-O0.wasm --root . $B/conf-gates.wasm conformance
 
 # ── the negative half ───────────────────────────────────────────────────────
 # The programs the spec says must NOT compile. Their oracle is javelinac's exit code and
