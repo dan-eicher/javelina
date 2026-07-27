@@ -33,4 +33,16 @@ public final class Strs {
     public static String[] of(String a, String b, String c, String d, String e) {
         String[] s = { a, b, c, d, e }; return s;
     }
+
+    /** Sort in place, lexicographically. An insertion sort because the arrays here are tens
+     *  of elements and JLS 1.0's java.util has no Arrays (that class arrives in 1.2), so the
+     *  alternative is not a library call but a second hand-rolled sort somewhere else. */
+    public static void sort(String[] a) {
+        for (int i = 1; i < a.length; i++) {
+            String v = a[i];
+            int j = i - 1;
+            while (j >= 0 && a[j].compareTo(v) > 0) { a[j + 1] = a[j]; j--; }
+            a[j + 1] = v;
+        }
+    }
 }

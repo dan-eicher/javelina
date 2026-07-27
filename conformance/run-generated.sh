@@ -24,8 +24,14 @@ B=compiler/build
 LIBDIR=compiler/lib/java
 OUT=conformance/generated
 DEPTH=${1:-2}
-CAP=${2:-40}
-PERCASE=${3:-8}
+# The cap is a budget per (type, depth), water-filled across the snippets offering that type.
+# It therefore has to be at least the NUMBER OF SNIPPETS of the commonest type: below that,
+# water-fill cannot give every snippet even one stitching and whole leaves get a quota of zero
+# — which is how eleven of §5.1.3's twenty-three narrowings vanished while the ledger read
+# COVERED. It is not a tuning knob at the low end; it is a floor that grows with the libraries.
+# check-cardinality.sh is what catches it having been outgrown.
+CAP=${2:-200}
+PERCASE=${3:-25}
 
 # Regenerated from scratch every run: the generator is deterministic (GenMain: "two runs of the
 # same build write byte-identical files"), so a stale case surviving here would be a case whose

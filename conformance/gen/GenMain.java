@@ -33,6 +33,7 @@ public class GenMain {
         BootSnippets.install(reg);
         Lib3.install(reg);                          // JLS chapter 3, Lexical Structure
         Lib4.install(reg);                          // JLS chapter 4, Types, Values, Variables
+        Lib5.install(reg);                          // JLS chapter 5, Conversions and Promotions
         // ADD LIBRARIES HERE:  XxxSnippets.install(reg);
 
         // ---- enumerate ------------------------------------------------------------------
@@ -45,6 +46,7 @@ public class GenMain {
         try {
             files = em.write(all);
             Emit.writeText(dir, "CAP-DROPS.txt", drops(st, reg, depth, perCase, all.length));
+            Emit.writeText(dir, "SECTIONS.tsv", manifest(all));
         } catch (java.io.IOException e) {
             System.out.println("gen: FAILED writing to " + dir + ": " + e.getClass().getName()
                                + " " + e.getMessage());
@@ -66,6 +68,40 @@ public class GenMain {
                            + " (recorded in CAP-DROPS.txt)");
         String[] log = st.dropLog();
         for (int i = 0; i < log.length; i++) System.out.println("gen: " + log[i]);
+    }
+
+    /** `section <TAB> snippet-id` for every ROOT snippet that reached a written case, one
+     *  line per pair, deduplicated.
+     *
+     *  This is what makes a declared cardinality checkable. A `// JLS 5.1.2` marker says only
+     *  that SOMETHING covering §5.1.2 was written — and §5.1.2 names nineteen conversions, so
+     *  one surviving case out of nineteen produces exactly the same marker as all nineteen.
+     *  The per-type cap makes that the normal outcome rather than a corner: this enumeration
+     *  wrote 17 of the 19, and the ledger read COVERED.
+     *
+     *  ROOT snippets only. A stitching's children are the values its holes were filled with,
+     *  and a §5.1.2 conversion appearing as some other snippet's operand is not a case FOR
+     *  §5.1.2 — counting it would let a section reach its declared count without ever being
+     *  the thing under test. */
+    private static String manifest(Stitching[] all) {
+        java.util.Vector seen = new java.util.Vector();
+        for (int i = 0; i < all.length; i++) {
+            Snippet  s    = all[i].snippet();
+            String[] secs = s.sections();
+            for (int j = 0; j < secs.length; j++) {
+                String line = secs[j] + "\t" + s.id();
+                if (!seen.contains(line)) seen.addElement(line);
+            }
+        }
+        String[] lines = new String[seen.size()];
+        seen.copyInto(lines);
+        Strs.sort(lines);
+        StringBuffer b = new StringBuffer();
+        b.append("# SECTIONS.tsv -- section <TAB> snippet id, for every root snippet in a written\n");
+        b.append("# case. Read by conformance/check-cardinality.sh, which compares the count per\n");
+        b.append("# section against the number the spec states for it.\n");
+        for (int i = 0; i < lines.length; i++) b.append(lines[i]).append("\n");
+        return b.toString();
     }
 
     /** The cap record, written beside the cases. It is written even when nothing was cut,

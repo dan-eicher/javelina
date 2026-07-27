@@ -265,6 +265,12 @@ echo "  PASS  jls ($EXPECT_JLS_CHECKS cited-section checks × 4 configs)"
 # exists, which is how 41 covered sections went uncounted until this leg was wired up.
 sh conformance/run-generated.sh
 
+# A marker says SOMETHING covering a section was written; it cannot say how much. For a section
+# whose own text states a count — §5.1.2's nineteen — that difference is the whole question, and
+# the per-type cap makes "one case out of nineteen" the normal outcome rather than a corner.
+# This is the gate the plan calls "the check that makes stitching impossible to skip".
+sh conformance/check-cardinality.sh
+
 # The join runs AGAIN here, after generation, and this time it must be CURRENT: the earlier
 # --check ran against whatever conformance/generated held from a previous run. A marker the
 # generator has just stopped emitting — because its snippet was deleted — has to fail here.
