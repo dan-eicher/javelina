@@ -51,6 +51,28 @@ BEGIN {
     else if (status == "N/A") {
         n_a++
         if (reason == "") { printf "  FAIL  %s: N/A with no reason — \"out of scope\" is not a reason\n", sec; fails++ }
+        # N/A means NO PROGRAM ON THIS TARGET CAN OBSERVE IT. It does not mean "we have not
+        # written it" — that is what UNCOVERED is for, and the difference matters because an
+        # N/A row is invisible to the ratchet FOREVER while an UNCOVERED row is work the
+        # count still owes.
+        #
+        # This check exists because N/A became the hiding place: five library sections were
+        # marked N/A with reasons like "No Runtime.java", "exists but is a 5-line empty
+        # placeholder", "not part of the implemented runtime". Every one describes what has
+        # been WRITTEN, not what is OBSERVABLE — java.io.StreamTokenizer is pure Java needing
+        # no thread and no host capability, so it is unwritten, not inapplicable.
+        #
+        # A reason naming a missing file, a stub, or a deferral is therefore rejected. It
+        # cannot catch an implementation statement dressed in other words — but it closes the
+        # phrasing that actually got used.
+        if (reason ~ /not part of the implemented/ || reason ~ /placeholder/ ||
+            reason ~ /-line stub/ || reason ~ /unwritten/ || reason ~ /not yet implemented/ ||
+            reason ~ /[Dd]eferred/ || reason ~ /[Nn]o [A-Z][A-Za-z]*\.java/) {
+            printf "  FAIL  %s: N/A justified by IMPLEMENTATION STATE, not observability:\n", sec
+            printf "        \"%s\"\n", substr(reason, 1, 90)
+            printf "        Unwritten is UNCOVERED. N/A is for what no program on this target can observe.\n"
+            fails++
+        }
     }
     else { printf "  FAIL  %s: status \"%s\" is not COVERED|N/A|UNCOVERED\n", sec, status; fails++ }
 
