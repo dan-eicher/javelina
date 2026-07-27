@@ -1,4 +1,4 @@
-# The UNCOVERED ceiling. check-ledger.sh fails if the ledger's UNCOVERED count RISES above it.
+# The UNCOVERED ceiling. conformance/gates fails if the ledger's UNCOVERED count RISES above it.
 #
 # Why a checked-in number and not just a printed one: a printed count is something you can
 # stop reading. This one has to be edited by hand, in a commit, which makes progress and

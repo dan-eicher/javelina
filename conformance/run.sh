@@ -55,21 +55,15 @@ EXPECT_KERNELS=11
 
 fail=0
 
-# ── the JLS coverage ledger ─────────────────────────────────────────────────
-# Runs first and needs no build: it gates the INVENTORY and the CLAIM, not the programs.
+# ── deferral comments ───────────────────────────────────────────────────────
+# A comment that DEFERS a cited §section must not coexist with a COVERED claim for it. "A
+# later refinement" written in a source file is not a record, it is a place things go to be
+# forgotten — this turns one into a ledger row.
 #
-#   check-ledger  every leaf section of java-langspec-1.0.pdf has a row, the transcription
-#                 invariants hold, and UNCOVERED never RISES above the checked-in ceiling —
-#                 so a deleted test breaks the build instead of shrinking the corpus quietly.
-#   join-ledger   coverage is COMPUTED from `// JLS <n>` markers and reconciled BOTH ways:
-#                 a claim with no test fails, and a test the ledger has not recorded fails.
-#                 --check never writes, so the gate cannot "fix" itself into passing.
-#   check-deferrals  a comment that DEFERS a cited §section must not coexist with a COVERED
-#                 claim for it. "A later refinement" written in a source file is not a record,
-#                 it is a place things go to be forgotten — this turns one into a ledger row.
-# check-deferrals scans the COMPILER's and the VM's sources, which live outside the tree the
-# guest can reach through --root, so it stays shell. The inventory and coverage gates do not:
-# they run on javelina, below, once there is a jre to run them against.
+# The only gate still in shell, and for a reason rather than by omission: it scans the
+# COMPILER's and the VM's sources, which lie outside the tree the guest reaches through
+# --root. The inventory and coverage gates run on javelina, further down, once there is a jre
+# to run them against.
 sh conformance/check-deferrals.sh
 
 # The number of assertions conformance/jls declares. Same reason as EXPECT_KERNELS: a chapter
