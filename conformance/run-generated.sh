@@ -63,28 +63,9 @@ if ! make -f conformance/cases.mk -j"$JOBS" OUT="$OUT" B="$B" LIBDIR="$LIBDIR" a
     exit 1
 fi
 
-# The verdict. Still shell for the moment, and it should not be: comparing an output against
-# its composed expectation is judgement, and crisp-tallying-chapters §3 puts the instrument in
-# Java on the VM. Next step is a guest program reading these files, which it can — the RTL has
-# FileInputStream; what it cannot do is spawn javelinac, which is the whole reason a driver
-# exists at all.
-fail=0
-for f in "$OUT"/Case*.java; do
-    name=$(basename "$f" .java)
-    exp="$OUT/$name.expected"
-    [ -f "$exp" ] || { echo "  FAIL  $name has no composed expectation"; fail=1; continue; }
-    for tier in nojit jit; do
-        if ! diff -q "$exp" "$OUT/$name.$tier.out" > /dev/null 2>&1; then
-            echo "  FAIL  $name ($tier): output differs from its COMPOSED expectation"
-            diff "$exp" "$OUT/$name.$tier.out" 2>&1 | sed 's/^/        | /' | head -12
-            fail=1
-        fi
-    done
-done
-
-if [ $fail -ne 0 ]; then
-    echo "  FAIL  stitched corpus: $ncase cases, at least one wrong"
-    exit 1
-fi
-
-echo "  ....  stitched corpus: $ncase cases match their composed expectation on both tiers"
+# The verdict, decided ON the VM. Comparing an output against its composed expectation is
+# judgement, and §3 puts the instrument in Java: a shell `diff` decides whether the corpus is
+# correct while exercising nothing, where the judge is itself a Java 1.0 workload the compiler
+# and the VM have to get right. Its exit code is this leg's result.
+$B/javelinac --libdir $LIBDIR -O0 conformance/judge -o $B/conf-judge.wasm
+$B/javelina --jre $B/conf-jre-O0.wasm --root conformance $B/conf-judge.wasm generated
