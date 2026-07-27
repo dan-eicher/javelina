@@ -30,7 +30,8 @@ public class GenMain {
 
         // ---- the snippet libraries ------------------------------------------------------
         Registry reg = new Registry();
-        BootSnippets.install(reg);
+        BootSnippets.install(reg);                  // the leaves everything else stitches onto
+        LibIntro.install(reg);                      // JLS chapters 1-2, Introduction / Grammars
         Lib3.install(reg);                          // JLS chapter 3, Lexical Structure
         Lib4.install(reg);                          // JLS chapter 4, Types, Values, Variables
         Lib5.install(reg);                          // JLS chapter 5, Conversions and Promotions

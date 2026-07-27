@@ -280,6 +280,21 @@ public class Lib4 {
         // ── §4.2 / §4.5.1 a primitive variable holds its own value, of its own type ─────
         r.register(new Sn4VarNoShare());
         r.register(new Sn4VarCharExact());
+
+        // ── §4.5 (p.44) "A variable always contains a value that is assignment compatible
+        // with its type." Witnessed by storing through a WIDER declared type and reading it
+        // back: what comes out is the declared type's value, not the expression's — a long
+        // variable given an int holds a long, and a double given an int holds a double, so
+        // the division below is floating and not integer.
+        r.register(new Sn4Leaf("t4.var.assignCompat.long", Strs.of("4.5", "5.1.2"), "void",
+            "{ int i = 7; long v = i; System.out.println(v / 2); }", Val.ofLong(3L)));
+        r.register(new Sn4Leaf("t4.var.assignCompat.double", Strs.of("4.5", "5.1.2"), "void",
+            "{ int i = 7; double v = i; System.out.println(v / 2); }", Val.ofDouble(3.5)));
+        // ...and an ARRAY COMPONENT is a variable too (§4.5's list), with the same rule: the
+        // component type decides, not the expression assigned into it.
+        r.register(new Sn4Leaf("t4.var.assignCompat.elem", Strs.of("4.5", "10.10"), "void",
+            "{ double[] a = new double[1]; a[0] = 7; System.out.println(a[0] / 2); }",
+            Val.ofDouble(3.5)));
         // §4.5.1: "A variable of a primitive type always holds a value of that exact
         // primitive type." 200 does not fit in a byte, so what the variable holds is the low
         // 8 bits of it read as a signed byte (§5.1.3) -- -56, with no widened residue kept.
