@@ -257,6 +257,19 @@ for cfg in O0-interp O0-jit O-interp O-jit; do
 done
 echo "  PASS  jls ($EXPECT_JLS_CHECKS cited-section checks × 4 configs)"
 
+# ── the STITCHED corpus (P4) ────────────────────────────────────────────────
+# The plan's deliverable gate: "every stitched program's actual stdout/exit code == its
+# composed expectation, both tiers". Runs BEFORE the join below, because it is what writes
+# conformance/generated — the directory the join scans for `// JLS <n>` markers. Skipping it
+# would leave the join reading a stale or empty directory and reporting less coverage than
+# exists, which is how 41 covered sections went uncounted until this leg was wired up.
+sh conformance/run-generated.sh
+
+# The join runs AGAIN here, after generation, and this time it must be CURRENT: the earlier
+# --check ran against whatever conformance/generated held from a previous run. A marker the
+# generator has just stopped emitting — because its snippet was deleted — has to fail here.
+sh conformance/join-ledger.sh --check
+
 # ── the negative half ───────────────────────────────────────────────────────
 # The programs the spec says must NOT compile. Their oracle is javelinac's exit code and
 # diagnostic, so they cannot live in the suite above — the program that would demonstrate

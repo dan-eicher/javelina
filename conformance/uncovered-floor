@@ -13,7 +13,18 @@
 # wants explaining rather than absorbing. The distinction is the whole point, so a raise
 # carries its reason here.
 #
-# 398 -> 368 (this commit): all thirty of chapter 14's remaining sections, by
+# 368 -> 325 (this commit): NOT new tests — coverage that already existed and was not being
+# counted. conformance/gen's snippet libraries claim their sections through the `// JLS <n>`
+# markers Emit writes into each generated case, but nothing ran the generator, so
+# conformance/generated was empty and the join read no markers. Wiring run-generated.sh into
+# the gate turned 43 already-written sections from UNCOVERED into COVERED.
+#
+# It also surfaced two over-claims the join had never been in a position to see: a snippet
+# naming §20.12.47, which exists in the body but not in the ToC the inventory is transcribed
+# from, and one naming the parents §15.13/§15.14 instead of the four operator leaves it
+# actually exercises — a parent claim marks its whole subtree covered on one child.
+#
+# 398 -> 368 (previous): all thirty of chapter 14's remaining sections, by
 # conformance/jls/Ch14.java plus six conformance/reject cases. Statements are where the DDCG's
 # destination-driven lowering lives, so these are the shapes the backend has to frame right —
 # loop headers, join labels, break/continue targets, finally on every exit path — and they are
@@ -58,4 +69,4 @@
 # row is invisible to this ratchet forever, so that was a permanent hiding place. ClassLoader,
 # Process, Runtime, SecurityManager and StreamTokenizer are now UNCOVERED, which is what
 # unwritten means, and check-ledger.sh now rejects an N/A justified by implementation state.
-368
+325

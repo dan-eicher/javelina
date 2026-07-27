@@ -43,3 +43,8 @@ compiler/tools/unicode/gen_character
 wasm/test/test_*
 !wasm/test/test_*.c
 !wasm/test/test_*.h
+
+# conformance/generated — written by conformance/run-generated.sh on every gate run.
+# A build artifact: the SOURCE is conformance/gen, and the generator is deterministic, so a
+# checked-in copy could only ever be stale or contradict the snippets that produce it.
+conformance/generated/

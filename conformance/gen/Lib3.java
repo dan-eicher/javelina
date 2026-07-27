@@ -528,7 +528,11 @@ public class Lib3 {
              + DQ + "Hello" + DQ + " == (" + DQ + "Hel" + DQ + " + lo)); }", Val.ofBoolean(false));
         // "The result of explicitly interning a computed string is the same string as any
         // pre-existing literal string with the same contents."
-        st(r, "lex3.str.internExplicit", Strs.of("3.10.5", "4.3.1", "20.12.47"),
+        // §20.12, not §20.12.47: the ToC — which is the inventory's basis, being ordered,
+        // numbered and page-stamped — lists chapter 20 one row per CLASS. intern() has a
+        // numbered section in the body but none the ledger tracks, so a claim on it names a
+        // section that does not exist.
+        st(r, "lex3.str.internExplicit", Strs.of("3.10.5", "4.3.1", "20.12"),
              "{ String lo = " + DQ + "lo" + DQ + "; System.out.println("
              + DQ + "Hello" + DQ + " == (" + DQ + "Hel" + DQ + " + lo).intern()); }",
              Val.ofBoolean(true));
@@ -619,7 +623,11 @@ public class Lib3 {
              "{ int x = 12 & 10; x = x | (12 ^ 10); x = x ^ 3; x = ~x; x = x << 2;"
              + " x = x >> 1; System.out.println(x); }", Val.ofInt(-28));
         //  ++ --
-        st(r, "lex3.op.incDec", Strs.of("3.12", "15.13", "15.14"),
+        // The LEAVES, not the parents: §15.13 is "Postfix Expressions" and §15.14 "Unary
+        // Operators", and each of the four operators here has its own section. Claiming a
+        // parent marks its whole subtree covered on the strength of one child — and §15.13 is
+        // N/A besides, being a grammar production, so the join rejects the claim outright.
+        st(r, "lex3.op.incDec", Strs.of("3.12", "15.13.2", "15.13.3", "15.14.1", "15.14.2"),
              "{ int i = 5; i++; ++i; i--; --i; System.out.println(i); }", Val.ofInt(5));
         //  < ? :
         i(r, "lex3.op.conditional", Strs.of("3.12", "15.24"), "(1 < 2) ? 10 : 20", 10);
