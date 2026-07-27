@@ -272,6 +272,10 @@ static bool is_utf8_tail(char c) {
     return (c >= -128 && c <= -65);
 }
 
+static bool is_utf8_lead(char c) {
+    return (c >= -64 && c <= -9);
+}
+
 static bool is_letter_or_digit(char c) {
     return (is_letter(c) || is_digit(c));
 }
@@ -295,7 +299,7 @@ static void java_setup_skip(peg_state* p) {
 }
 
 static bool java_keyword(peg_state* p, peg_span* out);
-static bool java_ident(peg_state* p, peg_span* out);
+static bool java_ident_raw(peg_state* p, peg_span* out);
 static bool java_integer(peg_state* p, peg_span* out);
 static bool java_long_lit(peg_state* p, peg_span* out);
 static bool java_float_lit(peg_state* p, peg_span* out);
@@ -350,6 +354,7 @@ static bool java_kw_void(peg_state* p, peg_span* out);
 static bool java_kw_volatile(peg_state* p, peg_span* out);
 static bool java_kw_while(peg_state* p, peg_span* out);
 static bool java_parse_java(peg_state* p);
+static bool java_parse_ident(peg_state* p, peg_span* out);
 static bool java_parse_import_decl(peg_state* p, ast_import_t** result);
 static bool java_parse_type_decl_(peg_state* p, ast_type_decl_t** result);
 static bool java_parse_class_decl_(peg_state* p, ast_type_decl_t** result, ast_modifier_t* mods, int mc);
@@ -936,7 +941,7 @@ static bool java_keyword(peg_state* p, peg_span* out) {
     return true;
 }
 
-static bool java_ident(peg_state* p, peg_span* out) {
+static bool java_ident_raw(peg_state* p, peg_span* out) {
     const char* _start = peg_pos(p);
     {
         peg_mark _m0 = peg_save(p);
@@ -948,17 +953,67 @@ static bool java_ident(peg_state* p, peg_span* out) {
         peg_restore(p, _m0);
         if (_ok0) return false;
     }
-    if (peg_at_end(p) || !is_letter(peg_peek_char(p))) return false;
-    peg_advance(p);
-    for (;;) {
+    {
         peg_mark _m1 = peg_save(p);
-        bool _ok1 = false;
+        {
+            bool _ok2 = false;
+            do {
+                if (peg_at_end(p) || !is_letter(peg_peek_char(p))) break;
+                peg_advance(p);
+                _ok2 = true;
+            } while(0);
+            if (!_ok2) {
+                peg_restore(p, _m1);
+            } else goto _choice_done1;
+        }
+        if (peg_at_end(p) || !is_utf8_lead(peg_peek_char(p))) return false;
+        peg_advance(p);
+        for (;;) {
+            peg_mark _m3 = peg_save(p);
+            bool _ok3 = false;
+            do {
+                if (peg_at_end(p) || !is_utf8_tail(peg_peek_char(p))) break;
+                peg_advance(p);
+                _ok3 = true;
+            } while(0);
+            if (!_ok3) { peg_restore(p, _m3); break; }
+        }
+    _choice_done1:;
+    }
+    for (;;) {
+        peg_mark _m4 = peg_save(p);
+        bool _ok4 = false;
         do {
-            if (peg_at_end(p) || !is_letter_or_digit(peg_peek_char(p))) break;
-            peg_advance(p);
-            _ok1 = true;
+            {
+                peg_mark _m5 = peg_save(p);
+                {
+                    bool _ok6 = false;
+                    do {
+                        if (peg_at_end(p) || !is_letter_or_digit(peg_peek_char(p))) break;
+                        peg_advance(p);
+                        _ok6 = true;
+                    } while(0);
+                    if (!_ok6) {
+                        peg_restore(p, _m5);
+                    } else goto _choice_done5;
+                }
+                if (peg_at_end(p) || !is_utf8_lead(peg_peek_char(p))) break;
+                peg_advance(p);
+                for (;;) {
+                    peg_mark _m7 = peg_save(p);
+                    bool _ok7 = false;
+                    do {
+                        if (peg_at_end(p) || !is_utf8_tail(peg_peek_char(p))) break;
+                        peg_advance(p);
+                        _ok7 = true;
+                    } while(0);
+                    if (!_ok7) { peg_restore(p, _m7); break; }
+                }
+            _choice_done5:;
+            }
+            _ok4 = true;
         } while(0);
-        if (!_ok1) { peg_restore(p, _m1); break; }
+        if (!_ok4) { peg_restore(p, _m4); break; }
     }
     if (out) { out->ptr = _start; out->len = (int)(peg_pos(p) - _start); }
     return true;
@@ -2447,13 +2502,20 @@ static bool java_parse_java(peg_state* p) {
     return true;
 }
 
+static bool java_parse_ident(peg_state* p, peg_span* out) {
+    peg_skip(p);
+    if (!java_ident_raw(p, out)) return false;
+    if (!jident_ok(*out)) return false;
+    return true;
+}
+
 static bool java_parse_import_decl(peg_state* p, ast_import_t** result) {
     const char** parts = NULL; int pc = 0;
        peg_span s; bool wildcard = false;
     peg_skip(p);
     if (!java_kw_import(p, NULL)) return false;
     peg_skip(p);
-    if (!java_ident(p, &s)) return false;
+    if (!java_parse_ident(p, &s)) return false;
     parts = (const char**)jpush(A, (void**)parts, &pc, (void*)jdup(A, s));
     for (;;) {
         peg_mark _m0 = peg_save(p);
@@ -2462,7 +2524,7 @@ static bool java_parse_import_decl(peg_state* p, ast_import_t** result) {
             peg_skip(p);
             if (!peg_match(p, ".")) break;
             peg_skip(p);
-            if (!java_ident(p, &s)) break;
+            if (!java_parse_ident(p, &s)) break;
             parts = (const char**)jpush(A, (void**)parts, &pc, (void*)jdup(A, s));
             _ok0 = true;
         } while(0);
@@ -2529,7 +2591,7 @@ static bool java_parse_class_decl_(peg_state* p, ast_type_decl_t** result, ast_m
     peg_skip(p);
     if (!java_kw_class(p, NULL)) return false;
     peg_skip(p);
-    if (!java_ident(p, &ns)) return false;
+    if (!java_parse_ident(p, &ns)) return false;
     {
         peg_mark _m0 = peg_save(p);
         bool _ok0 = false;
@@ -2582,7 +2644,7 @@ static bool java_parse_interface_decl_(peg_state* p, ast_type_decl_t** result, a
     peg_skip(p);
     if (!java_kw_interface(p, NULL)) return false;
     peg_skip(p);
-    if (!java_ident(p, &ns)) return false;
+    if (!java_parse_ident(p, &ns)) return false;
     {
         peg_mark _m0 = peg_save(p);
         bool _ok0 = false;
@@ -2746,7 +2808,7 @@ static bool java_parse_constructor_or_method_or_field(peg_state* p, ast_member_t
                 if (!java_kw_void(p, NULL)) break;
                 ty = ast_void_type(A);
                 peg_skip(p);
-                if (!java_ident(p, &ns)) break;
+                if (!java_parse_ident(p, &ns)) break;
                 peg_skip(p);
                 if (!java_parse_method_rest(p, result, ty, ns, mods, mc)) break;
                 (*result)->loc = _loc;
@@ -2760,7 +2822,7 @@ static bool java_parse_constructor_or_method_or_field(peg_state* p, ast_member_t
         peg_skip(p);
         if (!java_parse_type_ref(p, &ty)) return false;
         peg_skip(p);
-        if (!java_ident(p, &ns)) return false;
+        if (!java_parse_ident(p, &ns)) return false;
         {
             peg_mark _m3 = peg_save(p);
             {
@@ -2792,7 +2854,7 @@ static bool java_parse_constructor_decl(peg_state* p, ast_member_t** result, ast
        ast_stmt_t* body;
     _loc = LOC;
     peg_skip(p);
-    if (!java_ident(p, &ns)) return false;
+    if (!java_parse_ident(p, &ns)) return false;
     peg_skip(p);
     if (!peg_match(p, "(")) return false;
     {
@@ -2878,7 +2940,7 @@ static bool java_parse_field_rest(peg_state* p, ast_member_t** result, ast_type_
 static bool java_parse_var_decl_item(peg_state* p, ast_var_decl_t*** decls, int* dc) {
     peg_span ns; int32_t dims = 0; ast_expr_t* init = NULL;
     peg_skip(p);
-    if (!java_ident(p, &ns)) return false;
+    if (!java_parse_ident(p, &ns)) return false;
     for (;;) {
         peg_mark _m0 = peg_save(p);
         bool _ok0 = false;
@@ -3052,7 +3114,7 @@ static bool java_parse_formal_param(peg_state* p, ast_param_t** result) {
     peg_skip(p);
     if (!java_parse_type_ref(p, &ty)) return false;
     peg_skip(p);
-    if (!java_ident(p, &ns)) return false;
+    if (!java_parse_ident(p, &ns)) return false;
     for (;;) {
         peg_mark _m0 = peg_save(p);
         bool _ok0 = false;
@@ -3115,7 +3177,7 @@ static bool java_parse_base_type(peg_state* p, ast_type_t** result) {
 static bool java_parse_qual_name(peg_state* p, ast_name_t** result) {
     peg_span s;
     peg_skip(p);
-    if (!java_ident(p, &s)) return false;
+    if (!java_parse_ident(p, &s)) return false;
     *result = ast_simple_name(A, jdup(A, s));
     for (;;) {
         peg_mark _m0 = peg_save(p);
@@ -3124,7 +3186,7 @@ static bool java_parse_qual_name(peg_state* p, ast_name_t** result) {
             peg_skip(p);
             if (!peg_match(p, ".")) break;
             peg_skip(p);
-            if (!java_ident(p, &s)) break;
+            if (!java_parse_ident(p, &s)) break;
             *result = ast_qualified_name(A, *result, jdup(A, s));
             _ok0 = true;
         } while(0);
@@ -3684,7 +3746,7 @@ static bool java_parse_statement(peg_state* p, ast_stmt_t** result) {
                     bool _ok11 = false;
                     do {
                         peg_skip(p);
-                        if (!java_ident(p, &s)) break;
+                        if (!java_parse_ident(p, &s)) break;
                         lbl = jdup(A, s);
                         _ok11 = true;
                     } while(0);
@@ -3711,7 +3773,7 @@ static bool java_parse_statement(peg_state* p, ast_stmt_t** result) {
                     bool _ok13 = false;
                     do {
                         peg_skip(p);
-                        if (!java_ident(p, &s)) break;
+                        if (!java_parse_ident(p, &s)) break;
                         lbl = jdup(A, s);
                         _ok13 = true;
                     } while(0);
@@ -4080,7 +4142,7 @@ static bool java_parse_catch_clause_(peg_state* p, ast_catch_clause_t** result) 
     peg_skip(p);
     if (!java_parse_type_ref(p, &ty)) return false;
     peg_skip(p);
-    if (!java_ident(p, &ns)) return false;
+    if (!java_parse_ident(p, &ns)) return false;
     peg_skip(p);
     if (!peg_match(p, ")")) return false;
     peg_skip(p);
@@ -4132,7 +4194,7 @@ static bool java_parse_labeled_or_expr_stmt(peg_state* p, ast_stmt_t** result) {
             bool _ok1 = false;
             do {
                 peg_skip(p);
-                if (!java_ident(p, &s)) break;
+                if (!java_parse_ident(p, &s)) break;
                 peg_skip(p);
                 if (!peg_match(p, ":")) break;
                 peg_skip(p);
@@ -4970,7 +5032,7 @@ static bool java_parse_postfix_expr(peg_state* p, ast_expr_t** result) {
                 peg_skip(p);
                 if (!peg_match(p, ".")) break;
                 peg_skip(p);
-                if (!java_ident(p, &s)) break;
+                if (!java_parse_ident(p, &s)) break;
                 {
                     peg_mark _m1 = peg_save(p);
                     {
@@ -5181,7 +5243,7 @@ static bool java_parse_primary_expr(peg_state* p, ast_expr_t** result) {
                     peg_skip(p);
                     if (!peg_match(p, ".")) break;
                     peg_skip(p);
-                    if (!java_ident(p, &s)) break;
+                    if (!java_parse_ident(p, &s)) break;
                     {
                         peg_mark _m14 = peg_save(p);
                         {
@@ -5367,7 +5429,7 @@ static bool java_parse_primary_expr(peg_state* p, ast_expr_t** result) {
             bool _ok28 = false;
             do {
                 peg_skip(p);
-                if (!java_ident(p, &s)) break;
+                if (!java_parse_ident(p, &s)) break;
                 {
                     peg_mark _m29 = peg_save(p);
                     {

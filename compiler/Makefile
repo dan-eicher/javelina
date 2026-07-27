@@ -189,7 +189,16 @@ check-sema: $(GEN)/java_ast.h $(GEN)/sir_ast.h | $(B)
 	done
 	@echo "sema closure: compiles"
 
-$(GEN)/java_parser.h $(GEN)/java_parser.c &: grammar/Java.peg $(GEN)/java_ast.h $(PEGC)
+# §3.8: a JavaLetter is any Unicode letter, so the LEXER needs the UCD before any Java runs.
+# Same generator and same pinned UnicodeData.txt as java.lang.CharacterData — one source of
+# Unicode truth, two emitters, so the compiler and the runtime cannot disagree about what an
+# identifier is.
+$(GEN)/unicode_id.h: tools/unicode/gen_character.c tools/unicode/UnicodeData.txt | $(GEN)
+	@$(CC) -O2 -o $(B)/gen_character tools/unicode/gen_character.c
+	@$(B)/gen_character tools/unicode/UnicodeData.txt -c > $@ 2>/dev/null
+	@echo "  generated $@ (§3.8 JavaLetter tables)"
+
+$(GEN)/java_parser.h $(GEN)/java_parser.c &: grammar/Java.peg $(GEN)/java_ast.h $(GEN)/unicode_id.h $(PEGC)
 	$(PEGC) grammar/Java.peg -lang c -frames $(PEG_FRAMES) -o $(GEN)/
 
 # ── Tests (plain-C, exit-code based — javelina wasm/test convention) ────────

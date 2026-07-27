@@ -9,6 +9,7 @@ COMPILER Java
 
 (.
 #include "java_ast.h"
+#include "unicode_id.h"       /* §3.8 JavaLetter tables — generated from the pinned UCD */
 #include <stdlib.h>
 #include <string.h>
 
@@ -232,6 +233,40 @@ static inline ast_expr_t* jstr_to_string(bbq_arena* a, peg_span raw) {
     return ast_method_call(a, fresh, "intern", NULL, 0);
 }
 
+/* JLS §3.8 — Identifier: JavaLetter { JavaLetterOrDigit }, where a Java letter is any Unicode
+   letter (plus '_' and '$'), NOT just ASCII. The token above matched the SHAPE; this decides
+   whether the characters qualify.
+
+   Both directions matter. Rejecting a Unicode letter breaks a legal program — that was the bug.
+   Accepting a non-letter (an emoji, a box-drawing character) admits an illegal one, and a
+   grammar that over-accepts is just as wrong, so the classification is exact rather than
+   "anything non-ASCII is a letter".
+
+   The tables come from the same pinned UnicodeData.txt as java.lang.CharacterData, generated
+   in the same pass (gen_character.c -c), so the compiler and the runtime cannot disagree. */
+static inline bool jident_ok(peg_span s) {
+    int i = 0;
+    bool first = true;
+    while (i < s.len) {
+        unsigned char b = (unsigned char)s.ptr[i];
+        int cp, n;
+        if (b < 0x80)                 { cp = b;        n = 0; }
+        else if ((b & 0xE0) == 0xC0)  { cp = b & 0x1F; n = 1; }
+        else if ((b & 0xF0) == 0xE0)  { cp = b & 0x0F; n = 2; }
+        else if ((b & 0xF8) == 0xF0)  { cp = b & 0x07; n = 3; }
+        else return false;                        /* a stray continuation/invalid lead */
+        i++;
+        for (int k = 0; k < n; k++) {
+            if (i >= s.len || ((unsigned char)s.ptr[i] & 0xC0) != 0x80) return false;
+            cp = (cp << 6) | (s.ptr[i] & 0x3F);
+            i++;
+        }
+        if (first ? !juni_is_java_letter(cp) : !juni_is_java_letter_or_digit(cp)) return false;
+        first = false;
+    }
+    return !first;                                /* an empty span is not an identifier */
+}
+
 /* JLS §14.8: an ExpressionStatement only allows certain expression
    forms (assignment, ++/--, method call, class instance creation).
    Same restriction applies to for-init and for-update via §14.14
@@ -361,6 +396,12 @@ CHARACTERS
        three bytes of Ω by the time the tokenizer sees it. The lead byte matches ANY; these
        are its tail. They never collide with the closing quote, which is ASCII. */
     utf8_tail        = '\x80'..'\xbf' .
+    /* A UTF-8 lead byte. §3.8 makes an identifier JavaLetter{JavaLetterOrDigit}, and a Java
+       letter is ANY Unicode letter — so an identifier is not an ASCII-only token. The lead
+       byte cannot say WHICH code point follows, let alone whether it is a letter: that is a
+       property of the decoded value, and pegc's charsets are byte ranges. So the token accepts
+       the SHAPE of a UTF-8 sequence and jident_ok classifies the decoded code points. */
+    utf8_lead        = '\xc0'..'\xf7' .
     letter_or_digit  = letter + digit .
     float_suffix     = 'f' + 'F' + 'd' + 'D' .
     sign_char        = '+' + '-' .
@@ -381,7 +422,12 @@ TOKENS
               | "volatile" | "while" )
               !letter_or_digit .
 
-    ident      = !keyword letter { letter_or_digit } .
+    /* The SHAPE of §3.8's Identifier: a start character then continue characters, where either
+       may be a multi-byte UTF-8 sequence. Whether those sequences are Java letters/digits is
+       decided by jident_ok in the `ident` PRODUCTION below — a token cannot ask, because
+       charsets are byte ranges and letterness is a property of the decoded code point. */
+    ident_raw  = !keyword ( letter | utf8_lead { utf8_tail } )
+                          { letter_or_digit | utf8_lead { utf8_tail } } .
 
     integer    = '0' ( 'x' | 'X' ) hex_digit { hex_digit }
                | nonzero_digit { digit }
@@ -501,6 +547,18 @@ Java
       }
       (. peg_skip(p); if (!peg_at_end(p)) { report_parse_error(p); return false; } .)
     (. CTX->result = ast_program(A, pkg, imports, ic, types, tc); .)
+.
+
+// §3.8 Identifier. The TOKEN (ident_raw) matches the SHAPE — a start character then continue
+// characters, either of which may be a multi-byte UTF-8 sequence. This decides whether those
+// characters actually QUALIFY, because a charset is a byte range and letterness is a property
+// of the decoded code point, which no lead byte can tell you.
+//
+// It wraps rather than replaces, so every existing `ident<&x>` use site is validated without
+// being touched — there are eighteen, and a rule enforced at seventeen is a rule with a hole.
+// (Below `Java`, because the FIRST production is the goal symbol.)
+ident <. peg_span* out .>
+    = ident_raw<out>  (. if (!jident_ok(*out)) return false; .)
 .
 
 ImportDecl <. ast_import_t** result .>

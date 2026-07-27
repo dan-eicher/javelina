@@ -5,6 +5,7 @@
 #include "peg_runtime.h"
 
 #include "java_ast.h"
+#include "unicode_id.h"       /* §3.8 JavaLetter tables — generated from the pinned UCD */
 #include <stdlib.h>
 #include <string.h>
 
@@ -226,6 +227,40 @@ static inline ast_expr_t* jstr_to_string(bbq_arena* a, peg_span raw) {
     args = (ast_expr_t**)jpush(a, (void**)args, &ac, jstr_to_array(a, raw));
     ast_expr_t* fresh = ast_new(a, ast_simple_name(a, "String"), args, ac);
     return ast_method_call(a, fresh, "intern", NULL, 0);
+}
+
+/* JLS §3.8 — Identifier: JavaLetter { JavaLetterOrDigit }, where a Java letter is any Unicode
+   letter (plus '_' and '$'), NOT just ASCII. The token above matched the SHAPE; this decides
+   whether the characters qualify.
+
+   Both directions matter. Rejecting a Unicode letter breaks a legal program — that was the bug.
+   Accepting a non-letter (an emoji, a box-drawing character) admits an illegal one, and a
+   grammar that over-accepts is just as wrong, so the classification is exact rather than
+   "anything non-ASCII is a letter".
+
+   The tables come from the same pinned UnicodeData.txt as java.lang.CharacterData, generated
+   in the same pass (gen_character.c -c), so the compiler and the runtime cannot disagree. */
+static inline bool jident_ok(peg_span s) {
+    int i = 0;
+    bool first = true;
+    while (i < s.len) {
+        unsigned char b = (unsigned char)s.ptr[i];
+        int cp, n;
+        if (b < 0x80)                 { cp = b;        n = 0; }
+        else if ((b & 0xE0) == 0xC0)  { cp = b & 0x1F; n = 1; }
+        else if ((b & 0xF0) == 0xE0)  { cp = b & 0x0F; n = 2; }
+        else if ((b & 0xF8) == 0xF0)  { cp = b & 0x07; n = 3; }
+        else return false;                        /* a stray continuation/invalid lead */
+        i++;
+        for (int k = 0; k < n; k++) {
+            if (i >= s.len || ((unsigned char)s.ptr[i] & 0xC0) != 0x80) return false;
+            cp = (cp << 6) | (s.ptr[i] & 0x3F);
+            i++;
+        }
+        if (first ? !juni_is_java_letter(cp) : !juni_is_java_letter_or_digit(cp)) return false;
+        first = false;
+    }
+    return !first;                                /* an empty span is not an identifier */
 }
 
 /* JLS §14.8: an ExpressionStatement only allows certain expression

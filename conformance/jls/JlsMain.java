@@ -11,6 +11,7 @@
 public class JlsMain {
 
     public static void main(String[] args) {
+        Ch3.run();
         Ch10.run();
         Ch10b.run();
 

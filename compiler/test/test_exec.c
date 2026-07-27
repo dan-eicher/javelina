@@ -394,6 +394,33 @@ int main(void) {
         bbq_vec_free(mod.code); bbq_arena_free(&a);
     }
 
+    /* §3.8's rejection half. An identifier is JavaLetter{JavaLetterOrDigit}, and a Java letter
+     * is any Unicode LETTER — not any non-ASCII character. Accepting a symbol would be as wrong
+     * as rejecting a letter, and only one of those two directions can be asserted from inside a
+     * program that has to compile, so the other lives here. U+2603 SNOWMAN is category So. */
+    {
+        bbq_arena a; bbq_arena_init(&a, 1 << 18); emit_wasm_ctx mod = {0};
+        bool pb = assemble_plugin(&a,
+            "class T { static int f(){ int ☃ = 5; return ☃; } }", &mod);
+        CHECK(!pb, "§3.8: U+2603 SNOWMAN is a SYMBOL, not a Java letter — rejected as an identifier");
+        bbq_vec_free(mod.code); bbq_arena_free(&a);
+    }
+    {   /* …and the same shape written as an escape, since §3.3 translation runs first and the
+         * classifier must see the same code point either way. */
+        bbq_arena a; bbq_arena_init(&a, 1 << 18); emit_wasm_ctx mod = {0};
+        bool pb = assemble_plugin(&a,
+            "class T { static int f(){ int \\u2603 = 5; return \\u2603; } }", &mod);
+        CHECK(!pb, "§3.8: \\u2603 spells the same symbol — rejected identically to the literal form");
+        bbq_vec_free(mod.code); bbq_arena_free(&a);
+    }
+    {   /* §3.9: a keyword is not available as a name. `const` and `goto` are reserved-and-unused
+         * precisely so this stays true. */
+        bbq_arena a; bbq_arena_init(&a, 1 << 18); emit_wasm_ctx mod = {0};
+        bool pb = assemble_plugin(&a, "class T { static int f(){ int goto = 5; return goto; } }", &mod);
+        CHECK(!pb, "§3.9: `goto` is reserved-and-unused, so it is still not an identifier");
+        bbq_vec_free(mod.code); bbq_arena_free(&a);
+    }
+
     /* (1) multi-function + internal static call: sum() calls add() twice. */
     {
         bbq_arena a; bbq_arena_init(&a, 1 << 18);

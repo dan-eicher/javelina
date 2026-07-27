@@ -25,8 +25,8 @@
 3.5	Input Elements and Tokens	14	UNCOVERED		white space or a comment between `-` and `=` prevents them forming the `-=` token, and a trailing ASCII SUB is ignored
 3.6	White Space	15	UNCOVERED		space, HT, FF and line terminators all count as token-separating white space
 3.7	Comments	15	UNCOVERED		comments do not nest and // has no meaning inside /*, so `/* this /* // /** ends here: */` is one comment; a comment delimiter inside a string literal is ordinary text
-3.8	Identifiers	17	UNCOVERED		identifiers are unlimited-length Java-letter/digit sequences including $ and _, and are the same only if every Unicode character matches (LATIN A, GREEK ALPHA, CYRILLIC A are three distinct names)
-3.9	Keywords	18	UNCOVERED		the 47 reserved keywords, including the unused `const` and `goto`, are rejected as identifiers at compile time
+3.8	Identifiers	17	COVERED	Ch3	identifiers are unlimited-length Java-letter/digit sequences including $ and _, and are the same only if every Unicode character matches (LATIN A, GREEK ALPHA, CYRILLIC A are three distinct names)
+3.9	Keywords	18	COVERED	Ch3	the 47 reserved keywords, including the unused `const` and `goto`, are rejected as identifiers at compile time
 3.10	Literals	19	UNCOVERED		each of the six literal kinds denotes a value whose type is the primitive type, String, or the null type it names
 3.10.1	Integer Literals	19	UNCOVERED		decimal/hex/octal forms with optional L suffix; 0x80000000 is int -2147483648 and 0xffffffff is -1, and out-of-range decimal literals are compile-time errors
 3.10.2	Floating-Point Literals	22	UNCOVERED		f/F suffix yields float and otherwise double, with a compile-time error if a nonzero literal rounds to infinity or to zero
