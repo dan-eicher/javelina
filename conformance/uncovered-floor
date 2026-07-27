@@ -13,11 +13,19 @@
 # wants explaining rather than absorbing. The distinction is the whole point, so a raise
 # carries its reason here.
 #
-# 422 -> 427 (this commit): five §20/§22 sections were marked N/A with reasons that described
+# 427 -> 443 (this commit): sixteen §13 sections were marked N/A on the premise that javelina
+# does a "whole-program compile" with no pre-existing binaries. That premise is FALSE:
+# `javelinac --mode jre` builds jre.wasm and a plugin IMPORTS from that module, so a plugin
+# compiled against one jre and run against a changed one IS §13's scenario — and the project
+# already carries an unfixed bug in exactly that seam (a library import changing a descriptor).
+# On this target the break surfaces as a link/validation failure rather than the class-file
+# error the section names, which is a difference in FORM, not in observability.
+#
+# 422 -> 427 (previous): five §20/§22 sections were marked N/A with reasons that described
 # what had been WRITTEN rather than what is OBSERVABLE — "No Runtime.java", "exists but is a
 # 5-line empty placeholder", "not part of the implemented runtime". java.io.StreamTokenizer is
 # pure Java needing no thread and no host capability; it is unwritten, not inapplicable. An N/A
 # row is invisible to this ratchet forever, so that was a permanent hiding place. ClassLoader,
 # Process, Runtime, SecurityManager and StreamTokenizer are now UNCOVERED, which is what
 # unwritten means, and check-ledger.sh now rejects an N/A justified by implementation state.
-427
+443
