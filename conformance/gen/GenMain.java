@@ -47,6 +47,12 @@ public class GenMain {
         Lib14b.install(reg);                        // JLS §14.2, §14.3.1
         Lib14c.install(reg);                        // JLS §14.3.3, §14.3.4
         Lib14d.install(reg);                        // JLS §14.5, §14.6
+        Lib14e.install(reg);                        // JLS §14.8.x, §14.10, §14.10.1
+        Lib14f.install(reg);                        // JLS §14.11, §14.11.1, §14.11.2
+        Lib14g.install(reg);                        // JLS §14.12.1, §14.12.2, §14.12.3
+        Lib14h.install(reg);                        // JLS §14.18.1, §14.18.2
+        Lib14i.install(reg);                        // JLS §14.13, §14.14, §14.16
+        Lib14j.install(reg);                        // JLS §14.4, §14.18
         Lib15.install(reg);                         // JLS chapter 15, Expressions (§15.24 only)
         // ADD LIBRARIES HERE:  XxxSnippets.install(reg);
 

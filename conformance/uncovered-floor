@@ -13,7 +13,19 @@
 # wants explaining rather than absorbing. The distinction is the whole point, so a raise
 # carries its reason here.
 #
-# 313 -> 308 (this commit): §6.4, §6.4.2, §6.4.3, §6.4.4 and §6.5.1 — but the number is the
+# 308 -> 306 (this commit): §14.4 and §14.18, the last two UNCOVERED rows in chapter 14.
+#
+# CHAPTER 14 IS CLOSED: 32 COVERED, 1 N/A (§14.17, `synchronized`, outside the target), 0
+# UNCOVERED — and, per conformance/handwritten-floor, none of the 32 rests on a hand-written
+# class any more. It is the first chapter to reach both at once.
+#
+# The rest of the chapter's rows moved from COVERED-but-hand-written-only to COVERED-by-template
+# in the same six batches, which is why this number falls by 2 while fifteen rows changed hands.
+# That asymmetry is the reason the two ceilings are separate files: this one cannot see a row
+# whose only artifact is a program someone typed, because such a row is already COVERED and
+# already subtracted from the number watched here.
+#
+# 313 -> 308 (previous): §6.4, §6.4.2, §6.4.3, §6.4.4 and §6.5.1 — but the number is the
 # smaller half of what changed. conformance/reject/ IS GONE.
 #
 # It held 27 hand-written programs, and the plan forbids it in as many words. §3: "`expects` is
@@ -217,6 +229,30 @@
 #
 #     javelina: unresolved jre import java.lang.UnusedHelper9.spin()I
 #
+# ATTEMPTED AND BACKED OUT (2026-07-28), with what it cost so the next attempt starts here
+# rather than at the beginning. sema.c:4328's loop imports every method jre_gives_funcidx
+# admits — which is "anything with a body", no visibility and no reachability test. The
+# narrowing looked like three roots, and all three pieces already exist:
+#
+#   referenced  ctx->import_funcs, accumulated at call resolution and then DISCARDED by this
+#               very loop — the sidecar is computed and thrown away
+#   vtable      sema_is_virtual_method (instance, not private, not a constructor), which the
+#               vtable builder and the devirtualizer already share as one authority
+#   synthetic   $ensure_init, the §8.8.9 default ctor, $newInstance, the synthesized clone —
+#               emitted BY CODEGEN, so in neither of the others
+#
+# (referenced ∪ virtual ∪ synthetic) IS NOT ENOUGH: the emitted module fails validation with
+# "unknown function — refusing to write". At least one more kind of method needs a funcidx.
+# Constructors are the first suspect (sema_is_virtual_method excludes them by definition, and an
+# invokespecial on a library constructor may not reach the sidecar by an ordinary call's path);
+# interface-dispatch entries are the second. Backed out CLEAN — no #if 0, no dead helper — but
+# the missing root is the whole remaining job, and the validator failing closed is the tool that
+# will find it.
+#
+# The gate to write alongside the fix, which fails TODAY and would have caught this before
+# zeroDigit ever blew up: adding an unreferenced declaration to lib/java must not change a
+# plugin's import list.
+#
 # so adding any class or method to lib/java invalidates every plugin previously compiled against
 # an older jre. That is §13's scenario exactly, and it is live. It is also what
 # "unresolved jre import java.lang.BinaryToASCIIBuffer.zeroDigit()[C" was during the §8.3.1.2
@@ -233,4 +269,4 @@
 # row is invisible to this ratchet forever, so that was a permanent hiding place. ClassLoader,
 # Process, Runtime, SecurityManager and StreamTokenizer are now UNCOVERED, which is what
 # unwritten means, and the status gate now rejects an N/A justified by implementation state.
-308
+306
