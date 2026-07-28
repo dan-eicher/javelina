@@ -16,16 +16,28 @@
 #include <string.h>
 #include <stdlib.h>
 
-/* Translate `src` per §3.3 and initialise `p` over the result.
+/* Translate `src` (of `len` bytes) per §3.3 and initialise `p` over the result.
  *
  * On success *owned holds the translated buffer; free it AFTER parsing (idents and literals are
  * duplicated into the parse arena, so it need not outlive the parse). On a malformed escape
- * returns false with *err set — §3.3: "a compile-time error occurs" — and *owned NULL. */
-static inline bool java_source_init(peg_state* p, const char* src,
+ * returns false with *err set — §3.3: "a compile-time error occurs" — and *owned NULL.
+ *
+ * THE LENGTH IS A PARAMETER, not strlen(src). It used to be recovered here, and a source file
+ * containing a NUL byte was therefore silently truncated at it: javelinac exited 0 having
+ * compiled only the prefix, so a class declared after the NUL simply did not exist and the only
+ * symptom was an "undefined" error reported against whichever OTHER file referenced it.
+ *
+ * A NUL is legal Java. §3.1 makes a program a sequence of Unicode characters, §3.7 makes a
+ * comment's content any InputCharacter, and §3.5 exempts exactly one character from the input
+ * — "the ASCII SUB character ... is ignored if it is the last character" — which is not this
+ * one. Every layer below already carried a length (java_unicode_translate takes one,
+ * java_parser_init takes one); only this function invented it. Callers with a real byte count
+ * pass it; callers holding a C string literal pass strlen and are correct to. */
+static inline bool java_source_init(peg_state* p, const char* src, int len,
                                     char** owned, const char** err) {
     int tlen = 0;
     *err = NULL;
-    char* t = java_unicode_translate(src, (int)strlen(src), &tlen, err);
+    char* t = java_unicode_translate(src, len, &tlen, err);
     if (!t) { *owned = NULL; return false; }
     java_parser_init(p, t, tlen);
     *owned = t;

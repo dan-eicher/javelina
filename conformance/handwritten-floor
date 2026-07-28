@@ -30,7 +30,30 @@
 # hand-written assertions forward does not count and is worse than leaving them: it launders
 # the blind spot into the generator, which then certifies it.
 #
-# 42 -> 34 (this commit): chapter 10 cleared, by conformance/gen/Lib10.java, written from
+# 34 -> 26 (this commit): eight of chapter 11's eleven, by conformance/gen/Lib11.java from
+# pp.202-208. §11.5.1.1, §11.5.1.2 and §11.5.2 are NOT done and are named rather than implied:
+# all three are LISTS -- the spec enumerates each exception class with the operation that
+# throws it -- and a list is the one shape where sampling passes silently. They get one
+# template per entry once pp.209-211 are transcribed, the way §3.9's 47 keywords did.
+#
+# The sharp one is §11.3: "if a finally clause is executed because of abrupt completion of a
+# try block and the finally clause itself completes abruptly, then the reason for the abrupt
+# completion of the try block is DISCARDED". A method that throws and whose finally returns 7
+# returns 7 -- the exception is gone, so the caller's catch never runs.
+#
+# The NUL truncation recorded in the previous entry is FIXED, and the note it replaced is
+# deleted rather than improved. java_source.h took the length as a parameter instead of
+# recovering it with strlen; read_file already knew it from ftell and was discarding it.
+#
+# Its regression lives in compiler/test/test_parse.c, NOT here, and the reason is worth
+# keeping: I first wrote a conformance template using a ` ` escape and it passed with the
+# fix REMOVED. Six ASCII bytes on disk means strlen measures the whole file; the NUL only
+# exists after §3.3 translation, where the length is already carried. Only a RAW NUL byte
+# reproduces it, Emit gates generated source to ASCII and should, so the test needs an API
+# that takes a buffer and a length. The conformance template stays, with its claim corrected
+# to the narrower one it can make -- a NUL inside a comment is ordinary content.
+#
+# 42 -> 34 (previous): chapter 10 cleared, by conformance/gen/Lib10.java, written from
 # pp.194-199 with Ch10.java and Ch10b.java unread.
 #
 # The two that a sampling test tends to miss, and why they are written the way they are:
@@ -51,8 +74,11 @@
 # §3.5 exempts only a trailing SUB. javelinac exited 0 having parsed the file up to that point,
 # so `class Lib10` was never declared and the only symptom was "undefined 'Lib10'" reported
 # against GenMain, a different file. A compiler accepting a file with exit 0 while dropping the
-# half of it after byte N is a silent-truncation defect. It belongs to chapter 3 (§3.1/§3.7)
-# and gets a template there rather than a note here that outlives its own fix.
+# half of it after byte N is a silent-truncation defect.
+#
+# CAUSE: java_source.h recovered the source length with strlen(). Not the grammar -- COMMENTS
+# FROM "//" TO "\n" is fine -- and not pegc. read_file knew the true length from ftell and
+# discarded it by returning a bare char*. FIXED in the next entry above.
 #
 # 50 -> 42 (previous): chapters 4 and 5 cleared. §4.3, §4.3.2, §4.3.3, §4.3.4, §4.5.2 and
 # §4.5.5 by conformance/gen/Lib4Ref.java; §5.4 and §5.5 by Lib5Conv.java. Both written from the
@@ -67,4 +93,4 @@
 # That is the kind of claim a hand-written assertion tends to sample rather than pin.
 #
 # 50 (previous): the starting debt, across chapters 3, 4, 5, 10, 11, 14 and 15.
-34
+26

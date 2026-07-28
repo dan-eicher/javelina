@@ -236,6 +236,27 @@ public class Lib3 {
     // ───────────────────────────────────────────────────────────────────────────────────────
 
     private static void comments(Registry r) {
+        // §3.1 makes a program "a sequence of Unicode characters" and §3.7 makes a comment's
+        // content any InputCharacter, so a NUL inside a comment is ordinary text. §3.5 exempts
+        // exactly one character from the input -- "the ASCII SUB character ... is ignored if it
+        // is the last character" -- and this is not it.
+        //
+        // The escape is BUILT, never written: U("0000") is the six characters a §3.3 translation
+        // turns into a NUL before the tokenizer runs, so this file (and the generated case, which
+        // Emit gates to ASCII) holds only a backslash and four hex digits.
+        //
+        // WHAT THIS DOES NOT TEST, verified by removing the fix and watching it still pass: the
+        // strlen truncation that java_source.h used to carry. ` ` is six ASCII bytes on
+        // disk, so strlen measures the whole file; the NUL exists only in the buffer §3.3
+        // produces, whose length is passed explicitly. The bug needed a RAW NUL byte in the
+        // file, which Emit's ASCII gate forbids and should -- so that regression lives in
+        // compiler/test, where a buffer and its length can be handed to the parser directly.
+        // This template's claim is the narrower one it can actually make: a NUL inside a comment
+        // is ordinary content and does not end the comment or the token stream.
+        st(r, "lex3.comment.nul", Strs.of("3.7", "3.1", "3.3"),
+             "{ int n = 1; /* a NUL, by escape: " + U("0000") + " */ n = n + 41;"
+           + " System.out.println(n); }", Val.ofInt(42));
+
         // "As a result, the text /* this comment /* // /** ends here: */ is a single complete
         // comment."
         str(r, "lex3.comment.noNest", Strs.of("3.7"),

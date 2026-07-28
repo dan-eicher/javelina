@@ -65,26 +65,32 @@ static int usage(FILE* f, int code) {
     return code;
 }
 
-static char* read_file(const char* path) {
+/* Read `path` whole. *out_len is the BYTE COUNT, which the caller must carry to the parser: a
+ * source file may legally contain a NUL (§3.1, §3.7), and recovering the length with strlen
+ * downstream truncated the compile there silently. The buffer is still NUL-terminated for the
+ * convenience of anything that wants a C string, but that terminator is not the extent. */
+static char* read_file(const char* path, int* out_len) {
     FILE* f = fopen(path, "rb");
     if (!f) { fprintf(stderr, "%s: cannot open '%s'\n", prog_name, path); return NULL; }
     fseek(f, 0, SEEK_END); long n = ftell(f); fseek(f, 0, SEEK_SET);
     if (n < 0) { fclose(f); return NULL; }
     char* b = (char*)malloc((size_t)n + 1);
     if (fread(b, 1, (size_t)n, f) != (size_t)n) { fclose(f); free(b); return NULL; }
-    b[n] = 0; fclose(f); return b;
+    b[n] = 0; fclose(f);
+    if (out_len) *out_len = (int)n;
+    return b;
 }
 
 /* Parse `src` (attributed to `file` for diagnostics) into a fresh context whose
  * arena owns the AST; the context is recorded in `*ctxs` for the caller to free
  * after compilation. Idents/literals are duplicated into the arena, so `src` need
  * not survive. */
-static ast_program_t* parse_src(const char* src, const char* file, java_parse_ctx_t*** ctxs) {
+static ast_program_t* parse_src(const char* src, int len, const char* file, java_parse_ctx_t*** ctxs) {
     java_parse_ctx_t* pc = (java_parse_ctx_t*)malloc(sizeof(*pc));
     bbq_arena_init(&pc->arena, 1 << 16); pc->result = NULL; pc->file = file;
     /* §3.2 step 1 before step 3 — see javelina/compiler/java_source.h. */
     peg_state p; char* tsrc = NULL; const char* terr = NULL;
-    if (!java_source_init(&p, src, &tsrc, &terr)) {
+    if (!java_source_init(&p, src, len, &tsrc, &terr)) {
         fprintf(stderr, "%s: %s in '%s'\n", prog_name, terr, file ? file : "<stdin>");
         bbq_vec_push(*ctxs, pc);
         return NULL;
@@ -128,9 +134,10 @@ static void glob_dir(const char* dir, ast_type_decl_t*** types, java_parse_ctx_t
         if (L < 6 || strcmp(e->d_name + L - 5, ".java")) continue;
         char* path = (char*)malloc(strlen(dir) + L + 2);
         sprintf(path, "%s/%s", dir, e->d_name);
-        char* s = read_file(path);
+        int slen = 0;
+        char* s = read_file(path, &slen);
         if (s) {
-            ast_program_t* p = parse_src(s, path, ctxs);   /* path outlives via the ctx list? no — dup */
+            ast_program_t* p = parse_src(s, slen, path, ctxs);   /* path outlives via the ctx list? no — dup */
             free(s);
             if (p) for (int i = 0; i < p->types_count; i++) bbq_vec_push(*types, p->types[i]);
         }
@@ -146,9 +153,10 @@ static char* str_dup(const char* s) { size_t n = strlen(s) + 1; char* p = (char*
 /* Parse one .java file into `types`. The path is duplicated (process-lifetime) because the
  * parse context keeps it for diagnostics; a caller's transient buffer must not back it. */
 static bool add_java_file(const char* path, ast_type_decl_t*** types, java_parse_ctx_t*** ctxs) {
-    char* s = read_file(path);
+    int slen = 0;
+    char* s = read_file(path, &slen);
     if (!s) return false;
-    ast_program_t* p = parse_src(s, str_dup(path), ctxs);
+    ast_program_t* p = parse_src(s, slen, str_dup(path), ctxs);
     free(s);
     if (!p) return false;
     for (int j = 0; j < p->types_count; j++) bbq_vec_push(*types, p->types[j]);

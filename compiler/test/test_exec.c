@@ -41,7 +41,7 @@ static ast_program_t* parse_src(const char* src, java_parse_ctx_t*** ctxs) {
     java_parse_ctx_t* pc = (java_parse_ctx_t*)malloc(sizeof(*pc));
     bbq_arena_init(&pc->arena, 1 << 16); pc->result = NULL; pc->file = NULL;
     peg_state p; char* tsrc = NULL; const char* terr = NULL;
-    if (!java_source_init(&p, src, &tsrc, &terr)) return NULL;
+    if (!java_source_init(&p, src, (int)strlen(src), &tsrc, &terr)) return NULL;
     p.user_data = pc;
     ast_program_t* prog = java_parser_parse(&p) ? pc->result : NULL;
     free(tsrc);
