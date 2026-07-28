@@ -193,9 +193,20 @@ static int32_t scope_declare(sema_ctx_t* ctx, const char* name, java_type_t type
     if (n == 0) return -1;
     bbq_htree* top = ctx->scopes[n - 1];
     uint32_t key = str_hash(name);
-    if (bbq_htree_search(top, key)) {
-        sema_error(ctx, loc, "redeclaration of '%s'", name);
-        return -1;
+    /* §14.3.2: "The name of the local variable parameter may not be redeclared as a local
+     * variable or exception parameter within its scope, or a compile-time error occurs; that
+     * is, HIDING THE NAME OF A LOCAL VARIABLE IS NOT PERMITTED."
+     *
+     * So the search covers every ENCLOSING scope, not just the innermost: `int n = 1; { int n
+     * = 2; }` is an error, and checking only the top scope let it through. A local hiding a
+     * FIELD is a different question and stays legal — that is §14.3.3, and §6.3.1's worked
+     * example depends on it — which is why this walks the local scope stack and never consults
+     * the class's members. */
+    for (int i = n - 1; i >= 0; i--) {
+        if (bbq_htree_search(ctx->scopes[i], key)) {
+            sema_error(ctx, loc, "redeclaration of '%s'", name);
+            return -1;
+        }
     }
     sema_var_t* v = (sema_var_t*)bbq_arena_alloc(ctx->arena, sizeof(sema_var_t));
     v->type = type;
@@ -3202,6 +3213,21 @@ static void analyze_stmt(sema_ctx_t* ctx, ast_stmt_t* s) {
         for (int i = 0; i < s->local_var_decl.decls_count; i++) {
             ast_var_decl_t* vd = s->local_var_decl.decls[i];
             java_type_t vtype = declarator_type(ctx, ty, vd->dims);
+            /* §14.3.2: "The scope of a local variable declared in a block is the rest of the
+             * block, INCLUDING ITS OWN INITIALIZER." So the name is declared BEFORE the
+             * initializer is analyzed. Analyzing first put the initializer outside the scope,
+             * which was wrong in both directions at once: the spec's `int x = (x=2)*2;` — which
+             * it prints as compiling and printing 4 — failed with "undefined 'x'", while its
+             * `static int x; ... int x = x;` — which it prints as a compile-time error —
+             * compiled, because `x` fell through to the field.
+             *
+             * `int x = x;` is now an error for the reason the spec gives: the local "does not
+             * yet have a value and cannot be used", which is §16 definite assignment. */
+            ctx->declaring_final = is_final;
+            ctx->declaring_init  = vd->init;
+            int32_t slot = scope_declare(ctx, vd->name, vtype, s->loc);
+            ctx->declaring_final = false;
+            ctx->declaring_init  = NULL;
             if (vd->init) {
                 java_type_t init_type = analyze_expr(ctx, vd->init);
                 int32_t cv = 0;
@@ -3214,11 +3240,6 @@ static void analyze_stmt(sema_ctx_t* ctx, ast_stmt_t* s) {
                 }
                 retype_array_init(ctx, vd->init, vtype);
             }
-            ctx->declaring_final = is_final;
-            ctx->declaring_init  = vd->init;
-            int32_t slot = scope_declare(ctx, vd->name, vtype, s->loc);
-            ctx->declaring_final = false;
-            ctx->declaring_init  = NULL;
             if (slot >= 0) {
                 bbq_htree_insert(ctx->slot_allocs, ptr_key(vd),
                                  (void*)(uintptr_t)(slot + 1));

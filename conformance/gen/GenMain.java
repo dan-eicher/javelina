@@ -41,7 +41,9 @@ public class GenMain {
         Lib8.install(reg);                          // JLS chapter 8, Classes (§8.3.1.2 only)
         Lib10.install(reg);                         // JLS chapter 10, Arrays
         Lib11.install(reg);                         // JLS chapter 11, Exceptions
+        Lib11Std.install(reg);                      // JLS §11.5.1.1/.2, §11.5.2 standard classes
         Lib14.install(reg);                         // JLS chapter 14, Blocks and Statements
+        Lib14a.install(reg);                        // JLS §14.1, §14.3.2
         Lib15.install(reg);                         // JLS chapter 15, Expressions (§15.24 only)
         // ADD LIBRARIES HERE:  XxxSnippets.install(reg);
 

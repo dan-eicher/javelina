@@ -30,7 +30,25 @@
 # hand-written assertions forward does not count and is worse than leaving them: it launders
 # the blind spot into the generator, which then certifies it.
 #
-# 34 -> 26 (this commit): eight of chapter 11's eleven, by conformance/gen/Lib11.java from
+# 26 -> 21 (this commit): chapter 11 finished (its three list sections) and chapter 14 begun.
+# Two REAL compiler bugs in the first batch of chapter 14, both under a row Ch14.java called
+# COVERED, and both from ONE cause -- sema analyzed a local's initializer BEFORE declaring the
+# local, so the initializer sat outside the variable's scope. Wrong in both directions at once:
+#
+#   int x = (x=2)*2;              the spec prints this compiling and printing 4 -> "undefined 'x'"
+#   static int x; int x = x;      the spec prints this as an ERROR -> compiled, `x` hit the field
+#
+# §14.3.2: "The scope of a local variable declared in a block is the rest of the block,
+# INCLUDING ITS OWN INITIALIZER." Declaring before analyzing fixes both, and `int x = x;` now
+# fails for the reason the spec gives -- the local "does not yet have a value and cannot be
+# used", i.e. §16 definite assignment.
+#
+# And a third: scope_declare checked only the INNERMOST scope, so `int n = 1; { int n = 2; }`
+# compiled. §14.3.2: "hiding the name of a local variable is not permitted". It now walks the
+# whole local scope stack -- and only that stack, because a local hiding a FIELD stays legal
+# (§14.3.3, and §6.3.1's worked example depends on it).
+#
+# 34 -> 26 (previous): eight of chapter 11's eleven, by conformance/gen/Lib11.java from
 # pp.202-208. §11.5.1.1, §11.5.1.2 and §11.5.2 are NOT done and are named rather than implied:
 # all three are LISTS -- the spec enumerates each exception class with the operation that
 # throws it -- and a list is the one shape where sampling passes silently. They get one
@@ -93,4 +111,4 @@
 # That is the kind of claim a hand-written assertion tends to sample rather than pin.
 #
 # 50 (previous): the starting debt, across chapters 3, 4, 5, 10, 11, 14 and 15.
-26
+21
