@@ -15,9 +15,17 @@
 public class Registry {
 
     private final java.util.Vector    snippets  = new java.util.Vector();
+    private final java.util.Vector    rejects   = new java.util.Vector();   // type() == REJECT
     private final java.util.Vector    typeOrder = new java.util.Vector();  // type names, first-seen order
     private final java.util.Hashtable buckets   = new java.util.Hashtable(); // String -> Vector of Snippet
     private final java.util.Hashtable idMap     = new java.util.Hashtable(); // String -> Snippet
+
+    /** The type() a template declares when its expects is a COMPILE-TIME ERROR (§3: "`expects`
+     *  is a value, an exception class, or a compile-time error"). Such a template yields no
+     *  value and cannot fill a hole — the program it renders does not compile, so there is
+     *  nothing for a caller to consume. It is kept out of `buckets` for exactly that reason,
+     *  which is also why the Stitcher can never accidentally stitch one into a running case. */
+    public static final String REJECT = "reject";
 
     public Registry() { }
 
@@ -44,9 +52,27 @@ public class Registry {
 
         idMap.put(id, s);
         snippets.addElement(s);
+
+        // A rejection renders a WHOLE compilation unit that must not compile, so it takes no
+        // holes and fills none. It goes to its own list, never into a type bucket.
+        if (t.equals(REJECT)) {
+            if (hs.length != 0)
+                throw new RuntimeException("Registry.register: " + id
+                    + " expects a compile-time error, so it cannot take holes — the program does not run");
+            rejects.addElement(s);
+            return;
+        }
+
         java.util.Vector v = (java.util.Vector) buckets.get(t);
         if (v == null) { v = new java.util.Vector(); buckets.put(t, v); typeOrder.addElement(t); }
         v.addElement(s);
+    }
+
+    /** The rejection templates, in registration order. */
+    public Snippet[] rejects() {
+        Snippet[] out = new Snippet[rejects.size()];
+        for (int i = 0; i < out.length; i++) out[i] = (Snippet) rejects.elementAt(i);
+        return out;
     }
 
     /** The snippets yielding type `t`, in registration order. Empty if none — never null. */

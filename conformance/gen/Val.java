@@ -24,6 +24,15 @@ public final class Val {
     public static final int BOOLEAN = 3;   // boolean
     public static final int REF     = 4;   // any other reference; payload is its println text
     public static final int THROWS  = 5;   // evaluation completes abruptly; payload is the FQN
+    // §3: "`expects` is a value, an exception class, or a compile-time error." The third one
+    // is a Val like the other two, so a template that expects a rejection goes through the
+    // SAME emitter as one that expects 42 — §4: "a degenerate stitch, not an exemption, and it
+    // still carries sections[] and expects and still goes through the same emitter."
+    //
+    // It is not a runtime outcome, so it has no display(): the program never runs. Its payload
+    // is the substring javelinac's diagnostic must contain, which is what stops a rejection
+    // from counting when the compiler rejected the program for an unrelated reason.
+    public static final int COMPILE_ERROR = 6;
 
     // None of these is `final`, though every one is write-once: §8.3.1.2 requires a final
     // field's declarator to carry its initializer, which a constructor parameter cannot be.
@@ -82,6 +91,25 @@ public final class Val {
     public static Val thrown(String className) {
         if (className == null) throw new RuntimeException("Val.thrown: null class name");
         return new Val(THROWS, "", 0L, 0.0, false, className);
+    }
+
+    /** The program must NOT COMPILE. `diagnostic` is a substring javelinac's message has to
+     *  contain — required, and required to be specific, because without it any failure at all
+     *  would satisfy the template, including a typo, and the case would "cover" its section
+     *  while demonstrating nothing about it. */
+    public static Val compileError(String diagnostic) {
+        if (diagnostic == null || diagnostic.length() == 0)
+            throw new RuntimeException("Val.compileError: a rejection needs an expected diagnostic");
+        return new Val(COMPILE_ERROR, "", 0L, 0.0, false, diagnostic);
+    }
+
+    public boolean isCompileError() { return kind == COMPILE_ERROR; }
+
+    /** The substring the diagnostic must contain. */
+    public String diagnostic() {
+        if (kind != COMPILE_ERROR)
+            throw new RuntimeException("Val.diagnostic on kind " + kindName(kind));
+        return s;
     }
 
     // ---- accessors ---------------------------------------------------------------------
@@ -149,6 +177,11 @@ public final class Val {
      *  For THROWS, the caught exception's fully-qualified class name, which is what
      *  Emit's catch clause prints. */
     public String display() {
+        // A rejection has no printed form: the program never runs, so there is no .expected
+        // line to write. Reaching here means a COMPILE_ERROR template was stitched into a
+        // running case, which Emit refuses earlier — this is the backstop for that.
+        if (kind == COMPILE_ERROR)
+            throw new RuntimeException("Val.display on a COMPILE_ERROR: a rejection has no output");
         if (kind == LONG) {
             if (type.equals("char")) return String.valueOf((char) l);
             return Long.toString(l);                 // byte/short/int/long all print as digits
@@ -191,6 +224,7 @@ public final class Val {
         if (k == BOOLEAN) return "BOOLEAN";
         if (k == REF)     return "REF";
         if (k == THROWS)  return "THROWS";
+        if (k == COMPILE_ERROR) return "COMPILE_ERROR";
         return "?";
     }
 }

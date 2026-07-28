@@ -37,6 +37,7 @@ public class GenMain {
         Lib5.install(reg);                          // JLS chapter 5, Conversions and Promotions
         Lib6.install(reg);                          // JLS chapter 6, Names
         Lib8.install(reg);                          // JLS chapter 8, Classes (§8.3.1.2 only)
+        Lib14.install(reg);                         // JLS chapter 14, Blocks and Statements
         Lib15.install(reg);                         // JLS chapter 15, Expressions (§15.24 only)
         // ADD LIBRARIES HERE:  XxxSnippets.install(reg);
 
@@ -47,10 +48,16 @@ public class GenMain {
         // ---- write ----------------------------------------------------------------------
         Emit em = new Emit(dir, perCase);
         int files;
+        int rejects;
         try {
             files = em.write(all);
+            // §4: a rejection goes through the SAME emitter. It is not stitched — its expects
+            // is a compile-time error, so there is no value to compose and no output to
+            // predict — but it is a template like any other and it claims its sections the
+            // same way, through the marker the emitter writes.
+            rejects = em.writeRejects(reg.rejects());
             Emit.writeText(dir, "CAP-DROPS.txt", drops(st, reg, depth, perCase, all.length));
-            Emit.writeText(dir, "SECTIONS.tsv", manifest(all));
+            Emit.writeText(dir, "SECTIONS.tsv", manifest(all, reg.rejects()));
         } catch (java.io.IOException e) {
             System.out.println("gen: FAILED writing to " + dir + ": " + e.getClass().getName()
                                + " " + e.getMessage());
@@ -63,7 +70,7 @@ public class GenMain {
         System.out.println("gen: snippets=" + reg.size() + " types=" + reg.types().length
                            + " depth=" + depth + " cap=" + cap + " perCase=" + perCase);
         System.out.println("gen: stitchings=" + all.length + " cases=" + files
-                           + " lines=" + em.lines());
+                           + " lines=" + em.lines() + " rejects=" + rejects);
         StringBuffer sb = new StringBuffer();
         sb.append("gen: sections=").append(secs.length);
         for (int i = 0; i < secs.length; i++) sb.append(' ').append(secs[i]);
@@ -87,13 +94,23 @@ public class GenMain {
      *  and a §5.1.2 conversion appearing as some other snippet's operand is not a case FOR
      *  §5.1.2 — counting it would let a section reach its declared count without ever being
      *  the thing under test. */
-    private static String manifest(Stitching[] all) {
+    private static String manifest(Stitching[] all, Snippet[] rejects) {
         java.util.Vector seen = new java.util.Vector();
         for (int i = 0; i < all.length; i++) {
             Snippet  s    = all[i].snippet();
             String[] secs = s.sections();
             for (int j = 0; j < secs.length; j++) {
                 String line = secs[j] + "\t" + s.id();
+                if (!seen.contains(line)) seen.addElement(line);
+            }
+        }
+        // Rejections count toward a declared cardinality exactly like the running cases: where
+        // a section's rules are partly "this is legal" and partly "this is an error", covering
+        // only the legal half is the sampling the cardinality gate exists to catch.
+        for (int i = 0; i < rejects.length; i++) {
+            String[] secs = rejects[i].sections();
+            for (int j = 0; j < secs.length; j++) {
+                String line = secs[j] + "\t" + rejects[i].id();
                 if (!seen.contains(line)) seen.addElement(line);
             }
         }

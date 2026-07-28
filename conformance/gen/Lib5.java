@@ -57,6 +57,141 @@ public class Lib5 {
         stringConv(r);
         assignConv(r);
         promotion(r);
+        rejections(r);
+    }
+
+    /* ── the compile-time errors of chapter 5 ───────────────────────────────────────────
+     * §3 lists "a compile-time error" as one of the three things a template's `expects` may
+     * be, so these are templates, not a hand-written tree beside the generator. Each renders a
+     * whole compilation unit, because that is the granularity javelinac's exit code answers at. */
+    private static void rejections(Registry r) {
+        // §5.2: the implicit narrowing is for an int CONSTANT only. A char or short VARIABLE
+        // does not narrow implicitly even though every value would fit.
+        rej(r, "assign.char.to.short", Strs.of("5.2"), "incompatible initializer for 's'",
+            "class T5CharToShort {\n"
+          + "    static void f() {\n"
+          + "        char c = 1;\n"
+          + "        short s = c;\n"
+          + "    }\n"
+          + "}");
+        rej(r, "assign.short.to.char", Strs.of("5.2"), "incompatible initializer for 'c'",
+            "class T5ShortToChar {\n"
+          + "    static void f() {\n"
+          + "        short s = 123;\n"
+          + "        char c = s;\n"
+          + "    }\n"
+          + "}");
+        // …and only when the constant is REPRESENTABLE: 128 is one past byte's range.
+        rej(r, "assign.constant.not.representable", Strs.of("5.2"),
+            "incompatible initializer for 'b'",
+            "class T5NotRepresentable {\n"
+          + "    static void f() {\n"
+          + "        byte b = 128;\n"
+          + "    }\n"
+          + "}");
+
+        // §5.1.7 the forbidden set.
+        rej(r, "forbidden.from.boolean", Strs.of("5.1.7"), "illegal cast",
+            "class T5FromBoolean {\n"
+          + "    static int f() {\n"
+          + "        boolean b = true;\n"
+          + "        return (int) b;\n"
+          + "    }\n"
+          + "}");
+        rej(r, "forbidden.to.boolean", Strs.of("5.1.7"), "illegal cast",
+            "class T5ToBoolean {\n"
+          + "    static boolean f() {\n"
+          + "        return (boolean) 1;\n"
+          + "    }\n"
+          + "}");
+        rej(r, "forbidden.prim.to.ref", Strs.of("5.1.7"), "illegal cast",
+            "class T5PrimToRef {\n"
+          + "    static Object f() {\n"
+          + "        int i = 1;\n"
+          + "        return (Object) i;\n"
+          + "    }\n"
+          + "}");
+        rej(r, "forbidden.ref.to.prim", Strs.of("5.1.7"), "illegal cast",
+            "class T5RefToPrim {\n"
+          + "    static int f(Object o) {\n"
+          + "        return (int) o;\n"
+          + "    }\n"
+          + "}");
+        rej(r, "forbidden.null.to.prim", Strs.of("5.1.7"), "incompatible initializer for 'i'",
+            "class T5NullToPrim {\n"
+          + "    static void f() {\n"
+          + "        int i = null;\n"
+          + "    }\n"
+          + "}");
+        rej(r, "forbidden.unrelated.classes", Strs.of("5.1.7"), "unrelated classes",
+            "class T5UnrelatedA { int x; }\n"
+          + "class T5UnrelatedB { int y; }\n"
+          + "\n"
+          + "class T5Unrelated {\n"
+          + "    static T5UnrelatedB f() {\n"
+          + "        T5UnrelatedA a = new T5UnrelatedA();\n"
+          + "        return (T5UnrelatedB) a;\n"
+          + "    }\n"
+          + "}");
+        // A FINAL class cannot acquire an interface later, so the cast can never succeed —
+        // both directions, since the rule is symmetric in the two operand positions.
+        rej(r, "forbidden.final.to.interface", Strs.of("5.1.7"), "does not implement",
+            "interface T5FinalIface { void k(); }\n"
+          + "final class T5FinalClass { int x; }\n"
+          + "\n"
+          + "class T5FinalToIface {\n"
+          + "    static T5FinalIface f() {\n"
+          + "        T5FinalClass a = new T5FinalClass();\n"
+          + "        return (T5FinalIface) a;\n"
+          + "    }\n"
+          + "}");
+        rej(r, "forbidden.interface.to.final", Strs.of("5.1.7"), "does not implement",
+            "interface T5IfaceJ { void j(); }\n"
+          + "final class T5FinalT { int x; }\n"
+          + "\n"
+          + "class T5IfaceToFinal {\n"
+          + "    static T5FinalT f(T5IfaceJ j) {\n"
+          + "        return (T5FinalT) j;\n"
+          + "    }\n"
+          + "}");
+        // Two interfaces with a same-signature method differing only in return type can have
+        // no common implementor, so no value could ever satisfy the cast.
+        rej(r, "forbidden.interface.return.clash", Strs.of("5.1.7"), "different return types",
+            "interface T5ClashJ { int m(); }\n"
+          + "interface T5ClashK { long m(); }\n"
+          + "\n"
+          + "class T5IfaceClash {\n"
+          + "    static T5ClashK f(T5ClashJ j) {\n"
+          + "        return (T5ClashK) j;\n"
+          + "    }\n"
+          + "}");
+
+        // §5.3: method invocation conversion allows identity and widening ONLY -- §5.2's
+        // constant narrowing is excluded -- so neither overload is applicable to m(12, 2).
+        rej(r, "method.invocation.no.narrowing", Strs.of("5.3"),
+            "cannot convert to parameter type",
+            "class T5NoNarrowingAtCall {\n"
+          + "    static int m(byte a, int b) { return a + b; }\n"
+          + "    static int m(short a, short b) { return a - b; }\n"
+          + "    static void f() {\n"
+          + "        m(12, 2);\n"
+          + "    }\n"
+          + "}");
+
+        // §5.6: binary numeric promotion makes byte + byte an int, and the result is not a
+        // constant expression, so §5.2's narrowing does not rescue the assignment.
+        rej(r, "promotion.no.implicit.narrowing", Strs.of("5.6"),
+            "incompatible initializer for 'c'",
+            "class T5PromotionNarrowing {\n"
+          + "    static void f() {\n"
+          + "        byte a = 100, b = 100;\n"
+          + "        byte c = a + b;\n"
+          + "    }\n"
+          + "}");
+    }
+
+    private static void rej(Registry r, String name, String[] secs, String diag, String src) {
+        r.register(new Sn5Reject(name, secs, diag, src));
     }
 
     /* ── §5.1.1 identity ────────────────────────────────────────────────────────────────
@@ -305,4 +440,32 @@ class Sn5Leaf implements Snippet {
     public String[] holeTypes()   { return Strs.none(); }
     public String   render(String[] h) { return text; }
     public Val      expect(Val[] h)    { return v; }
+}
+
+/** A §5 rejection: a whole compilation unit the spec says must not compile.
+ *
+ *  crisp-tallying-chapters §3 lists "a compile-time error" as one of the three things a
+ *  template's `expects` may be, and §4 says such a template "still carries sections[] and
+ *  expects and still goes through the same emitter". These were fourteen hand-written files in
+ *  conformance/reject/ -- a second authoring path beside the generator, which is exactly the
+ *  subset-chosen-at-authoring-time §4 forbids. The source text is unchanged; what changed is
+ *  that the section claim and the expected diagnostic are now DERIVED from the template rather
+ *  than typed into a comment beside the program by whoever wrote it. */
+class Sn5Reject implements Snippet {
+
+    private String   name;
+    private String[] secs;
+    private String   diag;
+    private String   src;
+
+    Sn5Reject(String name, String[] secs, String diag, String src) {
+        this.name = name; this.secs = secs; this.diag = diag; this.src = src;
+    }
+
+    public String   id()        { return "t5.reject." + name; }
+    public String[] sections()  { return secs; }
+    public String   type()      { return Registry.REJECT; }
+    public String[] holeTypes() { return Strs.none(); }
+    public String   render(String[] h) { return src; }
+    public Val      expect(Val[] h)    { return Val.compileError(diag); }
 }

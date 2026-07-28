@@ -4,14 +4,18 @@
 // with a marker; this collects them so the join can reconcile the claims against the ledger in
 // both directions -- a claim with no row, and a row with no claim.
 //
-// Three trees are scanned, and each earns its place:
-//   conformance/jls        the cited-section suite
-//   conformance/reject     programs that must NOT compile -- a rule of the form "a compile-time
-//                          error occurs" is covered by a program that fails for that reason,
-//                          and there is no runnable assertion to write instead
-//   conformance/generated  the stitched cases, whose markers Emit writes from each snippet's
-//                          sections[] -- which is the whole path by which stitching becomes
-//                          counted coverage
+// Two trees are scanned:
+//   conformance/generated  everything the generator writes -- the stitched Case* files and the
+//                          Reject_* programs that must NOT compile. Both carry markers Emit
+//                          writes from each template's sections[], which is the whole path by
+//                          which a template becomes counted coverage.
+//   conformance/jls        the hand-written cited-section suite, which is being migrated INTO
+//                          templates and shrinks to nothing. It is scanned so its rows stay
+//                          counted until the chapter that owns them is migrated; when
+//                          conformance/jls is empty this line goes with it.
+//
+// conformance/reject used to be a third. It is gone: a compile-time error is a template's
+// `expects` (§3), so those programs are generated now and land in conformance/generated.
 public class Markers {
 
     public String[] section;    // parallel arrays; one entry per (section, artifact) pair
@@ -24,7 +28,6 @@ public class Markers {
         java.util.Vector arts = new java.util.Vector();
 
         scanDir(dir + "/jls",       secs, arts);
-        scanDir(dir + "/reject",    secs, arts);
         scanDir(dir + "/generated", secs, arts);
 
         m.count = secs.size();
@@ -38,7 +41,7 @@ public class Markers {
     }
 
     /** `as` fixes the artifact name for everything found at or below `path`, which is what a
-     *  DIRECTORY case needs. conformance/reject/ch6_protected_via_superclass_expr/ is ONE case
+     *  DIRECTORY case needs. Reject_t6_reject_protected_via_superclass_expr/ is ONE case
      *  spanning two packages -- chapter 6's rules are about the boundary between packages, so
      *  the smallest program that violates one is several compilation units. run-reject.sh names
      *  such a case by its directory, and the ledger has to agree or the artifact column names a

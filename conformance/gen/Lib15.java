@@ -33,6 +33,20 @@ public class Lib15 {
         r.register(new Sn15CondNullRef());
         r.register(new Sn15CondRefWiden());
         r.register(new Sn15CondPromote());
+
+        // Bullet 4's error half. String and StringBuffer are unrelated: neither is assignment
+        // compatible with the other, so there is no T. Both are subclasses of Object, but
+        // §15.24 asks for a conversion BETWEEN THE TWO OPERAND TYPES, not for a common
+        // supertype -- Java 1.0 has no least-upper-bound rule, and reading one in is exactly
+        // how this compiled before. Paired with t15.cond.ref.widen: a compiler that rejected
+        // every mixed-reference conditional would satisfy this and fail that.
+        r.register(new Sn15Reject("conditional.incompatible.refs", Strs.of("15.24"),
+            "incompatible conditional operands",
+            "class T15CondIncompatibleRefs {\n"
+          + "    static Object pick(boolean c, String s, StringBuffer b) {\n"
+          + "        return c ? s : b;\n"
+          + "    }\n"
+          + "}"));
     }
 }
 
@@ -116,4 +130,24 @@ class Sn15CondPromote implements Snippet {
              + " System.out.println(r); }";
     }
     public Val expect(Val[] h) { return Val.ofLong(100L); }
+}
+
+/** A §15 rejection: a whole compilation unit the spec says must not compile. */
+class Sn15Reject implements Snippet {
+
+    private String   name;
+    private String[] secs;
+    private String   diag;
+    private String   src;
+
+    Sn15Reject(String name, String[] secs, String diag, String src) {
+        this.name = name; this.secs = secs; this.diag = diag; this.src = src;
+    }
+
+    public String   id()        { return "t15.reject." + name; }
+    public String[] sections()  { return secs; }
+    public String   type()      { return Registry.REJECT; }
+    public String[] holeTypes() { return Strs.none(); }
+    public String   render(String[] h) { return src; }
+    public Val      expect(Val[] h)    { return Val.compileError(diag); }
 }

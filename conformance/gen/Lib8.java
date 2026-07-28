@@ -29,6 +29,8 @@ public class Lib8 {
 
     public static void install(Registry r) {
         r.register(new Sn8FinalReferent());
+        r.register(new Sn8FinalNoInitializer());
+        r.register(new Sn8FinalAssigned());
     }
 }
 
@@ -62,4 +64,53 @@ class Sn8FinalReferent implements Snippet, Declaring {
     }
 
     public Val expect(Val[] h) { return Val.ofInt(14); }
+}
+
+/** §8.3.1.2, first sentence: "A field can be declared final, in which case its declarator must
+ *  include a variable initializer or a compile-time error occurs."
+ *
+ *  Java 1.0 has no blank finals: the initializer is required IN THE DECLARATOR, so a
+ *  constructor that assigns the field is not a substitute. That is the 1.1 rule, and applying
+ *  it here would accept this program. */
+class Sn8FinalNoInitializer implements Snippet {
+    public String   id()        { return "t8.final.no.initializer"; }
+    public String[] sections()  { return Strs.of("8.3.1.2"); }
+    public String   type()      { return Registry.REJECT; }
+    public String[] holeTypes() { return Strs.none(); }
+
+    public String render(String[] h) {
+        return "class T8FinalNoInit {\n"
+             + "    final int blank;\n"
+             + "\n"
+             + "    T8FinalNoInit(int v) {\n"
+             + "        blank = v;\n"
+             + "    }\n"
+             + "}";
+    }
+    public Val expect(Val[] h) { return Val.compileError("final field"); }
+}
+
+/** §8.3.1.2, second sentence: "Any attempt to assign to a final field results in a compile-time
+ *  error."
+ *
+ *  The field HAS its required initializer, so the first sentence is satisfied and only the
+ *  second is at issue -- an assignment from an ordinary method, which is the case a blank-final
+ *  implementation would still reject but for the wrong reason (already assigned) and only
+ *  inside a constructor. */
+class Sn8FinalAssigned implements Snippet {
+    public String   id()        { return "t8.final.assigned"; }
+    public String[] sections()  { return Strs.of("8.3.1.2"); }
+    public String   type()      { return Registry.REJECT; }
+    public String[] holeTypes() { return Strs.none(); }
+
+    public String render(String[] h) {
+        return "class T8FinalAssigned {\n"
+             + "    final int fixed = 7;\n"
+             + "\n"
+             + "    void bump() {\n"
+             + "        fixed = 8;\n"
+             + "    }\n"
+             + "}";
+    }
+    public Val expect(Val[] h) { return Val.compileError("final field"); }
 }

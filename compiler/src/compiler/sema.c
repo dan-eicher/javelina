@@ -796,6 +796,45 @@ static const sema_field_t* find_field(const sema_ctx_t* ctx, int class_id,
     return NULL;
 }
 
+/* §6.4.2: "A class may have two or more fields with the same simple name if they are declared
+ * in different interfaces and inherited. An attempt to refer to any of the fields by its simple
+ * name results in a compile-time error." §6.4.3 states the same for an interface extending two
+ * interfaces. Counts the DISTINCT declarations of `name` reachable through interfaces.
+ *
+ * Two things bound it, both from the text rather than from taste:
+ *   - a declaration in a class HIDES what it would otherwise inherit (§8.3), so the walk stops
+ *     at the first class that declares the name and reports one;
+ *   - only the INTERFACE side is counted, because that is the case §6.4.2 states. A superclass
+ *     field clashing with an interface constant is a different question and this does not
+ *     answer it — inventing a rule for it is what §15.24's "common supertype" was.
+ *
+ * A diamond reaching one interface twice contributes ONE declaration, hence the dedup by
+ * pointer identity rather than by name. */
+static int field_decls_via_interfaces(const sema_ctx_t* ctx, int class_id, const char* name,
+                                      const sema_field_t** found, int cap, int n) {
+    if (class_id < 0) return n;
+    const sema_class_t* c = &ctx->classes[class_id];
+    for (int i = 0; i < bbq_vec_len(c->fields); i++) {
+        if (strcmp(c->fields[i].name, name) == 0) {
+            const sema_field_t* f = &c->fields[i];
+            for (int j = 0; j < n; j++) if (found[j] == f) return n;   /* already seen (diamond) */
+            if (n < cap) found[n++] = f;
+            return n;                                                  /* hides anything above */
+        }
+    }
+    for (int i = 0; i < c->interface_count; i++)
+        n = field_decls_via_interfaces(ctx, c->interface_ids[i], name, found, cap, n);
+    return field_decls_via_interfaces(ctx, c->super_id, name, found, cap, n);
+}
+
+/* True when `name` is ambiguous as a SIMPLE name in class_id. Qualified access stays legal --
+ * §6.4.2's error is about the simple name, and Colors.BLACK still resolves. */
+static bool field_simple_name_ambiguous(const sema_ctx_t* ctx, int class_id, const char* name) {
+    const sema_field_t* found[8];
+    int n = field_decls_via_interfaces(ctx, class_id, name, found, 8, 0);
+    return n > 1;
+}
+
 /* JLS §5.3 method invocation conversion: assignment conversion (§5.2), except an
  * int constant is never implicitly narrowed (is_constant=false takes that path). */
 static bool mic_convertible(const sema_ctx_t* ctx, java_type_t to, java_type_t from) {
@@ -2416,6 +2455,11 @@ static java_type_t analyze_expr(sema_ctx_t* ctx, ast_expr_t* e) {
         } else {
             /* Try as field of current class */
             const sema_field_t* f = find_field(ctx, ctx->current_class_id, name);
+            if (f && field_simple_name_ambiguous(ctx, ctx->current_class_id, name))
+                sema_error(ctx, e->loc,
+                    "reference to '%s' is ambiguous: it is inherited from more than one "
+                    "interface (§6.4.2); qualify it with the interface name",
+                    name);
             if (f) {
                 if (ctx->in_static_context && !(f->modifiers & ACC_STATIC))
                     sema_error(ctx, e->loc,

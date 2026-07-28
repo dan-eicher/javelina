@@ -13,7 +13,44 @@
 # wants explaining rather than absorbing. The distinction is the whole point, so a raise
 # carries its reason here.
 #
-# 318 -> 313 (this commit): the start of chapter 6, and the divergences it found.
+# 313 -> 308 (this commit): §6.4, §6.4.2, §6.4.3, §6.4.4 and §6.5.1 — but the number is the
+# smaller half of what changed. conformance/reject/ IS GONE.
+#
+# It held 27 hand-written programs, and the plan forbids it in as many words. §3: "`expects` is
+# a value, an exception class, or a compile-time error." §4: a template "still carries
+# sections[] and expects and still goes through the same emitter", and "this applies to the
+# corpus, not to a subset chosen at authoring time... I twice proposed restricting stitching to
+# the 'genuinely combinatorial' chapters and hand-writing the rest; that is the same
+# scope-narrowing as cutting the generator outright". A second authoring path beside the
+# generator was exactly that, and it had grown to 27 files.
+#
+# What was actually wrong with it, beyond the rule: the section claim and the expected
+# diagnostic were TYPED into a comment beside each program by whoever wrote it. Nothing tied
+# either to a template, so the cardinality gate could not see a rejection at all — a section
+# whose rules are half "this is legal" and half "this is an error" could be covered on the
+# legal half alone and still count. Both are now derived from sections() and expect(), and
+# rejections appear in SECTIONS.tsv beside the running cases.
+#
+# Three capabilities were needed and none of them is a special case:
+#   Val.compileError(diagnostic)  the third kind of expects, with the diagnostic substring that
+#                                 stops a rejection counting when the compiler rejected the
+#                                 program for an unrelated reason
+#   Registry.REJECT               a template that yields no value, so it fills no hole and the
+#                                 Stitcher can never stitch one into a running case
+#   Units                         a template whose program is SEVERAL compilation units, which
+#                                 §6.6.2 needs: §7.3 allows one package declaration per unit, so
+#                                 a single-file version of that program does not exist
+#
+# §6.4.2 was found by the migration rather than looked for: javelinac accepted a simple-name
+# reference to a field inherited from two interfaces, which §6.4.2 makes a compile-time error
+# ("An attempt to refer to any of the fields by its simple name results in a compile-time
+# error"). find_field returned the first match and stopped. The check counts DISTINCT
+# declarations reachable through interfaces, stops at the first class that declares the name
+# (§8.3 hiding), and is deliberately restricted to the interface case the section states — a
+# superclass field clashing with an interface constant is a different question this does not
+# answer, and inventing a rule for it is what §15.24's "common supertype" was.
+#
+# 318 -> 313 (previous): the start of chapter 6, and the divergences it found.
 #
 # §15.24 does not move this number -- it was already COVERED -- and that is the point. The
 # ledger was LYING, which is worse than an UNCOVERED row, because an UNCOVERED row is a
@@ -196,4 +233,4 @@
 # row is invisible to this ratchet forever, so that was a permanent hiding place. ClassLoader,
 # Process, Runtime, SecurityManager and StreamTokenizer are now UNCOVERED, which is what
 # unwritten means, and the status gate now rejects an N/A justified by implementation state.
-313
+308

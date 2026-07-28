@@ -36,11 +36,18 @@ cd "$(dirname "$0")/.."
 
 B=compiler/build
 LIBDIR=compiler/lib/java
-DIR=conformance/reject
+# ONE tree, and it is the generator's. Every case here is written by conformance/gen from a
+# template whose expects is a compile-time error, which is what crisp-tallying-chapters §3
+# names as one of the three kinds of `expects` and what §4 means by "it still carries
+# sections[] and expects and still goes through the same emitter".
+#
+# There used to be a hand-written conformance/reject/ beside it. That was the
+# subset-chosen-at-authoring-time §4 forbids: the section claim and the expected diagnostic were
+# typed into a comment by whoever wrote the program, so nothing tied them to a template and the
+# cardinality gate could not see them at all. They are now DERIVED from sections() and expect().
+DIR=conformance/generated
 VERBOSE=0
 [ "$1" = "-v" ] && VERBOSE=1
-
-[ -d "$DIR" ] || { echo "  FAIL  run-reject: $DIR missing"; exit 1; }
 
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
@@ -48,7 +55,11 @@ trap 'rm -rf "$TMP"' EXIT
 pass=0
 fail=0
 
-for f in "$DIR"/*.java "$DIR"/*/; do
+[ -d "$DIR" ] || { echo "  FAIL  run-reject: $DIR missing — the generator did not run"; exit 1; }
+
+# The generated tree also holds Case*.java, which MUST compile. Only Reject_* is ours: a file
+# and a directory form, the latter for a rule that needs more than one compilation unit.
+for f in "$DIR"/Reject_*.java "$DIR"/Reject_*/; do
     [ -e "$f" ] || continue
     if [ -d "$f" ]; then
         name=$(basename "$f")
