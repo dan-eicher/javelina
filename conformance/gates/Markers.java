@@ -34,13 +34,32 @@ public class Markers {
     }
 
     private static void scanDir(String path, java.util.Vector secs, java.util.Vector arts) {
+        scanDir(path, null, secs, arts);
+    }
+
+    /** `as` fixes the artifact name for everything found at or below `path`, which is what a
+     *  DIRECTORY case needs. conformance/reject/ch6_protected_via_superclass_expr/ is ONE case
+     *  spanning two packages -- chapter 6's rules are about the boundary between packages, so
+     *  the smallest program that violates one is several compilation units. run-reject.sh names
+     *  such a case by its directory, and the ledger has to agree or the artifact column names a
+     *  file nobody can run.
+     *
+     *  Without this the markers inside were invisible: the case rejected correctly and covered
+     *  NOTHING, which is the same silent gap run-reject.sh refuses a marker-less file for. */
+    private static void scanDir(String path, String as,
+                                java.util.Vector secs, java.util.Vector arts) {
         String[] names = new java.io.File(path).list();
         if (names == null) return;                 // an absent tree is not an error: reject/
         for (int i = 0; i < names.length; i++) {   // and generated/ may legitimately be empty
             String n = names[i];
+            String child = path + "/" + n;
+            if (new java.io.File(child).isDirectory()) {
+                scanDir(child, as != null ? as : n, secs, arts);
+                continue;
+            }
             if (!n.endsWith(".java")) continue;
-            String artifact = n.substring(0, n.length() - 5);
-            byte[] b = Tsv.readAll(path + "/" + n);
+            String artifact = as != null ? as : n.substring(0, n.length() - 5);
+            byte[] b = Tsv.readAll(child);
             if (b == null) continue;
             collect(new String(b, 0, 0, b.length), artifact, secs, arts);
         }

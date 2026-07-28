@@ -2614,7 +2614,7 @@ static void cp_partition_init(cp_engine_t* eng) {
     cp_pmap_t phi_by_merge;                        /* merge node -> pid+1 */
     cp_pmap_init(&phi_by_merge);
     /* Pass 1: non-LOADLOCAL vnodes by opcode bucket. LOADLOCAL is
-     * deferred to Pass 2 because it is a §4.7 COPY Follower of its
+     * held back to Pass 2 because it is a Click §4.7 COPY Follower of its
      * reaching definition (its one input). Placing LOADLOCAL nodes
      * into a shared opcode bucket lets refinement spuriously split
      * them by reaching-def chain rewrites, breaking downstream
@@ -5018,7 +5018,7 @@ static void cp_escape_seed(cp_engine_t* eng) {
 /* §7's BOTTOM GRAPH, applied to every call in an expression tree.
  *
  * §6's ArgEscape source is "passed to a `call` whose SUMMARY marks that parameter escaping".
- * There are no summaries yet — those are §7, staged at §9.5 — so every callee is a §7 BOTTOM
+ * There are no summaries yet — those are Choi §7, staged at Choi §9.5 — so every callee is a Choi §7 BOTTOM
  * METHOD ("native / abstract / NOT-YET-ANALYZED"), and §7's bottom graph is explicit: "a ref
  * passed to a native → ArgEscape". Receiver included: it is argument 0 of the dispatch.
  *
@@ -9730,7 +9730,7 @@ static void cp_debug_dump_spine(sir_method_t* method, const char* cls, const cha
  * `this` separately since it is LOADTHIS not a slot): its post-solve escape state. Stored on
  * ctx, keyed by method index, for a caller's later solve to consume (the MapsTo mapping).
  *
- * WHAT THIS DOES NOT YET CARRY: the reachable sub-graph edges (§7 / Fig 7's cross-parameter
+ * WHAT THIS DOES NOT YET CARRY: the reachable sub-graph edges (Choi §7 / Fig 7's cross-parameter
  * mapping) and the return's pts (the pointer half); the full Fig 7 is not built here.
  * This first cut is the per-formal escape STATE, which is exactly what Fig 7 propagates
  * (GlobalEscape only) at a call site. */

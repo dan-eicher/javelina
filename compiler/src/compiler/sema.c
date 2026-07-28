@@ -645,6 +645,28 @@ static bool is_assignable(const sema_ctx_t* ctx, java_type_t target, java_type_t
     return false;
 }
 
+/* §15.24's second numeric bullet: "If one of the operands is of type T where T is byte, short,
+ * or char, and the other operand is a constant expression of type int whose value is
+ * representable in type T, then the type of the conditional expression is T."
+ *
+ * `t` is the candidate T and `other` is the arm that must be the int constant. The range check
+ * reads jtype_min/jtype_max, the same table §5.2's constant narrowing uses above — one
+ * authority for "representable in T", not a second copy of the bounds. */
+static bool ternary_const_fits(const sema_ctx_t* ctx, java_type_t t, const ast_expr_t* other) {
+    if (t.tag != JT_BYTE && t.tag != JT_SHORT && t.tag != JT_CHAR) return false;
+    int32_t cv = 0;
+    if (!is_const_int_expr(ctx, other, &cv)) return false;
+    return cv >= jtype_min[t.tag] && cv <= jtype_max[t.tag];
+}
+
+/* Enough of a name for §15.24's diagnostic, which is always about two REFERENCE types. */
+static const char* ternary_ref_name(const sema_ctx_t* ctx, java_type_t t) {
+    if (t.tag == JT_CLASS && t.class_id >= 0) return ctx->classes[t.class_id].name;
+    if (t.tag == JT_ARRAY) return "an array type";
+    if (t.tag == JT_NULL)  return "the null type";
+    return "a reference type";
+}
+
 /* Array initializer narrowing: {1, 2, 3} assigned to byte[]/short[]
  * succeeds if every element is a constant that fits (JLS §5.2). */
 static bool is_array_init_narrowable(const sema_ctx_t* ctx, java_type_t target,
@@ -2129,8 +2151,13 @@ static bool same_package(const sema_ctx_t* ctx, int a, int b) {
     return pa && pb && strcmp(pa, pb) == 0;
 }
 
+/* `qual_class` is the class type of the QUALIFIER at the access site — the type of Q in Q.Id
+ * or of E in E.Id — and is what §6.6.2 turns on. Pass -1 where the access has no qualifier
+ * (a simple name) or where §6.6.2 permits it outright (super.Id, which never reaches here:
+ * AST_SUPERACCESS and AST_SUPERCALL are their own nodes). */
 static bool check_access(const sema_ctx_t* ctx, int from_class, int target_class,
-                          int member_mods, ast_srcloc loc, const char* member_name) {
+                          int member_mods, ast_srcloc loc, const char* member_name,
+                          int qual_class) {
     /* Public: always accessible */
     if (member_mods & ACC_PUBLIC) return true;
 
@@ -2143,10 +2170,28 @@ static bool check_access(const sema_ctx_t* ctx, int from_class, int target_class
         return false;
     }
 
-    /* Protected: same package or subclass */
+    /* Protected: §6.6.1 grants the package and the subclass; §6.6.2 then constrains HOW a
+     * subclass in another package may reach it. Let C be the class declaring the member and S
+     * the subclass in whose body the use occurs — for a qualified access, "the access is
+     * permitted if and only if the type of the expression Q is S or a subclass of S".
+     *
+     * S is `from_class`, not the declaring class: a subclass is trusted with the
+     * implementation of ITSELF, not with that of every other subclass of its superclass. So
+     * `p.x` on a Point-typed parameter is an error inside Point3d even though Point3d extends
+     * Point, which is exactly §6.6.7's worked example. */
     if (member_mods & ACC_PROTECTED) {
         if (same_package(ctx, from_class, target_class)) return true;
-        if (is_subclass_of(ctx, from_class, target_class)) return true;
+        if (is_subclass_of(ctx, from_class, target_class)) {
+            if (qual_class < 0) return true;                        /* simple name: the receiver is `this` */
+            if (qual_class == from_class) return true;
+            if (is_subclass_of(ctx, qual_class, from_class)) return true;
+            sema_error((sema_ctx_t*)ctx, loc,
+                       "protected member '%s' is not accessible through an expression of type '%s'; "
+                       "it must be '%s' or a subclass",
+                       member_name, ctx->classes[qual_class].name,
+                       ctx->classes[from_class].name);
+            return false;
+        }
         sema_error((sema_ctx_t*)ctx, loc,
                    "'%s' has protected access in '%s'",
                    member_name, ctx->classes[target_class].name);
@@ -2430,8 +2475,12 @@ static java_type_t analyze_expr(sema_ctx_t* ctx, ast_expr_t* e) {
         if (obj.tag == JT_CLASS) {
             const sema_field_t* f = find_field(ctx, obj.class_id, e->field_access.field);
             if (f) {
+                /* qcls >= 0 is a TypeName base (Q.Id, §6.6.2's second bullet); otherwise the
+                 * base is an ExpressionName or a Primary, and obj.class_id is its type. Both
+                 * bullets impose the same test, so both pass obj.class_id. */
                 check_access(ctx, ctx->current_class_id, obj.class_id,
-                             f->modifiers, e->loc, e->field_access.field);
+                             f->modifiers, e->loc, e->field_access.field,
+                             obj.class_id);
                 result = f->type;
                 bbq_htree_insert(ctx->resolved_fields, ptr_key(e), encode_member_loc(f->owner, f->index));
             } else {
@@ -2494,8 +2543,12 @@ static java_type_t analyze_expr(sema_ctx_t* ctx, ast_expr_t* e) {
                        e->method_call.method, ac,
                        ctx->classes[target_class].name);
         } else {
+            /* An unqualified call's receiver is `this`, which §6.6.2 does not constrain; a
+             * qualified one is E.Id(...) and its qualifier's type is the test. */
             check_access(ctx, ctx->current_class_id, target_class,
-                         m->modifiers, e->loc, e->method_call.method);
+                         m->modifiers, e->loc, e->method_call.method,
+                         e->method_call.obj && obj_type.tag == JT_CLASS
+                             ? obj_type.class_id : -1);
             if (ctx->in_static_context && !e->method_call.obj &&
                 !(m->modifiers & ACC_STATIC))
                 sema_error(ctx, e->loc,
@@ -2914,16 +2967,59 @@ static java_type_t analyze_expr(sema_ctx_t* ctx, ast_expr_t* e) {
         java_type_t else_ = analyze_expr(ctx, e->ternary.else_);
         if (!jt_is_error(cond) && cond.tag != JT_BOOL)
             sema_error(ctx, e->loc, "ternary condition must be boolean");
-        /* §15.25 conditional expression type. Numeric arms → §5.6.2 binary numeric
-         * promotion; identical types → that type; reference arms → the shared type. */
-        if (jt_eq(then, else_))
+        if (jt_is_error(then) || jt_is_error(else_)) break;      /* suppress the cascade */
+
+        /* §15.24 "The type of a conditional expression is determined as follows", p.368, in
+         * the spec's own order — the bullets are ordered and the order is load-bearing:
+         * byte/short is checked BEFORE the constant rule, and both before promotion.
+         *
+         * This used to be three lines whose reference case returned the `then` arm, commented
+         * "simplified: should find common supertype". It was not a simplification but three
+         * wrong answers: it rejected `short r = c ? aByte : aShort` and `byte r = c ? aByte
+         * : 5`, both legal, and it accepted `c ? aString : aStringBuffer`, which the last
+         * bullet makes a compile-time error. The ledger meanwhile called §15.24 COVERED. */
+        if (jt_eq(then, else_)) {
+            /* "If the second and third operands have the same type (which may be the null
+             * type), then that is the type of the conditional expression." */
             result = then;
-        else if (jt_is_numeric(then) && jt_is_numeric(else_))
-            result = jt_prim(lat_promote(then, else_));
-        else if (jt_is_reference(then) && jt_is_reference(else_))
-            result = then; /* simplified: should find common supertype */
-        else if (!jt_is_error(then) && !jt_is_error(else_))
+        } else if (jt_is_numeric(then) && jt_is_numeric(else_)) {
+            if ((then.tag == JT_BYTE  && else_.tag == JT_SHORT) ||
+                (then.tag == JT_SHORT && else_.tag == JT_BYTE)) {
+                /* "If one of the operands is of type byte and the other is of type short,
+                 * then the type of the conditional expression is short." */
+                result = jt_prim(JT_SHORT);
+            } else if (ternary_const_fits(ctx, then, e->ternary.else_)) {
+                result = then;
+            } else if (ternary_const_fits(ctx, else_, e->ternary.then)) {
+                result = else_;
+            } else {
+                /* "Otherwise, binary numeric promotion (§5.6.2) is applied." */
+                result = jt_prim(lat_promote(then, else_));
+            }
+        } else if (then.tag == JT_NULL && jt_is_reference(else_)) {
+            /* "If one of the second and third operands is of the null type and the type of
+             * the other is a reference type, then the type ... is that reference type." */
+            result = else_;
+        } else if (else_.tag == JT_NULL && jt_is_reference(then)) {
+            result = then;
+        } else if (jt_is_reference(then) && jt_is_reference(else_)) {
+            /* "it must be possible to convert one of the types to the other type (call this
+             * latter type T) by assignment conversion (§5.2); the type ... is T. It is a
+             * compile-time error if neither type is assignment compatible with the other."
+             *
+             * Direction matters: T is the TARGET of the conversion, i.e. the wider arm. */
+            if (is_assignable(ctx, else_, then, false, 0))      result = else_;
+            else if (is_assignable(ctx, then, else_, false, 0)) result = then;
+            else
+                sema_error(ctx, e->loc,
+                    "incompatible conditional operands: neither '%s' nor '%s' is assignment "
+                    "compatible with the other (§15.24)",
+                    ternary_ref_name(ctx, then), ternary_ref_name(ctx, else_));
+        } else {
+            /* "All other cases result in a compile-time error" (p.367) — a boolean against a
+             * reference, a numeric against a reference, and so on. */
             sema_error(ctx, e->loc, "incompatible ternary branch types");
+        }
         break;
     }
 

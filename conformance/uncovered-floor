@@ -13,7 +13,64 @@
 # wants explaining rather than absorbing. The distinction is the whole point, so a raise
 # carries its reason here.
 #
-# 319 -> 318 (this commit): §8.3.1.2, found from chapter 4 rather than looked for. javelinac
+# 318 -> 313 (this commit): the start of chapter 6, and the divergences it found.
+#
+# §15.24 does not move this number -- it was already COVERED -- and that is the point. The
+# ledger was LYING, which is worse than an UNCOVERED row, because an UNCOVERED row is a
+# standing invitation to look and a false COVERED row closes the question. sema.c computed the
+# conditional operator's type as `result = then` for two reference arms, commented "simplified:
+# should find common supertype", and the row's own reason line recited the two rules it did not
+# implement. Measured against p.368's five bullets, three were wrong: `short r = c ? aByte :
+# aShort` was REJECTED (bullet 2a says the type is short), `byte r = c ? aByte : 5` was
+# REJECTED (2b: a constant int representable in T gives T), and `c ? aString : aStringBuffer`
+# was ACCEPTED though the last bullet calls it a compile-time error -- Java 1.0 has no
+# least-upper-bound rule, so "a common supertype" was invented, not read.
+#
+# All five bullets are now transcribed in the spec's order, which is load-bearing: byte/short
+# is tested before the constant rule and both before promotion. Coverage is one snippet per
+# bullet (conformance/gen/Lib15.java) rather than one program touching several, because a
+# single `// JLS 15.24` marker is emitted identically by a case that tests one path and by one
+# that tests all of them -- which is exactly how this stayed hidden under five earlier cases.
+# Each snippet shows the computed type in its printed VALUE: `(true ? 'A' : 66)` prints "A"
+# when the type is char and "65" when it is int. The error half is
+# reject/ch15_conditional_incompatible_refs.java, paired with t15.cond.ref.widen so that a
+# compiler rejecting every mixed-reference conditional fails the positive case.
+#
+# §6.1, §6.2, §6.3 and §6.3.1 by conformance/gen/Lib6.java, plus reject cases for the two
+# directions §6.3 distinguishes -- a field initializer reading a field declared later is an
+# error, the same read from a CONSTRUCTOR is not, and the spec states the rule as exactly that
+# exception ("needs to appear before it is used only when the use is in a field initialization
+# expression"). Rejecting both would be as wrong as accepting both, so both are pinned.
+# §6.3.1 reproduces its worked output verbatim, "x=0, T6Hide.x=1", because that text IS the
+# claim.
+#
+# §6.6.2 is the divergence. javelinac implemented protected access as "same package or
+# subclass" -- §6.6.1 -- and stopped there, so it accepted §6.6.7's worked compile-time error.
+# §6.6.2 constrains HOW a subclass in another package may reach the member: "If the access is
+# by a qualified name Q.Id, where Q is an ExpressionName, then the access is permitted if and
+# only if the type of the expression Q is S or a subclass of S", where S is the subclass in
+# whose body the use occurs -- NOT the declaring class. So inside Point3d, `p.x` on a
+# Point-typed parameter is an error while `q.x` on a Point3d-typed one is fine, because
+# Point3d "is not involved in the implementation of a Point".
+#
+# The fix is not "reject protected access": all four permitted forms were checked to still
+# compile and run -- this.x, super.x, the simple name, and a subclass-typed qualifier -- and
+# the reject case carries delta3d alongside delta so a compiler that banned the lot would fail
+# the positive half rather than pass the negative one.
+#
+# Two harness gaps surfaced with it, both because chapter 6's rules are ABOUT the boundary
+# between packages and so need more than one compilation unit. run-reject.sh now takes a
+# DIRECTORY as one case, and the coverage join recurses into it, naming the case by its
+# directory. Until the second half, the case rejected correctly and covered NOTHING -- the
+# same silent gap run-reject.sh already refuses a marker-less file for.
+#
+# STILL UNCOVERED in chapter 6, and why: §6.4.1, §6.5.3.x, §6.5.4.x, §6.6 and §6.6.1,
+# §6.6.3-§6.6.8, §6.7 and §6.8.1 are claims about two packages seen from a RUNNING program,
+# and conformance/gen writes one compilation unit in the unnamed package. The generator needs
+# companion compilation units the way chapter 4 needed companion declarations. §6.4-§6.4.4,
+# §6.5-§6.5.2, §6.5.5.x, §6.5.6.x, §6.8.3-§6.8.5 are single-unit and simply not written yet.
+#
+# 319 -> 318 (previous): §8.3.1.2, found from chapter 4 rather than looked for. javelinac
 # implemented BLANK FINALS -- a field declared final with no initializer, definitely assigned
 # by a constructor or a static block -- and cited "§16.8"/"§16.9" for it. Neither section
 # exists here: JLS 1.0's chapter 16 has exactly §16.1 and §16.2, and both are about local
@@ -105,10 +162,32 @@
 # 427 -> 443 (previous): sixteen §13 sections were marked N/A on the premise that javelina
 # does a "whole-program compile" with no pre-existing binaries. That premise is FALSE:
 # `javelinac --mode jre` builds jre.wasm and a plugin IMPORTS from that module, so a plugin
-# compiled against one jre and run against a changed one IS §13's scenario — and the project
-# already carries an unfixed bug in exactly that seam (a library import changing a descriptor).
-# On this target the break surfaces as a link/validation failure rather than the class-file
-# error the section names, which is a difference in FORM, not in observability.
+# compiled against one jre and run against a changed one IS §13's scenario. On this target the
+# break surfaces as a link/validation failure rather than the class-file error the section
+# names, which is a difference in FORM, not in observability.
+#
+# CORRECTED (this commit), and then corrected again. The entry said "the project already carries
+# an unfixed bug in exactly that seam (a library import changing a descriptor)". That NAMED bug
+# is fixed: descriptor.c keys a class type off the canonical classes[id].name rather than the
+# AST spelling, so `java.util.Vector`, `Vector` and an imported `Vector` yield one descriptor,
+# with the regression in test_exec.c ("§7.5 import/FQN/simple resolve to ONE canonical
+# descriptor").
+#
+# But the seam is NOT clean, and the first rewrite of this note said it was — replacing a stale
+# claim with a false one. A PLUGIN'S IMPORT SURFACE IS THE WHOLE PARSED LIBRARY, not the subset
+# it references. Measured: add a class nothing references anywhere, and the plugin declares an
+# import for its PRIVATE static method —
+#
+#     javelina: unresolved jre import java.lang.UnusedHelper9.spin()I
+#
+# so adding any class or method to lib/java invalidates every plugin previously compiled against
+# an older jre. That is §13's scenario exactly, and it is live. It is also what
+# "unresolved jre import java.lang.BinaryToASCIIBuffer.zeroDigit()[C" was during the §8.3.1.2
+# work, which I made go away by rebuilding the jre instead of asking why a private helper
+# crossed the module boundary at all.
+#
+# UNFIXED and unscheduled here — it belongs to whoever owns the module seam, not to a coverage
+# ratchet. Recorded so the next person does not spend the same hour rediscovering it.
 #
 # 422 -> 427 (previous): five §20/§22 sections were marked N/A with reasons that described
 # what had been WRITTEN rather than what is OBSERVABLE — "No Runtime.java", "exists but is a
@@ -117,4 +196,4 @@
 # row is invisible to this ratchet forever, so that was a permanent hiding place. ClassLoader,
 # Process, Runtime, SecurityManager and StreamTokenizer are now UNCOVERED, which is what
 # unwritten means, and the status gate now rejects an N/A justified by implementation state.
-318
+313

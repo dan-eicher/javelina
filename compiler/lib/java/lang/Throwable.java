@@ -15,9 +15,11 @@ public class Throwable {
         return (m != null) ? (s + ": " + m) : s;
     }
 
-    // §20.22.5: fillInStackTrace records the current call stack into this throwable. The VM does not
-    // yet expose stack frames to the guest, so this returns `this` and the printed trace is just the
-    // throwable header (its toString) — a documented floor limitation, not a silent stub.
+    // JLS §20.22 fillInStackTrace is not yet implemented: the VM does not expose stack frames to
+    // the guest, so this returns `this` and the printed trace is just the throwable header (its
+    // toString). Cited on ONE line, and as `JLS §20.22` (the leaf the inventory carries), because
+    // check-deferrals.sh scans line by line: the previous wording split "does not" from "yet
+    // expose" across a line break, so the gate that exists to surface this could not see it.
     public Throwable fillInStackTrace() { return this; }
 
     // §20.22.6: print this throwable (and its backtrace, when available) to System.err or the stream.

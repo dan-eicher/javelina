@@ -665,9 +665,9 @@ s8 trunc_u64_f64(vm_t* vm, heap_t* h, f8 a) { (void)h;
 /* ── GC: root scan + collector binding ──────────────────────────────────────
  * The collector (behind heap->gc) asks the runtime to enumerate its roots; we hand
  * it the managed slots (tagged T_GCREF) on the shared value stack + locals — the
- * GC follows only those, never funcref/i31 handles. Managed globals lack a per-slot
- * type array today, so they're a later refinement. A managed ref rides as an 8-byte
- * pointer in slot.l. */
+ * GC follows only those, never funcref/i31 handles. Globals, tables, live element
+ * segments and the in-flight exception are scanned too, each off its own per-slot
+ * type array. A managed ref rides as an 8-byte pointer in slot.l. */
 static void jav_gc_enum_roots(gc_heap_t* gch, gc_root_visit_fn visit, void* ctx) {
     vm_t* vm = (vm_t*)gch->user;
     frame_t* f = &vm->frame;

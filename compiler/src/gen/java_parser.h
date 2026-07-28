@@ -219,9 +219,9 @@ static inline ast_expr_t* jstr_to_array(bbq_arena* a, peg_span raw) {
    maintains, not a second mechanism beside it.
 
    The remaining half of §3.10.5 — that a compile-time CONSTANT EXPRESSION such as
-   ("He" + "llo") is also interned — needs a StringLit node to survive into the AST so
-   §15.27 can fold it; const_expr.c records that it was blocked on interning. This
-   unblocks it; it does not yet do it. */
+   ("He" + "llo") is also interned — needed a StringLit node to survive into the AST so
+   §15.27 could fold it. This unblocked it, and §15.27 now does it: ("He" + "llo") ==
+   "Hello" is true while "Hel".concat("lo") == "Hello" is false. */
 static inline ast_expr_t* jstr_to_string(bbq_arena* a, peg_span raw) {
     return ast_string_lit(a, jstr_to_array(a, raw));
 }

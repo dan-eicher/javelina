@@ -19,8 +19,14 @@
 # so diagnostics can be reworded without a corpus-wide edit; it must still be specific enough
 # that a different error does not satisfy it.
 #
-# Each file is compiled ALONE (with the RTL on --libdir), so one case cannot mask another and
-# the diagnostic belongs to the file that expected it.
+# Each case is compiled ALONE (with the RTL on --libdir), so one case cannot mask another and
+# the diagnostic belongs to the case that expected it.
+#
+# A case may also be a DIRECTORY of compilation units, which is what chapter 6 needs: access
+# control, protected access and package-qualified names are rules ABOUT the boundary between
+# packages, so the smallest program that violates one is two files in two packages. The
+# directory is handed to javelinac whole (it already takes a directory), and the directives are
+# read from whichever unit inside carries them — normally the one holding the offending line.
 #
 # Usage:  sh conformance/run-reject.sh          compile every case, report, exit nonzero on any failure
 #         sh conformance/run-reject.sh -v       also print each accepted diagnostic
@@ -42,12 +48,19 @@ trap 'rm -rf "$TMP"' EXIT
 pass=0
 fail=0
 
-for f in "$DIR"/*.java; do
+for f in "$DIR"/*.java "$DIR"/*/; do
     [ -e "$f" ] || continue
-    name=$(basename "$f" .java)
+    if [ -d "$f" ]; then
+        name=$(basename "$f")
+        units=$(find "$f" -name '*.java' | sort)
+        [ -n "$units" ] || { echo "  FAIL  reject/$name: directory case holds no .java"; fail=$((fail + 1)); continue; }
+    else
+        name=$(basename "$f" .java)
+        units=$f
+    fi
 
-    want=$(sed -n 's|^[[:space:]]*//[[:space:]]*EXPECT[[:space:]]\{1,\}||p' "$f")
-    sec=$(sed -n 's|^[[:space:]]*//[[:space:]]*JLS[[:space:]]\{1,\}\([0-9][0-9.]*\).*|\1|p' "$f" | head -1)
+    want=$(sed -n 's|^[[:space:]]*//[[:space:]]*EXPECT[[:space:]]\{1,\}||p' $units)
+    sec=$(sed -n 's|^[[:space:]]*//[[:space:]]*JLS[[:space:]]\{1,\}\([0-9][0-9.]*\).*|\1|p' $units | head -1)
 
     # A case with no EXPECT is not a case. It would pass on any failure at all, which is the
     # exact defect this file exists to prevent, so it is a HARD error rather than a skip.

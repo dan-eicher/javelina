@@ -41,18 +41,30 @@ all: $(OUTS)
 # when you want to inspect the one that failed.
 .SECONDARY: $(WASMS)
 
-# A case that fails to compile is a generator bug or a javelinac bug, never a test bug — the
-# generator only emits Java it constructed from snippets that each render legal source.
-$(OUT)/%.wasm: $(OUT)/%.java
+# THE TOOLS AND THE JRE ARE PREREQUISITES, not ambient facts. Without them make answers the
+# wrong question: it asks "is this .wasm newer than its .java" when what makes a result valid is
+# "was it produced by THIS compiler and checked against THIS jre".
+#
+# Both halves bit. A javelinac fix leaves every unchanged case's .wasm in place, so the corpus
+# reports green on modules built by the previous compiler -- masked only accidentally, because
+# the generator rewrites every .java each run and drags the mtimes forward. And run.sh rebuilds
+# conf-jre-O0.wasm on every run, so a case could be executed against a jre being rewritten
+# underneath it; that is a truncated module, which javelina rejects with a nonzero exit and no
+# output at all. It is what "Case38 died at run time (-nojit)" with an empty log was: two
+# overlapping test runs, one replacing the jre while the other read it.
+#
+# Declaring the dependency does not by itself make concurrent runs safe -- nothing here can --
+# but it removes the silent-stale half, and it makes the ordering explicit rather than lucky.
+$(OUT)/%.wasm: $(OUT)/%.java $(JAVELINAC)
 	@$(JAVELINAC) --libdir $(LIBDIR) -O0 $< -o $@ 2>$(@:.wasm=.compile.log) \
 	  || { echo "  FAIL  $* did not compile"; sed 's/^/        | /' $(@:.wasm=.compile.log); exit 1; }
 
 # javelina exits nonzero on a trap, so a case that dies at run time fails its own rule and
 # make reports THAT case — rather than a flag checked after every other case has run.
-$(OUT)/%.nojit.out: $(OUT)/%.wasm
+$(OUT)/%.nojit.out: $(OUT)/%.wasm $(JAVELINA) $(JRE)
 	@$(JAVELINA) --jre $(JRE) -nojit $< > $@ 2>&1 \
 	  || { echo "  FAIL  $* died at run time (-nojit)"; sed 's/^/        | /' $@; exit 1; }
 
-$(OUT)/%.jit.out: $(OUT)/%.wasm
+$(OUT)/%.jit.out: $(OUT)/%.wasm $(JAVELINA) $(JRE)
 	@$(JAVELINA) --jre $(JRE) -jit $< > $@ 2>&1 \
 	  || { echo "  FAIL  $* died at run time (-jit)"; sed 's/^/        | /' $@; exit 1; }
