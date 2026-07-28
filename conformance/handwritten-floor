@@ -30,5 +30,17 @@
 # hand-written assertions forward does not count and is worse than leaving them: it launders
 # the blind spot into the generator, which then certifies it.
 #
-# 50 (this commit): the starting debt, across chapters 3, 4, 5, 10, 11, 14 and 15.
-50
+# 50 -> 42 (this commit): chapters 4 and 5 cleared. §4.3, §4.3.2, §4.3.3, §4.3.4, §4.5.2 and
+# §4.5.5 by conformance/gen/Lib4Ref.java; §5.4 and §5.5 by Lib5Conv.java. Both written from the
+# pages (p.37-47, p.67) with Ch4.java and Ch5.java deliberately unread -- porting the old
+# assertions would launder whatever they missed into the generator, which would then certify it.
+#
+# What that buys beyond the count: §5.4's claim is the word ONLY ("string conversion applies
+# only to the operands of the binary + operator when one of the arguments is a String"), and one
+# expression cannot show it. The template prints `a + 2`, `"" + a + 2` and `a + 2 + ""` -- the
+# same operands, three groupings, three different answers -- so an implementation that made a
+# whole expression "stringy" once a String appeared anywhere would print one answer three times.
+# That is the kind of claim a hand-written assertion tends to sample rather than pin.
+#
+# 50 (previous): the starting debt, across chapters 3, 4, 5, 10, 11, 14 and 15.
+42

@@ -34,7 +34,9 @@ public class GenMain {
         LibIntro.install(reg);                      // JLS chapters 1-2, Introduction / Grammars
         Lib3.install(reg);                          // JLS chapter 3, Lexical Structure
         Lib4.install(reg);                          // JLS chapter 4, Types, Values, Variables
+        Lib4Ref.install(reg);                       // JLS §4.3/§4.5, reference types
         Lib5.install(reg);                          // JLS chapter 5, Conversions and Promotions
+        Lib5Conv.install(reg);                      // JLS §5.4/§5.5, string conversion + casts
         Lib6.install(reg);                          // JLS chapter 6, Names
         Lib8.install(reg);                          // JLS chapter 8, Classes (§8.3.1.2 only)
         Lib14.install(reg);                         // JLS chapter 14, Blocks and Statements
