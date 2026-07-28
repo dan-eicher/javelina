@@ -74,8 +74,9 @@ public class BootSnippets {
 /** §3.10.1 integer literals. -2147483648 is the one decimal int literal that may appear
  *  only as the operand of unary minus, and it is here on purpose. */
 class SnIntLit implements Snippet {
-    private final String name, text;
-    private final int    v;
+    // Constructor-assigned, so not final (§8.3.1.2 wants the initializer in the declarator).
+    private String name, text;
+    private int    v;
     SnIntLit(String name, String text, int v) { this.name = name; this.text = text; this.v = v; }
     public String   id()          { return name; }
     public String[] sections()    { return Strs.of("3.10.1"); }
@@ -87,8 +88,8 @@ class SnIntLit implements Snippet {
 
 /** §3.10.1 integer literals of type long (the L suffix). */
 class SnLongLit implements Snippet {
-    private final String name, text;
-    private final long   v;
+    private String name, text;
+    private long   v;
     SnLongLit(String name, String text, long v) { this.name = name; this.text = text; this.v = v; }
     public String   id()          { return name; }
     public String[] sections()    { return Strs.of("3.10.1"); }
@@ -132,8 +133,8 @@ class SnFloatLit implements Snippet {
 
 /** §3.10.3 boolean literals. */
 class SnBoolLit implements Snippet {
-    private final String  name, text;
-    private final boolean v;
+    private String  name, text;
+    private boolean v;
     SnBoolLit(String name, String text, boolean v) { this.name = name; this.text = text; this.v = v; }
     public String   id()          { return name; }
     public String[] sections()    { return Strs.of("3.10.3"); }

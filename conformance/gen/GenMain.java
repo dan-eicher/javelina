@@ -35,6 +35,7 @@ public class GenMain {
         Lib3.install(reg);                          // JLS chapter 3, Lexical Structure
         Lib4.install(reg);                          // JLS chapter 4, Types, Values, Variables
         Lib5.install(reg);                          // JLS chapter 5, Conversions and Promotions
+        Lib8.install(reg);                          // JLS chapter 8, Classes (§8.3.1.2 only)
         // ADD LIBRARIES HERE:  XxxSnippets.install(reg);
 
         // ---- enumerate ------------------------------------------------------------------

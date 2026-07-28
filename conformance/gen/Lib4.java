@@ -106,36 +106,33 @@ public class Lib4 {
                               "{ Vector v = new Vector(); v.addElement(\"q\");"
                             + " System.out.println(v.size()); }", Val.ofInt(1)));
         r.register(new Sn4Pos("field",
-                              "{ T4Node.shared = new T4Node(2L);"
+                              "{ T4Node.shared = new T4Node($H);"
                             + " T4Node.shared.tag = T4Node.shared.tag + T4Const.LIMIT;"
-                            + " System.out.println(T4Node.shared.tag); }", Val.ofLong(9L)));
+                            + " System.out.println(T4Node.shared.tag); }", 7L));
         r.register(new Sn4Pos("methodparam",
-                              "{ System.out.println(T4Node.tagOf(new T4Node(11L))); }",
-                              Val.ofLong(11L)));
+                              "{ System.out.println(T4Node.tagOf(new T4Node($H))); }", 0L));
         r.register(new Sn4Pos("methodresult",
-                              "{ T4Node n = T4Node.make(12L); System.out.println(n.tag); }",
-                              Val.ofLong(12L)));
+                              "{ T4Node n = T4Node.make($H); System.out.println(n.tag); }", 0L));
         r.register(new Sn4Pos("ctorparam",
-                              "{ T4Node a = new T4Node(20L); T4Node b = new T4Node(a);"
-                            + " System.out.println(b.tag); }", Val.ofLong(21L)));
+                              "{ T4Node a = new T4Node($H); T4Node b = new T4Node(a);"
+                            + " System.out.println(b.tag); }", 1L));
         r.register(new Sn4Pos("local",
-                              "{ T4Node n = new T4Node(13L); System.out.println(n.tag); }",
-                              Val.ofLong(13L)));
+                              "{ T4Node n = new T4Node($H); System.out.println(n.tag); }", 0L));
         r.register(new Sn4Pos("handler",
                               "{ long got = 0L;"
                             + " try { throw new T4Trouble(); }"
-                            + " catch (T4Trouble e) { got = (e == null) ? 0L : 14L; }"
-                            + " System.out.println(got); }", Val.ofLong(14L)));
+                            + " catch (T4Trouble e) { got = (e == null) ? 0L : $H; }"
+                            + " System.out.println(got); }", 0L));
 
         // the four expression positions
         r.register(new Sn4Pos("new",
-                              "{ System.out.println(new T4Node(15L).tag); }", Val.ofLong(15L)));
+                              "{ System.out.println(new T4Node($H).tag); }", 0L));
         r.register(new Sn4Pos("arraynew",
-                              "{ T4Node[] a = new T4Node[3]; a[2] = new T4Node(16L);"
-                            + " System.out.println(a[2].tag + a.length); }", Val.ofLong(19L)));
+                              "{ T4Node[] a = new T4Node[3]; a[2] = new T4Node($H);"
+                            + " System.out.println(a[2].tag + a.length); }", 3L));
         r.register(new Sn4Pos("cast",
-                              "{ Object o = new T4Node(17L); T4Node n = (T4Node) o;"
-                            + " System.out.println(n.tag); }", Val.ofLong(17L)));
+                              "{ Object o = new T4Node($H); T4Node n = (T4Node) o;"
+                            + " System.out.println(n.tag); }", 0L));
         // both directions, so a `instanceof` that answered a constant would fail one of them.
         r.register(new Sn4Pos("instanceof",
                               "{ Object o = new T4Node(18L); Object s = \"text\";"
@@ -480,9 +477,10 @@ class F4 {
 // double.
 // ═══════════════════════════════════════════════════════════════════════════════════════
 class Sn4Leaf implements Snippet {
-    private final String   name, text, ty;
-    private final String[] secs;
-    private final Val      v;
+    // Constructor-assigned, so not final (§8.3.1.2 wants the initializer in the declarator).
+    private String   name, text, ty;
+    private String[] secs;
+    private Val      v;
 
     Sn4Leaf(String name, String[] secs, String ty, String text, Val v) {
         this.name = name; this.secs = secs; this.ty = ty; this.text = text; this.v = v;
@@ -1137,13 +1135,32 @@ class Sn4Pos implements Snippet, Declaring {
 
     // Not `final`: §8.3.1.2 says a final field's "declarator must include a variable
     // initializer or a compile-time error occurs", so Java 1.0 has no blank finals at all.
-    private String what;
-    private String body;
-    private Val    value;
-    private String imported;
+    private String  what;
+    private String  body;
+    private Val     value;      // leaf form: the whole answer
+    private String  imported;
+    private boolean holed;      // holed form: `body` carries $H and the answer is COMPOSED
+    private long    addend;
 
-    Sn4Pos(String what, String body, Val value) { this(what, null, body, value); }
+    /** A position that carries no value of its own, so the answer is fixed. */
+    Sn4Pos(String what, String body, Val value) {
+        this.what  = what;
+        this.body  = body;
+        this.value = value;
+    }
 
+    /** A position that carries a long THROUGH itself. `body` holds one `$H`, which the hole's
+     *  rendered text replaces, and the answer is the hole's value plus whatever the surrounding
+     *  code adds — so the position is exercised against every long-valued snippet the stitcher
+     *  can reach, rather than against one literal I picked. */
+    Sn4Pos(String what, String body, long addend) {
+        this.what   = what;
+        this.body   = body;
+        this.addend = addend;
+        this.holed  = true;
+    }
+
+    /** The one position reached by a declaration outside the class: an imported type. */
     Sn4Pos(String what, String imported, String body, Val value) {
         this.what     = what;
         this.imported = imported;
@@ -1154,7 +1171,7 @@ class Sn4Pos implements Snippet, Declaring {
     public String   id()          { return "t4.pos." + what; }
     public String[] sections()    { return Strs.of("4.4"); }
     public String   type()        { return "void"; }
-    public String[] holeTypes()   { return Strs.none(); }
+    public String[] holeTypes()   { return holed ? Strs.of("long") : Strs.none(); }
 
     public String[] imports() { return imported == null ? Strs.none() : Strs.of(imported); }
 
@@ -1178,6 +1195,17 @@ class Sn4Pos implements Snippet, Declaring {
         return d;
     }
 
-    public String render(String[] h) { return body; }
-    public Val    expect(Val[] h)    { return value; }
+    public String render(String[] h) {
+        if (!holed) return body;
+        int at = body.indexOf("$H");
+        if (at < 0) throw new RuntimeException(id() + ": holed body has no $H");
+        return body.substring(0, at) + h[0] + body.substring(at + 2);
+    }
+
+    public Val expect(Val[] h) {
+        if (!holed) return value;
+        // Composed, never observed: the position moves the hole's value through the place
+        // §4.4 names, and `addend` is what the surrounding statement provably adds to it.
+        return Val.ofLong(h[0].asLong() + addend);
+    }
 }

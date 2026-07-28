@@ -24,8 +24,9 @@
 // at generation time rather than leaving it for the compiler to trip over.
 public class Emit {
 
-    private final String dir;
-    private final int    perCase;
+    // Constructor-assigned, so not final (§8.3.1.2 wants the initializer in the declarator).
+    private String dir;
+    private int    perCase;
 
     private int caseCount = 0;
     private int lineCount = 0;

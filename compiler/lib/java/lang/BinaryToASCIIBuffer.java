@@ -45,20 +45,25 @@ class BinaryToASCIIBuffer {
     static final BinaryToASCIIBuffer B2AC_POSITIVE_INFINITY = new BinaryToASCIIBuffer("Infinity", false);
     static final BinaryToASCIIBuffer B2AC_NEGATIVE_INFINITY = new BinaryToASCIIBuffer("-Infinity", true);
     static final BinaryToASCIIBuffer B2AC_NOT_A_NUMBER      = new BinaryToASCIIBuffer("NaN", false);
-    static final BinaryToASCIIBuffer B2AC_POSITIVE_ZERO;
-    static final BinaryToASCIIBuffer B2AC_NEGATIVE_ZERO;
-    static {
-        char[] z1 = { '0' };
-        B2AC_POSITIVE_ZERO = new BinaryToASCIIBuffer(false, z1);
-        char[] z2 = { '0' };
-        B2AC_NEGATIVE_ZERO = new BinaryToASCIIBuffer(true, z2);
+    // §8.3.1.2: a final field's "declarator must include a variable initializer", so the two
+    // signed zeros are built by an initializer rather than by a static block assigning them --
+    // that assignment is itself what the section's next sentence forbids. The helper exists
+    // because §15.9's ArrayCreationExpression has no initializer form (`new char[]{'0'}` is
+    // later syntax), so a one-element array cannot be written as an expression.
+    static final BinaryToASCIIBuffer B2AC_POSITIVE_ZERO = new BinaryToASCIIBuffer(false, zeroDigit());
+    static final BinaryToASCIIBuffer B2AC_NEGATIVE_ZERO = new BinaryToASCIIBuffer(true,  zeroDigit());
+
+    private static char[] zeroDigit() {
+        char[] z = new char[1];
+        z[0] = '0';
+        return z;
     }
 
     private boolean isNegative;
     private int decExponent;
     private int firstDigitIndex;
     private int nDigits;
-    private final char[] digits;
+    private char[] digits;   // not final: §8.3.1.2 admits no field a constructor assigns
     private final char[] buffer = new char[26];
     private String image;   // non-null → Infinity/NaN, toJavaFormatString returns it verbatim
     private boolean exactDecimalConversion = false;

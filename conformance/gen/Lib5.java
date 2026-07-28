@@ -291,9 +291,10 @@ public class Lib5 {
  *  exemption, and it still carries sections[] and expects and still goes through the same
  *  emitter." */
 class Sn5Leaf implements Snippet {
-    private final String   name, text, ty;
-    private final String[] secs;
-    private final Val      v;
+    // Constructor-assigned, so not final (§8.3.1.2 wants the initializer in the declarator).
+    private String   name, text, ty;
+    private String[] secs;
+    private Val      v;
 
     Sn5Leaf(String name, String[] secs, String ty, String text, Val v) {
         this.name = name; this.secs = secs; this.ty = ty; this.text = text; this.v = v;

@@ -3577,21 +3577,21 @@ static void analyze_bodies(sema_ctx_t* ctx) {
             }
         }
 
-        /* §16.8: a blank final static field must be definitely assigned by a static
-         * initializer (§8.3.1.1). We accept the field when the class has a static
-         * initializer block that can assign it (the "exactly once" definite-assignment
-         * check is the same follow-up noted for instance finals); a blank static final
-         * with neither a declaration init nor any static initializer can never be
-         * assigned and is an error. */
+        /* §8.3.1.2: "A field can be declared final, in which case its declarator must
+         * include a variable initializer or a compile-time error occurs." Java 1.0 has no
+         * blank finals, static or instance. Neither a static initializer block nor a
+         * constructor assignment is a substitute, because each is itself "an attempt to
+         * assign to a final field", which the same paragraph makes an error — so the rule
+         * is a property of the DECLARATOR alone and needs no definite-assignment analysis.
+         *
+         * Imported classes are skipped: their fields carry no declaration-site AST, so a
+         * NULL init_expr there says nothing about how the field was written. */
         if (c->ast_node) {
-            bool has_static_init = class_has_own_static_init(c);
             for (int fi = 0; fi < bbq_vec_len(c->fields); fi++) {
                 const sema_field_t* ff = &c->fields[fi];
-                if ((ff->modifiers & ACC_FINAL) &&
-                    (ff->modifiers & ACC_STATIC) &&
-                    !ff->init_expr && !has_static_init)
+                if ((ff->modifiers & ACC_FINAL) && !ff->init_expr)
                     sema_error(ctx, c->ast_node->loc,
-                        "blank final static field '%s' has no initializer",
+                        "final field '%s' has no initializer in its declarator",
                         ff->name);
             }
         }
@@ -3694,43 +3694,6 @@ static void analyze_bodies(sema_ctx_t* ctx) {
             /* Phase B: record per-method slot count for DDCG */
             m->max_user_slots = ctx->next_slot;
 
-            /* §16.9: every final instance field must be definitely
-             * assigned by the end of each constructor. Simple check:
-             * scan the body for an assignment to each final field.
-             * (Full DA with branch tracking is a future refinement.) */
-            if (m->is_constructor) {
-                for (int fi = 0; fi < bbq_vec_len(c->fields); fi++) {
-                    const sema_field_t* ff = &c->fields[fi];
-                    if (!(ff->modifiers & ACC_FINAL)) continue;
-                    if (ff->modifiers & ACC_STATIC) continue;
-                    if (ff->init_expr) continue;
-                    int assign_count = 0;
-                    if (body && body->tag == AST_BLOCK) {
-                        for (int si = 0; si < body->block.stmts_count; si++) {
-                            ast_stmt_t* bs = body->block.stmts[si];
-                            if (bs->tag != AST_EXPRSTMT || !bs->expr_stmt.e ||
-                                bs->expr_stmt.e->tag != AST_ASSIGN) continue;
-                            ast_expr_t* lhs = bs->expr_stmt.e->assign.target;
-                            if (lhs->tag == AST_IDENT &&
-                                strcmp(lhs->ident.name, ff->name) == 0)
-                                assign_count++;
-                            else if (lhs->tag == AST_FIELDACCESS &&
-                                lhs->field_access.obj &&
-                                lhs->field_access.obj->tag == AST_THIS &&
-                                strcmp(lhs->field_access.field, ff->name) == 0)
-                                assign_count++;
-                        }
-                    }
-                    if (assign_count == 0)
-                        sema_error(ctx, ast->loc,
-                            "final field '%s' may not have been initialized",
-                            ff->name);
-                    if (assign_count > 1)
-                        sema_error(ctx, ast->loc,
-                            "final field '%s' may already have been assigned",
-                            ff->name);
-                }
-            }
 
             /* Constructor delegation order (JLS §8.8.7.1): if this
              * is a constructor whose body is a block, any

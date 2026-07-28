@@ -13,7 +13,35 @@
 # wants explaining rather than absorbing. The distinction is the whole point, so a raise
 # carries its reason here.
 #
-# 321 -> 319 (this commit): §4.4 and §4.5.3, the last two rows of chapter 4, by giving the
+# 319 -> 318 (this commit): §8.3.1.2, found from chapter 4 rather than looked for. javelinac
+# implemented BLANK FINALS -- a field declared final with no initializer, definitely assigned
+# by a constructor or a static block -- and cited "§16.8"/"§16.9" for it. Neither section
+# exists here: JLS 1.0's chapter 16 has exactly §16.1 and §16.2, and both are about local
+# variables ("Let V be a local variable", p.385). They are 2.0 numbers, where blank finals are
+# introduced at §4.5.4 and governed by §16.7/§16.8. In 1.0, §4.5.4 is "Initial Values of
+# Variables" and the feature does not exist.
+#
+# §8.3.1.2 (p.146) says the opposite of what was implemented: "its declarator must include a
+# variable initializer or a compile-time error occurs", and "Any attempt to assign to a final
+# field results in a compile-time error". Checked §8.5 (static initializers) and §8.6
+# (constructors) for a carve-out; there is none. So the rule needs no definite-assignment
+# analysis at all -- it is a property of the declarator, and the ~30 lines that computed
+# assignment counts are gone.
+#
+# The row states THREE claims and all three are covered, because two rejections alone would
+# have marked it COVERED while the one thing it says about running programs went untested:
+# the two compile-time errors are conformance/reject cases, and "the components of the array
+# may be changed ... but the field will always refer to the same array" is Lib8's snippet.
+# That third claim is load-bearing -- FDBigInteger fills POW_5_CACHE after its declarator
+# initializes it, which is legal only because of that sentence.
+#
+# 31 declarations across 11 files relied on the old behaviour, including two OpenJDK-derived
+# JRE classes. None was rewritten to dodge the rule: the two static ones moved their
+# initializer into the declarator (§8.5 blesses the helper-method indirection -- "Accesses to
+# class variables by methods are not checked in this way"), and the constructor-assigned ones
+# are simply not final, because under §8.3.1.2 they never could have been.
+#
+# 321 -> 319 (previous): §4.4 and §4.5.3, the last two rows of chapter 4, by giving the
 # generator the one capability it lacked. Both sections are ABOUT declarations — §4.5.3 names
 # seven kinds of variable and three of them (class variable, instance variable, constructor
 # parameter) cannot be introduced by any statement, and §4.4's list of positions a type name
@@ -89,4 +117,4 @@
 # row is invisible to this ratchet forever, so that was a permanent hiding place. ClassLoader,
 # Process, Runtime, SecurityManager and StreamTokenizer are now UNCOVERED, which is what
 # unwritten means, and the status gate now rejects an N/A justified by implementation state.
-319
+318

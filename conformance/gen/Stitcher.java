@@ -33,8 +33,9 @@ public class Stitcher {
      *  keeps a product of hole counts from overflowing into a nonsense drop report. */
     private static final long SAT = 1000000000000000L;   // 1e15
 
-    private final Registry reg;
-    private final int      cap;
+    // Constructor-assigned, so not final (§8.3.1.2 wants the initializer in the declarator).
+    private Registry reg;
+    private int      cap;
 
     private final java.util.Hashtable memo  = new java.util.Hashtable();  // "type@depth" -> Stitching[]
     private final java.util.Vector    drops = new java.util.Vector();     // report lines, in the order cuts fired

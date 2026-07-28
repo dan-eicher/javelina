@@ -654,11 +654,12 @@ public class Lib3 {
 /** A leaf snippet: fixed source text, fixed value, no holes. */
 class SnLex implements Snippet {
 
-    private final String   id;
-    private final String[] secs;
-    private final String   type;
-    private final String   text;
-    private final Val      value;
+    // Constructor-assigned, so not final (§8.3.1.2 wants the initializer in the declarator).
+    private String   id;
+    private String[] secs;
+    private String   type;
+    private String   text;
+    private Val      value;
 
     SnLex(String id, String[] secs, String type, String text, Val value) {
         if (text == null)  throw new RuntimeException("SnLex " + id + ": no source text");

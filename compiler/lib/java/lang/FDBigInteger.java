@@ -24,9 +24,12 @@ class FDBigInteger {
          // let nTinyBits index N_5_BITS out of bounds (the 0.1f dtoa trap).
 
     private static final int MAX_FIVE_POW = 340;
-    private static final FDBigInteger[] POW_5_CACHE;
+    // §8.3.1.2: the allocation belongs in the declarator ("its declarator must include a
+    // variable initializer"), and only the allocation has to move -- the same paragraph says
+    // that when a final field holds an array reference "the components of the array may be
+    // changed by operations on the array", so filling it below is not an assignment to it.
+    private static final FDBigInteger[] POW_5_CACHE = new FDBigInteger[MAX_FIVE_POW];
     static {
-        POW_5_CACHE = new FDBigInteger[MAX_FIVE_POW];
         int i = 0;
         while (i < SMALL_5_POW.length) {
             int[] one = { SMALL_5_POW[i] };
@@ -44,11 +47,13 @@ class FDBigInteger {
         }
     }
 
-    static final FDBigInteger ZERO;
-    static {
+    static final FDBigInteger ZERO = makeZero();
+
+    private static FDBigInteger makeZero() {
         int[] empty = new int[0];
-        ZERO = new FDBigInteger(empty, 0);
-        ZERO.makeImmutable();
+        FDBigInteger z = new FDBigInteger(empty, 0);
+        z.makeImmutable();
+        return z;
     }
 
     private int[] data;   // value: data[0] is least significant

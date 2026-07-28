@@ -117,9 +117,10 @@ public class LibIntro {
 /** A zero-hole snippet for chapters 1-2 — "a degenerate stitch, not an exemption" (the plan,
  *  §4). These sections are claims about fixed programs, so there is nothing to parameterise. */
 class SnILeaf implements Snippet {
-    private final String   name, text, ty;
-    private final String[] secs;
-    private final Val      v;
+    // Constructor-assigned, so not final (§8.3.1.2 wants the initializer in the declarator).
+    private String   name, text, ty;
+    private String[] secs;
+    private Val      v;
 
     SnILeaf(String name, String[] secs, String ty, String text, Val v) {
         this.name = name; this.secs = secs; this.ty = ty; this.text = text; this.v = v;

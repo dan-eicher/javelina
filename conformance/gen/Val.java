@@ -25,18 +25,20 @@ public final class Val {
     public static final int REF     = 4;   // any other reference; payload is its println text
     public static final int THROWS  = 5;   // evaluation completes abruptly; payload is the FQN
 
-    private final int     kind;
+    // None of these is `final`, though every one is write-once: §8.3.1.2 requires a final
+    // field's declarator to carry its initializer, which a constructor parameter cannot be.
+    private int     kind;
     // For LONG/DOUBLE/BOOLEAN this is the JAVA TYPE — "byte","short","char","int","long",
     // "float","double","boolean" — and display() dispatches on it, so it must be exact.
     // For STRING/REF it is the value's RUN-TIME class ("String", "StringBuffer", ...), or
     // "null" for the null reference (§4.1: the null type, whose only value is null); that
     // is what a §5.1.5 cast snippet needs to decide whether the cast throws.
     // For THROWS it is "" — a throw has no value type.
-    private final String  type;
-    private final long    l;
-    private final double  d;
-    private final boolean b;
-    private final String  s;      // STRING payload | REF println-text | THROWS class name
+    private String  type;
+    private long    l;
+    private double  d;
+    private boolean b;
+    private String  s;            // STRING payload | REF println-text | THROWS class name
 
     private Val(int kind, String type, long l, double d, boolean b, String s) {
         this.kind = kind; this.type = type;

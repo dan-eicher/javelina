@@ -17,8 +17,9 @@
 // are enumerated strictly before it exists.
 public final class Stitching {
 
-    private final Snippet     snip;
-    private final Stitching[] kids;
+    // Constructor-assigned, so not final (§8.3.1.2 wants the initializer in the declarator).
+    private Snippet     snip;
+    private Stitching[] kids;
 
     private String    renderCache;
     private Val       expectCache;
