@@ -546,7 +546,7 @@ static bool java_keyword(peg_state* p, peg_span* out) {
         {
             bool _ok12 = false;
             do {
-                if (!peg_match(p, "do")) break;
+                if (!peg_match(p, "double")) break;
                 _ok12 = true;
             } while(0);
             if (!_ok12) {
@@ -556,7 +556,7 @@ static bool java_keyword(peg_state* p, peg_span* out) {
         {
             bool _ok13 = false;
             do {
-                if (!peg_match(p, "double")) break;
+                if (!peg_match(p, "do")) break;
                 _ok13 = true;
             } while(0);
             if (!_ok13) {
@@ -596,7 +596,7 @@ static bool java_keyword(peg_state* p, peg_span* out) {
         {
             bool _ok17 = false;
             do {
-                if (!peg_match(p, "final")) break;
+                if (!peg_match(p, "finally")) break;
                 _ok17 = true;
             } while(0);
             if (!_ok17) {
@@ -606,7 +606,7 @@ static bool java_keyword(peg_state* p, peg_span* out) {
         {
             bool _ok18 = false;
             do {
-                if (!peg_match(p, "finally")) break;
+                if (!peg_match(p, "final")) break;
                 _ok18 = true;
             } while(0);
             if (!_ok18) {
@@ -686,7 +686,7 @@ static bool java_keyword(peg_state* p, peg_span* out) {
         {
             bool _ok26 = false;
             do {
-                if (!peg_match(p, "int")) break;
+                if (!peg_match(p, "interface")) break;
                 _ok26 = true;
             } while(0);
             if (!_ok26) {
@@ -696,7 +696,7 @@ static bool java_keyword(peg_state* p, peg_span* out) {
         {
             bool _ok27 = false;
             do {
-                if (!peg_match(p, "interface")) break;
+                if (!peg_match(p, "int")) break;
                 _ok27 = true;
             } while(0);
             if (!_ok27) {
@@ -856,7 +856,7 @@ static bool java_keyword(peg_state* p, peg_span* out) {
         {
             bool _ok43 = false;
             do {
-                if (!peg_match(p, "throw")) break;
+                if (!peg_match(p, "throws")) break;
                 _ok43 = true;
             } while(0);
             if (!_ok43) {
@@ -866,7 +866,7 @@ static bool java_keyword(peg_state* p, peg_span* out) {
         {
             bool _ok44 = false;
             do {
-                if (!peg_match(p, "throws")) break;
+                if (!peg_match(p, "throw")) break;
                 _ok44 = true;
             } while(0);
             if (!_ok44) {

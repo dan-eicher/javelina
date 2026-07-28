@@ -96,6 +96,7 @@ public class Lib3 {
         whiteSpace(r);              // §3.6
         comments(r);                // §3.7
         identifiers(r);             // §3.8
+        keywords(r);                // §3.9
         literalKinds(r);            // §3.10
         intDecimal(r);              // §3.10.1
         intOctal(r);
@@ -264,6 +265,16 @@ public class Lib3 {
     // ASCII underscore and dollar sign"; the spec's example identifiers are String, i3,
     // MAX_VALUE and isLetterOrDigit.
     // ───────────────────────────────────────────────────────────────────────────────────────
+
+    /** §3.9 — the 47 keywords, one rejection each, plus the boundary case that keeps them
+     *  attributable. See Lib3Keywords / Sn3Keyword at the end of this file. */
+    private static void keywords(Registry r) {
+        String[] kws = Lib3Keywords.all();
+        if (kws.length != 47)
+            throw new RuntimeException("Lib3.keywords: p.18 lists 47, this has " + kws.length);
+        for (int i = 0; i < kws.length; i++) r.register(new Sn3Keyword(kws[i]));
+        r.register(new Sn3KeywordContains());
+    }
 
     private static void identifiers(Registry r) {
         st(r, "lex3.ident.dollarUnderscore", Strs.of("3.8"),
@@ -673,4 +684,95 @@ class SnLex implements Snippet {
     public String[] holeTypes()        { return Strs.none(); }
     public String   render(String[] h) { return text; }
     public Val      expect(Val[] h)    { return value; }
+}
+
+/** §3.9 keywords, transcribed from p.18's table.
+ *
+ *  "The following character sequences, formed from ASCII letters, are reserved for use as
+ *  keywords and cannot be used as identifiers (§3.8)" -- then the table, read left to right,
+ *  top to bottom. FORTY-SEVEN entries, including `const` and `goto`, which the language
+ *  reserves without using: that is why they are here and not available as names.
+ *
+ *  One rejection template per keyword rather than a sample. The list is closed and the spec
+ *  prints all of it, so any subset would be a subset I chose -- and each id is distinct, so a
+ *  missing keyword is a missing row in SECTIONS.tsv rather than an invisible gap. It is NOT a
+ *  cardinality.tsv row: the spec prints the table but never names the number 47, and that file
+ *  takes only counts its own text states (the same reason §4.4's eleven positions and §2.4's
+ *  eight `for` forms are not rows).
+ *
+ *  ATTRIBUTION. javelinac answers all 47 with a bare "parse error", which a typo would also
+ *  produce, so the diagnostic alone cannot show the program was rejected for BEING A KEYWORD.
+ *  Two things supply that instead: each program is otherwise well formed, so the keyword is its
+ *  only defect; and t3.kw.contains below compiles and RUNS the same shape with names that merely
+ *  contain keywords. If the rejections came from the surrounding shape, that one would fail. */
+class Lib3Keywords {
+
+    static String[] all() {
+        String[] k = {
+            "abstract", "boolean", "break",   "byte",       "case",      "catch",  "char",
+            "class",    "const",   "continue",
+            "default",  "do",      "double",  "else",       "extends",   "final",  "finally",
+            "float",    "for",     "goto",
+            "if",       "implements", "import", "instanceof", "int",     "interface", "long",
+            "native",   "new",     "package",
+            "private",  "protected", "public", "return",    "short",     "static", "super",
+            "switch",   "synchronized", "this",
+            "throw",    "throws",  "transient", "try",      "void",      "volatile", "while"
+        };
+        return k;
+    }
+}
+
+/** One keyword, used where §3.8 would allow an identifier. */
+class Sn3Keyword implements Snippet {
+
+    private String kw;
+
+    Sn3Keyword(String kw) { this.kw = kw; }
+
+    public String   id()        { return "t3.kw." + kw; }
+    public String[] sections()  { return Strs.of("3.9"); }
+    public String   type()      { return Registry.REJECT; }
+    public String[] holeTypes() { return Strs.none(); }
+
+    public String render(String[] h) {
+        return "class T3Keyword {\n"
+             + "    int " + kw + " = 1;\n"
+             + "}";
+    }
+    public Val expect(Val[] h) { return Val.compileError("parse error"); }
+}
+
+/** §3.9 against §3.8: a keyword is a keyword only WHOLE. `classroom` contains `class`, `ifs`
+ *  contains `if`, and both are ordinary identifiers, because §3.5's longest-match tokenization
+ *  produces one Identifier token rather than a keyword followed by letters.
+ *
+ *  This is what makes the 47 rejections attributable: it is the same declaration shape they use,
+ *  and it compiles and runs. */
+class Sn3KeywordContains implements Snippet, Declaring {
+
+    public String   id()        { return "t3.kw.contains"; }
+    public String[] sections()  { return Strs.of("3.9", "3.5"); }
+    public String   type()      { return "void"; }
+    public String[] holeTypes() { return Strs.of("int"); }
+    public String[] imports()   { return Strs.none(); }
+
+    public String[] decls() {
+        String[] d = { "class T3Contains {\n"
+                     + "    int classroom = 1;\n"
+                     + "    int ifs       = 2;\n"
+                     + "    int forth     = 3;\n"
+                     + "    int newer     = 4;\n"
+                     + "    int thisIsFine = 5;\n"
+                     + "}" };
+        return d;
+    }
+
+    public String render(String[] h) {
+        return "{ T3Contains o = new T3Contains();"
+             + " System.out.println(o.classroom + o.ifs + o.forth + o.newer + o.thisIsFine"
+             + " + (" + h[0] + ")); }";
+    }
+
+    public Val expect(Val[] h) { return Val.ofInt(15 + h[0].asInt()); }
 }

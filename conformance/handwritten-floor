@@ -1,0 +1,34 @@
+# The HAND-WRITTEN ceiling. conformance/gates fails if the number of COVERED rows whose ONLY
+# artifact is a hand-written class in conformance/jls RISES above it.
+#
+# Why this needs a gate of its own. The UNCOVERED ratchet cannot see this at all: a row carried
+# by a hand-written program is COVERED, so it is subtracted from the number that is watched. 50
+# rows sat in exactly that position while every gate stayed green, and on 2026-07-27 that let
+# "chapter 4 closes" be said out loud while six of chapter 4's rows were carried by the class
+# crisp-tallying-chapters §4 forbids:
+#
+#   "This applies to the corpus, not to a subset chosen at authoring time. I twice proposed
+#    restricting stitching to the 'genuinely combinatorial' chapters and hand-writing the rest;
+#    that is the same scope-narrowing as cutting the generator outright, and it is not an
+#    authoring decision."
+#
+# And §5 says what to do about a rule nobody enforces: "A rule that cannot fire is not a gate --
+# the same defect this project keeps finding in its own tests."
+#
+# It is not a hard zero, because the debt is real and cannot clear in one commit. It is a
+# number that may only FALL. A row leaves the set when a GENERATED artifact claims its section,
+# which is what migrating a chapter into templates does.
+#
+# THE TESTS THIS DISTRUSTS ARE NOT HYPOTHETICALLY BAD. §15.24 was COVERED by a hand-written
+# Ch15 plus five generated cases and still had three wrong answers -- it rejected two legal
+# programs and accepted one the spec calls a compile-time error -- because every one of those
+# artifacts exercised the conditional operator and none exercised its TYPE RULE. §8.3.1.2,
+# §6.6.2 and §6.4.2 were each the same shape: a section with a test, a green suite, and a rule
+# nobody had read off the page.
+#
+# LOWER it by migrating a chapter's rows into templates written FROM THE SPEC. Porting the
+# hand-written assertions forward does not count and is worse than leaving them: it launders
+# the blind spot into the generator, which then certifies it.
+#
+# 50 (this commit): the starting debt, across chapters 3, 4, 5, 10, 11, 14 and 15.
+50

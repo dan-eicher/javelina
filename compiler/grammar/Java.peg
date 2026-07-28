@@ -408,14 +408,25 @@ TOKENS
     // lookahead in `ident` so identifiers can't accidentally collide
     // with keywords (e.g. `void` as a class type would silently make
     // `void x;` parse as a field).
+    //
+    // LONGEST FIRST WHERE ONE KEYWORD PREFIXES ANOTHER. This is an ORDERED choice, and the
+    // whole group is followed by !letter_or_digit. With "do" ahead of "double", the input
+    // `double` matched "do", then failed the word-boundary against `u`, and the failure was
+    // the TOKEN's, not the branch's -- so `keyword` did not match at all, ident_raw's
+    // !keyword lookahead succeeded, and `double` lexed as an ordinary identifier.
+    //
+    // `int double = 1;` compiled. So did `finally`, `interface` and `throws` as names, and
+    // those four are exactly the four keywords in this list that another keyword prefixes.
+    // Found by conformance/gen enumerating all 47 from p.18's table; the previous §3.9 test
+    // only checked that names CONTAINING a keyword are legal, which these still are.
     keyword = ( "abstract" | "boolean" | "break" | "byte" | "case"
               | "catch" | "char" | "class" | "const" | "continue" | "default"
-              | "do" | "double" | "else" | "extends" | "false" | "final"
-              | "finally" | "float" | "for" | "goto" | "if" | "implements" | "import"
-              | "instanceof" | "int" | "interface" | "long" | "native" | "new" | "null"
+              | "double" | "do" | "else" | "extends" | "false"
+              | "finally" | "final" | "float" | "for" | "goto" | "if" | "implements" | "import"
+              | "instanceof" | "interface" | "int" | "long" | "native" | "new" | "null"
               | "package" | "private" | "protected" | "public" | "return"
               | "short" | "static" | "super" | "switch" | "synchronized" | "this"
-              | "throw" | "throws" | "transient" | "true" | "try" | "void"
+              | "throws" | "throw" | "transient" | "true" | "try" | "void"
               | "volatile" | "while" )
               !letter_or_digit .
 

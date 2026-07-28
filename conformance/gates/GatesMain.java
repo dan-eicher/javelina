@@ -21,6 +21,17 @@
 //                   has not recorded. One direction alone is useless.
 //   ratchet         UNCOVERED may fall, never rise
 //   cardinality     a section whose own text states a count has at least that many cases
+//   hand-written    a COVERED row whose ONLY artifact is a hand-written class in
+//                   conformance/jls is not covered by the corpus, and ratchets against its own
+//                   floor so the debt can only shrink
+//
+// WHY THE LAST ONE EXISTS. §4: "This applies to the corpus, not to a subset chosen at authoring
+// time. I twice proposed restricting stitching to the 'genuinely combinatorial' chapters and
+// hand-writing the rest; that is the same scope-narrowing as cutting the generator outright."
+// The tree carried exactly that -- 50 rows resting only on conformance/jls -- and every gate
+// stayed green, so "chapter 4 closes" could be said out loud while six of its rows were carried
+// by the class §4 forbids. §5's own answer applies: "A rule that cannot fire is not a gate --
+// the same defect this project keeps finding in its own tests." This one fires.
 public class GatesMain {
 
     public static void main(String[] args) {
@@ -48,6 +59,7 @@ public class GatesMain {
         fails += join(L, m);
         fails += ratchet(L, dir);
         fails += cardinality(dir);
+        fails += handWritten(L, dir);
 
         if (fails != 0) {
             System.out.println("  FAIL  gates: " + fails + " problem(s)");
@@ -249,6 +261,68 @@ public class GatesMain {
         } finally {
             if (out != null) { try { out.close(); } catch (java.io.IOException e) { } }
         }
+    }
+
+    /* ── hand-written coverage ──────────────────────────────────────────────────────────
+     *
+     * A row whose artifacts are ALL hand-written classes is not covered by the corpus. It is
+     * covered by a program someone typed, which is the thing the generator exists to replace --
+     * and which has now been shown twice to certify its own blind spots: §15.24 was COVERED by
+     * a hand-written Ch15 plus five generated cases and still had three wrong answers, because
+     * every one of them exercised the operator and none exercised its type rule.
+     *
+     * Ratcheted rather than forbidden outright, for the same reason UNCOVERED is: the debt is
+     * real and cannot go to zero in one commit, so the gate makes it a number that may only
+     * fall. A row leaves this set when a GENERATED artifact claims its section -- which is what
+     * migrating a chapter into templates does.
+     */
+    private static int handWritten(Ledger L, String dir) {
+        Markers m = Markers.scan(dir);
+        int only = 0;
+        StringBuffer names = new StringBuffer();
+        for (int i = 0; i < L.rows; i++) {
+            if (!L.status[i].equals("COVERED")) continue;
+            boolean any = false, generated = false;
+            for (int j = 0; j < m.count; j++) {
+                if (!m.section[j].equals(L.sec[i])) continue;
+                any = true;
+                if (!isHandWritten(m.artifact[j])) generated = true;
+            }
+            if (any && !generated) {
+                only++;
+                if (only <= 12) names.append(only == 1 ? "" : ", ").append(L.sec[i]);
+            }
+        }
+
+        String f = Tsv.lastValueLine(dir + "/handwritten-floor");
+        int floor = f == null ? -1 : Tsv.parseInt(f, -1);
+        System.out.println("  ledger: " + only + " COVERED row(s) rest ONLY on conformance/jls"
+                         + " (ceiling " + (floor < 0 ? "?" : "" + floor) + ")");
+        if (floor < 0) {
+            System.out.println("  FAIL  conformance/handwritten-floor missing or not a number");
+            return 1;
+        }
+        if (only > floor) {
+            System.out.println("  FAIL  hand-written-only coverage rose from " + floor
+                             + " to " + only + ".");
+            // ASCII only: PrintStream writes each char's LOW 8 BITS, so a section sign leaves a
+            // stray 0xA7 byte in the terminal rather than the character it names.
+            System.out.println("        JLS 4: a template \"still carries sections[] and expects"
+                             + " and still goes through the same emitter\".");
+            System.out.println("        Rows: " + names.toString()
+                             + (only > 12 ? ", ..." : ""));
+            return 1;
+        }
+        return 0;
+    }
+
+    /** An artifact from conformance/jls: the hand-written suite, named Ch<n>. Generated
+     *  artifacts are Case<n> and Reject_<template-id>. */
+    private static boolean isHandWritten(String artifact) {
+        if (artifact == null || artifact.length() < 3) return false;
+        if (!artifact.startsWith("Ch")) return false;
+        char c = artifact.charAt(2);
+        return c >= '0' && c <= '9';
     }
 
     /* ── the ratchet ────────────────────────────────────────────────────────────────── */
