@@ -30,7 +30,25 @@
 # hand-written assertions forward does not count and is worse than leaving them: it launders
 # the blind spot into the generator, which then certifies it.
 #
-# 26 -> 21 (this commit): chapter 11 finished (its three list sections) and chapter 14 begun.
+# 21 -> 15 (this commit): §14.2, §14.3.1, §14.3.3, §14.3.4, §14.5 and §14.6, in three batches
+# (Lib14b/c/d), each transcribed from its own pages and verified before the next.
+#
+# One more compiler bug, and it is the containment half of §14.6: "A statement labeled by an
+# identifier must not appear anywhere within another statement labeled by the same identifier,
+# or a compile-time error will occur. Two statements can be labeled by the same identifier ONLY
+# IF NEITHER STATEMENT CONTAINS THE OTHER." Nested `dup:` inside `dup:` compiled. sema now
+# searches the active label stack, which is pushed on entry and popped after the body, so what
+# is on it is exactly the enclosing set -- and two SIBLING loops sharing a label stay legal,
+# which t14.label.siblings.same.identifier pins. Banning the repeated identifier outright would
+# have satisfied the rejection and broken that case, which is why both exist.
+#
+# §14.3.1's dimension rule is the other one worth naming. `float[][] f[][], g[][][], h[];` is
+# float[][][][] f, float[][][][][] g, float[][][] h -- the TYPE's brackets go to every
+# declarator, the DECLARATOR's to that one alone. A compiler that distributed the trailing
+# brackets to all three, or dropped them, still compiles; the run-time signatures
+# ("[[[[F|[[[[[F|[[[F") are what separate them.
+#
+# 26 -> 21 (previous): chapter 11 finished (its three list sections) and chapter 14 begun.
 # Two REAL compiler bugs in the first batch of chapter 14, both under a row Ch14.java called
 # COVERED, and both from ONE cause -- sema analyzed a local's initializer BEFORE declaring the
 # local, so the initializer sat outside the variable's scope. Wrong in both directions at once:
@@ -111,4 +129,4 @@
 # That is the kind of claim a hand-written assertion tends to sample rather than pin.
 #
 # 50 (previous): the starting debt, across chapters 3, 4, 5, 10, 11, 14 and 15.
-21
+15

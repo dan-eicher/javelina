@@ -44,6 +44,9 @@ public class GenMain {
         Lib11Std.install(reg);                      // JLS §11.5.1.1/.2, §11.5.2 standard classes
         Lib14.install(reg);                         // JLS chapter 14, Blocks and Statements
         Lib14a.install(reg);                        // JLS §14.1, §14.3.2
+        Lib14b.install(reg);                        // JLS §14.2, §14.3.1
+        Lib14c.install(reg);                        // JLS §14.3.3, §14.3.4
+        Lib14d.install(reg);                        // JLS §14.5, §14.6
         Lib15.install(reg);                         // JLS chapter 15, Expressions (§15.24 only)
         // ADD LIBRARIES HERE:  XxxSnippets.install(reg);
 

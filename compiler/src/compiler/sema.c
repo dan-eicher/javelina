@@ -3629,6 +3629,25 @@ static void analyze_stmt(sema_ctx_t* ctx, ast_stmt_t* s) {
              s->labeled.body->tag == AST_DOWHILE ||
              s->labeled.body->tag == AST_FOR ||
              s->labeled.body->tag == AST_SWITCH);
+        /* §14.6: "A statement labeled by an identifier must not appear anywhere within another
+         * statement labeled by the same identifier, or a compile-time error will occur. Two
+         * statements can be labeled by the same identifier ONLY IF NEITHER STATEMENT CONTAINS
+         * THE OTHER."
+         *
+         * So the rule is CONTAINMENT, not reuse. ctx->labels is pushed on entry and popped
+         * after the body, so whatever is on it here is exactly the set of enclosing labels --
+         * searching it rejects the nested case and leaves two sibling loops sharing a label
+         * alone, which the spec explicitly permits and t14.label.siblings.same.identifier
+         * exercises. Banning the repeated identifier outright would pass the rejection and
+         * break that one. */
+        for (int li = 0; li < bbq_vec_len(ctx->labels); li++) {
+            if (strcmp(ctx->labels[li].name, s->labeled.label) == 0) {
+                sema_error(ctx, s->loc,
+                    "label '%s' is already the label of an enclosing statement",
+                    s->labeled.label);
+                break;
+            }
+        }
         /* Keep the legacy `labels` stack populated for any code still
          * consulting it (sema's own diagnostics). */
         sema_label_t entry = { s->labeled.label,
