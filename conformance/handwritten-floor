@@ -30,7 +30,31 @@
 # hand-written assertions forward does not count and is worse than leaving them: it launders
 # the blind spot into the generator, which then certifies it.
 #
-# 50 -> 42 (this commit): chapters 4 and 5 cleared. §4.3, §4.3.2, §4.3.3, §4.3.4, §4.5.2 and
+# 42 -> 34 (this commit): chapter 10 cleared, by conformance/gen/Lib10.java, written from
+# pp.194-199 with Ch10.java and Ch10b.java unread.
+#
+# The two that a sampling test tends to miss, and why they are written the way they are:
+#
+#   §10.2  the spec's own `byte[] rowvector, colvector, matrix[];`, which it says "is
+#          equivalent to `byte rowvector[], colvector[], matrix[][];`". The [] on the TYPE
+#          distributes to every declarator; the [] on a declarator adds to that one alone. A
+#          compiler that applied the trailing bracket to all three, or dropped it, still
+#          COMPILES -- only indexing matrix twice tells them apart.
+#   §10.7  an array's clone "overrides the method of the same name in class Object and throws
+#          no checked exceptions". The template calls a.clone() with no try/catch and no throws
+#          clause: had the array inherited Object.clone's signature, which declares
+#          CloneNotSupportedException, the case would not compile at all.
+#
+# FOUND WHILE WRITING IT, unfixed and untested: javelinac SILENTLY TRUNCATES a source file at a
+# NUL byte. A first draft of Lib10.java quoted §10.9's escape literally and so carried a real
+# 0x00 in a comment -- legal Java, since §3.7 makes a comment's content any InputCharacter and
+# §3.5 exempts only a trailing SUB. javelinac exited 0 having parsed the file up to that point,
+# so `class Lib10` was never declared and the only symptom was "undefined 'Lib10'" reported
+# against GenMain, a different file. A compiler accepting a file with exit 0 while dropping the
+# half of it after byte N is a silent-truncation defect. It belongs to chapter 3 (§3.1/§3.7)
+# and gets a template there rather than a note here that outlives its own fix.
+#
+# 50 -> 42 (previous): chapters 4 and 5 cleared. §4.3, §4.3.2, §4.3.3, §4.3.4, §4.5.2 and
 # §4.5.5 by conformance/gen/Lib4Ref.java; §5.4 and §5.5 by Lib5Conv.java. Both written from the
 # pages (p.37-47, p.67) with Ch4.java and Ch5.java deliberately unread -- porting the old
 # assertions would launder whatever they missed into the generator, which would then certify it.
@@ -43,4 +67,4 @@
 # That is the kind of claim a hand-written assertion tends to sample rather than pin.
 #
 # 50 (previous): the starting debt, across chapters 3, 4, 5, 10, 11, 14 and 15.
-42
+34

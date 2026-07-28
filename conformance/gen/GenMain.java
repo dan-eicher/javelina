@@ -39,6 +39,7 @@ public class GenMain {
         Lib5Conv.install(reg);                      // JLS §5.4/§5.5, string conversion + casts
         Lib6.install(reg);                          // JLS chapter 6, Names
         Lib8.install(reg);                          // JLS chapter 8, Classes (§8.3.1.2 only)
+        Lib10.install(reg);                         // JLS chapter 10, Arrays
         Lib14.install(reg);                         // JLS chapter 14, Blocks and Statements
         Lib15.install(reg);                         // JLS chapter 15, Expressions (§15.24 only)
         // ADD LIBRARIES HERE:  XxxSnippets.install(reg);
