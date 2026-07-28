@@ -1760,6 +1760,34 @@ fun walk_finally_for_return(r: rho, tail: ir_root) -> ir_root {
     };
 }
 
+// §14.18.2: "If the catch block completes abruptly for reason R, then the FINALLY BLOCK IS
+// EXECUTED." A `throw` therefore has to run the pending finallies the same way `return` does —
+// but NOT all of them, and that is the whole difficulty.
+//
+// try_stmt puts a finally_frame on the BODY's ρ too (carrying the real region id), and a throw
+// there is caught by this try's try_table, whose catch-all already runs the finally and
+// rethrows. Inlining it here as well would run it TWICE. A catch body's frame is the one that
+// is unprotected — try_stmt builds it as finally_frame(f, -1, rho), commented "this frame has
+// no handlers" — so region < 0 is precisely "the table will not run this one for me".
+//
+// So: inline the unprotected finallies, and STOP at the first frame whose handlers will catch
+// this throw, because from there propagation does the rest. Each body is compiled under its
+// PARENT ρ, like every other inlined finally, so a throw inside a finally does not re-enter it.
+fun walk_finally_for_throw(r: rho, tail: ir_root) -> ir_root {
+    match (r) {
+        rho_root => tail
+      | loop_frame(break_target: _, continue_target: _, parent: p) =>
+            walk_finally_for_throw(p, tail)
+      | try_frame(region: rid, parent: p) =>
+            rid >= 0 ? tail : walk_finally_for_throw(p, tail)
+      | finally_frame(body: b, region: rid, parent: p) =>
+            rid >= 0
+              ? tail
+              : { let inner = walk_finally_for_throw(p, tail);
+                  gen(b, p, effect, single(inner), inner); }
+    };
+}
+
 // Build the body normal-exit chain: optionally inline finally, then
 // reach l_join. Compiled with `parent_rho` (NOT body_rho) — this
 // inline copy of finally executes when the body falls through, and
@@ -3483,7 +3511,12 @@ rule throw_stmt : ast.Throw(e: e) {
     let throw_node = build ir.Throw(build ir.LoadLocal(t_e, DtRef, nil));
     // §6: the regions enclosing this throw, straight off ρ. WE know them.
     let _ = record_except_regions(throw_node, rho);
-    gen(e, rho, locref(t_e, expr_ref(e)), single(throw_node), throw_node);
+    // §14.18.2: any pending finally this throw is NOT protected by runs before it propagates.
+    // The value is evaluated FIRST — the try completes abruptly "because of a throw of a value
+    // V", so V exists before the finally runs, which is why the chain is gen(e) → finallies →
+    // Throw and not the other way round.
+    let fin_chain = walk_finally_for_throw(rho, throw_node);
+    gen(e, rho, locref(t_e, expr_ref(e)), single(fin_chain), fin_chain);
 }
 
 // JLS §15.12 — `super.m(args)`. invokespecial on parent class with

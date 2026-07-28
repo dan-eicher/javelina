@@ -833,6 +833,7 @@ int ddcg_record_except_regions(ddcg_ctx_t* ctx, sir_node_t* t, rho_t r);
 int ddcg_rho_in_loop(ddcg_ctx_t* ctx, rho_t r);
 sir_node_t* ddcg_walk_for_break(ddcg_ctx_t* ctx, rho_t r, int n, sir_node_t* tail);
 sir_node_t* ddcg_walk_finally_for_return(ddcg_ctx_t* ctx, rho_t r, sir_node_t* tail);
+sir_node_t* ddcg_walk_finally_for_throw(ddcg_ctx_t* ctx, rho_t r, sir_node_t* tail);
 sir_node_t* ddcg_try_inline_finally(ddcg_ctx_t* ctx, ast_stmt_t* finally_body, rho_t parent_rho, sir_node_t* l_join);
 sir_node_t* ddcg_build_catch_chain(ddcg_ctx_t* ctx, ddcg_list_ast_catch_clause_t_ptr_t catches, int idx, sir_node_t* try_start, rho_t body_rho, rho_t parent_rho, sir_node_t* l_join, ast_stmt_t* finally_body, sir_node_t* entry_chain, int region);
 sir_node_t* ddcg_chain_case_body(ddcg_ctx_t* ctx, ddcg_list_ast_stmt_t_ptr_t stmts, int idx, sir_node_t* after, rho_t rho);

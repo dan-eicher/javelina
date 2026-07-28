@@ -1964,6 +1964,29 @@ int main(void) {
           { "class Ex extends Exception {} class T { static int f(int x){ int r=0; "
             "try { r=1; if (x>0) throw new Ex(); } catch (Ex e){ r=2; } finally { r=r+10; } return r; } }",
             1, 12, "finally on caught path (2+10) == 12" },
+          /* §14.18.2: "If the CATCH BLOCK completes abruptly for reason R, then the finally
+           * block is executed. ... If the finally block completes normally, then the try
+           * statement completes abruptly for reason R."
+           *
+           * The three cases above are the ones an implementation gets right by accident: the
+           * try block's normal exit and its caught-exception exit both leave through the
+           * try_table, whose catch-all runs the finally. A throw from inside the CATCH body has
+           * already left the table, so nothing runs the finally for it — javelinac skipped it
+           * entirely, and `seen` stayed 0. */
+          { "class Ex extends Exception {} class T { static int seen; "
+            "static int g() throws Ex { try { throw new Ex(); } catch (Ex e) { "
+            "throw new RuntimeException(); } finally { seen = 7; } } "
+            "static int f(int x){ seen = 0; try { g(); } catch (Throwable t) { } return seen; } }",
+            0, 7, "finally runs when the CATCH completes abruptly (§14.18.2)" },
+          /* ...and reason R survives a finally that completes normally: the RuntimeException
+           * the catch threw is what the caller sees, not the Ex the try threw. */
+          { "class Ex extends Exception {} class T { static int seen; "
+            "static int g() throws Ex { try { throw new Ex(); } catch (Ex e) { "
+            "throw new RuntimeException(); } finally { seen = 1; } } "
+            "static int f(int x){ seen = 0; try { g(); } "
+            "catch (RuntimeException r) { seen = seen + 20; } "
+            "catch (Throwable t) { seen = seen + 300; } return seen; } }",
+            0, 21, "the catch's reason R survives a normally-completing finally" },
         };
         for (int i = 0; i < (int)(sizeof fin / sizeof fin[0]); i++) {
             bbq_arena a; bbq_arena_init(&a, 1 << 18);
