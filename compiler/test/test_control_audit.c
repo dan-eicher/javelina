@@ -48,7 +48,7 @@ static int emit_body(bbq_arena* a, const char* src, const uint8_t** out) {
         if (methods[i]->class_id < jtest_last_nlib) continue;   /* user snippet only */
         if (!methods[i]->name || strcmp(methods[i]->name, "f")) continue;
         int nsc = 0; const compiler_fact_t* sc = compiler_get_facts(&cctx, i, &nsc);
-        static wasm_types_t wt; wasm_types_build(&wt, &sctx);
+        static wasm_types_t wt; wasm_types_build(&wt, &sctx, NULL, 0);
         static burg_ctx_t bc; bc = (burg_ctx_t){0}; burg_ctx_init(&bc); bc.types = &wt;
         codegen_method_structured(methods[i], sc, nsc, &bc);
         *out = bc.emit.code;

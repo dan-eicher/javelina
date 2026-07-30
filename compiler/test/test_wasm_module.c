@@ -8,7 +8,13 @@
 #include "javelina/compiler/compiler.h"
 #include "javelina/compiler/wasm_types.h"
 #include "javelina/compiler/wasm_module.h"
+#include "javelina/compiler/sir_support.h"   /* sir_arity / sir_child */
 #include "wasm.h"   /* the c-api — the §7.6 validity pin runs the REAL validator */
+#include "jav_load.h"    /* jav_validate_bytes — names the reject reason a bool cannot */
+#include "jav_error.h"
+#include "jav_extern.h"  /* jav_capi_last_status — the c-api's verdict, which a bool hides */
+#include "jav_view_nav.h"      /* jav_view_module / jav_module_index — the two decode stages */
+#include "jav_module_index.h"
 #include "bbq_arena.h"
 #include "bbq_vec.h"
 #include <stdio.h>
@@ -30,12 +36,82 @@ static bool assemble(bbq_arena* a, const char* src, emit_wasm_ctx* out) {
     compiler_ctx_t* cctx = (compiler_ctx_t*)malloc(sizeof *cctx);
     compiler_init(cctx, a, sctx);
     int mc = 0; sir_method_t** methods = compiler_compile(cctx, prog, &mc);
-    wasm_types_t wt; wasm_types_build(&wt, sctx);
+    int nct = 0; sema_func_ent_t* cts = compiler_call_targets(cctx, mc, &nct);
+    wasm_types_t wt; wasm_types_build(&wt, sctx, cts, nct);
+    bbq_vec_free(cts);
     bool ok = wasm_assemble_program(cctx, sctx, &wt, methods, mc, out);
     wasm_types_free(&wt);
     sema_destroy(sctx);              /* 31 htrees/vecs, none of them arena-backed */
     free(sctx); free(cctx);
     return ok;
+}
+
+/* The u32 vector count that opens section `id`'s payload, or -1 if the section is absent.
+ * Sections are id:u8, size:u32, payload — and every section this reads opens with a list
+ * length (WASM Core 3.0 §5.5). */
+static long section_vec_count(const uint8_t* p, int n, int id) {
+    int i = 8;                                  /* past \0asm + version */
+    while (i < n) {
+        int sid = p[i++];
+        uint32_t size = 0; int sh = 0;
+        while (i < n) { uint8_t b = p[i++]; size |= (uint32_t)(b & 0x7F) << sh; sh += 7; if (!(b & 0x80)) break; }
+        if (sid == id) {
+            uint32_t cnt = 0; int csh = 0, j = i;
+            while (j < n) { uint8_t b = p[j++]; cnt |= (uint32_t)(b & 0x7F) << csh; csh += 7; if (!(b & 0x80)) break; }
+            return (long)cnt;
+        }
+        i += (int)size;
+    }
+    return -1;
+}
+
+/* Compile + assemble, and hand the caller the pieces needed to check the emitter against the
+ * spec: the bytes, the type tables, and the methods those bytes were emitted from. */
+/* `mode` matters to every index this checks. In WHOLE the prelude is compiled in, so a
+ * library method resolves to a DEFINED function whether or not anything recorded a call to
+ * it; only in PLUGIN must it be imported, and only there does an unrecorded target become a
+ * funcidx of -1. A mode-blind gate over WHOLE alone cannot see that class of bug. */
+static bool assemble_full_mode(bbq_arena* a, const char* src, int mode, emit_wasm_ctx* out,
+                               wasm_types_t* wt, sir_method_t*** methods_out, int* mc_out,
+                               sema_ctx_t** sctx_out) {
+    ast_program_t* prog = jtest_build_flat(jtest_with_imports(JTEST_STD_IMPORTS, src), a);
+    sema_ctx_t* sctx = (sema_ctx_t*)malloc(sizeof *sctx);
+    sema_init(sctx, a); sctx->num_library_classes = jtest_last_nlib;
+    sctx->mode = mode;
+    jtest_analyze(sctx);
+    compiler_ctx_t* cctx = (compiler_ctx_t*)malloc(sizeof *cctx);
+    compiler_init(cctx, a, sctx);
+    int mc = 0; sir_method_t** methods = compiler_compile(cctx, prog, &mc);
+    int nct = 0; sema_func_ent_t* cts = compiler_call_targets(cctx, mc, &nct);
+    wasm_types_build(wt, sctx, cts, nct);
+    bbq_vec_free(cts);
+    bool ok = wasm_assemble_program(cctx, sctx, wt, methods, mc, out);
+    *methods_out = methods; *mc_out = mc; *sctx_out = sctx;
+    free(cctx);
+    return ok;
+}
+
+#define assemble_full(a, src, out, wt, ms, mc, sc) \
+    assemble_full_mode((a), (src), SEMA_MODE_WHOLE, (out), (wt), (ms), (mc), (sc))
+
+/* Every call target named by the emitted code, collected the way burg reads them: off each
+ * Invoke node's own class/method (codegen_wasm.burg's Invoke rules all emit
+ * `wasm_func_index(node->invoke_*.class_id, ...)`). */
+static void each_invoke_resolves(const wasm_types_t* wt, const sir_node_t* n,
+                                 const sir_node_t** seen, int* nseen, int cap,
+                                 int* checked, int* unresolved) {
+    if (!n || *nseen >= cap) return;
+    for (int i = 0; i < *nseen; i++) if (seen[i] == n) return;
+    seen[(*nseen)++] = n;
+    int cls = -1, mid = -1;
+    if (n->tag == SIR_INVOKESTATIC)  { cls = n->invoke_static.class_id;  mid = n->invoke_static.method_idx; }
+    if (n->tag == SIR_INVOKESPECIAL) { cls = n->invoke_special.class_id; mid = n->invoke_special.method_idx; }
+    if (cls >= 0) {
+        (*checked)++;
+        if (wasm_func_index(wt, cls, mid) < 0) (*unresolved)++;
+    }
+    for (int i = 0; i < sir_arity((sir_node_t*)n); i++)
+        each_invoke_resolves(wt, sir_child((sir_node_t*)n, i), seen, nseen, cap, checked, unresolved);
 }
 
 static int contains(const uint8_t* hay, int hn, const uint8_t* needle, int nn) {
@@ -117,6 +193,15 @@ int main(void) {
                 wasm_byte_vec_new_uninitialized(&bin, bbq_vec_len(mod.code));
                 memcpy(bin.data, mod.code, bbq_vec_len(mod.code));
                 valid = wasm_module_validate(st, &bin);
+                if (!valid) {
+                    bbq_arena da; bbq_arena_init(&da, 0);
+                    bbq_capture_metadata m2 = jav_view_module(mod.code, bbq_vec_len(mod.code), &da);
+                    jav_modidx_t mi2;
+                    int indexed = m2.success && jav_module_index(m2.root, mod.code, &da, &mi2);
+                    printf("    decode: view=%d index=%d (capi status %d)\n",
+                           (int)m2.success, indexed, (int)jav_capi_last_status(st));
+                    bbq_arena_free(&da);
+                }
                 wasm_byte_vec_delete(&bin);
                 wasm_store_delete(st); wasm_engine_delete(eng);
             }
@@ -292,6 +377,86 @@ int main(void) {
         CHECK(valid, "…and validates");
 
         bbq_vec_free(mod.code); bbq_arena_free(&a);
+    }
+
+    /* ── The emitter against the binary-format spec ───────────────────────────────────────
+     *
+     * WASM Core 3.0 §5.5.16, verbatim: "The lengths of lists produced by the (possibly empty)
+     * FUNCTION AND CODE SECTION must match up." Both count this module's DEFINED functions —
+     * §2.5.1 puts imports first in the func index space, so neither counts them. A module that
+     * gets this wrong is malformed before any body is type-checked, which is why the failure
+     * surfaces as a bare "type mismatch" naming nothing.
+     *
+     * And the property that decides whether a call can be emitted at all: every Invoke node in
+     * the methods these bytes came from must resolve to a funcidx. burg reads each call's index
+     * off the node itself, so an unresolved one becomes an out-of-range operand and the module
+     * fails validation with "unknown function". */
+    {
+        /* The ddcg SYNTHESIZES Invoke nodes the source never wrote, and each such lowering is
+         * its own path to an unrecorded call target — invisible to a corpus of source-written
+         * calls. One program per synthesizing lowering, so a new one that forgets to record
+         * fails here rather than in an e2e run. */
+        static const char* srcs[] = {
+            "class M { static int f(int x){ return x + 1; } }",
+            "class M { static int f(int x){ StringBuffer b = new StringBuffer(); b.append(x); return b.toString().length(); } }",
+            "class M { int v; M(int x){ v = x; } static int f(int x){ return new M(x).v; } }",
+            /* the §15.10 index guard synthesizes `new IndexOutOfBoundsException()` */
+            "class M { static int f(int[] a){ return a[0] + a.length; } }",
+            /* §15.16 and §15.19.2 both synthesize a Class.isInstance call, and they are
+             * SEPARATE lowerings — kept in separate programs, because one records the same
+             * (Class, isInstance) pair the other needs and would mask its omission. */
+            "class M { static int f(Object o){ String[] s = (String[]) o; return s.length; } }",
+            "class M { static int f(Object o){ return (o instanceof String[]) ? 1 : 0; } }",
+            /* §12.4.1 the $ensure_init barrier on a cross-class static reference */
+            "class A { static int x = 5; } class M { static int f(int y){ return A.x + y; } }",
+            /* §15.18.1 string concatenation synthesizes the StringBuffer chain */
+            "class M { static int f(int x){ return (\"v=\" + x + \"!\").length(); } }",
+        };
+        static const int modes[] = { SEMA_MODE_WHOLE, SEMA_MODE_PLUGIN };
+        for (int mi = 0; mi < 2; mi++)
+        for (int i = 0; i < (int)(sizeof srcs / sizeof srcs[0]); i++) {
+            bbq_arena a; bbq_arena_init(&a, 1 << 18);
+            emit_wasm_ctx mod = {0};
+            wasm_types_t wt; sir_method_t** ms = NULL; int mc = 0; sema_ctx_t* sc = NULL;
+            bool ok = assemble_full_mode(&a, srcs[i], modes[mi], &mod, &wt, &ms, &mc, &sc);
+            CHECK(ok, "the module assembled (precondition)");
+            if (ok) {
+                int n = (int)bbq_vec_len(mod.code);
+                long nfunc = section_vec_count(mod.code, n, 3);    /* function section */
+                long ncode = section_vec_count(mod.code, n, 10);   /* code section */
+                CHECK(nfunc >= 0 && ncode >= 0 && nfunc == ncode,
+                      "JLS-free, WASM 5.5.16: the function and code section lengths match up");
+
+                const sir_node_t** seen = (const sir_node_t**)malloc(65536 * sizeof *seen);
+                int checked = 0, unresolved = 0;
+                for (int m = 0; m < mc; m++) {
+                    int nseen = 0;
+                    each_invoke_resolves(&wt, ms[m]->entry, seen, &nseen, 65536,
+                                         &checked, &unresolved);
+                }
+                free(seen);
+                if (unresolved) printf("    src %d mode %d: %d unresolved\n", i, modes[mi], unresolved);
+                CHECK(checked > 0 && unresolved == 0, modes[mi] == SEMA_MODE_PLUGIN
+                      ? "PLUGIN: every Invoke node in the emitted methods resolves to a funcidx"
+                      : "WHOLE: every Invoke node in the emitted methods resolves to a funcidx");
+
+                /* The end property the walk above is a proxy for. A funcidx can also be named
+                 * by an emitted vtable row or a const-expr, which no SIR walk reaches, so run
+                 * the REAL §7 validator over the bytes — the same gate javelinac applies
+                 * before it writes an artifact. An emitted -1 surfaces here as
+                 * "unknown function". */
+                jav_err_t verr = JAV_E_NONE;
+                jav_status_t vst = jav_validate_bytes(mod.code, (size_t)n, &verr);
+                if (vst != JAV_OK)
+                    printf("    src %d mode %d: %s\n", i, modes[mi],
+                           verr != JAV_E_NONE ? jav_err_str(verr) : "no §7 reason");
+                CHECK(vst == JAV_OK, modes[mi] == SEMA_MODE_PLUGIN
+                      ? "PLUGIN: the emitted module passes the VM's §7 validator"
+                      : "WHOLE: the emitted module passes the VM's §7 validator");
+            }
+            wasm_types_free(&wt); sema_destroy(sc); free(sc);
+            bbq_vec_free(mod.code); bbq_arena_free(&a);
+        }
     }
 
     return TEST_SUMMARY("test_wasm_module");

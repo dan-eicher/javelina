@@ -122,7 +122,23 @@ static inline exec_status exec_call(const uint8_t* mod, size_t modlen, const cha
     instance = wasm_instance_new(store, module, &imports, &trap);
     if (!instance) {
         fprintf(stderr, "  [exec:%s] instantiation failed: %s\n", name, jav_err_str(jav_capi_last_error(store)));
-        if (trap) wasm_trap_delete(trap); st = EXEC_NO_INSTANCE; goto done; }
+        /* §4.5.4's second failure mode is the start function trapping; the reason and the
+         * §7.1.8 frame trace are the only things that name where. Dropping the trap here
+         * turned every one of those into a bare "instantiation failed". */
+        if (trap) {
+            wasm_message_t msg = {0};
+            wasm_trap_message(trap, &msg);
+            fprintf(stderr, "  [exec:%s]   trap: %.*s\n", name, (int)msg.size, msg.data ? msg.data : "");
+            wasm_byte_vec_delete(&msg);
+            wasm_frame_vec_t fr = {0};
+            wasm_trap_trace(trap, &fr);
+            for (size_t i = 0; i < fr.size; i++)
+                fprintf(stderr, "  [exec:%s]     at func %u +0x%x\n", name,
+                        wasm_frame_func_index(fr.data[i]), (unsigned)wasm_frame_func_offset(fr.data[i]));
+            wasm_frame_vec_delete(&fr);
+            wasm_trap_delete(trap);
+        }
+        st = EXEC_NO_INSTANCE; goto done; }
 
     wasm_module_exports(module, &exptypes);
     wasm_instance_exports(instance, &exports);

@@ -128,6 +128,7 @@ static sir_node_t* build_overlay_clone(ddcg_ctx_t* yctx, int class_id) {
     /* clone header = this.getClass() (the runtime array Class, e.g. "[LString;") */
     sir_node_t* getcls = sir_invoke_special(a, OVL_THIS(), sema_object_id(sema),
                                             sema_getclass_method_id(sema), NULL, 0, SIR_DTREF);
+    ddcg_record_call_target(yctx, getcls, sema_object_id(sema), sema_getclass_method_id(sema));
     sir_node_t* chain = sir_set_header(a, OVL_CLONE(), getcls, class_id, ret);
     /* RefArray: clone.elementClass = this.elementClass (field 0) */
     if (is_ref)
@@ -204,6 +205,7 @@ static sir_node_t* build_throw_new(ddcg_ctx_t* yctx, int cls_id, int ctor_idx, s
     sir_node_t* call  = sir_invoke_special(a, sir_load_local(a, t, SIR_DTREF, sir_class_ref(a, cls_id)),
                                            cls_id, ctor_idx, args, argc, SIR_DTSHORT);
     ddcg_record_except(yctx, call, region);
+    ddcg_record_call_target(yctx, call, cls_id, ctor_idx);
     sir_node_t* ctor  = sir_expr_effect(a, call, 1, thr);   /* ctor is void: is_void discards */
     sir_node_t* nw    = sir_new(a, cls_id);
     ddcg_record_except(yctx, nw, region);
@@ -247,6 +249,7 @@ static sir_node_t* build_ensure_init(ddcg_ctx_t* yctx, int class_id) {
          * steps 10/11 rethrow), so it is an excepting point of THIS region (§11.1). */
         sir_node_t* sup = sir_invoke_static(a, super_id, sem, NULL, 0, SIR_DTINT);
         ddcg_record_except(yctx, sup, region);
+        ddcg_record_call_target(yctx, sup, super_id, sem);
         body = sir_expr_effect(a, sup, 1, body);   /* void: placeholder dt, discarded */
     }
     sir_node_t* try_start = sir_nop(a, body);
@@ -323,6 +326,7 @@ static sir_node_t* build_main(ddcg_ctx_t* yctx, int class_id) {
     sir_node_t* mcall = sir_invoke_static(a, s->wk.main_class_id, s->wk.main_method_id,
                                           margs, 1, SIR_DTINT);   /* void: dt discarded */
     ddcg_record_except(yctx, mcall, region);
+    ddcg_record_call_target(yctx, mcall, s->wk.main_class_id, s->wk.main_method_id);
     sir_node_t* prot = sir_expr_effect(a, mcall,
         1, sir_return(a, sir_load_const(a, 0, SIR_DTINT), SIR_DTINT));
     sir_node_t* try_start = sir_nop(a, prot);
@@ -335,6 +339,7 @@ static sir_node_t* build_main(ddcg_ctx_t* yctx, int class_id) {
         sir_load_local(a, ex_t, SIR_DTREF, sir_class_ref(a, throwable_id)),
         throwable_id, s->wk.throwable_pst_method_id, NULL, 0, SIR_DTINT);   /* void: dt discarded */
     ddcg_record_except(yctx, pst, -1);
+    ddcg_record_call_target(yctx, pst, throwable_id, s->wk.throwable_pst_method_id);
     sir_node_t* handler = sir_exception_entry(a, ex_t, throwable_id,
         sir_expr_effect(a, pst, 1, sir_return(a, sir_load_const(a, 1, SIR_DTINT), SIR_DTINT)));
     ddcg_record_try_region(yctx, try_start, handler, throwable_id, region);
@@ -349,6 +354,7 @@ static sir_node_t* build_main(ddcg_ctx_t* yctx, int class_id) {
     sir_node_t* argv_call = sir_invoke_static(a, s->wk.startup_id, s->wk.startup_args_method_id,
                                               aargs, 2, SIR_DTREF);
     ddcg_record_except(yctx, argv_call, -1);
+    ddcg_record_call_target(yctx, argv_call, s->wk.startup_id, s->wk.startup_args_method_id);
     return sir_store_local(a, t_argv, SIR_DTREF, strarr_ref, argv_call, tr);
 }
 
@@ -765,6 +771,25 @@ const compiler_summary_t* compiler_method_summary(const compiler_ctx_t* ctx,
 /* THE ONE GETTER. Every fact the DDCG recorded for this method — try regions,
  * scopes, §15 guards, allocation sites, throw/handler enclosure — in record order.
  * Readers filter on `.kind`; see the PAYLOAD TABLE in compiler.h. */
+sema_func_ent_t* compiler_call_targets(const compiler_ctx_t* ctx, int method_count, int* out_n) {
+    sema_func_ent_t* v = NULL;
+    for (int m = 0; m < method_count; m++) {
+        int nf = 0;
+        const compiler_fact_t* f = compiler_get_facts(ctx, m, &nf);
+        for (int i = 0; i < nf; i++) {
+            if (f[i].kind != COMPILER_FACT_CALL_TARGET) continue;
+            bool dup = false;
+            for (int k = 0; k < (int)bbq_vec_len(v); k++)
+                if (v[k].class_id == f[i].a && v[k].method_id == f[i].b) { dup = true; break; }
+            if (dup) continue;
+            sema_func_ent_t e = { f[i].a, f[i].b };
+            bbq_vec_push(v, e);
+        }
+    }
+    if (out_n) *out_n = (int)bbq_vec_len(v);
+    return v;
+}
+
 const compiler_fact_t* compiler_get_facts(const compiler_ctx_t* ctx,
                                           int method_idx, int* count) {
     if (method_idx < 0 || method_idx >= ctx->method_count

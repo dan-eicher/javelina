@@ -163,6 +163,11 @@ typedef enum {
     COMPILER_FACT_GUARD,
     COMPILER_FACT_ALLOC,
     COMPILER_FACT_EXCEPT_REGION,
+    /* A call this method's code names. `key` is the Invoke node, `a` the class that DECLARES
+     * the target and `b` its method index there — the pair burg emits the funcidx from. The
+     * DDCG records one as it builds the node; the optimizer records the ones it mints when it
+     * devirtualizes. The backend reads these instead of re-deriving them from the graph. */
+    COMPILER_FACT_CALL_TARGET,
     COMPILER_FACT_KIND_COUNT,
 } compiler_fact_kind_t;
 
@@ -453,6 +458,12 @@ int const_pool_intern(uint8_t** pool, bbq_htree** index, const uint8_t* run, siz
  *
  * Valid until compiler_destroy. method_idx indexes the array compiler_compile returns;
  * out of range yields (NULL, 0). */
+/* The COMPILER_FACT_CALL_TARGET rows across methods [0, method_count), deduplicated, as a
+ * bbq_vec the caller frees. This is what a backend sizes its import section from: every funcidx
+ * it can emit comes from one of these. Lives here because the facts do — the type/index layer
+ * takes the list, not the context. */
+sema_func_ent_t* compiler_call_targets(const compiler_ctx_t* ctx, int method_count, int* out_n);
+
 const compiler_fact_t* compiler_get_facts(const compiler_ctx_t* ctx,
                                           int method_idx, int* count);
 

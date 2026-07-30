@@ -58,7 +58,7 @@ static const uint8_t* emit(bbq_arena* a, const char* src, const char* name,
         if (!methods[i]->name || strcmp(methods[i]->name, name)) continue;
         if (click) sir_optimize(&cctx, i);   /* in-place value rewrite + slot repack */
         int nsc = 0; const compiler_fact_t* sc = compiler_get_facts(&cctx, i, &nsc);
-        static wasm_types_t wt; wasm_types_build(&wt, &sctx);
+        static wasm_types_t wt; wasm_types_build(&wt, &sctx, NULL, 0);
         static burg_ctx_t bc; bc = (burg_ctx_t){0}; burg_ctx_init(&bc); bc.types = &wt;
         codegen_method_structured(methods[i], sc, nsc, &bc);
         *out_len = (int)bbq_vec_len(bc.emit.code);

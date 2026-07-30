@@ -446,8 +446,8 @@ bool wasm_assemble_program(compiler_ctx_t* cctx, const sema_ctx_t* sctx,
      * (sema appended it past the compiled methods). Emit its forwarder body —
      * generated any↔extern marshaling around the externref import, not SIR — into
      * that slot. */
-    for (int i = 0; ok && i < sema_import_count(sctx); i++) {
-        sema_func_ent_t fe = sema_import_at(sctx, i);
+    for (int i = 0; ok && i < wasm_import_count(wt); i++) {
+        sema_func_ent_t fe = wasm_import_at(wt, i);
         int pos = sema_func_index(sctx, fe.class_id, fe.method_id);
         if (pos < 0) continue;                /* primitive native: direct import, no forwarder */
         emit_wasm_ctx fb = {0};
@@ -486,8 +486,8 @@ bool wasm_assemble_program(compiler_ctx_t* cctx, const sema_ctx_t* sctx,
         if (pos < 0) continue;
         fidxs[pos] = (uint32_t)wasm_functype_idx(wt, cid, methods[ai]->method_id);
     }
-    for (int i = 0; i < sema_import_count(sctx); i++) {    /* forwarders: natural func type */
-        sema_func_ent_t fe = sema_import_at(sctx, i);
+    for (int i = 0; i < wasm_import_count(wt); i++) {    /* forwarders: natural func type */
+        sema_func_ent_t fe = wasm_import_at(wt, i);
         int pos = sema_func_index(sctx, fe.class_id, fe.method_id);
         if (pos < 0) continue;
         fidxs[pos] = (uint32_t)wasm_functype_idx(wt, fe.class_id, fe.method_id);
@@ -582,7 +582,7 @@ bool wasm_assemble_program(compiler_ctx_t* cctx, const sema_ctx_t* sctx,
          * their import funcidx so a plugin importing them from jre reaches jre's host func.
          * Ref-carrying natives were exported via their forwarders in the method loop above. */
         for (int i = 0; i < wt->nimports; i++) {
-            sema_func_ent_t fe = sema_import_at(sctx, i);
+            sema_func_ent_t fe = wasm_import_at(wt, i);
             const sema_method_t* im = &sema_get_class(sctx, fe.class_id)->methods[fe.method_id];
             bool refc = !(im->modifiers & ACC_STATIC)
                      || im->return_type.tag == JT_CLASS || im->return_type.tag == JT_ARRAY;
@@ -668,7 +668,7 @@ bool wasm_assemble_program(compiler_ctx_t* cctx, const sema_ctx_t* sctx,
     if (ok && (nimp + gimp + timp + mimp) > 0) {
         imps = (jav_import_t*)calloc((size_t)(nimp + gimp + timp + mimp), sizeof *imps);
         for (int i = 0; i < nimp; i++) {
-            sema_func_ent_t fe = sema_import_at(sctx, i);
+            sema_func_ent_t fe = wasm_import_at(wt, i);
             const sema_class_t*  icls = sema_get_class(sctx, fe.class_id);
             const sema_method_t* im   = &icls->methods[fe.method_id];
             uint8_t *mb, *fbn; int cl, ml;

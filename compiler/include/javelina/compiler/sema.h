@@ -237,6 +237,45 @@ typedef struct {
  * re-derived. Library (java.lang) methods are excluded — they are host imports. */
 typedef struct { int class_id; int method_id; } sema_func_ent_t;
 
+/* ONE resolved reference, JLS §13.1: `decl_class` is "the class or interface in which the
+ * denoted method or constructor is declared" and `method_id` selects it there, which fixes the
+ * signature and return type the spec also requires. `from_class` is the class whose compiled
+ * form contains the reference — §13.1 states its rules for "a Java binary representation FOR A
+ * CLASS or interface", so a reference belongs to the class that makes it, not to a module.
+ *
+ * Deliberately says nothing about what a backend does with it. Which references become imports,
+ * constant-pool entries, or nothing at all is a target-format question. */
+/* The kinds of symbolic reference JLS §13.1 requires a compiled type to record. */
+typedef enum {
+    SEMA_REF_METHOD = 0,      /* method or constructor: decl_class + member selects the signature */
+    SEMA_REF_FIELD,           /* field: decl_class + member gives the simple name AND declared type */
+    SEMA_REF_TYPE,            /* "a reference to another class or interface type" (member = -1) */
+    SEMA_REF_SUPERCLASS,      /* the direct superclass of from_class (member = -1) */
+    SEMA_REF_SUPERINTERFACE   /* one direct superinterface of from_class (member = -1) */
+} sema_ref_kind_t;
+
+typedef struct {
+    int kind;         /* sema_ref_kind_t */
+    int from_class;   /* the class whose compiled form contains the reference */
+    int decl_class;   /* the class or interface the reference NAMES */
+    int member;       /* method or field index within decl_class; -1 for a type reference */
+} sema_ref_ent_t;
+
+/* ONE resolved override, JLS §8.4.6.1: for `class_id`, the virtual signature introduced at
+ * (decl_class, decl_method) is implemented by (impl_class, impl_method) — "the method actually
+ * executed is the one that overrides", chosen by walking class_id's ancestry for the nearest
+ * declaration of that signature.
+ *
+ * A JAVA fact, and it is the one every dispatch mechanism needs whatever the target: a WASM
+ * vtable slot, a class-file method_ref, an interpreter's itable. sema resolves it once and
+ * publishes it; sema_resolve_virtual answers the same question but re-walks the ancestry per
+ * call, which is a recompute the consumers were doing per dispatch site. */
+typedef struct {
+    int class_id;                 /* the exact runtime class whose dispatch table this row is in */
+    int decl_class, decl_method;  /* where the signature is INTRODUCED */
+    int impl_class, impl_method;  /* the method that actually runs; impl_class < 0 if abstract */
+} sema_vtarget_ent_t;
+
 /* The spec-defined well-known java.lang classes (JLS 1.0 §20/§11.5), resolved ONCE
  * from the loaded prelude at sema_analyze (resolve_wellknown) and read BY class_id
  * everywhere — never re-looked-up by string, never `strcmp(name,"Throwable")`. The
@@ -485,6 +524,19 @@ typedef struct {
      * offsets defined functions past them. bbq_vec of sema_func_ent_t. */
     sema_func_ent_t* import_funcs;
 
+    /* The JLS §13.1 reference set (OUTPUT): one entry per resolved method/constructor
+     * reference, attributed to the class that makes it. Format-independent — a `.class`
+     * backend would read the same list to build its constant pool. bbq_vec. */
+    sema_ref_ent_t* refs;
+
+    /* The JLS §8.4.6.1 dispatch table (OUTPUT): for every class, every virtual signature it
+     * inherits or declares, and which method actually runs. Resolved once at the end of
+     * analysis; read by anything that builds a dispatch structure. bbq_vec. */
+    sema_vtarget_ent_t* vtargets;
+    /* vtargets row index: rows for class ci are [vtarget_base[ci], vtarget_base[ci+1]).
+     * bbq_vec of int, length num_classes+1 (the last entry is the sentinel). */
+    int* vtarget_base;
+
     /* Well-known java.lang class ids, resolved once (resolve_wellknown). Read by
      * class_id; the single home for the canonical names — replaces the scattered
      * sema_find_class("Object"/"Throwable"/...) + strcmp(name,"Throwable") walks. */
@@ -523,6 +575,18 @@ bool sema_analyze_units(sema_ctx_t* ctx, ast_program_t** units, int n);
  * for "compiled into the module" — used by both the compiler and the table build
  * so the emitted set and the function index can never drift. */
 bool sema_method_is_defined(const sema_ctx_t* ctx, int class_id, const sema_method_t* m);
+
+/* Does every invocation of `m` lower to opcodes instead of a call — a Move bitcast, a Math
+ * f64 op, a Class.newInstance helper, a javelina.simd intrinsic? Such a method is never
+ * called and so can never be imported, while §13.1 still records the reference; that is why
+ * only the import set consults this. */
+bool sema_method_lowers_inline(const sema_method_t* m);
+
+/* Is `m` (declared in `class_id`) NON-ABSTRACT — §15.12.4.4 step 1's predicate, what the
+ * dynamic method lookup stops at, and what makes a vtable slot occupied? A native method
+ * qualifies (§8.4.3.4); an interface's does not (§9.4). Distinct from is_defined above,
+ * which asks whether THIS module emits the body — an emission fact, not a JLS one. */
+bool sema_method_is_concrete(const sema_ctx_t* ctx, int class_id, const sema_method_t* m);
 
 /* The emitted-function table (ctx->functions), built by sema_analyze. */
 int             sema_func_count(const sema_ctx_t* ctx);
@@ -900,6 +964,31 @@ const sema_method_t* sema_implementing_method(const sema_ctx_t* ctx,
  * defined functions past them; the import section is emitted from this list. */
 int sema_import_count(const sema_ctx_t* ctx);
 sema_func_ent_t sema_import_at(const sema_ctx_t* ctx, int i);
+
+/* The JLS §13.1 reference set: every resolved method/constructor reference, in first-resolved
+ * order, each attributed to the class whose compiled form contains it. Says nothing about any
+ * binary format — a backend derives its import section / constant pool from this. */
+int sema_ref_count(const sema_ctx_t* ctx);
+sema_ref_ent_t sema_ref_at(const sema_ctx_t* ctx, int i);
+
+/* The JLS §8.4.6.1 dispatch table: every (class, introduced signature) pair with the method
+ * that actually runs. Resolved once, so a consumer building a dispatch structure reads it
+ * instead of re-walking each class's ancestry per slot. */
+int sema_vtarget_count(const sema_ctx_t* ctx);
+sema_vtarget_ent_t sema_vtarget_at(const sema_ctx_t* ctx, int i);
+
+/* "Receiver of exact class `exact`, call site naming (decl_class, decl_method): which method
+ * runs?" — the published answer, keyed by the declaration the call site names. Scans only that
+ * class's rows and compares two ints: no ancestry walk, no signature comparison, no allocation,
+ * so a consumer inside a fixpoint stays O(inputs). Same answer as sema_resolve_virtual, which
+ * remains the RULE (it builds this table); this is the read path. */
+bool sema_vtarget_find(const sema_ctx_t* ctx, int exact, int decl_class, int decl_method,
+                       int* out_class, int* out_method);
+
+/* The rows for `exact`, as the half-open range [*lo, *hi) into sema_vtarget_at — every
+ * (declaration, implementation) pair that dispatches on this class. A consumer building a
+ * dispatch structure iterates these; it does not search. */
+void sema_vtarget_range(const sema_ctx_t* ctx, int exact, int* lo, int* hi);
 
 /* Format a diagnostic as "file:line:col: level: message".
  * Returns characters written (excluding NUL). */

@@ -289,7 +289,9 @@ int main(int argc, char** argv) {
     cctx->optimize = optimize;
     int mc = 0; sir_method_t** methods = compiler_compile(cctx, prog, &mc);
 
-    wasm_types_t wt; wasm_types_build(&wt, sctx);
+    int nct = 0; sema_func_ent_t* cts = compiler_call_targets(cctx, mc, &nct);
+    wasm_types_t wt; wasm_types_build(&wt, sctx, cts, nct);
+    bbq_vec_free(cts);
     emit_wasm_ctx out = {0};
     bool ok = wasm_assemble_program(cctx, sctx, &wt, methods, mc, &out);
     wasm_types_free(&wt);
@@ -308,9 +310,15 @@ int main(int argc, char** argv) {
     size_t len = bbq_vec_len(out.code);
     {
         jav_err_t verr = JAV_E_NONE;
-        if (jav_validate_bytes(out.code, len, &verr) != JAV_OK) {
-            fprintf(stderr, "%s: emitted module FAILS validation: %s — refusing to write\n",
-                    prog_name, jav_err_str(verr));
+        jav_status_t vst = jav_validate_bytes(out.code, len, &verr);
+        if (vst != JAV_OK) {
+            /* jav_err_str speaks for §7 VALIDITY only. A module that fails to DECODE
+             * (JAV_MALFORMED) never sets one, so reporting the string alone printed an empty
+             * reason — the status is the part that says which stage refused. */
+            fprintf(stderr, "%s: emitted module is %s: %s — refusing to write\n", prog_name,
+                    vst == JAV_MALFORMED ? "MALFORMED (does not decode)"
+                                         : vst == JAV_INVALID ? "INVALID (§7)" : "rejected",
+                    verr != JAV_E_NONE ? jav_err_str(verr) : "no §7 reason (decode stage)");
             release_compile(&arena, ctxs, sctx); return 1;
         }
     }

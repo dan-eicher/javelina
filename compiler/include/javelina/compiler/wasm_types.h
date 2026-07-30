@@ -20,6 +20,9 @@
 #include "javelina/compiler/sema.h"
 #include "gen/sir_ast.h"
 
+/* The recorded-fact side: the import list is read from the ddcg's call-target rows. */
+#include "javelina/compiler/compiler.h"
+
 typedef struct wasm_types_t {
     const sema_ctx_t* sema;
     int        num_classes;     /* struct typeidx range [0, num_classes) */
@@ -56,6 +59,11 @@ typedef struct wasm_types_t {
     bool       has_iface_helper; /* the program has interfaces → emit the synthesized
                                  * iface_instanceof helper (a (ref null root, i32)->i32
                                  * function + functype, appended past the tag functype) */
+    /* The module's import list, DERIVED by build_import_list from sema's §13.1 reference set
+     * and §8.4.6.1 dispatch table — not copied from sema, which publishes neither an import
+     * list nor a funcidx order (both are target concepts). Position IS the funcidx.
+     * bbq_vec of sema_func_ent_t. */
+    sema_func_ent_t* imports;
     int        nimports;        /* referenced native/host methods become FUNCTION
                                  * IMPORTS occupying funcidx [0, nimports); defined
                                  * functions follow at nimports+. Cached from sema
@@ -66,9 +74,14 @@ typedef struct wasm_types_t {
     /* (class, method) → GLOBAL VTABLE SLOT, built ONCE by build_method_slots.
      * method_slot is flat, indexed by class_method_base[class_id] + method_idx;
      * num_vtable_slots is the vtable length (the number of distinct virtual
-     * signatures). wasm_vtable_slot used to RECOMPUTE this on every call — and
-     * codegen calls it once per virtual call site, which cost 42M signature
-     * comparisons on the jre. */
+     * signatures). Codegen asks once per virtual call site, so this must stay a
+     * lookup — recomputing it per call is quadratic in the class table.
+     *
+     * -1 means NO SLOT (the method is not virtual, or the pair is out of range),
+     * like every other index accessor here. It must not be 0: slot 0 is a real
+     * slot, and a miss reported as 0 dispatches through the wrong signature's
+     * funcref, which the ref.cast in VTABLE_DISPATCH_OP turns into a runtime
+     * cast failure far from the mistake. */
     int32_t*   method_slot;
     int*       class_method_base;
     int        num_vtable_slots;
@@ -78,9 +91,29 @@ typedef struct wasm_types_t {
  * method, recorded by sema at call resolution), or -1 if it is not an import. */
 int32_t wasm_import_index(const wasm_types_t* wt, int class_id, int method_idx);
 
+/* The derived import list — the module's own, in funcidx order. Every emitter that walks the
+ * imports reads THESE, not sema's list: sema publishes references, this is the target's
+ * answer to what must be imported. */
+int             wasm_import_count(const wasm_types_t* wt);
+sema_func_ent_t wasm_import_at(const wasm_types_t* wt, int i);
+
+/* Does jre own this class's globals and vtable? True in PLUGIN mode for a shared library
+ * class; false for a class this module emits. The one predicate for that split. */
+bool wasm_is_imported_class(const wasm_types_t* wt, int ci);
+
+/* Add every call target the ddcg RECORDED for methods [0, method_count) to the import list, then
+ * re-freeze nimports. Reads facts; does not inspect the SIR. */
+void wasm_types_add_call_targets(wasm_types_t* wt, const sema_ctx_t* s,
+                                 const sema_func_ent_t* call_targets, int n_call_targets);
+
+
 /* Build the struct type for every class in `sema` (typeidx == class_id) and
  * register the array types reachable from their instance fields. */
-void wasm_types_build(wasm_types_t* wt, const sema_ctx_t* sema);
+/* `cctx` supplies the ddcg's recorded facts for methods [0, method_count), whose call targets
+ * join the import list. NULL when the caller emits no code and only wants the type/index
+ * tables. */
+void wasm_types_build(wasm_types_t* wt, const sema_ctx_t* sema,
+                      const sema_func_ent_t* call_targets, int n_call_targets);
 void wasm_types_free(wasm_types_t* wt);
 
 /* The struct typeidx of a class. */

@@ -20,6 +20,7 @@ static const char* prog_name = "javelina";
 
 /* The c-api's sanctioned store-scoped readouts + the tier option (not part of wasm.h). */
 extern int         jav_capi_last_error(const wasm_store_t* store);
+extern int         jav_capi_last_status(const wasm_store_t* store);
 extern const char* jav_err_str(int err);
 extern void        jav_capi_set_probe(wasm_store_t*, void (*)(void*, uint8_t), void*);
 extern void        jav_config_set_jit(wasm_config_t*, int);
@@ -101,8 +102,31 @@ static bool jre_init(const uint8_t* bytes, size_t len, int jit, int verify_heap)
     }
     wasm_trap_t* trap = NULL;
     jre.inst = wasm_instance_new(jre.store, jre.mod, &jre.imp, &trap);
-    if (!jre.inst) { fprintf(stderr, "%s: jre.wasm instantiation failed: %s\n", prog_name, jav_err_str(jav_capi_last_error(jre.store)));
-                     if (trap) wasm_trap_delete(trap); return false; }
+    if (!jre.inst) {
+        /* §4.5.4: a module that LINKS can still fail to instantiate — a segment out of bounds,
+         * or the start function trapping. The status says which stage; the trap says why, and
+         * discarding it left the reason blank. */
+        fprintf(stderr, "%s: jre.wasm instantiation failed (status %d): %s\n", prog_name,
+                (int)jav_capi_last_status(jre.store), jav_err_str(jav_capi_last_error(jre.store)));
+        if (trap) {
+            wasm_message_t msg = {0};
+            wasm_trap_message(trap, &msg);
+            fprintf(stderr, "%s:   start-function trap: %.*s\n", prog_name,
+                    (int)msg.size, msg.data ? msg.data : "");
+            wasm_byte_vec_delete(&msg);
+            /* §7.1.8 the frame trace, innermost first: each frame's funcidx and the byte offset
+             * of the instruction it stopped at. A start-function trap has no other locator. */
+            wasm_frame_vec_t fr = {0};
+            wasm_trap_trace(trap, &fr);
+            for (size_t i = 0; i < fr.size; i++)
+                fprintf(stderr, "%s:     at func %u +0x%x (module 0x%zx)\n", prog_name,
+                        wasm_frame_func_index(fr.data[i]), (unsigned)wasm_frame_func_offset(fr.data[i]),
+                        wasm_frame_module_offset(fr.data[i]));
+            wasm_frame_vec_delete(&fr);
+            wasm_trap_delete(trap);
+        }
+        return false;
+    }
     wasm_module_exports(jre.mod, &jre.expt); wasm_instance_exports(jre.inst, &jre.exp);
     for (size_t i = 0; i < jre.expt.size && i < jre.exp.size; i++) {   /* the shared I/O staging memory */
         const wasm_name_t* en = wasm_exporttype_name(jre.expt.data[i]);

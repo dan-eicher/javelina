@@ -73,7 +73,7 @@ static int wasm_num_functypes(const wasm_types_t* wt) {
          + (wt->has_clinit ? 1 : 0)
          + (wt->has_exceptions ? 1 : 0)
          + (wt->has_iface_helper ? 1 : 0)
-         + sema_import_count(wt->sema);
+         + (int)bbq_vec_len(wt->imports);
 }
 
 /* The typeidx of arr_elems[i]: the signature/field region [0, num_sig_arrays) sits
@@ -332,7 +332,6 @@ static int count_static_fields(const sema_ctx_t* sema, int class_id) {
     return n;
 }
 
-static bool wasm_is_imported_class(const wasm_types_t* wt, int ci);  /* PLUGIN shared-class predicate; below */
 static int shared_static_before(const wasm_types_t* wt, int ci);     /* below */
 static int user_static_before(const wasm_types_t* wt, int ci);       /* below */
 
@@ -356,10 +355,19 @@ int32_t wasm_global_index(const wasm_types_t* wt, int decl_class, int local_idx)
  * table (the single authority, computed where it is fully known). -1 = a library
  * method (host import), which the backend must not call as a defined function. */
 int32_t wasm_import_index(const wasm_types_t* wt, int class_id, int method_idx) {
-    int n = sema_import_count(wt->sema);
-    for (int i = 0; i < n; i++) {
-        sema_func_ent_t e = sema_import_at(wt->sema, i);
-        if (e.class_id == class_id && e.method_id == method_idx) return i;
+    for (int i = 0; i < (int)bbq_vec_len(wt->imports); i++)
+        if (wt->imports[i].class_id == class_id && wt->imports[i].method_id == method_idx)
+            return i;
+    /* A miss here becomes an out-of-range funcidx and surfaces much later as the module-wide
+     * "unknown function — refusing to write", which names nothing. Say WHICH method was asked
+     * for: this is the consumer side of the import-set seam, and it is the only place that
+     * knows the request. JAVELINA_IMPORT_MISS=1 to see them. */
+    if (getenv("JAVELINA_IMPORT_MISS")) {
+        const sema_class_t* c = sema_get_class(wt->sema, class_id);
+        fprintf(stderr, "  import-miss: %s.%s (class %d, method %d)\n",
+                c ? c->name : "?", (c && method_idx < (int)bbq_vec_len(c->methods))
+                                   ? c->methods[method_idx].name : "?",
+                class_id, method_idx);
     }
     return -1;
 }
@@ -371,7 +379,19 @@ int32_t wasm_func_index(const wasm_types_t* wt, int decl_class, int method_idx) 
      * forwarder; it is called as the host import directly at funcidx [0,nimports). */
     int32_t d = sema_func_index(wt->sema, decl_class, method_idx);
     if (d >= 0) return wt->nimports + d;            /* defined: offset past the import range   */
-    return wasm_import_index(wt, decl_class, method_idx);  /* primitive native: direct import   */
+    int32_t im = wasm_import_index(wt, decl_class, method_idx);
+    /* THE FATAL path, as distinct from a probe. wasm_import_index is also called speculatively
+     * (wasm_functype_idx scans same-signature virtuals and falls back on a miss), so a miss
+     * there is usually harmless. A miss HERE becomes an emitted funcidx of -1. */
+    if (im < 0 && getenv("JAVELINA_IMPORT_MISS")) {
+        const sema_class_t* c = sema_get_class(wt->sema, decl_class);
+        fprintf(stderr, "  FATAL import-miss: %s.%s (class %d, method %d) — emitted as a funcidx\n",
+                c && c->name ? c->name : "?",
+                (c && method_idx < (int)bbq_vec_len(c->methods) && c->methods[method_idx].name)
+                    ? c->methods[method_idx].name : "?",
+                decl_class, method_idx);
+    }
+    return im;
 }
 
 int32_t wasm_vtable_typeidx(const wasm_types_t* wt, int class_id) {
@@ -403,9 +423,6 @@ int32_t wasm_factory_functype_idx(const wasm_types_t* wt) {
     return -1;
 }
 
-/* forward: the slot/virtuality predicates are defined just below. */
-static bool first_sig_occurrence(const sema_ctx_t* sema, int ci, int j);
-
 /* A virtual method occupies a vtable slot: instance, not private (those are
  * invokespecial), not a constructor. */
 /* JLS §8.4.8's two predicates live in SEMA, which owns the class table — the optimizer
@@ -415,37 +432,19 @@ static bool first_sig_occurrence(const sema_ctx_t* sema, int ci, int j);
 #define is_virtual_method(m)  sema_is_virtual_method(m)
 #define same_sig(a, b)        sema_same_vsig((a), (b))
 
-/* Is (ci, j) the FIRST occurrence of its virtual signature in (class, method)
- * enumeration order? Distinct signatures get successive global slots. */
-static bool first_sig_occurrence(const sema_ctx_t* sema, int ci, int j) {
-    const sema_method_t* m = &sema_get_class(sema, ci)->methods[j];
-    for (int pci = 0; pci <= ci; pci++) {
-        const sema_class_t* pc = sema_get_class(sema, pci);
-        int jmax = (pci == ci) ? j : (int)bbq_vec_len(pc->methods);
-        for (int pj = 0; pj < jmax; pj++)
-            if (is_virtual_method(&pc->methods[pj]) && same_sig(&pc->methods[pj], m))
-                return false;
-    }
-    return true;
-}
-
 /* The GLOBAL vtable slot of a method: the index of its (name, parameter-types)
  * signature in the program-wide enumeration of distinct virtual signatures.
  * Overrides AND interface implementations of the same signature share a slot,
  * so one mechanism (struct.get vtable; struct.get slot; call_ref) dispatches
  * both virtual and interface calls regardless of the receiver's concrete type.
  *
- * A LOOKUP in the table built once by build_method_slots. It used to RESCAN every class
- * and every method — and call first_sig_occurrence, itself a rescan — on EVERY CALL, and
- * codegen calls it once per virtual call site: 42 MILLION sema_is_virtual_method calls on
- * the jre. The same blowup was found once before and fixed only for the slot TABLE (see
- * build_vtable_slots' "computed ONCE per assembly, not per slot"); the per-call-site query
- * was left quadratic. Now neither rescans. */
+ * A LOOKUP in the table build_method_slots fills once per assembly — codegen asks once
+ * per virtual call site, so it must not rescan the class table. -1 = no slot. */
 int32_t wasm_vtable_slot(const wasm_types_t* wt, int class_id, int method_idx) {
-    if (!wt->method_slot || class_id < 0 || class_id >= wt->num_classes) return 0;
+    if (!wt->method_slot || class_id < 0 || class_id >= wt->num_classes) return -1;
     int base = wt->class_method_base[class_id];
     int n    = (int)bbq_vec_len(sema_get_class(wt->sema, class_id)->methods);
-    if (method_idx < 0 || method_idx >= n) return 0;
+    if (method_idx < 0 || method_idx >= n) return -1;
     return wt->method_slot[base + method_idx];
 }
 
@@ -455,15 +454,13 @@ int32_t wasm_vtable_len(const wasm_types_t* wt) {
     return wt->num_vtable_slots;
 }
 
-/* Build (class, method) → vtable slot ONCE, in the order wasm_vtable_slot used to
- * enumerate: class order, then method order, one slot per FIRST occurrence of a virtual
- * signature. Every later method sharing that signature — an override, or an interface
- * implementation — gets the same slot, which is exactly what makes one dispatch mechanism
- * serve both.
+/* Build (class, method) → vtable slot. THE numbering authority: class order, then method
+ * order, one slot per FIRST occurrence of a virtual signature. Every later method sharing
+ * that signature — an override, or an interface implementation — gets the same slot, which
+ * is what makes one dispatch mechanism serve both.
  *
  * ONE pass to number the first occurrences, then one pass matching each remaining virtual
- * method against the numbered signatures. Quadratic in (methods × slots) ONCE, instead of
- * quadratic in (classes × methods) on EVERY call from codegen. */
+ * method against the numbered signatures. Non-virtual methods keep -1. */
 static void build_method_slots(wasm_types_t* wt) {
     const sema_ctx_t* sema = wt->sema;
     int total = 0;
@@ -475,10 +472,10 @@ static void build_method_slots(wasm_types_t* wt) {
     }
     wt->method_slot = (int32_t*)bbq_arena_alloc(
         sema->arena, (size_t)(total > 0 ? total : 1) * sizeof(int32_t));
-    for (int i = 0; i < total; i++) wt->method_slot[i] = 0;
+    for (int i = 0; i < total; i++) wt->method_slot[i] = -1;
 
-    /* Pass 1 — number the distinct signatures. `first_sig_occurrence` is not needed: a
-     * signature is new iff it does not match one already numbered. */
+    /* Pass 1 — number the distinct signatures: a signature is new iff it does not match
+     * one already numbered. */
     int* sig_cls = NULL;   /* bbq_vec: slot → the class of its first occurrence  */
     int* sig_mid = NULL;   /* bbq_vec: slot → the method index of that occurrence */
     for (int ci = 0; ci < wt->num_classes; ci++) {
@@ -512,20 +509,6 @@ static void build_method_slots(wasm_types_t* wt) {
     }
     bbq_vec_free(sig_cls);
     bbq_vec_free(sig_mid);
-}
-
-/* The program's vtable slot table: slot s ↔ the (class, method) of the
- * first-occurrence virtual signature, in the SAME order wasm_vtable_slot numbers
- * (class order, then method order). Computed ONCE per assembly (not per slot —
- * the per-slot recompute is an O(n⁶) blowup over the bundled library classes).
- * Appends to the bbq_vecs *slot_cls / *slot_mid (caller frees them). */
-static void build_vtable_slots(const wasm_types_t* wt, int** slot_cls, int** slot_mid) {
-    for (int ci = 0; ci < wt->num_classes; ci++) {
-        const sema_class_t* c = sema_get_class(wt->sema, ci);
-        for (int j = 0; j < (int)bbq_vec_len(c->methods); j++)
-            if (is_virtual_method(&c->methods[j]) && first_sig_occurrence(wt->sema, ci, j))
-                { bbq_vec_push(*slot_cls, ci); bbq_vec_push(*slot_mid, j); }
-    }
 }
 
 /* The typeidx of a native import's HOST-ABI func type (externref refs): the
@@ -748,11 +731,105 @@ static void compute_class_order(wasm_types_t* wt, const sema_ctx_t* sema, int** 
     if (!split) wt->num_shared = n;   /* every class is shared (WHOLE) */
 }
 
-void wasm_types_build(wasm_types_t* wt, const sema_ctx_t* sema) {
+/* The module's function imports: the union of two sets, position in the vector being the
+ * funcidx.
+ *
+ *   1. every JLS §13.1 symbolic reference whose target this module does not define;
+ *   2. every occupant of a vtable slot in a class this module emits a vtable for, named by
+ *      the source or not — a WASM vtable row must hold a funcref.
+ *
+ * Neither implies the other. Without (2) a slot has no operand; widening (1) to the library's
+ * whole surface puts references to unnamed members in the binary, and §13.4.5 guarantees
+ * adding a class member breaks no existing binary only when each reference is a use. */
+static void import_push(wasm_types_t* wt, const sema_ctx_t* s, int ci, int mi) {
+    if (ci < 0 || mi < 0) return;
+    if (sema_func_index(s, ci, mi) >= 0) return;    /* defined here — not an import */
+    const sema_class_t* c = sema_get_class(s, ci);
+    if (mi >= (int)bbq_vec_len(c->methods)) return;
+    const sema_method_t* m = &c->methods[mi];
+    if ((m->modifiers & SEMA_ACC_ABSTRACT) || c->is_interface) return;   /* vtable slot only */
+    if (sema_method_lowers_inline(m)) return;   /* becomes opcodes: no call, so nothing to import */
+    for (int i = 0; i < (int)bbq_vec_len(wt->imports); i++)
+        if (wt->imports[i].class_id == ci && wt->imports[i].method_id == mi) return;
+    sema_func_ent_t e = { ci, mi };
+    bbq_vec_push(wt->imports, e);
+}
+
+static void build_import_list(wasm_types_t* wt, const sema_ctx_t* s) {
+    wt->imports = NULL;   /* callers stack-allocate wasm_types_t: this field is uninitialized */
+
+    /* Sema's own entries FIRST, in its order, VERBATIM. Position is the funcidx, and
+     * wasm_module.c builds a marshalling forwarder per ref-carrying native at a defined slot
+     * paired with that position — so reordering or dropping one repoints those.
+     *
+     * Not through import_push: a ref-carrying native appears in BOTH of sema's tables (the
+     * host import, and the forwarder that marshals for it), so the "already defined here"
+     * filter would drop exactly the entries the forwarders depend on. That filter belongs only
+     * to targets DERIVED below, where a defined function genuinely needs no import. */
+    for (int i = 0; i < sema_import_count(s); i++) {
+        sema_func_ent_t e = sema_import_at(s, i);
+        /* RUNTIME: sema's table IS the contract — it swept the COMPLETE library native surface
+         * precisely so a plugin can call a native the prelude never referenced itself, and every
+         * entry must get a funcidx here to be exported. A primitive-signature native has no
+         * forwarder, so the filter below would drop exactly those.
+         *
+         * Otherwise, only the entries with a marshalling FORWARDER: a ref-carrying native appears
+         * in both of sema's tables, and wasm_module.c pairs the forwarder's defined slot with this
+         * position, so dropping or moving one repoints it. Everything else sema accumulated — in
+         * PLUGIN mode, every library method any library body referenced — is not this binary's
+         * business and goes through the §13.1 filter below. */
+        if (s->mode == SEMA_MODE_RUNTIME
+            || sema_func_index(s, e.class_id, e.method_id) >= 0) bbq_vec_push(wt->imports, e);
+    }
+
+
+    /* (1) §13.1 references this module cannot satisfy itself. In PLUGIN mode a library body's
+     * references belong to jre's binary, not this one. */
+    for (int i = 0; i < sema_ref_count(s); i++) {
+        sema_ref_ent_t r = sema_ref_at(s, i);
+        if (r.kind != SEMA_REF_METHOD) continue;
+        if (s->mode == SEMA_MODE_PLUGIN
+            && sema_get_class(s, r.from_class)->import_pkg >= 0) continue;
+        import_push(wt, s, r.decl_class, r.member);
+    }
+
+    /* (2) vtable slot occupants for every class whose vtable this module emits. */
+    for (int i = 0; i < sema_vtarget_count(s); i++) {
+        sema_vtarget_ent_t v = sema_vtarget_at(s, i);
+        if (s->mode == SEMA_MODE_PLUGIN
+            && sema_get_class(s, v.class_id)->import_pkg >= 0) continue;  /* jre owns its vtables */
+        import_push(wt, s, v.impl_class, v.impl_method);
+    }
+
+    /* The host externs — user-declared natives, which are environment edges rather than
+     * library members, so no rule above names them. */
+    for (int i = 0; i < sema_import_count(s); i++) {
+        sema_func_ent_t e = sema_import_at(s, i);
+        if (sema_get_class(s, e.class_id)->import_pkg < 0) import_push(wt, s, e.class_id, e.method_id);
+    }
+
+    wt->nimports = (int)bbq_vec_len(wt->imports);
+}
+
+/* (3) Every call the emitted code names, READ from the ddcg's recorded facts. The ddcg chose the
+ * §15.12 dispatch form and said which (class, method) it chose; burg emits the funcidx from that
+ * same pair when it realizes the deferred jump. Nothing here inspects the graph. */
+void wasm_types_add_call_targets(wasm_types_t* wt, const sema_ctx_t* s,
+                                 const sema_func_ent_t* targets, int count) {
+    for (int i = 0; i < count; i++) import_push(wt, s, targets[i].class_id, targets[i].method_id);
+    wt->nimports = (int)bbq_vec_len(wt->imports);
+}
+
+void wasm_types_build(wasm_types_t* wt, const sema_ctx_t* sema,
+                      const sema_func_ent_t* call_targets, int n_call_targets) {
     wt->sema = sema;
     wt->mode = (int)sema->mode;              /* WHOLE/RUNTIME/PLUGIN — mode-aware index authorities read this */
     wt->num_classes = (int)bbq_vec_len(sema->classes);
-    wt->nimports = sema_import_count(sema);  /* native targets → function imports at funcidx [0, nimports) */
+    build_import_list(wt, sema);             /* DERIVED from sema's §13.1 refs + §8.4.6.1 dispatch table */
+    /* The import list must be COMPLETE here: wasm_num_functypes counts it, and arr_typeidx_at
+     * places the body-local array region past the func types. Growing it later moves indices
+     * already baked into struct_bytes and emitted code. */
+    if (call_targets) wasm_types_add_call_targets(wt, sema, call_targets, n_call_targets);
     wt->struct_bytes = NULL;
     wt->arr_elems = NULL;
     wt->num_sig_arrays = -1;                 /* unfrozen: Pass 1 fills the signature region */
@@ -810,6 +887,9 @@ void wasm_types_build(wasm_types_t* wt, const sema_ctx_t* sema) {
     }
     wt->struct_bytes = sb.code;
     bbq_vec_free(order);
+
+    /* After the type passes, so an import added here reuses the array/func types they
+     * registered rather than needing new ones. */
 }
 
 /* One func comptype member (0x60 + params + results) for emitted function `fi`,
@@ -874,7 +954,9 @@ void wasm_types_emit_typesec_content(wasm_types_t* wt, const sema_ctx_t* s,
     int nclinit = wt->has_clinit ? 1 : 0;
     int ntag = wt->has_exceptions ? 1 : 0;  /* the exception tag's functype */
     int niface = wt->has_iface_helper ? 1 : 0;  /* the iface_instanceof helper's functype */
-    int nimp = sema_import_count(s);         /* one functype per native import, appended last */
+    int nimp = wasm_import_count(wt);        /* one functype per import, appended last — the
+                                              * MODULE's import list, which wasm_import_functype_idx
+                                              * indexes; sema's is only one of its sources. */
     int nfunctypes = nf + nclinit + ntag + niface + nimp;
     int nabstract  = wasm_num_abstract_functypes(wt);   /* trailing functypes for unoccupied abstract slots */
     /* The mutually-recursive GC types (structs, vtable, signature arrays) form a rec group;
@@ -938,7 +1020,7 @@ void wasm_types_emit_typesec_content(wasm_types_t* wt, const sema_ctx_t* s,
     for (int i = 0; i < nimp; i++) {        /* imports: host natives → host-ABI (externref refs → §3.3.10
                                              * linkable). PLUGIN's java.lang imports come from jre NATURAL-typed;
                                              * but a PLUGIN's USER natives are genuine host externs → host-ABI too. */
-        sema_func_ent_t e = sema_import_at(s, i);
+        sema_func_ent_t e = wasm_import_at(wt, i);
         const sema_class_t* ic = sema_get_class(s, e.class_id);
         bool jre_import = (wt->mode == SEMA_MODE_PLUGIN && ic->import_pkg >= 0 && ic->ast_node);
         emit_functype_for(wt, s, out, e.class_id, e.method_id, !jre_import);
@@ -1012,7 +1094,7 @@ static bool is_array_class(const sema_ctx_t* sema, int ci) { return sema_array_c
 static bool is_glocal(const sema_ctx_t* sema, int ci) {
     return is_user_source(sema, ci) || is_array_class(sema, ci);
 }
-static bool wasm_is_imported_class(const wasm_types_t* wt, int ci) {   /* are ci's globals imported from jre? */
+bool wasm_is_imported_class(const wasm_types_t* wt, int ci) {   /* are ci's globals imported from jre? */
     return wt->mode == SEMA_MODE_PLUGIN && !is_glocal(wt->sema, ci);
 }
 static int shared_classes_before(const wasm_types_t* wt, int ci) {
@@ -1088,24 +1170,29 @@ static void emit_global_default(wasm_types_t* wt, emit_wasm_ctx* out, java_type_
 /* The global section: one mutable global per static field, in (class, field-vec)
  * order — the same dense numbering wasm_global_index produces (one authority).
  * The assembler decodes these bytes with the shared jav reader. */
-/* Resolve `class_id`'s vtable into fn[0..n) (each entry a func index, -1 = none).
- * Walk the superclass chain SUPER-FIRST so a derived override overwrites its
- * super's slot (JLS §8.4.8). A virtual method's slot is found by matching its
- * signature against the precomputed slot table — same_sig is transitive, so the
- * first-occurrence canonical method identifies the slot. */
-static void resolve_slots(const wasm_types_t* wt, int class_id, int n,
-                          const int* slot_cls, const int* slot_mid, int32_t* fn) {
+/* Fill `class_id`'s vtable into fn[0..n) (each entry a func index, -1 = none) from
+ * sema's §15.11.4.4 dispatch table: for each (declaration,
+ * implementation) pair that dispatches on this class, the declaration's SLOT gets the
+ * implementation's funcidx.
+ *
+ * Driven from the ROWS, not the slots. A slot is a SIGNATURE — two classes with no subtype
+ * relation share one if their descriptors match — so asking "which row names this slot's
+ * introducer" finds nothing whenever the introducer is an unrelated class, and the slot is left
+ * null. wasm_vtable_slot is the map from a declaration to its signature's slot, so iterating
+ * the rows fills exactly the slots this class participates in.
+ *
+ * build_import_list reads the same table, so the emitted ref.func and the import section cannot
+ * disagree about which method occupies a slot. */
+static void resolve_slots(const wasm_types_t* wt, int class_id, int n, int32_t* fn) {
     if (class_id < 0) return;
-    const sema_class_t* cls = sema_get_class(wt->sema, class_id);
-    resolve_slots(wt, cls->super_id, n, slot_cls, slot_mid, fn);   /* super first */
-    for (int j = 0; j < (int)bbq_vec_len(cls->methods); j++) {
-        if (!is_virtual_method(&cls->methods[j])) continue;
-        for (int s = 0; s < n; s++)
-            if (same_sig(&cls->methods[j],
-                         &sema_get_class(wt->sema, slot_cls[s])->methods[slot_mid[s]])) {
-                fn[s] = wasm_func_index(wt, class_id, j);   /* -1 if abstract/host */
-                break;
-            }
+    int lo = 0, hi = 0;
+    sema_vtarget_range(wt->sema, class_id, &lo, &hi);
+    for (int i = lo; i < hi; i++) {
+        sema_vtarget_ent_t v = sema_vtarget_at(wt->sema, i);
+        if (v.impl_class < 0) continue;                 /* abstract: the slot stays ref.null */
+        int32_t slot = wasm_vtable_slot(wt, v.decl_class, v.decl_method);
+        if (slot < 0 || slot >= n) continue;
+        fn[slot] = wasm_func_index(wt, v.impl_class, v.impl_method);
     }
 }
 
@@ -1114,14 +1201,13 @@ static void resolve_slots(const wasm_types_t* wt, int class_id, int n,
  * at each slot, ref.null func where the class has no method. ref.func in a global
  * init self-declares the function in C.refs (§3.5.10), so no element segment is
  * needed. (§3.3.10 admits array.new_fixed / ref.func / ref.null as constant.) */
-static void emit_vtable_global(wasm_types_t* wt, emit_wasm_ctx* out, int class_id,
-                               int n, const int* slot_cls, const int* slot_mid) {
+static void emit_vtable_global(wasm_types_t* wt, emit_wasm_ctx* out, int class_id, int n) {
     int32_t vt = wasm_vtable_typeidx(wt, class_id);
     wasm_types_emit_ref(out, vt);           /* globaltype: (ref null $globalvtable) */
     ew_byte(out, 0x00);                      /*             mut = const */
     int32_t* fn = NULL;                       /* bbq_vec<int32_t>: slot → func index */
     for (int s = 0; s < n; s++) bbq_vec_push(fn, (int32_t)-1);
-    resolve_slots(wt, class_id, n, slot_cls, slot_mid, fn);
+    resolve_slots(wt, class_id, n, fn);
     for (int slot = 0; slot < n; slot++) {   /* init const-expr: the N funcref slots */
         if (fn[slot] >= 0) { ew_byte(out, 0xD2); ew_u32(out, (uint32_t)fn[slot]); } /* ref.func */
         else               { ew_byte(out, 0xD0); ew_i64(out, -16); }               /* ref.null func */
@@ -1216,12 +1302,8 @@ void wasm_types_emit_globals_content(wasm_types_t* wt, const sema_ctx_t* s,
         }
     }
     int n = wasm_vtable_len(wt);                      /* the slot table — built ONCE */
-    int* slot_cls = NULL;                             /* bbq_vec<int> */
-    int* slot_mid = NULL;                             /* bbq_vec<int> */
-    build_vtable_slots(wt, &slot_cls, &slot_mid);
     for (int ci = 0; ci < wt->num_classes; ci++)     /* then one vtable per user class */
-        if (!wasm_is_imported_class(wt, ci)) emit_vtable_global(wt, out, ci, n, slot_cls, slot_mid);
-    bbq_vec_free(slot_cls); bbq_vec_free(slot_mid);
+        if (!wasm_is_imported_class(wt, ci)) emit_vtable_global(wt, out, ci, n);
     /* then one Class-object singleton per user class, in class id order (const-init has no
      * cross-Class refs — the ref fields are null-then-fixed by reflect_init). */
     const sema_class_t** ifbuf =
@@ -1435,7 +1517,11 @@ void wasm_types_emit_section(wasm_types_t* wt, emit_wasm_ctx* out) {
     bbq_vec_free(content.code);
 }
 
+int             wasm_import_count(const wasm_types_t* wt) { return (int)bbq_vec_len(wt->imports); }
+sema_func_ent_t wasm_import_at(const wasm_types_t* wt, int i) { return wt->imports[i]; }
+
 void wasm_types_free(wasm_types_t* wt) {
+    bbq_vec_free(wt->imports); wt->imports = NULL;
     bbq_vec_free(wt->struct_bytes);
     bbq_vec_free(wt->arr_elems);
     bbq_vec_free(wt->class_pos);

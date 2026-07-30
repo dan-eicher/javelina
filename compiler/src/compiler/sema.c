@@ -388,7 +388,6 @@ static bool compute_side_effects(const sema_ctx_t* ctx, const ast_expr_t* e) {
  * ═══════════════════════════════════════════════════════════════ */
 
 static void sema_register_array_type(sema_ctx_t* ctx, java_type_t arr);   /* §10.8; defined below */
-static bool jre_gives_funcidx(const sema_ctx_t* ctx, int ci, const sema_method_t* m);  /* PLUGIN import set; defined below */
 
 /* The compilation unit of the class currently being analyzed — the §6.5.4
  * resolution context. -1 during synthetic-class processing (FQN-or-unnamed). */
@@ -526,11 +525,39 @@ bool sema_same_vsig(const sema_method_t* a, const sema_method_t* b) {
     return true;
 }
 
+/* Does every invocation of `m` become opcodes rather than a call? A Move* bitcast, a Math
+ * f64 op (sqrt/floor/ceil/rint), a Class.newInstance helper, a javelina.simd intrinsic —
+ * each is replaced by the instructions it denotes, so no function is ever called and no
+ * import can name one. Orthogonal to §13.1: the reference still exists (`Math.sqrt(x)`
+ * references java.lang.Math.sqrt whether or not one backend has an f64.sqrt), which is why
+ * the reference set records it and only the IMPORT set filters it out. */
+bool sema_method_lowers_inline(const sema_method_t* m) {
+    return m && (m->move_kind != 0 || m->math_kind != 0
+              || m->class_kind != 0 || m->simd_id != 0);
+}
+
+/* JLS §15.12.4.4 step 1's predicate: is this declaration NON-ABSTRACT — the thing the
+ * dynamic lookup stops at? §9.4 makes every interface method implicitly abstract. §8.4.3.4
+ * makes `abstract native` a compile-time error, so a native declaration IS concrete and ends
+ * the search, even though its body lives outside the module. */
+bool sema_method_is_concrete(const sema_ctx_t* ctx, int class_id, const sema_method_t* m) {
+    const sema_class_t* c = sema_get_class(ctx, class_id);
+    if (!c || !m || c->is_interface) return false;
+    return !(m->modifiers & SEMA_ACC_ABSTRACT);
+}
+
 /* Which method does an object of EXACTLY `exact_class_id` run for the virtual method a
  * call site named? Walk `exact`'s own methods first, then up the extends chain — the
  * nearest declaration of the signature wins (§8.4.8: a subclass override hides its
  * super's). Fails (returns false) when the signature is nowhere concrete, and a caller
- * that cannot get an answer must not devirtualize. */
+ * that cannot get an answer must not devirtualize.
+ *
+ * §15.12.4.4 step 1 stops at "a declaration for a NON-ABSTRACT method named m with the
+ * same descriptor". Non-abstract is the whole test: a native method is non-abstract
+ * (§8.4.3.4 makes `abstract native` a compile-time error) and so ends the lookup, even
+ * though it has no Java body. Whether THIS module emits a body for it is a separate,
+ * emission-side question (sema_method_is_defined) that a caller needing one — the
+ * inliner — asks for itself. */
 bool sema_resolve_virtual(const sema_ctx_t* ctx, int exact_class_id,
                           int decl_class_id, int decl_method_idx,
                           int* out_class_id, int* out_method_idx) {
@@ -546,8 +573,10 @@ bool sema_resolve_virtual(const sema_ctx_t* ctx, int exact_class_id,
         for (int j = 0; j < (int)bbq_vec_len(c->methods); j++) {
             if (!sema_is_virtual_method(&c->methods[j])) continue;
             if (!sema_same_vsig(&c->methods[j], want)) continue;
-            /* An abstract or host-provided declaration is not a body to call. */
-            if (!sema_method_is_defined(ctx, id, &c->methods[j])) return false;
+            /* Step 1 matches a NON-abstract declaration only; an abstract one (a class that
+             * re-abstracts an inherited method) leaves the search to step 2 — the superclass —
+             * rather than ending it. */
+            if (!sema_method_is_concrete(ctx, id, &c->methods[j])) break;
             if (out_class_id)  *out_class_id  = id;
             if (out_method_idx) *out_method_idx = j;
             return true;
@@ -2266,6 +2295,50 @@ static bool check_access(const sema_ctx_t* ctx, int from_class, int target_class
  * native method. The host supplies it at instantiation. Deduplicated; first-
  * referenced order = the import's funcidx. Recording referenced-only means a
  * module carries no unused library functions. */
+/* ── JLS §13.1: record ONE symbolic reference ──────────────────────────────────────────────
+ *
+ * "This specification does not mandate the use of any specific binary file format. Rather, it
+ * specifies properties that any binary format for compiled types must obey." So this records
+ * what the SOURCE references, in Java terms, and says nothing about what a backend does with
+ * it — whether the reference becomes a WASM import, a constant-pool entry, or nothing at all
+ * because the same compilation emits the target.
+ *
+ * Attributed to `ctx->current_class_id` because §13.1 states its rules for "a Java binary
+ * representation FOR A CLASS or interface": a reference belongs to the class that makes it. */
+static void sema_note_ref(sema_ctx_t* ctx, sema_ref_kind_t kind, int decl_class, int member) {
+    if (decl_class < 0) return;
+    int from = ctx->current_class_id;
+    if (from < 0) return;
+    for (int i = 0; i < (int)bbq_vec_len(ctx->refs); i++)
+        if (ctx->refs[i].kind == (int)kind && ctx->refs[i].from_class == from
+            && ctx->refs[i].decl_class == decl_class && ctx->refs[i].member == member) return;
+    sema_ref_ent_t r = { (int)kind, from, decl_class, member };
+    bbq_vec_push(ctx->refs, r);
+}
+
+/* A field access, per §13.1: "a symbolic reference to the class or interface in which the field
+ * is declared, plus the simple name of the field ... The reference must also include a symbolic
+ * reference to the declared type of the field" — (decl_class, index) fixes both, and the
+ * declared type is recorded as a type reference in its own right.
+ *
+ * EXCEPT: "References to fields that are static, final, and initialized with compile-time
+ * constant expressions are resolved at compile time to the constant value that is denoted. NO
+ * REFERENCE to such a constant field should be present in the code in a binary file (except in
+ * the class or interface containing the constant field, which will have code to initialize
+ * it)." So a constant field read leaves NO reference — the value was substituted. */
+static void sema_note_field_ref(sema_ctx_t* ctx, const sema_field_t* f) {
+    if (!f || f->owner < 0) return;
+    if ((f->modifiers & ACC_STATIC) && (f->modifiers & ACC_FINAL)
+        && f->init_expr && jls_const_is_constant(ctx, f->init_expr))
+        return;   /* §13.1: "resolved at compile time to the constant value that is denoted" */
+    /* The spec's exception — "except in the class or interface containing the constant field,
+     * which will have code to initialize it" — is about the INITIALIZER, a different construct
+     * from a read. A read of the constant folds wherever it appears, including at home. */
+    sema_note_ref(ctx, SEMA_REF_FIELD, f->owner, f->index);
+    if (f->type.tag == JT_CLASS)                 /* "a symbolic reference to the declared type" */
+        sema_note_ref(ctx, SEMA_REF_TYPE, f->type.class_id, -1);
+}
+
 static void sema_note_import(sema_ctx_t* ctx, const sema_method_t* m) {
     if (!m) return;
     /* Only EMITTED code generates imports — a native call site inside a body that is
@@ -2278,17 +2351,26 @@ static void sema_note_import(sema_ctx_t* ctx, const sema_method_t* m) {
      * is irrelevant. The target-is-defined check below still keeps compiled→compiled
      * calls out of the import list. */
     if (ctx->current_class_id < 0) return;
-    if (m->move_kind != 0) return;   /* a Move* bitcast intrinsic: every call lowers inline — never a real call, so never an import */
-    if (m->math_kind != 0) return;   /* a Math f64-op intrinsic (sqrt/floor/ceil/rint): lowers inline to the wasm opcode */
-    if (m->class_kind != 0) return;  /* a Class.newInstance helper: lowers inline to ClassInstantiable/ClassConstruct */
-    if (m->simd_id != 0) return;     /* a javelina.simd intrinsic: lowers inline to its wasm opcode — never an import */
     int dc = m->owner, idx = m->index;   /* stamped identity — no address search */
     if (dc < 0) return;
+
+    /* §13.1 first, and WITHOUT the intrinsic filters below: `Math.sqrt(x)` is a reference to
+     * java.lang.Math.sqrt whether or not this backend happens to have an f64.sqrt opcode to
+     * lower it to. "Lowers inline" is a statement about one target. */
+    sema_note_ref(ctx, SEMA_REF_METHOD, dc, idx);
+    if (m->return_type.tag == JT_CLASS)          /* "a symbolic reference to the return type" */
+        sema_note_ref(ctx, SEMA_REF_TYPE, m->return_type.class_id, -1);
+    for (int p = 0; p < m->param_count; p++)     /* "...to the type of each parameter" */
+        if (m->param_types[p].tag == JT_CLASS)
+            sema_note_ref(ctx, SEMA_REF_TYPE, m->param_types[p].class_id, -1);
+
+    /* Bodiless call targets — the host-extern candidates. A backend reads this to find the
+     * user-declared natives, which no reference rule identifies: they are the environment
+     * edges, not library members. The filters below are target-shaped and deliberately absent
+     * from the reference set above: an intrinsic that lowers inline is still a §13.1
+     * reference. */
+    if (sema_method_lowers_inline(m)) return;
     if (sema_method_is_defined(ctx, dc, m)) return;   /* emitted as a defined function, not an import */
-    /* Abstract / interface methods have no body because they are dispatched
-     * virtually (the vtable holds the concrete override's funcref) — they are
-     * never called directly, so never imports. An import is a CONCRETE bodiless
-     * method: a native/host function. */
     if ((m->modifiers & SEMA_ACC_ABSTRACT) || ctx->classes[dc].is_interface) return;
     for (int i = 0; i < (int)bbq_vec_len(ctx->import_funcs); i++)
         if (ctx->import_funcs[i].class_id == dc && ctx->import_funcs[i].method_id == idx)
@@ -2482,6 +2564,7 @@ static java_type_t analyze_expr(sema_ctx_t* ctx, ast_expr_t* e) {
                         "forward reference to static field '%s'", name);
                 result = f->type;
                 bbq_htree_insert(ctx->resolved_fields, ptr_key(e), encode_member_loc(f->owner, f->index));
+                sema_note_field_ref(ctx, f);   /* §13.1 */
                 /* Phase B: record ident kind = INSTANCE_FIELD or STATIC_FIELD */
                 sema_ident_info_t* info = (sema_ident_info_t*)
                     bbq_arena_alloc(ctx->arena, sizeof(sema_ident_info_t));
@@ -2538,6 +2621,7 @@ static java_type_t analyze_expr(sema_ctx_t* ctx, ast_expr_t* e) {
                              obj.class_id);
                 result = f->type;
                 bbq_htree_insert(ctx->resolved_fields, ptr_key(e), encode_member_loc(f->owner, f->index));
+                sema_note_field_ref(ctx, f);   /* §13.1 */
             } else {
                 sema_error(ctx, e->loc, "no field '%s' in class '%s'",
                            e->field_access.field, ctx->classes[obj.class_id].name);
@@ -3106,6 +3190,7 @@ static java_type_t analyze_expr(sema_ctx_t* ctx, ast_expr_t* e) {
             if (f) {
                 result = f->type;
                 bbq_htree_insert(ctx->resolved_fields, ptr_key(e), encode_member_loc(f->owner, f->index));
+                sema_note_field_ref(ctx, f);   /* §13.1 */
             } else {
                 sema_error(ctx, e->loc, "no field '%s' in superclass",
                            e->super_access.field);
@@ -4325,28 +4410,67 @@ bool sema_analyze_units(sema_ctx_t* ctx, ast_program_t** units, int n) {
             bbq_vec_push(ctx->functions, e);
         }
     }
-    if (ctx->mode == SEMA_MODE_PLUGIN) {
-        /* A thin plugin IMPORTS the COMPLETE java.lang surface from jre — every func jre gives a
-         * funcidx (bodied/synth/native), not just referenced ones — so a user class's vtable can
-         * ref.func every inherited java.lang slot. java.lang imports come from "jre" natural-typed
-         * (no plugin forwarder). But a USER-declared native (import_pkg<0) is a genuine HOST extern
-         * jre does NOT own — keep those as host imports and forward the ref-carrying ones (below),
-         * exactly as WHOLE/RUNTIME do. */
-        sema_func_ent_t* on_demand = ctx->import_funcs; ctx->import_funcs = NULL;   /* referenced set (user + java.lang) */
+    /* No mode-dependent rewriting of the reference set happens here. It is what
+     * sema_note_import accumulated during analysis — one entry per resolved reference, JLS
+     * §13.1 — and every consumer that wants something else (a WASM import section, which also
+     * needs a funcref for vtable slots this module never names) derives it downstream.
+     *
+     * ── The §8.4.6.1 dispatch table ───────────────────────────────────────────────────────
+     * Every virtual signature a class inherits or declares, with the implementation that
+     * actually runs for it. sema_resolve_virtual is the one rule; this walks each class's OWN
+     * ancestry (super chain + interfaces) rather than every class pair, and publishes the
+     * answers so no consumer re-walks per dispatch site. */
+    /* §13.1, the per-class half: "A Java binary representation for a class or interface must
+     * also contain all of the following: If it is a class and is not class java.lang.Object,
+     * then a symbolic reference to the direct superclass of this class; a symbolic reference to
+     * each direct superinterface, if any." Recorded per class, not per body, so
+     * current_class_id is set around it. */
+    {
+        int saved = ctx->current_class_id;
         for (int ci = 0; ci < (int)bbq_vec_len(ctx->classes); ci++) {
             const sema_class_t* c = sema_get_class(ctx, ci);
-            if (!(c->import_pkg >= 0 && c->ast_node)) continue;   /* real java.lang source classes only */
-            for (int mi = 0; mi < (int)bbq_vec_len(c->methods); mi++)
-                if (jre_gives_funcidx(ctx, ci, &c->methods[mi])) {
-                    sema_func_ent_t e = { ci, mi }; bbq_vec_push(ctx->import_funcs, e);
-                }
+            ctx->current_class_id = ci;
+            if (!c->is_interface && ci != ctx->wk.object_id && c->super_id >= 0)
+                sema_note_ref(ctx, SEMA_REF_SUPERCLASS, c->super_id, -1);
+            for (int ii = 0; ii < c->interface_count; ii++)
+                sema_note_ref(ctx, SEMA_REF_SUPERINTERFACE, c->interface_ids[ii], -1);
         }
-        for (int i = 0; i < (int)bbq_vec_len(on_demand); i++)   /* re-append the USER natives (host externs) */
-            if (sema_get_class(ctx, on_demand[i].class_id)->import_pkg < 0)
-                bbq_vec_push(ctx->import_funcs, on_demand[i]);
-        bbq_vec_free(on_demand);
-        /* fall through to the forwarder loop — it forwards ONLY the user natives (jre owns java.lang's) */
+        ctx->current_class_id = saved;
     }
+
+    /* Keyed by the declaration a CALL SITE NAMES, so the lookup below needs no signature
+     * comparison: a row exists for every (exact class, declaring class, method) the SIR can
+     * ask about. Deduplicating by signature would have been wrong — an overriding class would
+     * lose the row for the introducing declaration, and `Base.g` on a `Sub` receiver is exactly
+     * what a call site names (JLS §13.1: the class in which the method is DECLARED).
+     *
+     * Rows for one class are contiguous, and vtarget_base indexes them, so a consumer scans
+     * only that class's rows and compares two ints. That is what lets Click's transfer stay
+     * O(inputs): sema_resolve_virtual walks the ancestry and vsig-compares every method at each
+     * level, which inside a fixpoint runs per receiver, per call site, per iteration. */
+    bbq_vec_free(ctx->vtargets); ctx->vtargets = NULL;
+    bbq_vec_free(ctx->vtarget_base); ctx->vtarget_base = NULL;
+    int ncls = (int)bbq_vec_len(ctx->classes);
+    for (int ci = 0; ci < ncls; ci++) {
+        int base = (int)bbq_vec_len(ctx->vtargets);
+        bbq_vec_push(ctx->vtarget_base, base);
+        /* Every class ci is a subtype of — its super chain AND every interface reachable
+         * through it, at any depth. sema_ref_is_subtype (§4.10.2) is the one authority for
+         * that relation; walking `interface_ids` directly sees only the first level and misses
+         * an interface that extends another. */
+        for (int ai = 0; ai < ncls; ai++) {
+            if (!sema_ref_is_subtype(ctx, ci, ai)) continue;
+            const sema_class_t* a = sema_get_class(ctx, ai);
+            for (int mi = 0; mi < (int)bbq_vec_len(a->methods); mi++) {
+                if (!sema_is_virtual_method(&a->methods[mi])) continue;
+                int rc = -1, rm = -1;
+                sema_resolve_virtual(ctx, ci, ai, mi, &rc, &rm);   /* leaves -1/-1 if abstract */
+                sema_vtarget_ent_t v = { ci, ai, mi, rc, rm };
+                bbq_vec_push(ctx->vtargets, v);
+            }
+        }
+    }
+    bbq_vec_push(ctx->vtarget_base, (int)bbq_vec_len(ctx->vtargets));   /* sentinel */
 
     if (ctx->mode == SEMA_MODE_RUNTIME) {
         /* jre must export the COMPLETE java.lang native surface — a plugin may call/vtable a
@@ -4424,23 +4548,40 @@ bool sema_method_is_defined(const sema_ctx_t* ctx, int class_id, const sema_meth
         || m->is_synthetic_new_instance || method_has_body(m);
 }
 
-/* Would jre.wasm assign this (real library) method a funcidx — i.e. does the plugin import
- * it? True for a defined body/synth AND for a concrete native (jre forwards ref-carrying
- * ones and host-imports primitive ones, exporting both). Abstract/interface methods have no
- * funcidx (they exist only as vtable slots filled by a concrete override). */
-static bool jre_gives_funcidx(const sema_ctx_t* ctx, int ci, const sema_method_t* m) {
-    const sema_class_t* c = sema_get_class(ctx, ci);
-    if (method_has_body(m) || m->is_synthetic_default || m->is_synthetic_clone || m->is_synthetic_ensure_init
-        || m->is_synthetic_main || m->is_synthetic_new_instance) return true;
-    return (m->modifiers & ACC_NATIVE) && !(m->modifiers & SEMA_ACC_ABSTRACT) && !c->is_interface;
-}
-
 int sema_func_count(const sema_ctx_t* ctx) { return (int)bbq_vec_len(ctx->functions); }
 
 sema_func_ent_t sema_func_at(const sema_ctx_t* ctx, int i) { return ctx->functions[i]; }
 
 int sema_import_count(const sema_ctx_t* ctx) { return (int)bbq_vec_len(ctx->import_funcs); }
 sema_func_ent_t sema_import_at(const sema_ctx_t* ctx, int i) { return ctx->import_funcs[i]; }
+
+int sema_ref_count(const sema_ctx_t* ctx) { return (int)bbq_vec_len(ctx->refs); }
+sema_ref_ent_t sema_ref_at(const sema_ctx_t* ctx, int i) { return ctx->refs[i]; }
+
+int sema_vtarget_count(const sema_ctx_t* ctx) { return (int)bbq_vec_len(ctx->vtargets); }
+sema_vtarget_ent_t sema_vtarget_at(const sema_ctx_t* ctx, int i) { return ctx->vtargets[i]; }
+
+void sema_vtarget_range(const sema_ctx_t* ctx, int exact, int* lo, int* hi) {
+    *lo = *hi = 0;
+    if (!ctx || exact < 0 || exact + 1 >= (int)bbq_vec_len(ctx->vtarget_base)) return;
+    *lo = ctx->vtarget_base[exact];
+    *hi = ctx->vtarget_base[exact + 1];
+}
+
+bool sema_vtarget_find(const sema_ctx_t* ctx, int exact, int decl_class, int decl_method,
+                       int* out_class, int* out_method) {
+    if (!ctx || exact < 0 || exact + 1 >= (int)bbq_vec_len(ctx->vtarget_base)) return false;
+    int lo = ctx->vtarget_base[exact], hi = ctx->vtarget_base[exact + 1];
+    for (int i = lo; i < hi; i++) {
+        const sema_vtarget_ent_t* v = &ctx->vtargets[i];
+        if (v->decl_class != decl_class || v->decl_method != decl_method) continue;
+        if (v->impl_class < 0) return false;        /* abstract: no body to call */
+        if (out_class)  *out_class  = v->impl_class;
+        if (out_method) *out_method = v->impl_method;
+        return true;
+    }
+    return false;
+}
 
 int sema_func_index(const sema_ctx_t* ctx, int class_id, int method_id) {
     for (int i = 0; i < (int)bbq_vec_len(ctx->functions); i++)
@@ -5101,6 +5242,9 @@ void sema_destroy(sema_ctx_t* ctx) {
     bbq_htree_destroy(ctx->resolved_methods);
     bbq_htree_destroy(ctx->simd_imms);
     bbq_vec_free(ctx->import_funcs);
+    bbq_vec_free(ctx->refs);
+    bbq_vec_free(ctx->vtargets);
+    bbq_vec_free(ctx->vtarget_base);
     bbq_htree_destroy(ctx->resolved_fields);
     bbq_htree_destroy(ctx->data_types);
     bbq_htree_destroy(ctx->slot_allocs);

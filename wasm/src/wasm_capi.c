@@ -1028,7 +1028,28 @@ wasm_instance_t* wasm_instance_new(wasm_store_t* store, const wasm_module_t* mod
     free(externs);
     store->last_status = s; store->last_err = err;
     if (s != JAV_OK) {
-        if (trap_out) *trap_out = trap_make(s == JAV_UNINSTANTIABLE ? "instantiation trapped" : "unlinkable module");
+        /* Name the §7.10 reason the start function raised, as the invoke path does. Reporting a
+         * bare "instantiation trapped" hides which check failed, and §4.5.4's two failure modes
+         * (a segment out of bounds, the start function trapping) are told apart by it. */
+        if (trap_out) {
+            wasm_trap_t* t = trap_make(
+                s != JAV_UNINSTANTIABLE  ? "unlinkable module"
+              : store->vm.engine_fault   ? store->vm.engine_fault
+              : store->vm.exhausted      ? store->vm.exhausted
+              : jav_trap_reason_str((jav_trap_reason_t)store->vm.trap_reason));
+            /* §7.1.8 the frame trace, as the invoke path attaches it: the start function is a
+             * call like any other, and the funcidx/offset chain is what says WHERE it trapped.
+             * The frames name funcs of THIS instance, so they need it — and it is only still
+             * alive for UNINSTANTIABLE, where §4.5.4 keeps the trapped instance in the store. */
+            if (s == JAV_UNINSTANTIABLE) t->inst = in;
+            size_t n = (size_t)bbq_vec_len(store->vm.trap_trace);
+            t->nframes = n; t->frames = n ? malloc(n * sizeof(uint32_t)) : NULL;
+            t->frame_pcs = n ? malloc(n * sizeof(uint32_t)) : NULL;
+            for (size_t i = 0; i < n; i++) {
+                t->frames[i] = store->vm.trap_trace[i]; t->frame_pcs[i] = store->vm.trap_pcs[i];
+            }
+            *trap_out = t;
+        }
         // §4.5.4: a trapped instantiation (UNINSTANTIABLE) still ALLOCATED its instance + ran the
         // active segments preceding the trap — those funcinsts may be reachable from a shared table,
         // so the instance persists for the store's lifetime (no embedder handle was returned, so the
@@ -1460,7 +1481,12 @@ struct wasm_instance_t* wasm_frame_instance(const wasm_frame_t* fr) { return fr-
 uint32_t wasm_frame_func_index(const wasm_frame_t* fr) { return fr->func_index; }
 size_t wasm_frame_func_offset(const wasm_frame_t* fr)   { return fr->pc; }   // body-relative byte offset
 size_t wasm_frame_module_offset(const wasm_frame_t* fr) {                    // + the func body's position in the module image
+    // A frame can come from an instantiation that TRAPPED (§4.5.4), whose instance was never
+    // finished — there is no function table to index, and the body-relative pc is all there is.
+    if (!fr->inst || !fr->inst->module || !fr->inst->inst.funcs
+        || fr->func_index >= (uint32_t)bbq_vec_len(fr->inst->inst.funcs)) return fr->pc;
     const jav_func_t* f = &fr->inst->inst.funcs[fr->func_index];
+    if (!f->code) return fr->pc;
     return (size_t)(f->code - fr->inst->module->bytes) + fr->pc;
 }
 DEFINE_VEC_PTR(frame)

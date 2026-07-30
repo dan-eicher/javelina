@@ -753,6 +753,8 @@ int ddcg_patch_excepts(ddcg_ctx_t* ctx, int _arg0, sir_node_t* _arg1);
 int ddcg_record_scope(ddcg_ctx_t* ctx, sir_node_t* _arg0, sir_node_t* _arg1, int _arg2);
 int ddcg_record_guard(ddcg_ctx_t* ctx, sir_node_t* _arg0, int _arg1, int _arg2, int _arg3, int _arg4);
 int ddcg_record_alloc(ddcg_ctx_t* ctx, sir_node_t* _arg0, int _arg1);
+int ddcg_record_call_target(ddcg_ctx_t* ctx, sir_node_t* _arg0, int _arg1, int _arg2);
+int ddcg_record_call_target_of(ddcg_ctx_t* ctx, sir_node_t* _arg0);
 sir_node_t* ddcg_on_dispatch_result(ddcg_ctx_t* ctx, sir_node_t* _arg0);
 ast_expr_t* ddcg_field_acc_obj(ddcg_ctx_t* ctx, ast_expr_t* _arg0);
 ast_expr_t* ddcg_array_acc_arr(ddcg_ctx_t* ctx, ast_expr_t* _arg0);
@@ -830,6 +832,7 @@ sir_node_t* ddcg_assign_super_field(ddcg_ctx_t* ctx, ast_expr_t* target, ast_exp
 rho_t ddcg_rho_skip(ddcg_ctx_t* ctx, rho_t r, int n);
 int ddcg_rho_in_protected(ddcg_ctx_t* ctx, rho_t r);
 int ddcg_record_except_regions(ddcg_ctx_t* ctx, sir_node_t* t, rho_t r);
+int ddcg_record_except_chain(ddcg_ctx_t* ctx, sir_node_t* t, rho_t r);
 int ddcg_rho_in_loop(ddcg_ctx_t* ctx, rho_t r);
 sir_node_t* ddcg_walk_for_break(ddcg_ctx_t* ctx, rho_t r, int n, sir_node_t* tail);
 sir_node_t* ddcg_walk_finally_for_return(ddcg_ctx_t* ctx, rho_t r, sir_node_t* tail);

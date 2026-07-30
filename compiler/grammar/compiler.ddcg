@@ -524,6 +524,16 @@ AUXILIARIES
   // strong update needs ONE concrete object). We know; we are lowering the loop.
   record_alloc             : (ir_root, int) -> int
 
+  // (the Invoke node, the class that DECLARES the target, its method index there). We pick the
+  // §15.12 dispatch form here, so we know the pair burg emits the funcidx from when it realizes
+  // the deferred jump. The backend reads these rather than re-deriving the call set.
+  record_call_target       : (ir_root, int, int) -> int
+
+  // The same, reading the pair off the node: a no-op unless the node is an Invoke*. This is
+  // what record_except_regions calls, so every call the frontend builds is recorded at one
+  // point rather than at each construction site.
+  record_call_target_of    : (ir_root) -> int
+
   // Magic-named AUX recognised by ddcgc: if declared, every
   // dispatcher's returned spine head passes through this hook
   // before the dispatcher returns. yoctojc uses it to stamp the
@@ -1697,14 +1707,22 @@ fun rho_in_protected(r: rho) -> int {
 //       method, so it does not escape. WHICH region catches it depends on the thrown
 //       class — the optimizer's transfer, reading pts. Not ours.
 fun record_except_regions(t: ir_root, r: rho) -> int {
+    // Every CALL is an excepting point (§11.1), so this is the one place every Invoke the
+    // frontend builds passes through — source-written or synthesized. The target is read off
+    // the node we were just handed, so no construction site has to remember to say so.
+    let _ = record_call_target_of(t);
+    record_except_chain(t, r);
+}
+
+fun record_except_chain(t: ir_root, r: rho) -> int {
     match (r) {
         rho_root => 0
       | loop_frame(break_target: _, continue_target: _, parent: p) =>
-            record_except_regions(t, p)
+            record_except_chain(t, p)
       | finally_frame(body: _, region: rid, parent: p) =>
-            { let _ = record_except(t, rid); record_except_regions(t, p); }
+            { let _ = record_except(t, rid); record_except_chain(t, p); }
       | try_frame(region: rid, parent: p) =>
-            { let _ = record_except(t, rid); record_except_regions(t, p); }
+            { let _ = record_except(t, rid); record_except_chain(t, p); }
     };
 }
 
@@ -2528,6 +2546,8 @@ fun emit_array_instanceof(array_class: int, op: ast.expr,
     let t = ddcg_alloc_temp(DtRef);
     let call = build ir.InvokeStatic(class_reflect_id(), class_is_instance_method(),
                     [build ir.LoadClass(array_class), build ir.LoadLocal(t, DtRef, nil)], DtShort);
+    let _ = record_except_regions(call, rho);   // a CALL like any other (§11.1) — and the one
+                                                 // place its target is recorded for the import list
     let deliver = cg_deliver_effectful(call, delta, gamma, Lnext);
     gen(op, rho, locref(t, expr_ref(op)), single(deliver), deliver);
 }
@@ -2546,6 +2566,8 @@ fun emit_array_cast(array_class: int, op: ast.expr,
         build ir.CheckCast(build ir.LoadLocal(t, DtRef, nil), ir.AtClass, refarray_class()), delta, gamma, Lnext);
     let is_inst = build ir.InvokeStatic(class_reflect_id(), class_is_instance_method(),
                     [build ir.LoadClass(array_class), build ir.LoadLocal(t, DtRef, nil)], DtShort);
+    let _ = record_except_regions(is_inst, rho);   // a CALL like any other (§11.1) — and the one
+                                                    // place its target is recorded for the import list
     let guard = build ir.Branch(
         build ir.Eq(build ir.LoadLocal(t, DtRef, nil), build ir.LoadNull()),
         ok_null,

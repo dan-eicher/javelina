@@ -1115,6 +1115,28 @@ static int ddcg_fact_push(ddcg_ctx_t* ctx, sir_node_t* key, sir_node_t* aux,
     return 0;
 }
 
+/* The call target read off the node itself. Every Invoke* carries the (declaring class, method)
+ * pair burg emits its funcidx from; anything else is not a call and records nothing. */
+int ddcg_record_call_target_of(ddcg_ctx_t* ctx, sir_node_t* n) {
+    if (!n) return 0;
+    switch (n->tag) {
+    case SIR_INVOKESTATIC:
+        return ddcg_record_call_target(ctx, n, n->invoke_static.class_id, n->invoke_static.method_idx);
+    case SIR_INVOKESPECIAL:
+        return ddcg_record_call_target(ctx, n, n->invoke_special.class_id, n->invoke_special.method_idx);
+    case SIR_INVOKEVIRTUAL:
+        return ddcg_record_call_target(ctx, n, n->invoke_virtual.class_id, n->invoke_virtual.method_idx);
+    case SIR_INVOKEINTERFACE:
+        return ddcg_record_call_target(ctx, n, n->invoke_interface.class_id, n->invoke_interface.method_idx);
+    default: return 0;
+    }
+}
+
+int ddcg_record_call_target(ddcg_ctx_t* ctx, sir_node_t* invoke, int decl_class, int method_idx) {
+    return ddcg_fact_push(ctx, invoke, NULL, COMPILER_FACT_CALL_TARGET,
+                          decl_class, method_idx, 0, 0);
+}
+
 int ddcg_record_try_region(ddcg_ctx_t* ctx, sir_node_t* try_start,
                             sir_node_t* handler, int catch_type, int region) {
     return ddcg_fact_push(ctx, try_start, handler,

@@ -181,7 +181,9 @@ static bool assemble(bbq_arena* a, const char* src, emit_wasm_ctx* out) {
     compiler_init(cctx, a, sctx);
     cctx->optimize = click_on();
     int mc = 0; sir_method_t** methods = compiler_compile(cctx, prog, &mc);
-    wasm_types_t wt; wasm_types_build(&wt, sctx);
+    int nct = 0; sema_func_ent_t* cts = compiler_call_targets(cctx, mc, &nct);
+    wasm_types_t wt; wasm_types_build(&wt, sctx, cts, nct);
+    bbq_vec_free(cts);
     bool ok = wasm_assemble_program(cctx, sctx, &wt, methods, mc, out) && sema_ok;
     wasm_types_free(&wt);
     compiler_destroy(cctx); free(cctx);
@@ -212,7 +214,9 @@ static bool assemble_jre(bbq_arena* a, emit_wasm_ctx* out) {
     compiler_init(cctx, a, sctx);
     cctx->optimize = click_on();
     int mc = 0; sir_method_t** methods = compiler_compile(cctx, prog, &mc);
-    wasm_types_t wt; wasm_types_build(&wt, sctx);
+    int nct = 0; sema_func_ent_t* cts = compiler_call_targets(cctx, mc, &nct);
+    wasm_types_t wt; wasm_types_build(&wt, sctx, cts, nct);
+    bbq_vec_free(cts);
     bool ok = wasm_assemble_program(cctx, sctx, &wt, methods, mc, out) && sema_ok;
     wasm_types_free(&wt);
     compiler_destroy(cctx); free(cctx);
@@ -243,7 +247,9 @@ static bool assemble_plugin(bbq_arena* a, const char* src, emit_wasm_ctx* out) {
     compiler_init(cctx, a, sctx);
     cctx->optimize = click_on();
     int mc = 0; sir_method_t** methods = compiler_compile(cctx, prog, &mc);
-    wasm_types_t wt; wasm_types_build(&wt, sctx);
+    int nct = 0; sema_func_ent_t* cts = compiler_call_targets(cctx, mc, &nct);
+    wasm_types_t wt; wasm_types_build(&wt, sctx, cts, nct);
+    bbq_vec_free(cts);
     bool ok = wasm_assemble_program(cctx, sctx, &wt, methods, mc, out) && sema_ok;
     wasm_types_free(&wt);
     compiler_destroy(cctx); free(cctx);

@@ -29,6 +29,171 @@ static bool analyze_into(const char* user_src, bbq_arena* arena, sema_ctx_t* ctx
     return true;
 }
 
+/* ── The PLUGIN import set, as sema hands it downstream ──────────────────────────────────
+ *
+ * The mode must be set BEFORE analysis: sema_note_import (sema.c:2269) records a resolved
+ * target "iff it is NOT a defined function", and whether a library method is defined is
+ * itself mode-dependent (sema_method_is_defined, sema.c:4419). So in PLUGIN mode the
+ * accumulator holds the REFERENCED library methods; in WHOLE mode it holds only natives.
+ *
+ * These probes read the FINAL set — what sema actually publishes through sema_import_count /
+ * sema_import_at — because that is what the module assembler consumes. */
+typedef struct {
+    bool ok;          /* the source analyzed without errors */
+    int  total;       /* sema_import_count */
+    int  for_class;   /* entries whose owning class is `class_name` */
+    int  virt_of;     /* entries that are VIRTUAL methods of `class_name` */
+    int  n_virt_of;   /* how many virtual methods `class_name` has in total */
+} jt_imports_t;
+
+static jt_imports_t plugin_imports(const char* user_src, const char* class_name,
+                                   bbq_arena* arena) {
+    jt_imports_t r; memset(&r, 0, sizeof r);
+    r.total = r.for_class = r.virt_of = r.n_virt_of = -1;
+    jtest_program_t jp;
+    if (!jtest_build(user_src, arena, &jp)) return r;
+    sema_ctx_t ctx;
+    sema_init(&ctx, arena);
+    /* BOTH, and before analysis. num_library_classes is what marks the prelude types as
+     * library (import_pkg >= 0); without it the PLUGIN sweep's `c->import_pkg >= 0` guard
+     * never matches and the probe silently measures WHOLE-mode behaviour instead. */
+    ctx.num_library_classes = jp.nlib;
+    ctx.mode = SEMA_MODE_PLUGIN;
+    sema_analyze_units(&ctx, jp.units, jp.nunits);
+    bbq_vec_free(jp.units);
+    if (sema_error_count(&ctx) == 0) {
+        r.ok = true;
+        r.total = r.for_class = r.virt_of = 0;
+        for (int i = 0; i < sema_ref_count(&ctx); i++) {
+            sema_ref_ent_t e = sema_ref_at(&ctx, i);
+            /* §13.1's rules are for "a Java binary representation FOR A CLASS": count only the
+             * references belonging to the classes this compilation is producing. */
+            if (sema_get_class(&ctx, e.from_class)->import_pkg >= 0) continue;
+            r.total++;
+            if (e.kind != SEMA_REF_METHOD) continue;
+            const sema_class_t* c = sema_get_class(&ctx, e.decl_class);
+            if (!c || !c->name || !class_name || strcmp(c->name, class_name)) continue;
+            r.for_class++;
+            if (sema_is_virtual_method(&c->methods[e.member])) r.virt_of++;
+        }
+        r.n_virt_of = 0;
+        for (int ci = 0; ci < (int)bbq_vec_len(ctx.classes); ci++) {
+            const sema_class_t* c = sema_get_class(&ctx, ci);
+            if (!c->name || !class_name || strcmp(c->name, class_name)) continue;
+            for (int mi = 0; mi < (int)bbq_vec_len(c->methods); mi++)
+                if (sema_is_virtual_method(&c->methods[mi])) r.n_virt_of++;
+            break;
+        }
+    }
+    sema_destroy(&ctx);
+    return r;
+}
+
+/* ONE recorded reference, resolved by the method's simple name. §13.1 is a rule about an
+ * individual reference — "a reference to a method or constructor must be resolved ... to a
+ * symbolic reference to the class or interface in which the denoted method or constructor is
+ * declared, plus the signature" — so the probe has to expose the row, not a count.
+ *
+ * decl_class is the class the row NAMES; param0 is the first parameter's type as sema typed
+ * it, which is how the signature half is observed with the row shape that exists today. */
+typedef struct {
+    bool found;
+    char decl_class[64];
+    char param0[64];
+    int  nparams;
+} jt_ref_t;
+
+/* §13.1 calls a parameter type "a symbolic reference to the type of each parameter". Render
+ * it the way the spec names it: a primitive by its keyword, a reference by its class name. */
+static void jt_type_name(const sema_ctx_t* ctx, java_type_t t, char* out, size_t n) {
+    switch (t.tag) {
+    case JT_BOOL:    snprintf(out, n, "boolean"); return;
+    case JT_BYTE:    snprintf(out, n, "byte");    return;
+    case JT_SHORT:   snprintf(out, n, "short");   return;
+    case JT_CHAR:    snprintf(out, n, "char");    return;
+    case JT_INT:     snprintf(out, n, "int");     return;
+    case JT_LONG:    snprintf(out, n, "long");    return;
+    case JT_FLOAT:   snprintf(out, n, "float");   return;
+    case JT_DOUBLE:  snprintf(out, n, "double");  return;
+    case JT_CLASS: {
+        const sema_class_t* c = sema_get_class(ctx, t.class_id);
+        snprintf(out, n, "%s", (c && c->name) ? c->name : "?");
+        return;
+    }
+    default: snprintf(out, n, "(tag %d)", (int)t.tag); return;
+    }
+}
+
+/* The reference kinds recorded FOR one named class — §13.1's per-class rules and its
+ * constant-field exclusion are both statements about a single class's compiled form. */
+typedef struct {
+    bool ok;
+    int  ref_K, ref_mut;    /* field references named "K" / "mutable_" */
+    int  n_super, n_iface;  /* SUPERCLASS / SUPERINTERFACE records */
+} jt_kinds_t;
+
+static jt_kinds_t plugin_ref_kinds(const char* user_src, const char* of_class,
+                                   bbq_arena* arena) {
+    jt_kinds_t r; memset(&r, 0, sizeof r);
+    jtest_program_t jp;
+    if (!jtest_build(user_src, arena, &jp)) return r;
+    sema_ctx_t ctx;
+    sema_init(&ctx, arena);
+    ctx.num_library_classes = jp.nlib;
+    ctx.mode = SEMA_MODE_PLUGIN;
+    sema_analyze_units(&ctx, jp.units, jp.nunits);
+    bbq_vec_free(jp.units);
+    if (sema_error_count(&ctx) == 0) {
+        r.ok = true;
+        for (int i = 0; i < sema_ref_count(&ctx); i++) {
+            sema_ref_ent_t e = sema_ref_at(&ctx, i);
+            const sema_class_t* from = sema_get_class(&ctx, e.from_class);
+            if (!from->name || strcmp(from->name, of_class)) continue;
+            if (e.kind == SEMA_REF_SUPERCLASS)     { r.n_super++; continue; }
+            if (e.kind == SEMA_REF_SUPERINTERFACE) { r.n_iface++; continue; }
+            if (e.kind != SEMA_REF_FIELD) continue;
+            const sema_class_t* d = sema_get_class(&ctx, e.decl_class);
+            const char* fn = d->fields[e.member].name;
+            if (fn && !strcmp(fn, "K"))        r.ref_K++;
+            if (fn && !strcmp(fn, "mutable_")) r.ref_mut++;
+        }
+    }
+    sema_destroy(&ctx);
+    return r;
+}
+
+static jt_ref_t plugin_ref_for(const char* user_src, const char* method_name,
+                               bbq_arena* arena) {
+    jt_ref_t r; memset(&r, 0, sizeof r);
+    jtest_program_t jp;
+    if (!jtest_build(user_src, arena, &jp)) return r;
+    sema_ctx_t ctx;
+    sema_init(&ctx, arena);
+    ctx.num_library_classes = jp.nlib;
+    ctx.mode = SEMA_MODE_PLUGIN;
+    sema_analyze_units(&ctx, jp.units, jp.nunits);
+    bbq_vec_free(jp.units);
+    if (sema_error_count(&ctx) == 0) {
+        for (int i = 0; i < sema_ref_count(&ctx); i++) {
+            sema_ref_ent_t e = sema_ref_at(&ctx, i);
+            if (sema_get_class(&ctx, e.from_class)->import_pkg >= 0) continue;  /* refs OF user classes */
+            if (e.kind != SEMA_REF_METHOD) continue;
+            const sema_class_t* c = sema_get_class(&ctx, e.decl_class);
+            if (!c || e.member >= (int)bbq_vec_len(c->methods)) continue;
+            const sema_method_t* m = &c->methods[e.member];
+            if (!m->name || strcmp(m->name, method_name)) continue;
+            r.found = true;
+            snprintf(r.decl_class, sizeof r.decl_class, "%s", c->name ? c->name : "?");
+            r.nparams = m->param_count;
+            if (m->param_count > 0) jt_type_name(&ctx, m->param_types[0],
+                                                 r.param0, sizeof r.param0);
+            break;
+        }
+    }
+    sema_destroy(&ctx);
+    return r;
+}
+
 // Analyze user source against java.lang; return the error count (and dump diags).
 static int analyze(const char* user_src, bool dump) {
     bbq_arena arena; bbq_arena_init(&arena, 1 << 16);
@@ -394,6 +559,23 @@ int main(void) {
               "call graph: an ABSTRACT method with no impl is NOT RESOLVABLE — spec §7's "
               "bottom-method boundary, fail-closed (the devirtualizer declines on this)");
 
+        /* §15.12.4.4 step 1 searches for "a declaration for a NON-ABSTRACT method named m
+         * with the same descriptor". §8.4.3.4: "A compile-time error occurs if a native
+         * method is declared abstract" — so a native declaration is non-abstract, it ENDS
+         * the lookup, and it is what dispatch lands on. Having no body in THIS module is an
+         * emission fact (sema_method_is_defined), not the lookup's predicate: reading it as
+         * "abstract" leaves every vtable slot of every native method ref.null, and the
+         * dispatch's ref.cast then fails at run time. */
+        {
+            int obj = ctx.wk.object_id;
+            int gc  = method_of(&ctx, obj, "getClass");
+            CHECK(obj >= 0 && gc >= 0, "Object.getClass is declared (precondition)");
+            CHECK(sema_resolve_virtual(&ctx, obj, obj, gc, &rc, &rm) && rc == obj && rm == gc,
+                  "call graph: a NATIVE declaration is non-abstract (§8.4.3.4) and resolves");
+            CHECK(sema_resolve_virtual(&ctx, a, obj, gc, &rc, &rm) && rc == obj && rm == gc,
+                  "call graph: a subclass inherits the native — §15.12.4.4 step 2 finds it");
+        }
+
         /* THE SET: the complete target set of `((A)r).m()`, enumerated from the class
          * table ALONE — every class in the program (java.lang included), filtered by JLS
          * §4.10.2 subtyping, resolved by the one rule. No engine, no pts, no fixpoint
@@ -579,6 +761,151 @@ int main(void) {
                      " int[] a = new int[8]; return a[(x * 4) % 8]; } }",
                      SEMA_DIAG_ARRAY_BOUNDS) == 1,
           "SOUNDNESS: x*4 can WRAP int for large x, so %8 can go negative — warn");
+
+    /* ══ The PLUGIN import set — six properties, each failing for its own reason ═══════════
+     *
+     * §13.4.5 (p.245): "No incompatibility with pre-existing binaries is caused by adding a
+     * class member ... References to the original field or method were resolved at compile
+     * time to a SYMBOLIC REFERENCE containing the name of the class in which they were
+     * declared." That guarantee rests on a mechanism — one symbolic reference PER USE — and
+     * a plugin importing the library's whole surface has no such record.
+     *
+     * The set has to be pinned in BOTH directions, and the reason is a failure I already had:
+     * narrowing it to (referenced ∪ virtual ∪ synthetic) made the emitted module fail
+     * validation with "unknown function". Minimality alone would have called that narrowing
+     * an improvement. So MIN-* say what must not be in the set, COMPLETE-* say what must,
+     * and a narrowing has to satisfy all of them at once.
+     *
+     * All six read the FINAL set (sema_import_count / sema_import_at) because that is what
+     * the module assembler consumes. Where a property holds today it holds TRIVIALLY — the
+     * set is currently "everything" — and it is written down precisely so that the eventual
+     * narrowing cannot break it silently. */
+
+    /* §13.1 DECLARING CLASS. "A reference to a method or constructor must be resolved at
+     * compile time to a symbolic reference to THE CLASS OR INTERFACE IN WHICH the denoted
+     * method or constructor IS DECLARED, plus the signature of the method or constructor.
+     * ... this makes the binaries more robust."
+     *
+     * So the recorded class is where the method is DECLARED, not the static type it was
+     * reached through. `sb.equals(o)` on a StringBuffer must record java.lang.Object, which
+     * declares equals — recording StringBuffer would be a reference to a method StringBuffer
+     * does not declare, and the robustness §13.1 is buying is exactly that a later release
+     * may add StringBuffer.equals without invalidating this binary.
+     *
+     * This is the one §13.1 rule the existing (class_id, method_id) row can already express,
+     * which is why it is the first one written. */
+    {
+        bbq_arena ar; bbq_arena_init(&ar, 1 << 16);
+        jt_ref_t r = plugin_ref_for(
+            "class T { static boolean f(Object o){ StringBuffer b = new StringBuffer();"
+            " return b.equals(o); } }", "equals", &ar);
+        printf("    JLS 13.1 b.equals(o) recorded against class '%s'\n",
+               r.found ? r.decl_class : "(not recorded)");
+        CHECK(r.found && !strcmp(r.decl_class, "Object"),
+              "JLS 13.1: a method reference records the class that DECLARES it "
+              "(Object.equals, not StringBuffer.equals)");
+        bbq_arena_free(&ar);
+    }
+
+    /* §13.1 SIGNATURE. "The signature of a method must include all of the following: the
+     * simple name of the method; the number of parameters to the method; a symbolic reference
+     * to the type of each parameter" — and "a reference to a method must also include either
+     * a symbolic reference to the return type of the denoted method or an indication that the
+     * denoted method is declared void".
+     *
+     * So a reference must name ONE overload, not a name. StringBuffer.append is overloaded on
+     * int, char, String, Object...; `b.append(x)` with an int x must record the (int) one, and
+     * the recorded row must be distinguishable from the (String) one. */
+    {
+        bbq_arena ar; bbq_arena_init(&ar, 1 << 16);
+        jt_ref_t i_ref = plugin_ref_for(
+            "class T { static void f(int x){ StringBuffer b = new StringBuffer();"
+            " b.append(x); } }", "append", &ar);
+        bbq_arena ar2; bbq_arena_init(&ar2, 1 << 16);
+        jt_ref_t s_ref = plugin_ref_for(
+            "class T { static void f(String x){ StringBuffer b = new StringBuffer();"
+            " b.append(x); } }", "append", &ar2);
+        printf("    JLS 13.1 append(int) recorded param0='%s'; append(String) param0='%s'\n",
+               i_ref.found ? i_ref.param0 : "(none)", s_ref.found ? s_ref.param0 : "(none)");
+        CHECK(i_ref.found && s_ref.found
+              && !strcmp(i_ref.param0, "int") && !strcmp(s_ref.param0, "String"),
+              "JLS 13.1: a method reference names ONE overload — the signature carries a "
+              "symbolic reference to each parameter type");
+        bbq_arena_free(&ar); bbq_arena_free(&ar2);
+    }
+
+    /* §13.1 CONSTANT FIELDS — a mandated ABSENCE. "References to fields that are static, final,
+     * and initialized with compile-time constant expressions are resolved at compile time to the
+     * constant value that is denoted. NO REFERENCE to such a constant field should be present in
+     * the code in a binary file (except in the class or interface containing the constant field,
+     * which will have code to initialize it)."
+     *
+     * Paired so it cannot pass vacuously: a NON-constant static field read must still be
+     * recorded. Recording nothing at all would satisfy the absence half alone. */
+    {
+        bbq_arena ar; bbq_arena_init(&ar, 1 << 16);
+        jt_kinds_t k = plugin_ref_kinds(
+            "class T {\n"
+            "    static final int K = 7;\n"           /* constant: folded, no reference */
+            "    static int mutable_;\n"              /* not final: a real reference */
+            "    static int f(){ return K + mutable_; }\n"
+            "}", "T", &ar);
+        printf("    JLS 13.1 field refs from T: K=%d  mutable_=%d\n", k.ref_K, k.ref_mut);
+        CHECK(k.ok && k.ref_mut > 0 && k.ref_K == 0,
+              "JLS 13.1: a constant field read leaves NO reference; a non-constant one does");
+        bbq_arena_free(&ar);
+    }
+
+    /* §13.1 PER-CLASS. "A Java binary representation for a class or interface must also contain
+     * all of the following: If it is a class and is not class java.lang.Object, then a symbolic
+     * reference to the direct superclass of this class; a symbolic reference to each direct
+     * superinterface, if any." */
+    {
+        bbq_arena ar; bbq_arena_init(&ar, 1 << 16);
+        jt_kinds_t k = plugin_ref_kinds(
+            "class T implements Cloneable { int v; }", "T", &ar);
+        CHECK(k.ok && k.n_super == 1 && k.n_iface == 1,
+              "JLS 13.1: a class records its direct superclass and each direct superinterface");
+        bbq_arena_free(&ar);
+    }
+
+    /* MIN-1: a library class the program never mentions contributes NOTHING. java.util.Vector
+     * is parsed (javelinac globs all of lang/util/io) but unreferenced here, so under
+     * "one symbolic reference per use" it must not appear.
+     *
+     * RED TODAY: sema.c:4336-4343 sweeps every real java.lang source class into the set. */
+    {
+        bbq_arena ar; bbq_arena_init(&ar, 1 << 16);
+        jt_imports_t r = plugin_imports("class T { static int f(int x){ return x + 1; } }",
+                                        "Vector", &ar);
+        CHECK(r.ok && r.for_class == 0,
+              "MIN-1: an unreferenced library class contributes no imports (JLS 13.4.5)");
+        bbq_arena_free(&ar);
+    }
+
+    /* MIN-2: the set RESPONDS to what the program touches. Two programs, one trivial and one
+     * using StringBuffer; if the counts are equal the set is a constant and cannot be a
+     * record of uses at all. This is the summary property — it is what actually breaks a
+     * previously-built plugin when lib/java gains a member.
+     *
+     * RED TODAY, for the same cause as MIN-1. Kept separate because a narrowing could fix
+     * one and not the other: filtering only unreferenced CLASSES leaves MIN-2 red while
+     * MIN-1 passes, since an unreferenced METHOD of a referenced class still rides along. */
+    {
+        bbq_arena a1; bbq_arena_init(&a1, 1 << 16);
+        jt_imports_t few = plugin_imports("class T { static int f(int x){ return x + 1; } }",
+                                          "StringBuffer", &a1);
+        bbq_arena a2; bbq_arena_init(&a2, 1 << 16);
+        jt_imports_t many = plugin_imports(
+            "class T { static int f(int x){ StringBuffer b = new StringBuffer();"
+            " b.append(x); return b.toString().length(); } }", "StringBuffer", &a2);
+
+        printf("    plugin imports: trivial=%d  uses-StringBuffer=%d\n", few.total, many.total);
+        CHECK(few.ok && many.ok && few.total > 0 && few.total < many.total,
+              "MIN-2: the import set is a record of USES — touching more of java.lang "
+              "imports more (JLS 13.4.5)");
+        bbq_arena_free(&a1); bbq_arena_free(&a2);
+    }
 
     return TEST_SUMMARY("test_sema");
 }

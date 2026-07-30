@@ -53,7 +53,7 @@ static const uint8_t* emit(bbq_arena* a, const char* src, const char* name,
     sema_init(sctx, a); jtest_analyze(sctx);
     static compiler_ctx_t cctx; compiler_init(&cctx, a, sctx);
     int mc = 0; sir_method_t** methods = compiler_compile(&cctx, prog, &mc);
-    wasm_types_build(wt, sctx);
+    wasm_types_build(wt, sctx, NULL, 0);
     for (int i = 0; i < mc; i++) {
         /* USER-snippet methods only: the full prelude is compiled too, and lib
          * names collide with snippet names (Hashtable.get vs W.get). */
