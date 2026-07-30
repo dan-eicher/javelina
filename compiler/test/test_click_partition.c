@@ -549,14 +549,14 @@ static void test_cp_split_follower_follows_leader(void) {
     bbq_arena_free(&a);
 }
 
-/* Click §4.7.4 Followers-list invariant: for every vnode v with
- * v.leader >= 0, v appears in eng->follower_head[v.leader]'s
- * doubly-linked chain; conversely every chain member has the matching
- * leader field. Pins that cp_apply_*_follower / cp_revert_*_follower
- * keep eng->follower_head consistent — without symmetric link/unlink
- * a reverted vnode's old leader retains a stale chain entry, breaking
- * the §4.7.2 race walk. Fixture: parallel inductive recurrences, which
- * exercise the §4.9 apply + revert sweeps inside cp_build's outer
+/* Click §4.7.1/§4.7.4 Follower-reachability invariant: every Follower is reachable from
+ * its Leader through EDGES — the du window (every input-linked kind: the leader IS an
+ * input) or the discovered-edge overflow (LOAD/ARRLEN, §4.7.4's other.def_use) — because
+ * the edges ARE the notification structure now (Fig 4.7 lines 10-11 + the overflow):
+ * a follower not edge-reachable from its leader keeps a stale fact forever. Conversely,
+ * every LIVE overflow entry's user follows that segment's owner (a revert must remove
+ * its entry — §4.7.5 line 6.4's re-segregation). Fixture: parallel inductive
+ * recurrences, which exercise the §4.9 apply + revert sweeps inside cp_build's outer
  * fixpoint. */
 static void test_cp_follower_list_invariant(void) {
     bbq_arena a; bbq_arena_init(&a, 16384);
@@ -583,35 +583,38 @@ static void test_cp_follower_list_invariant(void) {
     cp_engine_t* e = cp_build(m, NULL, &a, NULL, 0);
     TEST_ASSERT_NOT_NULL(e);
 
-    /* Forward direction: every Follower must appear in its Leader's
-     * chain. */
+    /* Forward direction: every Follower must be EDGE-reachable from its Leader — as a
+     * du user of it (input-linked kinds), or through the discovered-edge overflow. */
     for (int v = 0; v < e->vnode_count; v++) {
         int leader = e->vnodes[v]->leader;
         if (leader < 0) continue;
-        TEST_ASSERT_TRUE_MESSAGE(leader < e->follower_head_cap,
-            "Leader index must be in follower_head range");
         bool found = false;
-        for (int f = e->follower_head[leader];
-             f >= 0; f = e->vnodes[f]->follower_next) {
-            if (f == v) { found = true; break; }
-        }
-        char msg[120];
+        for (int k = e->du_off[leader];
+             !found && k < e->du_off[leader] + e->du_cnt[leader]; k++)
+            if (e->du_user[k] == v) found = true;
+        if (!found && e->du_ov_head)
+            for (int o = e->du_ov_head[leader]; !found && o >= 0; o = e->du_ov_next[o])
+                if (e->du_ov_user[o] == v) found = true;
+        char msg[160];
         snprintf(msg, sizeof(msg),
-            "vnode %d with leader=%d must be in follower_head[%d]'s chain",
-            v, leader, leader);
+            "vnode %d with leader=%d must be edge-reachable from it (du window or "
+            "overflow) — an unreachable follower's fact goes stale forever",
+            v, leader);
         TEST_ASSERT_TRUE_MESSAGE(found, msg);
     }
-    /* Reverse direction: every chain member has the matching leader. */
-    for (int leader = 0; leader < e->follower_head_cap; leader++) {
-        for (int f = e->follower_head[leader];
-             f >= 0; f = e->vnodes[f]->follower_next) {
-            char msg[120];
-            snprintf(msg, sizeof(msg),
-                "vnode %d in follower_head[%d]'s chain but its leader=%d",
-                f, leader, e->vnodes[f]->leader);
-            TEST_ASSERT_EQUAL_INT_MESSAGE(leader, e->vnodes[f]->leader, msg);
-        }
-    }
+    /* Reverse direction: every LIVE overflow entry's user still follows that segment's
+     * owner — a revert must have removed its entry (line 6.4's re-segregation). */
+    if (e->du_ov_head)
+        for (int leader = 0; leader < e->vnode_count; leader++)
+            for (int o = e->du_ov_head[leader]; o >= 0; o = e->du_ov_next[o]) {
+                int u = e->du_ov_user[o];
+                if (u < 0) continue;                      /* removed at revert */
+                char msg[120];
+                snprintf(msg, sizeof(msg),
+                    "live overflow entry %d under vnode %d but user %d's leader=%d",
+                    o, leader, u, e->vnodes[u]->leader);
+                TEST_ASSERT_EQUAL_INT_MESSAGE(leader, e->vnodes[u]->leader, msg);
+            }
 
     cp_free(e);
     bbq_arena_free(&a);
@@ -754,6 +757,260 @@ static void test_cp_solve_worklists_drain(void) {
     TEST_ASSERT_EQUAL_INT_MESSAGE(0, (int)bbq_vec_len(e->worklist),
         "cp_solve must terminate with eng->worklist empty");
 
+    cp_free(e);
+    bbq_arena_free(&a);
+}
+
+/* A loop-header φ's solve must be AT a fixpoint, which is stronger than the drained worklists
+ * asserted above: a transfer reading a fact that reaches it by no def-use edge leaves no edge
+ * to be pending, so the worklists drain while the value is stale.
+ *
+ * Click §4.9 (printed p.62) makes a φ a Follower when all its LIVE inputs are congruent,
+ * testing liveness as `(*region)[i]→type = Type_Reach`. While the back edge is unreachable the
+ * live set is the entry seed alone and the φ follows it; when the loop test settles and the
+ * back edge opens the premise breaks, with the header reachable throughout. */
+static void test_cp_loop_phi_reaches_fixpoint(void) {
+    bbq_arena a; bbq_arena_init(&a, 16384);
+    /* header: loop merge. body stores st+1 back to slot 0 and jumps to header.
+     * The exit test compares slot 0 against an opaque bound, so its condition is not a
+     * literal — it settles to BOTTOM only after the seed's fact falls. */
+    sir_node_t* header = sir_nop(&a, NULL);                      /* patched below */
+    sir_node_t* ret_v  = sir_load_local(&a, 0, SIR_DTSHORT, NULL);
+    sir_node_t* ret    = sir_return(&a, ret_v, SIR_DTSHORT);
+    sir_node_t* st     = sir_load_local(&a, 0, SIR_DTSHORT, NULL);
+    sir_node_t* one    = sir_load_const(&a, 1, SIR_DTSHORT);
+    sir_node_t* inc    = sir_add(&a, SIR_DTSHORT, st, one);
+    sir_node_t* body   = sir_store_local(&a, 0, SIR_DTSHORT, NULL, inc, header);
+    sir_node_t* cnd    = sir_load_local(&a, 1, SIR_DTSHORT, NULL);   /* opaque bound */
+    sir_node_t* br     = sir_branch(&a, cnd, body, ret);
+    sir_set_next(header, br);
+    sir_node_t* seed   = sir_store_local(&a, 0, SIR_DTSHORT, NULL,
+                                         sir_load_const(&a, 0, SIR_DTSHORT), header);
+    sir_method_t* m    = sir_method(&a, "trimlike", 0, 0, 2, seed);
+
+    cp_engine_t* e = cp_build(m, NULL, &a, NULL, 0);
+    TEST_ASSERT_NOT_NULL(e);
+    TEST_ASSERT_TRUE_MESSAGE(cp_at_fixpoint(e),
+        "cp_solve must return AT a fixpoint: a loop-header phi whose back edge opens as the "
+        "loop test settles must have been re-armed (Click §4.9 reads liveness as the region "
+        "input's Type_Reach, i.e. a def-use input)");
+
+    cp_free(e);
+    bbq_arena_free(&a);
+}
+
+/* Same property for the identity-Follower path: a LoadLocal following a store holds its fact
+ * through the leader LINK, not a def-use edge, so a descending leader constant
+ * (CP_C_REF → CP_C_BOTTOM once an aliasing store is proven to reach it) must still recompute
+ * the follower's stored fact. */
+static void test_cp_load_follower_reaches_fixpoint(void) {
+    bbq_arena a; bbq_arena_init(&a, 16384);
+    sir_node_t* merge  = sir_nop(&a, NULL);
+    sir_node_t* r_v    = sir_load_local(&a, 0, SIR_DTREF, NULL);
+    sir_node_t* ret    = sir_return(&a, r_v, SIR_DTREF);
+    sir_set_next(merge, ret);
+    /* two arms storing DIFFERENT refs into slot 0, so the merge phi's fact must fall */
+    sir_node_t* a0     = sir_store_local(&a, 0, SIR_DTREF, NULL,
+                                         sir_load_local(&a, 1, SIR_DTREF, NULL), merge);
+    sir_node_t* a1     = sir_store_local(&a, 0, SIR_DTREF, NULL,
+                                         sir_load_local(&a, 2, SIR_DTREF, NULL), merge);
+    sir_node_t* cnd    = sir_load_local(&a, 3, SIR_DTSHORT, NULL);
+    sir_node_t* br     = sir_branch(&a, cnd, a0, a1);
+    sir_method_t* m    = sir_method(&a, "trimtosizelike", 0, 0, 4, br);
+
+    cp_engine_t* e = cp_build(m, NULL, &a, NULL, 0);
+    TEST_ASSERT_NOT_NULL(e);
+    TEST_ASSERT_TRUE_MESSAGE(cp_at_fixpoint(e),
+        "cp_solve must return AT a fixpoint: a load Follower whose Leader's constant descends "
+        "must be recomputed (the leader LINK is not a def-use edge)");
+
+    cp_free(e);
+    bbq_arena_free(&a);
+}
+
+/* W5 T2 — the in-drain transitions TERMINATE on the oscillation shape, because of Click
+ * §4.7.1: "Nodes can make the Follower ⇒ Leader transition only once."
+ *
+ * `sum = 0; while (?) { sum = sum + i; i = i + 1; }` — while the seed's KNOWN 0 is the
+ * only contributor, Add(sum, i) is a §4.8 identity on i and becomes its Follower; when
+ * the back edge opens and sum's φ falls to BOTTOM the premise breaks and it reverts.
+ * With the applies running at the dequeue (Fig 4.7 lines 17-21 + the operand-side
+ * attempt), a node whose premise oscillates mid-solve re-forms at every dequeue — the
+ * loop keeps it enqueued — and the outer drain never empties (SEEN: the 1M-iteration
+ * guard abort, |cprop_wl|=57, pairs of φs pending in shared partitions). One-way is the
+ * paper's own termination argument for this placement, not merely its O(n) cost bound.
+ * The loop also feeds a SUB of two moving partitions, so the §4.6 lines 33-34
+ * cross-enqueue (CAUSE_SPLITS → cprop) runs on a loop-heavy method and must converge —
+ * NOT to be confused with cp_refine's whole-partition re-seeding, a different operation.
+ *
+ * COVERAGE, not a falsifier: this shape's identity premise (KNOWN 0 operand) descends
+ * monotonically, so it terminates even without the gate — verified by running it with
+ * the gate disabled. The gate's falsifier is SUITE-level: disabling f2l_once aborts
+ * test_sir's jre-derived methods on the convergence guard (run 07-30, twice). */
+static void test_cp_in_drain_transitions_terminate(void) {
+    bbq_arena a; bbq_arena_init(&a, 16384);
+    sir_node_t* header = sir_nop(&a, NULL);                      /* patched below */
+    sir_node_t* ret_v  = sir_load_local(&a, 0, SIR_DTSHORT, NULL);
+    sir_node_t* ret    = sir_return(&a, ret_v, SIR_DTSHORT);
+    /* body: d = sum - i; sum = sum + i; i = i + 1 */
+    sir_node_t* sum    = sir_load_local(&a, 0, SIR_DTSHORT, NULL);
+    sir_node_t* iv     = sir_load_local(&a, 1, SIR_DTSHORT, NULL);
+    sir_node_t* add    = sir_add(&a, SIR_DTSHORT, sum, iv);
+    sir_node_t* sub    = sir_sub(&a, SIR_DTSHORT,
+                                 sir_load_local(&a, 0, SIR_DTSHORT, NULL),
+                                 sir_load_local(&a, 1, SIR_DTSHORT, NULL));
+    sir_node_t* inc    = sir_add(&a, SIR_DTSHORT,
+                                 sir_load_local(&a, 1, SIR_DTSHORT, NULL),
+                                 sir_load_const(&a, 1, SIR_DTSHORT));
+    sir_node_t* st_i   = sir_store_local(&a, 1, SIR_DTSHORT, NULL, inc, header);
+    sir_node_t* st_s   = sir_store_local(&a, 0, SIR_DTSHORT, NULL, add, st_i);
+    sir_node_t* st_d   = sir_store_local(&a, 3, SIR_DTSHORT, NULL, sub, st_s);
+    sir_node_t* cnd    = sir_load_local(&a, 2, SIR_DTSHORT, NULL);   /* opaque bound */
+    sir_node_t* br     = sir_branch(&a, cnd, st_d, ret);
+    sir_set_next(header, br);
+    sir_node_t* seed   = sir_store_local(&a, 0, SIR_DTSHORT, NULL,
+                                         sir_load_const(&a, 0, SIR_DTSHORT), header);
+    sir_method_t* m    = sir_method(&a, "sumloop", 0, 0, 4, seed);
+
+    cp_engine_t* e = cp_build(m, NULL, &a, NULL, 0);   /* non-termination = abort here */
+    TEST_ASSERT_NOT_NULL(e);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, (int)bbq_vec_len(e->cprop_worklist),
+        "§4.4.2: the solve exits on worklist emptiness — cprop drained");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, (int)bbq_vec_len(e->worklist),
+        "§4.4.2: the solve exits on worklist emptiness — splitter drained");
+    TEST_ASSERT_TRUE_MESSAGE(cp_at_fixpoint(e),
+        "the oscillated identity's final state is a true fixpoint (burned Leader, "
+        "facts = f(inputs))");
+    cp_free(e);
+    bbq_arena_free(&a);
+}
+
+/* The φ-PAIR shape from the jre livelock's dump (pairs of PHIs pending in shared
+ * partitions when the 1M guard tripped): two loop-carried slots whose header φs are
+ * each other's back-edge contributor. Each φ's §4.9 premise ("all live inputs in one
+ * partition") is NON-monotone — the peer's apply re-forms it, the peer's revert
+ * re-breaks it. COVERAGE: this two-φ distillation terminates even with the §4.7.1 gate
+ * disabled (verified by running it so) — the jre cycle needs more context than the
+ * bare pair — but the pair premise-chasing is the mechanism the dump named, so the
+ * shape stays pinned for termination + fixpoint. */
+static void test_cp_phi_pair_terminates(void) {
+    bbq_arena a; bbq_arena_init(&a, 16384);
+    sir_node_t* header = sir_nop(&a, NULL);                      /* patched below */
+    sir_node_t* ret_v  = sir_load_local(&a, 0, SIR_DTSHORT, NULL);
+    sir_node_t* ret    = sir_return(&a, ret_v, SIR_DTSHORT);
+    /* body: t = a; a = b; b = t (swap) */
+    sir_node_t* la     = sir_load_local(&a, 0, SIR_DTSHORT, NULL);
+    sir_node_t* lb     = sir_load_local(&a, 1, SIR_DTSHORT, NULL);
+    sir_node_t* st_b   = sir_store_local(&a, 1, SIR_DTSHORT, NULL, la, header);
+    sir_node_t* st_a   = sir_store_local(&a, 0, SIR_DTSHORT, NULL, lb, st_b);
+    sir_node_t* cnd    = sir_load_local(&a, 2, SIR_DTSHORT, NULL);   /* opaque bound */
+    sir_node_t* br     = sir_branch(&a, cnd, st_a, ret);
+    sir_set_next(header, br);
+    /* seeds from two DIFFERENT params, so the pair's congruence is transient */
+    sir_node_t* st1    = sir_store_local(&a, 1, SIR_DTSHORT, NULL,
+                                         sir_load_local(&a, 4, SIR_DTSHORT, NULL), header);
+    sir_node_t* st0    = sir_store_local(&a, 0, SIR_DTSHORT, NULL,
+                                         sir_load_local(&a, 3, SIR_DTSHORT, NULL), st1);
+    sir_method_t* m    = sir_method(&a, "swaploop", 0, 0, 5, st0);
+
+    cp_engine_t* e = cp_build(m, NULL, &a, NULL, 0);   /* non-termination = abort here */
+    TEST_ASSERT_NOT_NULL(e);
+    TEST_ASSERT_TRUE_MESSAGE(cp_at_fixpoint(e),
+        "the phi pair settles: burned or premise-true Followers, facts = f(inputs)");
+    cp_free(e);
+    bbq_arena_free(&a);
+}
+
+/* W6-Q1 pin — TWO reverted identity Followers of the same Leader, different opcodes,
+ * must not stay claimed-congruent to each other. §4.7.5 line 6.3 keeps a reverted node
+ * in the partition as a Leader, so Leaders can mix opcodes; §4.8 p.60 puts the revert
+ * in `fallen` because it lacks "the same type OR OPCODE as the other Leaders", and
+ * SPLIT_BY's OPCODE level (p.47's cascade) is what separates the mix. A LONE revert is
+ * already carved out by line 15's SPLIT (the other Leaders didn't fall in that drain —
+ * verified by running the lone shape with the opcode level disabled: still separates);
+ * the exposure is a PAIR reverting in the SAME drain: both land in the fallen suffix,
+ * SPLIT carves them into one Y together, and with equal BOTTOM facts only the opcode
+ * key tells an ADD from a SUB — `x + k ≡ x - k` with k unknown is a miscompile.
+ *
+ * Shape: x opaque (slot 0, never stored); k loop-carried (slot 1), seeded 0, back edge
+ * stores an opaque q. After the loop, y1 = x + k and y2 = x - k. While the back edge
+ * is unlit, k is KNOWN 0 and both are §4.8 identities on x (ADD either-side 0; SUB
+ * right-side 0), Followers toward the slot-0 seed's partition. When the back edge
+ * opens, k falls and both revert.
+ *
+ * COVERAGE, not a falsifier: run with the opcode level disabled (forced §4.5
+ * exemption, 07-30), this still passes — the traced runs show the pair reverting in
+ * DIFFERENT partitions (line-7 fact refresh + per-drain line-15 carves separate them
+ * before SPLIT_BY ever sees them together). The opcode key is the paper's own backstop
+ * (p.47's cascade; §4.8 p.60's "same type or opcode") for orderings no construction
+ * reached; this pin holds the CLASS invariant so any future dynamics that do strand
+ * the pair go red here. */
+static void test_cp_reverted_identity_pair_not_congruent(void) {
+    bbq_arena a; bbq_arena_init(&a, 16384);
+    sir_node_t* header = sir_nop(&a, NULL);                      /* patched below */
+    sir_node_t* y1     = sir_add(&a, SIR_DTSHORT,
+                                 sir_load_local(&a, 0, SIR_DTSHORT, NULL),
+                                 sir_load_local(&a, 1, SIR_DTSHORT, NULL));
+    sir_node_t* y2     = sir_sub(&a, SIR_DTSHORT,
+                                 sir_load_local(&a, 0, SIR_DTSHORT, NULL),
+                                 sir_load_local(&a, 1, SIR_DTSHORT, NULL));
+    sir_node_t* ret    = sir_return(&a, sir_add(&a, SIR_DTSHORT, y1, y2), SIR_DTSHORT);
+    sir_node_t* body   = sir_store_local(&a, 1, SIR_DTSHORT, NULL,
+                                         sir_load_local(&a, 3, SIR_DTSHORT, NULL), header);
+    sir_node_t* cnd    = sir_load_local(&a, 2, SIR_DTSHORT, NULL);   /* opaque bound */
+    sir_node_t* br     = sir_branch(&a, cnd, body, ret);
+    sir_set_next(header, br);
+    sir_node_t* seed   = sir_store_local(&a, 1, SIR_DTSHORT, NULL,
+                                         sir_load_const(&a, 0, SIR_DTSHORT), header);
+    sir_method_t* m    = sir_method(&a, "revertmix", 0, 0, 4, seed);
+
+    cp_engine_t* e = cp_build(m, NULL, &a, NULL, 0);
+    TEST_ASSERT_NOT_NULL(e);
+    int p1 = -1, p2 = -1;
+    for (int i = 0; i < e->vnode_count; i++) {
+        cp_vnode_t* v = e->vnodes[i];
+        if (v->kind != CP_VN_EXPR || !v->expr) continue;
+        if (v->expr == y1) p1 = i;
+        if (v->expr == y2) p2 = i;
+    }
+    TEST_ASSERT_TRUE_MESSAGE(p1 >= 0 && p2 >= 0, "y1 and y2 have vnodes");
+    TEST_ASSERT_TRUE_MESSAGE(e->vnodes[p1]->leader == -1 && e->vnodes[p2]->leader == -1,
+        "the identity premises broke (k fell to BOTTOM) — both reverted to Leader");
+    TEST_ASSERT_TRUE_MESSAGE(
+        e->vnodes[p1]->partition != e->vnodes[p2]->partition,
+        "a reverted x+k is NOT a reverted x-k: equal BOTTOM facts must not keep "
+        "different opcodes congruent (SPLIT_BY's opcode level, p.47)");
+    cp_free(e);
+    bbq_arena_free(&a);
+}
+
+/* W5 T3 — cp_at_fixpoint's families over a MEMORY shape: an allocation, two stores on
+ * diverging arms, a load at the merge (a cell-φ). With SPLIT/SPLIT_BY, the Follower
+ * transitions AND the edge marking all inside the drain, "worklists empty" is the whole
+ * exit — this asserts the heap/pts families really are f(inputs) there, not kept correct
+ * by a deleted round pass re-running them. */
+static void test_cp_memory_shape_reaches_fixpoint(void) {
+    bbq_arena a; bbq_arena_init(&a, 1 << 16);
+    sir_node_t* ret   = sir_return(&a, sir_get_field(&a, SIR_DTINT,
+                                        sir_load_local(&a, 0, SIR_DTREF, NULL), 7, 0),
+                                    SIR_DTINT);
+    sir_node_t* merge = sir_nop(&a, ret);
+    sir_node_t* s2    = sir_put_field(&a, SIR_DTINT,
+                                      sir_load_local(&a, 0, SIR_DTREF, NULL), 7, 0,
+                                      sir_load_const(&a, 2, SIR_DTINT), merge);
+    sir_node_t* s1    = sir_put_field(&a, SIR_DTINT,
+                                      sir_load_local(&a, 0, SIR_DTREF, NULL), 7, 0,
+                                      sir_load_const(&a, 1, SIR_DTINT), merge);
+    sir_node_t* cnd   = sir_load_local(&a, 1, SIR_DTSHORT, NULL);
+    sir_node_t* br    = sir_branch(&a, cnd, s1, s2);
+    sir_node_t* st0   = sir_store_local(&a, 0, SIR_DTREF, NULL, sir_new(&a, 7), br);
+    sir_method_t* m   = sir_method(&a, "memdiamond", 0, 0, 2, st0);
+
+    cp_engine_t* e = cp_build(m, NULL, &a, NULL, 0);
+    TEST_ASSERT_NOT_NULL(e);
+    TEST_ASSERT_TRUE_MESSAGE(cp_at_fixpoint(e),
+        "heap/pts are fixpoint families like any other: the merge's cell-phi and the "
+        "load reading it must be f(inputs) when the worklists empty");
     cp_free(e);
     bbq_arena_free(&a);
 }
@@ -4503,7 +4760,7 @@ static void test_cp_getfields_of_distinct_fields_not_congruent(void) {
 /* Same op, same variable operand, DIFFERENT constant operand — the shape of
  * every big-endian byte splitter (`(v >>> 24) & 0xFF`, `(v >>> 16) & 0xFF`,
  * …). All three Ushr nodes carry the same FACT (BOTTOM: v is unknown), so
- * cp_split_by_facts can never separate them; only CAUSE_SPLITS, splitting by
+ * cp_split_by_facts_one can never separate them; only CAUSE_SPLITS, splitting by
  * the partition feeding input 1, can. When a fact-driven split of the shared
  * LoadConst partition failed to re-arm the CAUSE_SPLITS worklist, the three
  * stayed congruent and CSE collapsed them into one — DataOutputStream.writeInt
@@ -5201,7 +5458,7 @@ static void test_pts_does_not_change_partitions(void) {
     TEST_ASSERT_TRUE_MESSAGE(pa >= 0 && pb >= 0, "both Adds have vnodes");
     TEST_ASSERT_EQUAL_INT_MESSAGE(pa, pb,
         "congruent Adds still share a partition — pts must never feed "
-        "cp_split_by_facts (it is a derived property, not value identity)");
+        "cp_split_by_facts_one (it is a derived property, not value identity)");
     cp_free(e);
     bbq_arena_free(&a);
 }
@@ -6495,6 +6752,12 @@ void test_click_partition_suite(void) {
     RUN_TEST(test_cp_init_facts_contract);
     RUN_TEST(test_cp_propagate_drain_contract);
     RUN_TEST(test_cp_solve_worklists_drain);
+    RUN_TEST(test_cp_in_drain_transitions_terminate);
+    RUN_TEST(test_cp_phi_pair_terminates);
+    RUN_TEST(test_cp_reverted_identity_pair_not_congruent);
+    RUN_TEST(test_cp_memory_shape_reaches_fixpoint);
+    RUN_TEST(test_cp_loop_phi_reaches_fixpoint);
+    RUN_TEST(test_cp_load_follower_reaches_fixpoint);
     RUN_TEST(test_cp_sub_of_congruent_folds_to_zero);
     RUN_TEST(test_cp_cmp_eq_of_congruent_folds_to_one);
     RUN_TEST(test_cp_partition_type_invariant);

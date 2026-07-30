@@ -10,6 +10,7 @@
 #include "bbq_vec.h"
 
 #include <stdbool.h>
+#include <limits.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -255,8 +256,12 @@ static cp_vnode_t* cp_alloc_vnode(cp_engine_t* eng, int* out_idx) {
     v->part_prev     = -1;
     v->part_next     = -1;
     v->leader        = -1;
-    v->follower_next = -1;
-    v->follower_prev = -1;
+    v->follower_kind = CP_FK_NONE;
+    v->f2l_once      = false;
+    v->prem_dep[0]   = -1;
+    v->prem_dep[1]   = -1;
+    v->prem_dep[2]   = -1;
+    v->prem_dep[3]   = -1;
     v->cprop_next    = -1;
     v->cprop_prev    = -1;
     v->in_cprop      = false;
@@ -764,15 +769,27 @@ static void cp_ensure_in(cp_engine_t* eng, cp_rd_t* rd, int start) {
 static void cp_resolve_loads(cp_engine_t* eng, const int* in_state,
                              int spine_idx, sir_node_t* e) {
     if (!e) return;
+    /* THE OWNING ROW, recorded for EVERY expression in this spine node's tree — not just
+     * LoadLocals. This loop is the enumeration that already has the row index; attributing
+     * ownership afterwards would need a whole-graph expr→spine index, which is the private
+     * dominance structure §R exists to keep out.
+     *
+     * expr_idx is keyed on the NODE POINTER, so a pointer shared by two rows resolves to ONE
+     * vnode with two owners. That case is not attributable and is marked ambiguous rather than
+     * silently taking the first — a consumer that needs the row must then decline. */
+    {
+        void* pf = cp_pmap_get(&eng->expr_idx, e);
+        if (pf) {
+            cp_vnode_t* pv = eng->vnodes[(int)((uintptr_t)pf - 1)];
+            if (pv->parent_spine == -1)                    pv->parent_spine = spine_idx;
+            else if (pv->parent_spine != spine_idx)         pv->parent_spine = CP_SPINE_AMBIGUOUS;
+        }
+    }
     if (e->tag == SIR_LOADLOCAL) {
         int s = e->load_local.slot;
         if (s >= 0 && s < eng->slot_count) {
             void* f = cp_pmap_get(&eng->expr_idx, e);
-            if (f) {
-                int vi = (int)((uintptr_t)f - 1);
-                eng->vnodes[vi]->inputs[0]    = in_state[s];
-                eng->vnodes[vi]->parent_spine = spine_idx;
-            }
+            if (f) eng->vnodes[(int)((uintptr_t)f - 1)]->inputs[0] = in_state[s];
         }
         return;
     }
@@ -799,14 +816,17 @@ static void cp_resolve_loads(cp_engine_t* eng, const int* in_state,
 
 /* φ at a merge for state index s. Slot-PHIs (s < slot_count) carry
  * phi_slot=s; cell-PHIs (s >= slot_count) carry phi_cell=s-slot_count
- * with phi_slot=-1. Inputs start CP_INPUT_UNRESOLVED. */
-static int cp_new_phi_state(cp_engine_t* eng, sir_node_t* merge, int s,
-                             int slot_count, int npreds) {
+ * with phi_slot=-1. Inputs start CP_INPUT_UNRESOLVED. The merge ROW is
+ * the φ's owning control row (parent_spine): it is what aligns input i
+ * with the (phi_pred[i] → merge) edge the executable-edge flag lives on. */
+static int cp_new_phi_state(cp_engine_t* eng, sir_node_t* merge, int merge_row,
+                             int s, int slot_count, int npreds) {
     int idx;
     cp_vnode_t* v = cp_alloc_vnode(eng, &idx);
     v->kind      = CP_VN_PHI;
     v->op        = CP_OP_PHI;
     v->phi_merge = merge;
+    v->parent_spine = merge_row;
     if (s < slot_count) v->phi_slot = s;
     else                v->phi_cell = s - slot_count;
     int* in = (int*)bbq_arena_alloc(eng->arena, (size_t)npreds * sizeof(int));
@@ -982,6 +1002,87 @@ static void cp_build_pred_csr(cp_engine_t* eng, int** pred_off,
         }
     }
     *pred_off = off; *pred_cnt = cnt; *pred_list = list;
+}
+
+/* RECORD the successor-edge structure the executable-edge flag (§4/§9) lives on, so the
+ * solve reads a table and never walks the graph. Built once at construction (after every
+ * vnode exists — the condrow CSR is keyed by vnode id) and REBUILT by the post-rewrite
+ * §4.10 consumer against the rewritten spine. Enumerating sir_succ here is the same
+ * build-phase license cp_build_pred_csr has; §8's exemption covers exactly this. */
+static void cp_build_edge_tables(cp_engine_t* eng) {
+    bbq_arena* a = eng->arena;
+    int sn = eng->spine_count;
+    eng->edge_rows  = sn;
+    eng->entry_row  = eng->method ? cp_spine_index(eng, eng->method->entry) : -1;
+    eng->edge_off   = (int*)bbq_arena_alloc(a, (size_t)(sn + 1) * sizeof(int));
+    int total = 0;
+    for (int n = 0; n < sn; n++) {
+        eng->edge_off[n] = total;
+        total += sir_succ_count(eng->spine[n]);
+    }
+    eng->edge_off[sn] = total;
+    eng->edge_target = (int*)bbq_arena_alloc(a, (size_t)(total > 0 ? total : 1) * sizeof(int));
+    eng->edge_exec   = (bool*)bbq_arena_alloc(a, (size_t)(total > 0 ? total : 1) * sizeof(bool));
+    memset(eng->edge_exec, 0, (size_t)(total > 0 ? total : 1) * sizeof(bool));
+    eng->edge_lit_in = (int*)bbq_arena_alloc(a, (size_t)(sn > 0 ? sn : 1) * sizeof(int));
+    memset(eng->edge_lit_in, 0, (size_t)(sn > 0 ? sn : 1) * sizeof(int));
+    for (int n = 0; n < sn; n++) {
+        int sct = sir_succ_count(eng->spine[n]);
+        for (int k = 0; k < sct; k++)
+            eng->edge_target[eng->edge_off[n] + k] =
+                cp_spine_index(eng, sir_succ(eng->spine[n], k));
+    }
+    /* The node bits the marking derives; fresh — the marking (re)establishes them. */
+    eng->reachable = (bool*)bbq_arena_alloc(a, (size_t)(sn > 0 ? sn : 1) * sizeof(bool));
+    memset(eng->reachable, 0, (size_t)(sn > 0 ? sn : 1) * sizeof(bool));
+    eng->reachable_rows = sn;
+    eng->reach_count    = 0;
+    /* φ id RANGE per merge row (first..last surviving φ). The range has HOLES:
+     * cp_subsume_trivial_phis re-kinds a trivial φ to CP_VN_OPAQUE in place, so a
+     * consumer walking the block must SKIP non-φ entries, never stop at one — stopping
+     * is how an edge-flip event silently failed to reach the φs behind a subsumed
+     * sibling, and a loop-header φ kept a single-live-input Follower link forever. */
+    eng->row_phi_first = (int*)bbq_arena_alloc(a, (size_t)(sn > 0 ? sn : 1) * sizeof(int));
+    eng->row_phi_last  = (int*)bbq_arena_alloc(a, (size_t)(sn > 0 ? sn : 1) * sizeof(int));
+    for (int n = 0; n < sn; n++) { eng->row_phi_first[n] = -1; eng->row_phi_last[n] = -1; }
+    for (int v = 0; v < eng->vnode_count; v++) {
+        const cp_vnode_t* vn = eng->vnodes[v];
+        if (!vn || vn->kind != CP_VN_PHI) continue;
+        int ps = vn->parent_spine;
+        if (ps >= 0 && ps < sn) {
+            if (eng->row_phi_first[ps] < 0) eng->row_phi_first[ps] = v;
+            eng->row_phi_last[ps] = v;
+        }
+    }
+    /* cond vnode → rows testing it. A row's condition is read through expr_idx exactly as
+     * cp_cond_const reads it, so the two cannot disagree about which vnode a branch tests. */
+    int vc = eng->vnode_count;
+    eng->condrow_rows = vc;
+    int* ccnt = (int*)bbq_arena_alloc(a, (size_t)(vc + 1) * sizeof(int));
+    memset(ccnt, 0, (size_t)(vc + 1) * sizeof(int));
+    for (int n = 0; n < sn; n++) {
+        sir_node_t* s = eng->spine[n];
+        sir_node_t* cond = s->tag == SIR_BRANCH ? s->branch.cond
+                         : s->tag == SIR_SWITCH ? s->switch_.selector : NULL;
+        if (!cond) continue;
+        void* f = cp_pmap_get(&eng->expr_idx, cond);
+        if (f) ccnt[(int)((uintptr_t)f - 1)]++;
+    }
+    eng->condrow_off = (int*)bbq_arena_alloc(a, (size_t)(vc + 1) * sizeof(int));
+    int ct = 0;
+    for (int v = 0; v <= vc; v++) { eng->condrow_off[v] = ct; ct += ccnt[v]; }
+    eng->condrow_list = (int*)bbq_arena_alloc(a, (size_t)(ct > 0 ? ct : 1) * sizeof(int));
+    memset(ccnt, 0, (size_t)(vc + 1) * sizeof(int));
+    for (int n = 0; n < sn; n++) {
+        sir_node_t* s = eng->spine[n];
+        sir_node_t* cond = s->tag == SIR_BRANCH ? s->branch.cond
+                         : s->tag == SIR_SWITCH ? s->switch_.selector : NULL;
+        if (!cond) continue;
+        void* f = cp_pmap_get(&eng->expr_idx, cond);
+        if (!f) continue;
+        int cv = (int)((uintptr_t)f - 1);
+        eng->condrow_list[eng->condrow_off[cv] + ccnt[cv]++] = n;
+    }
 }
 
 /* Subsume the copies — spec §1.
@@ -1319,7 +1420,7 @@ static void cp_resolve(cp_engine_t* eng) {
             int npreds = rd.pred_cnt[n] + (n == rd.entry_idx ? 1 : 0);
             int* row = (int*)bbq_arena_alloc(a, (size_t)state_count * sizeof(int));
             for (int s = 0; s < state_count; s++)
-                row[s] = cp_new_phi_state(eng, eng->spine[n], s, sc, npreds);
+                row[s] = cp_new_phi_state(eng, eng->spine[n], n, s, sc, npreds);
             rd.phi_of[n] = row;
         }
     }
@@ -2277,6 +2378,14 @@ static void cp_compute_branch_refinements(cp_engine_t* eng) {
         eng->verdict_stride    = vstride;
         eng->verdict_rows      = sn;
         eng->branch_fact_count = nfacts;
+        /* The rows carrying any verdict — the revert re-mark list (see the
+         * executable-edge marking header). Recorded once; verdict_words is
+         * static after this point. */
+        for (int n = 0; n < sn; n++) {
+            const uint64_t* row = vw + (size_t)n * vstride;
+            for (int w = 0; w < vstride; w++)
+                if (row[w]) { bbq_vec_push(eng->verdict_row_list, n); break; }
+        }
     }
 
     /* Rewire every slot load to its CONVERGED state. Pair-states materialize into Refine
@@ -2379,6 +2488,10 @@ static void cp_build_defuse(cp_engine_t* eng) {
     int vc = eng->vnode_count;
     if (vc == 0) return;
     bbq_arena* a = eng->arena;
+    /* The discovered-edge overflow starts empty; cp_du_ov_append fills it at solve time
+     * when a LOAD/ARRLEN link is discovered (§4.7.4's other.def_use). */
+    eng->du_ov_head = (int*)bbq_arena_alloc(a, (size_t)vc * sizeof(int));
+    for (int v = 0; v < vc; v++) eng->du_ov_head[v] = -1;
     eng->du_off = (int*)bbq_arena_alloc(a, (size_t)vc * sizeof(int));
     eng->du_cnt = (int*)bbq_arena_alloc(a, (size_t)vc * sizeof(int));
     memset(eng->du_cnt, 0, (size_t)vc * sizeof(int));
@@ -2529,43 +2642,113 @@ static void cp_wl_push(cp_engine_t* eng, int pid) {
     bbq_vec_push(eng->worklist, pid);
 }
 
-/* Click §4.7.4 F.def_use list maintenance. The Followers of a Leader
- * vnode l form a doubly-linked list rooted at eng->follower_head[l].
- * cp_follower_link / cp_follower_unlink keep the list in sync with
- * vnode->leader at every leader change so cp_split / the §4.7.2 race
- * can walk a Leader's Followers in O(|F|). */
-static void cp_follower_grow(cp_engine_t* eng, int up_to) {
-    if (up_to < eng->follower_head_cap) return;
-    int new_cap = eng->follower_head_cap > 0 ? eng->follower_head_cap : 16;
-    while (new_cap <= up_to) new_cap *= 2;
-    int* nh = (int*)bbq_arena_alloc(eng->arena, (size_t)new_cap * sizeof(int));
-    for (int i = 0; i < eng->follower_head_cap; i++) nh[i] = eng->follower_head[i];
-    for (int i = eng->follower_head_cap; i < new_cap; i++) nh[i] = -1;
-    eng->follower_head = nh;
-    eng->follower_head_cap = new_cap;
+/* RECORD the escape-source index (§6): which rows carry a lowering rule, which operand
+ * vnodes each tag-source reads, and where the call sites are — ONE tree walk per row at
+ * construction (cp_build_pred_csr's license), so the solve never re-discovers a static
+ * set. */
+static int cp_vnode_of(cp_engine_t* eng, const sir_node_t* e);
+static void cp_escape_index_calls(cp_engine_t* eng, sir_node_t* e,
+                                  sir_node_t*** out, int* cnt) {
+    if (!e) return;
+    if (e->tag == SIR_INVOKEVIRTUAL || e->tag == SIR_INVOKEINTERFACE
+            || e->tag == SIR_INVOKESPECIAL || e->tag == SIR_INVOKESTATIC) {
+        bbq_vec_push(*out, e);
+        (*cnt)++;
+    }
+    int n = sir_arity(e);
+    for (int i = 0; i < n; i++) cp_escape_index_calls(eng, sir_child(e, i), out, cnt);
 }
 
-static void cp_follower_link(cp_engine_t* eng, int follower, int leader) {
-    cp_follower_grow(eng, leader);
-    cp_vnode_t* fv = eng->vnodes[follower];
-    int head = eng->follower_head[leader];
-    fv->follower_prev = -1;
-    fv->follower_next = head;
-    if (head >= 0) eng->vnodes[head]->follower_prev = follower;
-    eng->follower_head[leader] = follower;
+static void cp_escape_index(cp_engine_t* eng) {
+    bbq_arena* a = eng->arena;
+    int sn = eng->spine_count, vc = eng->vnode_count;
+    eng->esc_src = (uint8_t*)bbq_arena_alloc(a, (size_t)(sn > 0 ? sn : 1));
+    memset(eng->esc_src, 0, (size_t)(sn > 0 ? sn : 1));
+    eng->esc_call_off = (int*)bbq_arena_alloc(a, (size_t)(sn + 1) * sizeof(int));
+    eng->esc_pending_flag = (bool*)bbq_arena_alloc(a, (size_t)(sn > 0 ? sn : 1) * sizeof(bool));
+    memset(eng->esc_pending_flag, 0, (size_t)(sn > 0 ? sn : 1) * sizeof(bool));
+    sir_node_t** calls = NULL;
+    int* dep_vn  = NULL;   /* (vnode, row) pairs for the dep CSR */
+    int* dep_row = NULL;
+    for (int i = 0; i < sn; i++) {
+        eng->esc_call_off[i] = (int)bbq_vec_len(calls);
+        sir_node_t* n = eng->spine[i];
+        sir_node_t* dep0 = NULL;    /* the value the rule reads */
+        sir_node_t* dep1 = NULL;    /* the receiver whose state it confers */
+        switch (n->tag) {
+        case SIR_RETURN:     dep0 = n->return_.value;      break;
+        case SIR_PUTSTATIC:  dep0 = n->put_static.value;   break;
+        case SIR_THROW:      dep0 = n->throw_.ref;         break;
+        case SIR_PUTFIELD:   dep0 = n->put_field.value;    dep1 = n->put_field.obj;   break;
+        case SIR_ARRAYSTORE: dep0 = n->array_store.value;  dep1 = n->array_store.arr; break;
+        default: break;
+        }
+        if (dep0) {
+            eng->esc_src[i] |= 1;
+            int v0 = cp_vnode_of(eng, dep0);
+            if (v0 >= 0) { bbq_vec_push(dep_vn, v0); bbq_vec_push(dep_row, i); }
+            int v1 = dep1 ? cp_vnode_of(eng, dep1) : -1;
+            if (v1 >= 0) { bbq_vec_push(dep_vn, v1); bbq_vec_push(dep_row, i); }
+        }
+        int nc = 0;
+        int ar = sir_arity(n);
+        for (int j = 0; j < ar; j++) cp_escape_index_calls(eng, sir_child(n, j), &calls, &nc);
+        if (nc > 0) eng->esc_src[i] |= 2;
+    }
+    eng->esc_call_off[sn] = (int)bbq_vec_len(calls);
+    int tc = (int)bbq_vec_len(calls);
+    eng->esc_call_list = (sir_node_t**)bbq_arena_alloc(a,
+                             (size_t)(tc > 0 ? tc : 1) * sizeof(sir_node_t*));
+    for (int k = 0; k < tc; k++) eng->esc_call_list[k] = calls[k];
+    bbq_vec_free(calls);
+    /* operand vnode → tag-source rows (CSR). */
+    eng->esc_dep_rows = vc;
+    int* cnt = (int*)bbq_arena_alloc(a, (size_t)(vc + 1) * sizeof(int));
+    memset(cnt, 0, (size_t)(vc + 1) * sizeof(int));
+    int nd = (int)bbq_vec_len(dep_vn);
+    for (int k = 0; k < nd; k++) cnt[dep_vn[k]]++;
+    eng->esc_dep_off = (int*)bbq_arena_alloc(a, (size_t)(vc + 1) * sizeof(int));
+    int tot = 0;
+    for (int v = 0; v <= vc; v++) { eng->esc_dep_off[v] = tot; tot += cnt[v]; }
+    eng->esc_dep_list = (int*)bbq_arena_alloc(a, (size_t)(tot > 0 ? tot : 1) * sizeof(int));
+    memset(cnt, 0, (size_t)(vc + 1) * sizeof(int));
+    for (int k = 0; k < nd; k++)
+        eng->esc_dep_list[eng->esc_dep_off[dep_vn[k]] + cnt[dep_vn[k]]++] = dep_row[k];
+    bbq_vec_free(dep_vn); bbq_vec_free(dep_row);
+    /* Seed: every source row is pending once — the first drain evaluates the whole set,
+     * exactly the old first sweep; after that only events re-add. */
+    for (int i = 0; i < sn; i++)
+        if (eng->esc_src[i]) {
+            eng->esc_pending_flag[i] = true;
+            bbq_vec_push(eng->esc_pending, i);
+        }
 }
 
-static void cp_follower_unlink(cp_engine_t* eng, int follower, int leader) {
-    if (leader < 0 || leader >= eng->follower_head_cap) return;
-    cp_vnode_t* fv = eng->vnodes[follower];
-    if (fv->follower_prev >= 0)
-        eng->vnodes[fv->follower_prev]->follower_next = fv->follower_next;
-    else if (eng->follower_head[leader] == follower)
-        eng->follower_head[leader] = fv->follower_next;
-    if (fv->follower_next >= 0)
-        eng->vnodes[fv->follower_next]->follower_prev = fv->follower_prev;
-    fv->follower_prev = -1;
-    fv->follower_next = -1;
+static void cp_escape_pend(cp_engine_t* eng, int row) {
+    if (!eng->esc_pending_flag || row < 0 || row >= eng->spine_count) return;
+    if (!eng->esc_src[row] || eng->esc_pending_flag[row]) return;
+    eng->esc_pending_flag[row] = true;
+    bbq_vec_push(eng->esc_pending, row);
+}
+
+/* The discovered-edge overflow (§4.7.4's `x.other.def_use` — see the header). APPEND at
+ * link discovery for the two kinds whose Leader is not an input (LOAD, ARRLEN); REMOVE
+ * at revert (§4.7.5 line 6.4's re-segregation, as deletion). Input-linked kinds need no
+ * entry — their leader IS an input, so Fig 4.7's lines 10-11 already reach them through
+ * the ordinary window. Removal marks the entry dead; appends and reverts are bounded per
+ * node, so the segment stays small. */
+static void cp_du_ov_append(cp_engine_t* eng, int leader, int user) {
+    if (leader < 0 || leader >= eng->vnode_count) return;
+    int e = (int)bbq_vec_len(eng->du_ov_user);
+    bbq_vec_push(eng->du_ov_user, user);
+    bbq_vec_push(eng->du_ov_next, eng->du_ov_head[leader]);
+    eng->du_ov_head[leader] = e;
+}
+
+static void cp_du_ov_remove(cp_engine_t* eng, int leader, int user) {
+    if (leader < 0 || leader >= eng->vnode_count || !eng->du_ov_head) return;
+    for (int e = eng->du_ov_head[leader]; e >= 0; e = eng->du_ov_next[e])
+        if (eng->du_ov_user[e] == user) { eng->du_ov_user[e] = -1; return; }
 }
 
 /* Whether nodes of this opcode may start in a shared partition: a
@@ -2718,9 +2901,9 @@ static void cp_partition_init(cp_engine_t* eng) {
             }
             if (eng->vnodes[rd]->partition < 0) continue;   /* Leader not placed yet */
             node->leader = rd;
+            node->follower_kind = CP_FK_COPY;               /* §4.7's construction COPY */
             cp_part_add(eng, eng->vnodes[rd]->partition, v);
-            cp_follower_link(eng, v, rd);
-            progress = true;
+            progress = true;         /* rd is input[0] — the du edge carries everything */
         }
     }
     /* A copy chain that closes on itself has no Leader outside it; give each
@@ -2742,15 +2925,26 @@ static void cp_partition_init(cp_engine_t* eng) {
 static void cp_notify_users_of_move(cp_engine_t* eng, int v) {
     for (int k = eng->du_off[v]; k < eng->du_off[v] + eng->du_cnt[v]; k++)
         cp_cprop_enqueue(eng, eng->du_user[k]);
+    /* The §4.7.4 other.def_use segment too: its readers (a Gate-5/ARRLEN
+     * Follower's discovered link; a symbolic-bound compare's premise) hold facts
+     * predicated on THIS node's partition, and they are not structural users, so
+     * the window above cannot reach them. A membership move is exactly the event
+     * a partition-equality premise must re-check. */
+    if (eng->du_ov_head)
+        for (int e = eng->du_ov_head[v]; e >= 0; e = eng->du_ov_next[e])
+            if (eng->du_ov_user[e] >= 0)
+                cp_cprop_enqueue(eng, eng->du_ov_user[e]);
 }
 
 /* SPLIT (Click thesis §4.2): move partition `z`'s currently-touched
  * members into a fresh partition. If z is already pending, the new
  * partition is enqueued; otherwise the smaller of the two is — the
- * rule that bounds total work to O(n log n). */
+ * rule that bounds total work to O(n log n). Returns the fresh
+ * partition — Fig 4.7 line 15 binds it (Y) for the SPLIT_BY that
+ * follows in PROPAGATE. */
 static void cp_move_followers(cp_engine_t* eng, int leader_idx, int target_part);
 
-static void cp_split(cp_engine_t* eng, int z) {
+static int cp_split(cp_engine_t* eng, int z) {
     int zp = cp_part_new(eng);
     int y = eng->partitions[z]->touched_head;
     while (y >= 0) {
@@ -2761,9 +2955,9 @@ static void cp_split(cp_engine_t* eng, int z) {
         cp_notify_users_of_move(eng, y);
         /* Click §4.7.2: when a Leader moves to zp, its Followers must
          * follow — Followers live in their Leader's partition by
-         * definition (§4.7.1). Walking eng->follower_head[y]'s chain
-         * is the Followers-only edge index that L/F segregation makes
-         * cheap (§4.7.4). */
+         * definition (§4.7.1). They are reached through EDGES (the du
+         * window + the discovered-edge overflow), the paper's own device
+         * (STEP line 25 walks n.F.def_use) — no side chain. */
         cp_move_followers(eng, y, zp);
         y = next;
     }
@@ -2773,24 +2967,40 @@ static void cp_split(cp_engine_t* eng, int z) {
         cp_wl_push(eng, eng->partitions[z]->count <= eng->partitions[zp]->count
                         ? z : zp);
     }
+    return zp;
 }
 
-/* Walk leader_idx's Followers chain (and their Followers, transitively)
- * and move each to target_part. The chain is maintained in O(1) by
- * cp_follower_link / cp_follower_unlink at every leader change. */
+/* Move leader_idx's Followers (and theirs, transitively) to target_part. Followers are
+ * found through EDGES — a du user u with u->leader == leader_idx (every input-linked
+ * kind), plus the discovered-edge overflow (LOAD/ARRLEN) — the paper's own traversal
+ * (STEP line 25 walks n.F.def_use); the old per-leader chain was our invention and is
+ * gone. A follower can appear on two edges (x&x); the partition test makes the move
+ * idempotent. */
+static void cp_move_one_follower(cp_engine_t* eng, int f, int target_part);
 static void cp_move_followers(cp_engine_t* eng, int leader_idx, int target_part) {
-    if (leader_idx < 0 || leader_idx >= eng->follower_head_cap) return;
-    int f = eng->follower_head[leader_idx];
-    while (f >= 0) {
-        int next = eng->vnodes[f]->follower_next;
-        if (eng->vnodes[f]->partition != target_part) {
-            bool pend = cp_part_remove(eng, f);
-            cp_part_add(eng, target_part, f);
-            if (pend) cp_cprop_enqueue(eng, f);
-        }
-        cp_move_followers(eng, f, target_part);
-        f = next;
+    if (leader_idx < 0 || leader_idx >= eng->vnode_count) return;
+    for (int k = eng->du_off[leader_idx];
+         k < eng->du_off[leader_idx] + eng->du_cnt[leader_idx]; k++) {
+        int u = eng->du_user[k];
+        if (eng->vnodes[u]->leader == leader_idx)
+            cp_move_one_follower(eng, u, target_part);
     }
+    if (eng->du_ov_head)
+        for (int e = eng->du_ov_head[leader_idx]; e >= 0; e = eng->du_ov_next[e]) {
+            int u = eng->du_ov_user[e];
+            if (u >= 0 && eng->vnodes[u]->leader == leader_idx)
+                cp_move_one_follower(eng, u, target_part);
+        }
+}
+
+static void cp_move_one_follower(cp_engine_t* eng, int f, int target_part) {
+    if (eng->vnodes[f]->partition != target_part) {
+        bool pend = cp_part_remove(eng, f);
+        cp_part_add(eng, target_part, f);
+        if (pend) cp_cprop_enqueue(eng, f);
+        cp_notify_users_of_move(eng, f);
+    }
+    cp_move_followers(eng, f, target_part);
 }
 
 /* Is input position `pos` of vnode `y` the memory edge of a read whose CELL is
@@ -2843,14 +3053,23 @@ static void cp_cause_splits(cp_engine_t* eng, int x, int max_inputs) {
                         && cp_op_is_commutative(yv->expr))
                     y_eff = 0;
                 if (y_eff != eff) continue;
-                /* Click §4.7.5 line 33-34: enqueue users whose fact
-                 * depends on input partition (not just value). SUB/CMP
-                 * fold via §4.6 (sub/cmp-of-congruent). PHI's §4.9
-                 * Follower-status depends on input partitions — its
-                 * revert check (line 6.1) fires inside PROPAGATE. */
+                /* Fig 4.7 lines 33-34: enqueue users whose fact depends
+                 * on input PARTITION (not just value). The paper names
+                 * SUB/COMPARE because those are its only congruence-
+                 * reading transfers; ours is whatever carries a §4.6
+                 * cong_fold — the sir_op_gamma table is the authority
+                 * (SUB, XOR, the six compares; a hand-list here dropped
+                 * XOR and the round sweep silently covered for it).
+                 * PHI's §4.9 Follower-status depends on input partitions
+                 * — its revert check (line 6.1) fires inside PROPAGATE.
+                 * §4.6's completeness argument is why per-edge suffices:
+                 * for a congruence to break, its operands end up in
+                 * different pieces of a split, and every split/apply/
+                 * revert pushes an affected partition here — walking it
+                 * reaches the reader over this very edge. */
                 if (yv->kind == CP_VN_PHI
-                        || (yv->kind == CP_VN_EXPR
-                            && (yv->op == SIR_SUB || sir_tag_is_cmp(yv->op))))
+                        || (yv->kind == CP_VN_EXPR && yv->expr
+                            && sir_op_gamma[yv->expr->tag].cong_fold != GC_NONE))
                     cp_cprop_enqueue(eng, y);
                 /* Click §4.4.1 line 6.5: skip TOP partition + skip
                  * PHI with dead input. Both conditions required. */
@@ -2908,47 +3127,36 @@ static void cp_refine(cp_engine_t* eng) {
 
 /* ── Fact propagation ────────────────────────────────────────── */
 
-/* Whether φ node `v`'s input `i` arrives along a reachable path —
- * φ facts ignore contributors from dead arms (§4.3 / §4.4.1). The
- * predecessor's node-level reachability is necessary but not enough:
- * a Branch or Switch with a KNOWN-constant selector reaches φ's
- * merge from one specific successor edge only, so the other edges
- * from the same predecessor node are dead even though the node
- * itself is reachable. Check the predecessor's branch/switch fact
- * to decide whether THIS specific edge to v->phi_merge is live. */
+/* Whether φ node `v`'s input `i` arrives along a live path — φ facts ignore
+ * contributors from dead arms (§4.3 / §4.4.1).
+ *
+ * ONE READ: the executable-edge flag of the (phi_pred[i] → merge) edge — §4's
+ * "per-edge facts, exactly SCCP's executable-edge mechanism". The flag already
+ * encodes both halves the old version had to assemble here (the predecessor's
+ * liveness AND its branch's arm selection), and it is written by a transfer
+ * that re-enqueues this φ whenever it flips — so this is an input, not a
+ * side-array-plus-off-graph-condition lookup, and the φ needs no bespoke re-arm.
+ *
+ * A pred with no recorded edge to this merge is an EXCEPTIONAL (EXCEPT-row)
+ * edge — those are φ-dataflow edges, not sir_succ edges — and falls back to the
+ * pred's node bit, which is exactly what the old code answered for a non-branch
+ * pred. A pred row past the tables (spliced post-solve) is live by construction. */
 static cp_const_t cp_cond_const(cp_engine_t* eng, sir_node_t* cond);
+static bool cp_spine_reachable(const cp_engine_t* eng, int i);
 static bool cp_phi_input_live(const cp_engine_t* eng,
                               const cp_vnode_t* v, int i) {
-    if (!eng->reachable || !v->phi_pred) return true;
+    if (!eng->edge_exec || !v->phi_pred) return true;
     int p = v->phi_pred[i];
     if (p < 0) return true;                 /* method-start edge */
-    if (!eng->reachable[p]) return false;
-    sir_node_t* pred  = eng->spine[p];
-    sir_node_t* merge = v->phi_merge;
-    if (pred->tag == SIR_BRANCH) {
-        cp_const_t c = cp_cond_const((cp_engine_t*)eng, pred->branch.cond);
-        if (c.state == CP_C_TOP)   return false;     /* optimistic */
-        if (c.state == CP_C_BOTTOM) return true;     /* both arms live */
-        bool this_is_true_arm  = (pred->branch.on_true  == merge);
-        bool this_is_false_arm = (pred->branch.on_false == merge);
-        bool true_taken = (c.value != 0);
-        return (this_is_true_arm  &&  true_taken)
-            || (this_is_false_arm && !true_taken);
-    }
-    if (pred->tag == SIR_SWITCH) {
-        cp_const_t c = cp_cond_const((cp_engine_t*)eng, pred->switch_.selector);
-        if (c.state == CP_C_TOP)   return false;
-        if (c.state == CP_C_BOTTOM) return true;
-        int nc = pred->switch_.case_targets_count;
-        int chosen = nc;                    /* default if no match */
-        for (int j = 0; j < nc; j++)
-            if (pred->switch_.case_values[j] == c.value) { chosen = j; break; }
-        sir_node_t* live_succ = (chosen < nc)
-                              ? pred->switch_.case_targets[chosen]
-                              : pred->switch_.default_target;
-        return live_succ == merge;
-    }
-    return true;
+    if (p >= eng->edge_rows) return cp_spine_reachable(eng, p);
+    int m = v->parent_spine;                /* the merge's own row */
+    bool found = false, live = false;
+    for (int k = eng->edge_off[p]; k < eng->edge_off[p + 1]; k++)
+        if (eng->edge_target[k] == m) {
+            found = true;
+            live  = live || eng->edge_exec[k];
+        }
+    return found ? live : cp_spine_reachable(eng, p);
 }
 
 /* γ_T — the type-lattice fact for value node `v`, given the current
@@ -3444,7 +3652,7 @@ static int cp_obj_isa(const cp_engine_t* eng, int o, sir_atype_t atype, int targ
  * allocation and Throw are dropped. No new rewrite, no guard-shape matching.
  *
  * Note this does NOT violate the rule that pts must not feed congruence: what reaches
- * cp_split_by_facts is the CONSTANT, and the constant is a true value fact — the
+ * cp_split_by_facts_one is the CONSTANT, and the constant is a true value fact — the
  * comparison really does evaluate to 0. pts itself is never a congruence key.
  *
  * Monotone: pts only grows. ∅ ⟹ TOP (no information yet — stay optimistic); a
@@ -3498,8 +3706,8 @@ static cp_const_t cp_null_compare_const(cp_engine_t* eng, const cp_vnode_t* v,
  * the arm is dead. `cp_null_compare_const` above is the same shape, and the DIV_OVERFLOW
  * arm needed no consumer AT ALL because the range lattice's transfer already answered it.
  *
- * That rule is intact for the same reason it is there: what reaches cp_split_by_facts is the
- * CONSTANT — a true value fact, since the comparison really does evaluate to that — and
+ * That rule is intact for the same reason it is there: what reaches cp_split_by_facts_one is
+ * the CONSTANT — a true value fact, since the comparison really does evaluate to that — and
  * never pts itself.
  *
  * Monotone: pts only grows, so this can only descend KNOWN → BOTTOM (a new object of an
@@ -3559,6 +3767,32 @@ static cp_const_t cp_instanceof_const(cp_engine_t* eng, const cp_vnode_t* v,
  * UNSOUND, not merely stale. cp_solve therefore re-arms every comparison whenever the
  * partition count moves (see cp_rearm_partition_consumers). Monotone either way: the fact
  * can only descend KNOWN → BOTTOM, and a revived arm only ever ADDS reachability. */
+/* Record a symbolic-bound premise endpoint as a §4.7.4 other.def_use edge — the
+ * paper's own set for edges to a reader that is not a structural user (it holds
+ * "edges leading from constants to algebraic 1-constant-input identities"; a
+ * premise edge is the same species). cp_symbolic_bound_const's verdict is
+ * predicated on the PARTITIONS (bound/lim/other) and, on the inclusive arm, the
+ * CONSTANT of the Add's operands — all reached through the range's hi_vn1/lo_vn1,
+ * OFF the def-use graph. Without a recorded edge no event re-runs the transfer
+ * when a premise moves: a KNOWN 0 standing after the partitions split apart is a
+ * bounds guard deleted on a proof that no longer holds. Recorded on every read,
+ * verdict-independent — the premise can also FORM later (a follower join), and
+ * the fold must get its chance. Slot-diffed: re-pointing a slot removes the old
+ * edge, so the segment stays ≤4 live entries per compare and the transfer stays
+ * O(inputs) with no steady-state allocation. */
+static void cp_record_premise(cp_engine_t* eng, const cp_vnode_t* v,
+                              int slot, int dep) {
+    if (!v->expr) return;
+    void* f = cp_pmap_get(&eng->expr_idx, v->expr);
+    if (!f) return;
+    int self = (int)((uintptr_t)f - 1);
+    cp_vnode_t* vm = eng->vnodes[self];
+    if (vm->prem_dep[slot] == dep) return;
+    if (vm->prem_dep[slot] >= 0) cp_du_ov_remove(eng, vm->prem_dep[slot], self);
+    vm->prem_dep[slot] = dep;
+    if (dep >= 0) cp_du_ov_append(eng, dep, self);
+}
+
 static cp_const_t cp_symbolic_bound_const(cp_engine_t* eng, const cp_vnode_t* v,
                                            bool* handled) {
     *handled = false;
@@ -3577,16 +3811,27 @@ static cp_const_t cp_symbolic_bound_const(cp_engine_t* eng, const cp_vnode_t* v,
         if (v->input_count != 2 || v->inputs[0] < 0 || v->inputs[1] < 0) return r;
         const cp_vnode_t* xv = eng->vnodes[v->inputs[0]];
         cp_const_t xc = xv->constant;
+        int carrier = -1;   /* the I2L operand whose RANGE this reads, when not xv's own */
         if (!(xc.state == CP_C_RANGE && xc.hi_vn1 != 0)
                 && xv->kind == CP_VN_EXPR && xv->expr && xv->expr->tag == SIR_I2L
                 && xv->input_count >= 1 && xv->inputs[0] >= 0
-                && xv->inputs[0] < eng->vnode_count)
+                && xv->inputs[0] < eng->vnode_count) {
             xc = eng->vnodes[xv->inputs[0]]->constant;
+            carrier = xv->inputs[0];
+        }
         if (xc.state != CP_C_RANGE || xc.hi_vn1 == 0) return r;
         int gbound = cp_ultimate_value(eng, xc.hi_vn1 - 1);
         int glim   = cp_ultimate_value(eng, v->inputs[1]);
         if (gbound < 0 || gbound >= eng->vnode_count) return r;
         if (glim   < 0 || glim   >= eng->vnode_count) return r;
+        /* Premise edges BEFORE the partition reads — the verdict either way is
+         * predicated on them (the fold must fall when they split apart, and must
+         * get to form when they join later). The carrier's constant is read one
+         * hop past the du input (fold_convert leaves xv BOTTOM, so its operand's
+         * range moves without moving xv's fact — no window event). */
+        cp_record_premise(eng, v, 0, gbound);
+        cp_record_premise(eng, v, 1, glim);
+        cp_record_premise(eng, v, 2, carrier);
         int gbp = eng->vnodes[gbound]->partition;
         int glp = eng->vnodes[glim]->partition;
         if (gbp < 0 || glp < 0 || gbp != glp) return r;
@@ -3610,6 +3855,8 @@ static cp_const_t cp_symbolic_bound_const(cp_engine_t* eng, const cp_vnode_t* v,
         int glim   = cp_ultimate_value(eng, v->inputs[1]);
         if (gbound < 0 || gbound >= eng->vnode_count) return r;
         if (glim   < 0 || glim   >= eng->vnode_count) return r;
+        cp_record_premise(eng, v, 0, gbound);   /* see the SIR_GT arm */
+        cp_record_premise(eng, v, 1, glim);
         int gbp = eng->vnodes[gbound]->partition;
         int glp = eng->vnodes[glim]->partition;
         if (gbp < 0 || glp < 0 || gbp != glp) return r;
@@ -3629,6 +3876,8 @@ static cp_const_t cp_symbolic_bound_const(cp_engine_t* eng, const cp_vnode_t* v,
     int len_vn   = cp_ultimate_value(eng, v->inputs[1]);
     if (bound_vn < 0 || bound_vn >= eng->vnode_count) return r;
     if (len_vn   < 0 || len_vn   >= eng->vnode_count) return r;
+    cp_record_premise(eng, v, 0, bound_vn);   /* see the SIR_GT arm */
+    cp_record_premise(eng, v, 1, len_vn);
     int bp = eng->vnodes[bound_vn]->partition;
     int lp = eng->vnodes[len_vn]->partition;
     if (bp < 0 || lp < 0) return r;
@@ -3655,6 +3904,11 @@ static cp_const_t cp_symbolic_bound_const(cp_engine_t* eng, const cp_vnode_t* v,
         int a0 = cp_vnode_of(eng, sir_child((sir_node_t*)le, 0));
         int a1 = cp_vnode_of(eng, sir_child((sir_node_t*)le, 1));
         if (a0 < 0 || a1 < 0) return r;
+        /* The Add's operands are premise reads of their own: the KNOWN-1 test
+         * below consumes a0/a1's CONSTANTS off-graph (an optimistic 1 that falls
+         * can leave the Add BOTTOM-stable — no window event reaches here). */
+        cp_record_premise(eng, v, 2, a0);
+        cp_record_premise(eng, v, 3, a1);
         const cp_const_t c0 = eng->vnodes[a0]->constant;
         const cp_const_t c1 = eng->vnodes[a1]->constant;
         int other = -1;
@@ -3663,6 +3917,8 @@ static cp_const_t cp_symbolic_bound_const(cp_engine_t* eng, const cp_vnode_t* v,
         else if (c0.state == CP_C_KNOWN && c0.cwidth == CP_W_I32 && c0.value == 1)
             other = cp_ultimate_value(eng, a1);
         if (other < 0 || other >= eng->vnode_count) return r;
+        /* The partition premise on the inclusive arm is `other`, not len. */
+        cp_record_premise(eng, v, 1, other);
         if (eng->vnodes[other]->partition != bp) return r;   /* len is not B+1 ⟹ keep */
     }
 
@@ -3866,11 +4122,11 @@ static cp_const_t cp_node_const(cp_engine_t* eng, const cp_vnode_t* v) {
      * same LOADCONST opcode-bucket (cp_opcode_key keys only by tag),
      * so e.g. Cmp(LoadConst 5, LoadConst 3) would transiently see
      * its operands as "same partition" and §4.6-fold to 0 — wrong.
-     * cp_split_by_facts separates LoadConsts by value on the next
-     * iteration, but cp_compute_facts runs first. If the operands'
-     * KNOWN constants disagree, they can't be congruent at convergence;
-     * reject the fold so the fall-through binary fold computes the
-     * correct value. */
+     * cp_split_by_facts_one separates LoadConsts by value once their
+     * partition's own drain ends (Fig 4.7 line 16), but this transfer
+     * can run before that. If the operands' KNOWN constants disagree,
+     * they can't be congruent at convergence; reject the fold so the
+     * fall-through binary fold computes the correct value. */
     {
         const sir_op_gamma_t* gcong = &sir_op_gamma[e->tag];
         if (gcong->cong_fold != GC_NONE && v->input_count == 2) {
@@ -4005,8 +4261,8 @@ static bool cp_revert_load_follower(cp_engine_t* eng, int v_idx);
  *
  * The sets are bitsets over that finite id space; join is ∪ and every transfer
  * is monotone, so the ascending chain terminates without widening. pts is read
- * ONLY by consumers — it never reaches cp_split_by_facts (a derived property is
- * not value identity; splitting on it would over-split). */
+ * ONLY by consumers — it never reaches cp_split_by_facts_one (a derived property
+ * is not value identity; splitting on it would over-split). */
 
 static bool cp_is_alloc_tag(int tag) {
     return tag == SIR_NEW || tag == SIR_NEWARRAY || tag == SIR_NEWREFARRAY;
@@ -4539,7 +4795,11 @@ static bool cp_call_target_set(cp_engine_t* eng, int recv_vn, int decl_cls, int 
             int exact = cp_exact_class_of(eng, o);
             if (exact < 0) return false;                    /* unknown class ⟹ unknown set */
             int c = -1, m = -1;
-            if (!sema_resolve_virtual(eng->sema, exact, decl_cls, decl_midx, &c, &m))
+            /* READ, not re-resolve. sema publishes the §8.4.6.1 answer keyed by the declaration
+             * the call site names; sema_resolve_virtual walks the ancestry and vsig-compares
+             * every method at each level, which inside the fixpoint runs per receiver, per call
+             * site, per iteration — a transfer is O(inputs) and allocates nothing. */
+            if (!sema_vtarget_find(eng->sema, exact, decl_cls, decl_midx, &c, &m))
                 return false;                               /* abstract / not resolvable */
             if (impl_c < 0) { impl_c = c; impl_m = m; }
             else if (impl_c != c || impl_m != m) return false;   /* MORE THAN ONE TARGET */
@@ -4582,7 +4842,7 @@ static bool cp_virtual_target_set(cp_engine_t* eng, int recv_vn, int decl_cls, i
             int exact = cp_exact_class_of(eng, o);
             if (exact < 0) return false;
             int c = -1, m = -1;
-            if (!sema_resolve_virtual(eng->sema, exact, decl_cls, decl_midx, &c, &m)) return false;
+            if (!sema_vtarget_find(eng->sema, exact, decl_cls, decl_midx, &c, &m)) return false;
             bool dup = false;
             for (int t = 0; t < *count; t++) if (classes[t] == c && midxs[t] == m) { dup = true; break; }
             if (dup) continue;
@@ -4898,14 +5158,20 @@ static bool cp_spine_reachable(const cp_engine_t* eng, int i);
  *
  * `NoEscape(⊤) ⊐ ArgEscape ⊐ GlobalEscape(⊥)`, meet = min, MONOTONE DOWNWARD.
  *
- * IN THE ONE FIXPOINT, NOT BESIDE IT. §6 describes the transfer as "escape's Fig-6
- * worklist", and taken alone that reads like a standalone pass. §8's membership test says
- * otherwise: "every lattice is a per-node monotone element whose transfer reads only (a)
- * def-use edges and (b) φ/region inputs", and §9 puts every lattice in the SAME fixpoint.
- * So the FACT is keyed on the abstract object (§6's own domain — an array over Obj, not a
- * vnode field), and the TRANSFER is per-node: each node LOWERS the state of every object
- * its operands name. It re-runs inside cp_solve as pts grows. pts only grows, escape only
- * descends, both are bounded — so the combined loop still terminates.
+ * IN THE ONE FIXPOINT, NOT BESIDE IT. The FACT is keyed on the abstract object (§6's own
+ * domain — an array over Obj, not a vnode field); the TRANSFER is per-row (each source row
+ * LOWERS the state of every object its operands name), enumerated FACT-DRIVEN — §6's Fig-6
+ * worklist: a pending set seeded once, re-added by the recorded operand CSR (esc_dep), by
+ * a row going live, by any descent (Fig 6's propagation direction), and coarsely for CALL
+ * rows when pts/heap moved (their input set is pts-directed heap reachability — dynamic).
+ * Call SITES are recorded at construction (esc_call_*); nothing walks a tree at solve time.
+ *
+ * THE EVALUATION POINT IS ROUND-END, DELIBERATELY: sticky lowering evaluated at the change
+ * instant would latch TRANSIENTLY-live rows (facts mid-settle) — the same transient-poison
+ * class the reachability retraction work fought. End-of-drain facts are settled facts.
+ * pts only grows, escape only descends, both bounded — the combined loop terminates. */
+/* (history: this was a whole-spine sweep re-walking every tree every round; its own
+ * comment cited §8's membership test and then said "re-runs" where the design said "edge".
  *
  * The `meet at φ` §6 asks for is free: a φ's pts is the union of its inputs', so an object
  * that reaches an escaping use through ANY path is lowered by that use. No φ handling of
@@ -4913,7 +5179,10 @@ static bool cp_spine_reachable(const cp_engine_t* eng, int i);
  */
 static void cp_escape_lower(cp_engine_t* eng, int obj, cp_escape_t to) {
     if (obj < 0 || obj >= eng->obj_count) return;
-    if (eng->escape[obj] < to) eng->escape[obj] = to;   /* min — descend only */
+    if (eng->escape[obj] < to) {
+        eng->escape[obj] = to;      /* min — descend only */
+        eng->esc_lowered = true;    /* the drain's change report + Fig-6 re-seed trigger */
+    }
 }
 
 /* Lower every object a value may name. The pts set IS the "value edge" §6 propagates
@@ -5358,7 +5627,9 @@ static void cp_mapsto_graph(cp_engine_t* eng, compiler_ctx_t* ctx, int callee,
     }
 }
 
-static void cp_escape_walk_calls(cp_engine_t* eng, sir_node_t* e) {
+/* ONE call site's §7 effect (MapsTo per resolved target, or the bottom graph). The site
+ * nodes are RECORDED at construction (esc_call_*); no recursion here. */
+static void cp_escape_call_site(cp_engine_t* eng, sir_node_t* e) {
     if (!e) return;
     compiler_ctx_t* ctx = eng->ctx;
     switch (e->tag) {
@@ -5438,8 +5709,6 @@ static void cp_escape_walk_calls(cp_engine_t* eng, sir_node_t* e) {
     }
     default: break;
     }
-    int n = sir_arity(e);
-    for (int i = 0; i < n; i++) cp_escape_walk_calls(eng, sir_child(e, i));
 }
 
 /* Is the exception thrown at spine node `i` CAUGHT in this method? §6's refinement.
@@ -5489,65 +5758,50 @@ static bool cp_throw_is_caught(cp_engine_t* eng, int i, int vn) {
     return true;
 }
 
-/* ONE sweep of the per-node transfer. Every node that lets a reference out of this method
- * LOWERS the state of every object that reference may name. Returns true if anything moved.
- *
- * The sweep is total (every reachable spine node, every round), which is what makes it immune
- * to the re-arm bug class that has bitten this file five times: a fact here reaches a node
- * through pts, not along a def-use edge, so a worklist keyed on def-use would silently miss
- * it. Nothing is enqueued, so nothing can be forgotten. */
-static bool cp_escape_sweep(cp_engine_t* eng) {
-    memcpy(eng->escape_prev, eng->escape, (size_t)eng->obj_count * sizeof(cp_escape_t));
-
-    for (int i = 0; i < eng->spine_count; i++) {
-        if (!cp_spine_reachable(eng, i)) continue;   /* §9: a dead region is never analyzed */
-        sir_node_t* n = eng->spine[i];
-        switch (n->tag) {
-        /* §6: "O flows to a `return`". */
-        case SIR_RETURN:
-            cp_escape_lower_pts(eng, cp_vnode_of(eng, n->return_.value), CP_ESC_ARG);
-            break;
-        /* §6: "reachable from a `global.set` (static-field global)" ⟹ GlobalEscape. */
-        case SIR_PUTSTATIC:
-            cp_escape_lower_pts(eng, cp_vnode_of(eng, n->put_static.value), CP_ESC_GLOBAL);
-            break;
-        /* §6: "a throw marks its exception object escaping ONLY IF it can leave the method —
-         * a throw caught by an enclosing try_table in the same method does NOT escape; an
-         * uncaught (re-thrown) one is ArgEscape via the method's exceptional exit." */
-        case SIR_THROW:
-            if (!cp_throw_is_caught(eng, i, cp_vnode_of(eng, n->throw_.ref)))
-                cp_escape_lower_pts(eng, cp_vnode_of(eng, n->throw_.ref), CP_ESC_ARG);
-            break;
-        /* THE HEAP RULE, and it is BOTH of §6's "stored into …" sources at once. A store
-         * confers the RECEIVER's state on the value stored: into an already-GlobalEscape
-         * object ⟹ GlobalEscape; into a param-reachable one ⟹ ArgEscape (a phantom seeds
-         * there, which is the whole reason that source needs no rule of its own); into a
-         * local that has not escaped ⟹ nothing at all. That last clause is what keeps the
-         * lattice from collapsing to "everything escapes". */
-        case SIR_PUTFIELD: {
-            cp_escape_t r = cp_escape_of_pts(eng, cp_vnode_of(eng, n->put_field.obj));
-            if (r > CP_ESC_NONE)
-                cp_escape_lower_pts(eng, cp_vnode_of(eng, n->put_field.value), r);
-            break;
-        }
-        case SIR_ARRAYSTORE: {
-            cp_escape_t r = cp_escape_of_pts(eng, cp_vnode_of(eng, n->array_store.arr));
-            if (r > CP_ESC_NONE)
-                cp_escape_lower_pts(eng, cp_vnode_of(eng, n->array_store.value), r);
-            break;
-        }
-        default: break;
-        }
-        /* §7's bottom graph. Calls sit in expression position, so this walks the node's
-         * expression trees rather than switching on the spine tag. */
-        int ar = sir_arity(n);
-        for (int j = 0; j < ar; j++)
-            cp_escape_walk_calls(eng, sir_child(n, j));
+/* ONE row's §6 lowering — the tag rule plus the row's RECORDED call sites. Runs only for
+ * rows on the pending worklist (fact-driven), at the round-end evaluation point, live rows
+ * only (§9). */
+static void cp_escape_row(cp_engine_t* eng, int i) {
+    sir_node_t* n = eng->spine[i];
+    switch (n->tag) {
+    /* §6: "O flows to a `return`". */
+    case SIR_RETURN:
+        cp_escape_lower_pts(eng, cp_vnode_of(eng, n->return_.value), CP_ESC_ARG);
+        break;
+    /* §6: "reachable from a `global.set` (static-field global)" ⟹ GlobalEscape. */
+    case SIR_PUTSTATIC:
+        cp_escape_lower_pts(eng, cp_vnode_of(eng, n->put_static.value), CP_ESC_GLOBAL);
+        break;
+    /* §6: "a throw marks its exception object escaping ONLY IF it can leave the method —
+     * a throw caught by an enclosing try_table in the same method does NOT escape; an
+     * uncaught (re-thrown) one is ArgEscape via the method's exceptional exit." */
+    case SIR_THROW:
+        if (!cp_throw_is_caught(eng, i, cp_vnode_of(eng, n->throw_.ref)))
+            cp_escape_lower_pts(eng, cp_vnode_of(eng, n->throw_.ref), CP_ESC_ARG);
+        break;
+    /* THE HEAP RULE, and it is BOTH of §6's "stored into …" sources at once. A store
+     * confers the RECEIVER's state on the value stored: into an already-GlobalEscape
+     * object ⟹ GlobalEscape; into a param-reachable one ⟹ ArgEscape (a phantom seeds
+     * there, which is the whole reason that source needs no rule of its own); into a
+     * local that has not escaped ⟹ nothing at all. That last clause is what keeps the
+     * lattice from collapsing to "everything escapes". */
+    case SIR_PUTFIELD: {
+        cp_escape_t r = cp_escape_of_pts(eng, cp_vnode_of(eng, n->put_field.obj));
+        if (r > CP_ESC_NONE)
+            cp_escape_lower_pts(eng, cp_vnode_of(eng, n->put_field.value), r);
+        break;
     }
-
-    for (int o = 0; o < eng->obj_count; o++)
-        if (eng->escape_prev[o] != eng->escape[o]) return true;
-    return false;
+    case SIR_ARRAYSTORE: {
+        cp_escape_t r = cp_escape_of_pts(eng, cp_vnode_of(eng, n->array_store.arr));
+        if (r > CP_ESC_NONE)
+            cp_escape_lower_pts(eng, cp_vnode_of(eng, n->array_store.value), r);
+        break;
+    }
+    default: break;
+    }
+    /* §7's bottom graph, on the RECORDED call sites (found once at construction). */
+    for (int k = eng->esc_call_off[i]; k < eng->esc_call_off[i + 1]; k++)
+        cp_escape_call_site(eng, eng->esc_call_list[k]);
 }
 
 /* Lattice E's domain is the Obj set, which is SYNTACTIC — so it is fixed here, before
@@ -5555,7 +5809,6 @@ static bool cp_escape_sweep(cp_engine_t* eng) {
 static void cp_escape_init(cp_engine_t* eng) {
     int n = eng->obj_count > 0 ? eng->obj_count : 1;
     eng->escape      = (cp_escape_t*)bbq_arena_alloc(eng->arena, (size_t)n * sizeof(cp_escape_t));
-    eng->escape_prev = (cp_escape_t*)bbq_arena_alloc(eng->arena, (size_t)n * sizeof(cp_escape_t));
     size_t cm = (size_t)n * (size_t)(eng->mem_cell_count > 0 ? eng->mem_cell_count : 1);
     eng->clobbered = (bool*)bbq_arena_alloc(eng->arena, cm * sizeof(bool));
     memset(eng->clobbered, 0, cm * sizeof(bool));
@@ -5572,23 +5825,43 @@ static void cp_escape_init(cp_engine_t* eng) {
     cp_escape_seed(eng);
 }
 
-/* Saturate lattice E against the CURRENT pts. Called from cp_solve's loop — not beside it:
- * cp_solve does not exit while this is still moving, so escape is an element of the one
- * combined fixpoint, exactly as §9 requires. Escape only descends and pts only grows, both
- * over finite domains, so the combined loop still terminates. */
+/* Drain lattice E's PENDING ROWS against the CURRENT pts — fact-driven (§6's Fig-6
+ * worklist over our per-row rules), at the round-end evaluation point, live rows only
+ * (§9). Called from cp_solve's loop — not beside it: cp_solve does not exit while this
+ * is still moving, so escape is an element of the one combined fixpoint (§9). Escape only
+ * descends, clobber/inject only grow, all bounded — the loop terminates.
+ *
+ * A DESCENT re-adds every source row: the heap rule reads receiver ESCAPE (dynamic, no
+ * edge), and Fig 6's propagation direction is exactly "a descent re-runs the rules it may
+ * feed". Bounded: ≤ 2 descents per object, each re-seeding once. Coarse pts/heap movement
+ * re-adds the CALL rows (their input set is pts-directed heap reachability — dynamic). */
 static bool cp_escape_update(cp_engine_t* eng) {
-    if (eng->obj_count <= 0 || !eng->escape) return false;
-    eng->clobbered_moved = false;      /* accumulates over the sweeps below */
+    if (eng->obj_count <= 0 || !eng->escape || !eng->esc_pending_flag) return false;
+    eng->clobbered_moved = false;
     eng->inject_moved = false;         /* §42 inject / obj_bottom growth — also re-arms kills */
+    if (eng->esc_facts_moved) {
+        eng->esc_facts_moved = false;
+        for (int i = 0; i < eng->spine_count; i++)
+            if (eng->esc_src[i]) cp_escape_pend(eng, i);
+    }
     bool any = false;
     int guard = 0;
-    while (cp_escape_sweep(eng)) {      /* runs the sweep ≥ once, so §7.2 clobber marks are set */
-        any = true;
-        /* Each sweep that moves lowers at least one object one step in a 3-high lattice. */
-        if (++guard > 3 * eng->obj_count + 8) {
-            fprintf(stderr, "cp_escape: failed to converge — monotone-descent invariant "
-                    "broken (obj_count=%d)\n", eng->obj_count);
+    while (bbq_vec_len(eng->esc_pending)) {
+        if (++guard > 1000000) {
+            fprintf(stderr, "cp_escape: pending drain failed to converge — monotone-descent "
+                    "invariant broken (obj_count=%d)\n", eng->obj_count);
             abort();
+        }
+        int row = eng->esc_pending[bbq_vec_len(eng->esc_pending) - 1];
+        bbq__vec_hdr(eng->esc_pending)->len--;
+        eng->esc_pending_flag[row] = false;
+        if (!cp_spine_reachable(eng, row)) continue;   /* §9: a dead region is never analyzed */
+        eng->esc_lowered = false;
+        cp_escape_row(eng, row);
+        if (eng->esc_lowered) {
+            any = true;
+            for (int i = 0; i < eng->spine_count; i++)
+                if (eng->esc_src[i]) cp_escape_pend(eng, i);
         }
     }
     /* A §7.2 clobber that appeared this round reaches the memory KILL through no def-use edge,
@@ -5982,17 +6255,30 @@ static cp_pts_t cp_node_pts(cp_engine_t* eng, int vi) {
  * Follower transitions themselves are still in cp_follower_sweep at
  * this point; integrating them into PROPAGATE proper is the next
  * step. */
+static void cp_reach_reeval(cp_engine_t* eng, int start);
+static void cp_remark_verdict_rows(cp_engine_t* eng);
+static bool cp_apply_load_follower(cp_engine_t* eng, int v_idx);
+static bool cp_apply_arraylen_follower(cp_engine_t* eng, int v_idx);
+static bool cp_apply_same_input_follower(cp_engine_t* eng, int v_idx);
+static bool cp_revert_arraylen_follower(cp_engine_t* eng, int v_idx);
+
+static void cp_split_by_facts_one(cp_engine_t* eng, int p,
+                                  int** members_io, int** groups_io);
+
 static void cp_compute_facts(cp_engine_t* eng) {
     int vc = eng->vnode_count;
     if (vc == 0) return;
-    /* Click §4.7.5 PROPAGATE drain. Init happens once via cp_init_facts
-     * (called by cp_solve before the outer loop); subsequent calls
-     * drain only the cprop entries that CAUSE_SPLITS / reachability /
-     * Follower transitions added since the last call. The Follower-apply
-     * pass is deferred to cp_apply_followers_pass (called AFTER
-     * cp_split_by_facts) per Click §4.7.5 lines 14-22: SPLIT(X,fallen)
-     * precedes apply so apply reads post-split partitions. */
+    /* Fig 4.7 PROPAGATE (p.58). Per partition X pulled from cprop: drain X's local list
+     * (lines 5-13), then — INSIDE this loop, per lines 14-22 — carve the X-scoped fallen
+     * set out of X (line 15's SPLIT(X, fallen)), run the Leader⇒Follower transitions on
+     * it (lines 17-21), and SPLIT_BY the result (line 22). `fallen` is X-SCOPED (§4.5:
+     * "handled in the PROPAGATE code when the fallen set is passed to SPLIT_BY"; line 15
+     * compares |fallen| against |X|) — the old whole-round global accumulator plus the
+     * post-round sweeps was the hoisting R.9 names. The vec is reused across partitions
+     * as scratch; each X's view is the suffix from fallen_base. */
     if (eng->fallen) bbq__vec_hdr(eng->fallen)->len = 0;
+    int* sb_members = NULL;   /* SPLIT_BY scratch, reused across partitions */
+    int* sb_groups  = NULL;
     int outer_guard = 0;
     while (bbq_vec_len(eng->cprop_worklist) > 0) {
         if (++outer_guard > 1000000) {
@@ -6009,6 +6295,7 @@ static void cp_compute_facts(cp_engine_t* eng) {
         bbq__vec_hdr(eng->cprop_worklist)->len--;
         cp_partition_t* X = eng->partitions[x_pid];
         X->on_cprop_wl = false;
+        int fallen_base = eng->fallen ? (int)bbq_vec_len(eng->fallen) : 0;
         int inner_guard = 0;
         while (X->cprop_head >= 0) {
             if (++inner_guard > 1000000) {
@@ -6026,16 +6313,43 @@ static void cp_compute_facts(cp_engine_t* eng) {
             if (eng->vnodes[xv]->leader >= 0) {
                 if (cp_revert_identity_follower(eng, xv)
                         || cp_revert_phi_follower(eng, xv)
-                        || cp_revert_load_follower(eng, xv))
+                        || cp_revert_load_follower(eng, xv)
+                        || cp_revert_arraylen_follower(eng, xv)) {
                     bbq_vec_push(eng->fallen, xv);
+                    /* The revert retracted a cp_value_leader identity — the premise
+                     * every §3.6 verdict matches on. The verdict-bearing branch rows
+                     * read it over no def-use edge, so re-mark them here, on the
+                     * event itself (monotone: a re-mark can only open arms). */
+                    cp_remark_verdict_rows(eng);
+                }
+            }
+            /* Fig 4.7 lines 18-20 place the Leader⇒Follower transition INSIDE PROPAGATE,
+             * at the node's own processing — so a value that IS another value by identity
+             * never publishes an intermediate fact of its own. Running these only in a
+             * per-round apply pass manufactured exactly that transient: a forwardable
+             * GetField published BOTTOM (heap still EXT), a guard condition read it, and
+             * the edge marking permanently lit an arm the settled condition kills — the
+             * walker never saw the window only because it sampled at round boundaries.
+             * ALL five kinds attempt here: this dequeue is the operand-side trigger (the
+             * 0 arriving enqueues the x+0 over lines 10-11; the x+0's own fact need not
+             * move), and the post-drain lines 17-21 walk covers the fallen side. Every
+             * premise channel that can mature now delivers an enqueue (du window, the
+             * §4.7.4 overflow, move notifications, the esc/condrow CSRs) — there is no
+             * "matures without a re-enqueue" residue for a round sweep to catch. */
+            if (eng->vnodes[xv]->leader == -1) {
+                if (!cp_apply_load_follower(eng, xv))
+                    if (!cp_apply_arraylen_follower(eng, xv))
+                        if (!cp_apply_same_input_follower(eng, xv))
+                            if (!cp_apply_identity_follower(eng, xv))
+                                cp_apply_phi_follower(eng, xv);
             }
             const Type* t = cp_node_type(eng, eng->vnodes[xv]);
             cp_const_t  c = cp_node_const(eng, eng->vnodes[xv]);
             bool changed = t != eng->vnodes[xv]->type
                         || !cp_const_eq(c, eng->vnodes[xv]->constant);
             /* Lattice A rides the SAME worklist — but a pts change must reach
-             * only the node's USERS, never `fallen`. `fallen` drives
-             * cp_split_by_facts and the Follower-apply pass, i.e. CONGRUENCE;
+             * only the node's USERS, never `fallen`. `fallen` drives the
+             * line-15/16 SPLIT and the Follower-apply pass, i.e. CONGRUENCE;
              * pts is a derived property, not value identity. Keeping it
              * out of `fallen` is what makes "adding pts cannot move a
              * partition" true by construction rather than by luck. */
@@ -6043,6 +6357,14 @@ static void cp_compute_facts(cp_engine_t* eng) {
             bool pts_changed = !cp_pts_eq(eng, np, eng->vnodes[xv]->pts);
             if (pts_changed) eng->vnodes[xv]->pts = np;
             bool heap_changed = cp_update_heap(eng, xv);
+            /* Escape-source re-arm (§6): a tag-source row reads this vnode's pts as an
+             * OPERAND — a spine row, not a vnode, so no du edge carries the event; the
+             * recorded esc_dep CSR does (the condrow pattern). Call rows are re-added
+             * coarsely at the drain (their input set is dynamic — see cp_escape_update). */
+            if (pts_changed && eng->esc_dep_off && xv < eng->esc_dep_rows)
+                for (int k2 = eng->esc_dep_off[xv]; k2 < eng->esc_dep_off[xv + 1]; k2++)
+                    cp_escape_pend(eng, eng->esc_dep_list[k2]);
+            if (pts_changed || heap_changed) eng->esc_facts_moved = true;
             /* Click §4.4.1 re-arm. CAUSE_SPLITS deliberately skips
              * users still at TOP (optimism — an unreached node must
              * not cause splits), so the skipped touch has to be
@@ -6063,6 +6385,13 @@ static void cp_compute_facts(cp_engine_t* eng) {
                         cp_wl_push(eng, eng->vnodes[in]->partition);
                 }
             }
+            /* A branch tests this value: its executable-edge marking reads the constant
+             * just stored. The branch is a spine ROW, not a vnode, so no def-use edge
+             * carries this — the condrow CSR (recorded at construction) is the re-arm
+             * path, fired on the fact itself. */
+            if (changed && eng->condrow_off && xv < eng->condrow_rows)
+                for (int k2 = eng->condrow_off[xv]; k2 < eng->condrow_off[xv + 1]; k2++)
+                    cp_reach_reeval(eng, eng->condrow_list[k2]);
             /* A store has NO inputs, so no def-use edge would ever bring it back
              * when what it depends on changes. The reverse index (built in
              * cp_resolve) is what re-arms it — the same class of bug as the
@@ -6079,51 +6408,76 @@ static void cp_compute_facts(cp_engine_t* eng) {
             }
             if (!changed && !pts_changed && !heap_changed) continue;
             if (changed) bbq_vec_push(eng->fallen, xv);
-            /* A FOLLOWER's stored constant arrives through the leader LINK, not a def-use
-             * edge — the same off-graph class as the store re-arm above (its 6th instance).
-             * When the leader's constant changes, every follower must recompute (the
-             * transfer reads through the leader; the STORED field is what the rewrite
-             * reads) — or a follower keeps a stale optimistic constant past the fixpoint:
-             * the arraylen follower of a count φ kept KNOWN 0 after the φ fell to BOTTOM,
-             * folding `.length` to 0 and the §15 IDX guard to ALWAYS-THROW. */
-            if (changed && xv < eng->follower_head_cap) {
-                for (int f = eng->follower_head[xv]; f >= 0;
-                     f = eng->vnodes[f]->follower_next)
-                    cp_cprop_enqueue(eng, f);
-            }
+            /* Fig 4.7 lines 10-11: notify every user. The window carries every
+             * input-linked Follower (their leader IS an input); the overflow segment
+             * carries the two DISCOVERED-link kinds (LOAD's stored value, ARRLEN's
+             * size), appended when those links form — one mechanism, so a follower's
+             * stored constant can never go stale on a channel the walk forgot (the
+             * old side chain's failure mode, instance 6 and this session's twins). */
             for (int k = eng->du_off[xv]; k < eng->du_off[xv] + eng->du_cnt[xv]; k++) {
                 int u = eng->du_user[k];
                 cp_cprop_enqueue(eng, u);
             }
+            if (eng->du_ov_head)
+                for (int e2 = eng->du_ov_head[xv]; e2 >= 0; e2 = eng->du_ov_next[e2])
+                    if (eng->du_ov_user[e2] >= 0)
+                        cp_cprop_enqueue(eng, eng->du_ov_user[e2]);
+        }
+        /* Fig 4.7 lines 14-16: X's fallen set is carved and re-split HERE, while
+         * X is the partition just drained. Line 15 SPLITs only when the fallen
+         * leaders are a PROPER subset of X's leaders (touched != leader_count;
+         * a partition that fell wholesale stays whole and is Y itself). Line 16
+         * SPLIT_BYs Y — the fallen nodes may have fallen to DIFFERENT facts.
+         * The worklist pushes ride the callees' own §4.2 contract (cp_split's
+         * smaller-half rule; cp_split_by_facts_one's every-group push).
+         * Mid-drain caveats from OUR engine: W2's dequeue-time identities can
+         * move a fallen node out of X before line 15 (skip nodes no longer in
+         * X), can demote it to Follower in place (skip non-leaders — Followers
+         * ride via cp_move_followers, §4.7.1), and a node re-enqueued within
+         * one drain lands in the suffix twice (touched_gen dedups). */
+        int fallen_len = eng->fallen ? (int)bbq_vec_len(eng->fallen) : 0;
+        if (fallen_len > fallen_base) {
+            int gen = ++eng->touched_gen;
+            for (int fi = fallen_base; fi < fallen_len; fi++) {
+                int fv = eng->fallen[fi];
+                cp_vnode_t* fvn = eng->vnodes[fv];
+                if (fvn->partition != x_pid) continue;
+                if (fvn->leader >= 0) continue;
+                if (fvn->touched_gen == gen) continue;
+                fvn->touched_gen = gen;
+                fvn->touched_next = X->touched_head;
+                X->touched_head = fv;
+                X->touched_count++;
+            }
+            if (X->touched_count > 0) {
+                int y_pid = x_pid;
+                if (X->touched_count != X->leader_count)
+                    y_pid = cp_split(eng, x_pid);            /* line 15 */
+                X->touched_count = 0;
+                X->touched_head  = -1;
+                /* Fig 4.7 lines 17-21: the Leader⇒Follower transitions on the
+                 * fallen nodes — AFTER the line-15 carve (the premises read
+                 * post-split partitions) and BEFORE line 22's SPLIT_BY (a node
+                 * that just became a Follower must not be split out as a
+                 * diverged Leader). The paper gates this walk on `oldtype was
+                 * ⊤ or constant` — a cost filter for its identity-forwarding
+                 * type functions; our applies carry their own preconditions
+                 * and refuse idempotently, so the gate would filter nothing.
+                 * The dequeue-time attempt above covers the operand-side
+                 * trigger, where the candidate itself never falls. */
+                for (int fi = fallen_base; fi < fallen_len; fi++) {
+                    int fv = eng->fallen[fi];
+                    if (eng->vnodes[fv]->leader >= 0) continue;
+                    if (!cp_apply_identity_follower(eng, fv))
+                        cp_apply_phi_follower(eng, fv);
+                }
+                cp_split_by_facts_one(eng, y_pid,            /* line 22 */
+                                      &sb_members, &sb_groups);
+            }
         }
     }
-}
-
-/* Click §4.7.5 lines 16-21: post-split Follower-apply pass. Runs after
- * cp_split_by_facts so apply reads post-split partitions — applying
- * before split causes incorrect Follower transitions when an input has
- * just fallen but hasn't yet been split out of its prior partition. */
-static void cp_apply_followers_pass(cp_engine_t* eng) {
-    /* The memory identities key off POINTS-TO, and a pts change does not put a
-     * node on `fallen` (only a fallen type/constant does), so they are swept
-     * rather than driven off that list. Each fires at most once per node — a
-     * Follower is skipped — so the sweep costs one scan per solve iteration. */
-    for (int v = 0; v < eng->vnode_count; v++) {
-        if (eng->vnodes[v]->leader >= 0) continue;
-        if (cp_apply_load_follower(eng, v)) continue;
-        if (cp_apply_same_input_follower(eng, v)) continue;
-        cp_apply_arraylen_follower(eng, v);
-    }
-    if (!eng->fallen) return;
-    int n = (int)bbq_vec_len(eng->fallen);
-    for (int i = 0; i < n; i++) {
-        int yv = eng->fallen[i];
-        if (yv < 0 || yv >= eng->vnode_count) continue;
-        if (eng->vnodes[yv]->leader >= 0) continue;
-        if (cp_apply_identity_follower(eng, yv)) continue;
-        cp_apply_phi_follower(eng, yv);
-    }
-    bbq__vec_hdr(eng->fallen)->len = 0;
+    bbq_vec_free(sb_members);
+    bbq_vec_free(sb_groups);
 }
 
 /* ── §4.8 algebraic, 1-constant identity (Follower) ─────────── */
@@ -6153,6 +6507,7 @@ static bool cp_is_identity_const(int op, int side, int64_t k) {
 static bool cp_apply_identity_follower(cp_engine_t* eng, int v_idx) {
     cp_vnode_t* v = eng->vnodes[v_idx];
     if (v->leader >= 0) return false;             /* already a Follower */
+    if (v->f2l_once) return false;                /* §4.7.1: reverted once — stays Leader */
     if (v->kind != CP_VN_EXPR || v->input_count != 2) return false;
     for (int side = 0; side < 2; side++) {
         int const_idx  = v->inputs[side];
@@ -6175,28 +6530,39 @@ static bool cp_apply_identity_follower(cp_engine_t* eng, int v_idx) {
          * candidate when the ultimate Leader is an OPAQUE seed. */
         if (leader_idx == v_idx) return false;     /* self-loop guard */
         /* Transition: Leader → Follower of leader_idx. Refresh the
-         * stored facts so cp_split_by_facts (which runs in the same
-         * iteration) sees the Follower's facts matching its Leader's
-         * — otherwise the stale Leader-era facts would split the new
-         * Leader back out of the partition. */
+         * stored facts so the in-drain SPLIT_BY (Fig 4.7 line 16) sees
+         * the Follower's facts matching its Leader's — otherwise the
+         * stale Leader-era facts would split the new Leader back out
+         * of the partition. */
         bool pend = cp_part_remove(eng, v_idx);    /* v.leader still -1 */
         v->leader = leader_idx;                    /* now a Follower */
+        v->follower_kind = CP_FK_IDENT;
         int new_part = eng->vnodes[leader_idx]->partition;
         cp_part_add(eng, new_part, v_idx);
         if (pend) cp_cprop_enqueue(eng, v_idx);
-        cp_follower_link(eng, v_idx, leader_idx);
-        v->type     = eng->vnodes[leader_idx]->type;
-        v->constant = eng->vnodes[leader_idx]->constant;
+        /* v CHANGED PARTITION. A user that is itself a Follower holds its status on "my
+         * inputs sit in the same partitions as my Leader's" — a statement about v's
+         * partition, not v's value — and cp_revert_*_follower only runs on the cprop
+         * dequeue path. cp_split_by_facts_one notifies users for exactly this reason;
+         * the follower-apply paths move nodes too and must say so as well. */
+        cp_notify_users_of_move(eng, v_idx);
+        /* The leader is v's OTHER INPUT — the du edge already carries the link (Fig 4.7
+         * lines 10-11 reach v when it changes); no side structure to maintain. */
+        /* Fig 4.7 line 7 is the ONLY place a fact is assigned: enqueue v and let
+         * PROPAGATE compute it (forwarding through the leader), so line 8's `changed`
+         * fires honestly and lines 9-11 notify every user. The direct write this
+         * replaces made the later recompute report "no change", silencing every
+         * consumer (a branch whose condition became a Follower never re-marked its
+         * arms). Staleness until the dequeue is §4.3's own license: "…or the Node is
+         * on the cprop worklist." */
+        cp_cprop_enqueue(eng, v_idx);
+        cp_remark_verdict_rows(eng);   /* a leader-identity FORMED — §3.6 matches move */
         /* Click §4.8 line 16.5: add new_part to CAUSE_SPLITS worklist
          * so its new Follower's def-use classification gets propagated. */
         cp_wl_push(eng, new_part);
-        /* Pre-existing Followers of v (e.g. §4.7 COPY LOADLOCAL Followers
-         * anchored before v itself became a Follower) stay chained to v
-         * — just shift them into the new partition so the partition-
-         * membership invariant holds. NO path compression: if v later
-         * reverts (cp_revert_*_follower), its dependents must re-evaluate
-         * against v's now-BOTTOM constant via the existing chain. Re-
-         * anchoring here would orphan them past the revert. */
+        /* Pre-existing Followers of v stay v's (their leader field is untouched — NO
+         * path compression: a later revert must reach them through v); they just shift
+         * into the new partition so the membership invariant holds. */
         cp_move_followers(eng, v_idx, new_part);
         return true;
     }
@@ -6226,19 +6592,32 @@ static int cp_value_leader(cp_engine_t* eng, int vi) {
 }
 
 /* Make v a Follower of `leader_idx` — the transition cp_apply_identity_follower
- * performs, factored out so the memory identities below share it. */
-static bool cp_become_follower(cp_engine_t* eng, int v_idx, int leader_idx) {
+ * performs, factored out so the memory identities below share it. `kind` records
+ * WHICH rule made the link (§4.7.4), so only that rule's revert may judge it. */
+static bool cp_become_follower(cp_engine_t* eng, int v_idx, int leader_idx,
+                               cp_follower_kind_t kind) {
     if (leader_idx < 0 || leader_idx >= eng->vnode_count || leader_idx == v_idx)
         return false;
     cp_vnode_t* v = eng->vnodes[v_idx];
+    if (v->f2l_once) return false;                /* §4.7.1: reverted once — stays Leader */
     bool pend = cp_part_remove(eng, v_idx);
     v->leader = leader_idx;
+    v->follower_kind = (uint8_t)kind;
     int new_part = eng->vnodes[leader_idx]->partition;
     cp_part_add(eng, new_part, v_idx);
     if (pend) cp_cprop_enqueue(eng, v_idx);
-    cp_follower_link(eng, v_idx, leader_idx);
-    v->type     = eng->vnodes[leader_idx]->type;
-    v->constant = eng->vnodes[leader_idx]->constant;
+    cp_notify_users_of_move(eng, v_idx);       /* the partition moved — see the identity path */
+    /* The DISCOVERED-link kinds' leaders are not inputs of v (LOAD: the stored value;
+     * ARRLEN: the size), so the fact flow leader→v has no du edge — append one to the
+     * §4.7.4 other.def_use overflow. SAMEIN's leader IS input[0]; nothing to add. */
+    if (kind == CP_FK_LOAD || kind == CP_FK_ARRLEN)
+        cp_du_ov_append(eng, leader_idx, v_idx);
+    /* Fig 4.7 line 7 only — enqueue; PROPAGATE computes through the leader and its
+     * `changed` branch notifies every user (see the identity path for the full why). */
+    cp_cprop_enqueue(eng, v_idx);
+    /* The link is a cp_value_leader identity FORMING — the premise §3.6 verdicts match
+     * on. With retractable edges a new match PRUNES the arm it decides. */
+    cp_remark_verdict_rows(eng);
     cp_wl_push(eng, new_part);                 /* §4.8 line 16.5 */
     cp_move_followers(eng, v_idx, new_part);
     return true;
@@ -6321,7 +6700,7 @@ static bool cp_apply_load_follower(cp_engine_t* eng, int v_idx) {
     if (v->expr->tag != SIR_GETFIELD) return false;
     int sval = cp_load_forward_target(eng, v_idx);
     if (sval < 0) return false;
-    return cp_become_follower(eng, v_idx, sval);
+    return cp_become_follower(eng, v_idx, sval, CP_FK_LOAD);
 }
 
 /* `(new T[n]).length` IS `n` — §15.10.1 gives the array exactly the evaluated
@@ -6342,7 +6721,8 @@ static bool cp_apply_arraylen_follower(cp_engine_t* eng, int v_idx) {
                      : a->tag == SIR_NEWREFARRAY ? a->new_ref_array.size
                      : NULL;
     if (!size) return false;
-    return cp_become_follower(eng, v_idx, cp_value_leader(eng, cp_vnode_of(eng, size)));
+    return cp_become_follower(eng, v_idx, cp_value_leader(eng, cp_vnode_of(eng, size)),
+                              CP_FK_ARRLEN);
 }
 
 /* §4.8's same-input IDEMPOTENT identity (x & x = x, x | x = x), declared by
@@ -6362,7 +6742,7 @@ static bool cp_apply_same_input_follower(cp_engine_t* eng, int v_idx) {
     if (li < 0 || ri < 0) return false;
     int lu = cp_ultimate_value(eng, li);
     if (lu < 0 || lu != cp_ultimate_value(eng, ri)) return false;
-    return cp_become_follower(eng, v_idx, li);
+    return cp_become_follower(eng, v_idx, li, CP_FK_SAMEIN);
 }
 
 /* §4.7.5 step 6.1: a Follower whose identity condition no longer
@@ -6383,6 +6763,12 @@ static bool cp_apply_same_input_follower(cp_engine_t* eng, int v_idx) {
 static bool cp_revert_identity_follower(cp_engine_t* eng, int v_idx) {
     cp_vnode_t* v = eng->vnodes[v_idx];
     if (v->leader == -1) return false;
+    /* §4.7.4: the Follower test is PER KIND — this revert judges only links the §4.8
+     * identity apply made. Without the gate it reverted load/same-input followers it
+     * did not create (their ops carry no identity const, so the scan below finds
+     * nothing "active" and falls through) — unsoundly for the load link, and in a
+     * livelock with the same-input apply sweep. */
+    if (v->follower_kind != CP_FK_IDENT) return false;
     if (v->kind != CP_VN_EXPR || v->input_count != 2) return false;
     for (int side = 0; side < 2; side++) {
         int const_idx = v->inputs[side];
@@ -6397,10 +6783,11 @@ static bool cp_revert_identity_follower(cp_engine_t* eng, int v_idx) {
     }
     /* Click §4.7.5 step 6.3: keep v in its current partition; just
      * flip Leader status. SPLIT_BY downstream catches the divergence
-     * via the fallen-set machinery. */
-    int old_leader = v->leader;
-    cp_follower_unlink(eng, v_idx, old_leader);
+     * via the fallen-set machinery. (The leader was v's other input — the du edge that
+     * carried the link needs no bookkeeping to stop meaning "follower".) */
     v->leader = -1;
+    v->follower_kind = CP_FK_NONE;
+    v->f2l_once = true;             /* §4.7.1: Follower ⇒ Leader only once */
     /* v rejoins the Leader set in-place — restore the Leader count the
      * matching cp_apply_identity_follower decremented (via cp_part_remove).
      * Without this, |Z.Leader| reads one short and CAUSE_SPLITS'
@@ -6422,14 +6809,48 @@ static bool cp_revert_identity_follower(cp_engine_t* eng, int v_idx) {
  * so it keeps its no-revert invariant untouched. */
 static bool cp_revert_load_follower(cp_engine_t* eng, int v_idx) {
     cp_vnode_t* v = eng->vnodes[v_idx];
+    if (v->follower_kind != CP_FK_LOAD) return false;            /* §4.7.4: judge own links only */
     if (v->leader < 0 || v->kind != CP_VN_EXPR || !v->expr) return false;
     if (v->expr->tag != SIR_GETFIELD || v->input_count < 2) return false;
-    int mem = v->inputs[v->input_count - 1];
-    if (mem < 0 || mem >= eng->mem_rows || eng->mem_kind[mem] != CP_MEM_KILL) return false;
+    /* §4.7.5 line 6.1 for EVERY load follower, not only the KILL-mem ones. The apply's
+     * premises are DYNAMIC — the receiver/store partition equality moves with congruence,
+     * and the kill-walk with escape — so the ONE authority re-runs and the link reverts on
+     * mismatch. The old KILL-only gate survived by accident: the §4.8 identity revert used
+     * to misfire on every 2-input follower and re-Leader the rest; the per-kind gates
+     * removed the misfire, so the revert each kind is owed must actually exist. */
     if (cp_load_forward_target(eng, v_idx) == v->leader) return false;   /* still valid — stays */
-    int old_leader = v->leader;
-    cp_follower_unlink(eng, v_idx, old_leader);
+    cp_du_ov_remove(eng, v->leader, v_idx);    /* §4.7.5 line 6.4: re-segregate on revert */
     v->leader = -1;
+    v->follower_kind = CP_FK_NONE;
+    v->f2l_once = true;             /* §4.7.1: Follower ⇒ Leader only once */
+    eng->partitions[v->partition]->leader_count++;               /* rejoin the Leader set in-place */
+    cp_wl_push(eng, v->partition);
+    return true;
+}
+
+/* §4.7.5 line 6.1 for the ARRLEN kind. Its premise runs through cp_value_leader, which
+ * follows CURRENT follower links (a φ-follower can put an allocation in reach and later
+ * revert away) — dynamic, so the link must re-verify against the ONE authority that made
+ * it: the array operand's leader is the allocation and the leader is that allocation's
+ * size. The old code never needed this because the §4.8 identity revert misfired on every
+ * dequeued 2-input follower and re-Leadered it; the per-kind gate removed the accident. */
+static bool cp_revert_arraylen_follower(cp_engine_t* eng, int v_idx) {
+    cp_vnode_t* v = eng->vnodes[v_idx];
+    if (v->follower_kind != CP_FK_ARRLEN) return false;          /* §4.7.4: judge own links only */
+    if (v->leader < 0 || v->kind != CP_VN_EXPR || !v->expr) return false;
+    if (v->expr->tag != SIR_ARRAYLENGTH || v->input_count < 1) return false;
+    int arr = cp_value_leader(eng, v->inputs[0]);
+    sir_node_t* a = (arr >= 0 && arr < eng->vnode_count) ? eng->vnodes[arr]->expr : NULL;
+    sir_node_t* size = !a ? NULL
+                     : a->tag == SIR_NEWARRAY    ? a->new_array.size
+                     : a->tag == SIR_NEWREFARRAY ? a->new_ref_array.size
+                     : NULL;
+    if (size && cp_value_leader(eng, cp_vnode_of(eng, size)) == v->leader)
+        return false;                                            /* still valid — stays */
+    cp_du_ov_remove(eng, v->leader, v_idx);    /* §4.7.5 line 6.4: re-segregate on revert */
+    v->leader = -1;
+    v->follower_kind = CP_FK_NONE;
+    v->f2l_once = true;             /* §4.7.1: Follower ⇒ Leader only once */
     eng->partitions[v->partition]->leader_count++;               /* rejoin the Leader set in-place */
     cp_wl_push(eng, v->partition);
     return true;
@@ -6437,11 +6858,14 @@ static bool cp_revert_load_follower(cp_engine_t* eng, int v_idx) {
 
 /* Click §4.9 PHI Follower transition: a PHI whose all-live inputs are
  * in one partition is a Follower of that partition (PhiNode::Identity,
- * thesis §4.9). The sweep runs after PROPAGATE + SPLIT_BY + cp_refine
- * so all live inputs already sit in their converged partitions. */
+ * thesis §4.9). Attempted inside PROPAGATE (at the dequeue and at the
+ * lines 17-21 fallen walk); a premature link on mid-solve partitions is
+ * the optimistic norm — cp_revert_phi_follower and the §4.9-premise
+ * check own the discipline. */
 static bool cp_apply_phi_follower(cp_engine_t* eng, int v_idx) {
     cp_vnode_t* v = eng->vnodes[v_idx];
     if (v->leader >= 0) return false;
+    if (v->f2l_once) return false;                /* §4.7.1: reverted once — stays Leader */
     if (v->kind != CP_VN_PHI) return false;
     if (!v->type || v->type == type_top(&eng->pool)) return false;
     int leader_idx = -1;
@@ -6464,12 +6888,16 @@ static bool cp_apply_phi_follower(cp_engine_t* eng, int v_idx) {
     if (leader_idx == v_idx) return false;
     bool pend2 = cp_part_remove(eng, v_idx);
     v->leader = leader_idx;
+    v->follower_kind = CP_FK_PHI;
     int new_part = eng->vnodes[leader_idx]->partition;
     cp_part_add(eng, new_part, v_idx);
     if (pend2) cp_cprop_enqueue(eng, v_idx);
-    cp_follower_link(eng, v_idx, leader_idx);
-    v->type     = eng->vnodes[leader_idx]->type;
-    v->constant = eng->vnodes[leader_idx]->constant;
+    cp_notify_users_of_move(eng, v_idx);       /* the partition moved — see the identity path */
+    /* The leader is one of the φ's INPUTS — the du edge carries the link. */
+    /* Fig 4.7 line 7 only — enqueue; PROPAGATE computes through the leader and its
+     * `changed` branch notifies every user (see the identity path for the full why). */
+    cp_cprop_enqueue(eng, v_idx);
+    cp_remark_verdict_rows(eng);   /* a leader-identity FORMED — §3.6 matches move */
     /* Click §4.8 line 16.5: add new_part to CAUSE_SPLITS worklist. */
     cp_wl_push(eng, new_part);
     /* Pre-existing Followers-of-v stay chained to v (no path compression)
@@ -6488,6 +6916,7 @@ static bool cp_apply_phi_follower(cp_engine_t* eng, int v_idx) {
  * revert the PHI to a Leader so cp_refine can re-bucket it correctly. */
 static bool cp_revert_phi_follower(cp_engine_t* eng, int v_idx) {
     cp_vnode_t* v = eng->vnodes[v_idx];
+    if (v->follower_kind != CP_FK_PHI) return false;   /* §4.7.4: judge own links only */
     if (v->leader == -1) return false;
     if (v->kind != CP_VN_PHI) return false;
     int leader_part = -1;
@@ -6503,10 +6932,11 @@ static bool cp_revert_phi_follower(cp_engine_t* eng, int v_idx) {
              * divergence — preserving partition equality is critical
              * for peer-PHI congruence (two PHIs reverting independently
              * must stay in the SAME partition until their inputs prove
-             * them distinct). */
-            int old_leader = v->leader;
-            cp_follower_unlink(eng, v_idx, old_leader);
+             * them distinct). The leader was one of the φ's inputs — no
+             * side bookkeeping to undo. */
             v->leader = -1;
+            v->follower_kind = CP_FK_NONE;
+            v->f2l_once = true;     /* §4.7.1: Follower ⇒ Leader only once */
             /* Restore the Leader count cp_apply_phi_follower decremented;
              * see cp_revert_identity_follower for the under-refinement
              * this prevents. */
@@ -6514,7 +6944,7 @@ static bool cp_revert_phi_follower(cp_engine_t* eng, int v_idx) {
             cp_wl_push(eng, v->partition);
             /* Re-arm the INPUT partitions too: a reverted φ's divergence
              * is positional (its inputs' partitions differ), which
-             * cp_split_by_facts cannot see — two loop counters both
+             * SPLIT_BY-on-facts cannot see — two loop counters both
              * typed prim(int)/BOTTOM carry identical FACTS while
              * computing different VALUES (initProperties' i vs count).
              * Only re-running positional CAUSE_SPLITS over the inputs'
@@ -6591,92 +7021,177 @@ static cp_const_t cp_cond_const(cp_engine_t* eng, sir_node_t* cond) {
     return eng->vnodes[(int)((uintptr_t)f - 1)]->constant;
 }
 
-/* Mark the spine nodes reachable from the entry, pruning the dead
- * arm of any Branch / Switch whose condition is a known constant
- * (§4.3 UCE). Click §3.7 combined CCP+UCE optimistic reading:
- *   - cond TOP  → not yet decided; propagate to NEITHER arm. Holding
- *                 the merge unreachable keeps its PHI's input set
- *                 empty (fact stays at TOP), so the PHI's fact can
- *                 fall monotonically as reachability narrows.
- *   - cond KNOWN k → only the matching arm reachable.
- *   - cond BOTTOM → both arms reachable.
- * Click §4.4.1: "branches are not evaluated until the test value
- * drops below ⊤." Propagating eagerly on TOP poisons PHI meets with
- * inputs that may never materialize, then the BOTTOM can't be
- * walked back when reachability later narrows. */
-static void cp_compute_reachability(cp_engine_t* eng) {
-    int sn = eng->spine_count;
-    if (sn == 0) { eng->reach_count = 0; return; }
-    if (!eng->reachable || eng->reachable_rows < sn) {
-        eng->reachable = (bool*)bbq_arena_alloc(eng->arena,
-                                                (size_t)sn * sizeof(bool));
-        eng->reachable_rows = sn;
+/* ── The executable-edge marking (§4/§9) ─────────────────────────
+ *
+ * spec §4: "per-edge facts, exactly SCCP's executable-edge mechanism — carried on the
+ * SIR edge, no dominance." §9: "dead regions never get analyzed because the
+ * executable-edge flag gates every sub-lattice."
+ *
+ * SCCP's mechanism, in behavior: edges start unexecutable; the entry row is live; a
+ * branch's marking reads its condition's lattice value (Click §3.7's optimistic
+ * reading — TOP → neither arm, KNOWN → the selected arm, BOTTOM → both, the §3.6
+ * verdict filling in for an undecided constant) and sets the justified out-edges.
+ * Marking is MONOTONE: an edge, once executable, is never retracted (Click §4.3's
+ * reachability lattice {U,R} falls U→R and stops), so each edge is set at most once
+ * over the whole solve and the work is fact-driven, never per-round. The old
+ * from-scratch walker is what produced the non-monotone "swap" (an arm retired as
+ * another opened) — an artifact of recomputation, not a property of the fact.
+ *
+ * RE-ARM PATHS, each on the fact the marking reads (never a proxy):
+ *   - the condition's constant: the condrow CSR, fired from cp_compute_facts when the
+ *     condition vnode's fact changes (a branch is a spine row, not a vnode, so no
+ *     def-use edge exists to carry the event);
+ *   - the verdict's leader-identity premise: verdict_row_list, fired when a Follower
+ *     link forms OR reverts. Both directions matter now that edges retract: a forming
+ *     match PRUNES an arm (retraction), a reverting one un-prunes it;
+ *   - the predecessor's own liveness: cp_reach_reeval propagates to rows whose
+ *     liveness flipped, in EITHER direction,
+ *     itself, worklist-driven.
+ *
+ * Every newly-executable edge enqueues the target merge's φs — the facts that read it
+ * (their meet ignores dead in-edges, §4.3/§4.4.1). Nothing else reads an edge mid-solve. */
+
+/* Is out-edge ordinal k of row i justified by the CURRENT facts? */
+static bool cp_edge_arm_live(cp_engine_t* eng, int i, int k) {
+    sir_node_t* n = eng->spine[i];
+    if (n->tag == SIR_BRANCH) {
+        cp_const_t c = cp_cond_const(eng, n->branch.cond);
+        if (c.state == CP_C_TOP)   return false;
+        if (c.state == CP_C_KNOWN) return (k == 0) == (c.value != 0);
+        int vd = cp_branch_verdict(eng, i, n->branch.cond);
+        if (vd >= 0) return (k == 0) == (vd != 0);
+        return true;
     }
-    for (int i = 0; i < sn; i++) eng->reachable[i] = false;
+    if (n->tag == SIR_SWITCH) {
+        cp_const_t c = cp_cond_const(eng, n->switch_.selector);
+        if (c.state == CP_C_TOP) return false;
+        if (c.state == CP_C_KNOWN) {
+            int nc = n->switch_.case_targets_count, chosen = nc;
+            for (int j = 0; j < nc; j++)
+                if (n->switch_.case_values[j] == c.value) { chosen = j; break; }
+            return k == chosen;
+        }
+        return true;
+    }
+    return true;
+}
+
+/* The φs whose in-edge just flipped. TWO consumers read that fact and BOTH re-arm here:
+ *   - the φ's MEET (§4.3 — dead inputs are ignored): the cprop enqueue;
+ *   - the φ's CONGRUENCE (§4.3's CAUSE_SPLITS predicate, line 6.5: "…or input i is a
+ *     live path into y"): a touch that ran while the edge was unlit skipped the split,
+ *     so the inputs' partitions go back on the CAUSE_SPLITS worklist. Without this the
+ *     positional exam never re-runs, the header φ stays congruent with a pre-loop copy
+ *     of the same slot, and §4.6's cong_fold folds a post-loop `i == expAt` KNOWN-true —
+ *     readJavaFormatString then rejected EVERY exponent string at runtime. Same rule as
+ *     cp_revert_phi_follower's own re-arm: "a φ's divergence is positional… only
+ *     re-running positional CAUSE_SPLITS over the inputs' partitions separates" it. */
+static void cp_enqueue_merge_phis(cp_engine_t* eng, int m) {
+    if (!eng->row_phi_first || m < 0 || m >= eng->edge_rows) return;
+    int f = eng->row_phi_first[m];
+    if (f < 0) return;
+    for (int v = f; v <= eng->row_phi_last[m] && v < eng->vnode_count; v++) {
+        /* SKIP holes (subsumed trivial φs, re-kinded OPAQUE in place) — stopping at one
+         * starved every φ behind it of this event. */
+        if (eng->vnodes[v]->kind != CP_VN_PHI || eng->vnodes[v]->parent_spine != m)
+            continue;
+        cp_cprop_enqueue(eng, v);
+        cp_vnode_t* vn = eng->vnodes[v];
+        for (int k = 0; k < vn->input_count; k++) {
+            int in = vn->inputs[k];
+            if (in < 0 || in >= eng->vnode_count) continue;
+            int p = eng->vnodes[in]->partition;
+            if (p >= 0 && p < eng->partition_count) cp_wl_push(eng, p);
+        }
+    }
+}
+
+/* Re-evaluate row `start`'s out-edges against the CURRENT facts, propagating liveness
+ * changes IN BOTH DIRECTIONS.
+ *
+ * Setting is SCCP; retraction is ours, and it is forced by a cited property of this
+ * engine: Gate 5 is "a revocable load-follower IN the fixpoint" — a GetField's fact
+ * rises BOTTOM→KNOWN when its forward premises (escape, clobber, inject) mature, so a
+ * guard condition that read the transient BOTTOM justified BOTH arms for a window.
+ * Click's lattice has no rising facts, so his marks never need retracting; ours do, or
+ * the transient's marks are permanent — measured: the §15 throw arms stayed lit, their
+ * ctor calls stickily lowered escape, and Gate 5 itself then declined (§42/§44 pins).
+ * The old walker hid this by recomputing the whole set every round; here the SAME
+ * condrow/revert hooks that light arms also extinguish them, so the fact stays
+ * edge-carried and fact-driven (§4/§9) with no per-round pass.
+ *
+ * A row is live iff a lit in-edge reaches it (the entry holds a virtual lit edge). A
+ * row that dies extinguishes its own out-edges, recursively; every edge flip enqueues
+ * the target merge's φs — their meet reads the flag in both directions (§4.3). */
+static void cp_reach_reeval(cp_engine_t* eng, int start) {
+    if (!eng->edge_exec || start < 0 || start >= eng->edge_rows) return;
     int* wl = NULL;
-    int entry = cp_spine_index(eng, eng->method->entry);
-    if (entry >= 0) { eng->reachable[entry] = true; bbq_vec_push(wl, entry); }
+    bbq_vec_push(wl, start);
     while (bbq_vec_len(wl)) {
-        int ni = wl[bbq_vec_len(wl) - 1];
+        int i = wl[bbq_vec_len(wl) - 1];
         bbq__vec_hdr(wl)->len--;
-        sir_node_t* n = eng->spine[ni];
-        int sc = sir_succ_count(n);
-        for (int i = 0; i < sc; i++) {
-            int si = cp_spine_index(eng, sir_succ(n, i));
-            if (si < 0) continue;
-            /* Branch (§3.7 optimistic): TOP cond → propagate neither
-             * arm; KNOWN cond → only the selected arm; BOTTOM cond →
-             * both arms. */
-            if (n->tag == SIR_BRANCH) {
-                cp_const_t c = cp_cond_const(eng, n->branch.cond);
-                if (c.state == CP_C_TOP) continue;
-                if (c.state == CP_C_KNOWN
-                        && ((i == 0) != (c.value != 0))) continue;
-                /* Channel (a): a condition the fold can't decide may still be
-                 * decided by a path-invariant verdict. KNOWN wins when present
-                 * (handled above); the verdict fills in for BOTTOM/RANGE. */
-                if (c.state != CP_C_KNOWN) {
-                    int vd = cp_branch_verdict(eng, ni, n->branch.cond);
-                    if (vd >= 0 && ((i == 0) != (vd != 0))) continue;
-                }
-            }
-            /* Switch (§3.7 optimistic): TOP selector → no arms;
-             * KNOWN → only matching case (or default if no match);
-             * BOTTOM → all arms. */
-            if (n->tag == SIR_SWITCH) {
-                cp_const_t c = cp_cond_const(eng, n->switch_.selector);
-                if (c.state == CP_C_TOP) continue;
-                if (c.state == CP_C_KNOWN) {
-                    int nc = n->switch_.case_targets_count, live = nc;
-                    for (int j = 0; j < nc; j++)
-                        if (n->switch_.case_values[j] == c.value) {
-                            live = j;
-                            break;
-                        }
-                    if (i != live) continue;
-                }
-            }
-            if (!eng->reachable[si]) {
-                eng->reachable[si] = true;
-                bbq_vec_push(wl, si);
+        int e0 = eng->edge_off[i], e1 = eng->edge_off[i + 1];
+        for (int e = e0; e < e1; e++) {
+            bool want = eng->reachable[i] && cp_edge_arm_live(eng, i, e - e0);
+            if (eng->edge_exec[e] == want) continue;
+            eng->edge_exec[e] = want;
+            int t = eng->edge_target[e];
+            if (t < 0) continue;
+            cp_enqueue_merge_phis(eng, t);
+            eng->edge_lit_in[t] += want ? 1 : -1;
+            bool now_live = eng->edge_lit_in[t] > 0;
+            if (now_live != eng->reachable[t]) {
+                eng->reachable[t] = now_live;
+                eng->reach_count += now_live ? 1 : -1;
+                bbq_vec_push(wl, t);
+                /* t's LIVENESS is itself a φ-input fact on the EXCEPTIONAL channel: a
+                 * handler-φ input arriving on an EXCEPT edge has no edge-table entry (its
+                 * liveness read falls back to the source row's node bit), so the flip must
+                 * deliver the event to each handler's φs by hand — the exact sibling of
+                 * the subsumed-φ hole, one channel over. */
+                for (int x = 0; x < cp_exc_succ_count(eng, t); x++)
+                    cp_enqueue_merge_phis(eng, cp_exc_succ(eng, t, x));
+                /* And an escape-source row going live must run its lowering (§9 gates it
+                 * while dead — the gate lifting IS the event). */
+                if (eng->esc_src && eng->esc_src[t]) cp_escape_pend(eng, t);
             }
         }
     }
     bbq_vec_free(wl);
-    int rc = 0;
-    for (int i = 0; i < sn; i++) if (eng->reachable[i]) rc++;
-    /* Click §3.7 combined CCP+UCE: when reachability changes, every
-     * PHI whose live-input set may have changed needs to re-evaluate
-     * its fact (its meet excludes inputs from now-dead predecessor
-     * edges). Enqueue every PHI onto cprop — PROPAGATE will recompute
-     * cp_node_const(phi) with the updated cp_phi_input_live filter,
-     * cascading any fact falls to users. */
-    if (rc != eng->reach_count) {
-        for (int v = 0; v < eng->vnode_count; v++)
-            if (eng->vnodes[v]->kind == CP_VN_PHI)
-                cp_cprop_enqueue(eng, v);
+}
+
+/* A Follower link formed or reverted — cp_value_leader identity moved, which is the
+ * premise every §3.6 verdict matches on. Re-evaluate the rows that carry one, in both
+ * directions: a forming match prunes its arm, a reverting one un-prunes it. */
+static void cp_remark_verdict_rows(cp_engine_t* eng) {
+    for (int i = 0; i < (int)bbq_vec_len(eng->verdict_row_list); i++)
+        cp_reach_reeval(eng, eng->verdict_row_list[i]);
+}
+
+/* Entry seeding — SCCP's "the entry edge is executable". Conditions are TOP at init,
+ * so propagation stops at the first branch, exactly the walker's round-1 semantics. */
+static void cp_reach_seed(cp_engine_t* eng) {
+    if (!eng->edge_exec || eng->entry_row < 0) return;
+    if (!eng->reachable[eng->entry_row]) {
+        eng->reachable[eng->entry_row] = true;
+        eng->edge_lit_in[eng->entry_row]++;    /* the virtual entry edge — never retracted */
+        eng->reach_count++;
+        for (int x = 0; x < cp_exc_succ_count(eng, eng->entry_row); x++)
+            cp_enqueue_merge_phis(eng, cp_exc_succ(eng, eng->entry_row, x));
     }
-    eng->reach_count = rc;
+    cp_reach_reeval(eng, eng->entry_row);
+}
+
+/* §4.10 post-solve consumer, for cp_rewrite ONLY: the rewrite replaced condition nodes
+ * with fresh ones (absent from expr_idx ⟹ BOTTOM, fail-closed: both arms live) and may
+ * have spliced rows, so the construction tables no longer describe the graph. Rebuild
+ * them against the spine as it now stands and re-mark from entry — a from-scratch pass
+ * over the final graph is exactly what §4.10 licenses; it is the SOLVE that must never
+ * do this. */
+static void cp_build_edge_tables(cp_engine_t* eng);
+static void cp_reach_reset_and_mark(cp_engine_t* eng) {
+    cp_build_edge_tables(eng);          /* fresh tables ⟹ fresh all-false bits */
+    cp_reach_seed(eng);
 }
 
 /* The ONE spine-reachability accessor. A spine node spliced after
@@ -6864,77 +7379,119 @@ void cp_compute_liveness(cp_engine_t* eng) {
 
 /* ── Fact-driven partition splitting ─────────────────────────── */
 
-/* §4.3.2 invariant: within a partition every node agrees on type and
- * constant. Split each partition by its members' (type, constant)
- * facts; returns true if any split occurred. */
-static bool cp_split_by_facts(cp_engine_t* eng) {
-    bool any = false;
-    int snapshot = eng->partition_count;
-    int* members = NULL;   /* Leaders only */
-    int* groups  = NULL;
-    for (int p = 0; p < snapshot; p++) {
-        if (members) bbq__vec_hdr(members)->len = 0;
-        /* Per Click §4.7.1, Followers live in their Leader's partition.
-         * SPLIT_BY by (type, constant) operates on Leaders only — skip
-         * Followers. They follow their Leader via cp_move_followers
-         * when cp_part_remove fires below (the cp_move_followers helper
-         * is invoked by cp_split's split path; here we do raw remove +
-         * add, so propagate Followers explicitly below). */
-        for (int n = eng->partitions[p]->head; n >= 0;
-             n = eng->vnodes[n]->part_next)
-            if (eng->vnodes[n]->leader == -1)
-                bbq_vec_push(members, n);
-        int mc = (int)bbq_vec_len(members);
-        if (mc <= 1) continue;
-        const Type* keep_t = eng->vnodes[members[0]]->type;
-        cp_const_t  keep_c = eng->vnodes[members[0]]->constant;
-        if (groups) bbq__vec_hdr(groups)->len = 0;
-        for (int i = 1; i < mc; i++) {
-            int n = members[i];
-            const Type* t = eng->vnodes[n]->type;
-            cp_const_t  c = eng->vnodes[n]->constant;
-            if (t == keep_t && cp_const_eq(c, keep_c)) continue;
-            int target = -1;
-            for (int j = 0; j < (int)bbq_vec_len(groups); j++) {
-                int g = groups[j], gh = eng->partitions[g]->head;
-                if (gh >= 0 && eng->vnodes[gh]->type == t
-                            && cp_const_eq(eng->vnodes[gh]->constant, c)) {
-                    target = g;
-                    break;
-                }
-            }
-            if (target < 0) {
-                target = cp_part_new(eng);
-                bbq_vec_push(groups, target);
-            }
-            bool pend = cp_part_remove(eng, n);
-            cp_part_add(eng, target, n);
-            if (pend) cp_cprop_enqueue(eng, n);
-            cp_notify_users_of_move(eng, n);
-            /* Followers of n must follow n to the new partition. */
-            cp_move_followers(eng, n, target);
-            any = true;
-        }
-        /* Click §4.2's SPLIT contract: a partition that splits goes BACK on
-         * the CAUSE_SPLITS worklist, together with the partitions carved out
-         * of it. cp_notify_users_of_move only re-enqueues the users' FACTS
-         * (cprop); it does not re-examine them by input POSITION — and for
-         * users whose facts are identical, position is the only thing that
-         * can tell them apart. `x >>> 24`, `x >>> 16`, `x >>> 8` all carry
-         * BOTTOM (x unknown) and differ solely in which constant partition
-         * feeds input 1: without this re-arm they stayed congruent and CSE
-         * collapsed the three into one (DataOutputStream.writeInt wrote the
-         * top byte four times). Enqueueing every resulting partition is
-         * sound; Hopcroft's "all but the largest" is only a constant-factor
-         * refinement of it, and refinement is monotone, so termination (at
-         * most n-1 splits) is unaffected. */
-        for (int j = 0; j < (int)bbq_vec_len(groups); j++)
-            cp_wl_push(eng, groups[j]);
-        if (bbq_vec_len(groups) > 0) cp_wl_push(eng, p);
+/* SPLIT_BY's OPCODE level (thesis p.47: type, then opcode, then inputs): do two
+ * Leaders share the INITIAL bucket identity (cp_partition_init's key — the one
+ * authority)? Needed because a reverted Follower stays in its old Leader's
+ * partition as a Leader (§4.7.5 line 6.3), so a partition's Leaders can mix
+ * opcodes — §4.8 p.60: the fallen set "contains Nodes that do not have the same
+ * type OR OPCODE as the other Leaders in partition X". Equal (type, constant)
+ * facts alone would leave the mix claimed-congruent: an x+0 ADD reverted among
+ * its old leader's partition-mates, both BOTTOM int, is NOT the same value, and
+ * CSE folding them is a miscompile. Only EXPRs and φs ever join a foreign
+ * partition (the applies), so other kinds answer same-bucket trivially. */
+static bool cp_bucket_same(const cp_engine_t* eng, int an, int bn) {
+    const cp_vnode_t* av = eng->vnodes[an];
+    const cp_vnode_t* bv = eng->vnodes[bn];
+    bool a_expr = av->kind == CP_VN_EXPR, b_expr = bv->kind == CP_VN_EXPR;
+    bool a_phi  = av->kind == CP_VN_PHI,  b_phi  = bv->kind == CP_VN_PHI;
+    if (a_expr != b_expr || a_phi != b_phi) return false;
+    if (a_phi) return av->phi_merge == bv->phi_merge;   /* the merge is identity */
+    if (a_expr) {
+        if (av->op != bv->op) return false;
+        uint32_t (*fa)(const sir_node_t*) = cp_opcode_disc_fn(av);
+        uint32_t (*fb)(const sir_node_t*) = cp_opcode_disc_fn(bv);
+        if (fa != fb) return false;
+        return !fa || fa(av->expr) == fb(bv->expr);
     }
-    bbq_vec_free(members);
-    bbq_vec_free(groups);
-    return any;
+    return true;
+}
+
+/* SPLIT_BY(Y) over the (type, constant) facts — Fig 4.7 line 16's callee, run
+ * per-partition from inside PROPAGATE (the whole-graph round loop this body used
+ * to sit in was the R.9 hoisting; deleted in W5.1). §4.3.2 invariant: within a
+ * partition every node agrees on type and constant.
+ *
+ * NON-CONSTANT groups additionally split by the opcode-bucket key (p.47's opcode
+ * level; see cp_bucket_same). Constant and TOP groups are exempt per §4.5's
+ * amended line 5 ("If Y.type is below ⊤ and all constants") — two nodes computing
+ * the SAME constant are congruent regardless of how they compute it (discovery
+ * 4), and the TOP partition is never split by function.
+ *
+ * Per Click §4.7.1, Followers live in their Leader's partition. SPLIT_BY
+ * operates on Leaders only — skip Followers. They follow their Leader via
+ * cp_move_followers when cp_part_remove fires below (the cp_move_followers
+ * helper is invoked by cp_split's split path; here we do raw remove + add, so
+ * propagate Followers explicitly).
+ *
+ * `members_io`/`groups_io` are caller-owned scratch vecs (reset here, freed by
+ * the caller) so the per-partition call allocates nothing steady-state. */
+static void cp_split_by_facts_one(cp_engine_t* eng, int p,
+                                  int** members_io, int** groups_io) {
+    int* members = *members_io;   /* Leaders only */
+    int* groups  = *groups_io;
+    if (members) bbq__vec_hdr(members)->len = 0;
+    for (int n = eng->partitions[p]->head; n >= 0;
+         n = eng->vnodes[n]->part_next)
+        if (eng->vnodes[n]->leader == -1)
+            bbq_vec_push(members, n);
+    int mc = (int)bbq_vec_len(members);
+    if (mc <= 1) { *members_io = members; return; }
+    const Type* keep_t = eng->vnodes[members[0]]->type;
+    cp_const_t  keep_c = eng->vnodes[members[0]]->constant;
+    /* §4.5 line 5's exemption: KNOWN (same-constant congruence, discovery 4)
+     * and TOP (never split by function) skip the opcode level. */
+    bool keep_exempt = keep_c.state == CP_C_KNOWN || keep_c.state == CP_C_TOP;
+    if (groups) bbq__vec_hdr(groups)->len = 0;
+    for (int i = 1; i < mc; i++) {
+        int n = members[i];
+        const Type* t = eng->vnodes[n]->type;
+        cp_const_t  c = eng->vnodes[n]->constant;
+        if (t == keep_t && cp_const_eq(c, keep_c)
+                && (keep_exempt || cp_bucket_same(eng, n, members[0]))) continue;
+        bool c_exempt = c.state == CP_C_KNOWN || c.state == CP_C_TOP;
+        int target = -1;
+        for (int j = 0; j < (int)bbq_vec_len(groups); j++) {
+            int g = groups[j], gh = eng->partitions[g]->head;
+            /* the head may be a Follower that rode along — bucket identity is a
+             * LEADER property, so compare against the group's first Leader */
+            while (gh >= 0 && eng->vnodes[gh]->leader != -1)
+                gh = eng->vnodes[gh]->part_next;
+            if (gh >= 0 && eng->vnodes[gh]->type == t
+                        && cp_const_eq(eng->vnodes[gh]->constant, c)
+                        && (c_exempt || cp_bucket_same(eng, n, gh))) {
+                target = g;
+                break;
+            }
+        }
+        if (target < 0) {
+            target = cp_part_new(eng);
+            bbq_vec_push(groups, target);
+        }
+        bool pend = cp_part_remove(eng, n);
+        cp_part_add(eng, target, n);
+        if (pend) cp_cprop_enqueue(eng, n);
+        cp_notify_users_of_move(eng, n);
+        /* Followers of n must follow n to the new partition. */
+        cp_move_followers(eng, n, target);
+    }
+    /* Click §4.2's SPLIT contract: a partition that splits goes BACK on
+     * the CAUSE_SPLITS worklist, together with the partitions carved out
+     * of it. cp_notify_users_of_move only re-enqueues the users' FACTS
+     * (cprop); it does not re-examine them by input POSITION — and for
+     * users whose facts are identical, position is the only thing that
+     * can tell them apart. `x >>> 24`, `x >>> 16`, `x >>> 8` all carry
+     * BOTTOM (x unknown) and differ solely in which constant partition
+     * feeds input 1: without this re-arm they stayed congruent and CSE
+     * collapsed the three into one (DataOutputStream.writeInt wrote the
+     * top byte four times). Enqueueing every resulting partition is
+     * sound; Hopcroft's "all but the largest" is only a constant-factor
+     * refinement of it, and refinement is monotone, so termination (at
+     * most n-1 splits) is unaffected. */
+    for (int j = 0; j < (int)bbq_vec_len(groups); j++)
+        cp_wl_push(eng, groups[j]);
+    if (bbq_vec_len(groups) > 0) cp_wl_push(eng, p);
+    *members_io = members;
+    *groups_io  = groups;
 }
 
 /* ── P4 rewrite (one-shot, off the converged engine) ─────────── */
@@ -8423,13 +8980,13 @@ static void cp_pea(cp_engine_t* eng, const bool* sr_cand) {
         esc_row[i] = (unsigned char*)bbq_arena_alloc(a, (size_t)np);
         memset(esc_row[i], 0, (size_t)np);
     }
-    /* The OWNING spine row of each surviving expression vnode (parent_spine exists only
-     * on LoadLocals). First-wins; a vnode reached from TWO rows cannot be attributed —
-     * classification then declines the candidate (fail-closed via row = -1). */
-    int* vrow = (int*)bbq_arena_alloc(a, (size_t)(vc ? vc : 1) * sizeof(int));
-    for (int v = 0; v < vc; v++) vrow[v] = -1;
-    bool* vrow_conflict = (bool*)bbq_arena_alloc(a, (size_t)(vc ? vc : 1) * sizeof(bool));
-    memset(vrow_conflict, 0, (size_t)(vc ? vc : 1) * sizeof(bool));
+    /* The OWNING spine row is READ from the record (`vnode->parent_spine`, stamped by
+     * cp_resolve_loads over each row's own tree), not re-derived here. The derivation this
+     * replaced walked the spine and then propagated each parent's row down to its children —
+     * a private ownership index rebuilt from the graph, which is the shape §R exists to keep
+     * out. CP_SPINE_AMBIGUOUS and -1 both mean "no single owning row", so both fail closed. */
+    #define CP_PEA_ROW(vi) (eng->vnodes[(vi)]->parent_spine < 0 \
+                            ? -1 : eng->vnodes[(vi)]->parent_spine)
     {
         int* obj_of_alloc = (int*)bbq_arena_alloc(a, (size_t)(vc ? vc : 1) * sizeof(int));
         for (int v = 0; v < vc; v++) obj_of_alloc[v] = -1;
@@ -8492,15 +9049,13 @@ static void cp_pea(cp_engine_t* eng, const bool* sr_cand) {
                 if (ci < 0 || ci >= vc) continue;
                 if (cp_const_subst_applies(eng, child)) continue;
                 CP_PEA_CLASSIFY(n, child, ci, i);
-                if (vrow[ci] < 0) vrow[ci] = i;
-                else if (vrow[ci] != i) vrow_conflict[ci] = true;
                 if (!survives[ci]) { survives[ci] = true; wl[wl_tail++] = ci; }
             }
         }
         for (int wh = 0; wh < wl_tail; wh++) {
             sir_node_t* pe = eng->vnodes[wl[wh]]->expr;
             if (!pe || eng->vnodes[wl[wh]]->kind != CP_VN_EXPR) continue;
-            int prow = vrow_conflict[wl[wh]] ? -1 : vrow[wl[wh]];
+            int prow = CP_PEA_ROW(wl[wh]);
             int ar = sir_arity(pe);
             for (int j = 0; j < ar; j++) {
                 sir_node_t* child = sir_child(pe, j);
@@ -8509,10 +9064,6 @@ static void cp_pea(cp_engine_t* eng, const bool* sr_cand) {
                 if (ci < 0 || ci >= vc) continue;
                 if (cp_const_subst_applies(eng, child)) continue;
                 CP_PEA_CLASSIFY(pe, child, ci, prow);
-                if (prow >= 0) {
-                    if (vrow[ci] < 0) vrow[ci] = prow;
-                    else if (vrow[ci] != prow) vrow_conflict[ci] = true;
-                } else vrow_conflict[ci] = true;
                 if (!survives[ci]) { survives[ci] = true; wl[wl_tail++] = ci; }
             }
         }
@@ -8883,7 +9434,7 @@ static void cp_pea(cp_engine_t* eng, const bool* sr_cand) {
         if (!e || e->tag != SIR_GETFIELD) continue;
         int o = cp_sr_recv_site(eng, pea_ok, e->get_field.obj);
         int k = o >= 0 ? pea_of_obj[o] : -1;
-        int prow = vrow_conflict[v] ? -1 : vrow[v];
+        int prow = CP_PEA_ROW(v);
         if (k < 0 || prow < 0 || prow >= sn) continue;
         if (st[prow][k] != CP_PEA_VIRTUAL || esc_row[prow][k]) continue;
         int slot = cp_sr_slot_of(rows, nrows, o, e->get_field.class_id,
@@ -9030,13 +9581,12 @@ void cp_rewrite(cp_engine_t* eng) {
      * forward to its reaching store. What is gone is materializing a congruent expression
      * into a local, which requires choosing a program point — a scheduling question the
      * DDCG already answered when it emitted from the CPS structure. */
-    /* The CSE lift splices new StoreLocal nodes into the spine (now
-     * registered in the spine index by cp_splice_before). reachable[] is
-     * sized to the pre-lift spine, so reset and recompute it — Click §6.3
-     * schedules over the complete optimized graph, and liveness/DSE skip
-     * nodes flagged unreachable. */
-    eng->reachable = NULL;
-    cp_compute_reachability(eng);
+    /* The rewrite replaced condition nodes and may have spliced rows, so the
+     * construction edge tables no longer describe the graph — rebuild + re-mark
+     * (a §4.10 post-solve consumer over the final graph; fresh conditions are
+     * absent from expr_idx ⟹ BOTTOM ⟹ both arms live, fail-closed). Liveness
+     * and DSE below read the result through cp_spine_reachable. */
+    cp_reach_reset_and_mark(eng);
     cp_compute_liveness(eng);
     cp_rewrite_dse(eng);
     cp_rewrite_mem_dse(eng);
@@ -9201,6 +9751,10 @@ cp_engine_t* cp_build_no_solve(sir_method_t* method, const sema_ctx_t* sema,
     cp_build_widen_k(eng);
     cp_resolve(eng);
     cp_compute_branch_refinements(eng);
+    /* After branch refinements: every vnode exists (pass B mints Refines), so the
+     * condrow CSR can be keyed by vnode id and the φ ranges are final. */
+    cp_build_edge_tables(eng);
+    cp_escape_index(eng);
     cp_build_defuse(eng);
     cp_partition_init(eng);
     return eng;
@@ -9226,6 +9780,9 @@ void cp_init_facts(cp_engine_t* eng) {
     }
     for (int p = 0; p < eng->partition_count; p++)
         cp_wl_push(eng, p);
+    /* SCCP's "the entry edge is executable" — conditions are TOP here, so the marking
+     * stops at the first branch; the condrow hooks take it from there as facts fall. */
+    cp_reach_seed(eng);
 }
 
 /* Run the outer PROPAGATE+CAUSE_SPLITS solve loop until convergence.
@@ -9233,82 +9790,472 @@ void cp_init_facts(cp_engine_t* eng) {
  *     PROPAGATE(cprop);
  *     If worklist not empty: CAUSE_SPLITS(worklist);
  * }"
- * Termination signaled by both worklists empty after a full pass.
- * Our impl interleaves reachability (UCE+CCP, §3.7/§4.3.2) and uses
- * cp_split_by_facts as a SPLIT_BY proxy before cp_refine. Each loop
- * iteration must drain cprop_worklist via cp_compute_facts before
- * cp_refine (which may re-enqueue cprop entries via §4.7.5 line 33-34).
- * Loop terminates only when neither worklist nor cprop has pending
- * work AND reach_count is stable. */
-/* THE RE-ARM (the recurring bug class, and the plan predicted a fourth — this is the
- * fifth, and the cong_fold arm below is the seventh). `cp_symbolic_bound_const` reads a
- * PARTITION: whether the bound that refined the
- * index and the length this compare reads are the same value. That fact does not arrive
- * over a def-use edge, so nothing in PROPAGATE will ever revisit the compare when it
- * changes — and it DOES change, because partitions start coarse and SPLIT as the solve
- * refines. A `KNOWN 0` left standing on a pair that has since split apart is not stale,
- * it is UNSOUND: a bounds guard deleted on a proof that no longer holds.
+ * Termination signaled by both worklists empty.
+ * Our impl interleaves reachability (UCE+CCP, §3.7/§4.3.2); SPLIT,
+ * SPLIT_BY and the Follower transitions run inside PROPAGATE per
+ * fallen partition (Fig 4.7 lines 14-22). Each iteration drains
+ * cprop via cp_compute_facts before cp_refine (which may re-enqueue
+ * cprop entries via lines 33-34). */
+/* THE RE-ARM for congruence readers (cong_fold: SUB/XOR/compares, plus
+ * `cp_symbolic_bound_const`'s partition read in the compare transfers) is Fig 4.7
+ * lines 33-34 IN cp_cause_splits — per-edge, fired while walking the very partition
+ * whose membership moved. A `KNOWN 0` left standing on a pair that has since split
+ * apart is not stale, it is UNSOUND (a bounds guard deleted on a proof that no
+ * longer holds; BitSet.xor's `bits[i] ^ set.bits[i]` folded to 0) — §4.6's
+ * completeness argument for the per-edge form: a congruence can only break by its
+ * operands landing in different pieces of a split, every membership change pushes
+ * an affected partition onto the CAUSE_SPLITS worklist, and walking it reaches the
+ * reader over its own def-use edge. The whole-graph sweep this replaced
+ * (cp_rearm_partition_consumers) was the same fact re-armed by PROXY — a checksum
+ * or a partition count saying "something moved somewhere" — at O(graph) per round. */
+static void cp_verify_fixpoint(cp_engine_t* eng);   /* §8 membership test; defined below */
+
+/* One checksum PER FACT FAMILY, not one over all of them. A single blob answers "something
+ * moved", which is not a lead: the families have different transfers and different re-arm
+ * paths, and the one that moved is the one to look at. DIAGNOSTIC ONLY: the §8 membership
+ * test below measures a forced round with these; cp_solve's exit is worklist emptiness
+ * (§4.4.2) and consults no checksum. */
+typedef struct {
+    uint64_t cong;    /* partition / leader / kind — the congruence classes */
+    uint64_t konst;   /* the SCCP constant + range lattice */
+    uint64_t pts;     /* points-to sets */
+    uint64_t heap;    /* per-object heap rows (memory SSA) */
+    uint64_t esc;     /* §7 escape states */
+    uint64_t reach;   /* §8.1.1 reachability */
+} cp_facts_t;
+
+static void cp_fact_checksum(const cp_engine_t* eng, cp_facts_t* f);
+static bool cp_facts_eq(const cp_facts_t* a, const cp_facts_t* b);
+
+void cp_solve(cp_engine_t* eng) {
+    /* Click §4.4.2's main loop, and nothing else:
+     *     "Do until worklist and cprop are empty {
+     *          PROPAGATE( cprop );
+     *          If worklist is not empty, then CAUSE_SPLITS( worklist );
+     *      }"
+     * Everything that used to need a per-round pass runs INSIDE those two calls:
+     * SPLIT/SPLIT_BY and the Follower transitions in PROPAGATE (Fig 4.7 lines
+     * 14-22 + the dequeue attempts), the executable-edge marking on its condrow/
+     * revert hooks, the cong_fold re-arm per-edge in CAUSE_SPLITS (lines 33-34).
+     * The exit consults NO checksum: a fact only correct because a pass re-ran it
+     * has no pass left to hide behind — the §8 membership test below is the
+     * checked form of that claim.
+     *
+     * ONE round-end element remains, deliberately: escape (§6, lattice E). Its
+     * evaluation point is load-bearing (W4: sticky lowering at the change instant
+     * latches transiently-live rows), so it runs when both worklists have drained;
+     * its re-arms repopulate cprop and the loop continues until it, too, is quiet.
+     * Escape only descends, so this terminates. */
+    for (;;) {
+        cp_compute_facts(eng);
+        if (bbq_vec_len(eng->worklist) > 0)
+            cp_refine(eng);
+        if (bbq_vec_len(eng->cprop_worklist) > 0
+                || bbq_vec_len(eng->worklist) > 0)
+            continue;
+        bool esc_moved = cp_escape_update(eng);
+        if (!esc_moved) break;
+        /* Escape's two in-fixpoint readers, re-armed on the fact having moved:
+         * a CP_MEM_KILL's transfer reads it to decide which rows a call may have
+         * clobbered, and a LOAD follower whose forward crossed a kill re-checks
+         * cp_call_preserves_cell (W4-D1: the reader itself, not the kill's-heap
+         * proxy). Both reach escape through no def-use edge, so the drain cannot
+         * deliver this one. */
+        for (int vi = 0; vi < eng->mem_rows; vi++)
+            if (eng->mem_kind[vi] == CP_MEM_KILL) cp_cprop_enqueue(eng, vi);
+        for (int vi = 0; vi < eng->vnode_count; vi++)
+            if (eng->vnodes[vi]->follower_kind == CP_FK_LOAD)
+                cp_cprop_enqueue(eng, vi);
+    }
+    cp_verify_fixpoint(eng);
+}
+
+/* ── THE MEMBERSHIP TEST, CHECKED ──────────────────────────────────────────────────────────
  *
- * The §4.6 cong_fold engine block reads partitions the same off-graph way, and its
- * premature-fold guard covers only HALF the transient: TOP operands and disagreeing
- * KNOWNs are rejected, but two BOTTOM loads still sharing their initial opcode bucket
- * (a[i] and b[i] before CAUSE_SPLITS tells their arrays apart) pass it and fold —
- * BitSet.xor's `bits[i] ^ set.bits[i]` folded to 0. The fold is fine as an OPTIMISTIC
- * transient; what was missing is exactly this re-arm, so the split that separates the
- * loads re-runs the fold and the KNOWN falls to the γ answer. So: every vnode whose row
- * carries a cong_fold goes back on cprop too (SUB / XOR / the six compares).
+ * A Click element's transfer reads only its def-use edges and its φ/region inputs. Reading
+ * anything else leaves no edge for the worklist to follow, so nothing re-queues the node when
+ * that thing moves and the solve settles on a value nothing revisited.
  *
- * Gated on the partition count actually moving — re-arming unconditionally would keep
- * the worklist non-empty and cp_solve would never terminate. The count only grows and
- * is bounded by the vnode count, so this terminates. */
-static void cp_rearm_partition_consumers(cp_engine_t* eng) {
+ * cp_solve exits when the WORKLISTS are empty, which says nothing about a node the worklist
+ * never held. Force-arming every vnode and running one more round decides it: a fixpoint is
+ * idempotent under recomputation, so any value that moves had an input change without a
+ * re-arm.
+ *
+ * Off by default — it doubles the last round. JAVELINA_VERIFY_FIXPOINT=1 arms it. */
+/* A checksum over the SOLVED FACTS — the ones §8.1.1's table names as what the application
+ * phase reads, because those are the ones a stale value corrupts. Counters alone are not
+ * enough: a missing escape re-arm leaves a kill node's HEAP ROWS optimistic while the
+ * partition and reachability counts sit still, which is exactly how this check read green
+ * against a re-arm I had deliberately disabled. */
+/* partition id → the SMALLEST vnode index in it (caller frees).
+ *
+ * Congruence is the RELATION "these nodes are together", not the ids naming it, and cp_part_new
+ * hands out a fresh id every time. Anything comparing congruence across rounds must go through
+ * this: against raw ids, a round that rebuilds the identical grouping reads as movement. */
+static int* cp_part_canon(const cp_engine_t* eng) {
+    int npart = eng->partition_count > 0 ? eng->partition_count : 1;
+    int* rep = (int*)malloc((size_t)npart * sizeof(int));
+    for (int p = 0; p < npart; p++) rep[p] = INT_MAX;
     for (int v = 0; v < eng->vnode_count; v++) {
         const cp_vnode_t* vn = eng->vnodes[v];
-        if (vn->kind != CP_VN_EXPR || !vn->expr) continue;
-        int t = vn->expr->tag;
-        if (t == SIR_GE || sir_op_gamma[t].cong_fold != GC_NONE)
-            cp_cprop_enqueue(eng, v);
+        if (!vn || vn->partition < 0 || vn->partition >= npart) continue;
+        if (v < rep[vn->partition]) rep[vn->partition] = v;
+    }
+    return rep;
+}
+
+static void cp_fact_checksum(const cp_engine_t* eng, cp_facts_t* f) {
+    uint64_t cong = 1469598103934665603ull, konst = cong, pts = cong;
+    uint64_t heap = cong, esc = cong, reach = cong;
+    #define MIXI(acc, x) do { acc ^= (uint64_t)(x); acc *= 1099511628211ull; } while (0)
+    int words = eng->obj_words;
+
+    int npart = eng->partition_count > 0 ? eng->partition_count : 1;
+    int* rep = cp_part_canon(eng);
+
+    for (int v = 0; v < eng->vnode_count; v++) {
+        const cp_vnode_t* vn = eng->vnodes[v];
+        if (!vn) { MIXI(cong, 0xDEAD); continue; }
+        int canon = (vn->partition >= 0 && vn->partition < npart) ? rep[vn->partition] : -1;
+        MIXI(cong, canon); MIXI(cong, vn->leader); MIXI(cong, (int)vn->kind);
+        MIXI(konst, (int)vn->constant.state); MIXI(konst, (int)vn->constant.cwidth);
+        MIXI(konst, vn->constant.value); MIXI(konst, vn->constant.lvalue);
+        MIXI(konst, vn->constant.lo); MIXI(konst, vn->constant.hi);
+        MIXI(konst, vn->constant.stride);
+        MIXI(konst, vn->constant.hi_vn1); MIXI(konst, vn->constant.lo_vn1);
+        if (vn->pts.bits) for (int q = 0; q < words; q++) MIXI(pts, vn->pts.bits[q]);
+        if (vn->heap)
+            for (int o = 0; o < eng->obj_count; o++)
+                if (vn->heap[o].bits)
+                    for (int q = 0; q < words; q++) MIXI(heap, vn->heap[o].bits[q]);
+    }
+    for (int o = 0; o < eng->obj_count; o++) if (eng->escape) MIXI(esc, (int)eng->escape[o]);
+    for (int s = 0; s < eng->reachable_rows; s++) if (eng->reachable) MIXI(reach, eng->reachable[s]);
+    /* The edge bits are the finer half of the fact: a second in-edge of an
+     * already-live merge flips φ liveness with no node-bit movement. */
+    if (eng->edge_exec)
+        for (int e2 = 0; e2 < eng->edge_off[eng->edge_rows]; e2++)
+            MIXI(reach, eng->edge_exec[e2]);
+    #undef MIXI
+    free(rep);
+    f->cong = cong; f->konst = konst; f->pts = pts;
+    f->heap = heap; f->esc = esc; f->reach = reach;
+}
+
+static bool cp_facts_eq(const cp_facts_t* a, const cp_facts_t* b) {
+    return a->cong == b->cong && a->konst == b->konst && a->pts == b->pts
+        && a->heap == b->heap && a->esc == b->esc && a->reach == b->reach;
+}
+
+/* The families that differ, as a printable list — the lead this check exists to produce. */
+static void cp_facts_diff(const cp_facts_t* a, const cp_facts_t* b, char* out, size_t n) {
+    out[0] = 0;
+    #define ADD(field, label) do { if (a->field != b->field) { \
+        if (out[0]) strncat(out, ", ", n - strlen(out) - 1); \
+        strncat(out, (label), n - strlen(out) - 1); } } while (0)
+    ADD(cong,  "congruence");
+    ADD(konst, "constants/ranges");
+    ADD(pts,   "points-to");
+    ADD(heap,  "heap rows");
+    ADD(esc,   "escape");
+    ADD(reach, "reachability");
+    #undef ADD
+    if (!out[0]) strncat(out, "none", n - 1);
+}
+
+/* The owning class, for a message that can be acted on — `class.trim` names no file. */
+static const char* cp_owner_class(const cp_engine_t* eng) {
+    if (!eng->sema || !eng->method || eng->method->class_id < 0) return "?";
+    const sema_class_t* c = sema_get_class(eng->sema, eng->method->class_id);
+    return (c && c->name) ? c->name : "?";
+}
+
+/* A per-vnode snapshot, so a confirmed non-convergence can name the NODES whose facts moved.
+ * The family alone says which lattice; the node says which transfer, which is the thing to
+ * go read. Debug-path only — it allocates one row per vnode. */
+typedef struct {
+    int      part, leader, tag;
+    uint8_t  state;
+    int64_t  value, lvalue, lo, hi;
+} cp_vsnap_t;
+
+static cp_vsnap_t* cp_vsnap_take(const cp_engine_t* eng) {
+    cp_vsnap_t* s = (cp_vsnap_t*)calloc((size_t)(eng->vnode_count > 0 ? eng->vnode_count : 1),
+                                        sizeof *s);
+    int* rep = cp_part_canon(eng);
+    int npart = eng->partition_count > 0 ? eng->partition_count : 1;
+    for (int v = 0; v < eng->vnode_count; v++) {
+        const cp_vnode_t* vn = eng->vnodes[v];
+        if (!vn) continue;
+        /* CANONICAL, for the same reason the checksum is: raw ids report renumbering as a
+         * change and bury the nodes that actually moved. */
+        s[v].part = (vn->partition >= 0 && vn->partition < npart) ? rep[vn->partition] : -1;
+        s[v].leader = vn->leader;
+        s[v].tag = (vn->kind == CP_VN_EXPR && vn->expr) ? (int)vn->expr->tag : -1;
+        s[v].state = (uint8_t)vn->constant.state;
+        s[v].value = vn->constant.value;   s[v].lvalue = vn->constant.lvalue;
+        s[v].lo    = vn->constant.lo;      s[v].hi     = vn->constant.hi;
+    }
+    free(rep);
+    return s;
+}
+
+/* Report the first few vnodes that differ from the snapshot. */
+static void cp_vsnap_report(const cp_engine_t* eng, const cp_vsnap_t* s) {
+    int shown = 0;
+    int* rep = cp_part_canon(eng);
+    int npart = eng->partition_count > 0 ? eng->partition_count : 1;
+    for (int v = 0; v < eng->vnode_count && shown < 6; v++) {
+        const cp_vnode_t* vn = eng->vnodes[v];
+        if (!vn) continue;
+        int canon = (vn->partition >= 0 && vn->partition < npart) ? rep[vn->partition] : -1;
+        bool cong = canon != s[v].part || vn->leader != s[v].leader;
+        bool kon  = (uint8_t)vn->constant.state != s[v].state
+                 || vn->constant.value != s[v].value || vn->constant.lvalue != s[v].lvalue
+                 || vn->constant.lo != s[v].lo || vn->constant.hi != s[v].hi;
+        if (!cong && !kon) continue;
+        fprintf(stderr, "      vnode %d (SIR tag %d, kind %d):%s%s"
+                        "  part~%d->%d  leader %d->%d  cstate %d->%d  lo/hi %lld..%lld -> %lld..%lld\n",
+                v, s[v].tag, (int)vn->kind, cong ? " congruence" : "", kon ? " constant" : "",
+                s[v].part, canon, s[v].leader, vn->leader,
+                (int)s[v].state, (int)vn->constant.state,
+                (long long)s[v].lo, (long long)s[v].hi,
+                (long long)vn->constant.lo, (long long)vn->constant.hi);
+        shown++;
+    }
+    free(rep);
+}
+
+/* Arm every node the fixpoint can hold. ONE definition, shared by both checks below, so a pin
+ * cannot pass against a weaker arming than the one that reports. */
+static void cp_force_arm(cp_engine_t* eng) {
+    for (int v = 0; v < eng->vnode_count; v++) cp_cprop_enqueue(eng, v);
+    for (int vi = 0; vi < eng->mem_rows; vi++)
+        if (eng->mem_kind[vi] == CP_MEM_STORE || eng->mem_kind[vi] == CP_MEM_KILL
+            || eng->mem_kind[vi] == CP_MEM_WIDE) cp_cprop_enqueue(eng, vi);
+}
+
+/* THE DRAIN — Click §4.4.2's main loop, printed p.49, and nothing else:
+ *
+ *     Do until worklist and cprop are empty {
+ *         PROPAGATE( cprop );
+ *         If worklist is not empty, then
+ *             CAUSE_SPLITS( worklist );
+ *     }
+ *
+ * Two calls. PROPAGATE is cp_compute_facts, CAUSE_SPLITS is cp_refine. Each drains its own
+ * worklist, but PROPAGATE can push partitions onto the splitter list and CAUSE_SPLITS can
+ * cross-enqueue onto cprop (§4.6 lines 6.1-6.3), so they alternate until BOTH are empty.
+ *
+ * Used only by the checks below: draining to mutual emptiness is a different interleaving from
+ * cp_solve's one-of-each-per-round, so wiring it into the solve would move the census and is a
+ * separate, separately-gated change. */
+static void cp_drain(cp_engine_t* eng) {
+    int guard = 0;
+    while (bbq_vec_len(eng->cprop_worklist) > 0 || bbq_vec_len(eng->worklist) > 0) {
+        if (++guard > 1000000) {
+            fprintf(stderr, "cp_drain: PROPAGATE/CAUSE_SPLITS did not reach mutual emptiness "
+                            "— the §4.8 O(2 + log n) bound is broken\n");
+            abort();
+        }
+        cp_compute_facts(eng);
+        if (bbq_vec_len(eng->worklist) > 0) cp_refine(eng);
     }
 }
 
-void cp_solve(cp_engine_t* eng) {
-    for (;;) {
-        int prev_rc = eng->reach_count;
-        int prev_pc = eng->partition_count;
-        cp_compute_reachability(eng);
-        cp_compute_facts(eng);
-        cp_split_by_facts(eng);
-        if (eng->partition_count != prev_pc) cp_rearm_partition_consumers(eng);
-        /* Click §4.7.5 line 16-22: Follower-apply runs AFTER SPLIT so
-         * the all-inputs-in-same-partition check reads post-split
-         * partitions, not the stale pre-split groupings. */
-        cp_apply_followers_pass(eng);
-        cp_refine(eng);
-        /* §6's lattice E is an ELEMENT of this fixpoint, not a pass after it (§9: "each
-         * lattice is added as an element of the SAME fixpoint"). It reads pts, which the
-         * round above may have grown, and it gates the exit below — so the loop cannot
-         * finish while escape is still descending. */
-        bool esc_moved = cp_escape_update(eng);
-        /* THE RE-ARM (6th instance of the class). A CP_MEM_KILL node's transfer reads the
-         * ESCAPE state to decide which rows the call may have clobbered — and escape reaches
-         * it through no def-use edge at all. Escape only descends, so a row this round kept
-         * as "the callee cannot reach it" may have to be killed next round. Without an
-         * explicit re-arm the heap keeps an optimistic value nothing ever revisits, and the
-         * fixpoint settles on an UNSOUND answer. Gated on escape actually moving, or cp_solve
-         * would never terminate. */
-        if (esc_moved)
-            for (int vi = 0; vi < eng->mem_rows; vi++)
-                if (eng->mem_kind[vi] == CP_MEM_KILL) cp_cprop_enqueue(eng, vi);
-        /* Click §4.4.2: terminate when both worklists are empty (no
-         * pending work) AND reachability is stable. Reachability is
-         * tracked separately from the worklists since the §3.7 UCE+CCP
-         * combined behavior triggers cp_compute_reachability outside
-         * the cprop/worklist machinery. */
-        if (bbq_vec_len(eng->cprop_worklist) == 0
-                && bbq_vec_len(eng->worklist) == 0
-                && eng->reach_count == prev_rc
-                && !esc_moved) break;
+/* Click §4.3's SECOND clause, printed p.45: "All partitions with Nodes on their local cprop
+ * worklist are on the global cprop worklist." A checker that only compares facts passes while the
+ * global list is missing a partition — the local list is then unreachable and its nodes are never
+ * recomputed, which is the same staleness one level up. Checked structurally, not by movement. */
+static bool cp_worklist_invariant_holds(const cp_engine_t* eng, const char** why) {
+    for (int p = 0; p < eng->partition_count; p++) {
+        const cp_partition_t* P = eng->partitions[p];
+        if (!P) continue;
+        if (P->cprop_head >= 0 && !P->on_cprop_wl) {
+            *why = "a partition has nodes on its local cprop list but is not on the global one";
+            return false;
+        }
     }
+    /* And the converse membership: an armed vnode must be reachable from its OWN partition's head,
+     * or the node it was enqueued on cannot dequeue it. */
+    for (int v = 0; v < eng->vnode_count; v++) {
+        const cp_vnode_t* vn = eng->vnodes[v];
+        if (!vn || !vn->in_cprop) continue;
+        int pid = vn->partition;
+        if (pid < 0 || pid >= eng->partition_count || !eng->partitions[pid]) {
+            *why = "an armed vnode has no partition";
+            return false;
+        }
+        bool found = false;
+        for (int n = eng->partitions[pid]->cprop_head; n >= 0; n = eng->vnodes[n]->cprop_next)
+            if (n == v) { found = true; break; }
+        if (!found) {
+            *why = "an armed vnode is not on its own partition's cprop list";
+            return false;
+        }
+    }
+    return true;
+}
+
+/* One forced round: arm EVERYTHING, then run the exact sequence cp_solve's loop body runs.
+ * This is the WEAKER of the two checks and it is kept deliberately: it asks "has the round
+ * sequence converged" (what cp_solve's exit claims), and its iteration below can tell a slow
+ * descent from an oscillation. It CANNOT see a fact that is only correct because one of those
+ * passes re-runs it — that is what the drain-only check in cp_at_fixpoint is for. */
+static void cp_forced_round(cp_engine_t* eng) {
+    cp_force_arm(eng);
+    cp_compute_facts(eng);      /* edge marking, SPLIT/SPLIT_BY AND applies ride the drain */
+    cp_refine(eng);
+    cp_escape_update(eng);
+}
+
+/* Iterate the forced round until the facts stop moving, and CLASSIFY the outcome. Two rounds
+ * cannot: "round two moved too" is consistent with a slow descent AND with an oscillation,
+ * which are opposite defects — one says the solve stopped early, the other says the transfer
+ * sequence is not monotone and no fixpoint is being computed at all. Distinguishing them is
+ * the whole value of the check, so iterate and look for a repeated STATE (a cycle) rather
+ * than giving up at two. */
+#define CP_VERIFY_MAX_ROUNDS 12
+
+/* THE MEMBERSHIP TEST, and it is Click §4.3's invariant asserted rather than a test invented:
+ * "the type of every Node in the partition is its function on the current inputs, OR the Node is
+ * on the cprop worklist. All partitions with Nodes on their local cprop worklist are on the global
+ * cprop worklist."
+ *
+ * Arm everything and run THE DRAIN ONLY — PROPAGATE and CAUSE_SPLITS, the two calls §4.4.2's main
+ * loop contains. Nothing else. A fact that moves under that has an input it did not reach over an
+ * edge, because the drain follows nothing but edges and the paper's own splitter worklist.
+ *
+ * Running the whole round here instead would re-run every per-round pass, so a fact that is correct
+ * only BECAUSE a pass recomputes it comes back unchanged and reads as verified. That is not a
+ * hypothetical: it is how a total per-round sweep can sit under a comment correctly describing a
+ * per-node transfer and never be contradicted by any check in the tree. */
+bool cp_at_fixpoint(cp_engine_t* eng) {
+    const char* why = NULL;
+    if (!cp_worklist_invariant_holds(eng, &why)) {
+        fprintf(stderr, "  FIXPOINT INVARIANT (§4.3 clause 2) BROKEN in %s.%s: %s\n",
+                cp_owner_class(eng), (eng->method && eng->method->name) ? eng->method->name : "?",
+                why);
+        return false;
+    }
+    /* §4.9's premise as a STRUCTURAL invariant, checked per node so a violation NAMES the
+     * φ: every PHI-follower's live inputs sit in its own partition. The checksum below only
+     * says "something moved"; this line is how the truncated merge-φ walk was found — six
+     * loop-header φs held single-live-input Follower links after their back edges lit, and
+     * `i ≡ expAt` cong-folded readJavaFormatString into rejecting every exponent string. */
+    for (int v = 0; v < eng->vnode_count; v++) {
+        const cp_vnode_t* pv = eng->vnodes[v];
+        if (pv->kind != CP_VN_PHI || pv->leader < 0) continue;
+        for (int k = 0; k < pv->input_count; k++) {
+            if (!cp_phi_input_live(eng, pv, k)) continue;
+            int in = pv->inputs[k];
+            if (in < 0 || in >= eng->vnode_count) continue;
+            if (eng->vnodes[in]->partition == pv->partition) continue;
+            fprintf(stderr, "  FIXPOINT INVARIANT (§4.9 premise) BROKEN in %s.%s: "
+                            "PHI-follower vn%d (row %d) has live input vn%d in a foreign "
+                            "partition (%d vs %d) — a revert nothing enqueued\n",
+                    cp_owner_class(eng),
+                    (eng->method && eng->method->name) ? eng->method->name : "?",
+                    v, pv->parent_spine, in,
+                    eng->vnodes[in]->partition, pv->partition);
+            return false;
+        }
+    }
+    cp_facts_t before; cp_fact_checksum(eng, &before);
+    cp_force_arm(eng);
+    cp_drain(eng);
+    cp_facts_t after; cp_fact_checksum(eng, &after);
+    return cp_facts_eq(&before, &after);
+}
+
+static void cp_verify_fixpoint(cp_engine_t* eng) {
+    if (!getenv("JAVELINA_VERIFY_FIXPOINT")) return;
+    cp_vsnap_t* snap = cp_vsnap_take(eng);
+    const char* cls = cp_owner_class(eng);
+    const char* mth = (eng->method && eng->method->name) ? eng->method->name : "?";
+
+    /* THE PRIMARY VERDICT is the DRAIN-ONLY check — §4.3's invariant, the strong property.
+     *
+     * It runs FIRST and it RETURNS on failure, because the multi-round classification below is only
+     * meaningful from the pristine post-solve state: it asks "did the SOLVE return with work owed",
+     * and once the drain has moved facts, every later round is measuring the drain's leftovers
+     * instead. Running it anyway turned 0 NOT-CONVERGED methods into 73 phantom ones. When the
+     * drain-only check PASSES, no fact moved, so the state is still pristine and the classification
+     * below is valid — which is exactly when it is worth having. */
+    {
+        cp_facts_t d0; cp_fact_checksum(eng, &d0);
+        cp_vsnap_t* dsnap = cp_vsnap_take(eng);
+        if (!cp_at_fixpoint(eng)) {
+            cp_facts_t d1; cp_fact_checksum(eng, &d1);
+            char fams[128]; cp_facts_diff(&d1, &d0, fams, sizeof fams);
+            fprintf(stderr,
+                "  NOT EDGE-REACHABLE in %s.%s: facts moved under PROPAGATE + CAUSE_SPLITS alone\n"
+                "    moved: %s\n"
+                "    A fact here is correct only because a per-round PASS recomputes it — it does\n"
+                "    not arrive over a def-use edge, so nothing re-arms its readers.\n",
+                cls, mth, fams);
+            cp_vsnap_report(eng, dsnap);
+            eng->verify_failed = true;
+            free(dsnap);
+            free(snap);
+            return;
+        }
+        free(dsnap);
+    }
+
+    cp_facts_t hist[CP_VERIFY_MAX_ROUNDS + 1];
+    cp_fact_checksum(eng, &hist[0]);
+
+    int rounds = 0, cycle_at = -1;
+    for (; rounds < CP_VERIFY_MAX_ROUNDS; rounds++) {
+        cp_forced_round(eng);
+        cp_fact_checksum(eng, &hist[rounds + 1]);
+        if (cp_facts_eq(&hist[rounds + 1], &hist[rounds])) { rounds++; break; }
+        for (int j = 0; j <= rounds; j++)          /* state seen before ⟹ it will repeat forever */
+            if (cp_facts_eq(&hist[rounds + 1], &hist[j])) { cycle_at = j; break; }
+        if (cycle_at >= 0) { rounds++; break; }
+    }
+
+    if (rounds == 1 && cp_facts_eq(&hist[1], &hist[0])) { free(snap); return; }   /* verified */
+
+    if (cycle_at >= 0) {
+        /* The state REPEATED: the pass sequence is not monotone, so it has no least fixed
+         * point to reach and "converged" only ever meant "stopped somewhere". This is an
+         * OPTIMIZER defect, not a limit of the check. */
+        char fams[128]; cp_facts_diff(&hist[rounds], &hist[rounds - 1], fams, sizeof fams);
+        fprintf(stderr,
+            "  FIXPOINT OSCILLATES in %s.%s: state repeats with period %d (rounds %d..%d)\n"
+            "    moving: %s\n"
+            "    A pass in the round is NOT MONOTONE — the sequence has no least fixed point,\n"
+            "    so whichever round the solve happens to stop on is arbitrary.\n",
+            cls, mth, rounds - cycle_at, cycle_at, rounds, fams);
+        cp_vsnap_report(eng, snap);
+        eng->verify_failed = true;
+        free(snap);
+        return;
+    }
+
+    if (rounds >= CP_VERIFY_MAX_ROUNDS) {
+        char fams[128]; cp_facts_diff(&hist[rounds], &hist[rounds - 1], fams, sizeof fams);
+        fprintf(stderr,
+            "  FIXPOINT STILL MOVING in %s.%s after %d forced rounds (no repeat yet)\n"
+            "    moving: %s\n", cls, mth, rounds, fams);
+        eng->verify_failed = true;
+        free(snap);
+        return;
+    }
+
+    /* Converged, but only after N>1 forced rounds: the solve returned with that many rounds
+     * of work still owed — a missed re-arm, and the round count is how deep the staleness ran. */
+    char fams[128]; cp_facts_diff(&hist[rounds], &hist[0], fams, sizeof fams);
+    fprintf(stderr,
+        "  FIXPOINT NOT CONVERGED in %s.%s: settled only after %d forced rounds\n"
+        "    moved: %s\n"
+        "    A transfer read a fact that is not one of its def-use inputs, and nothing\n"
+        "    re-armed it.\n", cls, mth, rounds, fams);
+    cp_vsnap_report(eng, snap);
+    eng->verify_failed = true;
+    free(snap);
 }
 
 void cp_free(cp_engine_t* eng) {
@@ -9324,6 +10271,10 @@ void cp_free(cp_engine_t* eng) {
     if (eng->mem_cell_idx) bbq_htree_destroy(eng->mem_cell_idx);
     if (eng->callee_idx)   bbq_htree_destroy(eng->callee_idx);
     bbq_vec_free(eng->mem_cell_keys);
+    bbq_vec_free(eng->verdict_row_list);
+    bbq_vec_free(eng->du_ov_user);
+    bbq_vec_free(eng->du_ov_next);
+    bbq_vec_free(eng->esc_pending);
     bbq_vec_free(eng->clobx_obj);
     bbq_vec_free(eng->clobx_key);
     type_pool_destroy(&eng->pool);
@@ -10466,6 +11417,22 @@ cp_engine_t* cp_build_ctx_loaded(compiler_ctx_t* ctx, sir_method_t* method,
      * rewrite and the census counts only what the optimized graph still allocates. */
     for (int o = 0; o < eng->obj_count; o++)
         eng->escape[o] = (cp_escape_t)pf->obj_escape[o];
+
+    /* The EDGE bits are derived, not published: re-derive them from the entry against
+     * the loaded (final) facts — the same evaluation the solve ran, replayed once at
+     * the fixpoint, so cp_phi_input_live answers identically in the application phase.
+     * The node bits come with it, replacing the published copy it must equal. */
+    if (eng->edge_exec) {
+        /* ALL THREE stores reset together — cp_init_facts' seed already lit the easy
+         * edges, and a stale-true edge_exec makes the re-derivation's `== want` test
+         * skip the lit_in increment: row 0 alive, every row after it dead (the §37d
+         * "reachable at 1" divergence, verbatim). */
+        memset(eng->edge_exec, 0, (size_t)eng->edge_off[eng->edge_rows] * sizeof(bool));
+        memset(eng->reachable, 0, (size_t)eng->edge_rows * sizeof(bool));
+        memset(eng->edge_lit_in, 0, (size_t)eng->edge_rows * sizeof(int));
+        eng->reach_count = 0;
+        cp_reach_seed(eng);
+    }
 
     return eng;
 }

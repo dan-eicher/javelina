@@ -2052,6 +2052,135 @@ int main(void) {
         }
     }
 
+    // 24d. The CALL TARGETS the ddcg records. burg emits a call's funcidx from the Invoke
+    //      node's own (class, method) — codegen_wasm.burg's Invoke rules all read
+    //      `wasm_func_index(node->invoke_*.class_id, ...)` — and the ddcg chose that pair when
+    //      it picked the §15.12 dispatch form. So it says so, and the backend looks it up
+    //      instead of re-deriving the set by walking the graph.
+    //
+    //      Both pipelines, because -O0 is the correctness base: a fact only the optimizer
+    //      records is a fact the unoptimized compiler does not have. The -O arm additionally
+    //      asks whether Click's devirtualized target needs a record of its own, or whether it
+    //      is already reachable as the vtable-slot occupant sema published.
+    {
+        const char* src =
+            "class B24 { int m(){ return 1; } }\n"
+            "class D24 extends B24 { public int m(){ return 2; } }\n"
+            "class T { static int g(int x){ return x + 1; }\n"
+            "          static int f(int x){ return g(x); }\n"
+            "          static int h(){ D24 d = new D24(); return d.m(); } }";
+        for (int opt = 0; opt <= 1; opt++) {
+            bbq_arena arena; bbq_arena_init(&arena, 1 << 16);
+            int nlib = 0;
+            ast_program_t* prog = build_program(src, &arena, &nlib);
+            sema_ctx_t sctx; sema_init(&sctx, &arena);
+            sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
+            sir_analyze(&sctx);
+            compiler_ctx_t cctx; compiler_init(&cctx, &arena, &sctx);
+            cctx.optimize = (opt != 0);
+            int mc = 0;
+            sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
+            for (int i = 0; i < mc; i++) if (opt) sir_optimize(&cctx, i);
+
+            int g_cls = -1, g_mid = -1, fi = -1;
+            for (int ci = 0; ci < (int)bbq_vec_len(sctx.classes); ci++) {
+                const sema_class_t* c = sema_get_class(&sctx, ci);
+                if (!c->name || strcmp(c->name, "T")) continue;
+                g_cls = ci;
+                for (int mi = 0; mi < (int)bbq_vec_len(c->methods); mi++)
+                    if (c->methods[mi].name && !strcmp(c->methods[mi].name, "g")) g_mid = mi;
+            }
+            for (int k = 0; k < mc; k++)
+                if (ms[k]->class_id >= nlib && ms[k]->name && !strcmp(ms[k]->name, "f")) fi = k;
+            CHECK(g_cls >= 0 && g_mid >= 0 && fi >= 0, "T.g and T.f resolved (precondition)");
+
+            int nf = 0, found = 0;
+            const compiler_fact_t* f = fi >= 0 ? compiler_get_facts(&cctx, fi, &nf) : NULL;
+            for (int i = 0; i < nf; i++)
+                if (f[i].kind == COMPILER_FACT_CALL_TARGET
+                    && f[i].a == g_cls && f[i].b == g_mid) found++;
+            CHECK(found > 0, opt ? "-O:  T.f records a call target naming T.g (JLS 13.1's pair)"
+                                 : "-O0: T.f records a call target naming T.g (JLS 13.1's pair)");
+
+            /* The devirtualization question, decided rather than assumed. T.h's `d.m()` names
+             * B24.m at the call site; Click rewrites it to a direct call on D24.m, a node the
+             * ddcg never built. If that target is reachable without a Click-side record, no
+             * such recorder is needed — and it should be, because a devirtualized target is by
+             * construction the occupant of that vtable slot, which sema already published. */
+            int d_cls = -1, d_mid = -1;
+            for (int ci = 0; ci < (int)bbq_vec_len(sctx.classes); ci++) {
+                const sema_class_t* c = sema_get_class(&sctx, ci);
+                if (!c->name || strcmp(c->name, "D24")) continue;
+                d_cls = ci;
+                for (int mi = 0; mi < (int)bbq_vec_len(c->methods); mi++)
+                    if (c->methods[mi].name && !strcmp(c->methods[mi].name, "m")) d_mid = mi;
+            }
+            int as_occupant = 0;
+            for (int i = 0; i < sema_vtarget_count(&sctx); i++) {
+                sema_vtarget_ent_t v = sema_vtarget_at(&sctx, i);
+                if (v.impl_class == d_cls && v.impl_method == d_mid) as_occupant++;
+            }
+            CHECK(d_cls >= 0 && d_mid >= 0 && as_occupant > 0,
+                  "a devirtualizable override is reachable as a vtable-slot occupant, so the "
+                  "optimizer's minted target needs no record of its own");
+
+            sema_destroy(&sctx); bbq_arena_free(&arena);
+        }
+    }
+
+    // 24c. JLS §13.1, the IDENTITY half of the same rule. A reference is "resolved at compile
+    //      time to a symbolic reference to THE CLASS OR INTERFACE IN WHICH the denoted method
+    //      or constructor IS DECLARED" — and likewise for a field, "the class or interface in
+    //      which the field is declared". Not the type the access was written through.
+    //
+    //      §13.1 gives the reason: it "makes the binaries more robust", because a later release
+    //      may ADD `Sub.g` or `Sub.k` without invalidating a binary that named `Base`. Recording
+    //      the access type instead silently re-points the reference at whatever the subclass
+    //      grows later, which is §13.4.5's incompatibility rather than its guarantee.
+    //
+    //      The DDCG reads sema for both (sema_method_decl_class / sema_field_decl_class,
+    //      compiler.ddcg:241/237) rather than re-deriving from the AST, which is the whole
+    //      point — but nothing held it there, so a regression to the access type would have
+    //      been invisible until a plugin failed to link. Sub declares NEITHER member, so the
+    //      access type and the owner are provably different class ids.
+    {
+        const char* src =
+            "class Base { int k; int g(){ return k; } }\n"
+            "class Sub extends Base { }\n"
+            "class T { static int f(Sub s){ return s.g() + s.k; } }";
+        bbq_arena arena; bbq_arena_init(&arena, 1 << 16);
+        int nlib = 0;
+        ast_program_t* prog = build_program(src, &arena, &nlib);
+        sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
+        sir_analyze(&sctx);
+        compiler_ctx_t cctx; compiler_init(&cctx, &arena, &sctx);
+        int mc = 0;
+        sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
+
+        int base_id = -1, sub_id = -1, mi = -1;
+        for (int ci = 0; ci < (int)bbq_vec_len(sctx.classes); ci++) {
+            const sema_class_t* c = sema_get_class(&sctx, ci);
+            if (!c->name) continue;
+            if (!strcmp(c->name, "Base")) base_id = ci;
+            if (!strcmp(c->name, "Sub"))  sub_id  = ci;
+        }
+        for (int k = 0; k < mc; k++)
+            if (ms[k]->class_id >= nlib && ms[k]->name && !strcmp(ms[k]->name, "f")) mi = k;
+        CHECK(base_id >= 0 && sub_id >= 0 && base_id != sub_id && mi >= 0,
+              "Base and Sub are distinct classes and T.f compiled (precondition)");
+
+        if (mi >= 0) {
+            const sir_node_t *iv = NULL, *iv2 = NULL, *gf = NULL, *gf2 = NULL;
+            collect_two(ms[mi]->entry, SIR_INVOKEVIRTUAL, &iv, &iv2);
+            collect_two(ms[mi]->entry, SIR_GETFIELD,      &gf, &gf2);
+            CHECK(iv && iv->invoke_virtual.class_id == base_id,
+                  "JLS 13.1: s.g() names Base — the class that DECLARES g, not the access type Sub");
+            CHECK(gf && gf->get_field.class_id == base_id,
+                  "JLS 13.1: s.k names Base — the class that DECLARES k, not the access type Sub");
+        }
+        sema_destroy(&sctx); bbq_arena_free(&arena);
+    }
+
     // 24b. …and the payoff that is NOT an optimization: §14.19 reachability. With the
     //      boolean constant folded, `if (DEBUG) {…}` has a constant-false condition, so its
     //      body is dead and the guard inside it goes with it. Before, DEBUG was a GetStatic
@@ -3563,7 +3692,13 @@ int main(void) {
         CHECK(built > 1, "§37d: more than one method was compared (a single-method pin would "
                          "miss `heap`, which only exists on memory-state nodes)");
         if (diverged)
-            printf("  §37d detail: method %d, field %s at %d\n", in_m, diverged, at);
+            printf("  §37d detail: method %d (%s.%s), field %s at %d\n", in_m,
+                   (in_m >= 0 && ms[in_m] && ms[in_m]->class_id >= 0
+                    && sema_get_class(&sctx, ms[in_m]->class_id)
+                    && sema_get_class(&sctx, ms[in_m]->class_id)->name)
+                       ? sema_get_class(&sctx, ms[in_m]->class_id)->name : "?",
+                   (in_m >= 0 && ms[in_m] && ms[in_m]->name) ? ms[in_m]->name : "?",
+                   diverged, at);
         CHECK(diverged == NULL,
               "§37d: over EVERY method, a loaded engine equals a solved one — every solved "
               "fact the application reads survives the round trip (a divergence NAMES the "
@@ -4271,6 +4406,378 @@ int main(void) {
             CHECK(rv && rv->constant.state == CP_C_KNOWN && cp_known_i64(rv->constant) == 5,
                   "§44c: setv writes p.v not p.w, so o.w = 5 forwards across setv(o) — clobbered is "
                   "cell-specific, an un-written sibling cell still forwards its value");
+        }
+        if (e) cp_free(e);
+        sema_destroy(&sctx); bbq_arena_free(&a);
+    }
+    {
+        // §44d RETRACTION of the executable-edge flag — spec §4's per-edge fact over a fact that
+        //      RISES. Gate 5 is "a revocable load-follower IN the fixpoint": `y = o.x` computes
+        //      TOP→BOTTOM (heap still opaque) → KNOWN 5 when the forward premises mature. During
+        //      the BOTTOM window the guard `y != 5` justifies BOTH arms, and the taken arm holds a
+        //      bottom call h() whose escape poisoning is STICKY (has_bottom_call) — so a mark that
+        //      cannot retract keeps the arm lit past the window, h() is walked, survives(o) turns
+        //      false, and the forward itself dies: return o.x stays opaque. With retraction the
+        //      cond's rise un-lights the arm inside the same drain, before the escape sweep runs.
+        //      Click never needs this (his types only descend); the riser is OUR extension, so the
+        //      retraction is its dual. FALSIFIED 07-29 by disabling retraction (one line): §42/
+        //      §44/§44c went RED — they are the falsifiers for retraction + the dequeue-time
+        //      identity as a unit. THIS pin stayed green under that break (the dequeue-time
+        //      identity wins the race in-drain here, so the arm never lights), so it is COVERAGE
+        //      for the sticky-poison shape, not an independent falsifier — kept because the shape
+        //      (a bottom call in the transiently-lit arm) appears in none of the other three.
+        bbq_arena a; bbq_arena_init(&a, 1 << 16);
+        int nlib = 0;
+        ast_program_t* prog = build_program(
+            "class C { int x; }"
+            " class T {"
+            "   static native void h();"
+            "   static int run(){ C o = new C(); o.x = 5; int y = o.x;"
+            "                     if (y != 5) { h(); } return o.x; } }",
+            &a, &nlib);
+        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
+        sir_analyze(&sctx);
+        compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
+        int mc = 0;
+        sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
+        int t_id = sema_find_class(&sctx, "T");
+        int i_run = -1;
+        for (int k = 0; k < mc; k++)
+            if (ms[k]->class_id == t_id && ms[k]->name && !strcmp(ms[k]->name, "run")) i_run = k;
+        CHECK(i_run >= 0, "§44d: run resolves");
+        compiler_summarize_to_convergence(&cctx);
+        int nsc = 0;
+        const compiler_fact_t* sc = compiler_get_facts(&cctx, i_run, &nsc);
+        cp_engine_t* e = cp_build_ctx(&cctx, ms[i_run], sc, nsc);
+        /* The discriminator is y's OWN load — the one whose transient BOTTOM lit the arm.
+         * (The post-merge `return o.x` reads the merge's cell-φ, which the forward walk
+         * does not chase — a pre-existing, separate limitation; asserting on it would pin
+         * a claim this test is not about.) Under non-retracting marks the lit arm's h()
+         * stickily sets has_bottom_call, Gate 5 revokes, and y ends BOTTOM. */
+        const sir_node_t* yload = e ? find_tag(ms[i_run]->entry, SIR_GETFIELD, 400) : NULL;
+        CHECK(e && yload, "§44d: y = o.x is in run's graph");
+        if (e && yload) {
+            cp_vnode_t* yv = vnode_for(e, yload);
+            CHECK(yv && yv->constant.state == CP_C_KNOWN && cp_known_i64(yv->constant) == 5,
+                  "§44d: a dead arm's bottom call must not poison the forward — the edge lit "
+                  "during y's transient BOTTOM retracts when the cond settles KNOWN false, so "
+                  "h() is never walked and y = o.x still forwards (edge flag = f(current "
+                  "facts), retracting because Gate 5's rise is revocable optimism)");
+        }
+        if (e) cp_free(e);
+        sema_destroy(&sctx); bbq_arena_free(&a);
+    }
+    {
+        // §44e the PER-KIND Follower revert gate — Click §4.7.4: "Each Node has a constant time
+        //      test to determine if it is a Follower", i.e. the justification is per kind, and
+        //      §4.7.5 line 6.1's revert judges the node's OWN identity. `b & b` is a SAME-INPUT
+        //      follower (structural, never reverts); before the gate, the §4.8 identity revert —
+        //      which fires on ANY 2-input EXPR follower at dequeue — reverted it (b carries no
+        //      KNOWN identity const), and the apply sweep re-made it next round: a livelock once
+        //      transitions were enqueued per Fig 4.7 line 7. The pin asserts the link SURVIVES the
+        //      solve with its own kind recorded.
+        bbq_arena a; bbq_arena_init(&a, 1 << 16);
+        int nlib = 0;
+        ast_program_t* prog = build_program(
+            "class T { static int band(int b){ return b & b; } }",
+            &a, &nlib);
+        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
+        sir_analyze(&sctx);
+        compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
+        int mc = 0;
+        sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
+        int t_id = sema_find_class(&sctx, "T");
+        int i_b = -1;
+        for (int k = 0; k < mc; k++)
+            if (ms[k]->class_id == t_id && ms[k]->name && !strcmp(ms[k]->name, "band")) i_b = k;
+        CHECK(i_b >= 0, "§44e: band resolves");
+        int nsc = 0;
+        const compiler_fact_t* sc = compiler_get_facts(&cctx, i_b, &nsc);
+        cp_engine_t* e = cp_build_ctx(&cctx, ms[i_b], sc, nsc);
+        const sir_node_t* rt = e ? first_spine_node(ms[i_b]->entry, SIR_RETURN) : NULL;
+        CHECK(e && rt && rt->return_.value, "§44e: band returns b & b");
+        if (e && rt && rt->return_.value) {
+            cp_vnode_t* rv = vnode_for(e, rt->return_.value);
+            CHECK(rv && rv->leader >= 0 && rv->follower_kind == CP_FK_SAMEIN,
+                  "§44e: b & b survives the solve as a SAME-INPUT follower — the identity revert "
+                  "judges only its own links (§4.7.4 per-kind test), so a structural follower on "
+                  "an identity-capable op is not reverted by a rule that did not make it");
+        }
+        if (e) cp_free(e);
+        sema_destroy(&sctx); bbq_arena_free(&a);
+    }
+    {
+        // §44f W2-T1 — THE LOOP BACK EDGE OPENS WHEN THE LOOP CONDITION FALLS (the String.trim /
+        //      FloatingDecimal expLoop shape, plan §R.6's first ordered pin). A loop-header φ has
+        //      an entry input and a back-edge input; the back edge is live only once the loop
+        //      condition's fact falls below ⊤ (§4.3/§4.4.1). If the marking leaves it dead, the φ
+        //      sees ONE live input, becomes its Follower (§4.9), and every consumer folds the
+        //      loop-carried value to its ENTRY value — in FloatingDecimal.readJavaFormatString
+        //      that made `i ≡ expAt` a congruence, folded `i == expAt` TRUE, and rejected every
+        //      exponent string with NumberFormatException at runtime (input never consulted).
+        //      Two shapes: the plain count loop, and expLoop's break-from-middle.
+        bbq_arena a; bbq_arena_init(&a, 1 << 16);
+        int nlib = 0;
+        ast_program_t* prog = build_program(
+            "class T {"
+            "   static int count(int n){ int i = 0; while (i < n) { i = i + 1; } return i; }"
+            "   static int scan(int n, int d){ int i = 0;"
+            "       while (i < n) { if (d >= 48 && d <= 57) { i = i + 1; } else { break; } }"
+            "       return i; } }",
+            &a, &nlib);
+        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
+        sir_analyze(&sctx);
+        compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
+        int mc = 0;
+        sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
+        int t_id = sema_find_class(&sctx, "T");
+        int i_c = -1, i_s = -1;
+        for (int k = 0; k < mc; k++)
+            if (ms[k]->class_id == t_id && ms[k]->name) {
+                if (!strcmp(ms[k]->name, "count")) i_c = k;
+                if (!strcmp(ms[k]->name, "scan"))  i_s = k;
+            }
+        CHECK(i_c >= 0 && i_s >= 0, "§44f: count and scan resolve");
+        for (int wcase = 0; wcase < 2; wcase++) {
+            int mi = wcase == 0 ? i_c : i_s;
+            int nsc = 0;
+            const compiler_fact_t* sc = compiler_get_facts(&cctx, mi, &nsc);
+            cp_engine_t* e = cp_build_ctx(&cctx, ms[mi], sc, nsc);
+            const sir_node_t* rt = e ? first_spine_node(ms[mi]->entry, SIR_RETURN) : NULL;
+            CHECK(e && rt && rt->return_.value, "§44f: the loop method returns i");
+            if (e && rt && rt->return_.value) {
+                cp_vnode_t* rv = vnode_for(e, rt->return_.value);
+                CHECK(rv && !(rv->constant.state == CP_C_KNOWN
+                              && rv->constant.cwidth == CP_W_I32
+                              && rv->constant.value == 0),
+                      wcase == 0
+                      ? "§44f: count(n)'s return is NOT folded to the entry value 0 — the "
+                        "back edge is live once `i < n` falls, so the header φ keeps both "
+                        "inputs (§4.3; a φ following its entry input here folds the loop away)"
+                      : "§44f: scan(n,d)'s return is NOT folded to 0 — expLoop's break-from-"
+                        "middle shape; a dead back edge here is what made readJavaFormatString "
+                        "reject every exponent string");
+            }
+            if (e) cp_free(e);
+        }
+        sema_destroy(&sctx); bbq_arena_free(&a);
+    }
+    {
+        // §44g W2-T1 ENRICHED — FloatingDecimal.readJavaFormatString's exponent shape distilled:
+        //      the sign switch WITH FALLTHROUGH, the `expAt = i` copy, a CALL inside the loop
+        //      (a kill row on the memory chain), and the post-loop `i == expAt` compare. The
+        //      runtime miscompile: every "NeM" string throws NumberFormatException because the
+        //      compare folds TRUE — `i ≡ expAt` held as a congruence past the loop, i.e. the
+        //      loop-carried φ was treated as its entry value. §44f's plain shapes hold, so
+        //      whatever collapses the φ needs THIS much context; the pin localizes it.
+        bbq_arena a; bbq_arena_init(&a, 1 << 16);
+        int nlib = 0;
+        ast_program_t* prog = build_program(
+            "class T {"
+            "   static int g(int i){ return i + 48; }"
+            "   static int px(int len, int c0){"
+            "       int i = 0;"
+            "       i = i + 1;"                       /* the ++i crossing 'e' */
+            "       switch (c0) {"
+            "       case 45: i = i + 1;"              /* '-' — FALLTHROUGH */
+            "       case 43: i = i + 1;"              /* '+' */
+            "       }"
+            "       int expAt = i;"
+            "       while (i < len) {"
+            "           int c = g(i);"
+            "           if (c >= 48 && c <= 57) { i = i + 1; } else { break; }"
+            "       }"
+            "       if (i == expAt) { return -1; }"
+            "       return i; } }",
+            &a, &nlib);
+        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
+        sir_analyze(&sctx);
+        compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
+        int mc = 0;
+        sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
+        int t_id = sema_find_class(&sctx, "T");
+        int i_px = -1;
+        for (int k = 0; k < mc; k++)
+            if (ms[k]->class_id == t_id && ms[k]->name && !strcmp(ms[k]->name, "px")) i_px = k;
+        CHECK(i_px >= 0, "§44g: px resolves");
+        compiler_summarize_to_convergence(&cctx);
+        int nsc = 0;
+        const compiler_fact_t* sc = compiler_get_facts(&cctx, i_px, &nsc);
+        cp_engine_t* e = cp_build_ctx(&cctx, ms[i_px], sc, nsc);
+        const sir_node_t* rt = e ? first_spine_node(ms[i_px]->entry, SIR_RETURN) : NULL;
+        CHECK(e && rt, "§44g: px has a return");
+        if (e && rt && rt->return_.value) {
+            cp_vnode_t* rv = vnode_for(e, rt->return_.value);
+            CHECK(rv && !(rv->constant.state == CP_C_KNOWN
+                          && rv->constant.cwidth == CP_W_I32
+                          && rv->constant.value == -1),
+                  "§44g: px's reachable return is NOT the folded -1 — `i == expAt` must not "
+                  "hold past a loop whose back edge can run (the exponent-rejection miscompile)");
+        }
+        if (e) cp_free(e);
+        sema_destroy(&sctx); bbq_arena_free(&a);
+    }
+    {
+        // §44h THE DEAD CYCLE MUST DIE — lit_in is a refcount, and a cycle self-sustains: when
+        //      the loop's ENTRY edge retracts (y rises to KNOWN 1 via Gate 5, cond `y != 1`
+        //      settles false), the back edge still holds lit_in ≥ 1 unless retraction collapses
+        //      the cycle. A sustained "live" body containing a bottom call h() stickily poisons
+        //      escape (has_bottom_call) and Gate 5 then revokes the very forward that killed the
+        //      loop — observable as y NOT folding. From-scratch derivations kill such cycles;
+        //      the incremental marking must too.
+        bbq_arena a; bbq_arena_init(&a, 1 << 16);
+        int nlib = 0;
+        ast_program_t* prog = build_program(
+            "class C { int x; }"
+            " class T {"
+            "   static native void h();"
+            "   static int f(){ C o = new C(); o.x = 1; int y = o.x;"
+            "                   while (y != 1) { h(); } return y; } }",
+            &a, &nlib);
+        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
+        sir_analyze(&sctx);
+        compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
+        int mc = 0;
+        sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
+        int t_id = sema_find_class(&sctx, "T");
+        int i_f = -1;
+        for (int k = 0; k < mc; k++)
+            if (ms[k]->class_id == t_id && ms[k]->name && !strcmp(ms[k]->name, "f")) i_f = k;
+        CHECK(i_f >= 0, "§44h: f resolves");
+        compiler_summarize_to_convergence(&cctx);
+        int nsc = 0;
+        const compiler_fact_t* sc = compiler_get_facts(&cctx, i_f, &nsc);
+        cp_engine_t* e = cp_build_ctx(&cctx, ms[i_f], sc, nsc);
+        const sir_node_t* rt = e ? first_spine_node(ms[i_f]->entry, SIR_RETURN) : NULL;
+        CHECK(e && rt && rt->return_.value, "§44h: f returns y");
+        if (e && rt && rt->return_.value) {
+            cp_vnode_t* rv = vnode_for(e, rt->return_.value);
+            CHECK(rv && rv->constant.state == CP_C_KNOWN && cp_known_i64(rv->constant) == 1,
+                  "§44h: a retracted loop entry collapses the cycle — the body's bottom call "
+                  "must not stay lit through the back edge's self-sustaining lit_in and poison "
+                  "the forward that killed the loop (y folds KNOWN 1)");
+        }
+        if (e) cp_free(e);
+        sema_destroy(&sctx); bbq_arena_free(&a);
+    }
+    {
+        // §44i the ARRLEN follower's §4.7.5 line-6.1 revert — its premise runs through
+        //      cp_value_leader, which follows CURRENT follower links: a φ-follower transiently
+        //      puts one allocation in reach, the arraylen link forms on it, the φ reverts, and
+        //      the `.length` would follow the WRONG size without its own premise-recheck. The
+        //      shape: a diamond whose arms allocate different sizes.
+        bbq_arena a; bbq_arena_init(&a, 1 << 16);
+        int nlib = 0;
+        ast_program_t* prog = build_program(
+            "class T { static int g(int c){"
+            "   int[] a;"
+            "   if (c != 0) { a = new int[5]; } else { a = new int[7]; }"
+            "   return a.length; } }",
+            &a, &nlib);
+        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
+        sir_analyze(&sctx);
+        compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
+        int mc = 0;
+        sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
+        int t_id = sema_find_class(&sctx, "T");
+        int i_g = -1;
+        for (int k = 0; k < mc; k++)
+            if (ms[k]->class_id == t_id && ms[k]->name && !strcmp(ms[k]->name, "g")) i_g = k;
+        CHECK(i_g >= 0, "§44i: g resolves");
+        int nsc = 0;
+        const compiler_fact_t* sc = compiler_get_facts(&cctx, i_g, &nsc);
+        cp_engine_t* e = cp_build_ctx(&cctx, ms[i_g], sc, nsc);
+        const sir_node_t* rt = e ? first_spine_node(ms[i_g]->entry, SIR_RETURN) : NULL;
+        CHECK(e && rt && rt->return_.value, "§44i: g returns a.length");
+        if (e && rt && rt->return_.value) {
+            cp_vnode_t* rv = vnode_for(e, rt->return_.value);
+            CHECK(rv && !(rv->constant.state == CP_C_KNOWN
+                          && (cp_known_i64(rv->constant) == 5 || cp_known_i64(rv->constant) == 7)),
+                  "§44i: a.length after a two-size diamond folds to NEITHER size — an arraylen "
+                  "follower formed on a transient single-live-arm φ must revert when the φ does "
+                  "(a KNOWN 5 or 7 here is a runtime-dependent value folded to one arm's)");
+        }
+        if (e) cp_free(e);
+        sema_destroy(&sctx); bbq_arena_free(&a);
+    }
+    {
+        // §44j W2-T3 — CONTROL IS NOT PART OF CONGRUENCE for data nodes (Click A.4.4: encoding
+        //      the control input into value numbering "ends up doing only local value
+        //      numbering"). Two textually identical exprs in DIFFERENT arms stay congruent, so
+        //      the join φ sees one partition and follows it (§4.9). If the edge-flag work ever
+        //      leaks control into the data hash, this splits and the φ stays a real merge.
+        bbq_arena a; bbq_arena_init(&a, 1 << 16);
+        int nlib = 0;
+        ast_program_t* prog = build_program(
+            "class T { static int j(int c, int x){"
+            "   int r;"
+            "   if (c != 0) { r = x + 1; } else { r = x + 1; }"
+            "   return r; } }",
+            &a, &nlib);
+        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
+        sir_analyze(&sctx);
+        compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
+        int mc = 0;
+        sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
+        int t_id = sema_find_class(&sctx, "T");
+        int i_j = -1;
+        for (int k = 0; k < mc; k++)
+            if (ms[k]->class_id == t_id && ms[k]->name && !strcmp(ms[k]->name, "j")) i_j = k;
+        CHECK(i_j >= 0, "§44j: j resolves");
+        int nsc = 0;
+        const compiler_fact_t* sc = compiler_get_facts(&cctx, i_j, &nsc);
+        cp_engine_t* e = cp_build_ctx(&cctx, ms[i_j], sc, nsc);
+        const sir_node_t* rt = e ? first_spine_node(ms[i_j]->entry, SIR_RETURN) : NULL;
+        CHECK(e && rt && rt->return_.value, "§44j: j returns r");
+        if (e && rt && rt->return_.value) {
+            cp_vnode_t* rv = vnode_for(e, rt->return_.value);
+            /* Both arms' `x+1` congruent ⟹ the join φ's live inputs share one partition ⟹
+             * it is a Follower (§4.9) — the cross-block congruence A.4.4 protects. */
+            CHECK(rv && (rv->leader >= 0
+                         || (rv->input_count == 1 && rv->inputs[0] >= 0
+                             && e->vnodes[rv->inputs[0]]->leader >= 0)),
+                  "§44j: identical exprs in different arms stay congruent (A.4.4 — control is "
+                  "not in the data hash), so the join φ follows their one partition");
+        }
+        if (e) cp_free(e);
+        sema_destroy(&sctx); bbq_arena_free(&a);
+    }
+    {
+        // §44k W2-T2 — the Vector.trimToSize shape: a CONDITIONAL REASSIGN (half-diamond). The
+        //      local's φ merges the entry allocation with one arm's; a LoadLocal follower of
+        //      that φ carries its constant THROUGH the leader chain, so when the φ descends
+        //      (both inputs live, different allocations) the follower must descend with it —
+        //      07-29's defect was a follower keeping the entry allocation's KNOWN past the
+        //      φ's fall, folding `.length` to the wrong size.
+        bbq_arena a; bbq_arena_init(&a, 1 << 16);
+        int nlib = 0;
+        ast_program_t* prog = build_program(
+            "class T { static int t(int c){"
+            "   int[] a = new int[3];"
+            "   if (c != 0) { a = new int[7]; }"
+            "   return a.length; } }",
+            &a, &nlib);
+        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
+        sir_analyze(&sctx);
+        compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
+        int mc = 0;
+        sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
+        int t_id = sema_find_class(&sctx, "T");
+        int i_t = -1;
+        for (int k = 0; k < mc; k++)
+            if (ms[k]->class_id == t_id && ms[k]->name && !strcmp(ms[k]->name, "t")) i_t = k;
+        CHECK(i_t >= 0, "§44k: t resolves");
+        int nsc = 0;
+        const compiler_fact_t* sc = compiler_get_facts(&cctx, i_t, &nsc);
+        cp_engine_t* e = cp_build_ctx(&cctx, ms[i_t], sc, nsc);
+        const sir_node_t* rt = e ? first_spine_node(ms[i_t]->entry, SIR_RETURN) : NULL;
+        CHECK(e && rt && rt->return_.value, "§44k: t returns a.length");
+        if (e && rt && rt->return_.value) {
+            cp_vnode_t* rv = vnode_for(e, rt->return_.value);
+            CHECK(rv && !(rv->constant.state == CP_C_KNOWN
+                          && (cp_known_i64(rv->constant) == 3 || cp_known_i64(rv->constant) == 7)),
+                  "§44k: after a conditional reassign, a.length folds to NEITHER size — the "
+                  "follower's constant descends with its φ leader (the trimToSize shape)");
         }
         if (e) cp_free(e);
         sema_destroy(&sctx); bbq_arena_free(&a);
@@ -5338,6 +5845,61 @@ int main(void) {
         const char* ARR = "class T { static void g(int[] a){ a[0] = 1; a[1] = 2; } }";
         CHECK(compile_count_in(ARR, "g", SIR_ARRAYSTORE, 1) == 2,
               "SOUNDNESS: array elements share one cell — neither store is proved dead");
+    }
+
+    /* ── cp_solve returns AT a fixpoint ───────────────────────────────────────────────────
+     *
+     * Arm every node and run one more round: a fixpoint is idempotent, so a value that moves
+     * was left un-recomputed because its transfer read a fact reaching it by no def-use edge.
+     * Distinct from "the worklists are empty", which says only that no def-use edge is
+     * pending — the case at issue leaves no edge to be pending.
+     *
+     * Swept over every compiled method, not a named list: a whitelist rots as soon as a new
+     * shape appears. */
+    printf("== cp_solve returns at a fixpoint ==\n");
+    {
+        bbq_arena* arena = sess_arena();
+        int nlib = 0;
+        ast_program_t* prog = build_program("class FxP { static int g(){ return 1; } }",
+                                            arena, &nlib);
+        sema_ctx_t sctx; sema_init(&sctx, arena);
+        /* analyze_from 0, so the PRELUDE bodies are analyzed and compiled too. The rest of
+         * this suite starts at nlib because it only inspects user code; here the prelude is
+         * the corpus — it is what javelinac compiles and where the loop and Follower shapes
+         * live. */
+        sctx.num_library_classes = nlib; sctx.analyze_from = 0;
+        sir_analyze(&sctx);
+        compiler_ctx_t cctx; compiler_init(&cctx, arena, &sctx);
+        int mc = 0;
+        sir_method_t** methods = compiler_compile(&cctx, prog, &mc);
+
+        /* Through cp_build_ctx, the entry sir_optimize uses. cp_build takes no sema and no
+         * ddcg facts, so an engine built with it is not in the configuration production runs
+         * — no recorded scopes, no §15 guards, no regions. */
+        int checked = 0, stale = 0;
+        char first[160] = {0};
+        for (int i = 0; i < mc; i++) {
+            int fc = 0;
+            const compiler_fact_t* facts = compiler_get_facts(&cctx, i, &fc);
+            cp_engine_t* e = cp_build_ctx(&cctx, methods[i], facts, fc);
+            if (e) {
+                checked++;
+                if (!cp_at_fixpoint(e)) {
+                    stale++;
+                    if (!first[0])
+                        snprintf(first, sizeof first, "%s (class %d)",
+                                 methods[i]->name ? methods[i]->name : "?",
+                                 methods[i]->class_id);
+                }
+                cp_free(e);
+            }
+        }
+        /* The count is asserted, not just printed: a sweep is only as good as its coverage,
+         * and one that examined a handful of methods would pass forever. */
+        printf("    swept %d methods, %d not at a fixpoint%s%s\n",
+               checked, stale, stale ? "; first: " : "", stale ? first : "");
+        CHECK(checked > 200 && stale == 0,
+              "every method's solve returns AT a fixpoint — one more armed round moves nothing");
     }
 
     return TEST_SUMMARY("test_sir");
