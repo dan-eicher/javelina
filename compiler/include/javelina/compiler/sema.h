@@ -13,6 +13,7 @@
 #include "gen/java_ast.h"
 #include "bbq_arena.h"
 #include "bbq_htree.h"
+#include "bbq_hmap.h"
 #include "bbq_vec.h"
 
 /* ── ast_type_t representation ──────────────────────────────────── */
@@ -517,6 +518,12 @@ typedef struct {
     /* Function table (OUTPUT, built by sema_analyze): the emitted module functions
      * in module-index order. The single authority read by the backend. */
     sema_func_ent_t* functions;   /* bbq_vec */
+    /* Its (class_id, method_id) → index lookup, built ONCE where the table is
+     * finalized and living next to it — sema_func_index was a linear scan of ~1000
+     * entries per call, 2.7% of the -O0 jre build (callgrind, 07-31). Key packs the
+     * pair into 64 bits exactly (no width assumption); value is index+1 so a stored
+     * 0th entry never reads as absent. */
+    bbq_hmap functions_idx;
 
     /* Function imports (OUTPUT): the distinct NATIVE (bodiless) methods reached by
      * a resolved call, in first-referenced order — recorded at call resolution.

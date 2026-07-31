@@ -19,6 +19,7 @@
 #include "javelina/compiler/sir_optimizer.h"    /* sir_optimize (cctx->optimize) */
 #include "javelina/compiler/descriptor.h"        /* desc_from_method — overloaded-export disambiguation */
 #include "bbq_vec.h"
+#include "bbq_hmap.h"                            /* collect_slots' exact pointer seen-set */
 #include "bbq_read.h"                            /* bbq_ctx_t, bbq_ctx_init/free */
 #include "jav_types.h"
 #include "jav_reader.h"                          /* jav_func_body_read, jav_type_section_read */
@@ -59,11 +60,14 @@ typedef struct { sir_datatype_t dt; int32_t typeidx; } slot_info_t;
  * the ddcg carried (ident loads via sema; spill temps via the `locref`
  * destination) — never recovered from the value here. */
 static void collect_slots(wasm_types_t* wt, const sir_node_t* n,
-                          const sir_node_t*** seen, slot_info_t* slots, int total) {
+                          bbq_hmap* seen, slot_info_t* slots, int total) {
     if (!n) return;
-    for (int i = 0; i < (int)bbq_vec_len(*seen); i++)
-        if ((*seen)[i] == n) return;
-    bbq_vec_push(*seen, n);
+    /* Exact pointer-set membership — the linear seen-vec this replaces was O(n²)
+     * in graph nodes per method, 7.7% of the -O0 jre build (callgrind, 07-31).
+     * bbq_hmap keys are full 64-bit pointers, so membership is exact: a false
+     * "seen" would silently skip a subtree and mistype a slot. */
+    if (bbq_hmap_contains(seen, (uint64_t)(uintptr_t)n)) return;
+    bbq_hmap_put(seen, (uint64_t)(uintptr_t)n, NULL);
 
     if (n->tag == SIR_LOADLOCAL || n->tag == SIR_STORELOCAL) {
         int s = sir_local_slot(n);
@@ -129,9 +133,9 @@ static bool emit_locals_vec_pr(wasm_types_t* wt, const sir_method_t* method,
 
     slot_info_t* slots = (slot_info_t*)calloc((size_t)total, sizeof *slots);
     for (int i = 0; i < total; i++) { slots[i].dt = SIR_DTINT; slots[i].typeidx = -1; }
-    const sir_node_t** seen = NULL;
+    bbq_hmap seen; bbq_hmap_init(&seen, 0);
     collect_slots(wt, method->entry, &seen, slots, total);
-    bbq_vec_free(seen);
+    bbq_hmap_free(&seen);
 
     bool ok = true;
     ew_u32(fb, (uint32_t)nlocals);
@@ -426,7 +430,7 @@ bool wasm_assemble_program(compiler_ctx_t* cctx, const sema_ctx_t* sctx,
         }
         emit_wasm_ctx fb = {0};
         if (!emit_locals_vec(wt, methods[ai], sm, &fb)) ok = false;
-        for (int k = 0; k < (int)bbq_vec_len(bc.emit.code); k++) ew_byte(&fb, bc.emit.code[k]);
+        ew_bytes(&fb, bc.emit.code, bbq_vec_len(bc.emit.code));
         bbq_vec_free(bc.emit.code);             /* caller owns the burg emit buffer (codegen_method.h) */
         burg_ctx_free(&bc);
 
@@ -533,7 +537,7 @@ bool wasm_assemble_program(compiler_ctx_t* cctx, const sema_ctx_t* sctx,
             }
         }
         if (user_clinit) {                      /* then the user static-init body (ends with `end`) */
-            for (int k = 0; k < (int)bbq_vec_len(bc.emit.code); k++) ew_byte(&fb, bc.emit.code[k]);
+            ew_bytes(&fb, bc.emit.code, bbq_vec_len(bc.emit.code));
             bbq_vec_free(bc.emit.code);
             burg_ctx_free(&bc);
         } else {
@@ -911,10 +915,15 @@ bool wasm_assemble_program(compiler_ctx_t* cctx, const sema_ctx_t* sctx,
 
     if (ok) {
         bbq_write_ctx_t w;
-        bbq_write_ctx_init_growable(&w, 256);
+        /* Seed generously — the old 256 cost ~11 realloc-copies of a ~500 KB jre
+         * module. 1 MiB covers every module this toolchain emits today in one
+         * allocation; a small plugin frees the surplus microseconds later. (The
+         * decoded entries do not carry their encoded byte length, so there is no
+         * exact sum in hand without re-measuring bodies.) */
+        bbq_write_ctx_init_growable(&w, (size_t)1 << 20);
         bbq_write_set_endian(&w, true);
         if (jav_module_write(&w, &mod)) {
-            for (size_t i = 0; i < w.pos; i++) ew_byte(out, w.data[i]);
+            ew_bytes(out, w.data, w.pos);
         } else {
             fprintf(stderr, "wasm_assemble: jav_module_write failed\n");
             ok = false;

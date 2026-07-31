@@ -19,6 +19,8 @@
 #include "javelina/compiler/wasm_types.h"  /* burg_ctx_t.types → sema (method result arity) */
 #include "javelina/compiler/type_lattice.h" /* lat_value_class — catch-type → struct typeidx */
 #include "bbq_vec.h"
+#include "bbq_htree.h"   /* the per-method scope index (scope_env_t) */
+#include <stdlib.h>      /* malloc/free — scope_env_t's chain array */
 
 /* Empty (void) block type for block/loop/if (§5.3.6 / §5.4.1). */
 #define WBT_VOID 0x40
@@ -28,31 +30,70 @@
  * what the DDCG RECORDED as it built the statement — it never rediscovers a loop.
  * (Rows of other kinds — guards, allocs, throw regions — belong to other stages;
  * each stage reads the kinds it owns.) */
-static const compiler_fact_t* scope_at(const compiler_fact_t* f, int n,
+/* The per-method scope table plus its BY-KEY index. emit_spine queries by header
+ * node at every step; the linear scan this replaces was 17.5% of the -O0 jre build
+ * (callgrind, 07-31 — the 07-13 kind-filter took the same number from ~8% down
+ * once, and the corpus grew past it again). The index is DERIVED from the one
+ * table at build time and nothing writes through it: `head` maps a key pointer
+ * (32-bit-hashed) to its first row, `next[i]` chains rows sharing that hash in
+ * ascending sidecar order. Hash collisions merge chains harmlessly — every reader
+ * still filters rows by the FULL `key == node` compare, so a merged chain costs a
+ * wasted hop, never a wrong row. */
+typedef struct {
+    const compiler_fact_t* f;    /* the SCOPE rows, sidecar order */
+    int                    n;
+    bbq_htree*             head; /* ptr_key(fact.key) -> first row index + 1 */
+    int*                   next; /* row -> next row with the same key hash, or -1 */
+} scope_env_t;
+
+static uint32_t se_ptr_key(const void* p) {
+    uint32_t k = (uint32_t)(uintptr_t)p;
+    return k ? k : 1;                       /* htree disallows key 0 */
+}
+
+static void scope_env_build(scope_env_t* se, const compiler_fact_t* f, int n) {
+    se->f = f; se->n = n;
+    se->head = bbq_htree_create();
+    se->next = n ? (int*)malloc((size_t)n * sizeof(int)) : NULL;
+    for (int i = n - 1; i >= 0; i--) {      /* descending, so chains ascend */
+        uint32_t k = se_ptr_key(f[i].key);
+        void* h = bbq_htree_search(se->head, k);
+        se->next[i] = h ? (int)(intptr_t)h - 1 : -1;
+        bbq_htree_insert(se->head, k, (void*)(intptr_t)(i + 1));
+    }
+}
+
+static void scope_env_free(scope_env_t* se) {
+    bbq_htree_destroy(se->head);
+    free(se->next);
+}
+
+static const compiler_fact_t* scope_at(const scope_env_t* se,
                                        const sir_node_t* node, int scope_kind) {
-    for (int i = 0; i < n; i++)
-        if (f[i].kind == COMPILER_FACT_SCOPE && f[i].a == scope_kind
-                && f[i].key == node)
-            return &f[i];
+    void* h = bbq_htree_search(se->head, se_ptr_key(node));
+    for (int i = h ? (int)(intptr_t)h - 1 : -1; i >= 0; i = se->next[i])
+        if (se->f[i].kind == COMPILER_FACT_SCOPE && se->f[i].a == scope_kind
+                && se->f[i].key == node)
+            return &se->f[i];
     return NULL;
 }
 
 /* Is `node` the merge anchor (Ljoin) of some recorded if-BLOCK scope? */
-static const compiler_fact_t* block_scope_at(const compiler_fact_t* f, int n,
+static const compiler_fact_t* block_scope_at(const scope_env_t* se,
                                              const sir_node_t* node) {
-    return scope_at(f, n, node, COMPILER_SCOPE_BLOCK);
+    return scope_at(se, node, COMPILER_SCOPE_BLOCK);
 }
 
 /* Is `node` a loop header (Ltop) of some recorded LOOP scope? */
-static const compiler_fact_t* loop_scope_at(const compiler_fact_t* f, int n,
+static const compiler_fact_t* loop_scope_at(const scope_env_t* se,
                                             const sir_node_t* node) {
-    return scope_at(f, n, node, COMPILER_SCOPE_LOOP);
+    return scope_at(se, node, COMPILER_SCOPE_LOOP);
 }
 
 /* The switch scope (exit = Lbreak) keyed by the Switch node, or NULL. */
-static const compiler_fact_t* switch_scope_at(const compiler_fact_t* f, int n,
+static const compiler_fact_t* switch_scope_at(const scope_env_t* se,
                                               const sir_node_t* node) {
-    return scope_at(f, n, node, COMPILER_SCOPE_SWITCH);
+    return scope_at(se, node, COMPILER_SCOPE_SWITCH);
 }
 
 
@@ -169,18 +210,18 @@ static sir_node_t* advance(sir_node_t* cont, sir_node_t* stop,
  * miscompile), so unmodelled shapes (switch/try, fuel exhaustion) frame the join. */
 static bool region_reaches(sir_node_t* node, const sir_node_t* target,
                            sir_node_t* const* sinks, int nsinks,
-                           const compiler_fact_t* sc, int nsc, int fuel) {
+                           const scope_env_t* se, int fuel) {
     while (node) {
         if (node == target) return true;
         for (int i = 0; i < nsinks; i++) if (node == sinks[i]) return false;  /* br'd to a merge */
         if (--fuel < 0) return true;                          /* conservative */
         if (is_terminator(node)) return false;
         if (node->tag == SIR_BRANCH)
-            return region_reaches(node->branch.on_true, target, sinks, nsinks, sc, nsc, fuel) ||
-                   region_reaches(node->branch.on_false, target, sinks, nsinks, sc, nsc, fuel);
+            return region_reaches(node->branch.on_true, target, sinks, nsinks, se, fuel) ||
+                   region_reaches(node->branch.on_false, target, sinks, nsinks, se, fuel);
         if (node->tag == SIR_SWITCH || node->tag == SIR_TRYREGION)
             return true;                                       /* can complete — frame the join */
-        const compiler_fact_t* lp = loop_scope_at(sc, nsc, node);
+        const compiler_fact_t* lp = loop_scope_at(se, node);
         if (lp) { node = lp->aux; continue; }                 /* a loop exits at Lbreak */
         node = sir_get_next(node);
     }
@@ -191,7 +232,7 @@ static bool region_reaches(sir_node_t* node, const sir_node_t* target,
  * mutually recursive with emit_spine via the catch handler bodies). */
 static void emit_typed_catches(sir_node_t* tr, int ex_tmp, sir_node_t* ljoin,
                                sir_node_t** stack, int sd,
-                               const compiler_fact_t* sc, int nsc, burg_ctx_t* ctx);
+                               const scope_env_t* se, burg_ctx_t* ctx);
 
 /* Emit the spine from `node` up to (not including) `stop`, with `stack[0..sd)`
  * the enclosing block/loop labels (innermost last). Returns true if emission
@@ -201,7 +242,7 @@ static void emit_typed_catches(sir_node_t* tr, int ex_tmp, sir_node_t* ljoin,
  * fall-through past `end`), but a do-while's tail test falls through on false. */
 static bool emit_spine(sir_node_t* node, sir_node_t* stop,
                        sir_node_t** stack, int sd,
-                       const compiler_fact_t* sc, int nsc, burg_ctx_t* ctx,
+                       const scope_env_t* se, burg_ctx_t* ctx,
                        bool* wasm_live) {
     /* `left`: did control leave this region (SIR sense — return/throw/br)? Drives
      * the fall-through return value callers read. `live`: is WASM control live
@@ -241,22 +282,33 @@ static bool emit_spine(sir_node_t* node, sir_node_t* stop,
          * on the scope stack, so this collection is empty and the walk proceeds through
          * the ordinary paths below (self-stabilizing). */
         {
-            const compiler_fact_t* mjs = block_scope_at(sc, nsc, node);
+            const compiler_fact_t* mjs = block_scope_at(se, node);
             sir_node_t* mjoin = (mjs && mjs->aux && mjs->aux != stop &&
                                  br_depth(stack, sd, mjs->aux) < 0) ? mjs->aux : NULL;
             sir_node_t* mrg[MAXSCOPE]; int nm = 0;
-            for (int i = nsc - 1; i >= 0 && nm < MAXSCOPE; i--)
-                if (sc[i].kind == COMPILER_FACT_SCOPE
-                        && sc[i].a == COMPILER_SCOPE_MERGE && sc[i].key == node) {
-                    sir_node_t* X = sc[i].aux;
+            /* The index chain ascends in sidecar order; the scan this replaces ran
+             * BACKWARD (nsc-1 … 0), and that order is load-bearing — records are
+             * inner-first, so backward = outer→inner, the framing order. Collect
+             * ascending, then process in reverse. */
+            {
+                int rows[MAXSCOPE]; int nr = 0;
+                void* h = bbq_htree_search(se->head, se_ptr_key(node));
+                for (int i = h ? (int)(intptr_t)h - 1 : -1;
+                     i >= 0 && nr < MAXSCOPE; i = se->next[i])
+                    if (se->f[i].kind == COMPILER_FACT_SCOPE
+                            && se->f[i].a == COMPILER_SCOPE_MERGE && se->f[i].key == node)
+                        rows[nr++] = i;
+                for (int r = nr - 1; r >= 0 && nm < MAXSCOPE; r--) {
+                    sir_node_t* X = se->f[rows[r]].aux;
                     if (X && X != stop && X != mjoin && br_depth(stack, sd, X) < 0)
                         mrg[nm++] = X;
                 }
+            }
             /* The if-join is framed only when it is an actual label — the fall-through
              * arm reaches it (over the else). If every arm terminates, nothing brs to
              * it: drop it (docs/ddcg-merge-labels.md §2.2; the merges `mrg` are the
              * branches' br targets, i.e. the sinks the fall-through path diverts to). */
-            if (mjoin && nm > 0 && !region_reaches(node, mjoin, mrg, nm, sc, nsc, 1 << 20))
+            if (mjoin && nm > 0 && !region_reaches(node, mjoin, mrg, nm, se, 1 << 20))
                 mjoin = NULL;
             if (nm > 0) {
                 sir_node_t* bounds[MAXSCOPE]; int nb = 0;
@@ -268,10 +320,10 @@ static bool emit_spine(sir_node_t* node, sir_node_t* stop,
                         ew_emit(&ctx->emit, WOP_BLOCK); ew_byte(&ctx->emit, WBT_VOID);
                         stack[sd++] = bounds[i];
                     }
-                    emit_spine(node, bounds[nb - 1], stack, sd, sc, nsc, ctx, NULL);
+                    emit_spine(node, bounds[nb - 1], stack, sd, se, ctx, NULL);
                     for (int i = nb - 1; i >= 1; i--) {           /* close inner→outer */
                         ew_byte(&ctx->emit, W_END); sd--;
-                        emit_spine(bounds[i], bounds[i - 1], stack, sd, sc, nsc, ctx, NULL);
+                        emit_spine(bounds[i], bounds[i - 1], stack, sd, se, ctx, NULL);
                     }
                     ew_byte(&ctx->emit, W_END); sd = base;        /* close outermost */
                     node = bounds[0];
@@ -284,7 +336,7 @@ static bool emit_spine(sir_node_t* node, sir_node_t* stop,
              * `stop`, where the fallback is right anyway. */
             if (mjoin) pending_join = mjoin;
         }
-        const compiler_fact_t* loop = loop_scope_at(sc, nsc, node);
+        const compiler_fact_t* loop = loop_scope_at(se, node);
         if (loop && sd + 2 <= MAXSCOPE) {
             /* Dybvig Fig.5 while = loop(if T B break): block $break (loop $top …).
              * The loop body is node->next; the back-edge to `node` (Ltop) and
@@ -300,13 +352,13 @@ static bool emit_spine(sir_node_t* node, sir_node_t* stop,
                  * around and nothing follows the loop. */
                 ew_emit(&ctx->emit, WOP_LOOP); ew_byte(&ctx->emit, WBT_VOID);
                 stack[sd] = node;           /* continue target (Ltop) → depth 0 */
-                emit_spine(sir_get_next(node), NULL, stack, sd + 1, sc, nsc, ctx, NULL);
+                emit_spine(sir_get_next(node), NULL, stack, sd + 1, se, ctx, NULL);
                 ew_byte(&ctx->emit, W_END); /* loop end */
                 node = NULL; left = true;
             } else if (br_depth(stack, sd, loop->aux) >= 0) {
                 ew_emit(&ctx->emit, WOP_LOOP); ew_byte(&ctx->emit, WBT_VOID);
                 stack[sd] = node;           /* continue target (Ltop) → depth 0 */
-                bool ft = emit_spine(sir_get_next(node), loop->aux, stack, sd + 1, sc, nsc, ctx, NULL);
+                bool ft = emit_spine(sir_get_next(node), loop->aux, stack, sd + 1, se, ctx, NULL);
                 ew_byte(&ctx->emit, W_END); /* loop end */
                 /* A while's exits branched out (ft=false → post-loop unreachable).
                  * A do-while's tail test falls through on false (ft=true): br that
@@ -320,7 +372,7 @@ static bool emit_spine(sir_node_t* node, sir_node_t* stop,
                 ew_emit(&ctx->emit, WOP_LOOP);  ew_byte(&ctx->emit, WBT_VOID);
                 stack[sd]     = loop->aux;     /* break target → depth 1 from inside */
                 stack[sd + 1] = node;           /* continue target (Ltop) → depth 0   */
-                emit_spine(sir_get_next(node), loop->aux, stack, sd + 2, sc, nsc, ctx, NULL);
+                emit_spine(sir_get_next(node), loop->aux, stack, sd + 2, se, ctx, NULL);
                 ew_byte(&ctx->emit, W_END);     /* loop end  */
                 ew_byte(&ctx->emit, W_END);     /* block end */
                 node = loop->aux;
@@ -329,7 +381,7 @@ static bool emit_spine(sir_node_t* node, sir_node_t* stop,
             /* Merge labels were framed at the top of the walk (any head, incl. a
              * spilled condition's StoreLocal), so on arrival here they resolve on the
              * scope stack and the branch emits through the transfer paths below. */
-            const compiler_fact_t* js = block_scope_at(sc, nsc, node);
+            const compiler_fact_t* js = block_scope_at(se, node);
             sir_node_t* carried = pending_join;   /* this branch ends the condition it belongs to */
             pending_join = NULL;
             sir_node_t* cond = node->branch.cond;
@@ -337,7 +389,7 @@ static bool emit_spine(sir_node_t* node, sir_node_t* stop,
             sir_node_t* on_f = node->branch.on_false;
             int df = br_depth(stack, sd, on_f);
             int dt = br_depth(stack, sd, on_t);
-            if (dt >= 0 && loop_scope_at(sc, nsc, on_t)) {
+            if (dt >= 0 && loop_scope_at(se, on_t)) {
                 /* back-edge test: on_true is an enclosing loop HEADER — the
                  * do-while TAIL test (Branch(test, Ltop, Lbreak)) or an
                  * `if (c) continue;`. br_if to the header (loop back), fall
@@ -418,10 +470,10 @@ static bool emit_spine(sir_node_t* node, sir_node_t* stop,
                  * the arms inherit ljoin, which sits at sd. */
                 int isd = sd;
                 if (sd < MAXSCOPE) { stack[sd] = node; isd = sd + 1; }
-                emit_spine(arm_t, ljoin, stack, isd, sc, nsc, ctx, NULL);
+                emit_spine(arm_t, ljoin, stack, isd, se, ctx, NULL);
                 if (arm_f != ljoin) {        /* if-no-else: the false path IS the join */
                     ew_byte(&ctx->emit, W_ELSE);
-                    emit_spine(arm_f, ljoin, stack, isd, sc, nsc, ctx, NULL);
+                    emit_spine(arm_f, ljoin, stack, isd, se, ctx, NULL);
                 }
                 ew_byte(&ctx->emit, W_END);
                 /* §14.19: the frontend built a join anchor iff the if statement can complete
@@ -433,7 +485,7 @@ static bool emit_spine(sir_node_t* node, sir_node_t* stop,
                 if (!node) left = true;
             }
         } else if (node->tag == SIR_SWITCH &&
-                   switch_scope_at(sc, nsc, node) &&
+                   switch_scope_at(se, node) &&
                    sd + node->switch_.case_targets_count + 2 <= MAXSCOPE) {
             /* Dybvig switch → WASM stacked-block br_table. Blocks (outer→inner):
              * $break, $default, $case[nc-1..0]. The br_table (innermost) sends a
@@ -441,7 +493,7 @@ static bool emit_spine(sir_node_t* node, sir_node_t* stop,
              * out-of-range value → depth nc (default). Java fall-through is the
              * natural fall from one case body into the next. (Dense/contiguous
              * case values; sparse tables are a later refinement.) */
-            const compiler_fact_t* sw = switch_scope_at(sc, nsc, node);
+            const compiler_fact_t* sw = switch_scope_at(se, node);
             int nc = node->switch_.case_targets_count;
             sir_node_t* lbreak = sw->aux;
             sir_node_t* def = node->switch_.default_target;
@@ -492,10 +544,10 @@ static bool emit_spine(sir_node_t* node, sir_node_t* stop,
             for (int i = 0; i < nc; i++) {
                 ew_byte(&ctx->emit, W_END); sd--;       /* close $case[i] */
                 sir_node_t* stop = (i + 1 < nc) ? node->switch_.case_targets[i + 1] : def;
-                emit_spine(node->switch_.case_targets[i], stop, stack, sd, sc, nsc, ctx, NULL);
+                emit_spine(node->switch_.case_targets[i], stop, stack, sd, se, ctx, NULL);
             }
             ew_byte(&ctx->emit, W_END); sd--;           /* close $default */
-            emit_spine(def, lbreak, stack, sd, sc, nsc, ctx, NULL);
+            emit_spine(def, lbreak, stack, sd, se, ctx, NULL);
             if (has_exit && !inherit) ew_byte(&ctx->emit, W_END);   /* close $break */
             sd = sd0;
             /* Continue at the switch exit. For the inherited (no-$break) case
@@ -524,7 +576,7 @@ static bool emit_spine(sir_node_t* node, sir_node_t* stop,
              * bodies inherit — READ it (keyed by the outermost try node), as the
              * if reads its Ljoin. A chained inner catch region isn't recorded; it
              * inherits the SAME join via the region `stop`. */
-            const compiler_fact_t* js = block_scope_at(sc, nsc, node);
+            const compiler_fact_t* js = block_scope_at(se, node);
             sir_node_t* ljoin   = js ? js->aux : stop;
             /* Tail-position inheritance (as loops/switch): when the join forwards
              * to an enclosing scope, omit the $after wrapper — normal completion
@@ -548,7 +600,7 @@ static bool emit_spine(sir_node_t* node, sir_node_t* stop,
             ew_u32(&ctx->emit, 0);            /* tag 0 = $jexn             */
             ew_u32(&ctx->emit, 0);            /* label 0 = $handler        */
             stack[sd++] = node;               /* the try_table is itself a control level */
-            emit_spine(tbody, ljoin, stack, sd, sc, nsc, ctx, NULL);
+            emit_spine(tbody, ljoin, stack, sd, se, ctx, NULL);
             sd--;                             /* pop the try_table level   */
             ew_byte(&ctx->emit, W_END);       /* try_table end             */
             /* normal completion → the join. Inherited: br straight to the
@@ -560,8 +612,8 @@ static bool emit_spine(sir_node_t* node, sir_node_t* stop,
              * source-order typed-catch if-chain, then the catch-all body — which
              * inlines finally and re-throws (the no-match fall-through). */
             emit_node_only(catchall, ctx);    /* local.set ex_tmp (landing store) */
-            emit_typed_catches(node->try_region.next, ex_tmp, ljoin, stack, sd, sc, nsc, ctx);
-            (void)emit_spine(sir_get_next(catchall), ljoin, stack, sd, sc, nsc, ctx, NULL);
+            emit_typed_catches(node->try_region.next, ex_tmp, ljoin, stack, sd, se, ctx);
+            (void)emit_spine(sir_get_next(catchall), ljoin, stack, sd, se, ctx, NULL);
             if (inherit) {
                 /* typed bodies branch to the enclosing join themselves; the catch-all
                  * body always terminates (Throw) — nothing falls through here. */
@@ -599,9 +651,9 @@ static bool emit_spine(sir_node_t* node, sir_node_t* stop,
  * not a TryRegion is the try body itself — the recursion's base case. */
 static void emit_typed_catches(sir_node_t* tr, int ex_tmp, sir_node_t* ljoin,
                                sir_node_t** stack, int sd,
-                               const compiler_fact_t* sc, int nsc, burg_ctx_t* ctx) {
+                               const scope_env_t* se, burg_ctx_t* ctx) {
     if (!tr || tr->tag != SIR_TRYREGION) return;          /* base case: the try body */
-    emit_typed_catches(tr->try_region.next, ex_tmp, ljoin, stack, sd, sc, nsc, ctx);
+    emit_typed_catches(tr->try_region.next, ex_tmp, ljoin, stack, sd, se, ctx);
     sir_node_t* H = tr->try_region.handler;               /* ExceptionEntry */
     int32_t cti = wasm_types_class_typeidx(ctx->types,
                     lat_value_class(ctx->types->sema, H->exception_entry.catch_class_id));
@@ -612,7 +664,7 @@ static void emit_typed_catches(sir_node_t* tr, int ex_tmp, sir_node_t* ljoin,
     ew_emit(&ctx->emit, WOP_REF_CAST);  ew_i32(&ctx->emit, cti);
     emit_node_only(H, ctx);                               /* local.set <catch var slot> */
     stack[sd] = H;                                        /* the `if` is one control level */
-    bool hft = emit_spine(sir_get_next(H), ljoin, stack, sd + 1, sc, nsc, ctx, NULL);
+    bool hft = emit_spine(sir_get_next(H), ljoin, stack, sd + 1, se, ctx, NULL);
     if (hft) transfer(ljoin, stack, sd + 1, ctx);         /* body fell through → br to the join */
     ew_byte(&ctx->emit, W_END);                           /* close the `if` */
 }
@@ -636,9 +688,11 @@ void codegen_method_structured(sir_method_t* method, const compiler_fact_t* fact
     compiler_fact_t* sc = NULL;
     for (int i = 0; i < nfacts; i++)
         if (facts[i].kind == COMPILER_FACT_SCOPE) bbq_vec_push(sc, facts[i]);
+    scope_env_t se;                       /* the by-key index over the filtered rows */
+    scope_env_build(&se, sc, (int)bbq_vec_len(sc));
     sir_node_t* stack[MAXSCOPE];
     bool live = true;
-    emit_spine(method->entry, NULL, stack, 0, sc, (int)bbq_vec_len(sc), ctx, &live);
+    emit_spine(method->entry, NULL, stack, 0, &se, ctx, &live);
     /* A non-void method whose body leaves WASM control live at the function end
      * (a synthetic merge after an if/switch all of whose arms returned — §7.6
      * resets reachability after every `end`) would meet the terminating `end`
@@ -648,5 +702,6 @@ void codegen_method_structured(sir_method_t* method, const compiler_fact_t* fact
     if (live && method_returns_value(ctx, method))
         ew_emit(&ctx->emit, WOP_UNREACHABLE);
     ew_byte(&ctx->emit, W_END);   /* §5.4.1 function body terminating `end` */
+    scope_env_free(&se);
     bbq_vec_free(sc);
 }

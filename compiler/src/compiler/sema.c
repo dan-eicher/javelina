@@ -4510,6 +4510,15 @@ bool sema_analyze_units(sema_ctx_t* ctx, ast_program_t** units, int n) {
             needs = m->param_types[p].tag == JT_CLASS || m->param_types[p].tag == JT_ARRAY;
         if (needs) bbq_vec_push(ctx->functions, e);
     }
+    /* The table is FINAL here — both append loops above are its only writers.
+     * (Re)build its index in place; sema_func_index reads it from now on. */
+    bbq_hmap_free(&ctx->functions_idx);
+    bbq_hmap_init(&ctx->functions_idx, 2 * bbq_vec_len(ctx->functions));
+    for (int i = 0; i < (int)bbq_vec_len(ctx->functions); i++) {
+        uint64_t k = ((uint64_t)(uint32_t)ctx->functions[i].class_id << 32)
+                   | (uint32_t)ctx->functions[i].method_id;
+        bbq_hmap_put(&ctx->functions_idx, k, (void*)(intptr_t)(i + 1));
+    }
     return sema_error_count(ctx) == 0;
 }
 
@@ -4584,10 +4593,9 @@ bool sema_vtarget_find(const sema_ctx_t* ctx, int exact, int decl_class, int dec
 }
 
 int sema_func_index(const sema_ctx_t* ctx, int class_id, int method_id) {
-    for (int i = 0; i < (int)bbq_vec_len(ctx->functions); i++)
-        if (ctx->functions[i].class_id == class_id && ctx->functions[i].method_id == method_id)
-            return i;
-    return -1;
+    uint64_t k = ((uint64_t)(uint32_t)class_id << 32) | (uint32_t)method_id;
+    void* v = bbq_hmap_get(&ctx->functions_idx, k);
+    return v ? (int)(intptr_t)v - 1 : -1;
 }
 
 java_type_t sema_type_of(const sema_ctx_t* ctx, const ast_expr_t* expr) {
@@ -5276,6 +5284,7 @@ void sema_destroy(sema_ctx_t* ctx) {
     bbq_vec_free(ctx->classes);
     bbq_vec_free(ctx->diags);
     bbq_vec_free(ctx->functions);
+    bbq_hmap_free(&ctx->functions_idx);
     bbq_vec_free(ctx->caught_types);
     bbq_vec_free(ctx->array_class_types);
     bbq_vec_free(ctx->array_class_ids);

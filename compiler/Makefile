@@ -200,7 +200,7 @@ $(GEN)/unicode_id.h: tools/unicode/gen_character.c tools/unicode/UnicodeData.txt
 	@$(B)/gen_character tools/unicode/UnicodeData.txt -c > $@ 2>/dev/null
 	@echo "  generated $@ (§3.8 JavaLetter tables)"
 
-$(GEN)/java_parser.h $(GEN)/java_parser.c &: grammar/Java.peg $(GEN)/java_ast.h $(GEN)/unicode_id.h $(PEGC)
+$(GEN)/java_parser.h $(GEN)/java_parser.c &: grammar/Java.peg $(GEN)/java_ast.h $(GEN)/unicode_id.h $(PEGC) $(wildcard $(PEG_FRAMES)/*.frame) $(PEGRT)/peg_runtime.h
 	$(PEGC) grammar/Java.peg -lang c -frames $(PEG_FRAMES) -o $(GEN)/
 
 # ── Tests (plain-C, exit-code based — javelina wasm/test convention) ────────

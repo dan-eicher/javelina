@@ -13,6 +13,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <string.h>     /* memcpy — ew_bytes */
 #include "bbq_vec.h"
 #include "gen/wasm_ops.h"   /* WOP_* + wasm_op_enc[] — the spec-derived emit authority */
 
@@ -32,6 +33,17 @@ enum {
 typedef struct { uint8_t* code; } emit_wasm_ctx;
 
 static inline void ew_byte(emit_wasm_ctx* e, uint8_t b) { bbq_vec_push(e->code, b); }
+
+/* Bulk append — one reserve, one memcpy. The byte-at-a-time loops this replaces
+ * pushed whole method bodies (and once, the whole serialized module) through
+ * ew_byte's per-byte growth check. */
+static inline void ew_bytes(emit_wasm_ctx* e, const uint8_t* p, size_t n) {
+    if (!n) return;
+    int old = bbq_vec_len(e->code);
+    bbq_vec_reserve(e->code, old + (int)n);
+    memcpy(e->code + old, p, n);
+    bbq__vec_hdr(e->code)->len = old + (int)n;
+}
 
 /* Unsigned LEB128. */
 static inline void ew_u32(emit_wasm_ctx* e, uint32_t v) {
