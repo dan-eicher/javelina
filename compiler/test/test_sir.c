@@ -5979,13 +5979,38 @@ int main(void) {
             "  while (i >= 0) { h += a[i]; i = i - 1; }"
             "  return h; } }", "f", 0,
             "down-count while (i = i - 1 Sub): IDX_HIGH dies" },
-          /* Two jre down-count shapes are NOT covered and NOT pinned here — both
-           * hit representation limits, measured 07-31, mechanisms in the
-           * steady-hoisting-derrick plan: the ternary seed (lastIndexOf) needs a
-           * GE-false refinement that regresses merge all-agreement when minted on
-           * guard fall-throughs; the length-seeded decrement (trim) needs an
-           * arraylength self-bound, which the partition hash reads as a per-node
-           * fact and splits congruence. Design decisions, not transfers. */
+          /* trim's shape — needs the arraylength self-bound, which in turn needs
+           * the SPLIT to compare VALUE identity without the symbolic bounds
+           * (cp_const_value_eq): a per-node bound must not split congruent
+           * length reads. The up-count/new-int[]/§46 pins earlier in this suite
+           * are the other half of the proof — they are exactly what regressed
+           * when the seed landed WITHOUT the comparator split. */
+          { "class T { static int f(int[] a){"
+            "  int len = a.length; int st = 0;"
+            "  while (st < len && a[len - 1] > 3) len = len - 1;"
+            "  return len; } }", "f", 0,
+            "decrement of a length-seeded var, access at len-1 (trim's shape): IDX_HIGH dies" },
+          /* lastIndexOf's shape — the GE-false refinement (`from >= a.length`
+           * fell through ⟹ from < len), minted for USER compares only: §15
+           * guards are skipped by the recorded-guard set, because a guard's
+           * fall-through fact is the guard machinery's own job and each guard
+           * reads the length through its OWN node — minting there made
+           * same-meaning refines content-DIFFERENT (distinct congruent length
+           * vnodes in the predicate) and broke merge all-agreement. The §46 and
+           * r[i]=a[i] pins earlier in this suite are the no-regression proof. */
+          { "class T { static int f(int[] a, int from){"
+            "  int n = a.length;"
+            "  int i = from >= n ? n - 1 : from;"
+            "  while (i >= 0) { if (a[i] == 7) return i; i = i - 1; }"
+            "  return -1; } }", "f", 0,
+            "ternary-seeded down-count, shared length read: IDX_HIGH dies" },
+          /* The TWO-read form (`from >= a.length ? a.length - 1 : from`) does
+           * NOT fold: the two congruent length reads are distinct vnodes, the
+           * mint and the refine store different bound ids, and the φ's
+           * both-sides join rule (raw id equality) drops the bound. Joining
+           * bounds MODULO PARTITION needs φ transfers registered for
+           * partition-move re-arm — the premise mechanism extended to φs, a
+           * design item recorded in the steady-hoisting-derrick plan. */
           /* NEGATIVE controls — a false eliminate is a miscompile the census
            * cannot see; these must KEEP their guard forever. */
           { "class T { static int f(int[] a){"

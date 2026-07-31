@@ -1716,8 +1716,12 @@ cp_const_t cp_const_intersect(cp_const_t a, cp_const_t b) {
     int64_t stride = (a_s == b_s) ? a_s : 1;
     /* Carry the symbolic upper bound through: it is an ADDITIONAL fact ("also less than
      * the value of that node"), independent of the interval, so an intersection keeps it.
-     * If both sides name a bound and they disagree, keep neither — two unrelated bounds
-     * are not intersectable here, and claiming one would be a fact we have not proved.
+     * When both sides name DIFFERENT bounds, BOTH facts hold here — this is an
+     * intersection, not a join — so keeping one is sound; the representation holds one,
+     * and the INCUMBENT (a's, the value's accumulated state) wins over the arriving
+     * predicate's. Keep-neither was measured to sever stacked guard refines: guard 2's
+     * `< len2` predicate arriving over guard 1's `< len1` state (congruent lens, distinct
+     * nodes) dropped the bound entirely and neither guard's consumer could fold.
      *
      * THE INCLUSIVITY TRAVELS WITH THE BOUND. Carrying `hi_vn1` and letting `hi_vn_incl`
      * zero-fill turns `i <= B` into `i < B` — a STRONGER claim than we hold, and one that
@@ -1729,8 +1733,9 @@ cp_const_t cp_const_intersect(cp_const_t a, cp_const_t b) {
         if (a.hi_vn1 == b.hi_vn1) {
             sym = a.hi_vn1;
             sym_incl = (a.hi_vn_incl && b.hi_vn_incl) ? 1 : 0;   /* strict wins */
+        } else {
+            sym = a.hi_vn1; sym_incl = a.hi_vn_incl;             /* incumbent */
         }
-        /* different bounds: keep neither */
     } else if (a.state == CP_C_RANGE && a.hi_vn1) {
         sym = a.hi_vn1; sym_incl = a.hi_vn_incl;
     } else if (b.state == CP_C_RANGE && b.hi_vn1) {
@@ -1743,8 +1748,9 @@ cp_const_t cp_const_intersect(cp_const_t a, cp_const_t b) {
         if (a.lo_vn1 == b.lo_vn1) {
             lsym = a.lo_vn1;
             lsym_incl = (a.lo_vn_incl && b.lo_vn_incl) ? 1 : 0;   /* strict wins */
+        } else {
+            lsym = a.lo_vn1; lsym_incl = a.lo_vn_incl;            /* incumbent */
         }
-        /* different bounds: keep neither */
     } else if (a.state == CP_C_RANGE && a.lo_vn1) {
         lsym = a.lo_vn1; lsym_incl = a.lo_vn_incl;
     } else if (b.state == CP_C_RANGE && b.lo_vn1) {
@@ -1965,18 +1971,25 @@ static int cp_pb_meet(cp_engine_t* eng, cp_pb_pairs_t* P, int a, int b, int base
  * refines that underlying (an enclosing branch), the facts STACK as an interned PAIR —
  * pure set-state per Click ch.2 §2.3, never a node minted mid-iteration. */
 static int cp_edge_refined(cp_engine_t* eng, const int* b_rt, const int* b_rf,
-                           const int* b_und, cp_pb_pairs_t* P, int p, int cur, int v2) {
-    if (b_und[p] < 0 || v2 == CP_R_TOP || v2 == -1) return v2;
+                           const int* b_und_t, const int* b_und_f,
+                           cp_pb_pairs_t* P, int p, int cur, int v2) {
+    if (v2 == CP_R_TOP || v2 == -1) return v2;
     sir_node_t* pn = eng->spine[p];
     /* Both successors on one node: the "edge" proves nothing (neither arm was
      * taken exclusively), so no refinement may be claimed for it. (Inert on the
      * jre — control-measured 07-17; kept because the claim would be wrong.) */
     if (pn->branch.on_true == pn->branch.on_false) return v2;
-    int r = (eng->spine[cur] == pn->branch.on_true)  ? b_rt[p]
-          : (eng->spine[cur] == pn->branch.on_false) ? b_rf[p] : -1;
-    if (r < 0) return v2;
-    if (cp_pb_root(eng, P, v2) != b_und[p]) return v2;
-    if (v2 != b_und[p]) return cp_pb_pair(P, r, v2);
+    /* Each arm carries its OWN underlying: `l >= r` refines l on the false edge
+     * and r on the true edge — two different values, one branch. A single
+     * per-branch underlying forced the mints to fight over the slot. */
+    bool is_t = (eng->spine[cur] == pn->branch.on_true);
+    bool is_f = !is_t && (eng->spine[cur] == pn->branch.on_false);
+    if (!is_t && !is_f) return v2;
+    int r = is_t ? b_rt[p]    : b_rf[p];
+    int u = is_t ? b_und_t[p] : b_und_f[p];
+    if (r < 0 || u < 0) return v2;
+    if (cp_pb_root(eng, P, v2) != u) return v2;
+    if (v2 != u) return cp_pb_pair(P, r, v2);
     return r;
 }
 
@@ -2007,8 +2020,10 @@ static void cp_compute_branch_refinements(cp_engine_t* eng) {
      * nature as a merge's φs. Transient to this pass; only the vnodes outlive it. */
     int* b_rt  = (int*)bbq_arena_alloc(a, (size_t)sn * sizeof(int));
     int* b_rf  = (int*)bbq_arena_alloc(a, (size_t)sn * sizeof(int));
-    int* b_und = (int*)bbq_arena_alloc(a, (size_t)sn * sizeof(int));
-    for (int i = 0; i < sn; i++) { b_rt[i] = -1; b_rf[i] = -1; b_und[i] = -1; }
+    int* b_und_t = (int*)bbq_arena_alloc(a, (size_t)sn * sizeof(int));
+    int* b_und_f = (int*)bbq_arena_alloc(a, (size_t)sn * sizeof(int));
+    for (int i = 0; i < sn; i++)
+        { b_rt[i] = -1; b_rf[i] = -1; b_und_t[i] = -1; b_und_f[i] = -1; }
     bool any = false;
     /* Condition-verdict fact numbering (channel (a) — see the header's
      * verdict_words comment): every two-successor branch whose condition
@@ -2021,6 +2036,14 @@ static void cp_compute_branch_refinements(cp_engine_t* eng) {
         eng->branch_cond_vn[i]  = -1;
     }
     int nfacts = 0;
+
+    /* The recorded §15 guard Branches, as an exact pointer set — the GE-false
+     * arm below must never mint on a guard's fall-through (see its comment).
+     * Built once from the sidecar, the authority on which Branch is a guard. */
+    bbq_hmap guard_set; bbq_hmap_init(&guard_set, 0);
+    for (int gi = 0; gi < eng->fact_count; gi++)
+        if (eng->facts[gi].kind == COMPILER_FACT_GUARD && eng->facts[gi].key)
+            bbq_hmap_put(&guard_set, (uint64_t)(uintptr_t)eng->facts[gi].key, NULL);
 
     /* ── PHASE R: parse each Branch's condition once. cp_ultimate_value reads the
      * pass-A wiring, so every branch is parsed BEFORE any pass-B rewiring. */
@@ -2055,7 +2078,7 @@ static void cp_compute_branch_refinements(cp_engine_t* eng) {
             int cls = cmp->instance_of.class_id;
             b_rt[b]  = cp_new_refine_isa(eng, tested, CP_REFINE_PTS_ISA, at, cls);
             b_rf[b]  = cp_new_refine_isa(eng, tested, CP_REFINE_PTS_NOT_ISA, at, cls);
-            b_und[b] = tested;
+            b_und_t[b] = tested; b_und_f[b] = tested;
             any = true;
             continue;
         }
@@ -2087,7 +2110,7 @@ static void cp_compute_branch_refinements(cp_engine_t* eng) {
             cp_refine_pts_t on_f = eq ? CP_REFINE_PTS_NONNULL : CP_REFINE_PTS_NULL;
             b_rt[b]  = cp_new_refine_pts(eng, tested, on_t);
             b_rf[b]  = cp_new_refine_pts(eng, tested, on_f);
-            b_und[b] = tested;
+            b_und_t[b] = tested; b_und_f[b] = tested;
             any = true;
             continue;
         }
@@ -2127,19 +2150,45 @@ static void cp_compute_branch_refinements(cp_engine_t* eng) {
                                        .hi_vn1 = yvn + 1, .hi_vn_incl = 1,
                                        .lo_vn1 = yvn + 1, .lo_vn_incl = 1 };
                     b_rt[b]  = cp_new_refine(eng, xvn, sym);
-                    b_und[b] = xvn;
+                    b_und_t[b] = xvn;
                     any = true;
                     continue;
                 }
             }
-            /* NOT minted here, measured 07-31: a GE-false refine (`l >= r` fell
-             * through ⟹ l < r — the ternary-seed shape, String.lastIndexOf).
-             * It is SOUND but it fires on every §15 upper GUARD's fall-through,
-             * and the extra per-edge Refine states break the MERGE all-agree
-             * rule downstream — String.replace's recovered IDX_HIGH regressed,
-             * plus two more. Landing it needs guard-aware minting (skip
-             * branches the sidecar records as guards) or content-keyed Refine
-             * agreement at merges — a design choice, not a transfer tweak. */
+            /* GE's FALSE edge: `l >= r` fell through, so l < r — a STRICT
+             * symbolic upper bound on l (a ternary seed's else arm:
+             * `from >= a.length ? a.length - 1 : from`). USER compares ONLY —
+             * `guard_set` excludes every branch the sidecar records as a §15
+             * guard, for two measured reasons (07-31): a guard's fall-through
+             * fact is the guard machinery's own job, and each guard reads its
+             * length through its OWN node, so guard-minted refines carry
+             * content-DIFFERENT predicates for the same meaning (distinct
+             * congruent vnode ids in hi_vn1) and break the merge all-agree
+             * rule downstream (String.replace's §46 pin regressed). The strict
+             * mirror stays excluded for the widened-i64 Mem shape — this arm
+             * requires the PLAIN same-width form: an i32 slot read, no I2L,
+             * minted at CP_W_I32, where the Refine transfer's strict
+             * tightening is exact. Claims the branch only when the generic
+             * true-edge arm below would bind an EXPRESSION (rhs not a slot
+             * read — a refine on an expression rewires no loads). */
+            if (cmp->tag == SIR_GE && lhs->tag == SIR_LOADLOCAL
+                    && lhs->load_local.data_type == SIR_DTINT
+                    && !bbq_hmap_contains(&guard_set, (uint64_t)(uintptr_t)sb)) {
+                int t   = cp_cmp_operand_ultimate(eng, lhs);
+                int bnd = cp_cmp_operand_ultimate(eng, rhs);
+                if (bnd < 0) bnd = cp_vnode_of(eng, rhs);
+                if (t >= 0 && bnd >= 0 && t != bnd) {
+                    cp_const_t symf = { .state = CP_C_RANGE, .cwidth = CP_W_I32,
+                                        .lo = INT32_MIN, .hi = INT32_MAX, .stride = 1,
+                                        .hi_vn1 = bnd + 1, .hi_vn_incl = 0 };
+                    b_rf[b]  = cp_new_refine(eng, t, symf);
+                    b_und_f[b] = t;
+                    any = true;
+                    /* NO continue: the generic true-edge arm below still binds
+                     * the OTHER value (`l >= r` also says r ≤ l) — per-edge
+                     * underlyings let both mints coexist on one branch. */
+                }
+            }
             int tested_vn = -1, bound_vn = -1;
             if (cmp->tag == SIR_LT || cmp->tag == SIR_LE) {
                 tested_vn = cp_cmp_operand_ultimate(eng, lhs);   /* i < B */
@@ -2162,7 +2211,7 @@ static void cp_compute_branch_refinements(cp_engine_t* eng) {
                                    .hi_vn1 = bound_vn + 1, .hi_vn_incl = incl ? 1 : 0 };
                 /* Composition with an enclosing refinement is pass B's input-chaining. */
                 b_rt[b]  = cp_new_refine(eng, tested_vn, sym);
-                b_und[b] = tested_vn;
+                b_und_t[b] = tested_vn;
                 any = true;
                 continue;
             }
@@ -2173,11 +2222,12 @@ static void cp_compute_branch_refinements(cp_engine_t* eng) {
              * a slot read). One I2L descent: the guard compares the slot's
              * long view, and I2L is order-preserving, so the bound is a fact
              * about the slot's value; the §15 consumer reads back through the
-             * I2L. Only the inclusive GT arm is recorded — the strict mirrors
-             * (GE-false, LE-false) would invite §5's strict tightening, which
-             * is stated in the COMPARE's width and is unsound stamped onto the
-             * i32 slot carrier when the compare is the widened i64. Fires only
-             * when the true-edge arm did not: b_und holds ONE underlying. */
+             * I2L. Only the inclusive arm rides the I2L descent — a STRICT
+             * mirror through it would invite §5's strict tightening, stated in
+             * the COMPARE's width and unsound stamped onto the i32 carrier when
+             * the compare is the widened i64. (The plain same-width GE-false
+             * strict mint lives above, guard-set-excluded; per-edge underlyings
+             * let it coexist with the true-edge bind.) */
             if (cmp->tag == SIR_GT) {
                 sir_node_t* l_op = (lhs->tag == SIR_I2L) ? lhs->i2_l.operand : lhs;
                 if (l_op && l_op->tag == SIR_LOADLOCAL
@@ -2190,7 +2240,7 @@ static void cp_compute_branch_refinements(cp_engine_t* eng) {
                                             .lo = INT32_MIN, .hi = INT32_MAX, .stride = 1,
                                             .hi_vn1 = bnd + 1, .hi_vn_incl = 1 };
                         b_rf[b]  = cp_new_refine(eng, t, symf);
-                        b_und[b] = t;
+                        b_und_f[b] = t;
                         any = true;
                     }
                 }
@@ -2212,15 +2262,16 @@ static void cp_compute_branch_refinements(cp_engine_t* eng) {
          * input-chaining (the inner Refine re-bases onto the outer one as it flows in). */
         if (pred_then.state != CP_C_BOTTOM) {
             b_rt[b] = cp_new_refine(eng, underlying, pred_then);
-            b_und[b] = underlying;
+            b_und_t[b] = underlying;
             any = true;
         }
         if (pred_else.state != CP_C_BOTTOM) {
             b_rf[b] = cp_new_refine(eng, underlying, pred_else);
-            b_und[b] = underlying;
+            b_und_f[b] = underlying;
             any = true;
         }
     }
+    bbq_hmap_free(&guard_set);          /* pass A only — the mint decisions are made */
     if (!any && nfacts == 0) return;
 
     /* ── PASS B: re-derive the slot states with the per-edge rule, then rewire.
@@ -2306,7 +2357,7 @@ static void cp_compute_branch_refinements(cp_engine_t* eng) {
                     if (pv == CP_R_TOP) nv = CP_R_TOP;              /* pred not reached yet */
                     else if (eng->slot_in[n][s] != eng->slot_in[p][s])
                         nv = eng->slot_in[n][s];                    /* def at p: fresh, unrefined */
-                    else nv = cp_edge_refined(eng, b_rt, b_rf, b_und,
+                    else nv = cp_edge_refined(eng, b_rt, b_rf, b_und_t, b_und_f,
                                               &pairs, p, n, pv);
                     if (nv != in2[n][s]) { in2[n][s] = nv; changed = true; }
                 }
@@ -2339,7 +2390,7 @@ static void cp_compute_branch_refinements(cp_engine_t* eng) {
                         if (pv == CP_R_TOP) continue;               /* unreached: identity */
                         int vp = (eng->slot_in[p][s] != base)
                             ? base                                  /* redefined on this edge */
-                            : cp_edge_refined(eng, b_rt, b_rf, b_und,
+                            : cp_edge_refined(eng, b_rt, b_rf, b_und_t, b_und_f,
                                               &pairs, p, n, pv);
                         acc = cp_pb_meet(eng, &pairs, acc, vp, base);
                     }
@@ -3495,6 +3546,25 @@ static bool cp_const_eq(cp_const_t a, cp_const_t b) {
             && a.hi_vn1 == b.hi_vn1 && a.lo_vn1 == b.lo_vn1;   /* both symbolic bounds are part of the fact */
     if (a.state == CP_C_REF)
         return a.ref_kind == b.ref_kind && a.ref_id == b.ref_id;
+    return true;
+}
+
+/* VALUE identity, for the SPLIT: like cp_const_eq but IGNORING the symbolic
+ * bounds. A bound is KNOWLEDGE ABOUT a value ("also less than the value of that
+ * node"), not part of the value's identity — two congruent nodes whose facts
+ * differ only in bound annotation are still the same runtime value, and
+ * splitting their partition severs true congruences (measured 07-31: a
+ * per-node arraylength self-bound split every pair of congruent length reads,
+ * and the §15 consumer's `bound ≡ len` check failed program-wide). Change
+ * DETECTION (cp_const_eq, above) keeps reading the bounds: a fact gaining or
+ * losing one must re-arm its consumers. */
+static bool cp_const_value_eq(cp_const_t a, cp_const_t b) {
+    if (a.state != b.state) return false;
+    if (a.state == CP_C_KNOWN) return cp_const_eq(a, b);
+    if (a.state == CP_C_RANGE)
+        return a.lo == b.lo && a.hi == b.hi && a.stride == b.stride;
+    if (a.state == CP_C_REF)
+        return a.ref_kind == b.ref_kind && a.ref_id == b.ref_id;
     return true;  /* TOP / BOTTOM */
 }
 
@@ -3897,6 +3967,14 @@ static cp_const_t cp_symbolic_bound_const(cp_engine_t* eng, const cp_vnode_t* v,
     if (v->input_count != 2 || v->inputs[0] < 0 || v->inputs[1] < 0) return r;
 
     const cp_vnode_t* iv = eng->vnodes[v->inputs[0]];          /* the index  */
+    if (getenv("JAV_GEDBG")) {   /* TEMPORARY probe */
+        const cp_vnode_t* i0 = eng->vnodes[v->inputs[0]];
+        fprintf(stderr, "[ge-consume] iv=%d kind=%d in0=%d state=%d hi_vn1=%d incl=%d\n",
+                v->inputs[0], (int)i0->kind,
+                i0->input_count > 0 ? i0->inputs[0] : -1,
+                (int)iv->constant.state, iv->constant.hi_vn1,
+                (int)iv->constant.hi_vn_incl);
+    }
     if (iv->constant.state != CP_C_RANGE || iv->constant.hi_vn1 == 0) return r;
 
     int bound_vn = cp_ultimate_value(eng, iv->constant.hi_vn1 - 1);
@@ -4069,8 +4147,29 @@ static cp_const_t cp_node_const(cp_engine_t* eng, const cp_vnode_t* v) {
          * absent because nobody mentioned it. */
         cp_const_t fresh = top;
         for (int i = 0; i < v->input_count; i++)
-            if (cp_phi_input_live(eng, v, i))
-                fresh = cp_const_meet(fresh, cp_input_const(eng, v->inputs[i]));
+            if (cp_phi_input_live(eng, v, i)) {
+                cp_const_t ic = cp_input_const(eng, v->inputs[i]);
+                /* Canonicalize symbolic bounds to their VALUE LEADER before the
+                 * meet: two arms can hold the same bound through different nodes
+                 * (one the raw arraylength, one a Refine over it — measured on
+                 * the ternary seed: ids 5 vs 85 for one length), and the meet's
+                 * both-sides rule compares ids. cp_value_leader is the "same
+                 * VALUE" authority (it descends Followers AND Refines). Re-arm
+                 * is the input edges': a leader attach/revert re-enqueues the
+                 * moved vnode's du users, and the φ is one, so a stale keep
+                 * cannot outlive the relation that justified it. */
+                if (ic.state == CP_C_RANGE) {
+                    if (ic.hi_vn1) {
+                        int l = cp_value_leader((cp_engine_t*)eng, ic.hi_vn1 - 1);
+                        if (l >= 0) ic.hi_vn1 = l + 1;
+                    }
+                    if (ic.lo_vn1) {
+                        int l = cp_value_leader((cp_engine_t*)eng, ic.lo_vn1 - 1);
+                        if (l >= 0) ic.lo_vn1 = l + 1;
+                    }
+                }
+                fresh = cp_const_meet(fresh, ic);
+            }
         int m = v->phi_merge ? cp_spine_index((cp_engine_t*)eng, v->phi_merge) : -1;
         bool widen = !eng->any_scope_recorded         /* nothing recorded: widen */
                   || m < 0 || m >= eng->merge_rows    /* unrecorded merge: widen */
@@ -4095,18 +4194,23 @@ static cp_const_t cp_node_const(cp_engine_t* eng, const cp_vnode_t* v) {
     if (e->tag == SIR_LOADLOCAL)
         return v->input_count > 0 ? cp_input_const(eng, v->inputs[0]) : bot;
     /* An array's length is never negative (§15.10.1 traps a negative dimension
-     * before the array exists), so `a.length` is [0, INT_MAX].
-     *
-     * NOT seeded with itself as an inclusive symbolic bound (x ≤ x — the fact
-     * that would close trim's `len = a.length; len = len - 1` chain), measured
-     * 07-31: RANGE equality and the partition-split hash include hi_vn1, so a
-     * per-node self bound makes two CONGRUENT length reads carry UNEQUAL value
-     * facts — cp_split_by_facts_one then splits their partition and the §15
-     * consumer's `bound ≡ len` check fails EVERYWHERE (two working eliminations
-     * regressed). Bounds-outside-congruence is a representation decision. */
-    if (e->tag == SIR_ARRAYLENGTH)
+     * before the array exists), so `a.length` is [0, INT_MAX] — carrying ITSELF
+     * as an INCLUSIVE symbolic upper bound (x ≤ x, trivially). The identity is
+     * what seeds `len = a.length; … len = len - 1` (trim's shape): the Sub
+     * strengthens ≤ self into < self, the header φ joins two agreeing bounds,
+     * and the §15 consumer folds `len-1 >= a.length`. It cannot over-fold
+     * `a[a.length]`: the consumer's inclusive arm demands `len ≡ B+1`, which a
+     * self bound never satisfies. SAFE against congruence only because the
+     * SPLIT compares cp_const_value_eq — a first landing WITHOUT that split
+     * made every congruent pair of length reads carry unequal facts and
+     * partitioned them apart (07-31). Constant from this node's first
+     * evaluation — no inputs, no re-arm surface. */
+    if (e->tag == SIR_ARRAYLENGTH) {
+        int self = cp_vnode_of(eng, e);
         return (cp_const_t){ .state = CP_C_RANGE, .cwidth = CP_W_I32,
-                             .lo = 0, .hi = INT32_MAX, .stride = 1 };
+                             .lo = 0, .hi = INT32_MAX, .stride = 1,
+                             .hi_vn1 = self >= 0 ? self + 1 : 0, .hi_vn_incl = 1 };
+    }
     /* Pointer-constant identity sources (Click thesis §8). New gives a
      * unique identity per allocation site (the vnode's own index).
      * GetStatic on a final-static field gives a stable identity per
@@ -7541,7 +7645,7 @@ static void cp_split_by_facts_one(cp_engine_t* eng, int p,
         int n = members[i];
         const Type* t = eng->vnodes[n]->type;
         cp_const_t  c = eng->vnodes[n]->constant;
-        if (t == keep_t && cp_const_eq(c, keep_c)
+        if (t == keep_t && cp_const_value_eq(c, keep_c)   /* VALUE identity — bounds are knowledge, not identity */
                 && (keep_exempt || cp_bucket_same(eng, n, members[0]))) continue;
         bool c_exempt = c.state == CP_C_KNOWN || c.state == CP_C_TOP;
         int target = -1;
@@ -7552,7 +7656,7 @@ static void cp_split_by_facts_one(cp_engine_t* eng, int p,
             while (gh >= 0 && eng->vnodes[gh]->leader != -1)
                 gh = eng->vnodes[gh]->part_next;
             if (gh >= 0 && eng->vnodes[gh]->type == t
-                        && cp_const_eq(eng->vnodes[gh]->constant, c)
+                        && cp_const_value_eq(eng->vnodes[gh]->constant, c)
                         && (c_exempt || cp_bucket_same(eng, n, gh))) {
                 target = g;
                 break;
