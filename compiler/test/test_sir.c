@@ -5902,5 +5902,64 @@ int main(void) {
               "every method's solve returns AT a fixpoint — one more armed round moves nothing");
     }
 
+    /* ── Dybvig Figure 8 case 1 covers EVERY literal, not just the int-family ones ──
+     * `is_simple_operand` classifies the side-effect-free leaves; its doc comment says
+     * "literal", but it listed only AST_INTLIT/BOOLLIT/NULLLIT — a JCVM inheritance,
+     * that VM having no long/float/double. So `d > 2.0f` matched no specialised case
+     * (case 1 needs both operands simple; case 2 needs a CONSTANT lhs; case 3 needs a
+     * COMPLEX lhs) and fell through to case 4, spilling BOTH operands for a comparison
+     * that needs no temp at all.
+     *
+     * That spill is what made it a bug rather than a wart: `record_scope(test, Ljoin, 0)`
+     * keys the if-join on the condition's head, which the spill makes a StoreLocal, and
+     * Click then DSEs that dead temp — exactly what case 1 exists to avoid. With the
+     * keyed node gone the join is unreachable, `ljoin` falls back to the enclosing
+     * region, and both arms re-emit the method's whole tail: 2^k for k such ifs (jre
+     * Math.pow was 6.6x its -O0 size).
+     *
+     * Pinned HERE, on the ddcg's own output at opt=0, because that is the level that
+     * owns it: the defect is "the literal spilled", one node deep. Module size under -O
+     * is three layers downstream and only a symptom. */
+    {
+        const sir_node_t* b; const sir_node_t* c;
+
+        b = compile_find("class T { void g(){} void f(int d)    { if (d > 2)    g(); } }",
+                         SIR_BRANCH, 0);
+        c = b ? sir_child(b, 0) : NULL;
+        CHECK(c && (int)c->tag == SIR_GT && sir_child(c, 1)
+                && (int)sir_child(c, 1)->tag == SIR_LOADCONST,
+              "int literal inlines into the compare (Figure 8 case 1, no spill temp)");
+
+        b = compile_find("class T { void g(){} void f(long d)   { if (d > 2L)   g(); } }",
+                         SIR_BRANCH, 0);
+        c = b ? sir_child(b, 0) : NULL;
+        CHECK(c && (int)c->tag == SIR_GT && sir_child(c, 1)
+                && (int)sir_child(c, 1)->tag == SIR_LOADLONGCONST,
+              "long literal inlines into the compare (no spill temp)");
+
+        b = compile_find("class T { void g(){} void f(float d)  { if (d > 2.0f) g(); } }",
+                         SIR_BRANCH, 0);
+        c = b ? sir_child(b, 0) : NULL;
+        CHECK(c && (int)c->tag == SIR_GT && sir_child(c, 1)
+                && (int)sir_child(c, 1)->tag == SIR_LOADFLOATCONST,
+              "float literal inlines into the compare (no spill temp)");
+
+        b = compile_find("class T { void g(){} void f(double d) { if (d > 2.0)  g(); } }",
+                         SIR_BRANCH, 0);
+        c = b ? sir_child(b, 0) : NULL;
+        CHECK(c && (int)c->tag == SIR_GT && sir_child(c, 1)
+                && (int)sir_child(c, 1)->tag == SIR_LOADDOUBLECONST,
+              "double literal inlines into the compare (no spill temp)");
+
+        /* A char literal is an int-family constant leaf and inlines the same way —
+         * `c == 'x'` is the jre's commonest comparison shape. */
+        b = compile_find("class T { void g(){} void f(char d)   { if (d > 'x')  g(); } }",
+                         SIR_BRANCH, 0);
+        c = b ? sir_child(b, 0) : NULL;
+        CHECK(c && (int)c->tag == SIR_GT && sir_child(c, 1)
+                && (int)sir_child(c, 1)->tag == SIR_LOADCONST,
+              "char literal inlines into the compare (no spill temp)");
+    }
+
     return TEST_SUMMARY("test_sir");
 }

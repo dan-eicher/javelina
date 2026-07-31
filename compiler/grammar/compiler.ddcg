@@ -818,6 +818,10 @@ fun cg_operand_tree(e: ast.expr, op_dt: ir.datatype) -> ir_root {
     match (e) {
         ast.IntLit(value: v)  => build ir.LoadConst(v, op_dt)
       | ast.BoolLit(value: v) => build ir.LoadConst(v ? 1 : 0, op_dt)
+      | ast.CharLit(value: v) => build ir.LoadConst(v, op_dt)
+      | ast.LongLit(value: v)   => build ir.LoadLongConst(v)
+      | ast.FloatLit(value: v)  => build ir.LoadFloatConst(v)
+      | ast.DoubleLit(value: v) => build ir.LoadDoubleConst(v)
       | ast.NullLit()         => build ir.LoadNull()
       | ast.This()            => build ir.LoadThis(DtRef, current_class_id())
       | ast.Ident()           => build ir.LoadLocal(sema_ident_slot(e),

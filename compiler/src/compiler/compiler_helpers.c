@@ -825,6 +825,10 @@ bool ddcg_is_simple_operand(ddcg_ctx_t* ctx, ast_expr_t* expr) {
         case AST_INTLIT:
         case AST_BOOLLIT:
         case AST_NULLLIT:
+        case AST_CHARLIT:
+        case AST_LONGLIT:
+        case AST_FLOATLIT:
+        case AST_DOUBLELIT:
         case AST_THIS:
             return true;
         case AST_IDENT: {
@@ -852,6 +856,10 @@ bool ddcg_is_constant_operand(ddcg_ctx_t* ctx, ast_expr_t* expr) {
         case AST_INTLIT:
         case AST_BOOLLIT:
         case AST_NULLLIT:
+        case AST_CHARLIT:
+        case AST_LONGLIT:
+        case AST_FLOATLIT:
+        case AST_DOUBLELIT:
         case AST_THIS:
             return true;
         case AST_UNARY:
