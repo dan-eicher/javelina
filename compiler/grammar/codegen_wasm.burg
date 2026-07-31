@@ -140,6 +140,10 @@ TERM SimdMemLoadLane = SIR_SIMDMEMLOADLANE
 TERM SimdMemStore    = SIR_SIMDMEMSTORE
 TERM SimdMemStoreLane = SIR_SIMDMEMSTORELANE
 
+/* No rule action writes any of these — they are the emit sink and the layout
+ * authority, both read-only to selection. Branch polarity used to live here as a
+ * `cond_neg` flag; it is a GOAL now (`cond` / `ncond`), so selection state has
+ * left the context entirely. */
 MEMBERS (. emit_wasm_ctx emit; struct wasm_types_t* types; .)
 
 (. #include "javelina/compiler/sir_support.h"
@@ -250,6 +254,35 @@ MEMBERS (. emit_wasm_ctx emit; struct wasm_types_t* types; .)
        (void)e; (void)n;   /* structured-control transfer */
    }
 
+   /* Constant folding at selection time. JLS §15.18/§15.22 integer arithmetic is
+    * exactly two's-complement wraparound, so every input has a defined answer —
+    * but signed overflow is UB in C, so the arithmetic goes through the unsigned
+    * type and back. §15.19 masks a shift count to the operand's width, and §15.17
+    * leaves division by zero (and MIN/-1, which overflows) to the runtime: those
+    * are GUARDED out below rather than folded to something the JVM would not
+    * produce. Nothing here is a float: §15.4 NaN payloads and signed zero make
+    * float folding a semantics question, and the optimizer owns those. */
+   static inline int32_t jf_add32(int32_t a, int32_t b) { return (int32_t)((uint32_t)a + (uint32_t)b); }
+   static inline int32_t jf_sub32(int32_t a, int32_t b) { return (int32_t)((uint32_t)a - (uint32_t)b); }
+   static inline int32_t jf_mul32(int32_t a, int32_t b) { return (int32_t)((uint32_t)a * (uint32_t)b); }
+   static inline int32_t jf_shl32(int32_t a, int32_t b) { return (int32_t)((uint32_t)a << (b & 31)); }
+   static inline int32_t jf_shr32(int32_t a, int32_t b) { return (int32_t)(a < 0 ? ~(~(uint32_t)a >> (b & 31)) : (uint32_t)a >> (b & 31)); }
+   static inline int32_t jf_ushr32(int32_t a, int32_t b) { return (int32_t)((uint32_t)a >> (b & 31)); }
+   static inline int64_t jf_add64(int64_t a, int64_t b) { return (int64_t)((uint64_t)a + (uint64_t)b); }
+   static inline int64_t jf_sub64(int64_t a, int64_t b) { return (int64_t)((uint64_t)a - (uint64_t)b); }
+   static inline int64_t jf_mul64(int64_t a, int64_t b) { return (int64_t)((uint64_t)a * (uint64_t)b); }
+   static inline int64_t jf_shl64(int64_t a, int64_t b) { return (int64_t)((uint64_t)a << (b & 63)); }
+   static inline int64_t jf_shr64(int64_t a, int64_t b) { return (int64_t)(a < 0 ? ~(~(uint64_t)a >> (b & 63)) : (uint64_t)a >> (b & 63)); }
+   static inline int64_t jf_ushr64(int64_t a, int64_t b) { return (int64_t)((uint64_t)a >> (b & 63)); }
+   /* §15.17.2/§15.17.3: `/` and `%` throw on a zero divisor, and MIN/-1 overflows
+    * to MIN rather than trapping. Folding either would move a runtime exception to
+    * compile time or compute UB, so both are refused and the ops emit as usual. */
+   #define JF_DIVOK32(a,b) ((b) != 0 && !((a) == INT32_MIN && (b) == -1))
+   #define JF_DIVOK64(a,b) ((b) != 0 && !((a) == INT64_MIN && (b) == -1))
+   #define CV(n)  const_val(n)
+   #define LV(n)  ((n)->load_long_const.value)
+   #define KID(n,i) sir_child((n),(i))
+
    /* Tiny selection accessors (anything substantial → emit_wasm.h). */
    #define const_val(n)  sir_const_val(n)
    #define local_slot(n) sir_local_slot(n)
@@ -270,33 +303,76 @@ MEMBERS (. emit_wasm_ctx emit; struct wasm_types_t* types; .)
 
 START stmt
 
+// The other two goals the backend reduces to BY NAME. The structurer owns the
+// control nodes — a `br` depth is a property of its scope stack, which no action
+// can reach — so it is a hand-written extension of Reduce() that demands these at
+// its frontier: `emit_branch_cond` asks for whichever of `cond`/`ncond` its site
+// wants. Goal-directed reduction is the formalism (iburg p.8 `rule(state,
+// goalnt)`), and these declarations are how the liveness analysis learns of a
+// demand it cannot otherwise see. They change no generated code.
+ENTRY cond
+ENTRY ncond
+
+// ── COSTS ARE BYTES ──────────────────────────────────────────────────────────
+//
+// Every rule's cost below is the number of bytes its action emits, counted from
+// the §5.4 encodings, at the MINIMAL-LEB fixture: every index/immediate one byte.
+// That anchor makes the min-cost DP a real byte comparison instead of a ranking
+// of guesses, and `test_burg_costs_are_bytes` holds it there — it asserts the
+// DP's accumulated cost equals the emitter's output length, per rule family, and
+// names any rule whose cost has gone stale.
+//
+// Reading them: an opcode is one byte (§5.4), except the 0xFB/0xFC/0xFD families,
+// which are the prefix plus a ULEB sub-opcode — two bytes for the sub-opcodes we
+// use. So `i32.add` is 1, `local.get n` is 2, `struct.get $t $f` is 4.
+//
+// Because a cost is a minimal-LEB count, an alternative cover must beat its rival
+// by a WHOLE INSTRUCTION to be selected on merit: a one-byte edge could otherwise
+// be erased by a shared immediate widening from one LEB byte to two.
+//
+// Where a rule's length is decided by something ON THE NODE, the rule SPLITS on
+// it rather than averaging: ExprEffect by is_void, Inc by storage width, and every
+// SIMD family by its opcode payload's encoded width. A guard is a pure predicate
+// over the node, so this stays selection, and the cost stays a byte count.
+//
+// Three rules are left whose length is decided by the LAYOUT rather than the node,
+// which a guard may not read. They carry their FLOOR — the shortest sequence they
+// can emit — with the reason stated at the rule:
+//   * `New` / `CloneCopy`, which emit one group per instance field;
+//   * `InstanceOf`, whose interface case calls a helper instead of ref.test.
+// A floor never overstates a cover. The cost test pins each floor against the
+// sequence that produces it, so a floor is a checked claim, not an assertion.
+
 RULES
 
 // ── Constants — one nonterminal per WASM valtype (distinct SIR leaves) ──
-i32: LoadConst       = 1 (. ew_emit(E, WOP_I32_CONST); ew_i32(E, const_val(node)); .);
-i64: LoadLongConst   = 1 (. ew_emit(E, WOP_I64_CONST); ew_i64(E, node->load_long_const.value); .);
-f32: LoadFloatConst  = 1 (. ew_emit(E, WOP_F32_CONST); ew_f32(E, node->load_float_const.value); .);
-f64: LoadDoubleConst = 1 (. ew_emit(E, WOP_F64_CONST); ew_f64(E, node->load_double_const.value); .);
+// f32/f64 literals are raw 4/8-byte payloads, not LEBs: 5 and 9 bytes, and the
+// reason a float constant is genuinely dearer than an integer one.
+i32: LoadConst       = 2 (. ew_emit(E, WOP_I32_CONST); ew_i32(E, const_val(node)); .);
+i64: LoadLongConst   = 2 (. ew_emit(E, WOP_I64_CONST); ew_i64(E, node->load_long_const.value); .);
+f32: LoadFloatConst  = 5 (. ew_emit(E, WOP_F32_CONST); ew_f32(E, node->load_float_const.value); .);
+f64: LoadDoubleConst = 9 (. ew_emit(E, WOP_F64_CONST); ew_f64(E, node->load_double_const.value); .);
 
 // ── Locals — the leaf's data_type picks its nonterminal; local.get is uniform ──
-i32: LoadLocal where (. DT_IS_I32(ll_dt(node)) .)        = 1 (. ew_emit(E, WOP_LOCAL_GET); ew_u32(E, local_slot(node)); .);
-i64: LoadLocal where (. ll_dt(node) == SIR_DTLONG .)     = 1 (. ew_emit(E, WOP_LOCAL_GET); ew_u32(E, local_slot(node)); .);
-f32: LoadLocal where (. ll_dt(node) == SIR_DTFLOAT .)    = 1 (. ew_emit(E, WOP_LOCAL_GET); ew_u32(E, local_slot(node)); .);
-f64: LoadLocal where (. ll_dt(node) == SIR_DTDOUBLE .)   = 1 (. ew_emit(E, WOP_LOCAL_GET); ew_u32(E, local_slot(node)); .);
-ref: LoadLocal where (. ll_dt(node) == SIR_DTREF .)      = 1 (. ew_emit(E, WOP_LOCAL_GET); ew_u32(E, local_slot(node)); .);
-v128: LoadLocal where (. ll_dt(node) == SIR_DTV128 .)    = 1 (. ew_emit(E, WOP_LOCAL_GET); ew_u32(E, local_slot(node)); .);
+i32: LoadLocal where (. DT_IS_I32(ll_dt(node)) .)        = 2 (. ew_emit(E, WOP_LOCAL_GET); ew_u32(E, local_slot(node)); .);
+i64: LoadLocal where (. ll_dt(node) == SIR_DTLONG .)     = 2 (. ew_emit(E, WOP_LOCAL_GET); ew_u32(E, local_slot(node)); .);
+f32: LoadLocal where (. ll_dt(node) == SIR_DTFLOAT .)    = 2 (. ew_emit(E, WOP_LOCAL_GET); ew_u32(E, local_slot(node)); .);
+f64: LoadLocal where (. ll_dt(node) == SIR_DTDOUBLE .)   = 2 (. ew_emit(E, WOP_LOCAL_GET); ew_u32(E, local_slot(node)); .);
+ref: LoadLocal where (. ll_dt(node) == SIR_DTREF .)      = 2 (. ew_emit(E, WOP_LOCAL_GET); ew_u32(E, local_slot(node)); .);
+v128: LoadLocal where (. ll_dt(node) == SIR_DTV128 .)    = 2 (. ew_emit(E, WOP_LOCAL_GET); ew_u32(E, local_slot(node)); .);
 // `this` is local 0. A virtual method's param 0 is typed at the root class (so
 // overrides share one vtable-slot func type), so re-narrow it to the method's own
 // class for member access. For a non-virtual method local 0 is already the own
 // class, so the cast is the identity. (Receiver is non-null → ref.cast non-null.)
-ref: LoadThis = 1 (. ew_emit(E, WOP_LOCAL_GET); ew_u32(E, 0); ew_emit(E, WOP_REF_CAST); ew_i32(E, struct_idx(node->load_this.class_id)); .);
+ref: LoadThis = 5 (. ew_emit(E, WOP_LOCAL_GET); ew_u32(E, 0); ew_emit(E, WOP_REF_CAST); ew_i32(E, struct_idx(node->load_this.class_id)); .);
 
 // The `null` literal: ref.null none — the bottom of the any hierarchy (§3.3.3
 // none ≤ every internal heaptype). One typed null that is assignable into any Java
 // reference slot and is (ref null eq)-comparable, so `x == null` lowers to ref.eq.
-ref: LoadNull = 1 (. ew_emit(E, WOP_REF_NULL); ew_i64(E, -15); .);
+// (§5.3: the `none` heaptype is 0x71, a one-byte s7, so ref.null none is 2 bytes.)
+ref: LoadNull = 2 (. ew_emit(E, WOP_REF_NULL); ew_i64(E, -15); .);
 // §20.3: the class's Class-object singleton (a per-class module global) — a (ref Class).
-ref: LoadClass = 1 (. ew_emit(E, WOP_GLOBAL_GET); ew_u32(E, wasm_class_singleton_global_index(ctx->types, node->load_class.class_id)); .);
+ref: LoadClass = 2 (. ew_emit(E, WOP_GLOBAL_GET); ew_u32(E, wasm_class_singleton_global_index(ctx->types, node->load_class.class_id)); .);
 
 // ── Arithmetic — children reduce first (postorder); the nonterminal selects
 //    the opcode. No data_type read here: type lives in the nonterminal. ──
@@ -314,7 +390,7 @@ i32: Ushr(i32,i32)= 1 (. ew_emit(E, WOP_I32_SHR_U); .);
 // No i32/i64.neg in WASM. BURS reduces the operand first, so a const can't
 // precede it (rules out 0 - x); x * -1 is the postorder-clean negation, exact
 // in two's complement (incl. MIN, which wraps to itself either way).
-i32: Neg(i32)     = 2 (. ew_emit(E, WOP_I32_CONST); ew_i32(E, -1); ew_emit(E, WOP_I32_MUL); .);
+i32: Neg(i32)     = 3 (. ew_emit(E, WOP_I32_CONST); ew_i32(E, -1); ew_emit(E, WOP_I32_MUL); .);
 i32: LogNot(i32)  = 1 (. ew_emit(E, WOP_I32_EQZ); .);   // !x  ==  (x == 0)
 
 i64: Add(i64,i64) = 1 (. ew_emit(E, WOP_I64_ADD); .);
@@ -328,7 +404,7 @@ i64: Xor(i64,i64) = 1 (. ew_emit(E, WOP_I64_XOR); .);
 i64: Shl(i64,i64) = 1 (. ew_emit(E, WOP_I64_SHL);   .);
 i64: Shr(i64,i64) = 1 (. ew_emit(E, WOP_I64_SHR_S); .);
 i64: Ushr(i64,i64)= 1 (. ew_emit(E, WOP_I64_SHR_U); .);
-i64: Neg(i64)     = 2 (. ew_emit(E, WOP_I64_CONST); ew_i64(E, -1); ew_emit(E, WOP_I64_MUL); .);
+i64: Neg(i64)     = 3 (. ew_emit(E, WOP_I64_CONST); ew_i64(E, -1); ew_emit(E, WOP_I64_MUL); .);
 
 f32: Add(f32,f32) = 1 (. ew_emit(E, WOP_F32_ADD); .);
 f32: Sub(f32,f32) = 1 (. ew_emit(E, WOP_F32_SUB); .);
@@ -375,6 +451,204 @@ i32: Ge(f64,f64) = 1 (. ew_emit(E, WOP_F64_GE); .);
 i32: Eq(ref,ref) = 1 (. ew_emit(E, WOP_REF_EQ); .);
 i32: Ne(ref,ref) = 2 (. ew_emit(E, WOP_REF_EQ); ew_emit(E, WOP_I32_EQZ); .);
 
+// ── Comparison against zero / null ────────────────────────────────────────────
+//
+// A constant zero on one side of a compare stops being an operand once the
+// compare becomes a test-against-zero: `x == 0` IS `i32.eqz x`, and WASM has an
+// eqz for i32 and i64 and a ref.is_null for references. These three nonterminals
+// are that observation made matchable — each derives only from the constant that
+// folds away, emits nothing, and costs nothing. The parent tile then out-prices
+// the general compare by exactly the bytes the constant would have taken, and the
+// DP decides on that, rather than on a rule ordering.
+//
+// Eliding a leaf is sound because SIR expression trees are PURE — effects live on
+// the spine (pure-CPS), so dropping a LoadConst or a LoadNull drops no work and no
+// evaluation order. Both operand orders are written for each shape: postorder
+// still leaves the stack correct, because the elided side emits nothing at all.
+// The folded-away constant is matched as a TERMINAL with its value tested in the
+// guard — never as a nonterminal of its own. The nonterminals ARE the type system
+// (the six WASM valtypes, plus the spine and the two context nonterminals), and a
+// constant's VALUE is not a type: putting it in the lattice adds a dimension the
+// analysis must consider everywhere while telling it nothing, because it cannot
+// read guards either. yoctojc discriminates the same way — `codegen.burg` :300-316
+// guards LoadConst on value RANGES to pick between sconst_0..5, bspush and sspush,
+// and every one of those rules still produces `sreg` or `ireg`.
+//
+// burgc emits no reduction for a terminal leaf in a pattern, so the constant is
+// simply never tiled: that is the elision, and it costs nothing to say.
+
+// `x == 0` → i32.eqz, against `i32.const 0; i32.eq` at 3.
+i32: Eq(i32, LoadConst) where (. CV(KID(node,1)) == 0 .) = 1 (. ew_emit(E, WOP_I32_EQZ); .);
+i32: Eq(LoadConst, i32) where (. CV(KID(node,0)) == 0 .) = 1 (. ew_emit(E, WOP_I32_EQZ); .);
+// `x != 0` → eqz twice (normalise, then invert), 2 against 3. No i32.nez exists.
+i32: Ne(i32, LoadConst) where (. CV(KID(node,1)) == 0 .) = 2 (. ew_emit(E, WOP_I32_EQZ); ew_emit(E, WOP_I32_EQZ); .);
+i32: Ne(LoadConst, i32) where (. CV(KID(node,0)) == 0 .) = 2 (. ew_emit(E, WOP_I32_EQZ); ew_emit(E, WOP_I32_EQZ); .);
+// The i64 twins. i64.eqz already yields an i32, so the inversion is an i32.eqz.
+i32: Eq(i64, LoadLongConst) where (. LV(KID(node,1)) == 0 .) = 1 (. ew_emit(E, WOP_I64_EQZ); .);
+i32: Eq(LoadLongConst, i64) where (. LV(KID(node,0)) == 0 .) = 1 (. ew_emit(E, WOP_I64_EQZ); .);
+i32: Ne(i64, LoadLongConst) where (. LV(KID(node,1)) == 0 .) = 2 (. ew_emit(E, WOP_I64_EQZ); ew_emit(E, WOP_I32_EQZ); .);
+i32: Ne(LoadLongConst, i64) where (. LV(KID(node,0)) == 0 .) = 2 (. ew_emit(E, WOP_I64_EQZ); ew_emit(E, WOP_I32_EQZ); .);
+// §15.21.3 against the null literal: ref.is_null is exactly `x == null`, and it
+// accepts any nullable reference — where ref.eq needs both sides under `eq`.
+// LoadNull carries no value, so these need no guard at all — the terminal IS the
+// test, exactly as yoctojc's Branch(Cmp(aref, LoadNull)) rules are written.
+i32: Eq(ref, LoadNull) = 1 (. ew_emit(E, WOP_REF_IS_NULL); .);
+i32: Eq(LoadNull, ref) = 1 (. ew_emit(E, WOP_REF_IS_NULL); .);
+i32: Ne(ref, LoadNull) = 2 (. ew_emit(E, WOP_REF_IS_NULL); ew_emit(E, WOP_I32_EQZ); .);
+i32: Ne(LoadNull, ref) = 2 (. ew_emit(E, WOP_REF_IS_NULL); ew_emit(E, WOP_I32_EQZ); .);
+
+// ── Identity elision and constant folding ─────────────────────────────────────
+//
+// An operator whose second operand is its identity element does nothing: `x + 0`
+// IS x. The tile is the child alone — no opcode, no constant, cost 0 — and it is
+// sound for the same reason the zero/null tiles are: expression trees are pure, so
+// dropping the constant drops no work and no evaluation order.
+//
+// These serve the −O0 path. Under −O the Click optimizer folds most of this away
+// upstream, and that overlap is fine — a selector that emits `x; i32.const 0;
+// i32.add` when it could emit `x` is producing bad code whether or not some other
+// pass would have prevented it.
+//
+// Only the orders that ARE identities appear: `0 - x` is not x, and `1 / x` is not
+// x, so Sub and Div take the right-hand form only.
+i32: Add(i32, LoadConst) where (. CV(KID(node,1)) == 0 .)  = 0;
+i32: Add(LoadConst, i32) where (. CV(KID(node,0)) == 0 .)  = 0;
+i32: Sub(i32, LoadConst) where (. CV(KID(node,1)) == 0 .)  = 0;
+i32: Mul(i32, LoadConst) where (. CV(KID(node,1)) == 1 .)  = 0;
+i32: Mul(LoadConst, i32) where (. CV(KID(node,0)) == 1 .)  = 0;
+i32: Div(i32, LoadConst) where (. CV(KID(node,1)) == 1 .)  = 0;
+i32: Or(i32, LoadConst)  where (. CV(KID(node,1)) == 0 .)  = 0;
+i32: Or(LoadConst, i32)  where (. CV(KID(node,0)) == 0 .)  = 0;
+i32: Xor(i32, LoadConst) where (. CV(KID(node,1)) == 0 .)  = 0;
+i32: Xor(LoadConst, i32) where (. CV(KID(node,0)) == 0 .)  = 0;
+i32: And(i32, LoadConst) where (. CV(KID(node,1)) == -1 .) = 0;
+i32: And(LoadConst, i32) where (. CV(KID(node,0)) == -1 .) = 0;
+i32: Shl(i32, LoadConst)  where (. CV(KID(node,1)) == 0 .) = 0;
+i32: Shr(i32, LoadConst)  where (. CV(KID(node,1)) == 0 .) = 0;
+i32: Ushr(i32, LoadConst) where (. CV(KID(node,1)) == 0 .) = 0;
+i64: Add(i64, LoadLongConst) where (. LV(KID(node,1)) == 0 .)  = 0;
+i64: Add(LoadLongConst, i64) where (. LV(KID(node,0)) == 0 .)  = 0;
+i64: Sub(i64, LoadLongConst) where (. LV(KID(node,1)) == 0 .)  = 0;
+i64: Mul(i64, LoadLongConst) where (. LV(KID(node,1)) == 1 .)  = 0;
+i64: Mul(LoadLongConst, i64) where (. LV(KID(node,0)) == 1 .)  = 0;
+i64: Div(i64, LoadLongConst) where (. LV(KID(node,1)) == 1 .)  = 0;
+i64: Or(i64, LoadLongConst)  where (. LV(KID(node,1)) == 0 .)  = 0;
+i64: Or(LoadLongConst, i64)  where (. LV(KID(node,0)) == 0 .)  = 0;
+i64: Xor(i64, LoadLongConst) where (. LV(KID(node,1)) == 0 .)  = 0;
+i64: Xor(LoadLongConst, i64) where (. LV(KID(node,0)) == 0 .)  = 0;
+i64: And(i64, LoadLongConst) where (. LV(KID(node,1)) == -1 .) = 0;
+i64: And(LoadLongConst, i64) where (. LV(KID(node,0)) == -1 .) = 0;
+// §15.19 masks a shift count, so a shift by a 64-bit zero is still the identity.
+i64: Shl(i64, LoadLongConst)  where (. LV(KID(node,1)) == 0 .) = 0;
+i64: Shr(i64, LoadLongConst)  where (. LV(KID(node,1)) == 0 .) = 0;
+i64: Ushr(i64, LoadLongConst) where (. LV(KID(node,1)) == 0 .) = 0;
+
+// Both operands constant: emit the answer instead of the recipe. The children are
+// TERMINAL leaves in these patterns, so the matcher reduces neither — the action
+// reads them and emits one constant. Costed as a constant is costed (minimal-LEB,
+// 2), which is what makes the fold win: the unfolded cover is 2 + 2 + 1.
+//
+// Integer only. §15.4: float arithmetic carries NaN payloads and signed zero, so
+// folding one is a semantics decision rather than a selection one, and the
+// optimizer owns it. i64 is here because its arithmetic is as exactly specified as
+// i32's — the exclusion in this plan's B4 text is argued from NaN/−0.0, which is a
+// float property, so it does not reach i64.
+i32: Add(LoadConst, LoadConst) = 2 (. ew_emit(E, WOP_I32_CONST); ew_i32(E, jf_add32(CV(KID(node,0)), CV(KID(node,1)))); .);
+i32: Sub(LoadConst, LoadConst) = 2 (. ew_emit(E, WOP_I32_CONST); ew_i32(E, jf_sub32(CV(KID(node,0)), CV(KID(node,1)))); .);
+i32: Mul(LoadConst, LoadConst) = 2 (. ew_emit(E, WOP_I32_CONST); ew_i32(E, jf_mul32(CV(KID(node,0)), CV(KID(node,1)))); .);
+i32: And(LoadConst, LoadConst) = 2 (. ew_emit(E, WOP_I32_CONST); ew_i32(E, CV(KID(node,0)) & CV(KID(node,1))); .);
+i32: Or(LoadConst, LoadConst)  = 2 (. ew_emit(E, WOP_I32_CONST); ew_i32(E, CV(KID(node,0)) | CV(KID(node,1))); .);
+i32: Xor(LoadConst, LoadConst) = 2 (. ew_emit(E, WOP_I32_CONST); ew_i32(E, CV(KID(node,0)) ^ CV(KID(node,1))); .);
+i32: Shl(LoadConst, LoadConst) = 2 (. ew_emit(E, WOP_I32_CONST); ew_i32(E, jf_shl32(CV(KID(node,0)), CV(KID(node,1)))); .);
+i32: Shr(LoadConst, LoadConst) = 2 (. ew_emit(E, WOP_I32_CONST); ew_i32(E, jf_shr32(CV(KID(node,0)), CV(KID(node,1)))); .);
+i32: Ushr(LoadConst, LoadConst)= 2 (. ew_emit(E, WOP_I32_CONST); ew_i32(E, jf_ushr32(CV(KID(node,0)), CV(KID(node,1)))); .);
+i32: Neg(LoadConst)            = 2 (. ew_emit(E, WOP_I32_CONST); ew_i32(E, jf_sub32(0, CV(KID(node,0)))); .);
+i32: Div(LoadConst, LoadConst) where (. JF_DIVOK32(CV(KID(node,0)), CV(KID(node,1))) .)
+                               = 2 (. ew_emit(E, WOP_I32_CONST); ew_i32(E, CV(KID(node,0)) / CV(KID(node,1))); .);
+i32: Rem(LoadConst, LoadConst) where (. JF_DIVOK32(CV(KID(node,0)), CV(KID(node,1))) .)
+                               = 2 (. ew_emit(E, WOP_I32_CONST); ew_i32(E, CV(KID(node,0)) % CV(KID(node,1))); .);
+i64: Add(LoadLongConst, LoadLongConst) = 2 (. ew_emit(E, WOP_I64_CONST); ew_i64(E, jf_add64(LV(KID(node,0)), LV(KID(node,1)))); .);
+i64: Sub(LoadLongConst, LoadLongConst) = 2 (. ew_emit(E, WOP_I64_CONST); ew_i64(E, jf_sub64(LV(KID(node,0)), LV(KID(node,1)))); .);
+i64: Mul(LoadLongConst, LoadLongConst) = 2 (. ew_emit(E, WOP_I64_CONST); ew_i64(E, jf_mul64(LV(KID(node,0)), LV(KID(node,1)))); .);
+i64: And(LoadLongConst, LoadLongConst) = 2 (. ew_emit(E, WOP_I64_CONST); ew_i64(E, LV(KID(node,0)) & LV(KID(node,1))); .);
+i64: Or(LoadLongConst, LoadLongConst)  = 2 (. ew_emit(E, WOP_I64_CONST); ew_i64(E, LV(KID(node,0)) | LV(KID(node,1))); .);
+i64: Xor(LoadLongConst, LoadLongConst) = 2 (. ew_emit(E, WOP_I64_CONST); ew_i64(E, LV(KID(node,0)) ^ LV(KID(node,1))); .);
+i64: Shl(LoadLongConst, LoadLongConst) = 2 (. ew_emit(E, WOP_I64_CONST); ew_i64(E, jf_shl64(LV(KID(node,0)), LV(KID(node,1)))); .);
+i64: Shr(LoadLongConst, LoadLongConst) = 2 (. ew_emit(E, WOP_I64_CONST); ew_i64(E, jf_shr64(LV(KID(node,0)), LV(KID(node,1)))); .);
+i64: Ushr(LoadLongConst, LoadLongConst)= 2 (. ew_emit(E, WOP_I64_CONST); ew_i64(E, jf_ushr64(LV(KID(node,0)), LV(KID(node,1)))); .);
+i64: Neg(LoadLongConst)                = 2 (. ew_emit(E, WOP_I64_CONST); ew_i64(E, jf_sub64(0, LV(KID(node,0)))); .);
+i64: Div(LoadLongConst, LoadLongConst) where (. JF_DIVOK64(LV(KID(node,0)), LV(KID(node,1))) .)
+                               = 2 (. ew_emit(E, WOP_I64_CONST); ew_i64(E, LV(KID(node,0)) / LV(KID(node,1))); .);
+i64: Rem(LoadLongConst, LoadLongConst) where (. JF_DIVOK64(LV(KID(node,0)), LV(KID(node,1))) .)
+                               = 2 (. ew_emit(E, WOP_I64_CONST); ew_i64(E, LV(KID(node,0)) % LV(KID(node,1))); .);
+
+// ── The branch context ────────────────────────────────────────────────────────
+//
+// A condition is not a value. The structurer is about to consume it as a truth
+// test — `if` and `br_if` are the consumers — so the tile that serves a branch is
+// not the tile that serves an assignment. Until this nonterminal existed the
+// structurer tiled conditions through the value chain and the matcher never saw
+// the context at all, so every guard materialised a 0/1 and then tested it.
+//
+// Two things make the context pay:
+//   * a compare against zero needs no code whatever — `if (x != 0)` IS `if (x)`;
+//   * a NEGATED condition is often cheaper, and every consumer here can take one:
+//     an if/else exchanges its arms, a branch-on-false wants the inverse already.
+//
+// So polarity is a GOAL, not a flag. `cond` emits the condition's truth; `ncond`
+// emits its inverse. Both are declared ENTRY — the structurer reduces to them by
+// name, which is ordinary goal-directed reduction (iburg p.8 `rule(state,
+// goalnt)`), not an escape from the formalism. The structurer labels once, reads
+// both costs, and asks for whichever its site wants at the price the DP computed:
+// the inversion is a COVER ALTERNATIVE priced per site, exactly as `tail` is.
+//
+// This replaces a `cond_neg` flag on the context that rule actions toggled and
+// four call sites repaired. That design was correct and pinned, but it needed an
+// argument for why costing a toggle 0 was admissible; this one needs none,
+// because nothing travels out of band — the answer IS which goal was reduced.
+// No rule action mutates ctx state anywhere in this grammar; that is a property
+// to grep for, not to remember.
+//
+// Costs are bytes, as everywhere. An `ncond` rule costs what it emits to produce
+// the inverse, so the two columns differ by exactly the i32.eqz that separates
+// them — which is what lets a site compare cost[cond] against cost[ncond]+1 (or
+// the reverse) and pick on real bytes.
+cond:  i32 = 0;                          // the truth value itself
+ncond: i32 = 1 (. ew_emit(E, WOP_I32_EQZ); .);
+// The truth of !e is the FALSITY of e — the double negation is structural now,
+// so two negations cancel by derivation rather than by a flag flipping twice.
+cond:  LogNot(ncond) = 0;
+ncond: LogNot(cond)  = 0;
+// `x != 0` is the condition itself; its inverse needs the eqz.
+cond:  Ne(i32, LoadConst) where (. CV(KID(node,1)) == 0 .) = 0;
+cond:  Ne(LoadConst, i32) where (. CV(KID(node,0)) == 0 .) = 0;
+ncond: Ne(i32, LoadConst) where (. CV(KID(node,1)) == 0 .) = 1 (. ew_emit(E, WOP_I32_EQZ); .);
+ncond: Ne(LoadConst, i32) where (. CV(KID(node,0)) == 0 .) = 1 (. ew_emit(E, WOP_I32_EQZ); .);
+// `x == 0` is the mirror: free as an inverse, one eqz as a truth.
+cond:  Eq(i32, LoadConst) where (. CV(KID(node,1)) == 0 .) = 1 (. ew_emit(E, WOP_I32_EQZ); .);
+cond:  Eq(LoadConst, i32) where (. CV(KID(node,0)) == 0 .) = 1 (. ew_emit(E, WOP_I32_EQZ); .);
+ncond: Eq(i32, LoadConst) where (. CV(KID(node,1)) == 0 .) = 0;
+ncond: Eq(LoadConst, i32) where (. CV(KID(node,0)) == 0 .) = 0;
+// i64 needs its eqz to reach an i32 truth value either way; only the extra
+// inversion separates the columns.
+cond:  Eq(i64, LoadLongConst) where (. LV(KID(node,1)) == 0 .) = 1 (. ew_emit(E, WOP_I64_EQZ); .);
+cond:  Eq(LoadLongConst, i64) where (. LV(KID(node,0)) == 0 .) = 1 (. ew_emit(E, WOP_I64_EQZ); .);
+ncond: Eq(i64, LoadLongConst) where (. LV(KID(node,1)) == 0 .) = 2 (. ew_emit(E, WOP_I64_EQZ); ew_emit(E, WOP_I32_EQZ); .);
+ncond: Eq(LoadLongConst, i64) where (. LV(KID(node,0)) == 0 .) = 2 (. ew_emit(E, WOP_I64_EQZ); ew_emit(E, WOP_I32_EQZ); .);
+cond:  Ne(i64, LoadLongConst) where (. LV(KID(node,1)) == 0 .) = 2 (. ew_emit(E, WOP_I64_EQZ); ew_emit(E, WOP_I32_EQZ); .);
+cond:  Ne(LoadLongConst, i64) where (. LV(KID(node,0)) == 0 .) = 2 (. ew_emit(E, WOP_I64_EQZ); ew_emit(E, WOP_I32_EQZ); .);
+ncond: Ne(i64, LoadLongConst) where (. LV(KID(node,1)) == 0 .) = 1 (. ew_emit(E, WOP_I64_EQZ); .);
+ncond: Ne(LoadLongConst, i64) where (. LV(KID(node,0)) == 0 .) = 1 (. ew_emit(E, WOP_I64_EQZ); .);
+// ref.is_null answers `== null` outright; `!= null` is the same test, inverted.
+cond:  Eq(ref, LoadNull) = 1 (. ew_emit(E, WOP_REF_IS_NULL); .);
+cond:  Eq(LoadNull, ref) = 1 (. ew_emit(E, WOP_REF_IS_NULL); .);
+ncond: Eq(ref, LoadNull) = 2 (. ew_emit(E, WOP_REF_IS_NULL); ew_emit(E, WOP_I32_EQZ); .);
+ncond: Eq(LoadNull, ref) = 2 (. ew_emit(E, WOP_REF_IS_NULL); ew_emit(E, WOP_I32_EQZ); .);
+cond:  Ne(ref, LoadNull) = 2 (. ew_emit(E, WOP_REF_IS_NULL); ew_emit(E, WOP_I32_EQZ); .);
+cond:  Ne(LoadNull, ref) = 2 (. ew_emit(E, WOP_REF_IS_NULL); ew_emit(E, WOP_I32_EQZ); .);
+ncond: Ne(ref, LoadNull) = 1 (. ew_emit(E, WOP_REF_IS_NULL); .);
+ncond: Ne(LoadNull, ref) = 1 (. ew_emit(E, WOP_REF_IS_NULL); .);
+
 // ── §5.1 conversions — explicit nodes (the type-flow bridges between
 //    nonterminals); float→int is saturating (JLS §5.1.3). ──
 i64: I2L(i32) = 1 (. ew_emit(E, WOP_I64_EXTEND_I32_S); .);
@@ -385,10 +659,11 @@ f32: L2F(i64) = 1 (. ew_emit(E, WOP_F32_CONVERT_I64_S); .);
 f64: L2D(i64) = 1 (. ew_emit(E, WOP_F64_CONVERT_I64_S); .);
 f64: F2D(f32) = 1 (. ew_emit(E, WOP_F64_PROMOTE_F32); .);
 f32: D2F(f64) = 1 (. ew_emit(E, WOP_F32_DEMOTE_F64); .);
-i32: F2I(f32) = 1 (. ew_emit(E, WOP_I32_TRUNC_SAT_F32_S); .);
-i32: D2I(f64) = 1 (. ew_emit(E, WOP_I32_TRUNC_SAT_F64_S); .);
-i64: F2L(f32) = 1 (. ew_emit(E, WOP_I64_TRUNC_SAT_F32_S); .);
-i64: D2L(f64) = 1 (. ew_emit(E, WOP_I64_TRUNC_SAT_F64_S); .);
+// The saturating truncations are the 0xFC family — prefix + sub-opcode, 2 bytes.
+i32: F2I(f32) = 2 (. ew_emit(E, WOP_I32_TRUNC_SAT_F32_S); .);
+i32: D2I(f64) = 2 (. ew_emit(E, WOP_I32_TRUNC_SAT_F64_S); .);
+i64: F2L(f32) = 2 (. ew_emit(E, WOP_I64_TRUNC_SAT_F32_S); .);
+i64: D2L(f64) = 2 (. ew_emit(E, WOP_I64_TRUNC_SAT_F64_S); .);
 // Bit-preserving moves (typed bitcast) — same bits, reinterpreted across the float/int domains.
 i32: MoveF2I(f32) = 1 (. ew_emit(E, WOP_I32_REINTERPRET_F32); .);
 f32: MoveI2F(i32) = 1 (. ew_emit(E, WOP_F32_REINTERPRET_I32); .);
@@ -402,7 +677,9 @@ f64: F64Nearest(f64) = 1 (. ew_emit(E, WOP_F64_NEAREST); .);
 // int-family narrowings — byte/short/char/int are all i32, so these stay i32.
 i32: I2B(i32) = 1 (. ew_emit(E, WOP_I32_EXTEND8_S); .);
 i32: I2S(i32) = 1 (. ew_emit(E, WOP_I32_EXTEND16_S); .);
-i32: I2C(i32) = 2 (. ew_emit(E, WOP_I32_CONST); ew_i32(E, 0xFFFF); ew_emit(E, WOP_I32_AND); .);  // (char): zero-extend low 16
+// (char): zero-extend low 16. 0xFFFF is a fixed literal, not a fixture immediate —
+// its signed LEB is three bytes, so the const is 4 and the tile 5.
+i32: I2C(i32) = 5 (. ew_emit(E, WOP_I32_CONST); ew_i32(E, 0xFFFF); ew_emit(E, WOP_I32_AND); .);
 i32: S2B(i32) = 1 (. ew_emit(E, WOP_I32_EXTEND8_S); .);
 i32: S2I(i32) = 0 (. /* short→int: both i32, no-op (the operand already an i32) */ .);
 
@@ -429,72 +706,120 @@ stmt: Return(tail) = 0 (. /* the tail invoke already emitted return_call* and re
 // Throw — the exception ref is the payload of the single Java-exception tag
 // ($jexn, tag index 0; defined in the module's tag section at assembly time).
 // A terminator: control leaves via the throw.
-stmt: Throw(ref) = 1 (. ew_emit(E, WOP_THROW); ew_u32(E, 0); .);
+stmt: Throw(ref) = 2 (. ew_emit(E, WOP_THROW); ew_u32(E, 0); .);
 
-stmt: StoreLocal(i32) = 1 (. ew_emit(E, WOP_LOCAL_SET); ew_u32(E, node->store_local.slot); cg_jump(E, node); .);
-stmt: StoreLocal(i64) = 1 (. ew_emit(E, WOP_LOCAL_SET); ew_u32(E, node->store_local.slot); cg_jump(E, node); .);
-stmt: StoreLocal(f32) = 1 (. ew_emit(E, WOP_LOCAL_SET); ew_u32(E, node->store_local.slot); cg_jump(E, node); .);
-stmt: StoreLocal(f64) = 1 (. ew_emit(E, WOP_LOCAL_SET); ew_u32(E, node->store_local.slot); cg_jump(E, node); .);
-stmt: StoreLocal(ref) = 1 (. ew_emit(E, WOP_LOCAL_SET); ew_u32(E, node->store_local.slot); cg_jump(E, node); .);
-stmt: StoreLocal(v128) = 1 (. ew_emit(E, WOP_LOCAL_SET); ew_u32(E, node->store_local.slot); cg_jump(E, node); .);
+stmt: StoreLocal(i32) = 2 (. ew_emit(E, WOP_LOCAL_SET); ew_u32(E, node->store_local.slot); cg_jump(E, node); .);
+stmt: StoreLocal(i64) = 2 (. ew_emit(E, WOP_LOCAL_SET); ew_u32(E, node->store_local.slot); cg_jump(E, node); .);
+stmt: StoreLocal(f32) = 2 (. ew_emit(E, WOP_LOCAL_SET); ew_u32(E, node->store_local.slot); cg_jump(E, node); .);
+stmt: StoreLocal(f64) = 2 (. ew_emit(E, WOP_LOCAL_SET); ew_u32(E, node->store_local.slot); cg_jump(E, node); .);
+stmt: StoreLocal(ref) = 2 (. ew_emit(E, WOP_LOCAL_SET); ew_u32(E, node->store_local.slot); cg_jump(E, node); .);
+stmt: StoreLocal(v128) = 2 (. ew_emit(E, WOP_LOCAL_SET); ew_u32(E, node->store_local.slot); cg_jump(E, node); .);
 
 // ── WASM v128 SIMD families — ONE tile per family; the node's `op` payload IS
 // the WOP_* enum value (generated from the same instructions.toml the encoder
 // table comes from), so the emit is a single table lookup with no per-op tiles
 // and no prefix logic. Lane immediates are a trailing byte; SimdConst/Shuffle
 // carry their 16 immediate bytes as two int64 halves, emitted little-endian.
-v128: SimdBin(v128, v128)  = 1 (. ew_emit(E, (wasm_op_t)node->simd_bin.op); .);
-v128: SimdUn(v128)         = 1 (. ew_emit(E, (wasm_op_t)node->simd_un.op); .);
-v128: SimdShift(v128, i32) = 1 (. ew_emit(E, (wasm_op_t)node->simd_shift.op); .);
-v128: SimdTern(v128, v128, v128) = 1 (. ew_emit(E, (wasm_op_t)node->simd_tern.op); .);
-i32: SimdTestI(v128)       = 1 (. ew_emit(E, (wasm_op_t)node->simd_test_i.op); .);
-v128: SimdSplatI(i32)      = 1 (. ew_emit(E, (wasm_op_t)node->simd_splat_i.op); .);
-v128: SimdSplatL(i64)      = 1 (. ew_emit(E, (wasm_op_t)node->simd_splat_l.op); .);
-v128: SimdSplatF(f32)      = 1 (. ew_emit(E, (wasm_op_t)node->simd_splat_f.op); .);
-v128: SimdSplatD(f64)      = 1 (. ew_emit(E, (wasm_op_t)node->simd_splat_d.op); .);
-i32: SimdExtractI(v128)    = 1 (. ew_emit(E, (wasm_op_t)node->simd_extract_i.op); ew_byte(E, (uint8_t)node->simd_extract_i.lane); .);
-i64: SimdExtractL(v128)    = 1 (. ew_emit(E, (wasm_op_t)node->simd_extract_l.op); ew_byte(E, (uint8_t)node->simd_extract_l.lane); .);
-f32: SimdExtractF(v128)    = 1 (. ew_emit(E, (wasm_op_t)node->simd_extract_f.op); ew_byte(E, (uint8_t)node->simd_extract_f.lane); .);
-f64: SimdExtractD(v128)    = 1 (. ew_emit(E, (wasm_op_t)node->simd_extract_d.op); ew_byte(E, (uint8_t)node->simd_extract_d.lane); .);
-v128: SimdReplaceI(v128, i32) = 1 (. ew_emit(E, (wasm_op_t)node->simd_replace_i.op); ew_byte(E, (uint8_t)node->simd_replace_i.lane); .);
-v128: SimdReplaceL(v128, i64) = 1 (. ew_emit(E, (wasm_op_t)node->simd_replace_l.op); ew_byte(E, (uint8_t)node->simd_replace_l.lane); .);
-v128: SimdReplaceF(v128, f32) = 1 (. ew_emit(E, (wasm_op_t)node->simd_replace_f.op); ew_byte(E, (uint8_t)node->simd_replace_f.lane); .);
-v128: SimdReplaceD(v128, f64) = 1 (. ew_emit(E, (wasm_op_t)node->simd_replace_d.op); ew_byte(E, (uint8_t)node->simd_replace_d.lane); .);
-v128: SimdConst = 1 (. ew_emit(E, WOP_V128_CONST);
+//
+// The opcode is a node PAYLOAD, so its width is data: 0xFD plus a ULEB sub-opcode
+// is 2 bytes below 0x80 and 3 at or above it (the relaxed rows included). One
+// static cost therefore cannot be a byte count for a whole family — so each family
+// splits on ew_op_width, which reads the same wasm_op_enc[] row ew_emit encodes
+// from. Two rules per family, exact costs, and the payload design intact: the
+// action is still one table lookup, and the guard is a pure predicate on the node.
+v128: SimdBin(v128, v128)  where (. ew_op_width((wasm_op_t)node->simd_bin.op) == 2 .) = 2 (. ew_emit(E, (wasm_op_t)node->simd_bin.op); .);
+v128: SimdBin(v128, v128)  where (. ew_op_width((wasm_op_t)node->simd_bin.op) == 3 .) = 3 (. ew_emit(E, (wasm_op_t)node->simd_bin.op); .);
+v128: SimdUn(v128)         where (. ew_op_width((wasm_op_t)node->simd_un.op) == 2 .) = 2 (. ew_emit(E, (wasm_op_t)node->simd_un.op); .);
+v128: SimdUn(v128)         where (. ew_op_width((wasm_op_t)node->simd_un.op) == 3 .) = 3 (. ew_emit(E, (wasm_op_t)node->simd_un.op); .);
+v128: SimdShift(v128, i32) where (. ew_op_width((wasm_op_t)node->simd_shift.op) == 2 .) = 2 (. ew_emit(E, (wasm_op_t)node->simd_shift.op); .);
+v128: SimdShift(v128, i32) where (. ew_op_width((wasm_op_t)node->simd_shift.op) == 3 .) = 3 (. ew_emit(E, (wasm_op_t)node->simd_shift.op); .);
+v128: SimdTern(v128, v128, v128) where (. ew_op_width((wasm_op_t)node->simd_tern.op) == 2 .) = 2 (. ew_emit(E, (wasm_op_t)node->simd_tern.op); .);
+v128: SimdTern(v128, v128, v128) where (. ew_op_width((wasm_op_t)node->simd_tern.op) == 3 .) = 3 (. ew_emit(E, (wasm_op_t)node->simd_tern.op); .);
+i32: SimdTestI(v128)       where (. ew_op_width((wasm_op_t)node->simd_test_i.op) == 2 .) = 2 (. ew_emit(E, (wasm_op_t)node->simd_test_i.op); .);
+i32: SimdTestI(v128)       where (. ew_op_width((wasm_op_t)node->simd_test_i.op) == 3 .) = 3 (. ew_emit(E, (wasm_op_t)node->simd_test_i.op); .);
+v128: SimdSplatI(i32)      where (. ew_op_width((wasm_op_t)node->simd_splat_i.op) == 2 .) = 2 (. ew_emit(E, (wasm_op_t)node->simd_splat_i.op); .);
+v128: SimdSplatI(i32)      where (. ew_op_width((wasm_op_t)node->simd_splat_i.op) == 3 .) = 3 (. ew_emit(E, (wasm_op_t)node->simd_splat_i.op); .);
+v128: SimdSplatL(i64)      where (. ew_op_width((wasm_op_t)node->simd_splat_l.op) == 2 .) = 2 (. ew_emit(E, (wasm_op_t)node->simd_splat_l.op); .);
+v128: SimdSplatL(i64)      where (. ew_op_width((wasm_op_t)node->simd_splat_l.op) == 3 .) = 3 (. ew_emit(E, (wasm_op_t)node->simd_splat_l.op); .);
+v128: SimdSplatF(f32)      where (. ew_op_width((wasm_op_t)node->simd_splat_f.op) == 2 .) = 2 (. ew_emit(E, (wasm_op_t)node->simd_splat_f.op); .);
+v128: SimdSplatF(f32)      where (. ew_op_width((wasm_op_t)node->simd_splat_f.op) == 3 .) = 3 (. ew_emit(E, (wasm_op_t)node->simd_splat_f.op); .);
+v128: SimdSplatD(f64)      where (. ew_op_width((wasm_op_t)node->simd_splat_d.op) == 2 .) = 2 (. ew_emit(E, (wasm_op_t)node->simd_splat_d.op); .);
+v128: SimdSplatD(f64)      where (. ew_op_width((wasm_op_t)node->simd_splat_d.op) == 3 .) = 3 (. ew_emit(E, (wasm_op_t)node->simd_splat_d.op); .);
+// …plus the trailing lane byte for the lane-immediate families.
+i32: SimdExtractI(v128)    where (. ew_op_width((wasm_op_t)node->simd_extract_i.op) == 2 .) = 3 (. ew_emit(E, (wasm_op_t)node->simd_extract_i.op); ew_byte(E, (uint8_t)node->simd_extract_i.lane); .);
+i32: SimdExtractI(v128)    where (. ew_op_width((wasm_op_t)node->simd_extract_i.op) == 3 .) = 4 (. ew_emit(E, (wasm_op_t)node->simd_extract_i.op); ew_byte(E, (uint8_t)node->simd_extract_i.lane); .);
+i64: SimdExtractL(v128)    where (. ew_op_width((wasm_op_t)node->simd_extract_l.op) == 2 .) = 3 (. ew_emit(E, (wasm_op_t)node->simd_extract_l.op); ew_byte(E, (uint8_t)node->simd_extract_l.lane); .);
+i64: SimdExtractL(v128)    where (. ew_op_width((wasm_op_t)node->simd_extract_l.op) == 3 .) = 4 (. ew_emit(E, (wasm_op_t)node->simd_extract_l.op); ew_byte(E, (uint8_t)node->simd_extract_l.lane); .);
+f32: SimdExtractF(v128)    where (. ew_op_width((wasm_op_t)node->simd_extract_f.op) == 2 .) = 3 (. ew_emit(E, (wasm_op_t)node->simd_extract_f.op); ew_byte(E, (uint8_t)node->simd_extract_f.lane); .);
+f32: SimdExtractF(v128)    where (. ew_op_width((wasm_op_t)node->simd_extract_f.op) == 3 .) = 4 (. ew_emit(E, (wasm_op_t)node->simd_extract_f.op); ew_byte(E, (uint8_t)node->simd_extract_f.lane); .);
+f64: SimdExtractD(v128)    where (. ew_op_width((wasm_op_t)node->simd_extract_d.op) == 2 .) = 3 (. ew_emit(E, (wasm_op_t)node->simd_extract_d.op); ew_byte(E, (uint8_t)node->simd_extract_d.lane); .);
+f64: SimdExtractD(v128)    where (. ew_op_width((wasm_op_t)node->simd_extract_d.op) == 3 .) = 4 (. ew_emit(E, (wasm_op_t)node->simd_extract_d.op); ew_byte(E, (uint8_t)node->simd_extract_d.lane); .);
+v128: SimdReplaceI(v128, i32) where (. ew_op_width((wasm_op_t)node->simd_replace_i.op) == 2 .) = 3 (. ew_emit(E, (wasm_op_t)node->simd_replace_i.op); ew_byte(E, (uint8_t)node->simd_replace_i.lane); .);
+v128: SimdReplaceI(v128, i32) where (. ew_op_width((wasm_op_t)node->simd_replace_i.op) == 3 .) = 4 (. ew_emit(E, (wasm_op_t)node->simd_replace_i.op); ew_byte(E, (uint8_t)node->simd_replace_i.lane); .);
+v128: SimdReplaceL(v128, i64) where (. ew_op_width((wasm_op_t)node->simd_replace_l.op) == 2 .) = 3 (. ew_emit(E, (wasm_op_t)node->simd_replace_l.op); ew_byte(E, (uint8_t)node->simd_replace_l.lane); .);
+v128: SimdReplaceL(v128, i64) where (. ew_op_width((wasm_op_t)node->simd_replace_l.op) == 3 .) = 4 (. ew_emit(E, (wasm_op_t)node->simd_replace_l.op); ew_byte(E, (uint8_t)node->simd_replace_l.lane); .);
+v128: SimdReplaceF(v128, f32) where (. ew_op_width((wasm_op_t)node->simd_replace_f.op) == 2 .) = 3 (. ew_emit(E, (wasm_op_t)node->simd_replace_f.op); ew_byte(E, (uint8_t)node->simd_replace_f.lane); .);
+v128: SimdReplaceF(v128, f32) where (. ew_op_width((wasm_op_t)node->simd_replace_f.op) == 3 .) = 4 (. ew_emit(E, (wasm_op_t)node->simd_replace_f.op); ew_byte(E, (uint8_t)node->simd_replace_f.lane); .);
+v128: SimdReplaceD(v128, f64) where (. ew_op_width((wasm_op_t)node->simd_replace_d.op) == 2 .) = 3 (. ew_emit(E, (wasm_op_t)node->simd_replace_d.op); ew_byte(E, (uint8_t)node->simd_replace_d.lane); .);
+v128: SimdReplaceD(v128, f64) where (. ew_op_width((wasm_op_t)node->simd_replace_d.op) == 3 .) = 4 (. ew_emit(E, (wasm_op_t)node->simd_replace_d.op); ew_byte(E, (uint8_t)node->simd_replace_d.lane); .);
+// v128.const / i8x16.shuffle carry all 16 immediate bytes: 2 + 16, and exact —
+// both name their opcode outright rather than reading a payload.
+v128: SimdConst = 18 (. ew_emit(E, WOP_V128_CONST);
                       for (int b = 0; b < 8; b++) ew_byte(E, (uint8_t)((uint64_t)node->simd_const.lo >> (8*b)));
                       for (int b = 0; b < 8; b++) ew_byte(E, (uint8_t)((uint64_t)node->simd_const.hi >> (8*b))); .);
-v128: SimdShuffle(v128, v128) = 1 (. ew_emit(E, WOP_I8X16_SHUFFLE);
+v128: SimdShuffle(v128, v128) = 18 (. ew_emit(E, WOP_I8X16_SHUFFLE);
                       for (int b = 0; b < 8; b++) ew_byte(E, (uint8_t)((uint64_t)node->simd_shuffle.lo >> (8*b)));
                       for (int b = 0; b < 8; b++) ew_byte(E, (uint8_t)((uint64_t)node->simd_shuffle.hi >> (8*b))); .);
 // v128 linear memory (the I/O-floor memory). memarg = (align, offset): align is
 // the node payload carried from the spec table's align column, offset always 0
 // (the address operand is the full address). memlane ops append the lane byte.
-v128: SimdMemLoad(i32)          = 1 (. ew_emit(E, (wasm_op_t)node->simd_mem_load.op); ew_u32(E, (uint32_t)node->simd_mem_load.align); ew_u32(E, 0); .);
-v128: SimdMemLoadLane(i32, v128) = 1 (. ew_emit(E, (wasm_op_t)node->simd_mem_load_lane.op); ew_u32(E, (uint32_t)node->simd_mem_load_lane.align); ew_u32(E, 0); ew_byte(E, (uint8_t)node->simd_mem_load_lane.lane); .);
+// op (payload-width, as above) + memarg (2), plus the lane byte for the lane forms.
+v128: SimdMemLoad(i32)          where (. ew_op_width((wasm_op_t)node->simd_mem_load.op) == 2 .) = 4 (. ew_emit(E, (wasm_op_t)node->simd_mem_load.op); ew_u32(E, (uint32_t)node->simd_mem_load.align); ew_u32(E, 0); .);
+v128: SimdMemLoad(i32)          where (. ew_op_width((wasm_op_t)node->simd_mem_load.op) == 3 .) = 5 (. ew_emit(E, (wasm_op_t)node->simd_mem_load.op); ew_u32(E, (uint32_t)node->simd_mem_load.align); ew_u32(E, 0); .);
+v128: SimdMemLoadLane(i32, v128) where (. ew_op_width((wasm_op_t)node->simd_mem_load_lane.op) == 2 .) = 5 (. ew_emit(E, (wasm_op_t)node->simd_mem_load_lane.op); ew_u32(E, (uint32_t)node->simd_mem_load_lane.align); ew_u32(E, 0); ew_byte(E, (uint8_t)node->simd_mem_load_lane.lane); .);
+v128: SimdMemLoadLane(i32, v128) where (. ew_op_width((wasm_op_t)node->simd_mem_load_lane.op) == 3 .) = 6 (. ew_emit(E, (wasm_op_t)node->simd_mem_load_lane.op); ew_u32(E, (uint32_t)node->simd_mem_load_lane.align); ew_u32(E, 0); ew_byte(E, (uint8_t)node->simd_mem_load_lane.lane); .);
 // Scalar linear-memory loads (op selects the width/sign variant) + the
 // memory admin ops. memory.size/grow take a memidx immediate (0).
-i32: MemLoadI(i32) = 1 (. ew_emit(E, (wasm_op_t)node->mem_load_i.op); ew_u32(E, (uint32_t)node->mem_load_i.align); ew_u32(E, 0); .);
-i64: MemLoadL(i32) = 1 (. ew_emit(E, (wasm_op_t)node->mem_load_l.op); ew_u32(E, (uint32_t)node->mem_load_l.align); ew_u32(E, 0); .);
-f32: MemLoadF(i32) = 1 (. ew_emit(E, (wasm_op_t)node->mem_load_f.op); ew_u32(E, (uint32_t)node->mem_load_f.align); ew_u32(E, 0); .);
-f64: MemLoadD(i32) = 1 (. ew_emit(E, (wasm_op_t)node->mem_load_d.op); ew_u32(E, (uint32_t)node->mem_load_d.align); ew_u32(E, 0); .);
-i32: MemSize       = 1 (. ew_emit(E, WOP_MEMORY_SIZE); ew_u32(E, 0); .);
-i32: MemGrow(i32)  = 1 (. ew_emit(E, WOP_MEMORY_GROW); ew_u32(E, 0); .);
+// A scalar load/store is a one-byte opcode plus its memarg (align, offset), both
+// one LEB byte here — 3. memory.size/grow take one memidx: 2.
+i32: MemLoadI(i32) = 3 (. ew_emit(E, (wasm_op_t)node->mem_load_i.op); ew_u32(E, (uint32_t)node->mem_load_i.align); ew_u32(E, 0); .);
+i64: MemLoadL(i32) = 3 (. ew_emit(E, (wasm_op_t)node->mem_load_l.op); ew_u32(E, (uint32_t)node->mem_load_l.align); ew_u32(E, 0); .);
+f32: MemLoadF(i32) = 3 (. ew_emit(E, (wasm_op_t)node->mem_load_f.op); ew_u32(E, (uint32_t)node->mem_load_f.align); ew_u32(E, 0); .);
+f64: MemLoadD(i32) = 3 (. ew_emit(E, (wasm_op_t)node->mem_load_d.op); ew_u32(E, (uint32_t)node->mem_load_d.align); ew_u32(E, 0); .);
+i32: MemSize       = 2 (. ew_emit(E, WOP_MEMORY_SIZE); ew_u32(E, 0); .);
+i32: MemGrow(i32)  = 2 (. ew_emit(E, WOP_MEMORY_GROW); ew_u32(E, 0); .);
 
 // In-place local increment (i++/--/+= by a constant). The matched child is the
 // read-side LoadLocal (emits local.get slot); add the delta and store back, i.e.
 // `local.get slot; <ty>.const delta; <ty>.add; local.set slot`.
-stmt: Inc(i32) = 1 (. ew_emit(E, WOP_I32_CONST); ew_i32(E, node->inc.delta); ew_emit(E, WOP_I32_ADD); CG_NARROW(E, node->inc.data_type); ew_emit(E, WOP_LOCAL_SET); ew_u32(E, node->inc.slot); cg_jump(E, node); .);
-stmt: Inc(i64) = 1 (. ew_emit(E, WOP_I64_CONST); ew_i64(E, (int64_t)node->inc.delta); ew_emit(E, WOP_I64_ADD); ew_emit(E, WOP_LOCAL_SET); ew_u32(E, node->inc.slot); cg_jump(E, node); .);
-stmt: Inc(f32) = 1 (. ew_emit(E, WOP_F32_CONST); ew_f32(E, (float)node->inc.delta); ew_emit(E, WOP_F32_ADD); ew_emit(E, WOP_LOCAL_SET); ew_u32(E, node->inc.slot); cg_jump(E, node); .);
-stmt: Inc(f64) = 1 (. ew_emit(E, WOP_F64_CONST); ew_f64(E, (double)node->inc.delta); ew_emit(E, WOP_F64_ADD); ew_emit(E, WOP_LOCAL_SET); ew_u32(E, node->inc.slot); cg_jump(E, node); .);
+// The i32 family splits by storage width because CG_NARROW's §5.1.3 truncation is
+// part of the emission: int adds nothing, byte/short one extend, char the 0xFFFF
+// mask (a 4-byte const plus an and). One rule with three lengths could not carry a
+// byte cost, so the width that decides the length decides the rule.
+stmt: Inc(i32) where (. node->inc.data_type == SIR_DTINT .)   = 5 (. ew_emit(E, WOP_I32_CONST); ew_i32(E, node->inc.delta); ew_emit(E, WOP_I32_ADD); CG_NARROW(E, node->inc.data_type); ew_emit(E, WOP_LOCAL_SET); ew_u32(E, node->inc.slot); cg_jump(E, node); .);
+stmt: Inc(i32) where (. node->inc.data_type == SIR_DTBYTE || node->inc.data_type == SIR_DTSHORT .) = 6 (. ew_emit(E, WOP_I32_CONST); ew_i32(E, node->inc.delta); ew_emit(E, WOP_I32_ADD); CG_NARROW(E, node->inc.data_type); ew_emit(E, WOP_LOCAL_SET); ew_u32(E, node->inc.slot); cg_jump(E, node); .);
+stmt: Inc(i32) where (. node->inc.data_type == SIR_DTCHAR .)  = 10 (. ew_emit(E, WOP_I32_CONST); ew_i32(E, node->inc.delta); ew_emit(E, WOP_I32_ADD); CG_NARROW(E, node->inc.data_type); ew_emit(E, WOP_LOCAL_SET); ew_u32(E, node->inc.slot); cg_jump(E, node); .);
+stmt: Inc(i64) = 5 (. ew_emit(E, WOP_I64_CONST); ew_i64(E, (int64_t)node->inc.delta); ew_emit(E, WOP_I64_ADD); ew_emit(E, WOP_LOCAL_SET); ew_u32(E, node->inc.slot); cg_jump(E, node); .);
+stmt: Inc(f32) = 8 (. ew_emit(E, WOP_F32_CONST); ew_f32(E, (float)node->inc.delta); ew_emit(E, WOP_F32_ADD); ew_emit(E, WOP_LOCAL_SET); ew_u32(E, node->inc.slot); cg_jump(E, node); .);
+stmt: Inc(f64) = 12 (. ew_emit(E, WOP_F64_CONST); ew_f64(E, (double)node->inc.delta); ew_emit(E, WOP_F64_ADD); ew_emit(E, WOP_LOCAL_SET); ew_u32(E, node->inc.slot); cg_jump(E, node); .);
 
 // ExprEffect — evaluate for side effect, drop the result (void calls leave none).
-stmt: ExprEffect(i32) = 1 (. if (!node->expr_effect.is_void) ew_emit(E, WOP_DROP); cg_jump(E, node); .);
-stmt: ExprEffect(i64) = 1 (. if (!node->expr_effect.is_void) ew_emit(E, WOP_DROP); cg_jump(E, node); .);
-stmt: ExprEffect(f32) = 1 (. if (!node->expr_effect.is_void) ew_emit(E, WOP_DROP); cg_jump(E, node); .);
-stmt: ExprEffect(f64) = 1 (. if (!node->expr_effect.is_void) ew_emit(E, WOP_DROP); cg_jump(E, node); .);
-stmt: ExprEffect(ref) = 1 (. if (!node->expr_effect.is_void) ew_emit(E, WOP_DROP); cg_jump(E, node); .);
-stmt: ExprEffect(v128) = 1 (. if (!node->expr_effect.is_void) ew_emit(E, WOP_DROP); cg_jump(E, node); .);
+// A void effect emits nothing and a valued one emits `drop`, so the two are
+// separate rules: is_void is what decides the byte count, and a rule's cost is a
+// byte count. (Both were one rule costed 1, which was wrong for every void call —
+// and void calls are most of them.)
+stmt: ExprEffect(i32) where (. node->expr_effect.is_void .)   = 0 (. cg_jump(E, node); .);
+stmt: ExprEffect(i64) where (. node->expr_effect.is_void .)   = 0 (. cg_jump(E, node); .);
+stmt: ExprEffect(f32) where (. node->expr_effect.is_void .)   = 0 (. cg_jump(E, node); .);
+stmt: ExprEffect(f64) where (. node->expr_effect.is_void .)   = 0 (. cg_jump(E, node); .);
+stmt: ExprEffect(ref) where (. node->expr_effect.is_void .)   = 0 (. cg_jump(E, node); .);
+stmt: ExprEffect(v128) where (. node->expr_effect.is_void .)  = 0 (. cg_jump(E, node); .);
+stmt: ExprEffect(i32) where (. !node->expr_effect.is_void .)  = 1 (. ew_emit(E, WOP_DROP); cg_jump(E, node); .);
+stmt: ExprEffect(i64) where (. !node->expr_effect.is_void .)  = 1 (. ew_emit(E, WOP_DROP); cg_jump(E, node); .);
+stmt: ExprEffect(f32) where (. !node->expr_effect.is_void .)  = 1 (. ew_emit(E, WOP_DROP); cg_jump(E, node); .);
+stmt: ExprEffect(f64) where (. !node->expr_effect.is_void .)  = 1 (. ew_emit(E, WOP_DROP); cg_jump(E, node); .);
+stmt: ExprEffect(ref) where (. !node->expr_effect.is_void .)  = 1 (. ew_emit(E, WOP_DROP); cg_jump(E, node); .);
+stmt: ExprEffect(v128) where (. !node->expr_effect.is_void .) = 1 (. ew_emit(E, WOP_DROP); cg_jump(E, node); .);
 
 // ── Object model — instance fields & allocation. typeidx == class_id; the
 //    struct field index is field_idx. New allocates the object with field 0 set
@@ -502,7 +827,10 @@ stmt: ExprEffect(v128) = 1 (. if (!node->expr_effect.is_void) ew_emit(E, WOP_DRO
 //    virtual/interface dispatch reads a live table; the following InvokeSpecial
 //    (the <init>) sets the data fields, mirroring JVM new+<init>. Sub-int fields
 //    are unpacked i32 (struct.get, not get_s/_u), matching the type section. ──
-ref: New = 1 (. wasm_types_emit_new(ctx->types, E, node->new_.class_id); .);
+// FLOOR, not an exact count: the action emits one default per instance field, so
+// its length is the class's shape. The floor is global.get + struct.new (a class
+// with no data fields).
+ref: New = 5 (. wasm_types_emit_new(ctx->types, E, node->new_.class_id); .);
 
 // §20.3.6 Class.newInstance, over the Class reference's `factory` funcref field.
 //   ClassInstantiable — is the factory non-null? `struct.get factory; ref.is_null; i32.eqz`
@@ -510,96 +838,102 @@ ref: New = 1 (. wasm_types_emit_new(ctx->types, E, node->new_.class_id); .);
 //   ClassConstruct — call it: `struct.get factory; ref.cast $factorysig; call_ref $factorysig`.
 //     The field is a plain funcref (a rec-group functype would mistype it, see wasm_types.c), so
 //     it is cast to the standalone factory functype `[] -> [(ref null Object)]` before call_ref.
-i32: ClassInstantiable(ref) = 1 (.
+i32: ClassInstantiable(ref) = 6 (.
     ew_emit(E, WOP_STRUCT_GET);  ew_u32(E, (uint32_t)wasm_class_reflect_typeidx(ctx->types));
                                  ew_u32(E, (uint32_t)wasm_class_factory_field_index(ctx->types));
     ew_emit(E, WOP_REF_IS_NULL);
     ew_emit(E, WOP_I32_EQZ);
 .);
-ref: ClassConstruct(ref) = 1 (.
+ref: ClassConstruct(ref) = 9 (.
     ew_emit(E, WOP_STRUCT_GET);  ew_u32(E, (uint32_t)wasm_class_reflect_typeidx(ctx->types));
                                  ew_u32(E, (uint32_t)wasm_class_factory_field_index(ctx->types));
     ew_emit(E, WOP_REF_CAST);    ew_i32(E, (int32_t)wasm_factory_functype_idx(ctx->types));
     ew_emit(E, WOP_CALL_REF);    ew_u32(E, (uint32_t)wasm_factory_functype_idx(ctx->types));
 .);
-ref: CloneCopy = 1 (. wasm_types_emit_clone_copy(ctx->types, E, node->clone_copy.class_id); .);
+// FLOOR, as New: the action emits a load/cast/get group per instance field. The
+// floor is the trailing struct.new alone.
+ref: CloneCopy = 3 (. wasm_types_emit_clone_copy(ctx->types, E, node->clone_copy.class_id); .);
 
 // §3.4: a packed (i8/i16) field reads via get_s/get_u — byte/short sign-extend,
 // char zero-extends; int is the lone unpacked i32 field (plain struct.get).
-i32: GetField(ref) where (. node->get_field.data_type == SIR_DTINT .)     = 1 (. ew_emit(E, WOP_STRUCT_GET);   ew_u32(E, struct_idx(node->get_field.class_id)); ew_u32(E, field_abs(node->get_field.class_id, node->get_field.field_idx)); .);
-i32: GetField(ref) where (. node->get_field.data_type == SIR_DTBYTE || node->get_field.data_type == SIR_DTSHORT .) = 1 (. ew_emit(E, WOP_STRUCT_GET_S); ew_u32(E, struct_idx(node->get_field.class_id)); ew_u32(E, field_abs(node->get_field.class_id, node->get_field.field_idx)); .);
-i32: GetField(ref) where (. node->get_field.data_type == SIR_DTCHAR .)    = 1 (. ew_emit(E, WOP_STRUCT_GET_U); ew_u32(E, struct_idx(node->get_field.class_id)); ew_u32(E, field_abs(node->get_field.class_id, node->get_field.field_idx)); .);
-i64: GetField(ref) where (. node->get_field.data_type == SIR_DTLONG .)   = 1 (. ew_emit(E, WOP_STRUCT_GET); ew_u32(E, struct_idx(node->get_field.class_id)); ew_u32(E, field_abs(node->get_field.class_id, node->get_field.field_idx)); .);
-f32: GetField(ref) where (. node->get_field.data_type == SIR_DTFLOAT .)  = 1 (. ew_emit(E, WOP_STRUCT_GET); ew_u32(E, struct_idx(node->get_field.class_id)); ew_u32(E, field_abs(node->get_field.class_id, node->get_field.field_idx)); .);
-f64: GetField(ref) where (. node->get_field.data_type == SIR_DTDOUBLE .) = 1 (. ew_emit(E, WOP_STRUCT_GET); ew_u32(E, struct_idx(node->get_field.class_id)); ew_u32(E, field_abs(node->get_field.class_id, node->get_field.field_idx)); .);
-ref: GetField(ref) where (. node->get_field.data_type == SIR_DTREF .)    = 1 (. ew_emit(E, WOP_STRUCT_GET); ew_u32(E, struct_idx(node->get_field.class_id)); ew_u32(E, field_abs(node->get_field.class_id, node->get_field.field_idx)); .);
-v128: GetField(ref) where (. node->get_field.data_type == SIR_DTV128 .)  = 1 (. ew_emit(E, WOP_STRUCT_GET); ew_u32(E, struct_idx(node->get_field.class_id)); ew_u32(E, field_abs(node->get_field.class_id, node->get_field.field_idx)); .);
+i32: GetField(ref) where (. node->get_field.data_type == SIR_DTINT .)     = 4 (. ew_emit(E, WOP_STRUCT_GET);   ew_u32(E, struct_idx(node->get_field.class_id)); ew_u32(E, field_abs(node->get_field.class_id, node->get_field.field_idx)); .);
+i32: GetField(ref) where (. node->get_field.data_type == SIR_DTBYTE || node->get_field.data_type == SIR_DTSHORT .) = 4 (. ew_emit(E, WOP_STRUCT_GET_S); ew_u32(E, struct_idx(node->get_field.class_id)); ew_u32(E, field_abs(node->get_field.class_id, node->get_field.field_idx)); .);
+i32: GetField(ref) where (. node->get_field.data_type == SIR_DTCHAR .)    = 4 (. ew_emit(E, WOP_STRUCT_GET_U); ew_u32(E, struct_idx(node->get_field.class_id)); ew_u32(E, field_abs(node->get_field.class_id, node->get_field.field_idx)); .);
+i64: GetField(ref) where (. node->get_field.data_type == SIR_DTLONG .)   = 4 (. ew_emit(E, WOP_STRUCT_GET); ew_u32(E, struct_idx(node->get_field.class_id)); ew_u32(E, field_abs(node->get_field.class_id, node->get_field.field_idx)); .);
+f32: GetField(ref) where (. node->get_field.data_type == SIR_DTFLOAT .)  = 4 (. ew_emit(E, WOP_STRUCT_GET); ew_u32(E, struct_idx(node->get_field.class_id)); ew_u32(E, field_abs(node->get_field.class_id, node->get_field.field_idx)); .);
+f64: GetField(ref) where (. node->get_field.data_type == SIR_DTDOUBLE .) = 4 (. ew_emit(E, WOP_STRUCT_GET); ew_u32(E, struct_idx(node->get_field.class_id)); ew_u32(E, field_abs(node->get_field.class_id, node->get_field.field_idx)); .);
+ref: GetField(ref) where (. node->get_field.data_type == SIR_DTREF .)    = 4 (. ew_emit(E, WOP_STRUCT_GET); ew_u32(E, struct_idx(node->get_field.class_id)); ew_u32(E, field_abs(node->get_field.class_id, node->get_field.field_idx)); .);
+v128: GetField(ref) where (. node->get_field.data_type == SIR_DTV128 .)  = 4 (. ew_emit(E, WOP_STRUCT_GET); ew_u32(E, struct_idx(node->get_field.class_id)); ew_u32(E, field_abs(node->get_field.class_id, node->get_field.field_idx)); .);
 
-stmt: PutField(ref,i32) = 1 (. ew_emit(E, WOP_STRUCT_SET); ew_u32(E, struct_idx(node->put_field.class_id)); ew_u32(E, field_abs(node->put_field.class_id, node->put_field.field_idx)); cg_jump(E, node); .);
-stmt: PutField(ref,i64) = 1 (. ew_emit(E, WOP_STRUCT_SET); ew_u32(E, struct_idx(node->put_field.class_id)); ew_u32(E, field_abs(node->put_field.class_id, node->put_field.field_idx)); cg_jump(E, node); .);
-stmt: PutField(ref,f32) = 1 (. ew_emit(E, WOP_STRUCT_SET); ew_u32(E, struct_idx(node->put_field.class_id)); ew_u32(E, field_abs(node->put_field.class_id, node->put_field.field_idx)); cg_jump(E, node); .);
-stmt: PutField(ref,f64) = 1 (. ew_emit(E, WOP_STRUCT_SET); ew_u32(E, struct_idx(node->put_field.class_id)); ew_u32(E, field_abs(node->put_field.class_id, node->put_field.field_idx)); cg_jump(E, node); .);
-stmt: PutField(ref,ref) = 1 (. ew_emit(E, WOP_STRUCT_SET); ew_u32(E, struct_idx(node->put_field.class_id)); ew_u32(E, field_abs(node->put_field.class_id, node->put_field.field_idx)); cg_jump(E, node); .);
-stmt: PutField(ref,v128) = 1 (. ew_emit(E, WOP_STRUCT_SET); ew_u32(E, struct_idx(node->put_field.class_id)); ew_u32(E, field_abs(node->put_field.class_id, node->put_field.field_idx)); cg_jump(E, node); .);
+stmt: PutField(ref,i32) = 4 (. ew_emit(E, WOP_STRUCT_SET); ew_u32(E, struct_idx(node->put_field.class_id)); ew_u32(E, field_abs(node->put_field.class_id, node->put_field.field_idx)); cg_jump(E, node); .);
+stmt: PutField(ref,i64) = 4 (. ew_emit(E, WOP_STRUCT_SET); ew_u32(E, struct_idx(node->put_field.class_id)); ew_u32(E, field_abs(node->put_field.class_id, node->put_field.field_idx)); cg_jump(E, node); .);
+stmt: PutField(ref,f32) = 4 (. ew_emit(E, WOP_STRUCT_SET); ew_u32(E, struct_idx(node->put_field.class_id)); ew_u32(E, field_abs(node->put_field.class_id, node->put_field.field_idx)); cg_jump(E, node); .);
+stmt: PutField(ref,f64) = 4 (. ew_emit(E, WOP_STRUCT_SET); ew_u32(E, struct_idx(node->put_field.class_id)); ew_u32(E, field_abs(node->put_field.class_id, node->put_field.field_idx)); cg_jump(E, node); .);
+stmt: PutField(ref,ref) = 4 (. ew_emit(E, WOP_STRUCT_SET); ew_u32(E, struct_idx(node->put_field.class_id)); ew_u32(E, field_abs(node->put_field.class_id, node->put_field.field_idx)); cg_jump(E, node); .);
+stmt: PutField(ref,v128) = 4 (. ew_emit(E, WOP_STRUCT_SET); ew_u32(E, struct_idx(node->put_field.class_id)); ew_u32(E, field_abs(node->put_field.class_id, node->put_field.field_idx)); cg_jump(E, node); .);
 // §10.8 set field-0 (the Class header) directly by struct type — the header is abs 0.
-stmt: SetHeader(ref,ref) = 1 (. ew_emit(E, WOP_STRUCT_SET); ew_u32(E, struct_idx(node->set_header.struct_class_id)); ew_u32(E, 0); cg_jump(E, node); .);
+stmt: SetHeader(ref,ref) = 4 (. ew_emit(E, WOP_STRUCT_SET); ew_u32(E, struct_idx(node->set_header.struct_class_id)); ew_u32(E, 0); cg_jump(E, node); .);
 
 // ── Static fields → module globals. global.get/set take a global index; the
 //    nonterminal of GetStatic is selected by the field's data_type. ──
-i32: GetStatic where (. DT_IS_I32(node->get_static.data_type) .)      = 1 (. ew_emit(E, WOP_GLOBAL_GET); ew_u32(E, global_abs(node->get_static.class_id, node->get_static.field_idx)); .);
-i64: GetStatic where (. node->get_static.data_type == SIR_DTLONG .)   = 1 (. ew_emit(E, WOP_GLOBAL_GET); ew_u32(E, global_abs(node->get_static.class_id, node->get_static.field_idx)); .);
-f32: GetStatic where (. node->get_static.data_type == SIR_DTFLOAT .)  = 1 (. ew_emit(E, WOP_GLOBAL_GET); ew_u32(E, global_abs(node->get_static.class_id, node->get_static.field_idx)); .);
-f64: GetStatic where (. node->get_static.data_type == SIR_DTDOUBLE .) = 1 (. ew_emit(E, WOP_GLOBAL_GET); ew_u32(E, global_abs(node->get_static.class_id, node->get_static.field_idx)); .);
-ref: GetStatic where (. node->get_static.data_type == SIR_DTREF .)    = 1 (. ew_emit(E, WOP_GLOBAL_GET); ew_u32(E, global_abs(node->get_static.class_id, node->get_static.field_idx)); .);
-v128: GetStatic where (. node->get_static.data_type == SIR_DTV128 .)  = 1 (. ew_emit(E, WOP_GLOBAL_GET); ew_u32(E, global_abs(node->get_static.class_id, node->get_static.field_idx)); .);
+i32: GetStatic where (. DT_IS_I32(node->get_static.data_type) .)      = 2 (. ew_emit(E, WOP_GLOBAL_GET); ew_u32(E, global_abs(node->get_static.class_id, node->get_static.field_idx)); .);
+i64: GetStatic where (. node->get_static.data_type == SIR_DTLONG .)   = 2 (. ew_emit(E, WOP_GLOBAL_GET); ew_u32(E, global_abs(node->get_static.class_id, node->get_static.field_idx)); .);
+f32: GetStatic where (. node->get_static.data_type == SIR_DTFLOAT .)  = 2 (. ew_emit(E, WOP_GLOBAL_GET); ew_u32(E, global_abs(node->get_static.class_id, node->get_static.field_idx)); .);
+f64: GetStatic where (. node->get_static.data_type == SIR_DTDOUBLE .) = 2 (. ew_emit(E, WOP_GLOBAL_GET); ew_u32(E, global_abs(node->get_static.class_id, node->get_static.field_idx)); .);
+ref: GetStatic where (. node->get_static.data_type == SIR_DTREF .)    = 2 (. ew_emit(E, WOP_GLOBAL_GET); ew_u32(E, global_abs(node->get_static.class_id, node->get_static.field_idx)); .);
+v128: GetStatic where (. node->get_static.data_type == SIR_DTV128 .)  = 2 (. ew_emit(E, WOP_GLOBAL_GET); ew_u32(E, global_abs(node->get_static.class_id, node->get_static.field_idx)); .);
 
-stmt: PutStatic(i32) = 1 (. ew_emit(E, WOP_GLOBAL_SET); ew_u32(E, global_abs(node->put_static.class_id, node->put_static.field_idx)); cg_jump(E, node); .);
-stmt: PutStatic(i64) = 1 (. ew_emit(E, WOP_GLOBAL_SET); ew_u32(E, global_abs(node->put_static.class_id, node->put_static.field_idx)); cg_jump(E, node); .);
-stmt: PutStatic(f32) = 1 (. ew_emit(E, WOP_GLOBAL_SET); ew_u32(E, global_abs(node->put_static.class_id, node->put_static.field_idx)); cg_jump(E, node); .);
-stmt: PutStatic(f64) = 1 (. ew_emit(E, WOP_GLOBAL_SET); ew_u32(E, global_abs(node->put_static.class_id, node->put_static.field_idx)); cg_jump(E, node); .);
-stmt: PutStatic(ref) = 1 (. ew_emit(E, WOP_GLOBAL_SET); ew_u32(E, global_abs(node->put_static.class_id, node->put_static.field_idx)); cg_jump(E, node); .);
-stmt: PutStatic(v128) = 1 (. ew_emit(E, WOP_GLOBAL_SET); ew_u32(E, global_abs(node->put_static.class_id, node->put_static.field_idx)); cg_jump(E, node); .);
+stmt: PutStatic(i32) = 2 (. ew_emit(E, WOP_GLOBAL_SET); ew_u32(E, global_abs(node->put_static.class_id, node->put_static.field_idx)); cg_jump(E, node); .);
+stmt: PutStatic(i64) = 2 (. ew_emit(E, WOP_GLOBAL_SET); ew_u32(E, global_abs(node->put_static.class_id, node->put_static.field_idx)); cg_jump(E, node); .);
+stmt: PutStatic(f32) = 2 (. ew_emit(E, WOP_GLOBAL_SET); ew_u32(E, global_abs(node->put_static.class_id, node->put_static.field_idx)); cg_jump(E, node); .);
+stmt: PutStatic(f64) = 2 (. ew_emit(E, WOP_GLOBAL_SET); ew_u32(E, global_abs(node->put_static.class_id, node->put_static.field_idx)); cg_jump(E, node); .);
+stmt: PutStatic(ref) = 2 (. ew_emit(E, WOP_GLOBAL_SET); ew_u32(E, global_abs(node->put_static.class_id, node->put_static.field_idx)); cg_jump(E, node); .);
+stmt: PutStatic(v128) = 2 (. ew_emit(E, WOP_GLOBAL_SET); ew_u32(E, global_abs(node->put_static.class_id, node->put_static.field_idx)); cg_jump(E, node); .);
 /* Linear-memory stores. memarg = (align from the node payload, offset 0);
  * storeN_lane appends the lane byte after the memarg. memory.fill takes one
  * memidx immediate, memory.copy two (destination then source), all 0. */
-stmt: SimdMemStore(i32, v128) = 1 (. ew_emit(E, (wasm_op_t)node->simd_mem_store.op); ew_u32(E, (uint32_t)node->simd_mem_store.align); ew_u32(E, 0); cg_jump(E, node); .);
-stmt: SimdMemStoreLane(i32, v128) = 1 (. ew_emit(E, (wasm_op_t)node->simd_mem_store_lane.op); ew_u32(E, (uint32_t)node->simd_mem_store_lane.align); ew_u32(E, 0); ew_byte(E, (uint8_t)node->simd_mem_store_lane.lane); cg_jump(E, node); .);
-stmt: MemStoreI(i32, i32) = 1 (. ew_emit(E, (wasm_op_t)node->mem_store_i.op); ew_u32(E, (uint32_t)node->mem_store_i.align); ew_u32(E, 0); cg_jump(E, node); .);
-stmt: MemStoreL(i32, i64) = 1 (. ew_emit(E, (wasm_op_t)node->mem_store_l.op); ew_u32(E, (uint32_t)node->mem_store_l.align); ew_u32(E, 0); cg_jump(E, node); .);
-stmt: MemStoreF(i32, f32) = 1 (. ew_emit(E, (wasm_op_t)node->mem_store_f.op); ew_u32(E, (uint32_t)node->mem_store_f.align); ew_u32(E, 0); cg_jump(E, node); .);
-stmt: MemStoreD(i32, f64) = 1 (. ew_emit(E, (wasm_op_t)node->mem_store_d.op); ew_u32(E, (uint32_t)node->mem_store_d.align); ew_u32(E, 0); cg_jump(E, node); .);
-stmt: MemFill(i32, i32, i32) = 1 (. ew_emit(E, WOP_MEMORY_FILL); ew_u32(E, 0); cg_jump(E, node); .);
-stmt: MemCopy(i32, i32, i32) = 1 (. ew_emit(E, WOP_MEMORY_COPY); ew_u32(E, 0); ew_u32(E, 0); cg_jump(E, node); .);
+stmt: SimdMemStore(i32, v128) where (. ew_op_width((wasm_op_t)node->simd_mem_store.op) == 2 .) = 4 (. ew_emit(E, (wasm_op_t)node->simd_mem_store.op); ew_u32(E, (uint32_t)node->simd_mem_store.align); ew_u32(E, 0); cg_jump(E, node); .);
+stmt: SimdMemStore(i32, v128) where (. ew_op_width((wasm_op_t)node->simd_mem_store.op) == 3 .) = 5 (. ew_emit(E, (wasm_op_t)node->simd_mem_store.op); ew_u32(E, (uint32_t)node->simd_mem_store.align); ew_u32(E, 0); cg_jump(E, node); .);
+stmt: SimdMemStoreLane(i32, v128) where (. ew_op_width((wasm_op_t)node->simd_mem_store_lane.op) == 2 .) = 5 (. ew_emit(E, (wasm_op_t)node->simd_mem_store_lane.op); ew_u32(E, (uint32_t)node->simd_mem_store_lane.align); ew_u32(E, 0); ew_byte(E, (uint8_t)node->simd_mem_store_lane.lane); cg_jump(E, node); .);
+stmt: SimdMemStoreLane(i32, v128) where (. ew_op_width((wasm_op_t)node->simd_mem_store_lane.op) == 3 .) = 6 (. ew_emit(E, (wasm_op_t)node->simd_mem_store_lane.op); ew_u32(E, (uint32_t)node->simd_mem_store_lane.align); ew_u32(E, 0); ew_byte(E, (uint8_t)node->simd_mem_store_lane.lane); cg_jump(E, node); .);
+stmt: MemStoreI(i32, i32) = 3 (. ew_emit(E, (wasm_op_t)node->mem_store_i.op); ew_u32(E, (uint32_t)node->mem_store_i.align); ew_u32(E, 0); cg_jump(E, node); .);
+stmt: MemStoreL(i32, i64) = 3 (. ew_emit(E, (wasm_op_t)node->mem_store_l.op); ew_u32(E, (uint32_t)node->mem_store_l.align); ew_u32(E, 0); cg_jump(E, node); .);
+stmt: MemStoreF(i32, f32) = 3 (. ew_emit(E, (wasm_op_t)node->mem_store_f.op); ew_u32(E, (uint32_t)node->mem_store_f.align); ew_u32(E, 0); cg_jump(E, node); .);
+stmt: MemStoreD(i32, f64) = 3 (. ew_emit(E, (wasm_op_t)node->mem_store_d.op); ew_u32(E, (uint32_t)node->mem_store_d.align); ew_u32(E, 0); cg_jump(E, node); .);
+// memory.fill / memory.copy are 0xFC-prefixed; fill takes one memidx, copy two.
+stmt: MemFill(i32, i32, i32) = 3 (. ew_emit(E, WOP_MEMORY_FILL); ew_u32(E, 0); cg_jump(E, node); .);
+stmt: MemCopy(i32, i32, i32) = 4 (. ew_emit(E, WOP_MEMORY_COPY); ew_u32(E, 0); ew_u32(E, 0); cg_jump(E, node); .);
 
 // ── Arrays. Element type → array typeidx via wasm_types (registered on demand).
 //    array.new_default zero-inits (Java new T[n]); array.len takes no typeidx;
 //    sub-int elements are unpacked i32 (array.get, not _s/_u). Ref-element
 //    arrays (NewRefArray, ref load/store) need the element class — later. ──
-ref: NewArray(i32) = 1 (. ew_emit(E, WOP_ARRAY_NEW_DEFAULT); ew_u32(E, wasm_types_array_for_atype(ctx->types, node->new_array.elem_type)); .);
+ref: NewArray(i32) = 3 (. ew_emit(E, WOP_ARRAY_NEW_DEFAULT); ew_u32(E, wasm_types_array_for_atype(ctx->types, node->new_array.elem_type)); .);
 // array.new_data $t $d takes offset and count as OPERANDS; both are compile-time constants
 // here, so the leaf pushes them itself rather than carrying two child trees.
-ref: ArrayNewData    = 1 (. ew_emit(E, WOP_I32_CONST); ew_i32(E, node->array_new_data.byte_off);
+ref: ArrayNewData    = 8 (. ew_emit(E, WOP_I32_CONST); ew_i32(E, node->array_new_data.byte_off);
                             ew_emit(E, WOP_I32_CONST); ew_i32(E, node->array_new_data.count);
                             ew_emit(E, WOP_ARRAY_NEW_DATA);
                             ew_u32(E, wasm_types_array_for_atype(ctx->types, node->array_new_data.elem_type));
                             ew_u32(E, (uint32_t)node->array_new_data.seg); .);
 
 // §3.4: packed (i8/i16) array elements read via array.get_s/get_u; int is plain.
-i32: ArrayLoad(ref,i32) where (. node->array_load.data_type == SIR_DTINT .)    = 1 (. ew_emit(E, WOP_ARRAY_GET);   ew_u32(E, wasm_types_array_for_dt(ctx->types, node->array_load.data_type)); .);
-i32: ArrayLoad(ref,i32) where (. node->array_load.data_type == SIR_DTBYTE || node->array_load.data_type == SIR_DTSHORT .) = 1 (. ew_emit(E, WOP_ARRAY_GET_S); ew_u32(E, wasm_types_array_for_dt(ctx->types, node->array_load.data_type)); .);
-i32: ArrayLoad(ref,i32) where (. node->array_load.data_type == SIR_DTCHAR .)   = 1 (. ew_emit(E, WOP_ARRAY_GET_U); ew_u32(E, wasm_types_array_for_dt(ctx->types, node->array_load.data_type)); .);
-i64: ArrayLoad(ref,i32) where (. node->array_load.data_type == SIR_DTLONG .)   = 1 (. ew_emit(E, WOP_ARRAY_GET); ew_u32(E, wasm_types_array_for_dt(ctx->types, node->array_load.data_type)); .);
-f32: ArrayLoad(ref,i32) where (. node->array_load.data_type == SIR_DTFLOAT .)  = 1 (. ew_emit(E, WOP_ARRAY_GET); ew_u32(E, wasm_types_array_for_dt(ctx->types, node->array_load.data_type)); .);
-f64: ArrayLoad(ref,i32) where (. node->array_load.data_type == SIR_DTDOUBLE .) = 1 (. ew_emit(E, WOP_ARRAY_GET); ew_u32(E, wasm_types_array_for_dt(ctx->types, node->array_load.data_type)); .);
-v128: ArrayLoad(ref,i32) where (. node->array_load.data_type == SIR_DTV128 .)  = 1 (. ew_emit(E, WOP_ARRAY_GET); ew_u32(E, wasm_types_array_for_dt(ctx->types, node->array_load.data_type)); .);
+i32: ArrayLoad(ref,i32) where (. node->array_load.data_type == SIR_DTINT .)    = 3 (. ew_emit(E, WOP_ARRAY_GET);   ew_u32(E, wasm_types_array_for_dt(ctx->types, node->array_load.data_type)); .);
+i32: ArrayLoad(ref,i32) where (. node->array_load.data_type == SIR_DTBYTE || node->array_load.data_type == SIR_DTSHORT .) = 3 (. ew_emit(E, WOP_ARRAY_GET_S); ew_u32(E, wasm_types_array_for_dt(ctx->types, node->array_load.data_type)); .);
+i32: ArrayLoad(ref,i32) where (. node->array_load.data_type == SIR_DTCHAR .)   = 3 (. ew_emit(E, WOP_ARRAY_GET_U); ew_u32(E, wasm_types_array_for_dt(ctx->types, node->array_load.data_type)); .);
+i64: ArrayLoad(ref,i32) where (. node->array_load.data_type == SIR_DTLONG .)   = 3 (. ew_emit(E, WOP_ARRAY_GET); ew_u32(E, wasm_types_array_for_dt(ctx->types, node->array_load.data_type)); .);
+f32: ArrayLoad(ref,i32) where (. node->array_load.data_type == SIR_DTFLOAT .)  = 3 (. ew_emit(E, WOP_ARRAY_GET); ew_u32(E, wasm_types_array_for_dt(ctx->types, node->array_load.data_type)); .);
+f64: ArrayLoad(ref,i32) where (. node->array_load.data_type == SIR_DTDOUBLE .) = 3 (. ew_emit(E, WOP_ARRAY_GET); ew_u32(E, wasm_types_array_for_dt(ctx->types, node->array_load.data_type)); .);
+v128: ArrayLoad(ref,i32) where (. node->array_load.data_type == SIR_DTV128 .)  = 3 (. ew_emit(E, WOP_ARRAY_GET); ew_u32(E, wasm_types_array_for_dt(ctx->types, node->array_load.data_type)); .);
 
-stmt: ArrayStore(ref,i32,i32) = 1 (. ew_emit(E, WOP_ARRAY_SET); ew_u32(E, wasm_types_array_for_dt(ctx->types, node->array_store.data_type)); cg_jump(E, node); .);
-stmt: ArrayStore(ref,i32,i64) = 1 (. ew_emit(E, WOP_ARRAY_SET); ew_u32(E, wasm_types_array_for_dt(ctx->types, node->array_store.data_type)); cg_jump(E, node); .);
-stmt: ArrayStore(ref,i32,f32) = 1 (. ew_emit(E, WOP_ARRAY_SET); ew_u32(E, wasm_types_array_for_dt(ctx->types, node->array_store.data_type)); cg_jump(E, node); .);
-stmt: ArrayStore(ref,i32,f64) = 1 (. ew_emit(E, WOP_ARRAY_SET); ew_u32(E, wasm_types_array_for_dt(ctx->types, node->array_store.data_type)); cg_jump(E, node); .);
-stmt: ArrayStore(ref,i32,v128) = 1 (. ew_emit(E, WOP_ARRAY_SET); ew_u32(E, wasm_types_array_for_dt(ctx->types, node->array_store.data_type)); cg_jump(E, node); .);
+stmt: ArrayStore(ref,i32,i32) = 3 (. ew_emit(E, WOP_ARRAY_SET); ew_u32(E, wasm_types_array_for_dt(ctx->types, node->array_store.data_type)); cg_jump(E, node); .);
+stmt: ArrayStore(ref,i32,i64) = 3 (. ew_emit(E, WOP_ARRAY_SET); ew_u32(E, wasm_types_array_for_dt(ctx->types, node->array_store.data_type)); cg_jump(E, node); .);
+stmt: ArrayStore(ref,i32,f32) = 3 (. ew_emit(E, WOP_ARRAY_SET); ew_u32(E, wasm_types_array_for_dt(ctx->types, node->array_store.data_type)); cg_jump(E, node); .);
+stmt: ArrayStore(ref,i32,f64) = 3 (. ew_emit(E, WOP_ARRAY_SET); ew_u32(E, wasm_types_array_for_dt(ctx->types, node->array_store.data_type)); cg_jump(E, node); .);
+stmt: ArrayStore(ref,i32,v128) = 3 (. ew_emit(E, WOP_ARRAY_SET); ew_u32(E, wasm_types_array_for_dt(ctx->types, node->array_store.data_type)); cg_jump(E, node); .);
 
-i32: ArrayLength(ref) = 1 (. ew_emit(E, WOP_ARRAY_LEN); .);
+// array.len is 0xFB-prefixed and takes NO typeidx — the one array op that is 2.
+i32: ArrayLength(ref) = 2 (. ew_emit(E, WOP_ARRAY_LEN); .);
 /* I/O staging memory: load one byte (zero-extended). memarg = align 0, offset 0 (address is the full operand). */
 
 // Reference arrays — WASM-GC array types are invariant, so a ref-element op must
@@ -611,13 +945,15 @@ i32: ArrayLength(ref) = 1 (. ew_emit(E, WOP_ARRAY_LEN); .);
 // RefArray wrapper); a read casts the loaded top-ref to the static element type
 // (elem_ref) — a covariant store surfaces a wrong type here (ref.cast_null) until the
 // §10.10 ArrayStore guard lands.
-ref: NewRefArray(i32) = 1 (. ew_emit(E, WOP_ARRAY_NEW_DEFAULT); ew_u32(E, wasm_types_array_for_dt(ctx->types, SIR_DTREF)); .);
-ref:  ArrayLoad(ref,i32)  where (. node->array_load.data_type == SIR_DTREF .) = 1 (. ew_emit(E, WOP_ARRAY_GET); ew_u32(E, wasm_types_array_for_dt(ctx->types, SIR_DTREF)); ew_emit(E, WOP_REF_CAST_NULL); ew_i32(E, wasm_types_ref_typeidx(ctx->types, node->array_load.elem_ref)); .);
-stmt: ArrayStore(ref,i32,ref) = 1 (. ew_emit(E, WOP_ARRAY_SET); ew_u32(E, wasm_types_array_for_dt(ctx->types, SIR_DTREF)); cg_jump(E, node); .);
+ref: NewRefArray(i32) = 3 (. ew_emit(E, WOP_ARRAY_NEW_DEFAULT); ew_u32(E, wasm_types_array_for_dt(ctx->types, SIR_DTREF)); .);
+// A ref element costs the array.get PLUS the ref.cast_null back to the static
+// element type — 3 + 3, the dearest array read.
+ref:  ArrayLoad(ref,i32)  where (. node->array_load.data_type == SIR_DTREF .) = 6 (. ew_emit(E, WOP_ARRAY_GET); ew_u32(E, wasm_types_array_for_dt(ctx->types, SIR_DTREF)); ew_emit(E, WOP_REF_CAST_NULL); ew_i32(E, wasm_types_ref_typeidx(ctx->types, node->array_load.elem_ref)); .);
+stmt: ArrayStore(ref,i32,ref) = 3 (. ew_emit(E, WOP_ARRAY_SET); ew_u32(E, wasm_types_array_for_dt(ctx->types, SIR_DTREF)); cg_jump(E, node); .);
 
 // §20.18.16/§20.1.5 array.copy dst_ty src_ty [dst, dst_off, src, src_off, len]. Both backings
 // share the element width; the two typeidxs are the same backing array type.
-stmt: ArrayCopy(ref,i32,ref,i32,i32) = 1 (. ew_emit(E, WOP_ARRAY_COPY); ew_u32(E, wasm_types_array_for_dt(ctx->types, node->array_copy.width)); ew_u32(E, wasm_types_array_for_dt(ctx->types, node->array_copy.width)); cg_jump(E, node); .);
+stmt: ArrayCopy(ref,i32,ref,i32,i32) = 4 (. ew_emit(E, WOP_ARRAY_COPY); ew_u32(E, wasm_types_array_for_dt(ctx->types, node->array_copy.width)); ew_u32(E, wasm_types_array_for_dt(ctx->types, node->array_copy.width)); cg_jump(E, node); .);
 
 // ── Method invocation. Direct calls (static/special) → call <funcidx>.
 //    return_type selects the result nonterminal (yoctojc's shape); burgc tiles
@@ -625,51 +961,54 @@ stmt: ArrayCopy(ref,i32,ref,i32,i32) = 1 (. ew_emit(E, WOP_ARRAY_COPY); ew_u32(E
 //    the call. Virtual/interface dispatch (vtable/itable + call_ref) lands
 //    later. A void call's return_type still matches a value rule; the wrapping
 //    ExprEffect(is_void) emits no drop, so the net bytes are balanced. ──
-i32: InvokeStatic where (. DT_IS_I32(node->invoke_static.return_type) .)      = 1 (. ew_emit(E, WOP_CALL); ew_u32(E, wasm_func_index(ctx->types, node->invoke_static.class_id, node->invoke_static.method_idx)); .);
-i64: InvokeStatic where (. node->invoke_static.return_type == SIR_DTLONG .)    = 1 (. ew_emit(E, WOP_CALL); ew_u32(E, wasm_func_index(ctx->types, node->invoke_static.class_id, node->invoke_static.method_idx)); .);
-f32: InvokeStatic where (. node->invoke_static.return_type == SIR_DTFLOAT .)   = 1 (. ew_emit(E, WOP_CALL); ew_u32(E, wasm_func_index(ctx->types, node->invoke_static.class_id, node->invoke_static.method_idx)); .);
-f64: InvokeStatic where (. node->invoke_static.return_type == SIR_DTDOUBLE .)  = 1 (. ew_emit(E, WOP_CALL); ew_u32(E, wasm_func_index(ctx->types, node->invoke_static.class_id, node->invoke_static.method_idx)); .);
-ref: InvokeStatic where (. node->invoke_static.return_type == SIR_DTREF .)     = 1 (. ew_emit(E, WOP_CALL); ew_u32(E, wasm_func_index(ctx->types, node->invoke_static.class_id, node->invoke_static.method_idx)); .);
-v128: InvokeStatic where (. node->invoke_static.return_type == SIR_DTV128 .)   = 1 (. ew_emit(E, WOP_CALL); ew_u32(E, wasm_func_index(ctx->types, node->invoke_static.class_id, node->invoke_static.method_idx)); .);
+i32: InvokeStatic where (. DT_IS_I32(node->invoke_static.return_type) .)      = 2 (. ew_emit(E, WOP_CALL); ew_u32(E, wasm_func_index(ctx->types, node->invoke_static.class_id, node->invoke_static.method_idx)); .);
+i64: InvokeStatic where (. node->invoke_static.return_type == SIR_DTLONG .)    = 2 (. ew_emit(E, WOP_CALL); ew_u32(E, wasm_func_index(ctx->types, node->invoke_static.class_id, node->invoke_static.method_idx)); .);
+f32: InvokeStatic where (. node->invoke_static.return_type == SIR_DTFLOAT .)   = 2 (. ew_emit(E, WOP_CALL); ew_u32(E, wasm_func_index(ctx->types, node->invoke_static.class_id, node->invoke_static.method_idx)); .);
+f64: InvokeStatic where (. node->invoke_static.return_type == SIR_DTDOUBLE .)  = 2 (. ew_emit(E, WOP_CALL); ew_u32(E, wasm_func_index(ctx->types, node->invoke_static.class_id, node->invoke_static.method_idx)); .);
+ref: InvokeStatic where (. node->invoke_static.return_type == SIR_DTREF .)     = 2 (. ew_emit(E, WOP_CALL); ew_u32(E, wasm_func_index(ctx->types, node->invoke_static.class_id, node->invoke_static.method_idx)); .);
+v128: InvokeStatic where (. node->invoke_static.return_type == SIR_DTV128 .)   = 2 (. ew_emit(E, WOP_CALL); ew_u32(E, wasm_func_index(ctx->types, node->invoke_static.class_id, node->invoke_static.method_idx)); .);
 
-i32: InvokeSpecial(ref) where (. DT_IS_I32(node->invoke_special.return_type) .)      = 1 (. ew_emit(E, WOP_CALL); ew_u32(E, wasm_func_index(ctx->types, node->invoke_special.class_id, node->invoke_special.method_idx)); .);
-i64: InvokeSpecial(ref) where (. node->invoke_special.return_type == SIR_DTLONG .)    = 1 (. ew_emit(E, WOP_CALL); ew_u32(E, wasm_func_index(ctx->types, node->invoke_special.class_id, node->invoke_special.method_idx)); .);
-f32: InvokeSpecial(ref) where (. node->invoke_special.return_type == SIR_DTFLOAT .)   = 1 (. ew_emit(E, WOP_CALL); ew_u32(E, wasm_func_index(ctx->types, node->invoke_special.class_id, node->invoke_special.method_idx)); .);
-f64: InvokeSpecial(ref) where (. node->invoke_special.return_type == SIR_DTDOUBLE .)  = 1 (. ew_emit(E, WOP_CALL); ew_u32(E, wasm_func_index(ctx->types, node->invoke_special.class_id, node->invoke_special.method_idx)); .);
-ref: InvokeSpecial(ref) where (. node->invoke_special.return_type == SIR_DTREF .)     = 1 (. ew_emit(E, WOP_CALL); ew_u32(E, wasm_func_index(ctx->types, node->invoke_special.class_id, node->invoke_special.method_idx)); .);
-v128: InvokeSpecial(ref) where (. node->invoke_special.return_type == SIR_DTV128 .)   = 1 (. ew_emit(E, WOP_CALL); ew_u32(E, wasm_func_index(ctx->types, node->invoke_special.class_id, node->invoke_special.method_idx)); .);
+i32: InvokeSpecial(ref) where (. DT_IS_I32(node->invoke_special.return_type) .)      = 2 (. ew_emit(E, WOP_CALL); ew_u32(E, wasm_func_index(ctx->types, node->invoke_special.class_id, node->invoke_special.method_idx)); .);
+i64: InvokeSpecial(ref) where (. node->invoke_special.return_type == SIR_DTLONG .)    = 2 (. ew_emit(E, WOP_CALL); ew_u32(E, wasm_func_index(ctx->types, node->invoke_special.class_id, node->invoke_special.method_idx)); .);
+f32: InvokeSpecial(ref) where (. node->invoke_special.return_type == SIR_DTFLOAT .)   = 2 (. ew_emit(E, WOP_CALL); ew_u32(E, wasm_func_index(ctx->types, node->invoke_special.class_id, node->invoke_special.method_idx)); .);
+f64: InvokeSpecial(ref) where (. node->invoke_special.return_type == SIR_DTDOUBLE .)  = 2 (. ew_emit(E, WOP_CALL); ew_u32(E, wasm_func_index(ctx->types, node->invoke_special.class_id, node->invoke_special.method_idx)); .);
+ref: InvokeSpecial(ref) where (. node->invoke_special.return_type == SIR_DTREF .)     = 2 (. ew_emit(E, WOP_CALL); ew_u32(E, wasm_func_index(ctx->types, node->invoke_special.class_id, node->invoke_special.method_idx)); .);
+v128: InvokeSpecial(ref) where (. node->invoke_special.return_type == SIR_DTV128 .)   = 2 (. ew_emit(E, WOP_CALL); ew_u32(E, wasm_func_index(ctx->types, node->invoke_special.class_id, node->invoke_special.method_idx)); .);
 
 // ── Virtual dispatch → vtable + call_ref. The receiver child reduces to ref
 //    (pushed as the call's `this`); the args auto-tile; VCALL fetches the vtable
 //    slot's funcref and call_refs it. return_type selects the result nonterminal.
 //    (InvokeInterface/itable dispatch + override-aware slots are later.) ──
-i32: InvokeVirtual(ref) where (. DT_IS_I32(node->invoke_virtual.return_type) .)    = 5 (. VCALL(node->invoke_virtual.obj, node->invoke_virtual.class_id, node->invoke_virtual.method_idx); .);
-i64: InvokeVirtual(ref) where (. node->invoke_virtual.return_type == SIR_DTLONG .)   = 5 (. VCALL(node->invoke_virtual.obj, node->invoke_virtual.class_id, node->invoke_virtual.method_idx); .);
-f32: InvokeVirtual(ref) where (. node->invoke_virtual.return_type == SIR_DTFLOAT .)  = 5 (. VCALL(node->invoke_virtual.obj, node->invoke_virtual.class_id, node->invoke_virtual.method_idx); .);
-f64: InvokeVirtual(ref) where (. node->invoke_virtual.return_type == SIR_DTDOUBLE .) = 5 (. VCALL(node->invoke_virtual.obj, node->invoke_virtual.class_id, node->invoke_virtual.method_idx); .);
-ref: InvokeVirtual(ref) where (. node->invoke_virtual.return_type == SIR_DTREF .)    = 5 (. VCALL(node->invoke_virtual.obj, node->invoke_virtual.class_id, node->invoke_virtual.method_idx); .);
-v128: InvokeVirtual(ref) where (. node->invoke_virtual.return_type == SIR_DTV128 .)  = 5 (. VCALL(node->invoke_virtual.obj, node->invoke_virtual.class_id, node->invoke_virtual.method_idx); .);
+i32: InvokeVirtual(ref) where (. DT_IS_I32(node->invoke_virtual.return_type) .)    = 20 (. VCALL(node->invoke_virtual.obj, node->invoke_virtual.class_id, node->invoke_virtual.method_idx); .);
+i64: InvokeVirtual(ref) where (. node->invoke_virtual.return_type == SIR_DTLONG .)   = 20 (. VCALL(node->invoke_virtual.obj, node->invoke_virtual.class_id, node->invoke_virtual.method_idx); .);
+f32: InvokeVirtual(ref) where (. node->invoke_virtual.return_type == SIR_DTFLOAT .)  = 20 (. VCALL(node->invoke_virtual.obj, node->invoke_virtual.class_id, node->invoke_virtual.method_idx); .);
+f64: InvokeVirtual(ref) where (. node->invoke_virtual.return_type == SIR_DTDOUBLE .) = 20 (. VCALL(node->invoke_virtual.obj, node->invoke_virtual.class_id, node->invoke_virtual.method_idx); .);
+ref: InvokeVirtual(ref) where (. node->invoke_virtual.return_type == SIR_DTREF .)    = 20 (. VCALL(node->invoke_virtual.obj, node->invoke_virtual.class_id, node->invoke_virtual.method_idx); .);
+v128: InvokeVirtual(ref) where (. node->invoke_virtual.return_type == SIR_DTV128 .)  = 20 (. VCALL(node->invoke_virtual.obj, node->invoke_virtual.class_id, node->invoke_virtual.method_idx); .);
 
 // Interface dispatch — same global vtable + signature slot as virtual, but the
 // receiver is only known as a reference, so cast to the root struct to read its
 // vtable header. The signature slot is shared with the implementing class's
 // override, so this reaches the right method on any implementer.
-i32: InvokeInterface(ref) where (. DT_IS_I32(node->invoke_interface.return_type) .)    = 6 (. IVCALL(node->invoke_interface.obj, node->invoke_interface.class_id, node->invoke_interface.method_idx); .);
-i64: InvokeInterface(ref) where (. node->invoke_interface.return_type == SIR_DTLONG .)   = 6 (. IVCALL(node->invoke_interface.obj, node->invoke_interface.class_id, node->invoke_interface.method_idx); .);
-f32: InvokeInterface(ref) where (. node->invoke_interface.return_type == SIR_DTFLOAT .)  = 6 (. IVCALL(node->invoke_interface.obj, node->invoke_interface.class_id, node->invoke_interface.method_idx); .);
-f64: InvokeInterface(ref) where (. node->invoke_interface.return_type == SIR_DTDOUBLE .) = 6 (. IVCALL(node->invoke_interface.obj, node->invoke_interface.class_id, node->invoke_interface.method_idx); .);
-ref: InvokeInterface(ref) where (. node->invoke_interface.return_type == SIR_DTREF .)    = 6 (. IVCALL(node->invoke_interface.obj, node->invoke_interface.class_id, node->invoke_interface.method_idx); .);
-v128: InvokeInterface(ref) where (. node->invoke_interface.return_type == SIR_DTV128 .)  = 6 (. IVCALL(node->invoke_interface.obj, node->invoke_interface.class_id, node->invoke_interface.method_idx); .);
+i32: InvokeInterface(ref) where (. DT_IS_I32(node->invoke_interface.return_type) .)    = 23 (. IVCALL(node->invoke_interface.obj, node->invoke_interface.class_id, node->invoke_interface.method_idx); .);
+i64: InvokeInterface(ref) where (. node->invoke_interface.return_type == SIR_DTLONG .)   = 23 (. IVCALL(node->invoke_interface.obj, node->invoke_interface.class_id, node->invoke_interface.method_idx); .);
+f32: InvokeInterface(ref) where (. node->invoke_interface.return_type == SIR_DTFLOAT .)  = 23 (. IVCALL(node->invoke_interface.obj, node->invoke_interface.class_id, node->invoke_interface.method_idx); .);
+f64: InvokeInterface(ref) where (. node->invoke_interface.return_type == SIR_DTDOUBLE .) = 23 (. IVCALL(node->invoke_interface.obj, node->invoke_interface.class_id, node->invoke_interface.method_idx); .);
+ref: InvokeInterface(ref) where (. node->invoke_interface.return_type == SIR_DTREF .)    = 23 (. IVCALL(node->invoke_interface.obj, node->invoke_interface.class_id, node->invoke_interface.method_idx); .);
+v128: InvokeInterface(ref) where (. node->invoke_interface.return_type == SIR_DTV128 .)  = 23 (. IVCALL(node->invoke_interface.obj, node->invoke_interface.class_id, node->invoke_interface.method_idx); .);
 
 // ── Tail-call form of each invoke (consumed by `stmt: Return(tail)`). Each is a
 //    rule ROOT over the invoke node, so the matcher tiles the args/receiver the
 //    same way the value rules above do; the action emits return_call* instead of
 //    call/call_ref. No return_type split — return_call* ignores the result
 //    nonterminal (it just returns the callee's results as this function's). ──
-tail: InvokeStatic       = 1 (. ew_emit(E, WOP_RETURN_CALL); ew_u32(E, wasm_func_index(ctx->types, node->invoke_static.class_id, node->invoke_static.method_idx)); .);
-tail: InvokeSpecial(ref) = 1 (. ew_emit(E, WOP_RETURN_CALL); ew_u32(E, wasm_func_index(ctx->types, node->invoke_special.class_id, node->invoke_special.method_idx)); .);
-tail: InvokeVirtual(ref) = 5 (. TVCALL(node->invoke_virtual.obj, node->invoke_virtual.class_id, node->invoke_virtual.method_idx); .);
-tail: InvokeInterface(ref) = 6 (. TIVCALL(node->invoke_interface.obj, node->invoke_interface.class_id, node->invoke_interface.method_idx); .);
+// return_call* is the same width as its call* counterpart, so a tail form costs
+// what the value form costs; `stmt: Return(tail) = 0` is where the saving shows,
+// because the ordinary path pays a `return` byte on top.
+tail: InvokeStatic       = 2 (. ew_emit(E, WOP_RETURN_CALL); ew_u32(E, wasm_func_index(ctx->types, node->invoke_static.class_id, node->invoke_static.method_idx)); .);
+tail: InvokeSpecial(ref) = 2 (. ew_emit(E, WOP_RETURN_CALL); ew_u32(E, wasm_func_index(ctx->types, node->invoke_special.class_id, node->invoke_special.method_idx)); .);
+tail: InvokeVirtual(ref) = 20 (. TVCALL(node->invoke_virtual.obj, node->invoke_virtual.class_id, node->invoke_virtual.method_idx); .);
+tail: InvokeInterface(ref) = 23 (. TIVCALL(node->invoke_interface.obj, node->invoke_interface.class_id, node->invoke_interface.method_idx); .);
 
 // ── instanceof / cast. For a CLASS target the class typeidx is a concrete s33:
 //    ref.test is the non-null form (Java `null instanceof T` is false); ref.cast_null
@@ -677,7 +1016,11 @@ tail: InvokeInterface(ref) = 6 (. TIVCALL(node->invoke_interface.obj, node->invo
 //    target a structural ref.test can't distinguish implementors (interface refs type
 //    as root), so instanceof calls the iface_instanceof helper (obj on the stack, then
 //    the target interface's class id) which scans the object's ClassDesc.interfaces. ──
-i32: InstanceOf(ref) = 1 (.
+// FLOOR: the class case is ref.test $t (3). An interface target has no usable
+// struct type and calls the iface_instanceof helper instead (i32.const + call, 4),
+// a choice the action makes from ctx->types rather than a `where` — guards stay
+// pure predicates over the node.
+i32: InstanceOf(ref) = 3 (.
     int _iid = node->instance_of.class_id;
     if (wasm_class_is_interface(ctx->types, _iid)) {
         ew_emit(E, WOP_I32_CONST); ew_i32(E, _iid);
@@ -690,7 +1033,7 @@ i32: InstanceOf(ref) = 1 (.
 // membership check is the iface_instanceof guard (emitted around this CheckCast in the ddcg).
 // So narrow to ROOT, not the interface's own struct (which no concrete object is typed as —
 // a ref.cast to it would both mistype the destination and trap every real implementor).
-ref: CheckCast(ref)  = 1 (.
+ref: CheckCast(ref)  = 3 (.
     int _cc = node->check_cast.class_id;
     int _to = wasm_class_is_interface(ctx->types, _cc) ? wasm_root_class(ctx->types) : _cc;
     ew_emit(E, WOP_REF_CAST_NULL); ew_i32(E, struct_idx(_to));
@@ -703,7 +1046,7 @@ ref: CheckCast(ref)  = 1 (.
 // catch-all (finally + rethrow) as the no-match fall-through. So for a typed
 // catch the structurer has already ref.cast the value to the catch type before
 // this store; for the catch-all it is the raw Throwable landing.
-stmt: ExceptionEntry = 1 (.
+stmt: ExceptionEntry = 2 (.
     ew_emit(E, WOP_LOCAL_SET); ew_u32(E, node->exception_entry.local_slot);
     cg_jump(E, node);
 .);
@@ -714,13 +1057,42 @@ stmt: Nop = 0 (. /* label anchor — structurer owns the scope */ .);
 
 // ── value-as-statement chains (faithful to yoctojc's stmt: sreg/ireg/aref) ──
 // A bare value subtree reduces to stmt with NO extra bytes — it tiles the value
-// and leaves it on the stack. The structured emit calls burg_rewrite on
-// a cond/value subtree to tile it; these chains are the only public matcher
-// entry for a value tree. High cost = last-resort (never wins in a real spine,
-// where value nodes are children, not stmt roots).
-stmt: i32 = 400;
-stmt: i64 = 401;
-stmt: f32 = 402;
-stmt: f64 = 403;
-stmt: ref = 404;
-stmt: v128 = 405;
+// and leaves it on the stack — so the chains cost 0, which is what they emit.
+// They are load-bearing twice over: the structurer's emit_value tiles bare
+// cond/value subtrees through them, and the variable-arity reduce tiles every
+// CALL ARGUMENT with START, i.e. through these same chains. That second use is
+// why the cost must be the truth: iburg (p.4, p.7) sums each child's cost at the
+// nonterminal it reduces with, so a call's cost includes its arguments' cost[stmt]
+// — with the old 400-series "last resort" sentinels here, every argument would
+// have carried a 400-byte fiction into its call's price. The sentinel never did
+// any work anyway: no terminal in this grammar has both a direct stmt rule and a
+// value rule, so the chains are never contested, and if a future rule ever does
+// contest one, the DP should decide it on real bytes — which 0 is.
+// There is deliberately NO chain from `cond` or `ncond` to `stmt` or to any value
+// nonterminal, and no cost would make one safe.
+//
+// A chain rule asserts that one derivation can STAND IN for another; only the cost
+// ranks the ones that can. `ncond` emits the INVERSE of its condition, so it is
+// not interchangeable with a value at all, and even `cond` is reached only where a
+// caller has asked for a truth test. A chain between them would be a false
+// assertion rather than a preference.
+//
+// A large cost on such a chain only hides the assertion. The negation rules
+// compose — `cond: LogNot(ncond)` and its mirror alternate at 0 each — so the
+// polarity derivation stays flat while the i32 derivation grows by the byte its
+// i32.eqz costs. With a `stmt: cond = 500` chain here, 101 nested negations paid
+// the 500 off and a plain VALUE tiling took the cond cover, eliding every eqz and
+// yielding the negation of the program's value. The min-cost search was doing
+// exactly its job; the rule set was wrong. (Pinned in test_codegen_wasm by tiling
+// a deep negation chain BARE — a Return-wrapped fixture passes either way, since
+// `stmt: Return(i32)` demands i32 of its child and never consults a chain.)
+//
+// The structurer reaches these goals BY NAME, which the `ENTRY cond` / `ENTRY
+// ncond` declarations at the top of this file state outright — so burgc's
+// liveness analysis sees the demand and no chain is needed to fake it.
+stmt: i32 = 0;
+stmt: i64 = 0;
+stmt: f32 = 0;
+stmt: f64 = 0;
+stmt: ref = 0;
+stmt: v128 = 0;

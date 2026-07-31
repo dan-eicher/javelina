@@ -1,9 +1,9 @@
 // test_click_backend.c — #31. Click (the SIR optimizer) run THROUGH the backend.
 //
 // SCOPE, stated honestly: this is an INTEGRATION SMOKE test, not a validity
-// test. It checks (a) one real PROPERTY — Click actually rewrote a value (the
-// foldable 2+3 is gone, a const 5 is there), proving the optimizer ran in the
-// codegen path; and (b) that running Click before the burg over EVERY family
+// test. It checks (a) one real PROPERTY — Click actually rewrote a value,
+// proving the optimizer ran in the codegen path; and (b) that running Click
+// before the burg over EVERY family
 // (if/while/switch/try/field/call/array) neither crashes nor drops the family's
 // control-flow framing / key op — i.e. its in-place value rewrite + slot repack
 // don't dangle the scope sidecar's node pointers.
@@ -68,29 +68,57 @@ static const uint8_t* emit(bbq_arena* a, const char* src, const char* name,
 }
 
 int main(void) {
-    /* y = 2 + 3 is a constant Click folds + propagates; the while gives the
-     * sidecar something to preserve across Click's mutation. */
+    /* y = 2 + 3 is a constant Click folds AND PROPAGATES into `return y`; the
+     * while gives the sidecar something to preserve across Click's mutation.
+     *
+     * The marker used to be the fold itself — 2+3 present without Click, gone
+     * with it. That stopped discriminating when the SELECTOR learned to fold
+     * constants too (grammar: Add(LoadConst, LoadConst)), which is deliberate:
+     * the −O0 path should not emit `2; 3; i32.add` either. But it left the
+     * with-Click assertion passing whether or not Click ran, which is a false
+     * green for the one property this file claims to test.
+     *
+     * So the marker is now PROPAGATION, which selection cannot do: it is a
+     * dataflow rewrite across a store and a load, not a tree pattern. Without
+     * Click the constant round-trips through y's slot (local.set 2 … local.get 2);
+     * with Click the store is gone entirely and the constant arrives at the
+     * return. No tiling change can fake that. */
     const char* SRC =
         "class T { int f(int x){ int y = 2 + 3; while (x > 0) { x = x - 1; } return y; } }";
 
-    /* without Click: the addition is still there (2; 3; i32.add). */
+    const uint8_t set_y[]     = { 0x21,0x02 };            /* local.set y            */
+    const uint8_t get_y_ret[] = { 0x20,0x02, 0x0F };      /* local.get y; return    */
+    const uint8_t const_ret[] = { 0x41,0x05, 0x0F };      /* i32.const 5; return    */
+    const uint8_t add23[]     = { 0x41,0x02, 0x41,0x03, 0x6A };  /* 2; 3; i32.add   */
+
+    /* Without Click: the value is folded (by the selector) but still stored into
+     * y and loaded back to be returned — the round-trip Click is what removes. */
     {
         bbq_arena a; bbq_arena_init(&a, 1 << 16);
         int n = 0; const uint8_t* body = emit(&a, SRC, "f", false, &n);
-        const uint8_t add23[] = { 0x41,0x02, 0x41,0x03, 0x6A };  /* 2; 3; i32.add */
         CHECK(body != NULL, "no-Click compiled");
-        CHECK(contains(body, n, add23, 5), "no-Click: the 2+3 add is present (unoptimized)");
+        CHECK(contains(body, n, set_y, 2),
+              "no-Click: the constant is still stored into y");
+        CHECK(contains(body, n, get_y_ret, 3),
+              "no-Click: and loaded back to be returned (no propagation)");
+        CHECK(!contains(body, n, const_ret, 3),
+              "no-Click: the constant does NOT reach the return directly");
         bbq_arena_free(&a);
     }
-    /* with Click: 2+3 folds to 5 (the add is gone), AND the while still frames
-     * (block+loop) — the scope sidecar survived Click's in-place rewrite. */
+    /* With Click: y is gone — the constant is propagated to its use — AND the
+     * while still frames (block+loop), so the scope sidecar survived the in-place
+     * rewrite. The fold assertion stays as a regression guard, but the
+     * PROPAGATION assertions above and below are what prove Click ran. */
     {
         bbq_arena a; bbq_arena_init(&a, 1 << 16);
         int n = 0; const uint8_t* body = emit(&a, SRC, "f", true, &n);
-        const uint8_t add23[] = { 0x41,0x02, 0x41,0x03, 0x6A };
         const uint8_t five[]  = { 0x41,0x05 };                   /* i32.const 5 (folded) */
         const uint8_t loop[]  = { 0x02,0x40, 0x03,0x40 };        /* block $break (loop $top */
         CHECK(body != NULL, "Click compiled");
+        CHECK(!contains(body, n, set_y, 2),
+              "Click: y's store is gone — the constant was PROPAGATED to its use");
+        CHECK(contains(body, n, const_ret, 3),
+              "Click: the constant reaches the return directly");
         CHECK(!contains(body, n, add23, 5), "Click: the 2+3 add was folded away");
         CHECK(contains(body, n, five, 2),   "Click: folded to i32.const 5");
         CHECK(contains(body, n, loop, 4),   "Click: the while sidecar survived (block+loop framed)");

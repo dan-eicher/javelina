@@ -86,6 +86,44 @@ static void emit_value(sir_node_t* v, burg_ctx_t* ctx) {
     burg_rewrite(v, ctx);
 }
 
+/* Emit a branch CONDITION's bytes at the polarity the site wants.
+ *
+ * A condition carries a context a value does not: it is about to be consumed as
+ * a truth test, so the matcher is asked for a condition GOAL by name rather than
+ * tiled through the value chain. `cond` emits the condition's truth, `ncond` its
+ * inverse, and both are real covers the DP has priced — so a site that wants the
+ * inverse asks for it instead of emitting an i32.eqz over the truth, and a site
+ * that wants the truth asks for that. Which goal was reduced IS the answer;
+ * nothing travels out of band, and no state survives the call.
+ *
+ * `want_truth` says which polarity the caller needs. Returns true if the caller
+ * must emit ONE i32.eqz to get it — that happens only when the opposite goal is
+ * strictly cheaper even after paying for the inversion, which is a decision made
+ * on real bytes by comparing the two costs the labeller computed.
+ *
+ * This is the same shape as `stmt: Return(tail)` choosing between return_call and
+ * call/return: a context alternative expressed as a goal and settled by cost. */
+static bool emit_branch_cond(sir_node_t* c, bool want_truth, burg_ctx_t* ctx) {
+    burg_state_t* st = burg_label_root(c, ctx);
+    if (!st) {
+        burg_set_error("burg: no cover at a branch condition", (int)c->tag, ctx);
+        return false;
+    }
+    int want = want_truth ? cond_NT : ncond_NT;
+    int other = want_truth ? ncond_NT : cond_NT;
+    int cw = burg_rule(st, want)  ? burg_cost(st, want)  : BURG_MAX_COST;
+    int co = burg_rule(st, other) ? burg_cost(st, other) : BURG_MAX_COST;
+    if (cw == BURG_MAX_COST && co == BURG_MAX_COST) {
+        burg_set_error("burg: no cond cover at a branch condition", (int)c->tag, ctx);
+        return false;
+    }
+    /* Ties go to the goal that needs no extra instruction: `co + 1` must be
+     * STRICTLY cheaper to be worth inverting afterwards. */
+    bool invert = co != BURG_MAX_COST && co + 1 < cw;
+    burg_reduce(c, st, invert ? other : want, ctx);
+    return invert;
+}
+
 /* Emit one spine node's own bytes via the burg, WITHOUT walking its successor
  * (temporarily detach .next so burg_rewrite reduces just this node). */
 static void emit_node_only(sir_node_t* n, burg_ctx_t* ctx) {
@@ -306,19 +344,26 @@ static bool emit_spine(sir_node_t* node, sir_node_t* stop,
                  * through to the false (exit/next) arm. Must precede the df
                  * break-on-false reading: that would set node=Ltop and the
                  * loop header would be re-entered as a node and re-framed. */
-                emit_value(cond, ctx);
+                /* br_if branches when the condition is TRUE and the back-edge
+                 * target is fixed, so this site needs the truth. It gets it from
+                 * `cond`, unless `ncond` plus one i32.eqz is strictly cheaper. */
+                if (emit_branch_cond(cond, true, ctx)) ew_emit(&ctx->emit, WOP_I32_EQZ);
                 ew_emit(&ctx->emit, WOP_BR_IF); ew_u32(&ctx->emit, (uint32_t)dt);
                 node = on_f;
             } else if (df >= 0) {
-                /* transfer on FALSE (loop test, or a framed merge label): cond;
-                 * eqz; br_if; fall to the true arm. */
-                emit_value(cond, ctx);
-                ew_emit(&ctx->emit, WOP_I32_EQZ);
+                /* transfer on FALSE (loop test, or a framed merge label): branch
+                 * away when the condition is false, so this site wants the
+                 * INVERSE — and now asks for it. There is no hardcoded i32.eqz
+                 * here any more: inverting is `ncond`'s job and its price is in
+                 * the grammar, so the DP decides whether to invert the operand or
+                 * the result. */
+                if (emit_branch_cond(cond, false, ctx)) ew_emit(&ctx->emit, WOP_I32_EQZ);
                 ew_emit(&ctx->emit, WOP_BR_IF); ew_u32(&ctx->emit, (uint32_t)df);
                 node = on_t;
             } else if (dt >= 0) {
-                /* transfer on TRUE: cond; br_if; fall to the other arm. */
-                emit_value(cond, ctx);
+                /* transfer on TRUE: cond; br_if; fall to the other arm. Same
+                 * polarity need as the back-edge case above. */
+                if (emit_branch_cond(cond, true, ctx)) ew_emit(&ctx->emit, WOP_I32_EQZ);
                 ew_emit(&ctx->emit, WOP_BR_IF); ew_u32(&ctx->emit, (uint32_t)dt);
                 node = on_f;
             } else {
@@ -330,7 +375,41 @@ static bool emit_spine(sir_node_t* node, sir_node_t* stop,
                 sir_node_t* ljoin = js ? js->aux
                                   : carried ? carried
                                   : stop;
-                emit_value(cond, ctx);
+                /* The `if` is the consumer that can take an inversion for nothing:
+                 * a negated condition is the same construct with its two arms
+                 * exchanged. Everything else about the frame is untouched — same
+                 * block type, same scope push, same inherited join.
+                 *
+                 * "For nothing" has one exception, and it decides whether the
+                 * exchange is even offered. WASM's `if` has no else-only form, so
+                 * exchanging the arms of a ONE-ARMED if (the false arm IS the
+                 * join) does not remove work — it moves the body into an `else`
+                 * and leaves an empty then, trading a saved i32.eqz for the 0x05
+                 * it now needs: same bytes, a shape nobody wants, a dead block for
+                 * the validator to walk. So a one-armed if asks for the truth and
+                 * takes source order, full stop. Where BOTH arms are real the
+                 * exchange is free, so the site asks for `ncond` when that is
+                 * strictly cheaper and swaps — the DP prices the choice, and a tie
+                 * keeps source order. (When the TRUE arm is the join, `on_f !=
+                 * ljoin` holds and swapping additionally removes the empty arm the
+                 * un-swapped form would have emitted.) */
+                bool two_armed = (on_f != ljoin);
+                bool swap = false;
+                if (two_armed) {
+                    burg_state_t* st = burg_label_root(cond, ctx);
+                    int cc = (st && burg_rule(st, cond_NT))  ? burg_cost(st, cond_NT)  : BURG_MAX_COST;
+                    int cn = (st && burg_rule(st, ncond_NT)) ? burg_cost(st, ncond_NT) : BURG_MAX_COST;
+                    swap = (cn < cc);
+                    if (!st || (cc == BURG_MAX_COST && cn == BURG_MAX_COST))
+                        burg_set_error("burg: no cond cover at a branch condition",
+                                       (int)cond->tag, ctx);
+                    else
+                        burg_reduce(cond, st, swap ? ncond_NT : cond_NT, ctx);
+                } else if (emit_branch_cond(cond, true, ctx)) {
+                    ew_emit(&ctx->emit, WOP_I32_EQZ);
+                }
+                sir_node_t* arm_t = swap ? on_f : on_t;  /* runs when the emitted value is true  */
+                sir_node_t* arm_f = swap ? on_t : on_f;  /* runs when it is false                */
                 ew_emit(&ctx->emit, WOP_IF); ew_byte(&ctx->emit, WBT_VOID);
                 /* The WASM `if` is itself a control frame: a br out of an arm (a
                  * continue/break to an enclosing loop/block) must count it. Push the
@@ -339,10 +418,10 @@ static bool emit_spine(sir_node_t* node, sir_node_t* stop,
                  * the arms inherit ljoin, which sits at sd. */
                 int isd = sd;
                 if (sd < MAXSCOPE) { stack[sd] = node; isd = sd + 1; }
-                emit_spine(on_t, ljoin, stack, isd, sc, nsc, ctx, NULL);
-                if (on_f != ljoin) {         /* if-no-else: the false path IS the join */
+                emit_spine(arm_t, ljoin, stack, isd, sc, nsc, ctx, NULL);
+                if (arm_f != ljoin) {        /* if-no-else: the false path IS the join */
                     ew_byte(&ctx->emit, W_ELSE);
-                    emit_spine(on_f, ljoin, stack, isd, sc, nsc, ctx, NULL);
+                    emit_spine(arm_f, ljoin, stack, isd, sc, nsc, ctx, NULL);
                 }
                 ew_byte(&ctx->emit, W_END);
                 /* §14.19: the frontend built a join anchor iff the if statement can complete

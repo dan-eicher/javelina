@@ -331,5 +331,153 @@ int main(void) {
         bbq_arena_free(&a);
     }
 
+    /* ── The branch context, end to end ───────────────────────────────────────
+     *
+     * The tiles themselves are pinned in test_codegen_wasm; what has to be proved
+     * HERE is the half the matcher cannot do: that the structurer honours the
+     * polarity a tile hands back. Each pin below is a whole compiled method, so a
+     * mishandled flag shows up as an inverted branch — the arms in the wrong
+     * order, or a br_if going the wrong way — not as a byte count.
+     *
+     * Falsification runs, all 2026-07-30. Removing the `cond` context rules reds
+     * four of these (the two `while` pins and the two that show a condition tiling
+     * to nothing). The remaining two need their own falsifiers, because removing a
+     * rule merely stops any inversion happening — so they were falsified against
+     * the mechanism they actually pin: deleting emit_cond's `cond_neg` reset reds
+     * "polarity does not leak" and nothing else, and making the swap
+     * unconditional reds "one-armed inverted if restores polarity".
+     *
+     * `if (x != 0)`: the condition needs NO code. Before this, the compare
+     * materialised (i32.const 0; i32.ne, or after B2 an eqz pair) and the `if`
+     * tested the result. */
+    {
+        bbq_arena a; bbq_arena_init(&a, 1 << 16);
+        const uint8_t* body = NULL;
+        int n = emit_body(&a, "class T { int f(int x){ if (x != 0) { return 1; } return 0; } }", "f", &body);
+        const uint8_t want[] = { 0x20,0x01,                     /* local.get x — and that IS the condition */
+                                 0x04,0x40,                     /* if void          */
+                                 0x41,0x01, 0x0F,               /* then: return 1   */
+                                 0x0B,                          /* end (if)         */
+                                 0x41,0x00, 0x0F,               /* return 0         */
+                                 0x0B };
+        CHECK(n > 0, "if (x != 0): emitted");
+        check_bytes("if (x != 0) tiles the operand alone", body, n, want, (int)sizeof want);
+        bbq_arena_free(&a);
+    }
+
+    /* `if (x == 0)` with ONE arm: the tile inverts, but exchanging the arms here
+     * would put the body in an `else` behind an empty then — the same bytes as
+     * restoring the polarity, and a worse shape. So the eqz comes back and the
+     * arms stay in source order. This pins the decision, not just the size. */
+    {
+        bbq_arena a; bbq_arena_init(&a, 1 << 16);
+        const uint8_t* body = NULL;
+        int n = emit_body(&a, "class T { int f(int x){ if (x == 0) { return 1; } return 2; } }", "f", &body);
+        const uint8_t want[] = { 0x20,0x01,                     /* local.get x            */
+                                 0x45,                          /* eqz — polarity restored */
+                                 0x04,0x40,                     /* if void                */
+                                 0x41,0x01, 0x0F,               /* then: return 1         */
+                                 0x0B,                          /* end (if)               */
+                                 0x41,0x02, 0x0F,               /* return 2               */
+                                 0x0B };
+        CHECK(n > 0, "if (x == 0): emitted");
+        check_bytes("one-armed inverted if restores polarity rather than emptying the then",
+                    body, n, want, (int)sizeof want);
+        bbq_arena_free(&a);
+    }
+
+    /* `if (x == 0) … else …` with BOTH arms real: now the exchange is free, so it
+     * happens — no eqz, and `return 1` (the x==0 arm) comes out in the ELSE, after
+     * the 0x05. Get the flag wrong here and the method returns the wrong value for
+     * every input; the two pins together cover both sides of the swap decision. */
+    {
+        bbq_arena a; bbq_arena_init(&a, 1 << 16);
+        const uint8_t* body = NULL;
+        int n = emit_body(&a,
+            "class T { int f(int x){ int r; if (x == 0) { r = 1; } else { r = 2; } return r; } }",
+            "f", &body);
+        const uint8_t want[] = { 0x20,0x01,                     /* local.get x — no eqz   */
+                                 0x04,0x40,                     /* if void                */
+                                 0x41,0x02, 0x21,0x02,          /* then (x nonzero): r=2  */
+                                 0x05,                          /* else                   */
+                                 0x41,0x01, 0x21,0x02,          /* else  (x==0):     r=1  */
+                                 0x0B,                          /* end (if)               */
+                                 0x20,0x02, 0x0F,               /* return r               */
+                                 0x0B };
+        CHECK(n > 0, "if (x == 0) else: emitted");
+        check_bytes("two-armed inverted if exchanges the arms and drops the eqz",
+                    body, n, want, (int)sizeof want);
+        bbq_arena_free(&a);
+    }
+
+    /* A while test reaches the OTHER kind of site: it branches on FALSE, so it
+     * already emitted an i32.eqz to invert. An inverting tile has done that
+     * inversion already and the eqz must be DROPPED — emitting both would restore
+     * the original polarity and loop exactly when it should exit. Compare with the
+     * `while (x > 0)` pin above, which still carries its 0x45. */
+    {
+        bbq_arena a; bbq_arena_init(&a, 1 << 16);
+        const uint8_t* body = NULL;
+        int n = emit_body(&a, "class T { void f(int x){ while (x != 0) { x = x - 1; } } }", "f", &body);
+        const uint8_t want[] = {
+            0x02,0x40, 0x03,0x40,                    /* block $break; loop $top     */
+            0x20,0x01,                               /* local.get x = the condition */
+            0x45,                                    /* eqz — the site's OWN inversion, kept:
+                                                        the tile did not invert here      */
+            0x0D,0x01,                               /* br_if 1 → $break            */
+            0x20,0x01, 0x41,0x01, 0x6B, 0x21,0x01,   /* x = x - 1                   */
+            0x0C,0x00, 0x0B, 0x0B,                   /* br $top; end loop; end block */
+            0x0F, 0x0B };
+        CHECK(n > 0, "while (x != 0): emitted");
+        check_bytes("while (x != 0) keeps the site's own eqz", body, n, want, (int)sizeof want);
+        bbq_arena_free(&a);
+    }
+
+    /* …and the inverting twin at that same site: `while (x == 0)` tiles to the
+     * same operand with the polarity flipped, so the site's eqz CANCELS and the
+     * whole condition is one local.get plus the br_if. */
+    {
+        bbq_arena a; bbq_arena_init(&a, 1 << 16);
+        const uint8_t* body = NULL;
+        int n = emit_body(&a, "class T { void f(int x){ while (x == 0) { x = x - 1; } } }", "f", &body);
+        const uint8_t want[] = {
+            0x02,0x40, 0x03,0x40,                    /* block $break; loop $top     */
+            0x20,0x01,                               /* local.get x — NO eqz: the tile
+                                                        inverted, cancelling the site's */
+            0x0D,0x01,                               /* br_if 1 → $break            */
+            0x20,0x01, 0x41,0x01, 0x6B, 0x21,0x01,   /* x = x - 1                   */
+            0x0C,0x00, 0x0B, 0x0B,
+            0x0F, 0x0B };
+        CHECK(n > 0, "while (x == 0): emitted");
+        check_bytes("while (x == 0) cancels the site's eqz", body, n, want, (int)sizeof want);
+        bbq_arena_free(&a);
+    }
+
+    /* Two branches back to back, the first inverting and the second not. If the
+     * polarity leaked from one condition to the next, the second `if` would come
+     * out with its arms exchanged. This is the reset discipline, end to end. */
+    {
+        bbq_arena a; bbq_arena_init(&a, 1 << 16);
+        const uint8_t* body = NULL;
+        int n = emit_body(&a,
+            "class T { int f(int x, int y){ if (x == 0) { return 1; } if (y > 3) { return 2; } return 3; } }",
+            "f", &body);
+        const uint8_t want[] = {
+            0x20,0x01, 0x45,                    /* local.get x; eqz (one-armed, so restored) */
+            0x04,0x40,                          /* if void                           */
+              0x41,0x01, 0x0F,                  /* then: return 1                    */
+            0x0B,                               /* end (outer if)                    */
+            0x20,0x02, 0x41,0x03, 0x4A,         /* y > 3 — a NON-inverting condition */
+            0x04,0x40,                          /* if void                           */
+              0x41,0x02, 0x0F,                  /*   return 2 stays the THEN arm     */
+            0x0B,
+            0x41,0x03, 0x0F,                    /* return 3                          */
+            0x0B };
+        CHECK(n > 0, "back-to-back branches: emitted");
+        check_bytes("polarity does not leak from one branch to the next",
+                    body, n, want, (int)sizeof want);
+        bbq_arena_free(&a);
+    }
+
     return TEST_SUMMARY("test_codegen_structured");
 }

@@ -46,6 +46,20 @@ static inline void ew_emit(emit_wasm_ctx* e, wasm_op_t op) {
     if (enc.prefix) { ew_byte(e, enc.prefix); ew_u32(e, enc.opcode); }
     else            { ew_byte(e, (uint8_t)enc.opcode); }
 }
+
+/* How many bytes ew_emit writes for `op`, from the same wasm_op_enc[] row it
+ * encodes from. The selection grammar needs this: a tile whose opcode is a node
+ * PAYLOAD (the SIMD families) emits 2 bytes for a sub-opcode below 0x80 and 3
+ * above, so one static cost cannot be its byte count — the width has to pick the
+ * rule. Deriving it here rather than restating it in the grammar keeps one
+ * authority for what an instruction weighs. */
+static inline int ew_op_width(wasm_op_t op) {
+    wasm_op_enc_t enc = wasm_op_enc[op];
+    if (!enc.prefix) return 1;
+    int n = 1;
+    for (uint32_t v = enc.opcode; ; v >>= 7) { n++; if (!(v >> 7)) break; }
+    return n;
+}
 /* Signed LEB128 (i32 / i64). */
 static inline void ew_i64(emit_wasm_ctx* e, int64_t v) {
     for (;;) {

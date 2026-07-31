@@ -158,7 +158,7 @@ $(GEN)/simd_intrinsics.h $(SIMD_JAVA) &: $(WASM_INSTR_TOML) $(B)/gen_simd_intrin
 # separately (make coverage-wasm) while the burg grammar is in flux.
 BURG_FRAMES := $(BBQ)/burgc/frames
 $(GEN)/codegen_matcher.h $(GEN)/codegen_matcher.c &: grammar/codegen_wasm.burg $(GEN)/sir.json $(BURGC)
-	$(BURGC) -i grammar/codegen_wasm.burg -asdl $(GEN)/sir.json -lang c -frames $(BURG_FRAMES) -o $(GEN)/codegen_matcher.h
+	$(BURGC) -i grammar/codegen_wasm.burg -asdl $(GEN)/sir.json -lang c --emit-rule-table -frames $(BURG_FRAMES) -o $(GEN)/codegen_matcher.h
 
 .PHONY: generate-codegen coverage-wasm
 generate-codegen: $(GEN)/codegen_matcher.c

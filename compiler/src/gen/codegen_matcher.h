@@ -156,8 +156,10 @@
 #define f64_NT 5
 #define ref_NT 6
 #define v128_NT 7
-#define tail_NT 8
-#define BURG_MAX_NT 8
+#define cond_NT 8
+#define ncond_NT 9
+#define tail_NT 10
+#define BURG_MAX_NT 10
 #define BURG_MAX_COST SHRT_MAX
 
 // ── User headers ──
@@ -270,6 +272,35 @@
        (void)e; (void)n;   /* structured-control transfer */
    }
 
+   /* Constant folding at selection time. JLS §15.18/§15.22 integer arithmetic is
+    * exactly two's-complement wraparound, so every input has a defined answer —
+    * but signed overflow is UB in C, so the arithmetic goes through the unsigned
+    * type and back. §15.19 masks a shift count to the operand's width, and §15.17
+    * leaves division by zero (and MIN/-1, which overflows) to the runtime: those
+    * are GUARDED out below rather than folded to something the JVM would not
+    * produce. Nothing here is a float: §15.4 NaN payloads and signed zero make
+    * float folding a semantics question, and the optimizer owns those. */
+   static inline int32_t jf_add32(int32_t a, int32_t b) { return (int32_t)((uint32_t)a + (uint32_t)b); }
+   static inline int32_t jf_sub32(int32_t a, int32_t b) { return (int32_t)((uint32_t)a - (uint32_t)b); }
+   static inline int32_t jf_mul32(int32_t a, int32_t b) { return (int32_t)((uint32_t)a * (uint32_t)b); }
+   static inline int32_t jf_shl32(int32_t a, int32_t b) { return (int32_t)((uint32_t)a << (b & 31)); }
+   static inline int32_t jf_shr32(int32_t a, int32_t b) { return (int32_t)(a < 0 ? ~(~(uint32_t)a >> (b & 31)) : (uint32_t)a >> (b & 31)); }
+   static inline int32_t jf_ushr32(int32_t a, int32_t b) { return (int32_t)((uint32_t)a >> (b & 31)); }
+   static inline int64_t jf_add64(int64_t a, int64_t b) { return (int64_t)((uint64_t)a + (uint64_t)b); }
+   static inline int64_t jf_sub64(int64_t a, int64_t b) { return (int64_t)((uint64_t)a - (uint64_t)b); }
+   static inline int64_t jf_mul64(int64_t a, int64_t b) { return (int64_t)((uint64_t)a * (uint64_t)b); }
+   static inline int64_t jf_shl64(int64_t a, int64_t b) { return (int64_t)((uint64_t)a << (b & 63)); }
+   static inline int64_t jf_shr64(int64_t a, int64_t b) { return (int64_t)(a < 0 ? ~(~(uint64_t)a >> (b & 63)) : (uint64_t)a >> (b & 63)); }
+   static inline int64_t jf_ushr64(int64_t a, int64_t b) { return (int64_t)((uint64_t)a >> (b & 63)); }
+   /* §15.17.2/§15.17.3: `/` and `%` throw on a zero divisor, and MIN/-1 overflows
+    * to MIN rather than trapping. Folding either would move a runtime exception to
+    * compile time or compute UB, so both are refused and the ops emit as usual. */
+   #define JF_DIVOK32(a,b) ((b) != 0 && !((a) == INT32_MIN && (b) == -1))
+   #define JF_DIVOK64(a,b) ((b) != 0 && !((a) == INT64_MIN && (b) == -1))
+   #define CV(n)  const_val(n)
+   #define LV(n)  ((n)->load_long_const.value)
+   #define KID(n,i) sir_child((n),(i))
+
    /* Tiny selection accessors (anything substantial → emit_wasm.h). */
    #define const_val(n)  sir_const_val(n)
    #define local_slot(n) sir_local_slot(n)
@@ -317,8 +348,8 @@ typedef struct burg_state_t {
     int op;
     struct burg_state_t** children;
     int child_count;
-    short cost[9];
-    short rule[9];
+    short cost[11];
+    short rule[11];
 } burg_state_t;
 
 
@@ -335,7 +366,34 @@ void burg_ctx_init(burg_ctx_t* ctx);
 void burg_ctx_free(burg_ctx_t* ctx);
 void burg_rewrite(BURG_NODE_TYPE root, burg_ctx_t* ctx);
 int burg_rule(burg_state_t* state, int goalnt);
+int burg_cost(burg_state_t* state, int goalnt);
 const char* burg_nt_name(int nt);
+/* Goal-directed entry: label a tree, then read burg_rule/burg_cost and
+   drive burg_reduce toward a goal of your own choosing. The state lives in
+   the context arena — valid until the next burg_label_root/burg_rewrite. */
+burg_state_t* burg_label_root(BURG_NODE_TYPE root, burg_ctx_t* ctx);
+
+/* ── Exported rule table (--emit-rule-table) ──
+   The rules as DATA, so a consumer can search them itself and compare the
+   result with what the labeler chose. A pattern is a preorder walk: a
+   terminal node carries its opcode and child count, a nonterminal leaf
+   carries its nonterminal index and zero children — recurse there. */
+struct burg_pat_node_t { int is_term; int sym; int nkids; };
+struct burg_rule_row_t {
+    int rule;          /* rule number, as burg_rule() reports it   */
+    int nonterm;       /* the nonterminal it produces              */
+    int cost;          /* what firing it adds                      */
+    int npat;          /* preorder pattern length                  */
+    const struct burg_pat_node_t* pat;
+    int guarded;       /* 1 if a where-clause gates it             */
+};
+typedef struct burg_pat_node_t burg_pat_node_t;
+typedef struct burg_rule_row_t burg_rule_row_t;
+extern const burg_rule_row_t burg_rule_table[];
+extern const int burg_rule_table_len;
+/* Evaluate rule `rule`'s where-clause at `node`; an unguarded rule yields 1,
+   so a caller never has to special-case one. */
+int burg_rule_guard(int rule, BURG_NODE_TYPE node, burg_ctx_t* ctx);
 /* Error API — check after burg_rewrite() */
 bool burg_has_error(const burg_ctx_t* ctx);
 const char* burg_get_error(const burg_ctx_t* ctx);
