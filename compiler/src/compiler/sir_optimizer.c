@@ -2132,6 +2132,14 @@ static void cp_compute_branch_refinements(cp_engine_t* eng) {
                     continue;
                 }
             }
+            /* NOT minted here, measured 07-31: a GE-false refine (`l >= r` fell
+             * through ⟹ l < r — the ternary-seed shape, String.lastIndexOf).
+             * It is SOUND but it fires on every §15 upper GUARD's fall-through,
+             * and the extra per-edge Refine states break the MERGE all-agree
+             * rule downstream — String.replace's recovered IDX_HIGH regressed,
+             * plus two more. Landing it needs guard-aware minting (skip
+             * branches the sidecar records as guards) or content-keyed Refine
+             * agreement at merges — a design choice, not a transfer tweak. */
             int tested_vn = -1, bound_vn = -1;
             if (cmp->tag == SIR_LT || cmp->tag == SIR_LE) {
                 tested_vn = cp_cmp_operand_ultimate(eng, lhs);   /* i < B */
@@ -3444,8 +3452,27 @@ cp_const_t cp_const_widen(const cp_engine_t* eng,
         return (cp_const_t){ .state = CP_C_KNOWN, .cwidth = w,
                              .value = (int32_t)lo, .lvalue = lo };
     if (!cp_range_snap_hi(lo, &hi, stride, w)) stride = 1;
+    /* The symbolic bounds ride through widening under the JOIN's rule: kept only
+     * when BOTH sides carry the same one, weaker inclusivity wins. Loop headers
+     * ALWAYS widen, so dropping them here silently severed the down-count chain
+     * (`i = a.length - 1; i--`) at the φ even when both inputs agreed — the
+     * interval widens, the bound is an INDEPENDENT fact and needs no widening
+     * (its height is 2: present → absent, and agree-keeps/differ-drops only
+     * descends, so termination is untouched). */
+    int sym = 0, sym_incl = 0, lsym = 0, lsym_incl = 0;
+    if (old.state == CP_C_RANGE && new_val.state == CP_C_RANGE) {
+        if (old.hi_vn1 && old.hi_vn1 == new_val.hi_vn1) {
+            sym = old.hi_vn1;
+            sym_incl = (old.hi_vn_incl || new_val.hi_vn_incl) ? 1 : 0;
+        }
+        if (old.lo_vn1 && old.lo_vn1 == new_val.lo_vn1) {
+            lsym = old.lo_vn1;
+            lsym_incl = (old.lo_vn_incl || new_val.lo_vn_incl) ? 1 : 0;
+        }
+    }
     return (cp_const_t){ .state = CP_C_RANGE, .cwidth = w, .lo = lo, .hi = hi,
-                         .stride = stride };
+                         .stride = stride, .hi_vn1 = sym, .hi_vn_incl = sym_incl,
+                         .lo_vn1 = lsym, .lo_vn_incl = lsym_incl };
 }
 
 static bool cp_const_eq(cp_const_t a, cp_const_t b) {
@@ -3978,7 +4005,21 @@ static cp_const_t cp_node_const(cp_engine_t* eng, const cp_vnode_t* v) {
                         cp_const_t rr; memset(&rr, 0, sizeof rr);
                         rr.state = CP_C_RANGE; rr.cwidth = r.cwidth;
                         rr.lo = k; rr.hi = k; rr.stride = 1;
-                        return rr;
+                        r = rr;
+                    }
+                    /* A DECREMENT preserves the symbolic upper bound: x + δ ≤ x
+                     * for δ < 0, so `x < B` still holds — this is the `i--` half
+                     * of the down-count chain (the Sub half lives in the EXPR
+                     * fold). Same wrap fence as there: requires x.lo + δ not to
+                     * wrap below the width MIN (§15.18.2 wraps, and the claim is
+                     * false across the wrap). The body's read is the REFINED i
+                     * (the `i >= 0` edge), so lo is 0 in the shape this serves. */
+                    if (v->inc_delta < 0 && r.state == CP_C_RANGE
+                            && a.hi_vn1 && r.cwidth < CP_W_F32) {
+                        int64_t wmin = (r.cwidth == CP_W_I64) ? INT64_MIN : INT32_MIN;
+                        if (a.lo >= wmin - v->inc_delta) {
+                            r.hi_vn1 = a.hi_vn1; r.hi_vn_incl = a.hi_vn_incl;
+                        }
                     }
                     return r;
                 }
@@ -4054,7 +4095,15 @@ static cp_const_t cp_node_const(cp_engine_t* eng, const cp_vnode_t* v) {
     if (e->tag == SIR_LOADLOCAL)
         return v->input_count > 0 ? cp_input_const(eng, v->inputs[0]) : bot;
     /* An array's length is never negative (§15.10.1 traps a negative dimension
-     * before the array exists), so `a.length` is [0, INT_MAX]. */
+     * before the array exists), so `a.length` is [0, INT_MAX].
+     *
+     * NOT seeded with itself as an inclusive symbolic bound (x ≤ x — the fact
+     * that would close trim's `len = a.length; len = len - 1` chain), measured
+     * 07-31: RANGE equality and the partition-split hash include hi_vn1, so a
+     * per-node self bound makes two CONGRUENT length reads carry UNEQUAL value
+     * facts — cp_split_by_facts_one then splits their partition and the §15
+     * consumer's `bound ≡ len` check fails EVERYWHERE (two working eliminations
+     * regressed). Bounds-outside-congruence is a representation decision. */
     if (e->tag == SIR_ARRAYLENGTH)
         return (cp_const_t){ .state = CP_C_RANGE, .cwidth = CP_W_I32,
                              .lo = 0, .hi = INT32_MAX, .stride = 1 };
@@ -4218,7 +4267,41 @@ static cp_const_t cp_node_const(cp_engine_t* eng, const cp_vnode_t* v) {
     if (a.state == CP_C_RANGE || (binary && b.state == CP_C_RANGE)) {
         if (g->fold_cmp_range) return g->fold_cmp_range(e->tag, a, b);
         if (g->arity == 1 && g->fold_unary_range)  return g->fold_unary_range(a);
-        if (g->arity == 2 && g->fold_binary_range) return g->fold_binary_range(a, b);
+        if (g->arity == 2 && g->fold_binary_range) {
+            cp_const_t r = g->fold_binary_range(a, b);
+            /* §5-D, the DOWN-count's value path: `x - k` (k a known nonneg)
+             * carries an upper symbolic bound the interval cannot. PRESERVE
+             * x's own bound when it has one (x - k ≤ x ≤/< B — this is what
+             * keeps the header φ's two inputs AGREEING on the same bound), else
+             * MINT `< x` itself for k ≥ 1 (`i = a.length - 1` is the seed the
+             * φ meets against). Wrap is the soundness fence: Java ints wrap
+             * (§15.18.2), and `x - k < x` is false across the wrap, so both
+             * arms require x.lo - k ≥ width-MIN — arraylength's [0, MAX]
+             * satisfies it always; an unbounded operand refuses. Reads only
+             * this node's def-use inputs (a, b) — the stored vn is resolved and
+             * partition-checked by the §15 CONSUMER at its own read, with ITS
+             * premises recorded; storing it here is the same discipline as the
+             * refinement mint. Monotone: an interval's lo only descends, so the
+             * fact appears from TOP or retracts — never re-forms. */
+            if (e->tag == SIR_SUB && r.state == CP_C_RANGE
+                    && a.state == CP_C_RANGE && b.state == CP_C_KNOWN
+                    && r.cwidth < CP_W_F32) {
+                int64_t k    = cp_known_i64(b);
+                int64_t wmin = (r.cwidth == CP_W_I64) ? INT64_MIN : INT32_MIN;
+                if (k >= 0 && a.lo >= wmin + k) {
+                    if (a.hi_vn1) {
+                        /* Subtracting k ≥ 1 STRENGTHENS an inclusive bound:
+                         * x ≤ B ⟹ x - k ≤ B - k < B. (A strict one stays strict.) */
+                        r.hi_vn1 = a.hi_vn1;
+                        r.hi_vn_incl = (k >= 1) ? 0 : a.hi_vn_incl;
+                    } else if (k >= 1) {
+                        int lvn = cp_ultimate_value(eng, v->inputs[0]);
+                        if (lvn >= 0) { r.hi_vn1 = lvn + 1; r.hi_vn_incl = 0; }
+                    }
+                }
+            }
+            return r;
+        }
         return bot;
     }
     /* Wide (i64/f32/f64) KNOWN operands carry their value in lvalue/fvalue/dvalue,

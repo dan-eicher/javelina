@@ -5961,5 +5961,78 @@ int main(void) {
               "char literal inlines into the compare (no spill temp)");
     }
 
+    /* ── §15 IDX_HIGH dies in DOWN-counting loops too ────────────────────────
+     * The up-count (`i < a.length` then a[i]) already folds: the branch
+     * refinement mints the symbolic bound and the §15 consumer reads it. The
+     * DOWN-count (`i = a.length - 1; i >= 0; i--`) has no refinement carrying
+     * the UPPER bound — it must come through the VALUE path: Sub(len,1) MINTS
+     * `< len`, the decrement PRESERVES it, the header φ/widen carries agreeing
+     * bounds through. Oracle = the recorded GUARD row: an eliminated guard's
+     * key was retagged away from SIR_BRANCH (the same fact the census counts). */
+    {
+        struct { const char* src; const char* m; int want_surviving; const char* what; } cases[] = {
+          { "class T { static int f(int[] a){ int h=0;"
+            "  for (int i = a.length - 1; i >= 0; i--) h += a[i];"
+            "  return h; } }", "f", 0,
+            "down-count for (i-- Inc): IDX_HIGH dies" },
+          { "class T { static int f(int[] a){ int h=0; int i = a.length - 1;"
+            "  while (i >= 0) { h += a[i]; i = i - 1; }"
+            "  return h; } }", "f", 0,
+            "down-count while (i = i - 1 Sub): IDX_HIGH dies" },
+          /* Two jre down-count shapes are NOT covered and NOT pinned here — both
+           * hit representation limits, measured 07-31, mechanisms in the
+           * steady-hoisting-derrick plan: the ternary seed (lastIndexOf) needs a
+           * GE-false refinement that regresses merge all-agreement when minted on
+           * guard fall-throughs; the length-seeded decrement (trim) needs an
+           * arraylength self-bound, which the partition hash reads as a per-node
+           * fact and splits congruence. Design decisions, not transfers. */
+          /* NEGATIVE controls — a false eliminate is a miscompile the census
+           * cannot see; these must KEEP their guard forever. */
+          { "class T { static int f(int[] a){"
+            "  int len = a.length; int h = 0;"
+            "  while (len >= 0) { h += a[len]; len = len - 1; }"
+            "  return h; } }", "f", 1,
+            "access AT the length-seeded var (a[len], len = a.length): IDX_HIGH SURVIVES" },
+          { "class T { static int f(int[] a){ int h=0;"
+            "  for (int i = a.length; i >= 0; i--) h += a[i];"
+            "  return h; } }", "f", 1,
+            "off-by-one start (i = a.length): IDX_HIGH SURVIVES" },
+          { "class T { static int f(int[] a, int[] b){ int h=0;"
+            "  for (int i = a.length - 1; i >= 0; i--) h += b[i];"
+            "  return h; } }", "f", 1,
+            "other array (b[i] under a's bound): IDX_HIGH SURVIVES" },
+        };
+        for (int t = 0; t < (int)(sizeof cases / sizeof cases[0]); t++) {
+            bbq_arena* arena = sess_arena();
+            int nlib = 0;
+            ast_program_t* prog = build_program(cases[t].src, arena, &nlib);
+            sema_ctx_t sctx; sema_init(&sctx, arena);
+            sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
+            if (!sir_analyze(&sctx)) { printf("  (note: sema reported errors)\n"); }
+            compiler_ctx_t cctx; compiler_init(&cctx, arena, &sctx);
+            int mc = 0;
+            sir_method_t** methods = compiler_compile(&cctx, prog, &mc);
+            int surviving = -1;
+            for (int i = 0; i < mc; i++) {
+                if (methods[i]->class_id < nlib) continue;
+                if (!methods[i]->name || strcmp(methods[i]->name, cases[t].m)) continue;
+                sir_optimize(&cctx, i);
+                int nf = 0;
+                const compiler_fact_t* f = compiler_get_facts(&cctx, i, &nf);
+                surviving = 0;
+                for (int j = 0; j < nf; j++)
+                    if (f[j].kind == COMPILER_FACT_GUARD
+                            && f[j].a == COMPILER_GUARD_ARRAY_INDEX_HIGH
+                            && f[j].key && (int)f[j].key->tag == SIR_BRANCH)
+                        surviving++;
+                break;
+            }
+            if (surviving != cases[t].want_surviving)
+                printf("        %s: %d IDX_HIGH surviving, want %d\n",
+                       cases[t].what, surviving, cases[t].want_surviving);
+            CHECK(surviving == cases[t].want_surviving, cases[t].what);
+        }
+    }
+
     return TEST_SUMMARY("test_sir");
 }
