@@ -91,6 +91,46 @@ has to beat):
 | schars  | toCharArray/getChars/new String(char[]) bulk copies |
 | sconv   | Integer.toString / parseInt round-trips + Long.toString digit loops |
 
+Opcode-family kernels — one instruction family each, added 2026-07-31 because the
+two families above cover only **70** of the opcodes a bench run emits. These take
+it to **132**; the union with the jre is 138. Where the kernels above are
+application-shaped (a realistic mix, which makes them a good end-to-end gate and a
+poor per-family ruler), these are unrolled IN THE FAMILY — many ops of one family
+per loop back-edge — so the time, and the jit×, attribute to the family:
+
+| kernel | leans on |
+|---|---|
+| dmix   | f64 add/sub/mul/div/neg, all six compares, i32↔i64↔f64 converts |
+| fmix   | f32 arithmetic + compares + neg + the promote/demote pair |
+| fmath  | Math.sqrt/floor/ceil/rint — the four f64 unary INTRINSICS, not jre calls |
+| refeq  | ref.eq / ref.is_null / ref.test, both polarities — the burg cond/ncond family |
+| lcmp   | i64 eqz/eq/ne/lt/le/ge + div_s/rem_s + the i32 compare leftovers (lmix is arithmetic only) |
+| narrow | (byte)/(short)/(char) casts, packed ARRAY elements, packed FIELDS (struct.get_s/u) |
+| memops | memory.fill / memory.copy — bulk linear memory |
+| vshuf  | v128.const + i8x16.shuffle — the two immediate-operand SIMD opcodes |
+| itail  | virtual tail dispatch — return_call_ref (tailrec covers the static return_call) |
+
+Two construction notes that are load-bearing, not decoration. `itail`'s two
+implementations dispatch through each other's `peer` so the receiver is genuinely
+polymorphic: with a single implementation Click devirtualizes on a singleton and
+emits the *static* return_call, and the kernel silently measures `tailrec` twice.
+`lcmp`'s divisor is `(b >>> 1) | 1L` — positive and odd, so it clears both wasm
+i64 traps; the obvious `b | 1` still hits the MIN_VALUE/-1 overflow.
+
+`dmix` doubles as a float-semantics differ. The logistic map is bounded in [0,1]
+so no iteration count reaches inf/NaN, but it is chaotic — a one-ulp divergence
+between configs (excess precision, a contracted multiply-add) amplifies until the
+checksum gate catches it. If dmix ever fails that gate, it is a real bug.
+
+Not covered, and why: **memory.grow**, the one emittable opcode with no
+deterministic benchmark. It mutates process-wide state, so rep 2 sees rep 1's
+pages and returns a different old-size — the reps disagree by construction and the
+checksum gate rejects the run. Timing it needs a harness that re-instantiates per
+rep, which is a different measurement. Six more opcodes stay jre-only by
+construction: the four `reinterpret` ops (reachable only through Float/Double bit
+methods, so the opcode is emitted jre-side) and the two `extern` converts (the
+host boundary).
+
 String.intern is deliberately not benched: its table persists across reps, so
 its timing drifts with table state — a lookup benchmark, not a string benchmark.
 

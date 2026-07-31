@@ -48,6 +48,19 @@
 //          digit-loop family (stays compiled under any host-string design)
 //   (String.intern is deliberately NOT benched: its table persists across reps, so its
 //   timing drifts with table state — a lookup benchmark, not a string benchmark.)
+//
+// The OPCODE-FAMILY kernels (see the block comment above dmix): one instruction family
+// each, unrolled in the family so the time is attributable to it rather than to the loop.
+// They exist because the workloads above cover 70 of the 129 opcodes a bench run executes.
+//   dmix   f64 add/sub/mul/div, f64 compares, i32↔f64 converts
+//   fmix   f32 arithmetic + compares + the promote/demote pair
+//   fmath  Math.sqrt/floor/ceil/rint — the four f64 unary INTRINSICS (not jre calls)
+//   refeq  ref.eq / ref.is_null / ref.test, both polarities — the burg cond/ncond family
+//   lcmp   i64 eqz/eq/lt_s + div_s/rem_s (lmix covers i64 arithmetic only)
+//   narrow (byte)/(short)/(char) casts, packed ARRAY elements, packed FIELDS
+//   memops memory.fill / memory.copy — bulk linear memory
+//   vshuf  v128.const + i8x16.shuffle — the two immediate-operand SIMD opcodes
+//   itail  virtual tail dispatch — return_call_ref (tailrec covers the static return_call)
 import javelina.simd.*;
 
 public class Bench {
@@ -177,6 +190,227 @@ public class Bench {
             acc += Mem.i32_load8_u(64 + (r & 63));
         }
         return acc;
+    }
+
+    /* ── The opcode-family kernels: one instruction family per workload ──
+     *
+     * These exist because the application-shaped kernels above leave families with NO
+     * coverage at all — measured 2026-07-31 by counting distinct opcodes through ew_emit:
+     * the workloads above emit 70 of the 129 a bench run executes, and the f32/f64 family,
+     * ref.eq, i64.eqz, the narrowing/packed family and the bulk-memory ops appeared in
+     * ZERO of them (the last four opcodes here appeared in no compiled code at all, jre
+     * included). A cost or a jit× for those families was not "small" — it did not exist.
+     *
+     * Construction differs from the workloads above on purpose: an application kernel is a
+     * realistic MIX, which is what makes it a good end-to-end regression gate and a bad
+     * per-family ruler. These loops are UNROLLED IN THE FAMILY — each iteration performs
+     * many ops of one family against one loop back-edge — so the family, not the loop
+     * overhead, dominates the time and the jit× is attributable to it. They are still real
+     * computations with accumulated checksums; nothing here is a spin loop.
+     *
+     * Math.sqrt/floor/ceil/rint are stamped INTRINSICS (sema stamp_math_kind), lowered to
+     * single f64 opcodes — fmath is generated code, not a jre call, so the "no library
+     * calls" rule above holds for this family too.
+     *
+     * NOT covered, and why: memory.grow. It is the one emittable opcode with no
+     * deterministic benchmark — it mutates process-wide state, so the reps disagree by
+     * construction (rep 2 sees rep 1's pages and returns a different old-size) and the
+     * checksum gate rejects the run. Timing it would need a harness that re-instantiates
+     * per rep, which is a different measurement than this one. */
+
+    /* f64 scalar arithmetic: add/sub/mul/div + compares + i32↔f64 converts. The logistic
+     * map is the bounded generator — x stays in [0,1] for r=3.9, so no iteration count can
+     * reach inf/NaN and the checksum is exact. It is also chaotic, which makes this the
+     * bench's most sensitive detector of a float-semantics divergence between configs
+     * (excess precision, contracted multiply-add): any one-ulp difference amplifies until
+     * the checksum gate sees it. */
+    static int dmix(int n) {
+        double x = 0.5, y = 0.25, s = 0.0;
+        int h = 0;
+        for (int i = 0; i < n; i++) {
+            x = 3.9 * x * (1.0 - x);
+            y = (y + x) * 0.5;
+            double d = (x + 1.0) / (y + 1.0);
+            if (d > 1.0) s = s + d; else s = s - d;
+            if (d == 1.0) h += 1;                    // f64.eq
+            if (d != 1.0) h += 2;                    // f64.ne
+            if (x <= y) h += 4;                      // f64.le
+            if (x >= y) h += 8;                      // f64.ge
+            s = s + (-x);                            // f64.neg
+            long li = (long) (x * 1.0e6);            // i64.trunc_sat_f64_s
+            h ^= (int) ((double) li * 1.0e-3);       // f64.convert_i64_s
+            if (s > 1.0e9) s = s - 1.0e9;
+            if (s < -1.0e9) s = s + 1.0e9;
+        }
+        return h ^ (int) (s * 1000.0) ^ (int) (x * 1.0e9) ^ (int) (y * 1.0e9);
+    }
+
+    /* f32 arithmetic — the same shape at single width, plus the promote/demote pair that
+     * only appears where float and double meet. */
+    static int fmix(int n) {
+        float x = 0.5f, y = 0.25f;
+        int h = 0;
+        for (int i = 0; i < n; i++) {
+            x = 3.9f * x * (1.0f - x);
+            y = (y + x) * 0.5f;
+            float d = (x + 1.0f) / (y + 1.0f);
+            if (d > 1.0f) h += 1; else h -= 1;
+            if (x < 0.5f) h ^= i;
+            if (d == 1.0f) h += 1;              // f32.eq
+            if (d != 1.0f) h += 2;              // f32.ne
+            if (x <= y) h += 4;                 // f32.le
+            if (x >= y) h += 8;                 // f32.ge
+            double w = (double) x * 0.5;        // f64.promote_f32
+            y = y + (float) w;                  // f32.demote_f64
+            float ci = (float) i;               // f32.convert_i32_s
+            float cl = (float) ((long) i * 3L); // f32.convert_i64_s
+            long tl = (long) (ci * 0.5f);       // i64.trunc_sat_f32_s
+            h ^= (int) tl + (int) (-x * 100.0f) + (int) (cl * 0.001f);   // f32.neg
+        }
+        return h ^ (int) (x * 1.0e6f) ^ (int) (y * 1.0e6f);
+    }
+
+    /* The f64 unary intrinsics: sqrt/floor/ceil/nearest, four opcodes per iteration. */
+    static int fmath(int n) {
+        int h = 0;
+        for (int i = 0; i < n; i++) {
+            double v = (double) (i & 1023) + 0.5;
+            double s = Math.sqrt(v) + Math.floor(v * 0.25)
+                     + Math.ceil(v * 0.125) + Math.rint(v * 0.5);
+            h = h * 31 + (int) s;
+        }
+        return h;
+    }
+
+    /* Reference identity, null tests and type tests: ref.eq, ref.is_null, ref.test — the
+     * family the burg's cond/ncond branch-polarity rules serve, and the one with the
+     * widest gap between how often it is COMPILED (null tests are the single commonest
+     * comparison in the jre) and how often it was MEASURED (never). Both polarities of
+     * each test appear, so a rule that only fires on one shows up as a partial win. */
+    static int refeq(int n) {
+        Node[] a = new Node[16];
+        for (int i = 0; i < 16; i++) a[i] = ((i & 3) == 0) ? null : new Node(i);
+        Object[] os = new Object[4];
+        os[0] = new Sq(3); os[1] = new Ci(4); os[2] = new Tr(5); os[3] = a[1];
+        int h = 0;
+        for (int i = 0; i < n; i++) {
+            Node x = a[i & 15], y = a[(i >> 2) & 15];
+            if (x == y) h += 2;                       // ref.eq
+            if (x != y) h -= 1;                       // ref.eq, opposite polarity
+            if (x == null) h += 3;                    // ref.is_null
+            if (x != null) h += x.v;                  // ref.is_null + a guarded field load
+            if (y != null && y.next == null) h += 5;  // short-circuit over two null tests
+            Object o = os[i & 3];
+            if (o instanceof Sq) h += 7;              // ref.test, exact
+            if (o instanceof Shape) h += 11;          // ref.test, up the hierarchy
+            h = h * 31 + i;
+        }
+        return h;
+    }
+
+    /* i64 compares and division — lmix covers i64 ARITHMETIC and nothing else, so eqz/eq/
+     * lt_s and the div_s/rem_s pair had no kernel. The divisor is forced positive and odd
+     * (`>>> 1 | 1`), which keeps it out of both wasm i64 traps: never zero, and never the
+     * MIN_VALUE/-1 overflow. */
+    static int lcmp(int n) {
+        long a = 1L;
+        int h = 0;
+        for (int i = 0; i < n; i++) {
+            a = a * 6364136223846793005L + 1442695040888963407L;
+            long b = a >> 17;
+            if (b == 0L) h += 1;                      // i64.eqz
+            if (b != 0L) h += 2;                      // i64.eqz, opposite polarity
+            if (a == b) h += 3;                       // i64.eq
+            if (a < b) h -= 1;                        // i64.lt_s
+            if (a != b) h += 1;                       // i64.ne
+            if (a <= b) h += 2;                       // i64.le_s
+            if (a >= b) h += 4;                       // i64.ge_s
+            long d = (b >>> 1) | 1L;                  // positive, odd — trap-free
+            h += (int) (a / d);                       // i64.div_s
+            h ^= (int) (a % d);                       // i64.rem_s
+            long m = a & 0x00FFFFFFFFFFFFFFL;         // i64.and
+            h += (int) (m >>> 40);
+            /* The i32 relational/bitwise leftovers: both operands are variables, so these
+             * are i32.eq / i32.le_s and NOT the eqz the zero-compare rules would pick. */
+            int p = (int) b, q = i * 3;
+            if (p == q) h += 8;                       // i32.eq
+            if (p <= q) h += 16;                      // i32.le_s
+            h |= (p & 7);                             // i32.or
+        }
+        return h;
+    }
+
+    /* Narrowing and packed storage: the (byte)/(short)/(char) casts (i32.extend8_s /
+     * extend16_s), packed ARRAY elements (array.get_s/get_u at i8 and i16), and packed
+     * FIELDS (struct.get_s/get_u) — three different sign-extension paths that the int-only
+     * kernels above never touch. */
+    static int narrow(int n) {
+        byte[] ba = new byte[64];
+        short[] sa = new short[64];
+        char[] ca = new char[64];
+        for (int i = 0; i < 64; i++) {
+            ba[i] = (byte) (i * 7); sa[i] = (short) (i * 1013); ca[i] = (char) (i * 999);
+        }
+        Packed p = new Packed();
+        int h = 0;
+        for (int i = 0; i < n; i++) {
+            int k = i & 63;
+            h += ba[k];                     // array.get_s  i8
+            h ^= sa[k];                     // array.get_s  i16
+            h += ca[k];                     // array.get_u  i16
+            ba[k] = (byte) (h + i);
+            sa[k] = (short) (h ^ i);
+            p.b = (byte) i; p.s = (short) (i * 3); p.c = (char) (i * 5);
+            h += p.b + p.s + p.c;           // struct.get_s / struct.get_u
+            h += (byte) h;                  // i32.extend8_s
+            h += (short) h;                 // i32.extend16_s
+            h ^= (char) h;                  // zero-extend to 16 bits
+        }
+        return h;
+    }
+
+    /* Bulk linear memory: memory.fill and memory.copy. Every iteration refills before it
+     * reads, so the result never depends on residue — which is what makes it deterministic
+     * across reps even though the runtime's own host-I/O staging shares the low pages. */
+    static int memops(int n) {
+        int h = 0;
+        for (int r = 0; r < n; r++) {
+            Mem.memory_fill(256, r & 255, 64);
+            Mem.memory_copy(384, 256, 64);
+            h += Mem.i32_load8_u(384 + (r & 63));
+            h = h * 31 + Mem.i32_load8_u(256);
+        }
+        return h;
+    }
+
+    /* v128.const and i8x16.shuffle — the two SIMD opcodes whose operands are 16-byte
+     * IMMEDIATES, so they are the two the sdot/memv kernels structurally cannot reach
+     * (those build their vectors with splat). Both masks are sema-validated constants. */
+    static int vshuf(int n) {
+        V128 k = V128.const_(0x0706050403020100L, 0x0F0E0D0C0B0A0908L);
+        int acc = 0;
+        for (int r = 0; r < n; r++) {
+            V128 a = I32x4.splat(r);
+            V128 b = I8x16.shuffle(a, k, 0x0F0D0B0907050301L, 0x1E1C1A1816141210L);
+            acc += I32x4.extract_lane(b, 0) ^ I32x4.extract_lane(b, 3);
+        }
+        return acc;
+    }
+
+    /* Virtual tail dispatch — wasm return_call_ref, the one call mechanism with no kernel.
+     * tailrec covers return_call (a STATIC tail call, a known callee); this covers the
+     * vtable-dispatched form, where the callee is a loaded funcref.
+     *
+     * The two implementations alternate through each other's `peer`, so the receiver is
+     * genuinely polymorphic — a single implementation would let Click devirtualize on a
+     * singleton and emit the static return_call, silently measuring tailrec again. Like
+     * tailrec, the workload is its own falsifier: at this scale it is millions of frames
+     * deep unless the tail shape survives, so a rewrite that breaks it exhausts the stack
+     * loudly rather than quietly costing more. */
+    static int itail(int n) {
+        WA a = new WA(); WB b = new WB();
+        a.peer = b; b.peer = a;
+        return a.go(n, 0);
     }
 
     /* ── The s* string family (see the header): the jre IS the measurement here. ── */
@@ -317,6 +551,15 @@ public class Bench {
             case 18: return scase(scale);
             case 19: return schars(scale);
             case 20: return sconv(scale);
+            case 21: return dmix(scale);
+            case 22: return fmix(scale);
+            case 23: return fmath(scale);
+            case 24: return refeq(scale);
+            case 25: return lcmp(scale);
+            case 26: return narrow(scale);
+            case 27: return memops(scale);
+            case 28: return vshuf(scale);
+            case 29: return itail(scale);
         }
         return -1;
     }
@@ -342,7 +585,9 @@ public class Bench {
         String[] names = { "arith", "lmix", "sieve", "fib", "mat", "alloc", "virt", "tailrec",
                            "sdot", "dot", "memv", "memb",
                            "sbuild", "sconcat", "scmp", "shash", "sidx", "ssub", "scase",
-                           "schars", "sconv" };
+                           "schars", "sconv",
+                           "dmix", "fmix", "fmath", "refeq", "lcmp", "narrow", "memops",
+                           "vshuf", "itail" };
         /* Full scales are CALIBRATED from measured quick-mode data (~1 ms / 1000 interpreted
          * iterations on the O0 interpreter, the slowest config), targeting ~2-4 s per rep there
          * so the whole 4-config matrix lands in minutes — while keeping the JIT's reps in the
@@ -352,7 +597,18 @@ public class Bench {
         int[] full  = { 4000000, 4000000, 1000000, 28, 140, 1000000, 3000000, 2000000,
                         30000, 30000, 1000000, 2000000,
                         10000, 17000, 15000, 45000, 9000, 30000, 6000,
-                        11000, 50000 };   /* sdot==dot scale: the referee needs
+                        11000, 50000,
+                        750000, 600000, 1500000, 400000, 400000, 350000, 750000,
+                        3000000, 2000000 };   /* the opcode-family scales are calibrated
+                                       the same way: measured O0-interp quick-mode cost
+                                       (2026-07-31, per 1000 iterations — dmix 4 ms, fmix 5,
+                                       fmath 2, refeq 7, lcmp 7, narrow 9, memops 4, vshuf 1;
+                                       itail 153 ms per 100000), each scaled to ~3 s per rep
+                                       on that config. These loops are unrolled in their
+                                       family, so an iteration is worth several of arith's —
+                                       reading across from arith's scale would have set dmix
+                                       and lcmp 3-5x too high.
+                                       sdot==dot scale: the referee needs
                                        identical inputs, so identical scales. The s* scales
                                        are CALIBRATED from measured quick-mode O0-interp
                                        times (2026-07-25: 60-480 µs per round — the jre
@@ -361,7 +617,12 @@ public class Bench {
         int[] small = { 1000, 1000, 1000, 10, 8, 1000, 1000, 100000,
                         100, 100, 1000, 1000,
                         200, 200, 200, 200, 200, 200, 200,
-                        200, 200 };   /* tailrec quick = 100K:
+                        200, 200,
+                        1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000,
+                        100000 };   /* itail quick = 100K, for tailrec's reason: past any
+                                       frame-stack depth, so even the quick gate proves the
+                                       VIRTUAL tail call, not just its byte.
+                                       tailrec quick = 100K:
                                        still far past any frame-stack depth, so even the quick
                                        gate proves return_call semantics, not just its byte */
         long[] t = new long[reps];
@@ -400,6 +661,31 @@ public class Bench {
 class Node {
     int v; Node next;
     Node(int v) { this.v = v; }
+}
+
+/* Packed fields — byte/short/char members are the struct.get_s/get_u source; an int-only
+ * class cannot produce those opcodes however it is used. */
+class Packed {
+    byte b; short s; char c;
+}
+
+/* itail's alternating pair: each one's tail call dispatches through the OTHER's vtable, so
+ * neither call site sees a single receiver type. */
+abstract class Walker {
+    Walker peer;
+    abstract int go(int n, int acc);
+}
+class WA extends Walker {
+    int go(int n, int acc) {
+        if (n == 0) return acc;
+        return peer.go(n - 1, acc + n);
+    }
+}
+class WB extends Walker {
+    int go(int n, int acc) {
+        if (n == 0) return acc;
+        return peer.go(n - 1, acc ^ n);
+    }
 }
 
 abstract class Shape {
