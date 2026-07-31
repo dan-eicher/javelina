@@ -4914,12 +4914,6 @@ static cp_pts_t* cp_heap_new(const cp_engine_t* eng) {
     return h;
 }
 
-/* Do these two cell-maps differ? One memcmp over the bit-matrix. */
-static bool cp_heap_differs(const cp_engine_t* eng, const cp_pts_t* a,
-                            const cp_pts_t* b) {
-    return memcmp(a[0].bits, b[0].bits, cp_heap_bytes(eng)) != 0;
-}
-
 /* The heap transfer — spec §2's `pts(O.f)`.
  *
  * A memory-state vnode NAMES a version of one cell; its value is that version's
@@ -4969,9 +4963,16 @@ static bool cp_update_heap(cp_engine_t* eng, int vi) {
     cp_pts_t* s      = eng->heap_scratch;
     size_t    bytes  = cp_heap_bytes(eng);
     int       words  = eng->obj_words ? eng->obj_words : 1;
-    memset(s[0].bits, 0, bytes);              /* a fresh name holds nothing */
+    /* NO unconditional zero here. Each kind establishes its own base: the two
+     * hottest — a STORE with a predecessor version, and a φ with a live input —
+     * overwrite the whole scratch anyway (memcpy of the version / of the first
+     * input), so the blanket memset this replaces was pure redundancy on them,
+     * Θ(heap) per transfer (this function was 15.8% of the -O compile, 07-31).
+     * The incremental builders (SEED/KILL/WIDE, the no-version stragglers) zero
+     * at their branch entry, same bits as before by construction. */
 
     if (is_cell_phi) {
+        bool seeded = false;                  /* first live input SEEDS by copy */
         for (int i = 0; i < v->input_count; i++) {
             int in = v->inputs[i];
             if (in < 0 || in >= eng->vnode_count) continue;
@@ -4979,9 +4980,12 @@ static bool cp_update_heap(cp_engine_t* eng, int vi) {
             if (!ih) continue;
             uint64_t* dst = s[0].bits;
             const uint64_t* src = ih[0].bits;
+            if (!seeded) { memcpy(dst, src, bytes); seeded = true; continue; }
             for (size_t q = 0; q < bytes / sizeof(uint64_t); q++) dst[q] |= src[q];
         }
+        if (!seeded) memset(s[0].bits, 0, bytes);   /* no live input: holds nothing */
     } else if (k == CP_MEM_SEED) {
+        memset(s[0].bits, 0, bytes);
         /* A cell's contents on entry. An object THIS method allocated does not exist
          * yet at entry, and §12.5 gives its fields their default — null. An object
          * that already existed — the catch-all, and every §1 phantom (a parameter,
@@ -5001,6 +5005,7 @@ static bool cp_update_heap(cp_engine_t* eng, int vi) {
             cp_pts_add(eng, &s[o], CP_OBJ_NULL);
         }
     } else if (k == CP_MEM_KILL) {
+        memset(s[0].bits, 0, bytes);          /* rows build incrementally below */
         /* ONE cell, killed by a call — §7's bottom graph, made precise by §6.
          *
          * A bottom method can only touch what it was HANDED, and what is reachable from that
@@ -5065,6 +5070,7 @@ static bool cp_update_heap(cp_engine_t* eng, int vi) {
             cp_pts_add(eng, &s[o], CP_OBJ_NULL);
         }
     } else if (k == CP_MEM_WIDE) {
+        memset(s[0].bits, 0, bytes);          /* rows build incrementally below */
         /* An invoke kills every cell of every object: a local object may have been
          * passed to the callee, and without the escape lattice (stage 4) we cannot
          * say it was not. ONE name shadows ALL cells here, so this row cannot name a
@@ -5084,6 +5090,7 @@ static bool cp_update_heap(cp_engine_t* eng, int vi) {
         cp_pts_t target = (ov >= 0 && ov < eng->vnode_count) ? eng->vnodes[ov]->pts
                                                              : (cp_pts_t){ NULL };
         if (ph) memcpy(s[0].bits, ph[0].bits, bytes);   /* the version reaching it */
+        else    memset(s[0].bits, 0, bytes);            /* no version: holds nothing */
 
         if (ov < 0) {
             /* A STATIC (spec §2's `global.set(G,x)`). No receiver: the cell IS the
@@ -5147,7 +5154,12 @@ static bool cp_update_heap(cp_engine_t* eng, int vi) {
         }
     }
 
-    if (!cp_heap_differs(eng, v->heap, s)) return false;
+    /* Compare-then-copy, in this order deliberately: MOST evaluations converge
+     * (no change), and memcmp is a read-only vectorized early-exit pass — the
+     * copy runs only on actual change. A fused write-always loop was measured
+     * SLOWER here (07-31): it dirties every cache line of the matrix on the
+     * no-change majority. */
+    if (memcmp(v->heap[0].bits, s[0].bits, bytes) == 0) return false;
     memcpy(v->heap[0].bits, s[0].bits, bytes);
     return true;
 }
@@ -8182,6 +8194,69 @@ static void cp_rewrite_compact_nops_gotos(cp_engine_t* eng) {
      * JUMP walks NOPs + Gotos (compressing jump-to-jump chains). */
     #define NEXT(p) cp_follow_nops_keep_merges((p), is_merge, eng)
     #define JUMP(p) cp_follow_nops_gotos_keep_merges((p), is_merge, eng)
+
+    /* The sidecar's SCOPE rows are KEYED by node — the backend frames an if-join or a
+     * merge label by looking the walk's current node up. A row whose key this collapse
+     * walks past is orphaned: the lookup never fires, `ljoin` falls back to the
+     * enclosing region's end, and both branch arms re-emit the method's whole tail —
+     * 2^k for k such ifs. (The common key is a spilled condition's StoreLocal, retagged
+     * SIR_NOP once value-forwarding makes the temp dead.)
+     *
+     * The fact FOLLOWS the edit: re-key it to the node the chain lands on, which is
+     * where the walk now arrives — the graph is not consulted for structure (Click A.4:
+     * the REGION/landing-pad "exists to mark places where values merge"; a collapsed
+     * pad's marking moves to its survivor). Preserving the keyed Nops instead (an
+     * is_jump_target entry) was measured wrong twice: keeping guard-keyed pads alive
+     * shifts implicit-exception throws relative to their try regions (3 test_exec
+     * checks), and the reason-list is an enumeration nobody can prove complete. The
+     * rows are the ctx's arena-backed facts — the SAME rows codegen reads, so this
+     * write is the pass maintaining the sidecar through its own graph edit. */
+    for (int f = 0; f < eng->fact_count; f++) {
+        if (eng->facts[f].kind != COMPILER_FACT_SCOPE) continue;
+        sir_node_t* k = eng->facts[f].key;
+        if (!k || k->tag != SIR_NOP) continue;
+        int ki = cp_spine_index(eng, k);
+        if (ki < 0 || ki >= eng->spine_count || is_merge[ki]) continue;  /* stays reachable */
+        compiler_fact_t* row = &((compiler_fact_t*)eng->facts)[f];
+        /* Whether the row follows or retires depends on what its key IS.
+         *
+         * A BLOCK row's key is the condition HEAD — a spill StoreLocal, dead once
+         * value-forwarding bypasses the temp — while the construct itself (the Branch)
+         * lives on. The row FOLLOWS the chain to where the walk now arrives. Unless the
+         * chain lands on the row's own aux: then the whole if dissolved into its
+         * continuation (a folded condition, a $ensure_init whose class is proven
+         * initialized) and the row retires — keyed on its own label, the backend would
+         * frame a block bounded at itself, and closing it pops the label off the emit
+         * stack, re-arming the framing filter (`br_depth < 0`) to re-frame forever.
+         *
+         * A MERGE row's key IS the construct — the guard node. A guard retagged to Nop
+         * is an ELIMINATED guard: no branch, no diamond, nothing to label. The row
+         * RETIRES; its continuation is plain fall-through (the region `stop` the
+         * backend already threads). Following instead plants a dead guard's merge
+         * label on a live node — measured as broken catch dispatch (the CCE checks). */
+        if (row->a == COMPILER_SCOPE_BLOCK) {
+            sir_node_t* s = NEXT(k);
+            row->key = (s == row->aux) ? NULL : s;
+        } else {
+            row->key = NULL;
+        }
+    }
+    /* The AUX side follows the same way. A row's aux is its join/merge LABEL — a Nop
+     * the arms br to and the walk must ARRIVE at to close the frame. If the collapse
+     * walks past it, the label is unreachable: br_depth never resolves, the frame
+     * never closes, and the tail past the join re-emits per arm — the same 2^k as an
+     * orphaned key, from the other end. The join moved forward through dead code; the
+     * label moves with it. (Math.pow's residual +7.5KB was exactly this: LIVE guards,
+     * so the keys never die, but their join labels collapsed.) */
+    for (int f = 0; f < eng->fact_count; f++) {
+        if (eng->facts[f].kind != COMPILER_FACT_SCOPE) continue;
+        compiler_fact_t* row = &((compiler_fact_t*)eng->facts)[f];
+        sir_node_t* x = row->aux;
+        if (!row->key || !x || x->tag != SIR_NOP) continue;
+        int xi = cp_spine_index(eng, x);
+        if (xi < 0 || xi >= eng->spine_count || is_merge[xi]) continue;  /* stays reachable */
+        row->aux = NEXT(x);
+    }
     if (eng->method->entry)
         eng->method->entry = NEXT(eng->method->entry);
     for (int i = 0; i < eng->spine_count; i++) {
@@ -10323,52 +10398,74 @@ void cp_pack(sir_method_t* method, const sema_ctx_t* sema,
     int** exc = NULL;
     cp_hoist_exc_edges(nodes, nn, arena, &exc);
 
-    /* Backward slot liveness over the post-rewrite spine. Every
-     * collected node is reachable from method->entry by construction
-     * (DFS from entry), so no per-node reachability filter is needed. */
-    size_t row = (size_t)sc * sizeof(bool);
-    bool** live_in  = (bool**)bbq_arena_alloc(arena, (size_t)nn * sizeof(bool*));
-    bool** live_out = (bool**)bbq_arena_alloc(arena, (size_t)nn * sizeof(bool*));
+    /* Backward slot liveness over the post-rewrite spine, as BITSET rows — 64
+     * slots per word-OR. The byte-bool rows this replaces merged per slot per
+     * successor per round; cp_pack was 14.3% of the -O0 jre build (callgrind,
+     * 07-31), most of it these loops. Every collected node is reachable from
+     * method->entry by construction (DFS from entry), so no per-node
+     * reachability filter is needed.
+     *
+     * gen (the node's uses) and def are ROUND-INVARIANT: precomputed once via
+     * the SAME shared cp_node_uses/cp_node_def_slot the engine's liveness reads
+     * — the bool scratch row exists only to keep that one authority's
+     * signature; it is folded to bits and never enters the fixpoint. */
+    size_t row  = (size_t)sc * sizeof(bool);
+    int    w    = (sc + 63) >> 6;
+    size_t brow = (size_t)w * sizeof(uint64_t);
+    uint64_t** live_in  = (uint64_t**)bbq_arena_alloc(arena, (size_t)nn * sizeof(uint64_t*));
+    uint64_t** live_out = (uint64_t**)bbq_arena_alloc(arena, (size_t)nn * sizeof(uint64_t*));
+    uint64_t** gen      = (uint64_t**)bbq_arena_alloc(arena, (size_t)nn * sizeof(uint64_t*));
+    int*       defs     = (int*)bbq_arena_alloc(arena, (size_t)nn * sizeof(int));
+    bool* use_scratch = (bool*)bbq_arena_alloc(arena, row);
     for (int i = 0; i < nn; i++) {
-        live_in[i]  = (bool*)bbq_arena_alloc(arena, row);
-        live_out[i] = (bool*)bbq_arena_alloc(arena, row);
-        memset(live_in[i],  0, row);
-        memset(live_out[i], 0, row);
+        live_in[i]  = (uint64_t*)bbq_arena_alloc(arena, brow);
+        live_out[i] = (uint64_t*)bbq_arena_alloc(arena, brow);
+        gen[i]      = (uint64_t*)bbq_arena_alloc(arena, brow);
+        memset(live_in[i],  0, brow);
+        memset(live_out[i], 0, brow);
+        memset(gen[i],      0, brow);
+        memset(use_scratch, 0, row);
+        cp_node_uses(nodes[i], use_scratch, sc);
+        for (int s = 0; s < sc; s++)
+            if (use_scratch[s]) gen[i][s >> 6] |= (uint64_t)1 << (s & 63);
+        defs[i] = cp_node_def_slot(nodes[i]);
     }
-    bool* new_in  = (bool*)bbq_arena_alloc(arena, row);
-    bool* new_out = (bool*)bbq_arena_alloc(arena, row);
-    bool* exc_out = (bool*)bbq_arena_alloc(arena, row);
+    uint64_t* new_in  = (uint64_t*)bbq_arena_alloc(arena, brow);
+    uint64_t* new_out = (uint64_t*)bbq_arena_alloc(arena, brow);
+    uint64_t* exc_out = (uint64_t*)bbq_arena_alloc(arena, brow);
     bool changed = true;
     while (changed) {
         changed = false;
         for (int i = nn - 1; i >= 0; i--) {
             sir_node_t* n = nodes[i];
-            memset(new_out, 0, row);
-            memset(exc_out, 0, row);
+            memset(new_out, 0, brow);
+            memset(exc_out, 0, brow);
             int sc_cap = sir_succ_count(n);
             for (int j = 0; j < sc_cap; j++) {
                 int si = cp_pack_node_index(node_idx, sir_succ(n, j));
                 if (si >= 0)
-                    for (int s = 0; s < sc; s++)
-                        if (live_in[si][s]) new_out[s] = true;
+                    for (int q = 0; q < w; q++) new_out[q] |= live_in[si][q];
             }
             /* The EXCEPTIONAL edges — the same recorded rows the engine's liveness read.
              * Without them the packer thinks a slot whose only consumer is a catch block
              * is dead here, and coalesces another slot onto it. */
             for (int j = 0; j < (int)bbq_vec_len(exc[i]); j++) {
                 int hi = exc[i][j];
-                for (int s = 0; s < sc; s++)
-                    if (live_in[hi][s]) { exc_out[s] = true; new_out[s] = true; }
+                for (int q = 0; q < w; q++) {
+                    uint64_t b = live_in[hi][q];
+                    exc_out[q] |= b; new_out[q] |= b;
+                }
             }
-            memcpy(new_in, new_out, row);
-            int def = cp_node_def_slot(n);
+            memcpy(new_in, new_out, brow);
+            int def = defs[i];
             /* No kill on the exceptional edge: the def never committed (JLS §11.3.1). */
-            if (def >= 0 && def < sc && !exc_out[def]) new_in[def] = false;
-            cp_node_uses(n, new_in, sc);
-            if (memcmp(new_in,  live_in[i],  row) != 0 ||
-                memcmp(new_out, live_out[i], row) != 0) {
-                memcpy(live_in[i],  new_in,  row);
-                memcpy(live_out[i], new_out, row);
+            if (def >= 0 && def < sc && !((exc_out[def >> 6] >> (def & 63)) & 1))
+                new_in[def >> 6] &= ~((uint64_t)1 << (def & 63));
+            for (int q = 0; q < w; q++) new_in[q] |= gen[i][q];
+            if (memcmp(new_in,  live_in[i],  brow) != 0 ||
+                memcmp(new_out, live_out[i], brow) != 0) {
+                memcpy(live_in[i],  new_in,  brow);
+                memcpy(live_out[i], new_out, brow);
                 changed = true;
             }
         }
@@ -10415,27 +10512,39 @@ void cp_pack(sir_method_t* method, const sema_ctx_t* sema,
      * (live_in[i] ⊆ live_out[pred]). A use-then-def at one instruction
      * (slot_u in live_in only) stays correctly non-interfering under both
      * halves: the def may take over the dying slot's cell. */
-    bool* interferes = (bool*)bbq_arena_alloc(arena,
-                                               (size_t)sc * (size_t)sc * sizeof(bool));
-    memset(interferes, 0, (size_t)sc * (size_t)sc * sizeof(bool));
+    /* Bitset rows: co-liveness ORs the whole live_out row into every set bit's
+     * interference row (the byte matrix walked sc² per node). The diagonal bit
+     * this sets is never read — the coloring loop only ever tests DISTINCT
+     * same-pool slots. */
+    uint64_t** intf = (uint64_t**)bbq_arena_alloc(arena, (size_t)sc * sizeof(uint64_t*));
+    for (int s = 0; s < sc; s++) {
+        intf[s] = (uint64_t*)bbq_arena_alloc(arena, brow);
+        memset(intf[s], 0, brow);
+    }
     for (int i = 0; i < nn; i++) {
-        for (int s1 = 0; s1 < sc; s1++) {
-            if (!live_out[i][s1]) continue;
-            for (int s2 = s1 + 1; s2 < sc; s2++) {
-                if (live_out[i][s2]) {
-                    interferes[s1 * sc + s2] = true;
-                    interferes[s2 * sc + s1] = true;
+        const uint64_t* lo = live_out[i];
+        for (int q = 0; q < w; q++) {
+            uint64_t word = lo[q];
+            while (word) {
+                int s1 = (q << 6) + __builtin_ctzll(word);
+                word &= word - 1;
+                for (int q2 = 0; q2 < w; q2++) intf[s1][q2] |= lo[q2];
+            }
+        }
+        int d = defs[i];
+        if (d >= 0 && d < sc) {
+            for (int q2 = 0; q2 < w; q2++) intf[d][q2] |= lo[q2];
+            for (int q = 0; q < w; q++) {
+                uint64_t word = lo[q];
+                while (word) {
+                    int s = (q << 6) + __builtin_ctzll(word);
+                    word &= word - 1;
+                    intf[s][d >> 6] |= (uint64_t)1 << (d & 63);
                 }
             }
         }
-        int d = cp_node_def_slot(nodes[i]);
-        if (d >= 0 && d < sc)
-            for (int s = 0; s < sc; s++)
-                if (s != d && live_out[i][s]) {
-                    interferes[d * sc + s] = true;
-                    interferes[s * sc + d] = true;
-                }
     }
+    #define INTERFERES(a, b) ((intf[(a)][(b) >> 6] >> ((b) & 63)) & 1)
 
     /* Width-class pools by WASM valtype: byte/short/char/int all lower to
      * i32, so they share pool 0 and coalesce freely; long→i64, float→f32,
@@ -10470,18 +10579,30 @@ void cp_pack(sir_method_t* method, const sema_ctx_t* sema,
     /* Sort non-param packables by live-range length DESC. */
     int* order = (int*)bbq_arena_alloc(arena, (size_t)sc * sizeof(int));
     int* range = (int*)bbq_arena_alloc(arena, (size_t)sc * sizeof(int));
+    /* first-def / last-live per slot in ONE spine pass (the per-slot spine
+     * rescans this replaces were packable × nn). Identical values: first i
+     * whose def is s; last i where s is in live_in ∪ live_out. */
+    int* first_def_of = (int*)bbq_arena_alloc(arena, (size_t)sc * sizeof(int));
+    int* last_use_of  = (int*)bbq_arena_alloc(arena, (size_t)sc * sizeof(int));
+    for (int s = 0; s < sc; s++) { first_def_of[s] = -1; last_use_of[s] = -1; }
+    for (int i = 0; i < nn; i++) {
+        int d = defs[i];
+        if (d >= 0 && d < sc && first_def_of[d] < 0) first_def_of[d] = i;
+        for (int q = 0; q < w; q++) {
+            uint64_t word = live_in[i][q] | live_out[i][q];
+            while (word) {
+                int s = (q << 6) + __builtin_ctzll(word);
+                word &= word - 1;
+                last_use_of[s] = i;
+            }
+        }
+    }
     int packable = 0;
     for (int s = 0; s < sc; s++) {
         if (is_param[s] || !slot_used[s]) continue;
         order[packable] = s;
-        int first_def = -1, last_use = -1;
-        for (int i = 0; i < nn; i++) {
-            bool defs_here = (cp_node_def_slot(nodes[i]) == s);
-            bool live_here = live_in[i][s] || live_out[i][s];
-            if (defs_here && first_def < 0) first_def = i;
-            if (live_here) last_use = i;
-        }
-        range[packable] = (first_def < 0 || last_use < 0) ? 0 : (last_use - first_def);
+        range[packable] = (first_def_of[s] < 0 || last_use_of[s] < 0)
+                        ? 0 : (last_use_of[s] - first_def_of[s]);
         packable++;
     }
     for (int i = 1; i < packable; i++) {
@@ -10518,7 +10639,7 @@ void cp_pack(sir_method_t* method, const sema_ctx_t* sema,
                             || sts.ref[s] != sts.ref[s2])) {
                     clean = false; break;
                 }
-                if (interferes[s * sc + s2]) { clean = false; break; }
+                if (INTERFERES(s, s2)) { clean = false; break; }
             }
             if (clean && (any_used || c_color == pool_max[p])) {
                 color[s] = c_color;
@@ -10605,6 +10726,7 @@ void cp_pack(sir_method_t* method, const sema_ctx_t* sema,
     #undef POOL_OF
     #undef POOL_WIDTH
     #undef POOL_COUNT
+    #undef INTERFERES
 
     bbq_vec_free(nodes);
     cp_pmap_free(node_idx);

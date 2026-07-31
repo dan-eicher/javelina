@@ -261,63 +261,14 @@ int main(void) {
         bbq_vec_free(mod.code); bbq_arena_free(&a); bbq_vec_free(src);
     }
 
-    /* ── an if's join must survive a SPILLED condition ──────────────────────
-     * `record_scope(test, Ljoin, 0)` keys the if-join on the head of the CONDITION's code.
-     * When the condition spills — `v.length`, a field read, anything needing a temp — that
-     * head is a StoreLocal, not the SIR_BRANCH, so the backend's lookup-by-node at the branch
-     * found nothing, and `ljoin` fell back to the enclosing region's `stop`. Both arms were
-     * then emitted all the way to it, duplicating the whole tail of the method into each arm:
-     * 2^k for k such ifs.
-     *
-     * The oracle is MODULE LENGTH, because that is what doubles. A byte-exact pin would not
-     * catch it — the bytes stay individually well-formed, there are just exponentially many
-     * of them — and the shape only becomes a crash much further out, when javelinac's own C
-     * stack goes (Graph.los: 130 branches re-emitted 5599 times, SIGSEGV) or when the nesting
-     * passes the validator's control-depth cap. Length is the earliest honest signal.
-     *
-     * Measured as a DELTA per if rather than a ratio: the module carries a fixed baseline
-     * (types, imports, the RTL surface) that would dilute a ratio into uselessness. Linear
-     * growth means the 6→10 delta matches the 2→6 delta; exponential means it is 2^4 times
-     * larger. The bound is deliberately loose — the two are far enough apart that slack still
-     * separates them, and a tight one would break on any ordinary codegen change. */
-    {
-        char* src[3] = {0};
-        const int counts[3] = { 2, 6, 10 };
-        int len[3] = {0};
-        bool built = true;
-
-        for (int c = 0; c < 3; c++) {
-            char* s = NULL;
-            const char* head = "class T { static void g(int x){}\n  static void f(int[] v){\n";
-            for (const char* p = head; *p; p++) bbq_vec_push(s, *p);
-            for (int i = 0; i < counts[c]; i++) {
-                char line[64];
-                int n = snprintf(line, sizeof line, "    if (v.length != %d) g(%d);\n", i, i);
-                for (int k = 0; k < n; k++) bbq_vec_push(s, line[k]);
-            }
-            const char* tail = "  } }\n";
-            for (const char* p = tail; *p; p++) bbq_vec_push(s, *p);
-            bbq_vec_push(s, '\0');
-            src[c] = s;
-
-            bbq_arena a; bbq_arena_init(&a, 1 << 22);
-            emit_wasm_ctx mod = {0};
-            if (!assemble(&a, s, &mod)) built = false;
-            len[c] = (int)bbq_vec_len(mod.code);
-            bbq_vec_free(mod.code); bbq_arena_free(&a);
-        }
-        CHECK(built, "spilled-condition ifs assemble");
-
-        int d1 = len[1] - len[0];      /* 2 → 6 ifs  */
-        int d2 = len[2] - len[1];      /* 6 → 10 ifs */
-        bool linear = built && d1 > 0 && d2 > 0 && d2 < d1 * 4;
-        if (!linear)
-            printf("        %d/%d/%d bytes for 2/6/10 ifs — deltas %d then %d\n",
-                   len[0], len[1], len[2], d1, d2);
-        CHECK(linear, "a spilled condition keeps its if-join: module grows linearly, not 2^k");
-
-        for (int c = 0; c < 3; c++) bbq_vec_free(src[c]);
-    }
+    /* The if-join-survives-a-spilled-condition property is NOT pinned here any more.
+     * A module-LENGTH delta with a deliberately loose bound was this suite's oracle for
+     * it, and it read GREEN through two later variants of the same disease (wide
+     * literals spilling needlessly; Click orphaning the sidecar keys) — an e2e size
+     * check says "not catastrophic", never "correct". The property is owned where it
+     * lives: test_codegen_structured (the spill CARRY: tail emitted once, exact count),
+     * test_sir (literals inline, no spill AT ALL), test_scope_sidecar (the recorded
+     * join survives Click). Each has been run red against its own break. */
 
     /* ── EVERY optional section at once ─────────────────────────────────────
      * COVERAGE, not a regression pin — and the distinction matters, so it is stated rather

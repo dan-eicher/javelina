@@ -7,6 +7,7 @@
 #include "javelina/compiler/sema.h"
 #include "javelina/compiler/compiler.h"
 #include "javelina/compiler/codegen_method.h"
+#include "javelina/compiler/emit_wasm.h"   /* the REAL encoder builds the tail marker */
 #include "bbq_arena.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -476,6 +477,49 @@ int main(void) {
         CHECK(n > 0, "back-to-back branches: emitted");
         check_bytes("polarity does not leak from one branch to the next",
                     body, n, want, (int)sizeof want);
+        bbq_arena_free(&a);
+    }
+
+    /* ── a SPILLED condition's if-join: the tail is emitted ONCE ────────────────
+     * `record_scope(test, Ljoin, 0)` keys the if-join on the condition's HEAD. When
+     * the condition needs a temp (`v.length` — the arraylength spills), that head is
+     * the spill StoreLocal, not the Branch, and emit_spine must CARRY the recorded
+     * join from the keyed node to the Branch that consumes it (`pending_join`, the
+     * 07-27 fix). If the carry breaks, `ljoin` falls back to the region end and both
+     * arms emit the whole method tail — 2^k for k such ifs.
+     *
+     * The oracle is the TAIL'S OWN EMISSION COUNT, at this level, in this method:
+     * `x * 12345` appears once in source, so its i32.const bytes appear once in the
+     * body — or 8 times (2^3) with the carry broken. This replaces the module-LENGTH
+     * pin in test_wasm_module, which read green through the wide-literal and
+     * Click-orphan variants of this same disease for months: an e2e size delta with a
+     * deliberately loose bound says "not catastrophic", not "correct". */
+    {
+        bbq_arena a; bbq_arena_init(&a, 1 << 16);
+        const uint8_t* body = NULL;
+        /* The spilling condition must stay pure scalar: this harness runs with
+         * types=NULL, so anything touching a reference (v.length's null guard news
+         * the exception object) cannot emit here. `(x+y)*3 != 1` spills the same
+         * way — a complex compare LHS is Figure 8 case 3, captured to a temp — with
+         * no guard in sight. */
+        int n = emit_body(&a,
+            "class T { int f(int y, int x){"
+            "  if ((x + y) * 3 != 1) x = x + 1;"
+            "  if ((x + y) * 5 != 2) x = x + 2;"
+            "  if ((x + y) * 7 != 3) x = x + 4;"
+            "  return x * 12345; } }", "f", &body);
+        CHECK(n > 0, "spilled-condition ifs: emitted");
+        uint8_t mark[8]; int ml = 0;                 /* i32.const 12345, real encoder */
+        { emit_wasm_ctx m = {0};
+          ew_emit(&m, WOP_I32_CONST); ew_i32(&m, 12345);
+          ml = (int)bbq_vec_len(m.code); memcpy(mark, m.code, (size_t)ml);
+          bbq_vec_free(m.code); }
+        int seen = 0;
+        for (int i = 0; i + ml <= n; i++)
+            if (memcmp(body + i, mark, (size_t)ml) == 0) seen++;
+        if (seen != 1)
+            printf("        tail marker emitted %d times (want 1: 8 = the 2^3 join loss)\n", seen);
+        CHECK(seen == 1, "a spilled condition keeps its if-join: the tail is emitted ONCE");
         bbq_arena_free(&a);
     }
 

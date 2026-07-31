@@ -6,6 +6,8 @@
 #include "java_parser.h"
 #include "javelina/compiler/sema.h"
 #include "javelina/compiler/compiler.h"
+#include "javelina/compiler/sir_support.h"     /* sir_succ / sir_child — fact-liveness walk */
+#include "javelina/compiler/sir_optimizer.h"   /* sir_optimize — Click, which can delete a key */
 #include "gen/sir_ast.h"
 #include "bbq_arena.h"
 #include <stdio.h>
@@ -49,6 +51,61 @@ static const compiler_fact_t* scopes_of(bbq_arena* a, const char* src,
             return scope_rows;
         }
     *n = 0; return NULL;
+}
+
+/* Is `target` still in the method's graph? BFS over spine successors AND expression
+ * children — a fact keyed on a node Click deleted is unreachable from the entry, and
+ * the backend's lookup-by-node will never find it. */
+static bool reachable_from(const sir_node_t* entry, const sir_node_t* target) {
+    if (!entry || !target) return false;
+    const sir_node_t* seen[2048]; int ns = 0;
+    const sir_node_t* work[2048]; int wn = 0, wi = 0;
+    work[wn++] = entry;
+    while (wi < wn) {
+        const sir_node_t* n = work[wi++];
+        if (!n) continue;
+        if (n == target) return true;
+        bool dup = false;
+        for (int i = 0; i < ns; i++) if (seen[i] == n) { dup = true; break; }
+        if (dup || ns >= 2048) continue;
+        seen[ns++] = n;
+        for (int k = 0; k < sir_succ_count((sir_node_t*)n) && wn < 2048; k++)
+            work[wn++] = sir_succ((sir_node_t*)n, k);
+        for (int k = 0; k < sir_arity((sir_node_t*)n) && wn < 2048; k++)
+            work[wn++] = sir_child((sir_node_t*)n, k);
+    }
+    return false;
+}
+
+/* Compile `src`, run Click over method `name`, and count how many recorded if-joins
+ * (BLOCK scopes) had their KEY node deleted out from under them. Returns false if the
+ * method is absent. Only scalars escape, so the contexts are local and released here. */
+static bool orphaned_joins(bbq_arena* a, const char* src, const char* name,
+                           int* out_total, int* out_orphans) {
+    ast_program_t* prog = build_program(src, a);
+    sema_ctx_t sctx; sema_init(&sctx, a); jtest_analyze(&sctx);
+    compiler_ctx_t cctx; compiler_init(&cctx, a, &sctx);
+    int mc = 0;
+    sir_method_t** methods = compiler_compile(&cctx, prog, &mc);
+    bool found = false;
+    for (int i = 0; i < mc && !found; i++) {
+        if (methods[i]->class_id < jtest_last_nlib) continue;
+        if (!methods[i]->name || strcmp(methods[i]->name, name) != 0) continue;
+        sir_optimize(&cctx, i);                       /* the pass that can delete the key */
+        int nf = 0;
+        const compiler_fact_t* f = compiler_get_facts(&cctx, i, &nf);
+        int total = 0, orphans = 0;
+        for (int j = 0; j < nf; j++) {
+            if (f[j].kind != COMPILER_FACT_SCOPE) continue;
+            if (f[j].a != COMPILER_SCOPE_BLOCK) continue;
+            total++;
+            if (!reachable_from(methods[i]->entry, f[j].key)) orphans++;
+        }
+        *out_total = total; *out_orphans = orphans;
+        found = true;
+    }
+    sema_destroy(&sctx);
+    return found;
 }
 
 int main(void) {
@@ -156,6 +213,54 @@ int main(void) {
         const compiler_fact_t* s = scopes_of(&a,
             "class T { void f(Object a){ String b = (String) a; b.length(); } }", "f", &n);
         CHECK(COUNT_KIND(s,n,COMPILER_SCOPE_MERGE) >= 1, "ref cast: a MERGE record for the diamond tail");
+        bbq_arena_free(&a);
+    }
+
+    /* ── a recorded if-join must SURVIVE Click ────────────────────────────────
+     * `record_scope(test, Ljoin, 0)` keys the join on the condition's HEAD. When the
+     * condition spills — a call, a cast, anything needing a temp — that head is a
+     * StoreLocal rather than the Branch (pinned above for the simple case). If Click
+     * then deletes that node, the fact is keyed on something no longer in the graph:
+     * the backend's lookup-by-node finds nothing, `ljoin` falls back to the enclosing
+     * region's end, and BOTH arms re-emit the method's whole tail — 2^k for k such ifs.
+     *
+     * The orphan is the defect, so the orphan is what this pins. Module size under -O
+     * is the symptom several layers downstream, and the e2e pin that measured it
+     * (test_wasm_module.c "an if's join must survive a spilled condition") read green
+     * through this whole class because its fixture only ever spilled on the int path.
+     *
+     * A spill here is CORRECT and expected — a call must go through a temp. What must
+     * not happen is the recorded join losing its anchor. */
+    {
+        bbq_arena a; bbq_arena_init(&a, 1 << 18);
+        int total = 0, orphans = 0;
+
+        CHECK(orphaned_joins(&a,
+                "class T { static boolean p(double v){ return v != v; }\n"
+                "  static void g(){}\n"
+                "  static void f(double y){ if (p(y)) g(); } }", "f", &total, &orphans),
+              "call-in-condition: method compiles");
+        CHECK(total > 0, "call-in-condition: an if-join was recorded at all");
+        CHECK(orphans == 0, "a CALL in the condition keeps its if-join anchored through Click");
+
+        total = orphans = 0;
+        CHECK(orphaned_joins(&a,
+                "class T { static void g(){}\n"
+                "  static void f(long a, double y){ if (((double) a) == y) g(); } }",
+                "f", &total, &orphans),
+              "cast-in-condition: method compiles");
+        CHECK(total > 0, "cast-in-condition: an if-join was recorded at all");
+        CHECK(orphans == 0, "a CAST in the condition keeps its if-join anchored through Click");
+
+        /* The already-fixed shape, kept as the control: a wide literal is Dybvig-simple,
+         * so this one does not even spill. It must stay anchored too. */
+        total = orphans = 0;
+        CHECK(orphaned_joins(&a,
+                "class T { static void g(){}\n"
+                "  static void f(float d){ if (d > 2.0f) g(); } }", "f", &total, &orphans),
+              "wide-literal condition: method compiles");
+        CHECK(orphans == 0, "a wide-literal condition keeps its if-join anchored through Click");
+
         bbq_arena_free(&a);
     }
 

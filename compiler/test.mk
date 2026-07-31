@@ -89,7 +89,7 @@ OBJS_test_click_partition    := $(CLICK_OBJS) $(SEMA_OBJS) $(DDCG_OBJS) $(PARSER
 OBJS_test_sir_copy           := $(ARENA_OBJ)
 OBJS_test_emit_wasm          :=
 OBJS_test_codegen_wasm       := $(MATCHER_OBJ) $(WASM_TYPES_OBJ) $(SEMA_OBJS) $(CRT_OBJS)
-OBJS_test_scope_sidecar      := $(SEMA_OBJS) $(DDCG_OBJS) $(PARSER_OBJ) $(CRT_OBJS)
+OBJS_test_scope_sidecar      := $(SEMA_OBJS) $(DDCG_OBJS) $(CLICK_OBJS) $(PARSER_OBJ) $(CRT_OBJS)
 OBJS_test_codegen_structured := $(CODEGEN_STRUCTURED_OBJ) $(WASM_TYPES_OBJ) $(MATCHER_OBJ) \
                                 $(SEMA_OBJS) $(DDCG_OBJS) $(PARSER_OBJ) $(CRT_OBJS)
 OBJS_test_control_audit      := $(OBJS_test_codegen_structured)
