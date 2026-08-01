@@ -471,6 +471,30 @@ static void cp_collect_spine(cp_engine_t* eng, sir_node_t* entry) {
     eng->spine_count = (int)bbq_vec_len(eng->spine);
 }
 
+/* A row the rewrite splices joins the spine AT THE SPLICE (Stadler §5: an
+ * inserted node is part of the graph for every subsequent phase). The spine is
+ * the row authority every post-rewrite consumer resolves through — edge
+ * tables, reachability, liveness, DSE — and a row absent from it is an edge to
+ * nowhere: liveness reads ∅ through the splice and DSE deletes stores the
+ * spliced rows still read. */
+static void cp_spine_register(cp_engine_t* eng, sir_node_t* n) {
+    if (!n || cp_spine_index(eng, n) >= 0) return;
+    int idx = (int)bbq_vec_len(eng->spine);
+    bbq_vec_push(eng->spine, n);
+    cp_pmap_put(&eng->spine_idx, n, (void*)(uintptr_t)(idx + 1));
+    eng->spine_count = (int)bbq_vec_len(eng->spine);
+}
+
+/* Register a spliced straight-line chain, exclusive of `stop` — the original
+ * successor it was threaded onto. */
+static void cp_spine_register_chain(cp_engine_t* eng, sir_node_t* c,
+                                    const sir_node_t* stop) {
+    while (c && c != stop) {
+        cp_spine_register(eng, c);
+        c = sir_succ_count(c) > 0 ? sir_succ(c, 0) : NULL;
+    }
+}
+
 /* ── Value-node enumeration ──────────────────────────────────── */
 
 /* Enumerate the expression tree rooted at `e`, returning its
@@ -8847,7 +8871,17 @@ static bool cp_sr_ctor_materializable(cp_engine_t* eng, const sir_node_t* call) 
     int gi = compiler_method_index(eng->ctx, call->invoke_special.class_id,
                                    call->invoke_special.method_idx);
     const compiler_summary_t* sm = compiler_method_summary(eng->ctx, gi);
-    if (!sm || sm->this_escape != COMPILER_ESC_NONE) return false;    /* CLEAN + summary exists */
+    /* The receiver must not LEAK. ARG is the summary's neutral seed for any
+     * USED formal — every real ctor reads it, since every real ctor touches
+     * `this` — so ARG must pass. GLOBAL is the one state meaning "stored where
+     * the frame cannot contain it" (a static, an escaped object's field, a
+     * bottom callee — a super-chain leak flows back as GLOBAL through the
+     * summary application) and is the only disqualifier. Demanding ESC_NONE
+     * here is unsatisfiable for a used receiver and turns ctor
+     * materialization — and with it every scalar replacement — off. NA fails
+     * closed: a ctor always has `this`. */
+    if (!sm || sm->this_escape == COMPILER_ESC_GLOBAL
+            || sm->this_escape == COMPILER_ESC_NA) return false;
     const sir_method_t* ctor = (gi >= 0 && eng->ctx->methods) ? eng->ctx->methods[gi] : NULL;
     return cp_ctor_emit(eng, ctor, NULL, 0, NULL, 0, -1, NULL, NULL); /* validate only */
 }
@@ -9141,12 +9175,11 @@ static bool cp_pea_set_succ(sir_node_t* p, sir_node_t* oldn, sir_node_t* to) {
  * (paper §5.1's aliases — with copies, the object has several local names, and each
  * surviving read's slot is provably in the must-set, its exact pts excluding ⊥null).
  * Threaded onto `cont`; DSE cleans the aliases nothing reads. */
-/* The materialization CARRIER is a FRESH slot appended past the original max_locals —
- * the engine's liveness/DSE guard `s >= slot_count` makes it untouchable, which is the
- * point: the spliced chain's reads are invisible to the spine-sized liveness, and a
- * carrier in an OLD slot had its (visible) def store DSE'd out from under the chain.
- * The old alias slots are then written FROM the carrier; their own readers are visible
- * and keep them honest. `carrier` is allocated once per candidate by the caller. */
+/* The materialization CARRIER is a FRESH slot appended past the original max_locals:
+ * no pre-existing store writes it, and the liveness/DSE guard `s >= slot_count` never
+ * deletes a store to a slot it does not track — fail-safe in the keeping direction.
+ * The old alias slots are then written FROM the carrier; their own readers keep them
+ * live. `carrier` is allocated once per candidate by the caller. */
 static sir_node_t* cp_pea_materialize(cp_engine_t* eng, const cp_pea_cand_t* pc,
                                       int carrier,
                                       const cp_sr_slot_t* rows, int nrows,
@@ -9563,6 +9596,7 @@ static void cp_pea(cp_engine_t* eng, const bool* sr_cand) {
                                                        rows, nrows,
                                                        &al[i][(size_t)k * aw], aw, n);
                 cp_pea_set_succ(eng->spine[p], n, chain);
+                cp_spine_register_chain(eng, chain, n);
             }
         }
         /* (b) Mixed merges: materialize on the VIRTUAL pred edges, with THAT pred's
@@ -9578,6 +9612,7 @@ static void cp_pea(cp_engine_t* eng, const bool* sr_cand) {
                                                            rows, nrows,
                                                            scratch, aw, n);
                     cp_pea_set_succ(eng->spine[p], n, chain);
+                    cp_spine_register_chain(eng, chain, n);
                 }
             }
         }
@@ -9637,6 +9672,7 @@ static void cp_pea(cp_engine_t* eng, const bool* sr_cand) {
                     for (int r2 = (int)bbq_vec_len(stores) - 1; r2 >= 0; r2--) {
                         stores[r2]->store_local.next = head;
                         head = stores[r2];
+                        cp_spine_register(eng, stores[r2]);
                     }
                     n->tag = SIR_NOP;
                     n->nop.next = head;
@@ -9687,6 +9723,7 @@ static void cp_pea(cp_engine_t* eng, const bool* sr_cand) {
                 }
                 n->store_local.value = sir_load_null(mint);
                 n->store_local.next  = head;
+                cp_spine_register_chain(eng, head, next);
             }
         }
     }

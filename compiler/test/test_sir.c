@@ -6145,5 +6145,64 @@ int main(void) {
         }
     }
 
+    {
+        /* ── PEA ctor replay must not lose a NON-CONSTANT argument ─────────────
+         * `new P(q + 1)` with P's ctor `x = a`: the replay binds the formal to
+         * the call's arg, which the frontend spilled to a temp. The temp's only
+         * ORIGINAL reader is the invoke PEA deletes; the replay's bind is a NEW
+         * reader, and every consumer of the row set (reachability, liveness,
+         * DSE) must see it — or the temp's store looks dead, the add is deleted,
+         * and the field reads its §4.12.5 default. A constant arg cannot catch
+         * this: the solve folds the bind to the constant and nothing reads the
+         * temp. `q = 9` as the second arg FORCES the spill (§15.12.4.2
+         * left-to-right evaluation: q + 1 must be captured before q is
+         * clobbered) — an inline-arg shape can compile correctly by accident.
+         * Same harness as §44 — the replay only fires under converged ctor
+         * summaries, and the scalar_total premise keeps the pin from passing
+         * vacuously when it doesn't. */
+        bbq_arena a; bbq_arena_init(&a, 1 << 16);
+        int nlib = 0;
+        ast_program_t* prog = build_program(
+            "class P { int x; int y; P(int a, int b){ x = a; y = b; } }"
+            " class T { static int g(int q){ P p = new P(q + 1, q = 9); return p.x; } }",
+            &a, &nlib);
+        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib;
+        sir_analyze(&sctx);
+        compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
+        int mc = 0;
+        sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
+        compiler_summarize_to_convergence(&cctx);
+        int p_id = sema_find_class(&sctx, "P");
+        int t_id = sema_find_class(&sctx, "T"), mi = -1;
+        for (int k = 0; k < mc; k++)
+            if (ms[k]->class_id == t_id && ms[k]->name && !strcmp(ms[k]->name, "g")) mi = k;
+        CHECK(mi >= 0, "PEA arg pin: g resolves");
+        if (mi >= 0) {
+            /* Callee-first, as the driver orders it: the replay walks the ctor's
+             * CURRENT SIR, so the pin must replay an OPTIMIZED ctor, not a
+             * pristine one. */
+            const sema_class_t* psc = sema_get_class(&sctx, p_id);
+            int obj_id = psc ? psc->super_id : -1;
+            for (int pass = 0; pass < 2; pass++) {
+                int want = (pass == 0) ? obj_id : p_id;
+                const sema_class_t* sc2 = sema_get_class(&sctx, want);
+                for (int k = 0; k < mc; k++) {
+                    if (ms[k]->class_id != want) continue;
+                    if (sc2 && ms[k]->method_id >= 0
+                        && ms[k]->method_id < (int)bbq_vec_len((void*)sc2->methods)
+                        && sc2->methods[ms[k]->method_id].is_constructor)
+                        sir_optimize(&cctx, k);
+                }
+            }
+            int before = cctx.scalar_total;
+            sir_optimize(&cctx, mi);
+            CHECK(cctx.scalar_total > before && find_new_of_class(ms[mi]->entry, p_id) == NULL,
+                  "PEA arg pin: the non-constant-arg ctor scalar-replaces (premise)");
+            CHECK(count_tag(ms[mi]->entry, SIR_ADD) >= 1,
+                  "PEA ctor replay keeps the argument's computation (q + 1 survives)");
+        }
+        sema_destroy(&sctx); bbq_arena_free(&a);
+    }
+
     return TEST_SUMMARY("test_sir");
 }
