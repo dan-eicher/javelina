@@ -6090,6 +6090,16 @@ int main(void) {
             "  for (int i = 0; i < n; i++) h += g(x * h);"
             "  return h; } }", false,
             "a body-tainted mul under a call argument stays in the loop" },
+          /* The CASCADE: rows are recorded inner-first and cp_licm processes
+           * them in table order, so the inner splice is IN the outer body when
+           * the outer row runs — the tree re-qualifies and hoists again. The
+           * boundary below is the LAST loop row (the OUTER header), so this
+           * pins "outside BOTH loops", which the count alone cannot. */
+          { "class T { static int f(int x, int y, int n){ int h = 0;"
+            "  for (int i = 0; i < n; i++)"
+            "    for (int j = 0; j < n; j++) h += x * y;"
+            "  return h; } }", true,
+            "a doubly-invariant mul cascades out of BOTH loops" },
         };
         for (int t = 0; t < (int)(sizeof lcases / sizeof lcases[0]); t++) {
             bbq_arena* arena = sess_arena();
@@ -6106,13 +6116,15 @@ int main(void) {
                 if (methods[i]->class_id < nlib) continue;
                 if (!methods[i]->name || strcmp(methods[i]->name, "f")) continue;
                 sir_optimize(&cctx, i);
-                /* The first recorded loop header on this method. */
+                /* The OUTERMOST recorded loop header: rows are inner-first, so
+                 * take the LAST loop row — the prefix then excludes every loop,
+                 * and "hoisted" means hoisted out of ALL of them. */
                 int nf = 0;
                 const compiler_fact_t* fs = compiler_get_facts(&cctx, i, &nf);
                 const sir_node_t* ltop = NULL;
                 for (int j = 0; j < nf; j++)
                     if (fs[j].kind == COMPILER_FACT_SCOPE && fs[j].a == COMPILER_SCOPE_LOOP)
-                        { ltop = fs[j].key; break; }
+                        ltop = fs[j].key;
                 if (!ltop) break;
                 /* Walk the ENTRY PREFIX (next-chain until the header); is a MUL
                  * in any node's expression trees there? */
