@@ -6014,15 +6014,42 @@ int main(void) {
             "  while (i >= 0) { if (a[i] == 7) return i; i = i - 1; }"
             "  return -1; } }", "f", 0,
             "ternary-seeded down-count, shared length read: IDX_HIGH dies" },
-          /* The TWO-read form (`from >= a.length ? a.length - 1 : from`) does
-           * NOT fold: the two congruent length reads are distinct vnodes, the
-           * mint and the refine store different bound ids, and the φ's
-           * both-sides join rule (raw id equality) drops the bound. Joining
-           * bounds MODULO PARTITION needs φ transfers registered for
-           * partition-move re-arm — the premise mechanism extended to φs, a
-           * design item recorded in the steady-hoisting-derrick plan. */
+          /* lastIndexOf's TWO-READ form: the source names `a.length` TWICE, so
+           * the mint (Sub over read 2) and the refine (GE-false over read 1)
+           * store DIFFERENT bound ids for one value. The reads are CONGRUENT —
+           * same partition — and the φ's meet counts two ids as one when their
+           * vnodes are partition-equal. That agreement is optimistic (a split
+           * can separate them), so it is a recorded premise: the φ is a §4.7.4
+           * other.def_use reader of both bound vnodes and a split re-arms it.
+           * The retraction half is pinned at its owning level, in
+           * test_click_partition. */
+          { "class T { static int f(int[] a, int from){"
+            "  int i = from >= a.length ? a.length - 1 : from;"
+            "  while (i >= 0) { if (a[i] == 7) return i; i = i - 1; }"
+            "  return -1; } }", "f", 0,
+            "ternary-seeded down-count, TWO congruent length reads: IDX_HIGH dies" },
           /* NEGATIVE controls — a false eliminate is a miscompile the census
            * cannot see; these must KEEP their guard forever. */
+          /* The two reads name DIFFERENT arrays, so they are not congruent and
+           * the partition agreement must not fire: b's length says nothing
+           * about an index into a. */
+          { "class T { static int f(int[] a, int[] b, int from){"
+            "  int i = from >= a.length ? b.length - 1 : from;"
+            "  while (i >= 0) { if (a[i] == 7) return i; i = i - 1; }"
+            "  return -1; } }", "f", 1,
+            "two-read seed over TWO arrays (b.length - 1 under a's refine): "
+            "IDX_HIGH SURVIVES" },
+          /* Same VARIABLE, two reaching definitions: `a = c` between the reads
+           * makes read 2 a length of c. Syntactic sameness is not congruence —
+           * the agreement is a partition test, and these two are in different
+           * partitions. */
+          { "class T { static int f(int[] a, int[] c, int from){"
+            "  int n = a.length; a = c; int h = 0;"
+            "  int i = from >= n ? a.length - 1 : from;"
+            "  while (i >= 0) { h += a[i]; i = i - 1; }"
+            "  return h; } }", "f", 1,
+            "two-read seed with the array slot REASSIGNED between the reads: "
+            "IDX_HIGH SURVIVES" },
           { "class T { static int f(int[] a){"
             "  int len = a.length; int h = 0;"
             "  while (len >= 0) { h += a[len]; len = len - 1; }"

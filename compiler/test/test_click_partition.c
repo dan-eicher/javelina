@@ -2612,6 +2612,142 @@ static void test_cp_loop_bound_folds_through_copy_and_low_guard(void) {
     bbq_arena_free(&a);
 }
 
+/* ── Bounds join MODULO PARTITION at a φ, and the agreement RETRACTS ───────
+ *
+ * lastIndexOf's seed distilled: `i = from >= a.length ? a.length - 1 : from`,
+ * then the guard `i >= a.length`. Every Java mention of `a.length` is its own
+ * ArrayLength node, so the false arm's GE-false refine names read 1 as i's
+ * bound while the true arm's Sub mints read 2 — two ids for one value. The
+ * reads are CONGRUENT, and the meet counts two bound ids as agreeing when
+ * their vnodes share a partition, so the bound survives the join and the guard
+ * folds.
+ *
+ * That agreement is OPTIMISTIC. Initial partitions are opcode buckets, so two
+ * ArrayLength reads of DIFFERENT arrays start congruent and are separated only
+ * as CAUSE_SPLITS refines — an agreement believed early can become false. The
+ * φ therefore RECORDS both bound vnodes as §4.7.4 other.def_use premises, and
+ * cp_split's move notification re-arms it; the re-run meet then finds the
+ * partitions unequal and drops the bound. Falsify by deleting the premise
+ * recording in cp_node_const's φ arm: the agreement half stays green and the
+ * retraction half goes red with a stale bound the split has already refuted.
+ *
+ * bound_slot picks the array the TRUE arm's length reads: slot 0 is the one
+ * the condition and the guard read (congruent — agreement), slot 1 is another
+ * parameter (never congruent — the bound must be gone once they split). */
+static cp_engine_t* build_two_read_ternary_seed(bbq_arena* a, int bound_slot,
+                                                sir_node_t** out_guard) {
+    /* slot 0 = a, 1 = b (ref params), 2 = from (int param), 3 = i (seeded local) */
+    sir_node_t* len_g = sir_array_length(a, sir_load_local(a, 0, SIR_DTREF, NULL));
+    sir_node_t* guard = sir_ge(a, sir_load_local(a, 3, SIR_DTINT, NULL), len_g);
+    sir_node_t* brG   = sir_branch(a, guard,
+        sir_return(a, sir_load_const(a, 1, SIR_DTINT), SIR_DTINT),   /* throw arm */
+        sir_return(a, sir_load_const(a, 2, SIR_DTINT), SIR_DTINT));  /* ok arm    */
+    sir_node_t* merge = sir_nop(a, brG);
+    sir_node_t* len_t = sir_array_length(a,
+        sir_load_local(a, bound_slot, SIR_DTREF, NULL));
+    sir_node_t* stT   = sir_store_local(a, 3, SIR_DTINT, NULL,       /* i = len - 1 */
+        sir_sub(a, SIR_DTINT, len_t, sir_load_const(a, 1, SIR_DTINT)), merge);
+    sir_node_t* stF   = sir_store_local(a, 3, SIR_DTINT, NULL,       /* i = from    */
+        sir_load_local(a, 2, SIR_DTINT, NULL), merge);
+    sir_node_t* len_c = sir_array_length(a, sir_load_local(a, 0, SIR_DTREF, NULL));
+    sir_node_t* brC   = sir_branch(a,
+        sir_ge(a, sir_load_local(a, 2, SIR_DTINT, NULL), len_c), stT, stF);
+    sir_method_t* m   = sir_method(a, "f", 0, 3, 4, brC);
+    *out_guard = guard;
+    return cp_build(m, NULL, a, NULL, 0);
+}
+
+static void test_cp_phi_joins_bounds_of_congruent_reads(void) {
+    bbq_arena a; bbq_arena_init(&a, 1 << 16);
+    sir_node_t* guard = NULL;
+    cp_engine_t* e = build_two_read_ternary_seed(&a, 0, &guard);
+    TEST_ASSERT_NOT_NULL(e);
+    cp_vnode_t* v = cp_vnode_for(e, guard);
+    TEST_ASSERT_NOT_NULL(v);
+    cp_vnode_t* idx = e->vnodes[v->inputs[0]];
+    TEST_ASSERT_EQUAL_INT_MESSAGE(CP_C_RANGE, idx->constant.state,
+        "the seeded index still carries a RANGE out of the join");
+    TEST_ASSERT_TRUE_MESSAGE(idx->constant.hi_vn1 != 0,
+        "the join KEEPS a symbolic upper bound although the arms named it "
+        "through two distinct congruent length reads — the meet's id "
+        "agreement is partition membership, not raw id equality");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(CP_C_KNOWN, v->constant.state,
+        "…so `i >= a.length` folds");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, v->constant.value, "…to FALSE");
+    cp_free(e);
+    bbq_arena_free(&a);
+}
+
+/* …and the seed then enters a DOWN-COUNTING loop, which is where the two-read
+ * shape actually lives (lastIndexOf). The loop header widens, and widening's id
+ * comparison is the same one the meet makes: while the solve is optimistic the
+ * published id MOVES (an arm with no bound yet gains one, and the accumulated
+ * id becomes a congruent sibling), so a raw comparison reads that as "the bound
+ * changed" and drops it. The decrement then has nothing to preserve and mints
+ * `< i` against the counter itself, which no later join can agree with — a
+ * stable pessimal fixpoint reachable only through the two-read seed, which is
+ * why the straight-line pin above cannot see it. */
+static void test_cp_phi_two_read_bound_survives_the_loop(void) {
+    bbq_arena a; bbq_arena_init(&a, 1 << 16);
+    /* slot 0 = a (ref param), 1 = b (unused here), 2 = from, 3 = i */
+    sir_node_t* header = sir_nop(&a, NULL);
+    sir_node_t* len_g  = sir_array_length(&a, sir_load_local(&a, 0, SIR_DTREF, NULL));
+    sir_node_t* guard  = sir_ge(&a, sir_load_local(&a, 3, SIR_DTINT, NULL), len_g);
+    sir_node_t* dec    = sir_store_local(&a, 3, SIR_DTINT, NULL,      /* i = i - 1 */
+        sir_sub(&a, SIR_DTINT, sir_load_local(&a, 3, SIR_DTINT, NULL),
+                               sir_load_const(&a, 1, SIR_DTINT)), header);
+    sir_node_t* brG    = sir_branch(&a, guard,
+        sir_return(&a, sir_load_const(&a, 1, SIR_DTINT), SIR_DTINT),  /* throw arm */
+        dec);                                                        /* ok → latch */
+    sir_node_t* brL    = sir_branch(&a,                               /* while (i >= 0) */
+        sir_ge(&a, sir_load_local(&a, 3, SIR_DTINT, NULL),
+                   sir_load_const(&a, 0, SIR_DTINT)),
+        brG, sir_return(&a, sir_load_const(&a, 0, SIR_DTINT), SIR_DTINT));
+    sir_set_next(header, brL);
+    sir_node_t* tmerge = sir_nop(&a, header);                         /* ternary join */
+    sir_node_t* len_t  = sir_array_length(&a, sir_load_local(&a, 0, SIR_DTREF, NULL));
+    sir_node_t* stT    = sir_store_local(&a, 3, SIR_DTINT, NULL,
+        sir_sub(&a, SIR_DTINT, len_t, sir_load_const(&a, 1, SIR_DTINT)), tmerge);
+    sir_node_t* stF    = sir_store_local(&a, 3, SIR_DTINT, NULL,
+        sir_load_local(&a, 2, SIR_DTINT, NULL), tmerge);
+    sir_node_t* len_c  = sir_array_length(&a, sir_load_local(&a, 0, SIR_DTREF, NULL));
+    sir_node_t* brC    = sir_branch(&a,
+        sir_ge(&a, sir_load_local(&a, 2, SIR_DTINT, NULL), len_c), stT, stF);
+    sir_method_t* m    = sir_method(&a, "f", 0, 3, 4, brC);
+
+    cp_engine_t* e = cp_build(m, NULL, &a, NULL, 0);
+    TEST_ASSERT_NOT_NULL(e);
+    cp_vnode_t* v = cp_vnode_for(e, guard);
+    TEST_ASSERT_NOT_NULL(v);
+    cp_vnode_t* idx = e->vnodes[v->inputs[0]];
+    TEST_ASSERT_TRUE_MESSAGE(idx->constant.hi_vn1 != 0,
+        "the bound survives the loop header's WIDENING although the id the join "
+        "publishes moved between congruent siblings mid-solve");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(CP_C_KNOWN, v->constant.state,
+        "…so the in-body `i >= a.length` folds");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, v->constant.value, "…to FALSE");
+    cp_free(e);
+    bbq_arena_free(&a);
+}
+
+static void test_cp_phi_bound_agreement_retracts_on_split(void) {
+    bbq_arena a; bbq_arena_init(&a, 1 << 16);
+    sir_node_t* guard = NULL;
+    cp_engine_t* e = build_two_read_ternary_seed(&a, 1, &guard);
+    TEST_ASSERT_NOT_NULL(e);
+    cp_vnode_t* v = cp_vnode_for(e, guard);
+    TEST_ASSERT_NOT_NULL(v);
+    cp_vnode_t* idx = e->vnodes[v->inputs[0]];
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, idx->constant.hi_vn1,
+        "b.length and a.length start congruent (opcode buckets) and CAUSE_SPLITS "
+        "separates them — the φ's recorded premise re-arms it and the re-run "
+        "meet DROPS the bound; a surviving id is a proof the split refuted");
+    TEST_ASSERT_TRUE_MESSAGE(v->constant.state != CP_C_KNOWN,
+        "and the guard on a's length stays: b's length bounds nothing here");
+    cp_free(e);
+    bbq_arena_free(&a);
+}
+
 /* Loop back-edges WIDEN — THE loop-carried lemma the fabricated "optimistic
  * header-keep" was faking. i is loop-invariant (the latch bumps c, not i), so it carries
  * `i < a.length` on BOTH header edges. §5's mechanism is widening, and widening a
@@ -6792,6 +6928,9 @@ void test_click_partition_suite(void) {
     RUN_TEST(test_cp_range_refine_i32);
     RUN_TEST(test_cp_range_refine_i64);
     RUN_TEST(test_cp_refine_keeps_incumbent_symbolic_bound);
+    RUN_TEST(test_cp_phi_joins_bounds_of_congruent_reads);
+    RUN_TEST(test_cp_phi_two_read_bound_survives_the_loop);
+    RUN_TEST(test_cp_phi_bound_agreement_retracts_on_split);
     RUN_TEST(test_cp_mem_dse_overwritten_field_store_is_dead);
     RUN_TEST(test_cp_mem_dse_distinct_receivers_both_live);
     RUN_TEST(test_cp_mem_dse_intervening_load_keeps_store);

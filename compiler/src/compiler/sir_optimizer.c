@@ -3892,25 +3892,22 @@ static cp_const_t cp_instanceof_const(cp_engine_t* eng, const cp_vnode_t* v,
  * UNSOUND, not merely stale. cp_solve therefore re-arms every comparison whenever the
  * partition count moves (see cp_rearm_partition_consumers). Monotone either way: the fact
  * can only descend KNOWN → BOTTOM, and a revived arm only ever ADDS reachability. */
-/* Record a symbolic-bound premise endpoint as a §4.7.4 other.def_use edge — the
+/* Record a partition premise endpoint as a §4.7.4 other.def_use edge — the
  * paper's own set for edges to a reader that is not a structural user (it holds
  * "edges leading from constants to algebraic 1-constant-input identities"; a
  * premise edge is the same species). cp_symbolic_bound_const's verdict is
  * predicated on the PARTITIONS (bound/lim/other) and, on the inclusive arm, the
  * CONSTANT of the Add's operands — all reached through the range's hi_vn1/lo_vn1,
- * OFF the def-use graph. Without a recorded edge no event re-runs the transfer
+ * OFF the def-use graph; a φ's meet is predicated on the partitions of the bound
+ * ids it counted as one. Without a recorded edge no event re-runs the transfer
  * when a premise moves: a KNOWN 0 standing after the partitions split apart is a
  * bounds guard deleted on a proof that no longer holds. Recorded on every read,
  * verdict-independent — the premise can also FORM later (a follower join), and
  * the fold must get its chance. Slot-diffed: re-pointing a slot removes the old
- * edge, so the segment stays ≤4 live entries per compare and the transfer stays
+ * edge, so the segment stays ≤4 live entries per node and the transfer stays
  * O(inputs) with no steady-state allocation. */
-static void cp_record_premise(cp_engine_t* eng, const cp_vnode_t* v,
-                              int slot, int dep) {
-    if (!v->expr) return;
-    void* f = cp_pmap_get(&eng->expr_idx, v->expr);
-    if (!f) return;
-    int self = (int)((uintptr_t)f - 1);
+static void cp_record_premise(cp_engine_t* eng, int self, int slot, int dep) {
+    if (self < 0 || self >= eng->vnode_count) return;
     cp_vnode_t* vm = eng->vnodes[self];
     if (vm->prem_dep[slot] == dep) return;
     if (vm->prem_dep[slot] >= 0) cp_du_ov_remove(eng, vm->prem_dep[slot], self);
@@ -3918,11 +3915,42 @@ static void cp_record_premise(cp_engine_t* eng, const cp_vnode_t* v,
     if (dep >= 0) cp_du_ov_append(eng, dep, self);
 }
 
+/* Two bound ids name ONE value when their vnodes share a partition. Ids are
+ * stored plus-one (0 = no bound); both must be present for the question to
+ * mean anything. */
+static bool cp_bound_ids_congruent(const cp_engine_t* eng, int x_vn1, int y_vn1) {
+    if (!x_vn1 || !y_vn1) return false;
+    int x = x_vn1 - 1, y = y_vn1 - 1;
+    if (x < 0 || x >= eng->vnode_count || y < 0 || y >= eng->vnode_count)
+        return false;
+    int px = eng->vnodes[x]->partition;
+    return px >= 0 && px == eng->vnodes[y]->partition;
+}
+
+/* A φ counts two bound ids as one when their vnodes are congruent. Partition
+ * membership is OPTIMISTIC — partitions start coarse and split — so the
+ * agreement is a PREMISE, and it is believed only while both endpoints fit the
+ * premise store's two slots for this bound: `pa`/`pb`, recorded as §4.7.4
+ * edges so a split of either re-arms this φ and the re-run join drops what the
+ * split refuted. A third, differently-named id has nowhere to record its
+ * premise, so it is not believed — the ids stay unequal and the join drops the
+ * bound, which is the fail-closed direction. */
+static bool cp_phi_bound_agrees(const cp_engine_t* eng, int keep_vn1, int other_vn1,
+                                int* pa, int* pb) {
+    if (keep_vn1 == other_vn1) return false;
+    if (!cp_bound_ids_congruent(eng, keep_vn1, other_vn1)) return false;
+    int x = keep_vn1 - 1, y = other_vn1 - 1;
+    if (*pa < 0) { *pa = x; *pb = y; return true; }
+    return (*pa == x && *pb == y) || (*pa == y && *pb == x);
+}
+
 static cp_const_t cp_symbolic_bound_const(cp_engine_t* eng, const cp_vnode_t* v,
                                            bool* handled) {
     *handled = false;
     cp_const_t r = { .state = CP_C_TOP };
     if (v->kind != CP_VN_EXPR || !v->expr) return r;
+    int self = cp_vnode_of(eng, v->expr);
+    if (self < 0) return r;
     if (v->expr->tag == SIR_GT) {
         /* The Mem hi-guard's shape: `x > lim` with x carrying a symbolic
          * bound B. Either strictness refutes it when B ≡ lim — x ≤ B = lim
@@ -3954,9 +3982,9 @@ static cp_const_t cp_symbolic_bound_const(cp_engine_t* eng, const cp_vnode_t* v,
          * get to form when they join later). The carrier's constant is read one
          * hop past the du input (fold_convert leaves xv BOTTOM, so its operand's
          * range moves without moving xv's fact — no window event). */
-        cp_record_premise(eng, v, 0, gbound);
-        cp_record_premise(eng, v, 1, glim);
-        cp_record_premise(eng, v, 2, carrier);
+        cp_record_premise(eng, self, 0, gbound);
+        cp_record_premise(eng, self, 1, glim);
+        cp_record_premise(eng, self, 2, carrier);
         int gbp = eng->vnodes[gbound]->partition;
         int glp = eng->vnodes[glim]->partition;
         if (gbp < 0 || glp < 0 || gbp != glp) return r;
@@ -3980,8 +4008,8 @@ static cp_const_t cp_symbolic_bound_const(cp_engine_t* eng, const cp_vnode_t* v,
         int glim   = cp_ultimate_value(eng, v->inputs[1]);
         if (gbound < 0 || gbound >= eng->vnode_count) return r;
         if (glim   < 0 || glim   >= eng->vnode_count) return r;
-        cp_record_premise(eng, v, 0, gbound);   /* see the SIR_GT arm */
-        cp_record_premise(eng, v, 1, glim);
+        cp_record_premise(eng, self, 0, gbound);   /* see the SIR_GT arm */
+        cp_record_premise(eng, self, 1, glim);
         int gbp = eng->vnodes[gbound]->partition;
         int glp = eng->vnodes[glim]->partition;
         if (gbp < 0 || glp < 0 || gbp != glp) return r;
@@ -4009,8 +4037,8 @@ static cp_const_t cp_symbolic_bound_const(cp_engine_t* eng, const cp_vnode_t* v,
     int len_vn   = cp_ultimate_value(eng, v->inputs[1]);
     if (bound_vn < 0 || bound_vn >= eng->vnode_count) return r;
     if (len_vn   < 0 || len_vn   >= eng->vnode_count) return r;
-    cp_record_premise(eng, v, 0, bound_vn);   /* see the SIR_GT arm */
-    cp_record_premise(eng, v, 1, len_vn);
+    cp_record_premise(eng, self, 0, bound_vn);   /* see the SIR_GT arm */
+    cp_record_premise(eng, self, 1, len_vn);
     int bp = eng->vnodes[bound_vn]->partition;
     int lp = eng->vnodes[len_vn]->partition;
     if (bp < 0 || lp < 0) return r;
@@ -4040,8 +4068,8 @@ static cp_const_t cp_symbolic_bound_const(cp_engine_t* eng, const cp_vnode_t* v,
         /* The Add's operands are premise reads of their own: the KNOWN-1 test
          * below consumes a0/a1's CONSTANTS off-graph (an optimistic 1 that falls
          * can leave the Add BOTTOM-stable — no window event reaches here). */
-        cp_record_premise(eng, v, 2, a0);
-        cp_record_premise(eng, v, 3, a1);
+        cp_record_premise(eng, self, 2, a0);
+        cp_record_premise(eng, self, 3, a1);
         const cp_const_t c0 = eng->vnodes[a0]->constant;
         const cp_const_t c1 = eng->vnodes[a1]->constant;
         int other = -1;
@@ -4051,7 +4079,7 @@ static cp_const_t cp_symbolic_bound_const(cp_engine_t* eng, const cp_vnode_t* v,
             other = cp_ultimate_value(eng, a1);
         if (other < 0 || other >= eng->vnode_count) return r;
         /* The partition premise on the inclusive arm is `other`, not len. */
-        cp_record_premise(eng, v, 1, other);
+        cp_record_premise(eng, self, 1, other);
         if (eng->vnodes[other]->partition != bp) return r;   /* len is not B+1 ⟹ keep */
     }
 
@@ -4064,7 +4092,8 @@ static cp_const_t cp_symbolic_bound_const(cp_engine_t* eng, const cp_vnode_t* v,
 
 static bool cp_invoke_ret_const(cp_engine_t* eng, const sir_node_t* call, cp_const_t* out);
 
-static cp_const_t cp_node_const(cp_engine_t* eng, const cp_vnode_t* v) {
+static cp_const_t cp_node_const(cp_engine_t* eng, int v_idx) {
+    const cp_vnode_t* v = eng->vnodes[v_idx];
     cp_const_t top = { .state = CP_C_TOP };
     cp_const_t bot = { .state = CP_C_BOTTOM };
     /* §4.8 Follower: takes the Leader's constant. */
@@ -4174,6 +4203,11 @@ static cp_const_t cp_node_const(cp_engine_t* eng, const cp_vnode_t* v) {
          * DDCG), or a merge with no row, and we widen as before. Never assume a cycle is
          * absent because nobody mentioned it. */
         cp_const_t fresh = top;
+        /* The premise endpoints: the two bound vnodes whose ids this join
+         * counted as one on partition membership. -1 = unused; both are
+         * re-recorded (or cleared) on every evaluation, so the recorded edge
+         * set is exactly what this evaluation relied on. */
+        int prem_hi_a = -1, prem_hi_b = -1, prem_lo_a = -1, prem_lo_b = -1;
         for (int i = 0; i < v->input_count; i++)
             if (cp_phi_input_live(eng, v, i)) {
                 cp_const_t ic = cp_input_const(eng, v->inputs[i]);
@@ -4195,6 +4229,35 @@ static cp_const_t cp_node_const(cp_engine_t* eng, const cp_vnode_t* v) {
                         int l = cp_value_leader((cp_engine_t*)eng, ic.lo_vn1 - 1);
                         if (l >= 0) ic.lo_vn1 = l + 1;
                     }
+                    /* Value leaders unify one value reached through copies and
+                     * refines; they do NOT unify two INDEPENDENT reads of it.
+                     * `x >= a.length ? a.length - 1 : x` names the length twice,
+                     * so the arms carry two congruent-but-distinct ids and the
+                     * join drops a bound that holds on both paths. Two ids name
+                     * one value when their vnodes share a PARTITION, so that is
+                     * the agreement test — ABCD §7.1 consults value numbering
+                     * for exactly this proof. It stays the meet's own rule: the
+                     * φ is still bounded by its WEAKEST in-edge (their Def. 2
+                     * max node), only the id comparison widens.
+                     *
+                     * Partition membership is OPTIMISTIC — partitions start
+                     * coarse and split — so believing it is a PREMISE, recorded
+                     * below as a §4.7.4 edge from both endpoints to this φ; a
+                     * split notifies the moved node's overflow readers, this
+                     * transfer re-runs, and the bound drops. The φ watches ONE
+                     * foreign id per bound because that is what the premise
+                     * store holds (two endpoints × hi/lo). A second, different
+                     * foreign id has nowhere to record its premise, so it is not
+                     * believed: the ids stay unequal and the meet drops the
+                     * bound, which is the fail-closed direction. */
+                    if (fresh.state == CP_C_RANGE
+                            && cp_phi_bound_agrees(eng, fresh.hi_vn1, ic.hi_vn1,
+                                                   &prem_hi_a, &prem_hi_b))
+                        ic.hi_vn1 = fresh.hi_vn1;
+                    if (fresh.state == CP_C_RANGE
+                            && cp_phi_bound_agrees(eng, fresh.lo_vn1, ic.lo_vn1,
+                                                   &prem_lo_a, &prem_lo_b))
+                        ic.lo_vn1 = fresh.lo_vn1;
                 }
                 fresh = cp_const_meet(fresh, ic);
             }
@@ -4203,6 +4266,27 @@ static cp_const_t cp_node_const(cp_engine_t* eng, const cp_vnode_t* v) {
                   || m < 0 || m >= eng->merge_rows    /* unrecorded merge: widen */
                   || !eng->is_loop_header             /* not indexed yet:  widen */
                   || eng->is_loop_header[m];          /* the spec's rule */
+        /* The φ's OWN previous fact re-enters through cp_const_widen, whose id
+         * comparison is the same raw one — and which id a join publishes moves
+         * while the solve is optimistic (an arm that had no bound yet gains
+         * one, and the accumulated id changes to a congruent sibling). Widening
+         * read that as "the bound changed" and dropped it; the decrement then
+         * had nothing to preserve and minted `< i` against the counter itself,
+         * so the join could never agree again — a stable pessimal fixpoint two
+         * congruent reads reach and one read does not. Same agreement, same
+         * recorded premise, so the incumbent and the fresh join name one bound. */
+        if (widen && fresh.state == CP_C_RANGE && v->constant.state == CP_C_RANGE) {
+            if (cp_phi_bound_agrees(eng, v->constant.hi_vn1, fresh.hi_vn1,
+                                    &prem_hi_a, &prem_hi_b))
+                fresh.hi_vn1 = v->constant.hi_vn1;
+            if (cp_phi_bound_agrees(eng, v->constant.lo_vn1, fresh.lo_vn1,
+                                    &prem_lo_a, &prem_lo_b))
+                fresh.lo_vn1 = v->constant.lo_vn1;
+        }
+        cp_record_premise(eng, v_idx, 0, prem_hi_a);
+        cp_record_premise(eng, v_idx, 1, prem_hi_b);
+        cp_record_premise(eng, v_idx, 2, prem_lo_a);
+        cp_record_premise(eng, v_idx, 3, prem_lo_b);
         return widen ? cp_const_widen(eng, v->constant, fresh) : fresh;
     }
     sir_node_t* e = v->expr;
@@ -6571,7 +6655,7 @@ static void cp_compute_facts(cp_engine_t* eng) {
                                 cp_apply_phi_follower(eng, xv);
             }
             const Type* t = cp_node_type(eng, eng->vnodes[xv]);
-            cp_const_t  c = cp_node_const(eng, eng->vnodes[xv]);
+            cp_const_t  c = cp_node_const(eng, xv);
             bool changed = t != eng->vnodes[xv]->type
                         || !cp_const_eq(c, eng->vnodes[xv]->constant);
             /* Lattice A rides the SAME worklist — but a pts change must reach
