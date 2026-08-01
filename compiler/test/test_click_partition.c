@@ -2748,6 +2748,245 @@ static void test_cp_phi_bound_agreement_retracts_on_split(void) {
     bbq_arena_free(&a);
 }
 
+/* ── The SUBTRACTED id is a premise too, and it RETRACTS ───────────────────
+ *
+ * A guard on a sum bounds an addend by a DIFFERENCE: `t + p <= L` gives
+ * `t ≤ L − p`, a bound naming TWO values. The subtracted id is a premise on
+ * exactly the terms the base id is — when the value it names stops being the
+ * one the composition matched, the bound must go, or a guard is eliminated on
+ * a proof that no longer holds.
+ *
+ * Fixture: the sum guard binds `t` against `p`, but the loop's counter is
+ * bounded by a DIFFERENT value (a second slot), so the composition's id
+ * agreement fails. The index must reach the guard with no bound, and the guard
+ * must stay. Falsify by matching the composition on anything weaker than value
+ * identity — the guard folds and the pin goes red. */
+/* The positive twin: same shape, but the counter is bounded by the SAME p the
+ * sum guard subtracted. `t ≤ L − p` composes with `i < p` to `t + i < L` and
+ * the guard folds. This is the owning level for the composition — the e2e
+ * fixture adds the real lowering (spilled index temps, a loop header φ) on top,
+ * so a failure there and a pass here says the machinery works and the lowering
+ * is what loses it. */
+static void test_cp_difference_bound_composes(void) {
+    bbq_arena a; bbq_arena_init(&a, 1 << 16);
+    /* slot 0 = v (ref), 1 = t, 2 = p, 3 = i */
+    sir_node_t* len_g = sir_array_length(&a, sir_load_local(&a, 0, SIR_DTREF, NULL));
+    sir_node_t* idx   = sir_add(&a, SIR_DTINT,
+        sir_load_local(&a, 1, SIR_DTINT, NULL),
+        sir_load_local(&a, 3, SIR_DTINT, NULL));                 /* t + i */
+    sir_node_t* guard = sir_ge(&a, idx, len_g);
+    sir_node_t* brG   = sir_branch(&a, guard,
+        sir_return(&a, sir_load_const(&a, 1, SIR_DTINT), SIR_DTINT),
+        sir_return(&a, sir_load_const(&a, 2, SIR_DTINT), SIR_DTINT));
+    sir_node_t* brI   = sir_branch(&a,                            /* i < p */
+        sir_lt(&a, sir_load_local(&a, 3, SIR_DTINT, NULL),
+                   sir_load_local(&a, 2, SIR_DTINT, NULL)),
+        brG, sir_return(&a, sir_load_const(&a, 0, SIR_DTINT), SIR_DTINT));
+    sir_node_t* brI0  = sir_branch(&a,                            /* i >= 0 */
+        sir_lt(&a, sir_load_local(&a, 3, SIR_DTINT, NULL),
+                   sir_load_const(&a, 0, SIR_DTINT)),
+        sir_return(&a, sir_load_const(&a, 4, SIR_DTINT), SIR_DTINT), brI);
+    /* The fences come BEFORE the sum guard, exactly as the source shape does
+     * (`toffset >= 0 && pn >= 0 && toffset + pn <= value.length`): the mint
+     * needs both addends already known non-negative. */
+    sir_node_t* len_c = sir_array_length(&a, sir_load_local(&a, 0, SIR_DTREF, NULL));
+    sir_node_t* brS   = sir_branch(&a,                            /* t + p <= len */
+        sir_le(&a, sir_add(&a, SIR_DTINT,
+                       sir_load_local(&a, 1, SIR_DTINT, NULL),
+                       sir_load_local(&a, 2, SIR_DTINT, NULL)), len_c),
+        brI0, sir_return(&a, sir_load_const(&a, 3, SIR_DTINT), SIR_DTINT));
+    sir_node_t* brP0  = sir_branch(&a,                            /* p >= 0 */
+        sir_lt(&a, sir_load_local(&a, 2, SIR_DTINT, NULL),
+                   sir_load_const(&a, 0, SIR_DTINT)),
+        sir_return(&a, sir_load_const(&a, 6, SIR_DTINT), SIR_DTINT), brS);
+    sir_node_t* brT0  = sir_branch(&a,                            /* t >= 0 */
+        sir_lt(&a, sir_load_local(&a, 1, SIR_DTINT, NULL),
+                   sir_load_const(&a, 0, SIR_DTINT)),
+        sir_return(&a, sir_load_const(&a, 5, SIR_DTINT), SIR_DTINT), brP0);
+    sir_method_t* m = sir_method(&a, "compose", 0, 4, 4, brT0);
+
+    cp_engine_t* e = cp_build(m, NULL, &a, NULL, 0);
+    TEST_ASSERT_NOT_NULL(e);
+    cp_vnode_t* v = cp_vnode_for(e, guard);
+    TEST_ASSERT_NOT_NULL(v);
+    cp_vnode_t* ix = e->vnodes[v->inputs[0]];
+    /* The lemma this shape turns on, pinned by name because it is the one that
+     * is easy to get wrong: both addends are [0, MAX], so the INTERVAL fold of
+     * `t + i` overflows and correctly refuses. The symbolic proof does not rest
+     * on the interval — t ≥ 0, i ≥ 0, t ≤ L − p, i < p give t + i ≤ L − 1,
+     * which bounds the sum AND shows the add cannot wrap. A composition gated
+     * on the numeric fold succeeding silently does nothing here. */
+    TEST_ASSERT_EQUAL_INT_MESSAGE(CP_C_RANGE, ix->constant.state,
+        "the composed sum is a RANGE even though its interval fold refused");
+    TEST_ASSERT_TRUE_MESSAGE(ix->constant.hi_vn1 != 0,
+        "the sum carries a bound: `t ≤ L − p` composed with `i < p` gives "
+        "`t + i < L` — 0 means the composition never fired");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, ix->constant.hi_vn_incl,
+        "…and it is STRICT: t + i ≤ L − 1, never `≤ L`");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(CP_C_KNOWN, v->constant.state,
+        "…so `t + i >= v.length` folds");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, v->constant.value, "…to FALSE");
+    cp_free(e);
+    bbq_arena_free(&a);
+}
+
+/* …and the same composition with `i` arriving through a LOOP-HEADER φ, which is
+ * the shape the source actually has (`for (i = 0; i < pn; i++)`). The step
+ * between this and the straight-line pin above is the header's meet-and-widen:
+ * the difference bound on t must survive as a whole triple, and i's `< p` must
+ * survive the back edge. Pinned separately so a loss at the header is not
+ * mistaken for a broken transfer. */
+static void test_cp_difference_bound_composes_through_loop(void) {
+    bbq_arena a; bbq_arena_init(&a, 1 << 16);
+    /* slot 0 = v (ref), 1 = t, 2 = p, 3 = i */
+    sir_node_t* header = sir_nop(&a, NULL);
+    sir_node_t* len_g  = sir_array_length(&a, sir_load_local(&a, 0, SIR_DTREF, NULL));
+    sir_node_t* idx    = sir_add(&a, SIR_DTINT,
+        sir_load_local(&a, 1, SIR_DTINT, NULL),
+        sir_load_local(&a, 3, SIR_DTINT, NULL));                  /* t + i */
+    sir_node_t* guard  = sir_ge(&a, idx, len_g);
+    sir_node_t* inc    = sir_inc(&a, 3, 1, SIR_DTINT,
+        sir_load_local(&a, 3, SIR_DTINT, NULL), header);          /* i++; back edge */
+    sir_node_t* brG    = sir_branch(&a, guard,
+        sir_return(&a, sir_load_const(&a, 1, SIR_DTINT), SIR_DTINT), inc);
+    sir_node_t* brL    = sir_branch(&a,                            /* i < p */
+        sir_lt(&a, sir_load_local(&a, 3, SIR_DTINT, NULL),
+                   sir_load_local(&a, 2, SIR_DTINT, NULL)),
+        brG, sir_return(&a, sir_load_const(&a, 0, SIR_DTINT), SIR_DTINT));
+    sir_set_next(header, brL);
+    sir_node_t* init   = sir_store_local(&a, 3, SIR_DTINT, NULL,   /* i = 0 */
+        sir_load_const(&a, 0, SIR_DTINT), header);
+    sir_node_t* len_c  = sir_array_length(&a, sir_load_local(&a, 0, SIR_DTREF, NULL));
+    sir_node_t* brS    = sir_branch(&a,                            /* t + p <= len */
+        sir_le(&a, sir_add(&a, SIR_DTINT,
+                       sir_load_local(&a, 1, SIR_DTINT, NULL),
+                       sir_load_local(&a, 2, SIR_DTINT, NULL)), len_c),
+        init, sir_return(&a, sir_load_const(&a, 3, SIR_DTINT), SIR_DTINT));
+    sir_node_t* brP0   = sir_branch(&a,                            /* p >= 0 */
+        sir_lt(&a, sir_load_local(&a, 2, SIR_DTINT, NULL),
+                   sir_load_const(&a, 0, SIR_DTINT)),
+        sir_return(&a, sir_load_const(&a, 6, SIR_DTINT), SIR_DTINT), brS);
+    sir_node_t* brT0   = sir_branch(&a,                            /* t >= 0 */
+        sir_lt(&a, sir_load_local(&a, 1, SIR_DTINT, NULL),
+                   sir_load_const(&a, 0, SIR_DTINT)),
+        sir_return(&a, sir_load_const(&a, 5, SIR_DTINT), SIR_DTINT), brP0);
+    sir_method_t* m = sir_method(&a, "looped", 0, 3, 4, brT0);
+
+    cp_engine_t* e = cp_build(m, NULL, &a, NULL, 0);
+    TEST_ASSERT_NOT_NULL(e);
+    cp_vnode_t* v = cp_vnode_for(e, guard);
+    TEST_ASSERT_NOT_NULL(v);
+    cp_vnode_t* ix = e->vnodes[v->inputs[0]];
+    TEST_ASSERT_TRUE_MESSAGE(ix->constant.hi_vn1 != 0,
+        "the difference bound survives the loop header: t is invariant and i's "
+        "`< p` rides the back edge, so `t + i < L` still holds in the body");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(CP_C_KNOWN, v->constant.state,
+        "…so the in-body `t + i >= v.length` folds");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, v->constant.value, "…to FALSE");
+    cp_free(e);
+    bbq_arena_free(&a);
+}
+
+/* …and now with the REAL lowering's two extra links between the Add and the
+ * high guard: the index is spilled to a temp (`j = t + i`) and the IDX_LOW
+ * guard (`j < 0`) sits on the way. This is the same seam
+ * test_cp_loop_bound_folds_through_copy_and_low_guard covers for the plain
+ * bound — the composed sum's bound has to ride a copy and a compose, not just
+ * be produced. */
+static void test_cp_difference_bound_composes_through_copy_and_low_guard(void) {
+    bbq_arena a; bbq_arena_init(&a, 1 << 16);
+    /* slot 0 = v (ref), 1 = t, 2 = p, 3 = i, 4 = j (the spilled index) */
+    sir_node_t* header = sir_nop(&a, NULL);
+    sir_node_t* len_g  = sir_array_length(&a, sir_load_local(&a, 0, SIR_DTREF, NULL));
+    sir_node_t* guard  = sir_ge(&a, sir_load_local(&a, 4, SIR_DTINT, NULL), len_g);
+    sir_node_t* inc    = sir_inc(&a, 3, 1, SIR_DTINT,
+        sir_load_local(&a, 3, SIR_DTINT, NULL), header);
+    sir_node_t* brG    = sir_branch(&a, guard,
+        sir_return(&a, sir_load_const(&a, 1, SIR_DTINT), SIR_DTINT), inc);
+    sir_node_t* brLo   = sir_branch(&a,                            /* j < 0 */
+        sir_lt(&a, sir_load_local(&a, 4, SIR_DTINT, NULL),
+                   sir_load_const(&a, 0, SIR_DTINT)),
+        sir_return(&a, sir_load_const(&a, 2, SIR_DTINT), SIR_DTINT), brG);
+    sir_node_t* spill  = sir_store_local(&a, 4, SIR_DTINT, NULL,   /* j = t + i */
+        sir_add(&a, SIR_DTINT, sir_load_local(&a, 1, SIR_DTINT, NULL),
+                               sir_load_local(&a, 3, SIR_DTINT, NULL)), brLo);
+    sir_node_t* brL    = sir_branch(&a,                            /* i < p */
+        sir_lt(&a, sir_load_local(&a, 3, SIR_DTINT, NULL),
+                   sir_load_local(&a, 2, SIR_DTINT, NULL)),
+        spill, sir_return(&a, sir_load_const(&a, 0, SIR_DTINT), SIR_DTINT));
+    sir_set_next(header, brL);
+    sir_node_t* init   = sir_store_local(&a, 3, SIR_DTINT, NULL,
+        sir_load_const(&a, 0, SIR_DTINT), header);
+    sir_node_t* len_c  = sir_array_length(&a, sir_load_local(&a, 0, SIR_DTREF, NULL));
+    sir_node_t* brS    = sir_branch(&a,
+        sir_le(&a, sir_add(&a, SIR_DTINT,
+                       sir_load_local(&a, 1, SIR_DTINT, NULL),
+                       sir_load_local(&a, 2, SIR_DTINT, NULL)), len_c),
+        init, sir_return(&a, sir_load_const(&a, 3, SIR_DTINT), SIR_DTINT));
+    sir_node_t* brP0   = sir_branch(&a,
+        sir_lt(&a, sir_load_local(&a, 2, SIR_DTINT, NULL),
+                   sir_load_const(&a, 0, SIR_DTINT)),
+        sir_return(&a, sir_load_const(&a, 6, SIR_DTINT), SIR_DTINT), brS);
+    sir_node_t* brT0   = sir_branch(&a,
+        sir_lt(&a, sir_load_local(&a, 1, SIR_DTINT, NULL),
+                   sir_load_const(&a, 0, SIR_DTINT)),
+        sir_return(&a, sir_load_const(&a, 5, SIR_DTINT), SIR_DTINT), brP0);
+    sir_method_t* m = sir_method(&a, "spilled", 0, 3, 5, brT0);
+
+    cp_engine_t* e = cp_build(m, NULL, &a, NULL, 0);
+    TEST_ASSERT_NOT_NULL(e);
+    cp_vnode_t* v = cp_vnode_for(e, guard);
+    TEST_ASSERT_NOT_NULL(v);
+    cp_vnode_t* ix = e->vnodes[v->inputs[0]];
+    TEST_ASSERT_TRUE_MESSAGE(ix->constant.hi_vn1 != 0,
+        "the composed bound rides the spill copy and the IDX_LOW compose — this "
+        "is the shape the lowering actually emits");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(CP_C_KNOWN, v->constant.state,
+        "…so the high guard folds");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, v->constant.value, "…to FALSE");
+    cp_free(e);
+    bbq_arena_free(&a);
+}
+
+static void test_cp_difference_bound_second_id_must_agree(void) {
+    bbq_arena a; bbq_arena_init(&a, 1 << 16);
+    /* slot 0 = v (ref), 1 = t, 2 = p, 3 = q (the OTHER bound), 4 = i */
+    sir_node_t* len_g = sir_array_length(&a, sir_load_local(&a, 0, SIR_DTREF, NULL));
+    sir_node_t* idx   = sir_add(&a, SIR_DTINT,
+        sir_load_local(&a, 1, SIR_DTINT, NULL),
+        sir_load_local(&a, 4, SIR_DTINT, NULL));                 /* t + i */
+    sir_node_t* guard = sir_ge(&a, idx, len_g);
+    sir_node_t* brG   = sir_branch(&a, guard,
+        sir_return(&a, sir_load_const(&a, 1, SIR_DTINT), SIR_DTINT),
+        sir_return(&a, sir_load_const(&a, 2, SIR_DTINT), SIR_DTINT));
+    /* i < q — bounded by q, NOT by the p the sum guard subtracted. */
+    sir_node_t* brI   = sir_branch(&a,
+        sir_lt(&a, sir_load_local(&a, 4, SIR_DTINT, NULL),
+                   sir_load_local(&a, 3, SIR_DTINT, NULL)),
+        brG, sir_return(&a, sir_load_const(&a, 0, SIR_DTINT), SIR_DTINT));
+    /* t + p <= v.length */
+    sir_node_t* len_c = sir_array_length(&a, sir_load_local(&a, 0, SIR_DTREF, NULL));
+    sir_node_t* brS   = sir_branch(&a,
+        sir_le(&a, sir_add(&a, SIR_DTINT,
+                       sir_load_local(&a, 1, SIR_DTINT, NULL),
+                       sir_load_local(&a, 2, SIR_DTINT, NULL)), len_c),
+        brI, sir_return(&a, sir_load_const(&a, 3, SIR_DTINT), SIR_DTINT));
+    sir_method_t* m = sir_method(&a, "f", 0, 4, 5, brS);
+
+    cp_engine_t* e = cp_build(m, NULL, &a, NULL, 0);
+    TEST_ASSERT_NOT_NULL(e);
+    cp_vnode_t* v = cp_vnode_for(e, guard);
+    TEST_ASSERT_NOT_NULL(v);
+    cp_vnode_t* ix = e->vnodes[v->inputs[0]];
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, ix->constant.hi_vn1,
+        "the counter is bounded by q while the sum guard subtracted p — the "
+        "composition must find NO id agreement and leave the sum unbounded");
+    TEST_ASSERT_TRUE_MESSAGE(v->constant.state != CP_C_KNOWN,
+        "…so `t + i >= v.length` does not fold");
+    cp_free(e);
+    bbq_arena_free(&a);
+}
+
 /* Loop back-edges WIDEN — THE loop-carried lemma the fabricated "optimistic
  * header-keep" was faking. i is loop-invariant (the latch bumps c, not i), so it carries
  * `i < a.length` on BOTH header edges. §5's mechanism is widening, and widening a
@@ -6931,6 +7170,10 @@ void test_click_partition_suite(void) {
     RUN_TEST(test_cp_phi_joins_bounds_of_congruent_reads);
     RUN_TEST(test_cp_phi_two_read_bound_survives_the_loop);
     RUN_TEST(test_cp_phi_bound_agreement_retracts_on_split);
+    RUN_TEST(test_cp_difference_bound_composes);
+    RUN_TEST(test_cp_difference_bound_composes_through_loop);
+    RUN_TEST(test_cp_difference_bound_composes_through_copy_and_low_guard);
+    RUN_TEST(test_cp_difference_bound_second_id_must_agree);
     RUN_TEST(test_cp_mem_dse_overwritten_field_store_is_dead);
     RUN_TEST(test_cp_mem_dse_distinct_receivers_both_live);
     RUN_TEST(test_cp_mem_dse_intervening_load_keeps_store);

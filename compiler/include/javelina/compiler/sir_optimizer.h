@@ -236,6 +236,18 @@ typedef struct cp_const_t {
      * NOTHING, and must not: i reaches len, and the read is out of bounds.) */
     int              hi_vn1;
     int              hi_vn_incl;
+    /* The bound may be a DIFFERENCE: when non-zero, the value is less than
+     * (or ≤, per hi_vn_incl) `value(hi_vn1) − value(hi_sub_vn1)`, same
+     * vnode-id-PLUS-ONE encoding. One symbolic id cannot say `off ≤ len − n`,
+     * which is what a guard on a SUM leaves behind (`off + n ≤ len`), and that
+     * is the fact an access at `v[off + i]` under `i < n` needs. Exactly ONE
+     * subtracted id: this is a difference bound, not a general constraint
+     * system, and nothing composes two of them.
+     *
+     * A bound is the WHOLE triple — two ids and the inclusivity. Two bounds
+     * are the same bound only when both ids match; every site that compared
+     * `hi_vn1` compares the pair. */
+    int              hi_sub_vn1;
     /* The symbolic LOWER bound, the mirror of hi_vn1: the value is strictly
      * greater than (lo_vn_incl 0) or ≥ (lo_vn_incl 1) whatever the named vnode
      * computes. Same vnode-id-PLUS-ONE encoding (0 = none). Minted on an
@@ -510,10 +522,13 @@ typedef struct {
      * PARTITION (bound/lim/other) or CONSTANT (the Add's operands) the transfer
      * reads OFF the def-use graph, recorded as §4.7.4 other.def_use edges so a
      * premise move re-runs the transfer. -1 = slot unused. Slot-diffed: re-pointing
-     * a slot removes the old edge, so the segment stays ≤4 live entries per node.
-     * 0 = the symbolic bound · 1 = the limit (strict) / the Add's non-1 side
-     * (inclusive) · 2/3 = the Add's operands (inclusive) or the range carrier. */
-    int         prem_dep[4];
+     * a slot removes the old edge, so the segment stays ≤6 live entries per node.
+     * A COMPARE (cp_symbolic_bound_const): 0 = the symbolic bound · 1 = the limit
+     * (strict) / the Add's non-1 side (inclusive) · 2/3 = the Add's operands
+     * (inclusive) or the range carrier · 4 = the bound's SUBTRACTED id.
+     * A φ (cp_node_const): the endpoint pairs whose ids it counted as one —
+     * 0/1 the upper bound · 2/3 the lower · 4/5 the subtracted id. */
+    int         prem_dep[6];
     /* Click §4.7.5 X.cprop list links: this Node is in
      * eng->partitions[partition]->cprop_head's linked list when its
      * type is pending recomputation. -1 when not in the list. */

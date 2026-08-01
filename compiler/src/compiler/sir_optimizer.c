@@ -259,10 +259,8 @@ static cp_vnode_t* cp_alloc_vnode(cp_engine_t* eng, int* out_idx) {
     v->leader        = -1;
     v->follower_kind = CP_FK_NONE;
     v->f2l_once      = false;
-    v->prem_dep[0]   = -1;
-    v->prem_dep[1]   = -1;
-    v->prem_dep[2]   = -1;
-    v->prem_dep[3]   = -1;
+    for (size_t p = 0; p < sizeof v->prem_dep / sizeof v->prem_dep[0]; p++)
+        v->prem_dep[p] = -1;
     v->cprop_next    = -1;
     v->cprop_prev    = -1;
     v->in_cprop      = false;
@@ -305,6 +303,7 @@ static bool cp_refine_pred_eq(const cp_vnode_t* v, cp_const_t p,
         && p.lvalue == q.lvalue && pf == qf && pd == qd
         && p.lo == q.lo && p.hi == q.hi && p.stride == q.stride
         && p.hi_vn1 == q.hi_vn1 && p.hi_vn_incl == q.hi_vn_incl
+        && p.hi_sub_vn1 == q.hi_sub_vn1
         && p.lo_vn1 == q.lo_vn1 && p.lo_vn_incl == q.lo_vn_incl
         && p.ref_kind == q.ref_kind && p.ref_id == q.ref_id;
 }
@@ -324,7 +323,7 @@ static uint64_t cp_refine_content_hash(int input_vn, cp_const_t p,
     uint64_t parts[] = {
         (uint32_t)input_vn, (uint64_t)p.state, (uint64_t)p.cwidth, (uint32_t)p.value,
         (uint64_t)p.lvalue, fb, db, (uint64_t)p.lo, (uint64_t)p.hi, (uint64_t)p.stride,
-        (uint32_t)p.hi_vn1, (uint32_t)p.hi_vn_incl,
+        (uint32_t)p.hi_vn1, (uint32_t)p.hi_vn_incl, (uint32_t)p.hi_sub_vn1,
         (uint32_t)p.lo_vn1, (uint32_t)p.lo_vn_incl,
         (uint64_t)p.ref_kind, (uint64_t)p.ref_id,
         (uint64_t)pts, (uint64_t)atype, (uint32_t)class_id,
@@ -1753,18 +1752,19 @@ cp_const_t cp_const_intersect(cp_const_t a, cp_const_t b) {
      * would delete a bounds guard on `new int[n]` + `i <= n`, where i really does reach
      * len. When both sides name the SAME bound, the STRICT one is the stronger fact and
      * wins. */
-    int sym = 0, sym_incl = 0;
+    int sym = 0, sym_incl = 0, sym_sub = 0;
     if (a.state == CP_C_RANGE && b.state == CP_C_RANGE && a.hi_vn1 && b.hi_vn1) {
-        if (a.hi_vn1 == b.hi_vn1) {
-            sym = a.hi_vn1;
+        if (a.hi_vn1 == b.hi_vn1 && a.hi_sub_vn1 == b.hi_sub_vn1) {
+            sym = a.hi_vn1; sym_sub = a.hi_sub_vn1;
             sym_incl = (a.hi_vn_incl && b.hi_vn_incl) ? 1 : 0;   /* strict wins */
         } else {
             sym = a.hi_vn1; sym_incl = a.hi_vn_incl;             /* incumbent */
+            sym_sub = a.hi_sub_vn1;
         }
     } else if (a.state == CP_C_RANGE && a.hi_vn1) {
-        sym = a.hi_vn1; sym_incl = a.hi_vn_incl;
+        sym = a.hi_vn1; sym_incl = a.hi_vn_incl; sym_sub = a.hi_sub_vn1;
     } else if (b.state == CP_C_RANGE && b.hi_vn1) {
-        sym = b.hi_vn1; sym_incl = b.hi_vn_incl;
+        sym = b.hi_vn1; sym_incl = b.hi_vn_incl; sym_sub = b.hi_sub_vn1;
     }
     /* The symbolic LOWER bound rides through the same way. Strict still wins:
      * `x > B` (⟹ x ≥ B+1) is a stronger lower bound than `x >= B`. */
@@ -1783,6 +1783,7 @@ cp_const_t cp_const_intersect(cp_const_t a, cp_const_t b) {
     }
     return (cp_const_t){ .state = CP_C_RANGE, .cwidth = w, .lo = lo, .hi = hi,
                          .stride = stride, .hi_vn1 = sym, .hi_vn_incl = sym_incl,
+                         .hi_sub_vn1 = sym_sub,
                          .lo_vn1 = lsym, .lo_vn_incl = lsym_incl };
 }
 
@@ -2218,6 +2219,88 @@ static void cp_compute_branch_refinements(cp_engine_t* eng) {
                     /* NO continue: the generic true-edge arm below still binds
                      * the OTHER value (`l >= r` also says r ≤ l) — per-edge
                      * underlyings let both mints coexist on one branch. */
+                }
+            }
+            /* A guard on a SUM bounds an addend by a DIFFERENCE. ABCD's C1–C3
+             * are one variable plus a CONSTANT, and a variable defined outside
+             * them "is considered unconstrained" (p.3) — `t + p ≤ L` generates
+             * no constraint there at all. It is the one three-variable rule
+             * past the paper, and it is what an access at `v[t + i]` under
+             * `i < p` needs: `t ≤ L − p` composes with `i < p` to `t + i < L`.
+             *
+             * Minted as a per-edge Refine like every other branch fact, onto
+             * whichever addend is a slot read (a Refine over an expression
+             * rewires no loads). The inequality is the fact, not its spelling:
+             * `sum < L` / `sum <= L` hold on the TRUE arm, `sum > L` /
+             * `sum >= L` leave it on the FALL-THROUGH, and either operand
+             * order says the same thing. The WRAP FENCE is not applied here —
+             * no range is solved at pass-A wiring time; it belongs where the
+             * D-class analog puts it, at fact creation in the transfer. */
+            {
+                /* The sum reaches the compare through a SPILL: the lowering
+                 * evaluates `t + p` into a temp and compares the temp, so the
+                 * operand's tag is a slot read. Resolve each side to the value
+                 * it ultimately IS — the engine's own copy authority, an
+                 * indexed read — and ask what that value's expression is. */
+                sir_node_t* sum = NULL; sir_node_t* lim = NULL;
+                sir_node_t* lexp = NULL; sir_node_t* rexp = NULL;
+                {
+                    int lu = cp_cmp_operand_ultimate(eng, lhs);
+                    if (lu < 0) lu = cp_vnode_of(eng, lhs);
+                    if (lu >= 0 && lu < eng->vnode_count
+                            && eng->vnodes[lu]->kind == CP_VN_EXPR)
+                        lexp = eng->vnodes[lu]->expr;
+                    int ru = cp_cmp_operand_ultimate(eng, rhs);
+                    if (ru < 0) ru = cp_vnode_of(eng, rhs);
+                    if (ru >= 0 && ru < eng->vnode_count
+                            && eng->vnodes[ru]->kind == CP_VN_EXPR)
+                        rexp = eng->vnodes[ru]->expr;
+                }
+                bool on_true = false, strict = false, have = false;
+                if (lexp && lexp->tag == SIR_ADD) {
+                    sum = lexp; lim = rhs;
+                    switch ((int)cmp->tag) {
+                        case SIR_LT: on_true = true;  strict = true;  have = true; break;
+                        case SIR_LE: on_true = true;  strict = false; have = true; break;
+                        case SIR_GT: on_true = false; strict = false; have = true; break;
+                        case SIR_GE: on_true = false; strict = true;  have = true; break;
+                        default: break;
+                    }
+                } else if (rexp && rexp->tag == SIR_ADD) {
+                    sum = rexp; lim = lhs;
+                    switch ((int)cmp->tag) {
+                        case SIR_GT: on_true = true;  strict = true;  have = true; break;
+                        case SIR_GE: on_true = true;  strict = false; have = true; break;
+                        case SIR_LT: on_true = false; strict = false; have = true; break;
+                        case SIR_LE: on_true = false; strict = true;  have = true; break;
+                        default: break;
+                    }
+                }
+                if (have) {
+                    sir_node_t* a0 = sir_child(sum, 0);
+                    sir_node_t* a1 = sir_child(sum, 1);
+                    /* The bounded addend is the one a Refine can reach uses of;
+                     * the other is the subtracted id. */
+                    sir_node_t* tn = NULL; sir_node_t* pn2 = NULL;
+                    if (a0 && a0->tag == SIR_LOADLOCAL
+                            && a0->load_local.data_type == SIR_DTINT) { tn = a0; pn2 = a1; }
+                    else if (a1 && a1->tag == SIR_LOADLOCAL
+                            && a1->load_local.data_type == SIR_DTINT) { tn = a1; pn2 = a0; }
+                    int tv = tn ? cp_cmp_operand_ultimate(eng, tn) : -1;
+                    int pv = pn2 ? cp_cmp_operand_ultimate(eng, pn2) : -1;
+                    if (pv < 0 && pn2) pv = cp_vnode_of(eng, pn2);
+                    int lv = cp_cmp_operand_ultimate(eng, lim);
+                    if (lv < 0) lv = cp_vnode_of(eng, lim);
+                    if (tv >= 0 && pv >= 0 && lv >= 0 && tv != lv && tv != pv) {
+                        cp_const_t sym = { .state = CP_C_RANGE, .cwidth = CP_W_I32,
+                                           .lo = INT32_MIN, .hi = INT32_MAX, .stride = 1,
+                                           .hi_vn1 = lv + 1, .hi_vn_incl = strict ? 0 : 1,
+                                           .hi_sub_vn1 = pv + 1 };
+                        if (on_true) { b_rt[b] = cp_new_refine(eng, tv, sym); b_und_t[b] = tv; }
+                        else         { b_rf[b] = cp_new_refine(eng, tv, sym); b_und_f[b] = tv; }
+                        any = true;
+                        continue;
+                    }
                 }
             }
             int tested_vn = -1, bound_vn = -1;
@@ -3397,8 +3480,10 @@ cp_const_t cp_const_meet(cp_const_t a, cp_const_t b) {
      * only `i <= B`, all that holds afterwards is `i <= B`. (Intersection is the mirror —
      * there the STRICT one wins, because both facts hold at once.) */
     bool both = (a.state == CP_C_RANGE && b.state == CP_C_RANGE
-                 && a.hi_vn1 && a.hi_vn1 == b.hi_vn1);
+                 && a.hi_vn1 && a.hi_vn1 == b.hi_vn1
+                 && a.hi_sub_vn1 == b.hi_sub_vn1);   /* a bound is the whole triple */
     int sym      = both ? a.hi_vn1 : 0;
+    int sym_sub  = both ? a.hi_sub_vn1 : 0;
     int sym_incl = both ? ((a.hi_vn_incl || b.hi_vn_incl) ? 1 : 0) : 0;
     /* The symbolic lower bound joins the same way — weaker inclusivity wins. */
     bool lboth = (a.state == CP_C_RANGE && b.state == CP_C_RANGE
@@ -3407,6 +3492,7 @@ cp_const_t cp_const_meet(cp_const_t a, cp_const_t b) {
     int lsym_incl = lboth ? ((a.lo_vn_incl || b.lo_vn_incl) ? 1 : 0) : 0;
     return (cp_const_t){ .state = CP_C_RANGE, .cwidth = w, .lo = lo, .hi = hi,
                          .stride = stride, .hi_vn1 = sym, .hi_vn_incl = sym_incl,
+                         .hi_sub_vn1 = sym_sub,
                          .lo_vn1 = lsym, .lo_vn_incl = lsym_incl };
 }
 
@@ -3540,10 +3626,11 @@ cp_const_t cp_const_widen(const cp_engine_t* eng,
      * interval widens, the bound is an INDEPENDENT fact and needs no widening
      * (its height is 2: present → absent, and agree-keeps/differ-drops only
      * descends, so termination is untouched). */
-    int sym = 0, sym_incl = 0, lsym = 0, lsym_incl = 0;
+    int sym = 0, sym_incl = 0, sym_sub = 0, lsym = 0, lsym_incl = 0;
     if (old.state == CP_C_RANGE && new_val.state == CP_C_RANGE) {
-        if (old.hi_vn1 && old.hi_vn1 == new_val.hi_vn1) {
-            sym = old.hi_vn1;
+        if (old.hi_vn1 && old.hi_vn1 == new_val.hi_vn1
+                && old.hi_sub_vn1 == new_val.hi_sub_vn1) {   /* the whole triple */
+            sym = old.hi_vn1; sym_sub = old.hi_sub_vn1;
             sym_incl = (old.hi_vn_incl || new_val.hi_vn_incl) ? 1 : 0;
         }
         if (old.lo_vn1 && old.lo_vn1 == new_val.lo_vn1) {
@@ -3553,6 +3640,7 @@ cp_const_t cp_const_widen(const cp_engine_t* eng,
     }
     return (cp_const_t){ .state = CP_C_RANGE, .cwidth = w, .lo = lo, .hi = hi,
                          .stride = stride, .hi_vn1 = sym, .hi_vn_incl = sym_incl,
+                         .hi_sub_vn1 = sym_sub,
                          .lo_vn1 = lsym, .lo_vn_incl = lsym_incl };
 }
 
@@ -3573,7 +3661,8 @@ static bool cp_const_eq(cp_const_t a, cp_const_t b) {
     }
     if (a.state == CP_C_RANGE)
         return a.lo == b.lo && a.hi == b.hi && a.stride == b.stride
-            && a.hi_vn1 == b.hi_vn1 && a.lo_vn1 == b.lo_vn1;   /* both symbolic bounds are part of the fact */
+            && a.hi_vn1 == b.hi_vn1 && a.hi_sub_vn1 == b.hi_sub_vn1
+            && a.lo_vn1 == b.lo_vn1;   /* both symbolic bounds are part of the fact */
     if (a.state == CP_C_REF)
         return a.ref_kind == b.ref_kind && a.ref_id == b.ref_id;
     return true;
@@ -3946,6 +4035,24 @@ static bool cp_phi_bound_agrees(const cp_engine_t* eng, int keep_vn1, int other_
     return (*pa == x && *pb == y) || (*pa == y && *pb == x);
 }
 
+/* A DIFFERENCE bound (`x < L − p`) proves everything a plain `x < L` proves,
+ * but ONLY while p ≥ 0 — and a consumer that reads the base id alone is
+ * believing an invariant established in whichever transfer minted the bound.
+ * It proves it here instead, from p's own solved range, and RECORDS p as a
+ * premise so the verdict falls if that range rises. Fails closed: an
+ * unprovable or absent p means no fold. `slot` is where the endpoint is
+ * recorded on the reading node. */
+static bool cp_bound_base_holds(cp_engine_t* eng, int self, int slot,
+                                cp_const_t c) {
+    if (!c.hi_sub_vn1) { cp_record_premise(eng, self, slot, -1); return true; }
+    int p = cp_ultimate_value(eng, c.hi_sub_vn1 - 1);
+    if (p < 0 || p >= eng->vnode_count) return false;
+    cp_record_premise(eng, self, slot, p);
+    cp_const_t pc = eng->vnodes[p]->constant;
+    if (pc.state == CP_C_KNOWN && pc.cwidth < CP_W_F32) return cp_known_i64(pc) >= 0;
+    return pc.state == CP_C_RANGE && pc.cwidth < CP_W_F32 && pc.lo >= 0;
+}
+
 static cp_const_t cp_symbolic_bound_const(cp_engine_t* eng, const cp_vnode_t* v,
                                            bool* handled) {
     *handled = false;
@@ -3975,6 +4082,7 @@ static cp_const_t cp_symbolic_bound_const(cp_engine_t* eng, const cp_vnode_t* v,
             carrier = xv->inputs[0];
         }
         if (xc.state != CP_C_RANGE || xc.hi_vn1 == 0) return r;
+        if (!cp_bound_base_holds(eng, self, 4, xc)) return r;
         int gbound = cp_ultimate_value(eng, xc.hi_vn1 - 1);
         int glim   = cp_ultimate_value(eng, v->inputs[1]);
         if (gbound < 0 || gbound >= eng->vnode_count) return r;
@@ -4034,6 +4142,7 @@ static cp_const_t cp_symbolic_bound_const(cp_engine_t* eng, const cp_vnode_t* v,
                 (int)iv->constant.hi_vn_incl);
     }
     if (iv->constant.state != CP_C_RANGE || iv->constant.hi_vn1 == 0) return r;
+    if (!cp_bound_base_holds(eng, self, 4, iv->constant)) return r;
 
     int bound_vn = cp_ultimate_value(eng, iv->constant.hi_vn1 - 1);
     int len_vn   = cp_ultimate_value(eng, v->inputs[1]);
@@ -4155,7 +4264,12 @@ static cp_const_t cp_node_const(cp_engine_t* eng, int v_idx) {
                             && a.hi_vn1 && r.cwidth < CP_W_F32) {
                         int64_t wmin = (r.cwidth == CP_W_I64) ? INT64_MIN : INT32_MIN;
                         if (a.lo >= wmin - v->inc_delta) {
+                            /* The bound travels as a TRIPLE. Copying the base id
+                             * without the subtracted one would silently weaken
+                             * `x < L − p` into `x < L` — true only while p ≥ 0,
+                             * an invariant belonging to a different transfer. */
                             r.hi_vn1 = a.hi_vn1; r.hi_vn_incl = a.hi_vn_incl;
+                            r.hi_sub_vn1 = a.hi_sub_vn1;
                         }
                     }
                     return r;
@@ -4210,6 +4324,7 @@ static cp_const_t cp_node_const(cp_engine_t* eng, int v_idx) {
          * re-recorded (or cleared) on every evaluation, so the recorded edge
          * set is exactly what this evaluation relied on. */
         int prem_hi_a = -1, prem_hi_b = -1, prem_lo_a = -1, prem_lo_b = -1;
+        int prem_sub_a = -1, prem_sub_b = -1;
         for (int i = 0; i < v->input_count; i++)
             if (cp_phi_input_live(eng, v, i)) {
                 cp_const_t ic = cp_input_const(eng, v->inputs[i]);
@@ -4230,6 +4345,10 @@ static cp_const_t cp_node_const(cp_engine_t* eng, int v_idx) {
                     if (ic.lo_vn1) {
                         int l = cp_value_leader((cp_engine_t*)eng, ic.lo_vn1 - 1);
                         if (l >= 0) ic.lo_vn1 = l + 1;
+                    }
+                    if (ic.hi_sub_vn1) {
+                        int l = cp_value_leader((cp_engine_t*)eng, ic.hi_sub_vn1 - 1);
+                        if (l >= 0) ic.hi_sub_vn1 = l + 1;
                     }
                     /* Value leaders unify one value reached through copies and
                      * refines; they do NOT unify two INDEPENDENT reads of it.
@@ -4260,6 +4379,13 @@ static cp_const_t cp_node_const(cp_engine_t* eng, int v_idx) {
                             && cp_phi_bound_agrees(eng, fresh.lo_vn1, ic.lo_vn1,
                                                    &prem_lo_a, &prem_lo_b))
                         ic.lo_vn1 = fresh.lo_vn1;
+                    /* The subtracted id agrees on the same terms — a difference
+                     * bound is one bound, so both of its ids must name the same
+                     * value before the two count as one. */
+                    if (fresh.state == CP_C_RANGE
+                            && cp_phi_bound_agrees(eng, fresh.hi_sub_vn1, ic.hi_sub_vn1,
+                                                   &prem_sub_a, &prem_sub_b))
+                        ic.hi_sub_vn1 = fresh.hi_sub_vn1;
                 }
                 fresh = cp_const_meet(fresh, ic);
             }
@@ -4284,11 +4410,16 @@ static cp_const_t cp_node_const(cp_engine_t* eng, int v_idx) {
             if (cp_phi_bound_agrees(eng, v->constant.lo_vn1, fresh.lo_vn1,
                                     &prem_lo_a, &prem_lo_b))
                 fresh.lo_vn1 = v->constant.lo_vn1;
+            if (cp_phi_bound_agrees(eng, v->constant.hi_sub_vn1, fresh.hi_sub_vn1,
+                                    &prem_sub_a, &prem_sub_b))
+                fresh.hi_sub_vn1 = v->constant.hi_sub_vn1;
         }
         cp_record_premise(eng, v_idx, 0, prem_hi_a);
         cp_record_premise(eng, v_idx, 1, prem_hi_b);
         cp_record_premise(eng, v_idx, 2, prem_lo_a);
         cp_record_premise(eng, v_idx, 3, prem_lo_b);
+        cp_record_premise(eng, v_idx, 4, prem_sub_a);
+        cp_record_premise(eng, v_idx, 5, prem_sub_b);
         return widen ? cp_const_widen(eng, v->constant, fresh) : fresh;
     }
     sir_node_t* e = v->expr;
@@ -4501,6 +4632,37 @@ static cp_const_t cp_node_const(cp_engine_t* eng, int v_idx) {
              * premises recorded; storing it here is the same discipline as the
              * refinement mint. Monotone: an interval's lo only descends, so the
              * fact appears from TOP or retracts — never re-forms. */
+            /* T2, the composition the difference bound exists for: `t + i`
+             * where t carries `≤ L − p` and i carries `< p` is below L, since
+             * t + i ≤ (L − p) + (p − 1) = L − 1. Exact integer arithmetic — no
+             * sign condition is needed for the INEQUALITY; the fence is that
+             * the 32-bit add itself must not wrap, so both operands are
+             * required non-negative (§15.18.2, the D-class fence family).
+             * `p` is matched by ID AGREEMENT — the same-value authority, which
+             * unifies copies and refines and, since the join's rule widened,
+             * two congruent reads of one value. Reads this node's own def-use
+             * inputs only; either premise retracting re-arms through them. */
+            if (e->tag == SIR_ADD && a.cwidth < CP_W_F32
+                    && a.state == CP_C_RANGE && b.state == CP_C_RANGE
+                    && a.lo >= 0 && b.lo >= 0
+                    && a.hi_vn1 && a.hi_sub_vn1 && b.hi_vn1 && !b.hi_vn_incl) {
+                int sub = cp_value_leader(eng, a.hi_sub_vn1 - 1);
+                int lim = cp_value_leader(eng, b.hi_vn1 - 1);
+                if (sub >= 0 && sub == lim) {
+                    /* The INTERVAL fold refuses this Add — `[0, MAX] + [0, MAX]`
+                     * can overflow, and it is right to say so. The SYMBOLIC
+                     * proof does not rest on it: t ≥ 0, i ≥ 0, t ≤ L − p and
+                     * i < p give t + i ≤ L − 1, which both bounds the sum and
+                     * shows the addition cannot wrap (L is an int32 value). So
+                     * the result is a RANGE with the bound whatever the numeric
+                     * fold concluded. */
+                    cp_cwidth_t w = a.cwidth;
+                    r = (cp_const_t){ .state = CP_C_RANGE, .cwidth = w,
+                                      .lo = 0, .hi = cp_width_max(w) - 1,
+                                      .stride = 1,
+                                      .hi_vn1 = a.hi_vn1, .hi_vn_incl = 0 };
+                }
+            }
             if (e->tag == SIR_SUB && r.state == CP_C_RANGE
                     && a.state == CP_C_RANGE && b.state == CP_C_KNOWN
                     && r.cwidth < CP_W_F32) {
@@ -4509,9 +4671,14 @@ static cp_const_t cp_node_const(cp_engine_t* eng, int v_idx) {
                 if (k >= 0 && a.lo >= wmin + k) {
                     if (a.hi_vn1) {
                         /* Subtracting k ≥ 1 STRENGTHENS an inclusive bound:
-                         * x ≤ B ⟹ x - k ≤ B - k < B. (A strict one stays strict.) */
+                         * x ≤ B ⟹ x - k ≤ B - k < B. (A strict one stays strict.)
+                         * The whole TRIPLE rides along — dropping the subtracted
+                         * id here would silently weaken `x < L − p` to `x < L`,
+                         * which holds only while p ≥ 0 and is not this
+                         * transfer's fact to assume. */
                         r.hi_vn1 = a.hi_vn1;
                         r.hi_vn_incl = (k >= 1) ? 0 : a.hi_vn_incl;
+                        r.hi_sub_vn1 = a.hi_sub_vn1;
                     } else if (k >= 1) {
                         int lvn = cp_ultimate_value(eng, v->inputs[0]);
                         if (lvn >= 0) { r.hi_vn1 = lvn + 1; r.hi_vn_incl = 0; }
@@ -10314,6 +10481,7 @@ static void cp_fact_checksum(const cp_engine_t* eng, cp_facts_t* f) {
         MIXI(konst, vn->constant.lo); MIXI(konst, vn->constant.hi);
         MIXI(konst, vn->constant.stride);
         MIXI(konst, vn->constant.hi_vn1); MIXI(konst, vn->constant.lo_vn1);
+        MIXI(konst, vn->constant.hi_sub_vn1);
         if (vn->pts.bits) for (int q = 0; q < words; q++) MIXI(pts, vn->pts.bits[q]);
         if (vn->heap)
             for (int o = 0; o < eng->obj_count; o++)

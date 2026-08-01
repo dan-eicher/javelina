@@ -6091,6 +6091,81 @@ int main(void) {
             "  int s = a[i]; i = i + 1; return s + a[i]; } }", "f", 2,
             "index redefined between the accesses (i+1 can reach length): "
             "BOTH IDX_HIGH survive" },
+          /* ── A guard on a SUM bounds an addend by a DIFFERENCE ─────────────
+           * The indexOf shape: `toffset + pn <= value.length` with `i < pn`
+           * proves `value[toffset + i]` in bounds — toffset ≤ len − pn and
+           * i < pn give toffset + i < len. That bound is a DIFFERENCE of two
+           * values, past every constraint ABCD generates: its C1–C3 are one
+           * variable plus a CONSTANT, and p.3 says a variable defined outside
+           * them "is considered unconstrained". ONE Add; multi-Add chains are
+           * out of scope.
+           *
+           * Both addends must be provably non-negative before the difference
+           * can be minted: `len − pn` bounds nothing when pn < 0, and the
+           * addition must not wrap (§15.18.2). The negatives below are that
+           * requirement and the three ways the premise can fail to hold. */
+          { "class T { static int f(char[] value, int toffset, int pn){ int s = 0;"
+            "  if (toffset >= 0 && pn >= 0 && toffset + pn <= value.length)"
+            "    for (int i = 0; i < pn; i++) s += value[toffset + i];"
+            "  return s; } }", "f", 0,
+            "indexOf shape: value[toffset + i] under toffset+pn<=len and i<pn — "
+            "IDX_HIGH dies" },
+          /* TWO sums, one Add each, each offset carrying its OWN bound. Two
+           * bounds on ONE value is a different thing and is not expressible:
+           * the representation holds a single symbolic bound and an
+           * intersection keeps the incumbent, which S-SUM extends with a
+           * subtracted id, not with a second bound. */
+          { "class T { static int f(char[] value, int aoff, int boff, int pn){"
+            "  int s = 0;"
+            "  if (aoff >= 0 && boff >= 0 && pn >= 0"
+            "      && aoff + pn <= value.length && boff + pn <= value.length)"
+            "    for (int i = 0; i < pn; i++) s += value[aoff + i] + value[boff + i];"
+            "  return s; } }", "f", 0,
+            "two sums, one Add each, each offset with its own guard: BOTH "
+            "IDX_HIGH die" },
+          /* The FACT is `toffset + pn ≤ len`; which comparison spells it is
+           * incidental. A transfer keyed to one syntax passes a corpus and is
+           * wrong for the next program, so the other spellings are pinned as
+           * positives too. */
+          { "class T { static int f(char[] value, int toffset, int pn){"
+            "  if (toffset < 0 || pn < 0 || toffset + pn > value.length) return 0;"
+            "  int s = 0;"
+            "  for (int i = 0; i < pn; i++) s += value[toffset + i];"
+            "  return s; } }", "f", 0,
+            "the SAME fact spelled `>` and taken on the FALL-THROUGH: IDX_HIGH dies" },
+          { "class T { static int f(char[] value, int toffset, int pn){ int s = 0;"
+            "  if (toffset >= 0 && pn >= 0 && value.length >= toffset + pn)"
+            "    for (int i = 0; i < pn; i++) s += value[toffset + i];"
+            "  return s; } }", "f", 0,
+            "…and with the sum on the RIGHT of the compare: IDX_HIGH dies" },
+          /* NEGATIVES for the sum rule — each kills one leg. */
+          { "class T { static int f(char[] value, int toffset, int pn){ int s = 0;"
+            "  if (pn >= 0 && toffset + pn <= value.length)"
+            "    for (int i = 0; i < pn; i++) s += value[toffset + i];"
+            "  return s; } }", "f", 1,
+            "missing lo-fence: toffset may be negative, so the add may wrap and "
+            "len-pn bounds nothing — IDX_HIGH SURVIVES" },
+          { "class T { static int f(char[] value, char[] other, int toffset, int pn){"
+            "  int s = 0;"
+            "  if (toffset >= 0 && pn >= 0 && toffset + pn <= other.length)"
+            "    for (int i = 0; i < pn; i++) s += value[toffset + i];"
+            "  return s; } }", "f", 1,
+            "the guard bounds a DIFFERENT length (other.length): IDX_HIGH SURVIVES" },
+          { "class T { static int f(char[] value, int toffset, int pn, int m){"
+            "  int s = 0;"
+            "  if (toffset >= 0 && pn >= 0 && toffset + pn <= value.length) {"
+            "    pn = m;"
+            "    for (int i = 0; i < pn; i++) s += value[toffset + i]; }"
+            "  return s; } }", "f", 1,
+            "pn reassigned between guard and loop — the difference names the OLD "
+            "pn, the loop the new one (premise id mismatch): IDX_HIGH SURVIVES" },
+          { "class T { static int f(char[] value, int toffset){ int s = 0;"
+            "  int pn = 2147483647;"
+            "  if (toffset >= 0 && toffset + pn <= value.length)"
+            "    for (int i = 0; i < pn; i++) s += value[toffset + i];"
+            "  return s; } }", "f", 1,
+            "the WRAP shape: pn at INT_MAX scale puts toffset+pn outside the "
+            "fence — IDX_HIGH SURVIVES" },
         };
         for (int t = 0; t < (int)(sizeof cases / sizeof cases[0]); t++) {
             bbq_arena* arena = sess_arena();
