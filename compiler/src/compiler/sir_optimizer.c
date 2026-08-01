@@ -1996,8 +1996,19 @@ static int cp_pb_meet(cp_engine_t* eng, cp_pb_pairs_t* P, int a, int b, int base
  * underlying takes the arm's fact — spec §4's fact ON the edge. When the state already
  * refines that underlying (an enclosing branch), the facts STACK as an interned PAIR —
  * pure set-state per Click ch.2 §2.3, never a node minted mid-iteration. */
+/* Apply one arm SLOT to a value: returns v2 unchanged when the slot is empty or
+ * refines a different value, so a caller can try the next slot. */
+static int cp_arm_apply(cp_engine_t* eng, cp_pb_pairs_t* P, int r, int u, int v2) {
+    if (r < 0 || u < 0) return v2;
+    if (cp_pb_root(eng, P, v2) != u) return v2;
+    if (v2 != u) return cp_pb_pair(P, r, v2);
+    return r;
+}
+
 static int cp_edge_refined(cp_engine_t* eng, const int* b_rt, const int* b_rf,
                            const int* b_und_t, const int* b_und_f,
+                           const int* b_rt2, const int* b_rf2,
+                           const int* b_und_t2, const int* b_und_f2,
                            cp_pb_pairs_t* P, int p, int cur, int v2) {
     if (v2 == CP_R_TOP || v2 == -1) return v2;
     sir_node_t* pn = eng->spine[p];
@@ -2008,18 +2019,21 @@ static int cp_edge_refined(cp_engine_t* eng, const int* b_rt, const int* b_rf,
      * taken exclusively), so no refinement may be claimed for it. (Inert on the
      * jre — control-measured 07-17; kept because the claim would be wrong.) */
     if (pn->branch.on_true == pn->branch.on_false) return v2;
-    /* Each arm carries its OWN underlying: `l >= r` refines l on the false edge
+    /* Each arm carries its OWN underlyings: `l >= r` refines l on the false edge
      * and r on the true edge — two different values, one branch. A single
-     * per-branch underlying forced the mints to fight over the slot. */
+     * per-branch underlying forced the mints to fight over the slot, and ONE
+     * per arm does the same to a guard on a sum, which bounds BOTH addends
+     * (`t + p ≤ L` says `p ≤ L − t` exactly as much as `t ≤ L − p`). So an arm
+     * carries TWO slots. They are read positionally, never searched — the slots
+     * refine distinct values, so at most one can apply to any given value. */
     bool is_t = (eng->spine[cur] == pn->branch.on_true);
     bool is_f = !is_t && (eng->spine[cur] == pn->branch.on_false);
     if (!is_t && !is_f) return v2;
-    int r = is_t ? b_rt[p]    : b_rf[p];
-    int u = is_t ? b_und_t[p] : b_und_f[p];
-    if (r < 0 || u < 0) return v2;
-    if (cp_pb_root(eng, P, v2) != u) return v2;
-    if (v2 != u) return cp_pb_pair(P, r, v2);
-    return r;
+    int s = cp_arm_apply(eng, P, is_t ? b_rt[p] : b_rf[p],
+                                 is_t ? b_und_t[p] : b_und_f[p], v2);
+    if (s != v2) return s;
+    return cp_arm_apply(eng, P, is_t ? b_rt2[p] : b_rf2[p],
+                                 is_t ? b_und_t2[p] : b_und_f2[p], v2);
 }
 
 /* The verdict fact a crossing edge p → cur contributes: taking a branch's arm
@@ -2051,8 +2065,15 @@ static void cp_compute_branch_refinements(cp_engine_t* eng) {
     int* b_rf  = (int*)bbq_arena_alloc(a, (size_t)sn * sizeof(int));
     int* b_und_t = (int*)bbq_arena_alloc(a, (size_t)sn * sizeof(int));
     int* b_und_f = (int*)bbq_arena_alloc(a, (size_t)sn * sizeof(int));
-    for (int i = 0; i < sn; i++)
-        { b_rt[i] = -1; b_rf[i] = -1; b_und_t[i] = -1; b_und_f[i] = -1; }
+    /* Slot 2, for the second value an arm can bound (a guard on a SUM). */
+    int* b_rt2  = (int*)bbq_arena_alloc(a, (size_t)sn * sizeof(int));
+    int* b_rf2  = (int*)bbq_arena_alloc(a, (size_t)sn * sizeof(int));
+    int* b_und_t2 = (int*)bbq_arena_alloc(a, (size_t)sn * sizeof(int));
+    int* b_und_f2 = (int*)bbq_arena_alloc(a, (size_t)sn * sizeof(int));
+    for (int i = 0; i < sn; i++) {
+        b_rt[i] = -1; b_rf[i] = -1; b_und_t[i] = -1; b_und_f[i] = -1;
+        b_rt2[i] = -1; b_rf2[i] = -1; b_und_t2[i] = -1; b_und_f2[i] = -1;
+    }
     bool any = false;
     /* Condition-verdict fact numbering (channel (a) — see the header's
      * verdict_words comment): every two-successor branch whose condition
@@ -2277,30 +2298,43 @@ static void cp_compute_branch_refinements(cp_engine_t* eng) {
                     }
                 }
                 if (have) {
-                    sir_node_t* a0 = sir_child(sum, 0);
-                    sir_node_t* a1 = sir_child(sum, 1);
-                    /* The bounded addend is the one a Refine can reach uses of;
-                     * the other is the subtracted id. */
-                    sir_node_t* tn = NULL; sir_node_t* pn2 = NULL;
-                    if (a0 && a0->tag == SIR_LOADLOCAL
-                            && a0->load_local.data_type == SIR_DTINT) { tn = a0; pn2 = a1; }
-                    else if (a1 && a1->tag == SIR_LOADLOCAL
-                            && a1->load_local.data_type == SIR_DTINT) { tn = a1; pn2 = a0; }
-                    int tv = tn ? cp_cmp_operand_ultimate(eng, tn) : -1;
-                    int pv = pn2 ? cp_cmp_operand_ultimate(eng, pn2) : -1;
-                    if (pv < 0 && pn2) pv = cp_vnode_of(eng, pn2);
+                    /* BOTH addends are bounded, each by the other: `t + p ≤ L`
+                     * gives `t ≤ L − p` AND `p ≤ L − t`. Which one a program
+                     * indexes by is its own business, so both are minted — into
+                     * the arm's two slots. An addend only takes a slot if a
+                     * Refine can reach its uses (a refine over an expression
+                     * rewires no loads). */
+                    sir_node_t* addend[2] = { sir_child(sum, 0), sir_child(sum, 1) };
                     int lv = cp_cmp_operand_ultimate(eng, lim);
                     if (lv < 0) lv = cp_vnode_of(eng, lim);
-                    if (tv >= 0 && pv >= 0 && lv >= 0 && tv != lv && tv != pv) {
+                    int vn[2];
+                    for (int k = 0; k < 2; k++) {
+                        vn[k] = addend[k] ? cp_cmp_operand_ultimate(eng, addend[k]) : -1;
+                        if (vn[k] < 0 && addend[k]) vn[k] = cp_vnode_of(eng, addend[k]);
+                    }
+                    int slot = 0;
+                    for (int k = 0; k < 2 && lv >= 0; k++) {
+                        sir_node_t* tn = addend[k];
+                        int tv = vn[k], pv = vn[1 - k];
+                        if (!tn || tn->tag != SIR_LOADLOCAL
+                                || tn->load_local.data_type != SIR_DTINT) continue;
+                        if (tv < 0 || pv < 0 || tv == lv || tv == pv) continue;
                         cp_const_t sym = { .state = CP_C_RANGE, .cwidth = CP_W_I32,
                                            .lo = INT32_MIN, .hi = INT32_MAX, .stride = 1,
                                            .hi_vn1 = lv + 1, .hi_vn_incl = strict ? 0 : 1,
                                            .hi_sub_vn1 = pv + 1 };
-                        if (on_true) { b_rt[b] = cp_new_refine(eng, tv, sym); b_und_t[b] = tv; }
-                        else         { b_rf[b] = cp_new_refine(eng, tv, sym); b_und_f[b] = tv; }
+                        int rf = cp_new_refine(eng, tv, sym);
+                        if (slot == 0) {
+                            if (on_true) { b_rt[b] = rf;  b_und_t[b] = tv; }
+                            else         { b_rf[b] = rf;  b_und_f[b] = tv; }
+                        } else {
+                            if (on_true) { b_rt2[b] = rf; b_und_t2[b] = tv; }
+                            else         { b_rf2[b] = rf; b_und_f2[b] = tv; }
+                        }
+                        slot++;
                         any = true;
-                        continue;
                     }
+                    if (slot > 0) continue;
                 }
             }
             int tested_vn = -1, bound_vn = -1;
@@ -2471,6 +2505,7 @@ static void cp_compute_branch_refinements(cp_engine_t* eng) {
                     else if (eng->slot_in[n][s] != eng->slot_in[p][s])
                         nv = eng->slot_in[n][s];                    /* def at p: fresh, unrefined */
                     else nv = cp_edge_refined(eng, b_rt, b_rf, b_und_t, b_und_f,
+                                              b_rt2, b_rf2, b_und_t2, b_und_f2,
                                               &pairs, p, n, pv);
                     if (nv != in2[n][s]) { in2[n][s] = nv; changed = true; }
                 }
@@ -2504,6 +2539,7 @@ static void cp_compute_branch_refinements(cp_engine_t* eng) {
                         int vp = (eng->slot_in[p][s] != base)
                             ? base                                  /* redefined on this edge */
                             : cp_edge_refined(eng, b_rt, b_rf, b_und_t, b_und_f,
+                                              b_rt2, b_rf2, b_und_t2, b_und_f2,
                                               &pairs, p, n, pv);
                         acc = cp_pb_meet(eng, &pairs, acc, vp, base);
                     }

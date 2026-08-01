@@ -6123,6 +6123,17 @@ int main(void) {
             "  return s; } }", "f", 0,
             "two sums, one Add each, each offset with its own guard: BOTH "
             "IDX_HIGH die" },
+          /* `t + p ≤ L` bounds BOTH addends — it says `p ≤ L − t` exactly as
+           * much as it says `t ≤ L − p`. Which one a program then indexes by
+           * is its own business, so the mirror is a positive too: here the
+           * guard is `aoff + boff <= len` and the loop counts to `aoff`, so it
+           * is `boff` that needs the difference bound. */
+          { "class T { static int f(char[] value, int aoff, int boff){ int s = 0;"
+            "  if (aoff >= 0 && boff >= 0 && aoff + boff <= value.length)"
+            "    for (int i = 0; i < aoff; i++) s += value[boff + i];"
+            "  return s; } }", "f", 0,
+            "the SYMMETRIC mint: the guard bounds the OTHER addend, and "
+            "value[boff + i] under i < aoff folds — IDX_HIGH dies" },
           /* The FACT is `toffset + pn ≤ len`; which comparison spells it is
            * incidental. A transfer keyed to one syntax passes a corpus and is
            * wrong for the next program, so the other spellings are pinned as
