@@ -59,12 +59,19 @@ PEG_INTERNAL bool peg_match_char(peg_state* p, char c) {
     return false;
 }
 
-PEG_INTERNAL bool peg_match(peg_state* p, const char* str) {
-    int len = (int)strlen(str);
+/* Length-carrying form — the emitter knows every literal's length at generation
+ * time, so its call sites pass a CONSTANT: no strlen per match (measured 7.4M
+ * calls compiling one real corpus), and the C compiler folds the fixed-size
+ * memcmp of a short literal into direct byte compares. */
+PEG_INTERNAL bool peg_match_n(peg_state* p, const char* str, int len) {
     if (p->pos + len > p->end) return false;
     if (memcmp(p->pos, str, (size_t)len) != 0) return false;
     for (int i = 0; i < len; i++) peg_advance(p);
     return true;
+}
+
+PEG_INTERNAL bool peg_match(peg_state* p, const char* str) {
+    return peg_match_n(p, str, (int)strlen(str));
 }
 
 PEG_INTERNAL bool peg_match_charset(peg_state* p, bool (*fn)(char)) {
@@ -77,10 +84,13 @@ PEG_INTERNAL bool peg_match_charset(peg_state* p, bool (*fn)(char)) {
 
 /* ── Lookahead (no consume) ──────────────────────────────── */
 
-PEG_INTERNAL bool peg_peek_at(const peg_state* p, const char* str) {
-    int len = (int)strlen(str);
+PEG_INTERNAL bool peg_peek_at_n(const peg_state* p, const char* str, int len) {
     if (p->pos + len > p->end) return false;
     return memcmp(p->pos, str, (size_t)len) == 0;
+}
+
+PEG_INTERNAL bool peg_peek_at(const peg_state* p, const char* str) {
+    return peg_peek_at_n(p, str, (int)strlen(str));
 }
 
 PEG_INTERNAL bool peg_peek_at_char(const peg_state* p, char c) {
@@ -136,6 +146,9 @@ PEG_INTERNAL bool peg_scan_to(peg_state* p, const char* delim, peg_span* out) {
 
 PEG_INTERNAL void peg_set_whitespace(peg_state* p, bool (*fn)(char)) {
     p->ws_fn = fn;
+    /* Tabulate the predicate once — it is a pure character classification, and
+     * the skip loop paid an indirect call per character through it. */
+    for (int c = 0; c < 256; c++) p->ws_tab[c] = fn ? fn((char)c) : false;
 }
 
 PEG_INTERNAL void peg_add_comment(peg_state* p, const char* open,
@@ -143,6 +156,8 @@ PEG_INTERNAL void peg_add_comment(peg_state* p, const char* open,
     if (p->comment_count < PEG_MAX_COMMENTS) {
         p->comments[p->comment_count].open = open;
         p->comments[p->comment_count].close = close;
+        p->comments[p->comment_count].open_len = (int)strlen(open);
+        p->comments[p->comment_count].close_len = (int)strlen(close);
         p->comments[p->comment_count].nested = nested;
         p->comments[p->comment_count].structured = structured;
         p->comment_count++;
@@ -176,7 +191,7 @@ static bool peg_is_idchar(unsigned char c) {
     }
 }
 PEG_INTERNAL bool peg_skip_structured(peg_state* p, const peg_comment_spec* spec) {
-    int open_len = (int)strlen(spec->open);
+    int open_len = spec->open_len;
     if (p->pos + open_len > p->end) return false;
     if (memcmp(p->pos, spec->open, (size_t)open_len) != 0) return false;
     char a = (p->pos + open_len < p->end) ? p->pos[open_len] : ' ';   /* §6.2.5 annotid = idchar+ | name */
@@ -234,11 +249,11 @@ PEG_INTERNAL bool peg_skip_structured(peg_state* p, const peg_comment_spec* spec
 
 PEG_INTERNAL bool peg_skip_comment(peg_state* p, const peg_comment_spec* spec) {
     if (spec->structured) return peg_skip_structured(p, spec);
-    int open_len = (int)strlen(spec->open);
+    int open_len = spec->open_len;
     if (p->pos + open_len > p->end) return false;
     if (memcmp(p->pos, spec->open, (size_t)open_len) != 0) return false;
     for (int i = 0; i < open_len; i++) peg_advance(p);
-    int close_len = (int)strlen(spec->close);
+    int close_len = spec->close_len;
     /* A single-LF close is the line-comment idiom; a line ends at LF or CR (or CRLF),
      * so such a comment terminates on a bare CR too — standard line-comment behavior. */
     int line_close = (close_len == 1 && spec->close[0] == '\n');
@@ -263,14 +278,26 @@ PEG_INTERNAL bool peg_skip_comment(peg_state* p, const peg_comment_spec* spec) {
 }
 
 PEG_INTERNAL void peg_skip(peg_state* p) {
+    /* The memo first. Backtracking re-enters at positions already skipped; the skip
+     * is deterministic in pos, so the recorded (from → to, line, col) IS the answer. */
+    if (p->pos == p->skip_from && p->skip_to) {
+        p->pos  = p->skip_to;
+        p->line = p->skip_to_line;
+        p->col  = p->skip_to_col;
+        return;
+    }
+    const char* from = p->pos;
     for (;;) {
         bool skipped = false;
-        while (p->pos < p->end && p->ws_fn && p->ws_fn(*p->pos)) {
+        while (p->pos < p->end && p->ws_tab[(unsigned char)*p->pos]) {
             peg_advance(p);
             skipped = true;
         }
         bool found_comment = false;
         for (int i = 0; i < p->comment_count; i++) {
+            /* First-byte rejection: at a non-comment position (almost all of them)
+             * each spec dies on one byte compare instead of a memcmp. */
+            if (p->pos < p->end && *p->pos != p->comments[i].open[0]) continue;
             if (peg_skip_comment(p, &p->comments[i])) {
                 found_comment = true;
                 break;
@@ -278,6 +305,10 @@ PEG_INTERNAL void peg_skip(peg_state* p) {
         }
         if (!found_comment && !skipped) break;
     }
+    p->skip_from    = from;
+    p->skip_to      = p->pos;
+    p->skip_to_line = p->line;
+    p->skip_to_col  = p->col;
 }
 
 /* ── Error reporting ─────────────────────────────────────── */
@@ -463,7 +494,7 @@ static bool wat_nat(peg_state* p, peg_span* out) {
         {
             bool _ok1 = false;
             do {
-                if (!peg_match(p, "0x")) break;
+                if (!peg_match_n(p, "0x", 2)) break;
                 if (peg_at_end(p) || !is_hexdig(peg_peek_char(p))) break;
                 peg_advance(p);
                 for (;;) {
@@ -474,7 +505,7 @@ static bool wat_nat(peg_state* p, peg_span* out) {
                             peg_mark _m3 = peg_save(p);
                             bool _ok3 = false;
                             do {
-                                if (!peg_match(p, "_")) break;
+                                if (!peg_match_n(p, "_", 1)) break;
                                 _ok3 = true;
                             } while(0);
                             if (!_ok3) peg_restore(p, _m3);
@@ -512,7 +543,7 @@ static bool wat_nat(peg_state* p, peg_span* out) {
                     peg_mark _m6 = peg_save(p);
                     bool _ok6 = false;
                     do {
-                        if (!peg_match(p, "_")) break;
+                        if (!peg_match_n(p, "_", 1)) break;
                         _ok6 = true;
                     } while(0);
                     if (!_ok6) peg_restore(p, _m6);
@@ -557,7 +588,7 @@ static bool wat_snum(peg_state* p, peg_span* out) {
         {
             bool _ok2 = false;
             do {
-                if (!peg_match(p, "0x")) break;
+                if (!peg_match_n(p, "0x", 2)) break;
                 if (peg_at_end(p) || !is_hexdig(peg_peek_char(p))) break;
                 peg_advance(p);
                 for (;;) {
@@ -568,7 +599,7 @@ static bool wat_snum(peg_state* p, peg_span* out) {
                             peg_mark _m4 = peg_save(p);
                             bool _ok4 = false;
                             do {
-                                if (!peg_match(p, "_")) break;
+                                if (!peg_match_n(p, "_", 1)) break;
                                 _ok4 = true;
                             } while(0);
                             if (!_ok4) peg_restore(p, _m4);
@@ -595,7 +626,7 @@ static bool wat_snum(peg_state* p, peg_span* out) {
                     peg_mark _m6 = peg_save(p);
                     bool _ok6 = false;
                     do {
-                        if (!peg_match(p, "_")) break;
+                        if (!peg_match_n(p, "_", 1)) break;
                         _ok6 = true;
                     } while(0);
                     if (!_ok6) peg_restore(p, _m6);
@@ -640,7 +671,7 @@ static bool wat_fnum(peg_state* p, peg_span* out) {
         {
             bool _ok2 = false;
             do {
-                if (!peg_match(p, "0x")) break;
+                if (!peg_match_n(p, "0x", 2)) break;
                 if (peg_at_end(p) || !is_hexdig(peg_peek_char(p))) break;
                 peg_advance(p);
                 for (;;) {
@@ -651,7 +682,7 @@ static bool wat_fnum(peg_state* p, peg_span* out) {
                             peg_mark _m4 = peg_save(p);
                             bool _ok4 = false;
                             do {
-                                if (!peg_match(p, "_")) break;
+                                if (!peg_match_n(p, "_", 1)) break;
                                 _ok4 = true;
                             } while(0);
                             if (!_ok4) peg_restore(p, _m4);
@@ -666,7 +697,7 @@ static bool wat_fnum(peg_state* p, peg_span* out) {
                     peg_mark _m5 = peg_save(p);
                     bool _ok5 = false;
                     do {
-                        if (!peg_match(p, ".")) break;
+                        if (!peg_match_n(p, ".", 1)) break;
                         {
                             peg_mark _m6 = peg_save(p);
                             bool _ok6 = false;
@@ -681,7 +712,7 @@ static bool wat_fnum(peg_state* p, peg_span* out) {
                                             peg_mark _m8 = peg_save(p);
                                             bool _ok8 = false;
                                             do {
-                                                if (!peg_match(p, "_")) break;
+                                                if (!peg_match_n(p, "_", 1)) break;
                                                 _ok8 = true;
                                             } while(0);
                                             if (!_ok8) peg_restore(p, _m8);
@@ -726,7 +757,7 @@ static bool wat_fnum(peg_state* p, peg_span* out) {
                                     peg_mark _m12 = peg_save(p);
                                     bool _ok12 = false;
                                     do {
-                                        if (!peg_match(p, "_")) break;
+                                        if (!peg_match_n(p, "_", 1)) break;
                                         _ok12 = true;
                                     } while(0);
                                     if (!_ok12) peg_restore(p, _m12);
@@ -757,7 +788,7 @@ static bool wat_fnum(peg_state* p, peg_span* out) {
                     peg_mark _m14 = peg_save(p);
                     bool _ok14 = false;
                     do {
-                        if (!peg_match(p, "_")) break;
+                        if (!peg_match_n(p, "_", 1)) break;
                         _ok14 = true;
                     } while(0);
                     if (!_ok14) peg_restore(p, _m14);
@@ -772,7 +803,7 @@ static bool wat_fnum(peg_state* p, peg_span* out) {
             peg_mark _m15 = peg_save(p);
             bool _ok15 = false;
             do {
-                if (!peg_match(p, ".")) break;
+                if (!peg_match_n(p, ".", 1)) break;
                 {
                     peg_mark _m16 = peg_save(p);
                     bool _ok16 = false;
@@ -787,7 +818,7 @@ static bool wat_fnum(peg_state* p, peg_span* out) {
                                     peg_mark _m18 = peg_save(p);
                                     bool _ok18 = false;
                                     do {
-                                        if (!peg_match(p, "_")) break;
+                                        if (!peg_match_n(p, "_", 1)) break;
                                         _ok18 = true;
                                     } while(0);
                                     if (!_ok18) peg_restore(p, _m18);
@@ -832,7 +863,7 @@ static bool wat_fnum(peg_state* p, peg_span* out) {
                             peg_mark _m22 = peg_save(p);
                             bool _ok22 = false;
                             do {
-                                if (!peg_match(p, "_")) break;
+                                if (!peg_match_n(p, "_", 1)) break;
                                 _ok22 = true;
                             } while(0);
                             if (!_ok22) peg_restore(p, _m22);
@@ -866,7 +897,7 @@ static bool wat_fnum(peg_state* p, peg_span* out) {
 
 static bool wat_hexnat(peg_state* p, peg_span* out) {
     const char* _start = peg_pos(p);
-    if (!peg_match(p, "0x")) return false;
+    if (!peg_match_n(p, "0x", 2)) return false;
     if (peg_at_end(p) || !is_hexdig(peg_peek_char(p))) return false;
     peg_advance(p);
     for (;;) {
@@ -877,7 +908,7 @@ static bool wat_hexnat(peg_state* p, peg_span* out) {
                 peg_mark _m1 = peg_save(p);
                 bool _ok1 = false;
                 do {
-                    if (!peg_match(p, "_")) break;
+                    if (!peg_match_n(p, "_", 1)) break;
                     _ok1 = true;
                 } while(0);
                 if (!_ok1) peg_restore(p, _m1);
@@ -910,8 +941,8 @@ static bool wat_id(peg_state* p, peg_span* out) {
         {
             bool _ok1 = false;
             do {
-                if (!peg_match(p, "$")) break;
-                if (!peg_match(p, "\"")) break;
+                if (!peg_match_n(p, "$", 1)) break;
+                if (!peg_match_n(p, "\"", 1)) break;
                 for (;;) {
                     peg_mark _m2 = peg_save(p);
                     bool _ok2 = false;
@@ -921,7 +952,7 @@ static bool wat_id(peg_state* p, peg_span* out) {
                             {
                                 bool _ok4 = false;
                                 do {
-                                    if (!peg_match(p, "\\")) break;
+                                    if (!peg_match_n(p, "\\", 1)) break;
                                     if (peg_at_end(p)) break;
                                     peg_advance(p);
                                     _ok4 = true;
@@ -934,7 +965,7 @@ static bool wat_id(peg_state* p, peg_span* out) {
                                 peg_mark _m5 = peg_save(p);
                                 bool _ok5 = false;
                                 do {
-                                    if (!peg_match(p, "\"")) break;
+                                    if (!peg_match_n(p, "\"", 1)) break;
                                     _ok5 = true;
                                 } while(0);
                                 peg_restore(p, _m5);
@@ -948,7 +979,7 @@ static bool wat_id(peg_state* p, peg_span* out) {
                     } while(0);
                     if (!_ok2) { peg_restore(p, _m2); break; }
                 }
-                if (!peg_match(p, "\"")) break;
+                if (!peg_match_n(p, "\"", 1)) break;
                 {
                     peg_mark _m6 = peg_save(p);
                     bool _ok6 = false;
@@ -966,7 +997,7 @@ static bool wat_id(peg_state* p, peg_span* out) {
                 peg_restore(p, _m0);
             } else goto _choice_done0;
         }
-        if (!peg_match(p, "$")) return false;
+        if (!peg_match_n(p, "$", 1)) return false;
         if (peg_at_end(p) || !is_idchar(peg_peek_char(p))) return false;
         peg_advance(p);
         for (;;) {
@@ -998,7 +1029,7 @@ static bool wat_id(peg_state* p, peg_span* out) {
 
 static bool wat_string(peg_state* p, peg_span* out) {
     const char* _start = peg_pos(p);
-    if (!peg_match(p, "\"")) return false;
+    if (!peg_match_n(p, "\"", 1)) return false;
     for (;;) {
         peg_mark _m0 = peg_save(p);
         bool _ok0 = false;
@@ -1008,7 +1039,7 @@ static bool wat_string(peg_state* p, peg_span* out) {
                 {
                     bool _ok2 = false;
                     do {
-                        if (!peg_match(p, "\\")) break;
+                        if (!peg_match_n(p, "\\", 1)) break;
                         if (peg_at_end(p)) break;
                         peg_advance(p);
                         _ok2 = true;
@@ -1021,7 +1052,7 @@ static bool wat_string(peg_state* p, peg_span* out) {
                     peg_mark _m3 = peg_save(p);
                     bool _ok3 = false;
                     do {
-                        if (!peg_match(p, "\"")) break;
+                        if (!peg_match_n(p, "\"", 1)) break;
                         _ok3 = true;
                     } while(0);
                     peg_restore(p, _m3);
@@ -1035,7 +1066,7 @@ static bool wat_string(peg_state* p, peg_span* out) {
         } while(0);
         if (!_ok0) { peg_restore(p, _m0); break; }
     }
-    if (!peg_match(p, "\"")) return false;
+    if (!peg_match_n(p, "\"", 1)) return false;
     {
         peg_mark _m4 = peg_save(p);
         bool _ok4 = false;
@@ -1056,9 +1087,9 @@ static bool wat_parse_wat(peg_state* p) {
        peg_span mid = {0,0};                   /* §6.6.13 optional module id — script-level, no struct field */
        jav_section_t s;
     peg_skip(p);
-    if (!peg_match(p, "(")) return false;
+    if (!peg_match_n(p, "(", 1)) return false;
     peg_skip(p);
-    if (!peg_match(p, "module")) return false;
+    if (!peg_match_n(p, "module", 6)) return false;
     {
         peg_mark _m0 = peg_save(p);
         bool _ok0 = false;
@@ -1217,7 +1248,7 @@ static bool wat_parse_wat(peg_state* p) {
         if (!_ok2) { peg_restore(p, _m2); break; }
     }
     peg_skip(p);
-    if (!peg_match(p, ")")) return false;
+    if (!peg_match_n(p, ")", 1)) return false;
     if (CTX->pass != 2) {                          /* pass 1 only collected $ids */
              bbq_vec_free(AS_TYPES); bbq_vec_free(AS_FTIDX); bbq_vec_free(AS_ENTRIES);
              bbq_vec_free(AS_TABLES); bbq_vec_free(AS_MEMS); bbq_vec_free(AS_GLOBALS);
@@ -1317,9 +1348,9 @@ static bool wat_parse_func_field(peg_state* p, uint32_t** func_tidx, jav_code_en
        peg_span idsp = {0,0}, tref = {0,0}; int has_ref = 0;
        bbq_write_ctx_t* w = NULL;
     peg_skip(p);
-    if (!peg_match(p, "(")) return false;
+    if (!peg_match_n(p, "(", 1)) return false;
     peg_skip(p);
-    if (!peg_match(p, "func")) return false;
+    if (!peg_match_n(p, "func", 4)) return false;
     {
         peg_mark _m0 = peg_save(p);
         bool _ok0 = false;
@@ -1355,9 +1386,9 @@ static bool wat_parse_func_field(peg_state* p, uint32_t** func_tidx, jav_code_en
                     bool _ok4 = false;
                     do {
                         peg_skip(p);
-                        if (!peg_match(p, "(")) break;
+                        if (!peg_match_n(p, "(", 1)) break;
                         peg_skip(p);
-                        if (!peg_match(p, "export")) break;
+                        if (!peg_match_n(p, "export", 6)) break;
                         {
                             peg_mark _m5 = peg_save(p);
                             bool _ok5 = false;
@@ -1372,7 +1403,7 @@ static bool wat_parse_func_field(peg_state* p, uint32_t** func_tidx, jav_code_en
                         peg_skip(p);
                         if (!wat_parse_name(p, &nm)) break;
                         peg_skip(p);
-                        if (!peg_match(p, ")")) break;
+                        if (!peg_match_n(p, ")", 1)) break;
                         if (CTX->pass == 2) bbq_vec_push(SC_ENAMES, nm); else free((void*)nm.bytes.data);
                         _ok4 = true;
                     } while(0);
@@ -1381,9 +1412,9 @@ static bool wat_parse_func_field(peg_state* p, uint32_t** func_tidx, jav_code_en
                     } else goto _choice_done3;
                 }
                 peg_skip(p);
-                if (!peg_match(p, "(")) break;
+                if (!peg_match_n(p, "(", 1)) break;
                 peg_skip(p);
-                if (!peg_match(p, "import")) break;
+                if (!peg_match_n(p, "import", 6)) break;
                 {
                     peg_mark _m6 = peg_save(p);
                     bool _ok6 = false;
@@ -1400,7 +1431,7 @@ static bool wat_parse_func_field(peg_state* p, uint32_t** func_tidx, jav_code_en
                 peg_skip(p);
                 if (!wat_parse_name(p, &ifld)) break;
                 peg_skip(p);
-                if (!peg_match(p, ")")) break;
+                if (!peg_match_n(p, ")", 1)) break;
                 if (CTX->pass == 2 && CTX->defs_seen) {              /* §6.6: imports precede definitions */
              free((void*)imod.bytes.data); free((void*)ifld.bytes.data); wat_wbuf_close(CTX, w); return false; }
              has_import = 1;
@@ -1417,9 +1448,9 @@ static bool wat_parse_func_field(peg_state* p, uint32_t** func_tidx, jav_code_en
         bool _ok7 = false;
         do {
             peg_skip(p);
-            if (!peg_match(p, "(")) break;
+            if (!peg_match_n(p, "(", 1)) break;
             peg_skip(p);
-            if (!peg_match(p, "type")) break;
+            if (!peg_match_n(p, "type", 4)) break;
             {
                 peg_mark _m8 = peg_save(p);
                 bool _ok8 = false;
@@ -1434,7 +1465,7 @@ static bool wat_parse_func_field(peg_state* p, uint32_t** func_tidx, jav_code_en
             peg_skip(p);
             if (!wat_parse_idx_ref(p, &tref)) break;
             peg_skip(p);
-            if (!peg_match(p, ")")) break;
+            if (!peg_match_n(p, ")", 1)) break;
             has_ref = 1;
             _ok7 = true;
         } while(0);
@@ -1503,7 +1534,7 @@ static bool wat_parse_func_field(peg_state* p, uint32_t** func_tidx, jav_code_en
         if (!_ok12) { peg_restore(p, _m12); break; }
     }
     peg_skip(p);
-    if (!peg_match(p, ")")) return false;
+    if (!peg_match_n(p, ")", 1)) return false;
     bbq_write_u8(w, 0x0B);                           /* expr terminator */
          if (CTX->pass != 2) { bbq_vec_free(SC_F_PARAMS); bbq_vec_free(SC_F_RESULTS); wat_wbuf_close(CTX, w);
              if (has_import) { free((void*)imod.bytes.data); free((void*)ifld.bytes.data); } return true; }
@@ -1580,9 +1611,9 @@ static bool wat_parse_linear_instr(peg_state* p, bbq_write_ctx_t* w) {
                 bool _ok1 = false;
                 do {
                     peg_skip(p);
-                    if (!peg_match(p, "(")) break;
+                    if (!peg_match_n(p, "(", 1)) break;
                     peg_skip(p);
-                    if (!peg_match(p, "result")) break;
+                    if (!peg_match_n(p, "result", 6)) break;
                     _ok1 = true;
                 } while(0);
                 peg_restore(p, _m1);
@@ -1783,14 +1814,14 @@ static bool wat_parse_folded_instr(peg_state* p, bbq_write_ctx_t* w) {
     peg_span lab = {0,0}; wat_catch_t* cats = NULL;
        bbq_write_ctx_t* tw = NULL;
     peg_skip(p);
-    if (!peg_match(p, "(")) return false;
+    if (!peg_match_n(p, "(", 1)) return false;
     {
         peg_mark _m0 = peg_save(p);
         {
             bool _ok1 = false;
             do {
                 peg_skip(p);
-                if (!peg_match(p, "block")) break;
+                if (!peg_match_n(p, "block", 5)) break;
                 {
                     peg_mark _m2 = peg_save(p);
                     bool _ok2 = false;
@@ -1836,7 +1867,7 @@ static bool wat_parse_folded_instr(peg_state* p, bbq_write_ctx_t* w) {
             bool _ok5 = false;
             do {
                 peg_skip(p);
-                if (!peg_match(p, "loop")) break;
+                if (!peg_match_n(p, "loop", 4)) break;
                 {
                     peg_mark _m6 = peg_save(p);
                     bool _ok6 = false;
@@ -1882,7 +1913,7 @@ static bool wat_parse_folded_instr(peg_state* p, bbq_write_ctx_t* w) {
             bool _ok9 = false;
             do {
                 peg_skip(p);
-                if (!peg_match(p, "if")) break;
+                if (!peg_match_n(p, "if", 2)) break;
                 {
                     peg_mark _m10 = peg_save(p);
                     bool _ok10 = false;
@@ -1922,9 +1953,9 @@ static bool wat_parse_folded_instr(peg_state* p, bbq_write_ctx_t* w) {
              for (size_t i = 0; i < tw->pos; i++) bbq_write_u8(w, tw->data[i]);
              wat_wbuf_close(CTX, tw);
                 peg_skip(p);
-                if (!peg_match(p, "(")) break;
+                if (!peg_match_n(p, "(", 1)) break;
                 peg_skip(p);
-                if (!peg_match(p, "then")) break;
+                if (!peg_match_n(p, "then", 4)) break;
                 {
                     peg_mark _m13 = peg_save(p);
                     bool _ok13 = false;
@@ -1947,15 +1978,15 @@ static bool wat_parse_folded_instr(peg_state* p, bbq_write_ctx_t* w) {
                     if (!_ok14) { peg_restore(p, _m14); break; }
                 }
                 peg_skip(p);
-                if (!peg_match(p, ")")) break;
+                if (!peg_match_n(p, ")", 1)) break;
                 {
                     peg_mark _m15 = peg_save(p);
                     bool _ok15 = false;
                     do {
                         peg_skip(p);
-                        if (!peg_match(p, "(")) break;
+                        if (!peg_match_n(p, "(", 1)) break;
                         peg_skip(p);
-                        if (!peg_match(p, "else")) break;
+                        if (!peg_match_n(p, "else", 4)) break;
                         {
                             peg_mark _m16 = peg_save(p);
                             bool _ok16 = false;
@@ -1979,7 +2010,7 @@ static bool wat_parse_folded_instr(peg_state* p, bbq_write_ctx_t* w) {
                             if (!_ok17) { peg_restore(p, _m17); break; }
                         }
                         peg_skip(p);
-                        if (!peg_match(p, ")")) break;
+                        if (!peg_match_n(p, ")", 1)) break;
                         _ok15 = true;
                     } while(0);
                     if (!_ok15) peg_restore(p, _m15);
@@ -1995,7 +2026,7 @@ static bool wat_parse_folded_instr(peg_state* p, bbq_write_ctx_t* w) {
             bool _ok18 = false;
             do {
                 peg_skip(p);
-                if (!peg_match(p, "try_table")) break;
+                if (!peg_match_n(p, "try_table", 9)) break;
                 {
                     peg_mark _m19 = peg_save(p);
                     bool _ok19 = false;
@@ -2060,7 +2091,7 @@ static bool wat_parse_folded_instr(peg_state* p, bbq_write_ctx_t* w) {
     _choice_done0:;
     }
     peg_skip(p);
-    if (!peg_match(p, ")")) return false;
+    if (!peg_match_n(p, ")", 1)) return false;
     return true;
 }
 
@@ -2107,9 +2138,9 @@ static bool wat_parse_call_indirect_op(peg_state* p, bbq_write_ctx_t* w, int sha
         bool _ok1 = false;
         do {
             peg_skip(p);
-            if (!peg_match(p, "(")) break;
+            if (!peg_match_n(p, "(", 1)) break;
             peg_skip(p);
-            if (!peg_match(p, "type")) break;
+            if (!peg_match_n(p, "type", 4)) break;
             {
                 peg_mark _m2 = peg_save(p);
                 bool _ok2 = false;
@@ -2124,7 +2155,7 @@ static bool wat_parse_call_indirect_op(peg_state* p, bbq_write_ctx_t* w, int sha
             peg_skip(p);
             if (!wat_parse_idx_ref(p, &tyref)) break;
             peg_skip(p);
-            if (!peg_match(p, ")")) break;
+            if (!peg_match_n(p, ")", 1)) break;
             has_ref = 1;
             _ok1 = true;
         } while(0);
@@ -2279,7 +2310,7 @@ static bool wat_parse_mem_arg_op(peg_state* p, bbq_write_ctx_t* w, int shape, in
                     bool _ok2 = false;
                     do {
                         peg_skip(p);
-                        if (!peg_match(p, "offset=")) break;
+                        if (!peg_match_n(p, "offset=", 7)) break;
                         peg_skip(p);
                         if (!wat_nat(p, &r)) break;
                         int ok; off = wat_int_lit(r, 64, 0, &ok);   /* §6.3.1: u64, no sign */
@@ -2294,7 +2325,7 @@ static bool wat_parse_mem_arg_op(peg_state* p, bbq_write_ctx_t* w, int shape, in
                     bool _ok3 = false;
                     do {
                         peg_skip(p);
-                        if (!peg_match(p, "align=")) break;
+                        if (!peg_match_n(p, "align=", 6)) break;
                         peg_skip(p);
                         if (!wat_nat(p, &r)) break;
                         int ok; al = wat_int_lit(r, 64, 0, &ok);    /* §6.3.1: u64, no sign */
@@ -2368,9 +2399,9 @@ static bool wat_parse_select_t_op(peg_state* p, bbq_write_ctx_t* w, int shape) {
         bool _ok0 = false;
         do {
             peg_skip(p);
-            if (!peg_match(p, "(")) break;
+            if (!peg_match_n(p, "(", 1)) break;
             peg_skip(p);
-            if (!peg_match(p, "result")) break;
+            if (!peg_match_n(p, "result", 6)) break;
             {
                 peg_mark _m1 = peg_save(p);
                 bool _ok1 = false;
@@ -2394,7 +2425,7 @@ static bool wat_parse_select_t_op(peg_state* p, bbq_write_ctx_t* w, int shape) {
                 if (!_ok2) { peg_restore(p, _m2); break; }
             }
             peg_skip(p);
-            if (!peg_match(p, ")")) break;
+            if (!peg_match_n(p, ")", 1)) break;
             _ok0 = true;
         } while(0);
         if (!_ok0) { peg_restore(p, _m0); break; }
@@ -2433,12 +2464,12 @@ static bool wat_parse_float_op(peg_state* p, bbq_write_ctx_t* w, int shape) {
             bool _ok2 = false;
             do {
                 peg_skip(p);
-                if (peg_peek_at(p, "+")) {
+                if (peg_peek_at_n(p, "+", 1)) {
                     peg_skip(p);
-                    if (!peg_match(p, "+")) break;
+                    if (!peg_match_n(p, "+", 1)) break;
                 } else {
                     peg_skip(p);
-                    if (!peg_match(p, "-")) break;
+                    if (!peg_match_n(p, "-", 1)) break;
                     neg = 1;
                 }
                 _ok2 = true;
@@ -2451,7 +2482,7 @@ static bool wat_parse_float_op(peg_state* p, bbq_write_ctx_t* w, int shape) {
                 bool _ok4 = false;
                 do {
                     peg_skip(p);
-                    if (!peg_match(p, "inf")) break;
+                    if (!peg_match_n(p, "inf", 3)) break;
                     {
                         peg_mark _m5 = peg_save(p);
                         bool _ok5 = false;
@@ -2471,14 +2502,14 @@ static bool wat_parse_float_op(peg_state* p, bbq_write_ctx_t* w, int shape) {
                 } else goto _choice_done3;
             }
             peg_skip(p);
-            if (!peg_match(p, "nan")) return false;
+            if (!peg_match_n(p, "nan", 3)) return false;
             {
                 peg_mark _m6 = peg_save(p);
                 {
                     bool _ok7 = false;
                     do {
                         peg_skip(p);
-                        if (!peg_match(p, ":")) break;
+                        if (!peg_match_n(p, ":", 1)) break;
                         peg_skip(p);
                         if (!wat_hexnat(p, &ns)) break;
                         isnan = 1; ispay = 1;
@@ -2518,9 +2549,9 @@ static bool wat_parse_type_field(peg_state* p, jav_rec_type_t** types) {
        jav_comp_type_t ct; memset(&ct, 0, sizeof ct);
        jav_sub_type_t st; memset(&st, 0, sizeof st); uint8_t subhead = 0; int issub = 0;
     peg_skip(p);
-    if (!peg_match(p, "(")) return false;
+    if (!peg_match_n(p, "(", 1)) return false;
     peg_skip(p);
-    if (!peg_match(p, "type")) return false;
+    if (!peg_match_n(p, "type", 4)) return false;
     {
         peg_mark _m0 = peg_save(p);
         bool _ok0 = false;
@@ -2553,9 +2584,9 @@ static bool wat_parse_type_field(peg_state* p, jav_rec_type_t** types) {
                     bool _ok4 = false;
                     do {
                         peg_skip(p);
-                        if (!peg_match(p, "(")) break;
+                        if (!peg_match_n(p, "(", 1)) break;
                         peg_skip(p);
-                        if (!peg_match(p, "sub")) break;
+                        if (!peg_match_n(p, "sub", 3)) break;
                         _ok4 = true;
                     } while(0);
                     peg_restore(p, _m4);
@@ -2575,7 +2606,7 @@ static bool wat_parse_type_field(peg_state* p, jav_rec_type_t** types) {
     _choice_done2:;
     }
     peg_skip(p);
-    if (!peg_match(p, ")")) return false;
+    if (!peg_match_n(p, ")", 1)) return false;
     if (CTX->pass == 1) { wat_xtypes_capture(CTX, issub, &ct, &st); return true; }
          if (issub) {                                     /* singleton sub type */
              rt.head = subhead; rt.body.tag = subhead;
@@ -2595,9 +2626,9 @@ static bool wat_parse_rec_member_p(peg_state* p, jav_rec_member_t** members) {
        jav_comp_type_t ct; memset(&ct, 0, sizeof ct);
        jav_sub_type_t st; memset(&st, 0, sizeof st); uint8_t subhead = 0; int issub = 0;
     peg_skip(p);
-    if (!peg_match(p, "(")) return false;
+    if (!peg_match_n(p, "(", 1)) return false;
     peg_skip(p);
-    if (!peg_match(p, "type")) return false;
+    if (!peg_match_n(p, "type", 4)) return false;
     {
         peg_mark _m0 = peg_save(p);
         bool _ok0 = false;
@@ -2630,9 +2661,9 @@ static bool wat_parse_rec_member_p(peg_state* p, jav_rec_member_t** members) {
                     bool _ok4 = false;
                     do {
                         peg_skip(p);
-                        if (!peg_match(p, "(")) break;
+                        if (!peg_match_n(p, "(", 1)) break;
                         peg_skip(p);
-                        if (!peg_match(p, "sub")) break;
+                        if (!peg_match_n(p, "sub", 3)) break;
                         _ok4 = true;
                     } while(0);
                     peg_restore(p, _m4);
@@ -2652,7 +2683,7 @@ static bool wat_parse_rec_member_p(peg_state* p, jav_rec_member_t** members) {
     _choice_done2:;
     }
     peg_skip(p);
-    if (!peg_match(p, ")")) return false;
+    if (!peg_match_n(p, ")", 1)) return false;
     if (CTX->pass == 1) { wat_xtypes_capture(CTX, issub, &ct, &st); return true; }
          if (issub) { rm.head = subhead; rm.body.tag = subhead;
                       if (subhead == 0x4F) rm.body.u.case_0 = st; else rm.body.u.case_1 = st; }
@@ -2668,9 +2699,9 @@ static bool wat_parse_rec_field(peg_state* p, jav_rec_type_t** types) {
     jav_rec_type_t rt; memset(&rt, 0, sizeof rt); uint32_t xbase = 0;
        bbq_vec_free(SC_MEMBERS);
     peg_skip(p);
-    if (!peg_match(p, "(")) return false;
+    if (!peg_match_n(p, "(", 1)) return false;
     peg_skip(p);
-    if (!peg_match(p, "rec")) return false;
+    if (!peg_match_n(p, "rec", 3)) return false;
     {
         peg_mark _m0 = peg_save(p);
         bool _ok0 = false;
@@ -2694,7 +2725,7 @@ static bool wat_parse_rec_field(peg_state* p, jav_rec_type_t** types) {
         if (!_ok1) { peg_restore(p, _m1); break; }
     }
     peg_skip(p);
-    if (!peg_match(p, ")")) return false;
+    if (!peg_match_n(p, ")", 1)) return false;
     if (CTX->pass != 2) { wat_xtypes_seal_recgroup(CTX, xbase); bbq_vec_free(SC_MEMBERS); return true; }
          rt.head = 0x4E; rt.body.tag = 0x4E;
          WAT_FREEZE(SC_MEMBERS, rt.body.u.case_0.members);
@@ -2711,7 +2742,7 @@ static bool wat_parse_storage_type_p(peg_state* p, jav_storage_type_t* out) {
             bool _ok1 = false;
             do {
                 peg_skip(p);
-                if (!peg_match(p, "i8")) break;
+                if (!peg_match_n(p, "i8", 2)) break;
                 {
                     peg_mark _m2 = peg_save(p);
                     bool _ok2 = false;
@@ -2734,7 +2765,7 @@ static bool wat_parse_storage_type_p(peg_state* p, jav_storage_type_t* out) {
             bool _ok3 = false;
             do {
                 peg_skip(p);
-                if (!peg_match(p, "i16")) break;
+                if (!peg_match_n(p, "i16", 3)) break;
                 {
                     peg_mark _m4 = peg_save(p);
                     bool _ok4 = false;
@@ -2770,9 +2801,9 @@ static bool wat_parse_field_type_p(peg_state* p, jav_field_type_t* out) {
             bool _ok1 = false;
             do {
                 peg_skip(p);
-                if (!peg_match(p, "(")) break;
+                if (!peg_match_n(p, "(", 1)) break;
                 peg_skip(p);
-                if (!peg_match(p, "mut")) break;
+                if (!peg_match_n(p, "mut", 3)) break;
                 {
                     peg_mark _m2 = peg_save(p);
                     bool _ok2 = false;
@@ -2787,7 +2818,7 @@ static bool wat_parse_field_type_p(peg_state* p, jav_field_type_t* out) {
                 peg_skip(p);
                 if (!wat_parse_storage_type_p(p, &s)) break;
                 peg_skip(p);
-                if (!peg_match(p, ")")) break;
+                if (!peg_match_n(p, ")", 1)) break;
                 out->storage = s; out->mut = 1;
                 _ok1 = true;
             } while(0);
@@ -2806,9 +2837,9 @@ static bool wat_parse_field_type_p(peg_state* p, jav_field_type_t* out) {
 static bool wat_parse_field_decl(peg_state* p, jav_field_type_t** fields) {
     jav_field_type_t ft; peg_span idsp = {0,0}, none = {0,0}; int fi = 0;
     peg_skip(p);
-    if (!peg_match(p, "(")) return false;
+    if (!peg_match_n(p, "(", 1)) return false;
     peg_skip(p);
-    if (!peg_match(p, "field")) return false;
+    if (!peg_match_n(p, "field", 5)) return false;
     {
         peg_mark _m0 = peg_save(p);
         bool _ok0 = false;
@@ -2848,7 +2879,7 @@ static bool wat_parse_field_decl(peg_state* p, jav_field_type_t** fields) {
         if (!_ok2) { peg_restore(p, _m2); break; }
     }
     peg_skip(p);
-    if (!peg_match(p, ")")) return false;
+    if (!peg_match_n(p, ")", 1)) return false;
     return true;
 }
 
@@ -2858,14 +2889,14 @@ static bool wat_parse_comp_type(peg_state* p, jav_comp_type_t* out) {
        bbq_vec_free(SC_FIELDS);
        CTX->bind_locals = 0;
     peg_skip(p);
-    if (!peg_match(p, "(")) return false;
+    if (!peg_match_n(p, "(", 1)) return false;
     {
         peg_mark _m0 = peg_save(p);
         {
             bool _ok1 = false;
             do {
                 peg_skip(p);
-                if (!peg_match(p, "func")) break;
+                if (!peg_match_n(p, "func", 4)) break;
                 {
                     peg_mark _m2 = peg_save(p);
                     bool _ok2 = false;
@@ -2910,7 +2941,7 @@ static bool wat_parse_comp_type(peg_state* p, jav_comp_type_t* out) {
             bool _ok5 = false;
             do {
                 peg_skip(p);
-                if (!peg_match(p, "struct")) break;
+                if (!peg_match_n(p, "struct", 6)) break;
                 {
                     peg_mark _m6 = peg_save(p);
                     bool _ok6 = false;
@@ -2941,7 +2972,7 @@ static bool wat_parse_comp_type(peg_state* p, jav_comp_type_t* out) {
             } else goto _choice_done0;
         }
         peg_skip(p);
-        if (!peg_match(p, "array")) return false;
+        if (!peg_match_n(p, "array", 5)) return false;
         {
             peg_mark _m8 = peg_save(p);
             bool _ok8 = false;
@@ -2959,7 +2990,7 @@ static bool wat_parse_comp_type(peg_state* p, jav_comp_type_t* out) {
     _choice_done0:;
     }
     peg_skip(p);
-    if (!peg_match(p, ")")) return false;
+    if (!peg_match_n(p, ")", 1)) return false;
     return true;
 }
 
@@ -2967,9 +2998,9 @@ static bool wat_parse_sub_type_p(peg_state* p, jav_sub_type_t* out, uint8_t* hea
     peg_span sr; jav_comp_type_t ct;
        bbq_vec_free(SC_IDXS);
     peg_skip(p);
-    if (!peg_match(p, "(")) return false;
+    if (!peg_match_n(p, "(", 1)) return false;
     peg_skip(p);
-    if (!peg_match(p, "sub")) return false;
+    if (!peg_match_n(p, "sub", 3)) return false;
     {
         peg_mark _m0 = peg_save(p);
         bool _ok0 = false;
@@ -2987,7 +3018,7 @@ static bool wat_parse_sub_type_p(peg_state* p, jav_sub_type_t* out, uint8_t* hea
         bool _ok1 = false;
         do {
             peg_skip(p);
-            if (!peg_match(p, "final")) break;
+            if (!peg_match_n(p, "final", 5)) break;
             {
                 peg_mark _m2 = peg_save(p);
                 bool _ok2 = false;
@@ -3020,7 +3051,7 @@ static bool wat_parse_sub_type_p(peg_state* p, jav_sub_type_t* out, uint8_t* hea
     peg_skip(p);
     if (!wat_parse_comp_type(p, &ct)) return false;
     peg_skip(p);
-    if (!peg_match(p, ")")) return false;
+    if (!peg_match_n(p, ")", 1)) return false;
     memset(out, 0, sizeof *out);
          WAT_FREEZE(SC_IDXS, out->supers); out->super_count = (uint32_t)out->supers.count;
          out->body = ct;
@@ -3030,9 +3061,9 @@ static bool wat_parse_sub_type_p(peg_state* p, jav_sub_type_t* out, uint8_t* hea
 static bool wat_parse_param(peg_state* p, jav_val_type_t** list) {
     jav_val_type_t t; peg_span idsp = {0,0};
     peg_skip(p);
-    if (!peg_match(p, "(")) return false;
+    if (!peg_match_n(p, "(", 1)) return false;
     peg_skip(p);
-    if (!peg_match(p, "param")) return false;
+    if (!peg_match_n(p, "param", 5)) return false;
     {
         peg_mark _m0 = peg_save(p);
         bool _ok0 = false;
@@ -3082,16 +3113,16 @@ static bool wat_parse_param(peg_state* p, jav_val_type_t** list) {
     _choice_done1:;
     }
     peg_skip(p);
-    if (!peg_match(p, ")")) return false;
+    if (!peg_match_n(p, ")", 1)) return false;
     return true;
 }
 
 static bool wat_parse_b_param(peg_state* p, jav_val_type_t** list) {
     jav_val_type_t t;
     peg_skip(p);
-    if (!peg_match(p, "(")) return false;
+    if (!peg_match_n(p, "(", 1)) return false;
     peg_skip(p);
-    if (!peg_match(p, "param")) return false;
+    if (!peg_match_n(p, "param", 5)) return false;
     {
         peg_mark _m0 = peg_save(p);
         bool _ok0 = false;
@@ -3115,16 +3146,16 @@ static bool wat_parse_b_param(peg_state* p, jav_val_type_t** list) {
         if (!_ok1) { peg_restore(p, _m1); break; }
     }
     peg_skip(p);
-    if (!peg_match(p, ")")) return false;
+    if (!peg_match_n(p, ")", 1)) return false;
     return true;
 }
 
 static bool wat_parse_result(peg_state* p, jav_val_type_t** list) {
     jav_val_type_t t;
     peg_skip(p);
-    if (!peg_match(p, "(")) return false;
+    if (!peg_match_n(p, "(", 1)) return false;
     peg_skip(p);
-    if (!peg_match(p, "result")) return false;
+    if (!peg_match_n(p, "result", 6)) return false;
     {
         peg_mark _m0 = peg_save(p);
         bool _ok0 = false;
@@ -3148,16 +3179,16 @@ static bool wat_parse_result(peg_state* p, jav_val_type_t** list) {
         if (!_ok1) { peg_restore(p, _m1); break; }
     }
     peg_skip(p);
-    if (!peg_match(p, ")")) return false;
+    if (!peg_match_n(p, ")", 1)) return false;
     return true;
 }
 
 static bool wat_parse_local(peg_state* p, jav_val_type_t** list) {
     jav_val_type_t t; peg_span idsp = {0,0};
     peg_skip(p);
-    if (!peg_match(p, "(")) return false;
+    if (!peg_match_n(p, "(", 1)) return false;
     peg_skip(p);
-    if (!peg_match(p, "local")) return false;
+    if (!peg_match_n(p, "local", 5)) return false;
     {
         peg_mark _m0 = peg_save(p);
         bool _ok0 = false;
@@ -3207,7 +3238,7 @@ static bool wat_parse_local(peg_state* p, jav_val_type_t** list) {
     _choice_done1:;
     }
     peg_skip(p);
-    if (!peg_match(p, ")")) return false;
+    if (!peg_match_n(p, ")", 1)) return false;
     return true;
 }
 
@@ -3219,7 +3250,7 @@ static bool wat_parse_val_type(peg_state* p, jav_val_type_t* out) {
             bool _ok1 = false;
             do {
                 peg_skip(p);
-                if (!peg_match(p, "i32")) break;
+                if (!peg_match_n(p, "i32", 3)) break;
                 {
                     peg_mark _m2 = peg_save(p);
                     bool _ok2 = false;
@@ -3242,7 +3273,7 @@ static bool wat_parse_val_type(peg_state* p, jav_val_type_t* out) {
             bool _ok3 = false;
             do {
                 peg_skip(p);
-                if (!peg_match(p, "i64")) break;
+                if (!peg_match_n(p, "i64", 3)) break;
                 {
                     peg_mark _m4 = peg_save(p);
                     bool _ok4 = false;
@@ -3265,7 +3296,7 @@ static bool wat_parse_val_type(peg_state* p, jav_val_type_t* out) {
             bool _ok5 = false;
             do {
                 peg_skip(p);
-                if (!peg_match(p, "f32")) break;
+                if (!peg_match_n(p, "f32", 3)) break;
                 {
                     peg_mark _m6 = peg_save(p);
                     bool _ok6 = false;
@@ -3288,7 +3319,7 @@ static bool wat_parse_val_type(peg_state* p, jav_val_type_t* out) {
             bool _ok7 = false;
             do {
                 peg_skip(p);
-                if (!peg_match(p, "f64")) break;
+                if (!peg_match_n(p, "f64", 3)) break;
                 {
                     peg_mark _m8 = peg_save(p);
                     bool _ok8 = false;
@@ -3311,7 +3342,7 @@ static bool wat_parse_val_type(peg_state* p, jav_val_type_t* out) {
             bool _ok9 = false;
             do {
                 peg_skip(p);
-                if (!peg_match(p, "v128")) break;
+                if (!peg_match_n(p, "v128", 4)) break;
                 {
                     peg_mark _m10 = peg_save(p);
                     bool _ok10 = false;
@@ -3334,7 +3365,7 @@ static bool wat_parse_val_type(peg_state* p, jav_val_type_t* out) {
             bool _ok11 = false;
             do {
                 peg_skip(p);
-                if (!peg_match(p, "funcref")) break;
+                if (!peg_match_n(p, "funcref", 7)) break;
                 {
                     peg_mark _m12 = peg_save(p);
                     bool _ok12 = false;
@@ -3357,7 +3388,7 @@ static bool wat_parse_val_type(peg_state* p, jav_val_type_t* out) {
             bool _ok13 = false;
             do {
                 peg_skip(p);
-                if (!peg_match(p, "externref")) break;
+                if (!peg_match_n(p, "externref", 9)) break;
                 {
                     peg_mark _m14 = peg_save(p);
                     bool _ok14 = false;
@@ -3380,7 +3411,7 @@ static bool wat_parse_val_type(peg_state* p, jav_val_type_t* out) {
             bool _ok15 = false;
             do {
                 peg_skip(p);
-                if (!peg_match(p, "anyref")) break;
+                if (!peg_match_n(p, "anyref", 6)) break;
                 {
                     peg_mark _m16 = peg_save(p);
                     bool _ok16 = false;
@@ -3403,7 +3434,7 @@ static bool wat_parse_val_type(peg_state* p, jav_val_type_t* out) {
             bool _ok17 = false;
             do {
                 peg_skip(p);
-                if (!peg_match(p, "eqref")) break;
+                if (!peg_match_n(p, "eqref", 5)) break;
                 {
                     peg_mark _m18 = peg_save(p);
                     bool _ok18 = false;
@@ -3426,7 +3457,7 @@ static bool wat_parse_val_type(peg_state* p, jav_val_type_t* out) {
             bool _ok19 = false;
             do {
                 peg_skip(p);
-                if (!peg_match(p, "i31ref")) break;
+                if (!peg_match_n(p, "i31ref", 6)) break;
                 {
                     peg_mark _m20 = peg_save(p);
                     bool _ok20 = false;
@@ -3449,7 +3480,7 @@ static bool wat_parse_val_type(peg_state* p, jav_val_type_t* out) {
             bool _ok21 = false;
             do {
                 peg_skip(p);
-                if (!peg_match(p, "structref")) break;
+                if (!peg_match_n(p, "structref", 9)) break;
                 {
                     peg_mark _m22 = peg_save(p);
                     bool _ok22 = false;
@@ -3472,7 +3503,7 @@ static bool wat_parse_val_type(peg_state* p, jav_val_type_t* out) {
             bool _ok23 = false;
             do {
                 peg_skip(p);
-                if (!peg_match(p, "arrayref")) break;
+                if (!peg_match_n(p, "arrayref", 8)) break;
                 {
                     peg_mark _m24 = peg_save(p);
                     bool _ok24 = false;
@@ -3495,7 +3526,7 @@ static bool wat_parse_val_type(peg_state* p, jav_val_type_t* out) {
             bool _ok25 = false;
             do {
                 peg_skip(p);
-                if (!peg_match(p, "exnref")) break;
+                if (!peg_match_n(p, "exnref", 6)) break;
                 {
                     peg_mark _m26 = peg_save(p);
                     bool _ok26 = false;
@@ -3518,7 +3549,7 @@ static bool wat_parse_val_type(peg_state* p, jav_val_type_t* out) {
             bool _ok27 = false;
             do {
                 peg_skip(p);
-                if (!peg_match(p, "nullref")) break;
+                if (!peg_match_n(p, "nullref", 7)) break;
                 {
                     peg_mark _m28 = peg_save(p);
                     bool _ok28 = false;
@@ -3541,7 +3572,7 @@ static bool wat_parse_val_type(peg_state* p, jav_val_type_t* out) {
             bool _ok29 = false;
             do {
                 peg_skip(p);
-                if (!peg_match(p, "nullexternref")) break;
+                if (!peg_match_n(p, "nullexternref", 13)) break;
                 {
                     peg_mark _m30 = peg_save(p);
                     bool _ok30 = false;
@@ -3564,7 +3595,7 @@ static bool wat_parse_val_type(peg_state* p, jav_val_type_t* out) {
             bool _ok31 = false;
             do {
                 peg_skip(p);
-                if (!peg_match(p, "nullfuncref")) break;
+                if (!peg_match_n(p, "nullfuncref", 11)) break;
                 {
                     peg_mark _m32 = peg_save(p);
                     bool _ok32 = false;
@@ -3587,7 +3618,7 @@ static bool wat_parse_val_type(peg_state* p, jav_val_type_t* out) {
             bool _ok33 = false;
             do {
                 peg_skip(p);
-                if (!peg_match(p, "nullexnref")) break;
+                if (!peg_match_n(p, "nullexnref", 10)) break;
                 {
                     peg_mark _m34 = peg_save(p);
                     bool _ok34 = false;
@@ -3607,9 +3638,9 @@ static bool wat_parse_val_type(peg_state* p, jav_val_type_t* out) {
             } else goto _choice_done0;
         }
         peg_skip(p);
-        if (!peg_match(p, "(")) return false;
+        if (!peg_match_n(p, "(", 1)) return false;
         peg_skip(p);
-        if (!peg_match(p, "ref")) return false;
+        if (!peg_match_n(p, "ref", 3)) return false;
         {
             peg_mark _m35 = peg_save(p);
             bool _ok35 = false;
@@ -3626,7 +3657,7 @@ static bool wat_parse_val_type(peg_state* p, jav_val_type_t* out) {
             bool _ok36 = false;
             do {
                 peg_skip(p);
-                if (!peg_match(p, "null")) break;
+                if (!peg_match_n(p, "null", 4)) break;
                 {
                     peg_mark _m37 = peg_save(p);
                     bool _ok37 = false;
@@ -3646,7 +3677,7 @@ static bool wat_parse_val_type(peg_state* p, jav_val_type_t* out) {
         peg_skip(p);
         if (!wat_parse_heap_type(p, &htv)) return false;
         peg_skip(p);
-        if (!peg_match(p, ")")) return false;
+        if (!peg_match_n(p, ")", 1)) return false;
         memset(out, 0, sizeof *out); out->head = nullable ? 0x63 : 0x64;
          out->ht.has_value = true; out->ht.value.x = htv;
     _choice_done0:;
@@ -3675,7 +3706,7 @@ static bool wat_parse_limits(peg_state* p, jav_limits_t* out) {
                     bool _ok2 = false;
                     do {
                         peg_skip(p);
-                        if (!peg_match(p, "i64")) break;
+                        if (!peg_match_n(p, "i64", 3)) break;
                         {
                             peg_mark _m3 = peg_save(p);
                             bool _ok3 = false;
@@ -3695,7 +3726,7 @@ static bool wat_parse_limits(peg_state* p, jav_limits_t* out) {
                     } else goto _choice_done1;
                 }
                 peg_skip(p);
-                if (!peg_match(p, "i32")) break;
+                if (!peg_match_n(p, "i32", 3)) break;
                 {
                     peg_mark _m4 = peg_save(p);
                     bool _ok4 = false;
@@ -3763,9 +3794,9 @@ static bool wat_parse_offset_clause(peg_state* p, jav_expr_t* out) {
             bool _ok1 = false;
             do {
                 peg_skip(p);
-                if (!peg_match(p, "(")) break;
+                if (!peg_match_n(p, "(", 1)) break;
                 peg_skip(p);
-                if (!peg_match(p, "offset")) break;
+                if (!peg_match_n(p, "offset", 6)) break;
                 {
                     peg_mark _m2 = peg_save(p);
                     bool _ok2 = false;
@@ -3788,7 +3819,7 @@ static bool wat_parse_offset_clause(peg_state* p, jav_expr_t* out) {
                     if (!_ok3) { peg_restore(p, _m3); break; }
                 }
                 peg_skip(p);
-                if (!peg_match(p, ")")) break;
+                if (!peg_match_n(p, ")", 1)) break;
                 _ok1 = true;
             } while(0);
             if (!_ok1) {
@@ -3817,7 +3848,7 @@ static bool wat_parse_heap_type(peg_state* p, int64_t* ht) {
             bool _ok1 = false;
             do {
                 peg_skip(p);
-                if (!peg_match(p, "func")) break;
+                if (!peg_match_n(p, "func", 4)) break;
                 {
                     peg_mark _m2 = peg_save(p);
                     bool _ok2 = false;
@@ -3840,7 +3871,7 @@ static bool wat_parse_heap_type(peg_state* p, int64_t* ht) {
             bool _ok3 = false;
             do {
                 peg_skip(p);
-                if (!peg_match(p, "extern")) break;
+                if (!peg_match_n(p, "extern", 6)) break;
                 {
                     peg_mark _m4 = peg_save(p);
                     bool _ok4 = false;
@@ -3863,7 +3894,7 @@ static bool wat_parse_heap_type(peg_state* p, int64_t* ht) {
             bool _ok5 = false;
             do {
                 peg_skip(p);
-                if (!peg_match(p, "any")) break;
+                if (!peg_match_n(p, "any", 3)) break;
                 {
                     peg_mark _m6 = peg_save(p);
                     bool _ok6 = false;
@@ -3886,7 +3917,7 @@ static bool wat_parse_heap_type(peg_state* p, int64_t* ht) {
             bool _ok7 = false;
             do {
                 peg_skip(p);
-                if (!peg_match(p, "eq")) break;
+                if (!peg_match_n(p, "eq", 2)) break;
                 {
                     peg_mark _m8 = peg_save(p);
                     bool _ok8 = false;
@@ -3909,7 +3940,7 @@ static bool wat_parse_heap_type(peg_state* p, int64_t* ht) {
             bool _ok9 = false;
             do {
                 peg_skip(p);
-                if (!peg_match(p, "i31")) break;
+                if (!peg_match_n(p, "i31", 3)) break;
                 {
                     peg_mark _m10 = peg_save(p);
                     bool _ok10 = false;
@@ -3932,7 +3963,7 @@ static bool wat_parse_heap_type(peg_state* p, int64_t* ht) {
             bool _ok11 = false;
             do {
                 peg_skip(p);
-                if (!peg_match(p, "struct")) break;
+                if (!peg_match_n(p, "struct", 6)) break;
                 {
                     peg_mark _m12 = peg_save(p);
                     bool _ok12 = false;
@@ -3955,7 +3986,7 @@ static bool wat_parse_heap_type(peg_state* p, int64_t* ht) {
             bool _ok13 = false;
             do {
                 peg_skip(p);
-                if (!peg_match(p, "array")) break;
+                if (!peg_match_n(p, "array", 5)) break;
                 {
                     peg_mark _m14 = peg_save(p);
                     bool _ok14 = false;
@@ -3978,7 +4009,7 @@ static bool wat_parse_heap_type(peg_state* p, int64_t* ht) {
             bool _ok15 = false;
             do {
                 peg_skip(p);
-                if (!peg_match(p, "exn")) break;
+                if (!peg_match_n(p, "exn", 3)) break;
                 {
                     peg_mark _m16 = peg_save(p);
                     bool _ok16 = false;
@@ -4001,7 +4032,7 @@ static bool wat_parse_heap_type(peg_state* p, int64_t* ht) {
             bool _ok17 = false;
             do {
                 peg_skip(p);
-                if (!peg_match(p, "none")) break;
+                if (!peg_match_n(p, "none", 4)) break;
                 {
                     peg_mark _m18 = peg_save(p);
                     bool _ok18 = false;
@@ -4024,7 +4055,7 @@ static bool wat_parse_heap_type(peg_state* p, int64_t* ht) {
             bool _ok19 = false;
             do {
                 peg_skip(p);
-                if (!peg_match(p, "nofunc")) break;
+                if (!peg_match_n(p, "nofunc", 6)) break;
                 {
                     peg_mark _m20 = peg_save(p);
                     bool _ok20 = false;
@@ -4047,7 +4078,7 @@ static bool wat_parse_heap_type(peg_state* p, int64_t* ht) {
             bool _ok21 = false;
             do {
                 peg_skip(p);
-                if (!peg_match(p, "noextern")) break;
+                if (!peg_match_n(p, "noextern", 8)) break;
                 {
                     peg_mark _m22 = peg_save(p);
                     bool _ok22 = false;
@@ -4070,7 +4101,7 @@ static bool wat_parse_heap_type(peg_state* p, int64_t* ht) {
             bool _ok23 = false;
             do {
                 peg_skip(p);
-                if (!peg_match(p, "noexn")) break;
+                if (!peg_match_n(p, "noexn", 5)) break;
                 {
                     peg_mark _m24 = peg_save(p);
                     bool _ok24 = false;
@@ -4119,9 +4150,9 @@ static bool wat_parse_ref_type(peg_state* p, int* nullable, int64_t* ht) {
             bool _ok1 = false;
             do {
                 peg_skip(p);
-                if (!peg_match(p, "(")) break;
+                if (!peg_match_n(p, "(", 1)) break;
                 peg_skip(p);
-                if (!peg_match(p, "ref")) break;
+                if (!peg_match_n(p, "ref", 3)) break;
                 {
                     peg_mark _m2 = peg_save(p);
                     bool _ok2 = false;
@@ -4138,7 +4169,7 @@ static bool wat_parse_ref_type(peg_state* p, int* nullable, int64_t* ht) {
                     bool _ok3 = false;
                     do {
                         peg_skip(p);
-                        if (!peg_match(p, "null")) break;
+                        if (!peg_match_n(p, "null", 4)) break;
                         {
                             peg_mark _m4 = peg_save(p);
                             bool _ok4 = false;
@@ -4158,7 +4189,7 @@ static bool wat_parse_ref_type(peg_state* p, int* nullable, int64_t* ht) {
                 peg_skip(p);
                 if (!wat_parse_heap_type(p, ht)) break;
                 peg_skip(p);
-                if (!peg_match(p, ")")) break;
+                if (!peg_match_n(p, ")", 1)) break;
                 _ok1 = true;
             } while(0);
             if (!_ok1) {
@@ -4169,7 +4200,7 @@ static bool wat_parse_ref_type(peg_state* p, int* nullable, int64_t* ht) {
             bool _ok5 = false;
             do {
                 peg_skip(p);
-                if (!peg_match(p, "funcref")) break;
+                if (!peg_match_n(p, "funcref", 7)) break;
                 {
                     peg_mark _m6 = peg_save(p);
                     bool _ok6 = false;
@@ -4192,7 +4223,7 @@ static bool wat_parse_ref_type(peg_state* p, int* nullable, int64_t* ht) {
             bool _ok7 = false;
             do {
                 peg_skip(p);
-                if (!peg_match(p, "externref")) break;
+                if (!peg_match_n(p, "externref", 9)) break;
                 {
                     peg_mark _m8 = peg_save(p);
                     bool _ok8 = false;
@@ -4215,7 +4246,7 @@ static bool wat_parse_ref_type(peg_state* p, int* nullable, int64_t* ht) {
             bool _ok9 = false;
             do {
                 peg_skip(p);
-                if (!peg_match(p, "anyref")) break;
+                if (!peg_match_n(p, "anyref", 6)) break;
                 {
                     peg_mark _m10 = peg_save(p);
                     bool _ok10 = false;
@@ -4238,7 +4269,7 @@ static bool wat_parse_ref_type(peg_state* p, int* nullable, int64_t* ht) {
             bool _ok11 = false;
             do {
                 peg_skip(p);
-                if (!peg_match(p, "eqref")) break;
+                if (!peg_match_n(p, "eqref", 5)) break;
                 {
                     peg_mark _m12 = peg_save(p);
                     bool _ok12 = false;
@@ -4261,7 +4292,7 @@ static bool wat_parse_ref_type(peg_state* p, int* nullable, int64_t* ht) {
             bool _ok13 = false;
             do {
                 peg_skip(p);
-                if (!peg_match(p, "i31ref")) break;
+                if (!peg_match_n(p, "i31ref", 6)) break;
                 {
                     peg_mark _m14 = peg_save(p);
                     bool _ok14 = false;
@@ -4284,7 +4315,7 @@ static bool wat_parse_ref_type(peg_state* p, int* nullable, int64_t* ht) {
             bool _ok15 = false;
             do {
                 peg_skip(p);
-                if (!peg_match(p, "structref")) break;
+                if (!peg_match_n(p, "structref", 9)) break;
                 {
                     peg_mark _m16 = peg_save(p);
                     bool _ok16 = false;
@@ -4307,7 +4338,7 @@ static bool wat_parse_ref_type(peg_state* p, int* nullable, int64_t* ht) {
             bool _ok17 = false;
             do {
                 peg_skip(p);
-                if (!peg_match(p, "arrayref")) break;
+                if (!peg_match_n(p, "arrayref", 8)) break;
                 {
                     peg_mark _m18 = peg_save(p);
                     bool _ok18 = false;
@@ -4330,7 +4361,7 @@ static bool wat_parse_ref_type(peg_state* p, int* nullable, int64_t* ht) {
             bool _ok19 = false;
             do {
                 peg_skip(p);
-                if (!peg_match(p, "exnref")) break;
+                if (!peg_match_n(p, "exnref", 6)) break;
                 {
                     peg_mark _m20 = peg_save(p);
                     bool _ok20 = false;
@@ -4353,7 +4384,7 @@ static bool wat_parse_ref_type(peg_state* p, int* nullable, int64_t* ht) {
             bool _ok21 = false;
             do {
                 peg_skip(p);
-                if (!peg_match(p, "nullref")) break;
+                if (!peg_match_n(p, "nullref", 7)) break;
                 {
                     peg_mark _m22 = peg_save(p);
                     bool _ok22 = false;
@@ -4376,7 +4407,7 @@ static bool wat_parse_ref_type(peg_state* p, int* nullable, int64_t* ht) {
             bool _ok23 = false;
             do {
                 peg_skip(p);
-                if (!peg_match(p, "nullfuncref")) break;
+                if (!peg_match_n(p, "nullfuncref", 11)) break;
                 {
                     peg_mark _m24 = peg_save(p);
                     bool _ok24 = false;
@@ -4399,7 +4430,7 @@ static bool wat_parse_ref_type(peg_state* p, int* nullable, int64_t* ht) {
             bool _ok25 = false;
             do {
                 peg_skip(p);
-                if (!peg_match(p, "nullexternref")) break;
+                if (!peg_match_n(p, "nullexternref", 13)) break;
                 {
                     peg_mark _m26 = peg_save(p);
                     bool _ok26 = false;
@@ -4419,7 +4450,7 @@ static bool wat_parse_ref_type(peg_state* p, int* nullable, int64_t* ht) {
             } else goto _choice_done0;
         }
         peg_skip(p);
-        if (!peg_match(p, "nullexnref")) return false;
+        if (!peg_match_n(p, "nullexnref", 10)) return false;
         {
             peg_mark _m27 = peg_save(p);
             bool _ok27 = false;
@@ -4485,7 +4516,7 @@ static bool wat_parse_v128_const_op(peg_state* p, bbq_write_ctx_t* w, int shape,
             bool _ok1 = false;
             do {
                 peg_skip(p);
-                if (!peg_match(p, "i8x16")) break;
+                if (!peg_match_n(p, "i8x16", 5)) break;
                 {
                     peg_mark _m2 = peg_save(p);
                     bool _ok2 = false;
@@ -4508,7 +4539,7 @@ static bool wat_parse_v128_const_op(peg_state* p, bbq_write_ctx_t* w, int shape,
             bool _ok3 = false;
             do {
                 peg_skip(p);
-                if (!peg_match(p, "i16x8")) break;
+                if (!peg_match_n(p, "i16x8", 5)) break;
                 {
                     peg_mark _m4 = peg_save(p);
                     bool _ok4 = false;
@@ -4531,7 +4562,7 @@ static bool wat_parse_v128_const_op(peg_state* p, bbq_write_ctx_t* w, int shape,
             bool _ok5 = false;
             do {
                 peg_skip(p);
-                if (!peg_match(p, "i32x4")) break;
+                if (!peg_match_n(p, "i32x4", 5)) break;
                 {
                     peg_mark _m6 = peg_save(p);
                     bool _ok6 = false;
@@ -4554,7 +4585,7 @@ static bool wat_parse_v128_const_op(peg_state* p, bbq_write_ctx_t* w, int shape,
             bool _ok7 = false;
             do {
                 peg_skip(p);
-                if (!peg_match(p, "i64x2")) break;
+                if (!peg_match_n(p, "i64x2", 5)) break;
                 {
                     peg_mark _m8 = peg_save(p);
                     bool _ok8 = false;
@@ -4577,7 +4608,7 @@ static bool wat_parse_v128_const_op(peg_state* p, bbq_write_ctx_t* w, int shape,
             bool _ok9 = false;
             do {
                 peg_skip(p);
-                if (!peg_match(p, "f32x4")) break;
+                if (!peg_match_n(p, "f32x4", 5)) break;
                 {
                     peg_mark _m10 = peg_save(p);
                     bool _ok10 = false;
@@ -4597,7 +4628,7 @@ static bool wat_parse_v128_const_op(peg_state* p, bbq_write_ctx_t* w, int shape,
             } else goto _choice_done0;
         }
         peg_skip(p);
-        if (!peg_match(p, "f64x2")) return false;
+        if (!peg_match_n(p, "f64x2", 5)) return false;
         {
             peg_mark _m11 = peg_save(p);
             bool _ok11 = false;
@@ -4627,12 +4658,12 @@ static bool wat_parse_v128_const_op(peg_state* p, bbq_write_ctx_t* w, int shape,
                             bool _ok15 = false;
                             do {
                                 peg_skip(p);
-                                if (peg_peek_at(p, "+")) {
+                                if (peg_peek_at_n(p, "+", 1)) {
                                     peg_skip(p);
-                                    if (!peg_match(p, "+")) break;
+                                    if (!peg_match_n(p, "+", 1)) break;
                                 } else {
                                     peg_skip(p);
-                                    if (!peg_match(p, "-")) break;
+                                    if (!peg_match_n(p, "-", 1)) break;
                                     neg = 1;
                                 }
                                 _ok15 = true;
@@ -4645,7 +4676,7 @@ static bool wat_parse_v128_const_op(peg_state* p, bbq_write_ctx_t* w, int shape,
                                 bool _ok17 = false;
                                 do {
                                     peg_skip(p);
-                                    if (!peg_match(p, "inf")) break;
+                                    if (!peg_match_n(p, "inf", 3)) break;
                                     {
                                         peg_mark _m18 = peg_save(p);
                                         bool _ok18 = false;
@@ -4665,14 +4696,14 @@ static bool wat_parse_v128_const_op(peg_state* p, bbq_write_ctx_t* w, int shape,
                                 } else goto _choice_done16;
                             }
                             peg_skip(p);
-                            if (!peg_match(p, "nan")) break;
+                            if (!peg_match_n(p, "nan", 3)) break;
                             {
                                 peg_mark _m19 = peg_save(p);
                                 {
                                     bool _ok20 = false;
                                     do {
                                         peg_skip(p);
-                                        if (!peg_match(p, ":")) break;
+                                        if (!peg_match_n(p, ":", 1)) break;
                                         peg_skip(p);
                                         if (!wat_hexnat(p, &ns)) break;
                                         isnan = 1; ispay = 1; special = 1;
@@ -4761,9 +4792,9 @@ static bool wat_parse_block_type(peg_state* p, bbq_write_ctx_t* w) {
         bool _ok0 = false;
         do {
             peg_skip(p);
-            if (!peg_match(p, "(")) break;
+            if (!peg_match_n(p, "(", 1)) break;
             peg_skip(p);
-            if (!peg_match(p, "type")) break;
+            if (!peg_match_n(p, "type", 4)) break;
             {
                 peg_mark _m1 = peg_save(p);
                 bool _ok1 = false;
@@ -4778,7 +4809,7 @@ static bool wat_parse_block_type(peg_state* p, bbq_write_ctx_t* w) {
             peg_skip(p);
             if (!wat_parse_idx_ref(p, &tref)) break;
             peg_skip(p);
-            if (!peg_match(p, ")")) break;
+            if (!peg_match_n(p, ")", 1)) break;
             has_ref = 1;
             _ok0 = true;
         } while(0);
@@ -4856,7 +4887,7 @@ static bool wat_parse_block_op(peg_state* p, bbq_write_ctx_t* w, int shape) {
         if (!_ok1) { peg_restore(p, _m1); break; }
     }
     peg_skip(p);
-    if (!peg_match(p, "end")) return false;
+    if (!peg_match_n(p, "end", 3)) return false;
     {
         peg_mark _m2 = peg_save(p);
         bool _ok2 = false;
@@ -4914,7 +4945,7 @@ static bool wat_parse_if_op(peg_state* p, bbq_write_ctx_t* w, int shape) {
         bool _ok2 = false;
         do {
             peg_skip(p);
-            if (!peg_match(p, "else")) break;
+            if (!peg_match_n(p, "else", 4)) break;
             {
                 peg_mark _m3 = peg_save(p);
                 bool _ok3 = false;
@@ -4953,7 +4984,7 @@ static bool wat_parse_if_op(peg_state* p, bbq_write_ctx_t* w, int shape) {
         if (!_ok2) peg_restore(p, _m2);
     }
     peg_skip(p);
-    if (!peg_match(p, "end")) return false;
+    if (!peg_match_n(p, "end", 3)) return false;
     {
         peg_mark _m6 = peg_save(p);
         bool _ok6 = false;
@@ -5025,7 +5056,7 @@ static bool wat_parse_try_table_op(peg_state* p, bbq_write_ctx_t* w, int shape) 
         if (!_ok2) { peg_restore(p, _m2); break; }
     }
     peg_skip(p);
-    if (!peg_match(p, "end")) return false;
+    if (!peg_match_n(p, "end", 3)) return false;
     {
         peg_mark _m3 = peg_save(p);
         bool _ok3 = false;
@@ -5055,7 +5086,7 @@ static bool wat_parse_try_table_op(peg_state* p, bbq_write_ctx_t* w, int shape) 
 static bool wat_parse_catch(peg_state* p, wat_catch_t** out) {
     wat_catch_t c; peg_span tg = {0,0}, lb = {0,0};
     peg_skip(p);
-    if (!peg_match(p, "(")) return false;
+    if (!peg_match_n(p, "(", 1)) return false;
     memset(&c, 0, sizeof c);
     {
         peg_mark _m0 = peg_save(p);
@@ -5063,7 +5094,7 @@ static bool wat_parse_catch(peg_state* p, wat_catch_t** out) {
             bool _ok1 = false;
             do {
                 peg_skip(p);
-                if (!peg_match(p, "catch_ref")) break;
+                if (!peg_match_n(p, "catch_ref", 9)) break;
                 {
                     peg_mark _m2 = peg_save(p);
                     bool _ok2 = false;
@@ -5090,7 +5121,7 @@ static bool wat_parse_catch(peg_state* p, wat_catch_t** out) {
             bool _ok3 = false;
             do {
                 peg_skip(p);
-                if (!peg_match(p, "catch_all_ref")) break;
+                if (!peg_match_n(p, "catch_all_ref", 13)) break;
                 {
                     peg_mark _m4 = peg_save(p);
                     bool _ok4 = false;
@@ -5115,7 +5146,7 @@ static bool wat_parse_catch(peg_state* p, wat_catch_t** out) {
             bool _ok5 = false;
             do {
                 peg_skip(p);
-                if (!peg_match(p, "catch_all")) break;
+                if (!peg_match_n(p, "catch_all", 9)) break;
                 {
                     peg_mark _m6 = peg_save(p);
                     bool _ok6 = false;
@@ -5137,7 +5168,7 @@ static bool wat_parse_catch(peg_state* p, wat_catch_t** out) {
             } else goto _choice_done0;
         }
         peg_skip(p);
-        if (!peg_match(p, "catch")) return false;
+        if (!peg_match_n(p, "catch", 5)) return false;
         {
             peg_mark _m7 = peg_save(p);
             bool _ok7 = false;
@@ -5157,7 +5188,7 @@ static bool wat_parse_catch(peg_state* p, wat_catch_t** out) {
     _choice_done0:;
     }
     peg_skip(p);
-    if (!peg_match(p, ")")) return false;
+    if (!peg_match_n(p, ")", 1)) return false;
     int64_t lbl = wat_resolve(CTX, SP_LABEL, lb); if (lbl < 0) return false;
          c.label = (uint32_t)lbl;
          if (c.kind == 0 || c.kind == 1) {
@@ -5184,9 +5215,9 @@ static bool wat_parse_name(peg_state* p, jav_name_t* out) {
 static bool wat_parse_export_field(peg_state* p, jav_export_t** exports) {
     jav_name_t nm; uint8_t kind = 0; int space = SP_FUNC; peg_span r = {0,0};
     peg_skip(p);
-    if (!peg_match(p, "(")) return false;
+    if (!peg_match_n(p, "(", 1)) return false;
     peg_skip(p);
-    if (!peg_match(p, "export")) return false;
+    if (!peg_match_n(p, "export", 6)) return false;
     {
         peg_mark _m0 = peg_save(p);
         bool _ok0 = false;
@@ -5201,14 +5232,14 @@ static bool wat_parse_export_field(peg_state* p, jav_export_t** exports) {
     peg_skip(p);
     if (!wat_parse_name(p, &nm)) return false;
     peg_skip(p);
-    if (!peg_match(p, "(")) return false;
+    if (!peg_match_n(p, "(", 1)) return false;
     {
         peg_mark _m1 = peg_save(p);
         {
             bool _ok2 = false;
             do {
                 peg_skip(p);
-                if (!peg_match(p, "func")) break;
+                if (!peg_match_n(p, "func", 4)) break;
                 {
                     peg_mark _m3 = peg_save(p);
                     bool _ok3 = false;
@@ -5231,7 +5262,7 @@ static bool wat_parse_export_field(peg_state* p, jav_export_t** exports) {
             bool _ok4 = false;
             do {
                 peg_skip(p);
-                if (!peg_match(p, "table")) break;
+                if (!peg_match_n(p, "table", 5)) break;
                 {
                     peg_mark _m5 = peg_save(p);
                     bool _ok5 = false;
@@ -5254,7 +5285,7 @@ static bool wat_parse_export_field(peg_state* p, jav_export_t** exports) {
             bool _ok6 = false;
             do {
                 peg_skip(p);
-                if (!peg_match(p, "memory")) break;
+                if (!peg_match_n(p, "memory", 6)) break;
                 {
                     peg_mark _m7 = peg_save(p);
                     bool _ok7 = false;
@@ -5277,7 +5308,7 @@ static bool wat_parse_export_field(peg_state* p, jav_export_t** exports) {
             bool _ok8 = false;
             do {
                 peg_skip(p);
-                if (!peg_match(p, "global")) break;
+                if (!peg_match_n(p, "global", 6)) break;
                 {
                     peg_mark _m9 = peg_save(p);
                     bool _ok9 = false;
@@ -5297,7 +5328,7 @@ static bool wat_parse_export_field(peg_state* p, jav_export_t** exports) {
             } else goto _choice_done1;
         }
         peg_skip(p);
-        if (!peg_match(p, "tag")) return false;
+        if (!peg_match_n(p, "tag", 3)) return false;
         {
             peg_mark _m10 = peg_save(p);
             bool _ok10 = false;
@@ -5315,9 +5346,9 @@ static bool wat_parse_export_field(peg_state* p, jav_export_t** exports) {
     peg_skip(p);
     if (!wat_parse_idx_ref(p, &r)) return false;
     peg_skip(p);
-    if (!peg_match(p, ")")) return false;
+    if (!peg_match_n(p, ")", 1)) return false;
     peg_skip(p);
-    if (!peg_match(p, ")")) return false;
+    if (!peg_match_n(p, ")", 1)) return false;
     if (CTX->pass != 2) { free((void*)nm.bytes.data); return true; }
          int64_t idx = wat_resolve(CTX, space, r);
          if (idx < 0) { free((void*)nm.bytes.data); return false; }
@@ -5330,9 +5361,9 @@ static bool wat_parse_export_field(peg_state* p, jav_export_t** exports) {
 static bool wat_parse_start_field(peg_state* p, uint32_t* start_func, int* has_start) {
     peg_span r = {0,0};
     peg_skip(p);
-    if (!peg_match(p, "(")) return false;
+    if (!peg_match_n(p, "(", 1)) return false;
     peg_skip(p);
-    if (!peg_match(p, "start")) return false;
+    if (!peg_match_n(p, "start", 5)) return false;
     {
         peg_mark _m0 = peg_save(p);
         bool _ok0 = false;
@@ -5347,7 +5378,7 @@ static bool wat_parse_start_field(peg_state* p, uint32_t* start_func, int* has_s
     peg_skip(p);
     if (!wat_parse_idx_ref(p, &r)) return false;
     peg_skip(p);
-    if (!peg_match(p, ")")) return false;
+    if (!peg_match_n(p, ")", 1)) return false;
     if (CTX->pass != 2) return true;
          if (*has_start) return false;                    /* §6.6.16: at most one start */
          int64_t idx = wat_resolve(CTX, SP_FUNC, r); if (idx < 0) return false;
@@ -5360,9 +5391,9 @@ static bool wat_parse_memory_field(peg_state* p, jav_mem_entry_t** mems, jav_dat
        jav_name_t imod = {0}, ifld = {0}; int has_import = 0, has_inline_data = 0, is64 = 0;
        jav_byte_vec_t bytes; memset(&bytes, 0, sizeof bytes);
     peg_skip(p);
-    if (!peg_match(p, "(")) return false;
+    if (!peg_match_n(p, "(", 1)) return false;
     peg_skip(p);
-    if (!peg_match(p, "memory")) return false;
+    if (!peg_match_n(p, "memory", 6)) return false;
     {
         peg_mark _m0 = peg_save(p);
         bool _ok0 = false;
@@ -5395,9 +5426,9 @@ static bool wat_parse_memory_field(peg_state* p, jav_mem_entry_t** mems, jav_dat
                     bool _ok4 = false;
                     do {
                         peg_skip(p);
-                        if (!peg_match(p, "(")) break;
+                        if (!peg_match_n(p, "(", 1)) break;
                         peg_skip(p);
-                        if (!peg_match(p, "export")) break;
+                        if (!peg_match_n(p, "export", 6)) break;
                         {
                             peg_mark _m5 = peg_save(p);
                             bool _ok5 = false;
@@ -5412,7 +5443,7 @@ static bool wat_parse_memory_field(peg_state* p, jav_mem_entry_t** mems, jav_dat
                         peg_skip(p);
                         if (!wat_parse_name(p, &nm)) break;
                         peg_skip(p);
-                        if (!peg_match(p, ")")) break;
+                        if (!peg_match_n(p, ")", 1)) break;
                         if (CTX->pass == 2) bbq_vec_push(SC_ENAMES, nm); else free((void*)nm.bytes.data);
                         _ok4 = true;
                     } while(0);
@@ -5421,9 +5452,9 @@ static bool wat_parse_memory_field(peg_state* p, jav_mem_entry_t** mems, jav_dat
                     } else goto _choice_done3;
                 }
                 peg_skip(p);
-                if (!peg_match(p, "(")) break;
+                if (!peg_match_n(p, "(", 1)) break;
                 peg_skip(p);
-                if (!peg_match(p, "import")) break;
+                if (!peg_match_n(p, "import", 6)) break;
                 {
                     peg_mark _m6 = peg_save(p);
                     bool _ok6 = false;
@@ -5440,7 +5471,7 @@ static bool wat_parse_memory_field(peg_state* p, jav_mem_entry_t** mems, jav_dat
                 peg_skip(p);
                 if (!wat_parse_name(p, &ifld)) break;
                 peg_skip(p);
-                if (!peg_match(p, ")")) break;
+                if (!peg_match_n(p, ")", 1)) break;
                 if (CTX->pass == 2 && CTX->defs_seen) {              /* §6.6: imports precede definitions */
              free((void*)imod.bytes.data); free((void*)ifld.bytes.data); return false; }
              has_import = 1;
@@ -5467,7 +5498,7 @@ static bool wat_parse_memory_field(peg_state* p, jav_mem_entry_t** mems, jav_dat
                                 bool _ok11 = false;
                                 do {
                                     peg_skip(p);
-                                    if (!peg_match(p, "i64")) break;
+                                    if (!peg_match_n(p, "i64", 3)) break;
                                     {
                                         peg_mark _m12 = peg_save(p);
                                         bool _ok12 = false;
@@ -5487,7 +5518,7 @@ static bool wat_parse_memory_field(peg_state* p, jav_mem_entry_t** mems, jav_dat
                                 } else goto _choice_done10;
                             }
                             peg_skip(p);
-                            if (!peg_match(p, "i32")) break;
+                            if (!peg_match_n(p, "i32", 3)) break;
                             {
                                 peg_mark _m13 = peg_save(p);
                                 bool _ok13 = false;
@@ -5506,9 +5537,9 @@ static bool wat_parse_memory_field(peg_state* p, jav_mem_entry_t** mems, jav_dat
                     if (!_ok9) peg_restore(p, _m9);
                 }
                 peg_skip(p);
-                if (!peg_match(p, "(")) break;
+                if (!peg_match_n(p, "(", 1)) break;
                 peg_skip(p);
-                if (!peg_match(p, "data")) break;
+                if (!peg_match_n(p, "data", 4)) break;
                 {
                     peg_mark _m14 = peg_save(p);
                     bool _ok14 = false;
@@ -5523,7 +5554,7 @@ static bool wat_parse_memory_field(peg_state* p, jav_mem_entry_t** mems, jav_dat
                 peg_skip(p);
                 if (!wat_parse_data_string(p, &bytes)) break;
                 peg_skip(p);
-                if (!peg_match(p, ")")) break;
+                if (!peg_match_n(p, ")", 1)) break;
                 has_inline_data = 1;
                 _ok8 = true;
             } while(0);
@@ -5536,7 +5567,7 @@ static bool wat_parse_memory_field(peg_state* p, jav_mem_entry_t** mems, jav_dat
     _choice_done7:;
     }
     peg_skip(p);
-    if (!peg_match(p, ")")) return false;
+    if (!peg_match_n(p, ")", 1)) return false;
     if (CTX->pass != 2) { if (has_import) { free((void*)imod.bytes.data); free((void*)ifld.bytes.data); }
              free((void*)bytes.bytes.data); return true; }
          uint32_t myidx;
@@ -5563,9 +5594,9 @@ static bool wat_parse_global_field(peg_state* p, jav_global_t** globals) {
     jav_global_t g; memset(&g, 0, sizeof g); peg_span idsp = {0,0}; jav_name_t nm;
        jav_name_t imod = {0}, ifld = {0}; int has_import = 0;
     peg_skip(p);
-    if (!peg_match(p, "(")) return false;
+    if (!peg_match_n(p, "(", 1)) return false;
     peg_skip(p);
-    if (!peg_match(p, "global")) return false;
+    if (!peg_match_n(p, "global", 6)) return false;
     {
         peg_mark _m0 = peg_save(p);
         bool _ok0 = false;
@@ -5598,9 +5629,9 @@ static bool wat_parse_global_field(peg_state* p, jav_global_t** globals) {
                     bool _ok4 = false;
                     do {
                         peg_skip(p);
-                        if (!peg_match(p, "(")) break;
+                        if (!peg_match_n(p, "(", 1)) break;
                         peg_skip(p);
-                        if (!peg_match(p, "export")) break;
+                        if (!peg_match_n(p, "export", 6)) break;
                         {
                             peg_mark _m5 = peg_save(p);
                             bool _ok5 = false;
@@ -5615,7 +5646,7 @@ static bool wat_parse_global_field(peg_state* p, jav_global_t** globals) {
                         peg_skip(p);
                         if (!wat_parse_name(p, &nm)) break;
                         peg_skip(p);
-                        if (!peg_match(p, ")")) break;
+                        if (!peg_match_n(p, ")", 1)) break;
                         if (CTX->pass == 2) bbq_vec_push(SC_ENAMES, nm); else free((void*)nm.bytes.data);
                         _ok4 = true;
                     } while(0);
@@ -5624,9 +5655,9 @@ static bool wat_parse_global_field(peg_state* p, jav_global_t** globals) {
                     } else goto _choice_done3;
                 }
                 peg_skip(p);
-                if (!peg_match(p, "(")) break;
+                if (!peg_match_n(p, "(", 1)) break;
                 peg_skip(p);
-                if (!peg_match(p, "import")) break;
+                if (!peg_match_n(p, "import", 6)) break;
                 {
                     peg_mark _m6 = peg_save(p);
                     bool _ok6 = false;
@@ -5643,7 +5674,7 @@ static bool wat_parse_global_field(peg_state* p, jav_global_t** globals) {
                 peg_skip(p);
                 if (!wat_parse_name(p, &ifld)) break;
                 peg_skip(p);
-                if (!peg_match(p, ")")) break;
+                if (!peg_match_n(p, ")", 1)) break;
                 if (CTX->pass == 2 && CTX->defs_seen) {              /* §6.6: imports precede definitions */
              free((void*)imod.bytes.data); free((void*)ifld.bytes.data); return false; }
              has_import = 1;
@@ -5661,9 +5692,9 @@ static bool wat_parse_global_field(peg_state* p, jav_global_t** globals) {
             bool _ok8 = false;
             do {
                 peg_skip(p);
-                if (!peg_match(p, "(")) break;
+                if (!peg_match_n(p, "(", 1)) break;
                 peg_skip(p);
-                if (!peg_match(p, "mut")) break;
+                if (!peg_match_n(p, "mut", 3)) break;
                 {
                     peg_mark _m9 = peg_save(p);
                     bool _ok9 = false;
@@ -5678,7 +5709,7 @@ static bool wat_parse_global_field(peg_state* p, jav_global_t** globals) {
                 peg_skip(p);
                 if (!wat_parse_val_type(p, &g.type.type)) break;
                 peg_skip(p);
-                if (!peg_match(p, ")")) break;
+                if (!peg_match_n(p, ")", 1)) break;
                 g.type.mut = 1;
                 _ok8 = true;
             } while(0);
@@ -5694,7 +5725,7 @@ static bool wat_parse_global_field(peg_state* p, jav_global_t** globals) {
     peg_skip(p);
     if (!wat_parse_expr(p, &g.init)) return false;
     peg_skip(p);
-    if (!peg_match(p, ")")) return false;
+    if (!peg_match_n(p, ")", 1)) return false;
     if (CTX->pass != 2) { if (has_import) { free((void*)imod.bytes.data); free((void*)ifld.bytes.data); } return true; }
          uint32_t myidx;
          if (has_import) { jav_extern_type_t d; memset(&d, 0, sizeof d);
@@ -5711,9 +5742,9 @@ static bool wat_parse_tag_field(peg_state* p, jav_tag_type_t** tags) {
        jav_name_t nm; jav_name_t imod = {0}, ifld = {0}; int has_import = 0;
        CTX->bind_locals = 0;
     peg_skip(p);
-    if (!peg_match(p, "(")) return false;
+    if (!peg_match_n(p, "(", 1)) return false;
     peg_skip(p);
-    if (!peg_match(p, "tag")) return false;
+    if (!peg_match_n(p, "tag", 3)) return false;
     {
         peg_mark _m0 = peg_save(p);
         bool _ok0 = false;
@@ -5747,9 +5778,9 @@ static bool wat_parse_tag_field(peg_state* p, jav_tag_type_t** tags) {
                     bool _ok4 = false;
                     do {
                         peg_skip(p);
-                        if (!peg_match(p, "(")) break;
+                        if (!peg_match_n(p, "(", 1)) break;
                         peg_skip(p);
-                        if (!peg_match(p, "export")) break;
+                        if (!peg_match_n(p, "export", 6)) break;
                         {
                             peg_mark _m5 = peg_save(p);
                             bool _ok5 = false;
@@ -5764,7 +5795,7 @@ static bool wat_parse_tag_field(peg_state* p, jav_tag_type_t** tags) {
                         peg_skip(p);
                         if (!wat_parse_name(p, &nm)) break;
                         peg_skip(p);
-                        if (!peg_match(p, ")")) break;
+                        if (!peg_match_n(p, ")", 1)) break;
                         if (CTX->pass == 2) bbq_vec_push(SC_ENAMES, nm); else free((void*)nm.bytes.data);
                         _ok4 = true;
                     } while(0);
@@ -5773,9 +5804,9 @@ static bool wat_parse_tag_field(peg_state* p, jav_tag_type_t** tags) {
                     } else goto _choice_done3;
                 }
                 peg_skip(p);
-                if (!peg_match(p, "(")) break;
+                if (!peg_match_n(p, "(", 1)) break;
                 peg_skip(p);
-                if (!peg_match(p, "import")) break;
+                if (!peg_match_n(p, "import", 6)) break;
                 {
                     peg_mark _m6 = peg_save(p);
                     bool _ok6 = false;
@@ -5792,7 +5823,7 @@ static bool wat_parse_tag_field(peg_state* p, jav_tag_type_t** tags) {
                 peg_skip(p);
                 if (!wat_parse_name(p, &ifld)) break;
                 peg_skip(p);
-                if (!peg_match(p, ")")) break;
+                if (!peg_match_n(p, ")", 1)) break;
                 if (CTX->pass == 2 && CTX->defs_seen) {              /* §6.6: imports precede definitions */
              free((void*)imod.bytes.data); free((void*)ifld.bytes.data); return false; }
              has_import = 1;
@@ -5809,9 +5840,9 @@ static bool wat_parse_tag_field(peg_state* p, jav_tag_type_t** tags) {
         bool _ok7 = false;
         do {
             peg_skip(p);
-            if (!peg_match(p, "(")) break;
+            if (!peg_match_n(p, "(", 1)) break;
             peg_skip(p);
-            if (!peg_match(p, "type")) break;
+            if (!peg_match_n(p, "type", 4)) break;
             {
                 peg_mark _m8 = peg_save(p);
                 bool _ok8 = false;
@@ -5826,7 +5857,7 @@ static bool wat_parse_tag_field(peg_state* p, jav_tag_type_t** tags) {
             peg_skip(p);
             if (!wat_parse_idx_ref(p, &tref)) break;
             peg_skip(p);
-            if (!peg_match(p, ")")) break;
+            if (!peg_match_n(p, ")", 1)) break;
             has_ref = 1;
             _ok7 = true;
         } while(0);
@@ -5853,7 +5884,7 @@ static bool wat_parse_tag_field(peg_state* p, jav_tag_type_t** tags) {
         if (!_ok10) { peg_restore(p, _m10); break; }
     }
     peg_skip(p);
-    if (!peg_match(p, ")")) return false;
+    if (!peg_match_n(p, ")", 1)) return false;
     if (CTX->pass != 2) { bbq_vec_free(SC_F_PARAMS); bbq_vec_free(SC_F_RESULTS);
              if (has_import) { free((void*)imod.bytes.data); free((void*)ifld.bytes.data); } return true; }
          uint32_t tidx;
@@ -5882,9 +5913,9 @@ static bool wat_parse_table_field(peg_state* p, jav_table_t** tables, jav_elem_t
        jav_expr_t init; memset(&init, 0, sizeof init);
        int has_import = 0, has_inline_elem = 0, has_init = 0, is64 = 0;
     peg_skip(p);
-    if (!peg_match(p, "(")) return false;
+    if (!peg_match_n(p, "(", 1)) return false;
     peg_skip(p);
-    if (!peg_match(p, "table")) return false;
+    if (!peg_match_n(p, "table", 5)) return false;
     {
         peg_mark _m0 = peg_save(p);
         bool _ok0 = false;
@@ -5917,9 +5948,9 @@ static bool wat_parse_table_field(peg_state* p, jav_table_t** tables, jav_elem_t
                     bool _ok4 = false;
                     do {
                         peg_skip(p);
-                        if (!peg_match(p, "(")) break;
+                        if (!peg_match_n(p, "(", 1)) break;
                         peg_skip(p);
-                        if (!peg_match(p, "export")) break;
+                        if (!peg_match_n(p, "export", 6)) break;
                         {
                             peg_mark _m5 = peg_save(p);
                             bool _ok5 = false;
@@ -5934,7 +5965,7 @@ static bool wat_parse_table_field(peg_state* p, jav_table_t** tables, jav_elem_t
                         peg_skip(p);
                         if (!wat_parse_name(p, &nm)) break;
                         peg_skip(p);
-                        if (!peg_match(p, ")")) break;
+                        if (!peg_match_n(p, ")", 1)) break;
                         if (CTX->pass == 2) bbq_vec_push(SC_ENAMES, nm); else free((void*)nm.bytes.data);
                         _ok4 = true;
                     } while(0);
@@ -5943,9 +5974,9 @@ static bool wat_parse_table_field(peg_state* p, jav_table_t** tables, jav_elem_t
                     } else goto _choice_done3;
                 }
                 peg_skip(p);
-                if (!peg_match(p, "(")) break;
+                if (!peg_match_n(p, "(", 1)) break;
                 peg_skip(p);
-                if (!peg_match(p, "import")) break;
+                if (!peg_match_n(p, "import", 6)) break;
                 {
                     peg_mark _m6 = peg_save(p);
                     bool _ok6 = false;
@@ -5962,7 +5993,7 @@ static bool wat_parse_table_field(peg_state* p, jav_table_t** tables, jav_elem_t
                 peg_skip(p);
                 if (!wat_parse_name(p, &ifld)) break;
                 peg_skip(p);
-                if (!peg_match(p, ")")) break;
+                if (!peg_match_n(p, ")", 1)) break;
                 if (CTX->pass == 2 && CTX->defs_seen) {              /* §6.6: imports precede definitions */
              free((void*)imod.bytes.data); free((void*)ifld.bytes.data); return false; }
              has_import = 1;
@@ -5989,7 +6020,7 @@ static bool wat_parse_table_field(peg_state* p, jav_table_t** tables, jav_elem_t
                                 bool _ok11 = false;
                                 do {
                                     peg_skip(p);
-                                    if (!peg_match(p, "i64")) break;
+                                    if (!peg_match_n(p, "i64", 3)) break;
                                     {
                                         peg_mark _m12 = peg_save(p);
                                         bool _ok12 = false;
@@ -6009,7 +6040,7 @@ static bool wat_parse_table_field(peg_state* p, jav_table_t** tables, jav_elem_t
                                 } else goto _choice_done10;
                             }
                             peg_skip(p);
-                            if (!peg_match(p, "i32")) break;
+                            if (!peg_match_n(p, "i32", 3)) break;
                             {
                                 peg_mark _m13 = peg_save(p);
                                 bool _ok13 = false;
@@ -6030,9 +6061,9 @@ static bool wat_parse_table_field(peg_state* p, jav_table_t** tables, jav_elem_t
                 peg_skip(p);
                 if (!wat_parse_ref_type_val(p, &tb.u.default_val.type.reftype)) break;
                 peg_skip(p);
-                if (!peg_match(p, "(")) break;
+                if (!peg_match_n(p, "(", 1)) break;
                 peg_skip(p);
-                if (!peg_match(p, "elem")) break;
+                if (!peg_match_n(p, "elem", 4)) break;
                 {
                     peg_mark _m14 = peg_save(p);
                     bool _ok14 = false;
@@ -6047,7 +6078,7 @@ static bool wat_parse_table_field(peg_state* p, jav_table_t** tables, jav_elem_t
                 peg_skip(p);
                 if (!wat_parse_elem_list(p)) break;
                 peg_skip(p);
-                if (!peg_match(p, ")")) break;
+                if (!peg_match_n(p, ")", 1)) break;
                 has_inline_elem = 1;
                 _ok8 = true;
             } while(0);
@@ -6068,7 +6099,7 @@ static bool wat_parse_table_field(peg_state* p, jav_table_t** tables, jav_elem_t
                     bool _ok16 = false;
                     do {
                         peg_skip(p);
-                        if (!peg_match(p, ")")) break;
+                        if (!peg_match_n(p, ")", 1)) break;
                         _ok16 = true;
                     } while(0);
                     peg_restore(p, _m16);
@@ -6084,7 +6115,7 @@ static bool wat_parse_table_field(peg_state* p, jav_table_t** tables, jav_elem_t
     _choice_done7:;
     }
     peg_skip(p);
-    if (!peg_match(p, ")")) return false;
+    if (!peg_match_n(p, ")", 1)) return false;
     if (CTX->pass != 2) { if (has_import) { free((void*)imod.bytes.data); free((void*)ifld.bytes.data); }
              bbq_vec_free(CTX->el_funcs); bbq_vec_free(CTX->el_exprs); return true; }
          uint32_t myidx;
@@ -6177,9 +6208,9 @@ static bool wat_parse_data_field(peg_state* p, jav_data_t** datas) {
        jav_byte_vec_t bytes; memset(&bytes, 0, sizeof bytes);
        jav_expr_t off; memset(&off, 0, sizeof off);
     peg_skip(p);
-    if (!peg_match(p, "(")) return false;
+    if (!peg_match_n(p, "(", 1)) return false;
     peg_skip(p);
-    if (!peg_match(p, "data")) return false;
+    if (!peg_match_n(p, "data", 4)) return false;
     {
         peg_mark _m0 = peg_save(p);
         bool _ok0 = false;
@@ -6207,9 +6238,9 @@ static bool wat_parse_data_field(peg_state* p, jav_data_t** datas) {
         bool _ok2 = false;
         do {
             peg_skip(p);
-            if (!peg_match(p, "(")) break;
+            if (!peg_match_n(p, "(", 1)) break;
             peg_skip(p);
-            if (!peg_match(p, "memory")) break;
+            if (!peg_match_n(p, "memory", 6)) break;
             {
                 peg_mark _m3 = peg_save(p);
                 bool _ok3 = false;
@@ -6224,7 +6255,7 @@ static bool wat_parse_data_field(peg_state* p, jav_data_t** datas) {
             peg_skip(p);
             if (!wat_parse_idx_ref(p, &mref)) break;
             peg_skip(p);
-            if (!peg_match(p, ")")) break;
+            if (!peg_match_n(p, ")", 1)) break;
             has_mem = 1;
             _ok2 = true;
         } while(0);
@@ -6244,7 +6275,7 @@ static bool wat_parse_data_field(peg_state* p, jav_data_t** datas) {
     peg_skip(p);
     if (!wat_parse_data_string(p, &bytes)) return false;
     peg_skip(p);
-    if (!peg_match(p, ")")) return false;
+    if (!peg_match_n(p, ")", 1)) return false;
     if (CTX->pass != 2) { free((void*)bytes.bytes.data); return true; }
          if (!has_off) { d.flag = 1; d.body.tag = 1; d.body.u.case_1.data = bytes; }            /* passive */
          else if (!has_mem) { d.flag = 0; d.body.tag = 0;                                       /* active mem 0 */
@@ -6264,9 +6295,9 @@ static bool wat_parse_elem_expr(peg_state* p, jav_expr_t* out) {
             bool _ok1 = false;
             do {
                 peg_skip(p);
-                if (!peg_match(p, "(")) break;
+                if (!peg_match_n(p, "(", 1)) break;
                 peg_skip(p);
-                if (!peg_match(p, "item")) break;
+                if (!peg_match_n(p, "item", 4)) break;
                 {
                     peg_mark _m2 = peg_save(p);
                     bool _ok2 = false;
@@ -6289,7 +6320,7 @@ static bool wat_parse_elem_expr(peg_state* p, jav_expr_t* out) {
                     if (!_ok3) { peg_restore(p, _m3); break; }
                 }
                 peg_skip(p);
-                if (!peg_match(p, ")")) break;
+                if (!peg_match_n(p, ")", 1)) break;
                 _ok1 = true;
             } while(0);
             if (!_ok1) {
@@ -6320,7 +6351,7 @@ static bool wat_parse_elem_list(peg_state* p) {
             bool _ok1 = false;
             do {
                 peg_skip(p);
-                if (!peg_match(p, "func")) break;
+                if (!peg_match_n(p, "func", 4)) break;
                 {
                     peg_mark _m2 = peg_save(p);
                     bool _ok2 = false;
@@ -6421,9 +6452,9 @@ static bool wat_parse_element_field(peg_state* p, jav_elem_t** elems) {
        int is_declare = 0, has_table = 0, has_off = 0;
        jav_expr_t off; memset(&off, 0, sizeof off);
     peg_skip(p);
-    if (!peg_match(p, "(")) return false;
+    if (!peg_match_n(p, "(", 1)) return false;
     peg_skip(p);
-    if (!peg_match(p, "elem")) return false;
+    if (!peg_match_n(p, "elem", 4)) return false;
     {
         peg_mark _m0 = peg_save(p);
         bool _ok0 = false;
@@ -6451,7 +6482,7 @@ static bool wat_parse_element_field(peg_state* p, jav_elem_t** elems) {
         bool _ok2 = false;
         do {
             peg_skip(p);
-            if (!peg_match(p, "declare")) break;
+            if (!peg_match_n(p, "declare", 7)) break;
             {
                 peg_mark _m3 = peg_save(p);
                 bool _ok3 = false;
@@ -6473,9 +6504,9 @@ static bool wat_parse_element_field(peg_state* p, jav_elem_t** elems) {
         bool _ok4 = false;
         do {
             peg_skip(p);
-            if (!peg_match(p, "(")) break;
+            if (!peg_match_n(p, "(", 1)) break;
             peg_skip(p);
-            if (!peg_match(p, "table")) break;
+            if (!peg_match_n(p, "table", 5)) break;
             {
                 peg_mark _m5 = peg_save(p);
                 bool _ok5 = false;
@@ -6490,7 +6521,7 @@ static bool wat_parse_element_field(peg_state* p, jav_elem_t** elems) {
             peg_skip(p);
             if (!wat_parse_idx_ref(p, &tref)) break;
             peg_skip(p);
-            if (!peg_match(p, ")")) break;
+            if (!peg_match_n(p, ")", 1)) break;
             has_table = 1;
             _ok4 = true;
         } while(0);
@@ -6510,7 +6541,7 @@ static bool wat_parse_element_field(peg_state* p, jav_elem_t** elems) {
     peg_skip(p);
     if (!wat_parse_elem_list(p)) return false;
     peg_skip(p);
-    if (!peg_match(p, ")")) return false;
+    if (!peg_match_n(p, ")", 1)) return false;
     if (CTX->pass != 2) { bbq_vec_free(CTX->el_funcs); bbq_vec_free(CTX->el_exprs); return true; }
          int is_funcidx = CTX->el_is_funcidx; jav_ref_type_t rtv = CTX->el_rtv;
          jav_idx_vec_t fv; memset(&fv, 0, sizeof fv);
@@ -6548,9 +6579,9 @@ static bool wat_parse_import_field(peg_state* p) {
        CTX->bind_locals = 0;
        bbq_vec_free(SC_F_PARAMS); bbq_vec_free(SC_F_RESULTS);
     peg_skip(p);
-    if (!peg_match(p, "(")) return false;
+    if (!peg_match_n(p, "(", 1)) return false;
     peg_skip(p);
-    if (!peg_match(p, "import")) return false;
+    if (!peg_match_n(p, "import", 6)) return false;
     {
         peg_mark _m0 = peg_save(p);
         bool _ok0 = false;
@@ -6569,14 +6600,14 @@ static bool wat_parse_import_field(peg_state* p) {
     if (CTX->pass == 2 && CTX->defs_seen) {          /* §6.6: imports precede definitions */
              free((void*)im.module.bytes.data); free((void*)im.field.bytes.data); return false; }
     peg_skip(p);
-    if (!peg_match(p, "(")) return false;
+    if (!peg_match_n(p, "(", 1)) return false;
     {
         peg_mark _m1 = peg_save(p);
         {
             bool _ok2 = false;
             do {
                 peg_skip(p);
-                if (!peg_match(p, "func")) break;
+                if (!peg_match_n(p, "func", 4)) break;
                 {
                     peg_mark _m3 = peg_save(p);
                     bool _ok3 = false;
@@ -6604,9 +6635,9 @@ static bool wat_parse_import_field(peg_state* p) {
                     bool _ok5 = false;
                     do {
                         peg_skip(p);
-                        if (!peg_match(p, "(")) break;
+                        if (!peg_match_n(p, "(", 1)) break;
                         peg_skip(p);
-                        if (!peg_match(p, "type")) break;
+                        if (!peg_match_n(p, "type", 4)) break;
                         {
                             peg_mark _m6 = peg_save(p);
                             bool _ok6 = false;
@@ -6621,7 +6652,7 @@ static bool wat_parse_import_field(peg_state* p) {
                         peg_skip(p);
                         if (!wat_parse_idx_ref(p, &tref)) break;
                         peg_skip(p);
-                        if (!peg_match(p, ")")) break;
+                        if (!peg_match_n(p, ")", 1)) break;
                         has_ref = 1;
                         _ok5 = true;
                     } while(0);
@@ -6657,7 +6688,7 @@ static bool wat_parse_import_field(peg_state* p) {
             bool _ok9 = false;
             do {
                 peg_skip(p);
-                if (!peg_match(p, "table")) break;
+                if (!peg_match_n(p, "table", 5)) break;
                 {
                     peg_mark _m10 = peg_save(p);
                     bool _ok10 = false;
@@ -6694,7 +6725,7 @@ static bool wat_parse_import_field(peg_state* p) {
             bool _ok12 = false;
             do {
                 peg_skip(p);
-                if (!peg_match(p, "memory")) break;
+                if (!peg_match_n(p, "memory", 6)) break;
                 {
                     peg_mark _m13 = peg_save(p);
                     bool _ok13 = false;
@@ -6729,7 +6760,7 @@ static bool wat_parse_import_field(peg_state* p) {
             bool _ok15 = false;
             do {
                 peg_skip(p);
-                if (!peg_match(p, "global")) break;
+                if (!peg_match_n(p, "global", 6)) break;
                 {
                     peg_mark _m16 = peg_save(p);
                     bool _ok16 = false;
@@ -6758,9 +6789,9 @@ static bool wat_parse_import_field(peg_state* p) {
                         bool _ok19 = false;
                         do {
                             peg_skip(p);
-                            if (!peg_match(p, "(")) break;
+                            if (!peg_match_n(p, "(", 1)) break;
                             peg_skip(p);
-                            if (!peg_match(p, "mut")) break;
+                            if (!peg_match_n(p, "mut", 3)) break;
                             {
                                 peg_mark _m20 = peg_save(p);
                                 bool _ok20 = false;
@@ -6775,7 +6806,7 @@ static bool wat_parse_import_field(peg_state* p) {
                             peg_skip(p);
                             if (!wat_parse_val_type(p, &gvt)) break;
                             peg_skip(p);
-                            if (!peg_match(p, ")")) break;
+                            if (!peg_match_n(p, ")", 1)) break;
                             gmut = 1;
                             _ok19 = true;
                         } while(0);
@@ -6795,7 +6826,7 @@ static bool wat_parse_import_field(peg_state* p) {
             } else goto _choice_done1;
         }
         peg_skip(p);
-        if (!peg_match(p, "tag")) return false;
+        if (!peg_match_n(p, "tag", 3)) return false;
         {
             peg_mark _m21 = peg_save(p);
             bool _ok21 = false;
@@ -6823,9 +6854,9 @@ static bool wat_parse_import_field(peg_state* p) {
             bool _ok23 = false;
             do {
                 peg_skip(p);
-                if (!peg_match(p, "(")) break;
+                if (!peg_match_n(p, "(", 1)) break;
                 peg_skip(p);
-                if (!peg_match(p, "type")) break;
+                if (!peg_match_n(p, "type", 4)) break;
                 {
                     peg_mark _m24 = peg_save(p);
                     bool _ok24 = false;
@@ -6840,7 +6871,7 @@ static bool wat_parse_import_field(peg_state* p) {
                 peg_skip(p);
                 if (!wat_parse_idx_ref(p, &tref)) break;
                 peg_skip(p);
-                if (!peg_match(p, ")")) break;
+                if (!peg_match_n(p, ")", 1)) break;
                 has_ref = 1;
                 _ok23 = true;
             } while(0);
@@ -6869,9 +6900,9 @@ static bool wat_parse_import_field(peg_state* p) {
     _choice_done1:;
     }
     peg_skip(p);
-    if (!peg_match(p, ")")) return false;
+    if (!peg_match_n(p, ")", 1)) return false;
     peg_skip(p);
-    if (!peg_match(p, ")")) return false;
+    if (!peg_match_n(p, ")", 1)) return false;
     if (CTX->pass != 2) { free((void*)im.module.bytes.data); free((void*)im.field.bytes.data);
                                bbq_vec_free(SC_F_PARAMS); bbq_vec_free(SC_F_RESULTS); return true; }
          im.desc.kind = (uint8_t)kind; im.desc.body.tag = kind;

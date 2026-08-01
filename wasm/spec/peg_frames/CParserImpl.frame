@@ -59,12 +59,19 @@ PEG_INTERNAL bool peg_match_char(peg_state* p, char c) {
     return false;
 }
 
-PEG_INTERNAL bool peg_match(peg_state* p, const char* str) {
-    int len = (int)strlen(str);
+/* Length-carrying form — the emitter knows every literal's length at generation
+ * time, so its call sites pass a CONSTANT: no strlen per match (measured 7.4M
+ * calls compiling one real corpus), and the C compiler folds the fixed-size
+ * memcmp of a short literal into direct byte compares. */
+PEG_INTERNAL bool peg_match_n(peg_state* p, const char* str, int len) {
     if (p->pos + len > p->end) return false;
     if (memcmp(p->pos, str, (size_t)len) != 0) return false;
     for (int i = 0; i < len; i++) peg_advance(p);
     return true;
+}
+
+PEG_INTERNAL bool peg_match(peg_state* p, const char* str) {
+    return peg_match_n(p, str, (int)strlen(str));
 }
 
 PEG_INTERNAL bool peg_match_charset(peg_state* p, bool (*fn)(char)) {
@@ -77,10 +84,13 @@ PEG_INTERNAL bool peg_match_charset(peg_state* p, bool (*fn)(char)) {
 
 /* ── Lookahead (no consume) ──────────────────────────────── */
 
-PEG_INTERNAL bool peg_peek_at(const peg_state* p, const char* str) {
-    int len = (int)strlen(str);
+PEG_INTERNAL bool peg_peek_at_n(const peg_state* p, const char* str, int len) {
     if (p->pos + len > p->end) return false;
     return memcmp(p->pos, str, (size_t)len) == 0;
+}
+
+PEG_INTERNAL bool peg_peek_at(const peg_state* p, const char* str) {
+    return peg_peek_at_n(p, str, (int)strlen(str));
 }
 
 PEG_INTERNAL bool peg_peek_at_char(const peg_state* p, char c) {
@@ -136,6 +146,9 @@ PEG_INTERNAL bool peg_scan_to(peg_state* p, const char* delim, peg_span* out) {
 
 PEG_INTERNAL void peg_set_whitespace(peg_state* p, bool (*fn)(char)) {
     p->ws_fn = fn;
+    /* Tabulate the predicate once — it is a pure character classification, and
+     * the skip loop paid an indirect call per character through it. */
+    for (int c = 0; c < 256; c++) p->ws_tab[c] = fn ? fn((char)c) : false;
 }
 
 PEG_INTERNAL void peg_add_comment(peg_state* p, const char* open,
@@ -143,6 +156,8 @@ PEG_INTERNAL void peg_add_comment(peg_state* p, const char* open,
     if (p->comment_count < PEG_MAX_COMMENTS) {
         p->comments[p->comment_count].open = open;
         p->comments[p->comment_count].close = close;
+        p->comments[p->comment_count].open_len = (int)strlen(open);
+        p->comments[p->comment_count].close_len = (int)strlen(close);
         p->comments[p->comment_count].nested = nested;
         p->comments[p->comment_count].structured = structured;
         p->comment_count++;
@@ -176,7 +191,7 @@ static bool peg_is_idchar(unsigned char c) {
     }
 }
 PEG_INTERNAL bool peg_skip_structured(peg_state* p, const peg_comment_spec* spec) {
-    int open_len = (int)strlen(spec->open);
+    int open_len = spec->open_len;
     if (p->pos + open_len > p->end) return false;
     if (memcmp(p->pos, spec->open, (size_t)open_len) != 0) return false;
     char a = (p->pos + open_len < p->end) ? p->pos[open_len] : ' ';   /* §6.2.5 annotid = idchar+ | name */
@@ -234,11 +249,11 @@ PEG_INTERNAL bool peg_skip_structured(peg_state* p, const peg_comment_spec* spec
 
 PEG_INTERNAL bool peg_skip_comment(peg_state* p, const peg_comment_spec* spec) {
     if (spec->structured) return peg_skip_structured(p, spec);
-    int open_len = (int)strlen(spec->open);
+    int open_len = spec->open_len;
     if (p->pos + open_len > p->end) return false;
     if (memcmp(p->pos, spec->open, (size_t)open_len) != 0) return false;
     for (int i = 0; i < open_len; i++) peg_advance(p);
-    int close_len = (int)strlen(spec->close);
+    int close_len = spec->close_len;
     /* A single-LF close is the line-comment idiom; a line ends at LF or CR (or CRLF),
      * so such a comment terminates on a bare CR too — standard line-comment behavior. */
     int line_close = (close_len == 1 && spec->close[0] == '\n');
@@ -263,14 +278,26 @@ PEG_INTERNAL bool peg_skip_comment(peg_state* p, const peg_comment_spec* spec) {
 }
 
 PEG_INTERNAL void peg_skip(peg_state* p) {
+    /* The memo first. Backtracking re-enters at positions already skipped; the skip
+     * is deterministic in pos, so the recorded (from → to, line, col) IS the answer. */
+    if (p->pos == p->skip_from && p->skip_to) {
+        p->pos  = p->skip_to;
+        p->line = p->skip_to_line;
+        p->col  = p->skip_to_col;
+        return;
+    }
+    const char* from = p->pos;
     for (;;) {
         bool skipped = false;
-        while (p->pos < p->end && p->ws_fn && p->ws_fn(*p->pos)) {
+        while (p->pos < p->end && p->ws_tab[(unsigned char)*p->pos]) {
             peg_advance(p);
             skipped = true;
         }
         bool found_comment = false;
         for (int i = 0; i < p->comment_count; i++) {
+            /* First-byte rejection: at a non-comment position (almost all of them)
+             * each spec dies on one byte compare instead of a memcmp. */
+            if (p->pos < p->end && *p->pos != p->comments[i].open[0]) continue;
             if (peg_skip_comment(p, &p->comments[i])) {
                 found_comment = true;
                 break;
@@ -278,6 +305,10 @@ PEG_INTERNAL void peg_skip(peg_state* p) {
         }
         if (!found_comment && !skipped) break;
     }
+    p->skip_from    = from;
+    p->skip_to      = p->pos;
+    p->skip_to_line = p->line;
+    p->skip_to_col  = p->col;
 }
 
 /* ── Error reporting ─────────────────────────────────────── */
