@@ -2000,6 +2000,9 @@ static int cp_edge_refined(cp_engine_t* eng, const int* b_rt, const int* b_rf,
                            cp_pb_pairs_t* P, int p, int cur, int v2) {
     if (v2 == CP_R_TOP || v2 == -1) return v2;
     sir_node_t* pn = eng->spine[p];
+    /* The tag decides BEFORE any union read: a non-branch pred's `branch` arm
+     * is another arm's bytes. */
+    if (pn->tag != SIR_BRANCH) return v2;
     /* Both successors on one node: the "edge" proves nothing (neither arm was
      * taken exclusively), so no refinement may be claimed for it. (Inert on the
      * jre — control-measured 07-17; kept because the claim would be wrong.) */
@@ -9744,7 +9747,9 @@ static void cp_pea(cp_engine_t* eng, const bool* sr_cand) {
         sir_datatype_t dt = e->get_field.data_type;
         sir_node_t* ref = (dt == SIR_DTREF && sc)
             ? sir_ref_descriptor(mint, sc->fields[e->get_field.field_idx].type) : NULL;
-        cp_pmap_put(&eng->scalar_subst, e, sir_load_local(a, slot, dt, ref));
+        /* Minted: the subst node's last reader is the emitted graph, which
+         * outlives the engine. */
+        cp_pmap_put(&eng->scalar_subst, e, sir_load_local(mint, slot, dt, ref));
     }
 
     #undef CP_PEA_OUT
