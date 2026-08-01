@@ -2065,14 +2065,6 @@ static void cp_compute_branch_refinements(cp_engine_t* eng) {
     }
     int nfacts = 0;
 
-    /* The recorded §15 guard Branches, as an exact pointer set — the GE-false
-     * arm below must never mint on a guard's fall-through (see its comment).
-     * Built once from the sidecar, the authority on which Branch is a guard. */
-    bbq_hmap guard_set; bbq_hmap_init(&guard_set, 0);
-    for (int gi = 0; gi < eng->fact_count; gi++)
-        if (eng->facts[gi].kind == COMPILER_FACT_GUARD && eng->facts[gi].key)
-            bbq_hmap_put(&guard_set, (uint64_t)(uintptr_t)eng->facts[gi].key, NULL);
-
     /* ── PHASE R: parse each Branch's condition once. cp_ultimate_value reads the
      * pass-A wiring, so every branch is parsed BEFORE any pass-B rewiring. */
     for (int b = 0; b < sn; b++) {
@@ -2185,23 +2177,34 @@ static void cp_compute_branch_refinements(cp_engine_t* eng) {
             }
             /* GE's FALSE edge: `l >= r` fell through, so l < r — a STRICT
              * symbolic upper bound on l (a ternary seed's else arm:
-             * `from >= a.length ? a.length - 1 : from`). USER compares ONLY —
-             * `guard_set` excludes every branch the sidecar records as a §15
-             * guard, for two measured reasons (07-31): a guard's fall-through
-             * fact is the guard machinery's own job, and each guard reads its
-             * length through its OWN node, so guard-minted refines carry
-             * content-DIFFERENT predicates for the same meaning (distinct
-             * congruent vnode ids in hi_vn1) and break the merge all-agree
-             * rule downstream (String.replace's §46 pin regressed). The strict
-             * mirror stays excluded for the widened-i64 Mem shape — this arm
-             * requires the PLAIN same-width form: an i32 slot read, no I2L,
-             * minted at CP_W_I32, where the Refine transfer's strict
-             * tightening is exact. Claims the branch only when the generic
-             * true-edge arm below would bind an EXPRESSION (rhs not a slot
-             * read — a refine on an expression rewires no loads). */
+             * `from >= a.length ? a.length - 1 : from`).
+             *
+             * A §15 bounds guard is `i >= a.length` and falls through to the
+             * access, so this arm is ALSO ABCD's C5 row (Table 1, p.6): a
+             * SUCCESSFUL check constrains the code after it, `v ≤ A.length−1`,
+             * which is what lets a repeated access to one index subsume its own
+             * guard (their §7.2). Their §3 states the one soundness condition —
+             * the constraint must name the π's RESULT, never its operand,
+             * "otherwise it could erroneously lead to elimination of some bound
+             * checks, including the check itself". The Refine IS that new name
+             * and the Branch's condition reads the operand, so the check can
+             * never prove itself; test_sir pins the lone access keeping its
+             * guard. Guard branches were excluded when this arm landed, because
+             * each guard reads its length through its OWN node and the minted
+             * predicates were then content-DIFFERENT for one meaning (hi_vn1
+             * holds a vnode id, and a Refine's identity is its whole content).
+             * That reason no longer stands: the bound ids two congruent reads
+             * carry are counted as one wherever the comparison is a join's, so
+             * the same-meaning refines agree again.
+             *
+             * The strict mirror stays out of the widened-i64 Mem shape — this
+             * arm requires the PLAIN same-width form: an i32 slot read, no I2L,
+             * minted at CP_W_I32, where the Refine transfer's strict tightening
+             * is exact. Claims the branch only when the generic true-edge arm
+             * below would bind an EXPRESSION (rhs not a slot read — a refine on
+             * an expression rewires no loads). */
             if (cmp->tag == SIR_GE && lhs->tag == SIR_LOADLOCAL
-                    && lhs->load_local.data_type == SIR_DTINT
-                    && !bbq_hmap_contains(&guard_set, (uint64_t)(uintptr_t)sb)) {
+                    && lhs->load_local.data_type == SIR_DTINT) {
                 int t   = cp_cmp_operand_ultimate(eng, lhs);
                 int bnd = cp_cmp_operand_ultimate(eng, rhs);
                 if (bnd < 0) bnd = cp_vnode_of(eng, rhs);
@@ -2299,7 +2302,6 @@ static void cp_compute_branch_refinements(cp_engine_t* eng) {
             any = true;
         }
     }
-    bbq_hmap_free(&guard_set);          /* pass A only — the mint decisions are made */
     if (!any && nfacts == 0) return;
 
     /* ── PASS B: re-derive the slot states with the per-edge rule, then rewire.

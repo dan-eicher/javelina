@@ -6063,6 +6063,34 @@ int main(void) {
             "  for (int i = a.length - 1; i >= 0; i--) h += b[i];"
             "  return h; } }", "f", 1,
             "other array (b[i] under a's bound): IDX_HIGH SURVIVES" },
+          /* ── A SURVIVING check constrains the code after it ────────────────
+           * ABCD's C5 row (Table 1, p.6): `check A[v]` falling through gives
+           * `v ≤ A.length − 1`, and it is what makes a repeated access
+           * subsume its own guard (their §7.2). The fact rides the ordinary
+           * per-edge refinement — a guard branch is a compare like any other,
+           * and its false edge already means `idx < len`.
+           *
+           * The paper's own warning is the first negative below: the
+           * constraint must name the π's RESULT, never its operand, "otherwise
+           * it could erroneously lead to elimination of some bound checks,
+           * including the check itself" (§3). Here the Refine IS that new
+           * name, and the branch's condition reads the operand, so a guard
+           * cannot fold itself — pinned, not assumed. */
+          { "class T { static int f(int[] a, int i){ return a[i] + a[i]; } }",
+            "f", 1,
+            "second access to the SAME index subsumes its guard (C5): one "
+            "IDX_HIGH survives, not two" },
+          { "class T { static int f(int[] a, int i){ return a[i]; } }",
+            "f", 1,
+            "a guard NEVER proves itself — the lone access keeps its IDX_HIGH" },
+          { "class T { static int f(int[] a, int[] b, int i){"
+            "  return a[i] + b[i]; } }", "f", 2,
+            "different arrays: the first check says nothing about b — BOTH "
+            "IDX_HIGH survive" },
+          { "class T { static int f(int[] a, int i){"
+            "  int s = a[i]; i = i + 1; return s + a[i]; } }", "f", 2,
+            "index redefined between the accesses (i+1 can reach length): "
+            "BOTH IDX_HIGH survive" },
         };
         for (int t = 0; t < (int)(sizeof cases / sizeof cases[0]); t++) {
             bbq_arena* arena = sess_arena();
