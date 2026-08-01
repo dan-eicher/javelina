@@ -490,6 +490,32 @@ static inline sir_node_t* sir_succ(const sir_node_t* n, int i) {
     }
 }
 
+/* Write successor `i` of `n` — the write mirror of sir_succ, one switch, so an
+ * edit that must catch EVERY edge into a node (a pre-header splice re-pointing
+ * all outside predecessors) has one authority to route through instead of a
+ * per-tag field list that rots. */
+static inline void sir_set_succ(sir_node_t* n, int i, sir_node_t* v) {
+    if (!n) return;
+    switch (n->tag) {
+    case SIR_RETURN: case SIR_RETURNVOID: case SIR_THROW:
+        return;
+    case SIR_BRANCH:
+        if (i == 0) n->branch.on_true = v; else n->branch.on_false = v;
+        return;
+    case SIR_SWITCH:
+        if (i < n->switch_.case_targets_count) n->switch_.case_targets[i] = v;
+        else if (i == n->switch_.case_targets_count) n->switch_.default_target = v;
+        return;
+    case SIR_TRYREGION:
+        if (i == 0) n->try_region.handler = v;
+        else if (i == 1) n->try_region.next = v;
+        return;
+    default:
+        if (i == 0) sir_set_next(n, v);
+        return;
+    }
+}
+
 /* ── Value accessors ──────────────────────────────────────── */
 
 static inline int32_t sir_const_val(const sir_node_t* n) {

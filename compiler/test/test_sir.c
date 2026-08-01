@@ -838,6 +838,16 @@ static void dbg_dump_method(const char* user_src, const char* mname) {
     sema_destroy(&sctx); bbq_arena_free(&arena);
 }
 
+/* Does the EXPRESSION TREE under `e` contain `tag`? Children only — never
+ * successors — so a prefix walk stays a prefix walk. */
+static bool expr_has_tag(const sir_node_t* e, int tag, int depth) {
+    if (!e || depth <= 0) return false;
+    if ((int)e->tag == tag) return true;
+    for (int i = 0; i < sir_arity((sir_node_t*)e); i++)
+        if (expr_has_tag(sir_child((sir_node_t*)e, i), tag, depth - 1)) return true;
+    return false;
+}
+
 int main(void) {
     // 1. A comparison in VALUE context is a distinct Lt node (not a Cmp).
     const sir_node_t* lt = compile_find(
@@ -6056,6 +6066,70 @@ int main(void) {
                 printf("        %s: %d IDX_HIGH surviving, want %d\n",
                        cases[t].what, surviving, cases[t].want_surviving);
             CHECK(surviving == cases[t].want_surviving, cases[t].what);
+        }
+    }
+
+    /* ── LICM-lite: a pure loop-invariant tree computes ONCE, before the header ──
+     * Oracle: after sir_optimize, the SIR_MUL of `x * y` (both operands defined
+     * before the loop) lives in the ENTRY PREFIX — the next-chain from
+     * method->entry BEFORE the first recorded loop header — not in the body.
+     * The loop header comes from the SIDECAR (the recorded LOOP scope row), so
+     * the test consults the record, not a rediscovered CFG. */
+    {
+        struct { const char* src; bool want_hoisted; const char* what; } lcases[] = {
+          { "class T { static int f(int x, int y, int n){ int h = 0;"
+            "  for (int i = 0; i < n; i++) h += x * y;"
+            "  return h; } }", true,
+            "x * y (both pre-loop) is hoisted before the header" },
+          { "class T { static int f(int x, int n){ int h = 0;"
+            "  for (int i = 0; i < n; i++) { int t = x * h; h += t; }"
+            "  return h; } }", false,
+            "x * h (h defined in the body) stays in the loop" },
+          { "class T { static int g(int v){ return v; }"
+            "  static int f(int x, int n){ int h = 0;"
+            "  for (int i = 0; i < n; i++) h += g(x * h);"
+            "  return h; } }", false,
+            "a body-tainted mul under a call argument stays in the loop" },
+        };
+        for (int t = 0; t < (int)(sizeof lcases / sizeof lcases[0]); t++) {
+            bbq_arena* arena = sess_arena();
+            int nlib = 0;
+            ast_program_t* prog = build_program(lcases[t].src, arena, &nlib);
+            sema_ctx_t sctx; sema_init(&sctx, arena);
+            sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
+            if (!sir_analyze(&sctx)) { printf("  (note: sema reported errors)\n"); }
+            compiler_ctx_t cctx; compiler_init(&cctx, arena, &sctx);
+            int mc = 0;
+            sir_method_t** methods = compiler_compile(&cctx, prog, &mc);
+            int hoisted = -1;
+            for (int i = 0; i < mc; i++) {
+                if (methods[i]->class_id < nlib) continue;
+                if (!methods[i]->name || strcmp(methods[i]->name, "f")) continue;
+                sir_optimize(&cctx, i);
+                /* The first recorded loop header on this method. */
+                int nf = 0;
+                const compiler_fact_t* fs = compiler_get_facts(&cctx, i, &nf);
+                const sir_node_t* ltop = NULL;
+                for (int j = 0; j < nf; j++)
+                    if (fs[j].kind == COMPILER_FACT_SCOPE && fs[j].a == COMPILER_SCOPE_LOOP)
+                        { ltop = fs[j].key; break; }
+                if (!ltop) break;
+                /* Walk the ENTRY PREFIX (next-chain until the header); is a MUL
+                 * in any node's expression trees there? */
+                hoisted = 0;
+                for (sir_node_t* n = methods[i]->entry;
+                     n && n != ltop; n = sir_get_next(n)) {
+                    for (int c = 0; c < sir_arity(n); c++)
+                        if (expr_has_tag(sir_child(n, c), SIR_MUL, 64))
+                            { hoisted = 1; break; }
+                    if (hoisted) break;
+                }
+                break;
+            }
+            if (hoisted != (lcases[t].want_hoisted ? 1 : 0))
+                printf("        %s: hoisted=%d want=%d\n",
+                       lcases[t].what, hoisted, lcases[t].want_hoisted ? 1 : 0);
+            CHECK(hoisted == (lcases[t].want_hoisted ? 1 : 0), lcases[t].what);
         }
     }
 

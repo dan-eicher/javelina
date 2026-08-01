@@ -7,6 +7,7 @@
 #include "javelina/compiler/sir_op_gamma.h"
 #include "javelina/compiler/sir_support.h"
 #include "javelina/compiler/jbound.h"   /* the bound-arithmetic core */
+#include "gen/sir_ast.h"                /* node builders — cp_licm's spliced stores */
 #include "bbq_vec.h"
 
 #include <stdbool.h>
@@ -11879,6 +11880,165 @@ void sir_pack_slots(compiler_ctx_t* ctx, int method_idx) {
     cp_pack(method, ctx->sema, ctx->arena, initial_max_locals);
 }
 
+/* ── LICM-lite (scalar): a pure loop-invariant tree computes ONCE, on the entry ──
+ *
+ * SCOPE, first cut: PURE trees only (cp_expr_is_pure — the γ table classifies,
+ * and it already excludes every memory read, so this is scalar arithmetic over
+ * slots). A pure tree cannot trap in this IR (every trapping op is a spine-level
+ * guard), so executing it on a zero-trip loop is wasted cycles, never a wrong
+ * observable. Memory-bearing trees (loads with invariant cell versions) are
+ * EXPLICITLY out — they need the memory-SSA version argument and belong to a
+ * later tier (steady-hoisting-derrick Part B's deferred half).
+ *
+ * The loops are READ FROM THE RECORD (the sidecar's LOOP scope rows — Ltop and
+ * the exit the ddcg recorded when it BUILT the loop); the body enumeration below
+ * is a rewrite-stage structural traversal of that recorded region — the same
+ * nature as cp_pack's spine collection, an EDIT locating its work, not an
+ * analysis re-deriving structure.
+ *
+ * Invariance = every LoadLocal slot in the tree has NO def in the body. The
+ * body-def set makes this exact: a slot φ'd at the header is defined somewhere
+ * in the body and is in the set; a body-LOCAL temp (dead across the back edge,
+ * so no φ) is ALSO in the set — the φ-based shortcut alone would have hoisted
+ * trees reading iteration-fresh temps.
+ *
+ * The splice re-points EVERY out-of-body edge into Ltop at the store chain —
+ * next-edges, branch arms, switch targets, try edges — via sir_set_succ, the
+ * one successor-write authority. Missing one entry path would leave the temp
+ * uninitialized (a WASM local reads zero) on that path: a miscompile, which is
+ * why the repoint enumerates edges by the read authority's own shape rather
+ * than a field list. Back edges live IN the body set and keep pointing at Ltop.
+ *
+ * Runs AFTER the engine's rewrite (on the final graph, ctx->arena) and BEFORE
+ * cp_pack, so the fresh temps are packed like any slot. The sidecar is
+ * untouched: no recorded node is deleted or retagged, and the chain's stores
+ * are plain spine nodes the structurer emits without a scope row. */
+static bool cp_licm_slots_ok(const sir_node_t* e, const bool* body_def, int sc,
+                             int depth) {
+    if (!e || depth <= 0) return depth > 0;
+    if (e->tag == SIR_LOADLOCAL) {
+        int s = e->load_local.slot;
+        return s >= 0 && s < sc && !body_def[s];
+    }
+    if (e->tag == SIR_LOADTHIS)
+        return 0 < sc && !body_def[0];          /* `this` is slot 0 */
+    for (int i = 0; i < sir_arity((sir_node_t*)e); i++)
+        if (!cp_licm_slots_ok(sir_child((sir_node_t*)e, i), body_def, sc, depth - 1))
+            return false;
+    return true;
+}
+
+typedef struct {
+    bbq_arena*    arena;
+    sir_method_t* method;
+    const bool*   body_def;
+    int           sc;
+    cp_pmap_t*    hoisted;     /* tree node → its shared LoadLocal replacement */
+    sir_node_t*   chain_head;  /* the pre-header store chain (built backwards) */
+    int           count;
+} cp_licm_ctx_t;
+
+static void cp_licm_try_hoist(cp_licm_ctx_t* L, sir_node_t** slot, int depth) {
+    sir_node_t* t = *slot;
+    if (!t || depth <= 0) return;
+    /* Leaves and already-cheap nodes are never hoisted (a lone LoadLocal moved
+     * to a temp is a pessimization); recurse looking for OPERATIONS. */
+    if (sir_arity(t) > 0 && cp_expr_is_pure(t)
+            && cp_licm_slots_ok(t, L->body_def, L->sc, 64)) {
+        const sir_op_gamma_t* g =
+            (t->tag >= 0 && t->tag < SIR_TAG_COUNT) ? &sir_op_gamma[t->tag] : NULL;
+        if (g && g->type_kind == GT_PRIM_DT && g->type_prim_dt) {
+            sir_datatype_t dt = g->type_prim_dt(t);
+            void* prev = cp_pmap_get(L->hoisted, t);
+            sir_node_t* load;
+            if (prev) {
+                load = (sir_node_t*)prev;      /* GVN-shared tree: one store, N loads */
+            } else {
+                int tmp = L->method->max_locals++;
+                load = sir_load_local(L->arena, tmp, dt, NULL);
+                L->chain_head = sir_store_local(L->arena, tmp, dt, NULL, t,
+                                                L->chain_head);
+                cp_pmap_put(L->hoisted, t, load);
+                L->count++;
+            }
+            *slot = load;
+            return;
+        }
+    }
+    for (int i = 0; i < sir_arity(t); i++) {
+        sir_node_t** cs = sir_child_slot(t, i);
+        if (cs) cp_licm_try_hoist(L, cs, depth - 1);
+    }
+}
+
+static int cp_licm(sir_method_t* method, const compiler_fact_t* facts,
+                   int nfacts, bbq_arena* arena) {
+    if (!method || !method->entry || !facts) return 0;
+    int total = 0;
+    for (int f = 0; f < nfacts; f++) {
+        if (facts[f].kind != COMPILER_FACT_SCOPE) continue;
+        if (facts[f].a != COMPILER_SCOPE_LOOP) continue;
+        sir_node_t* ltop = facts[f].key;
+        sir_node_t* exit = facts[f].aux;
+        if (!ltop) continue;
+
+        /* The body: reachable from Ltop without entering the recorded exit.
+         * Bounded; a blown cap skips this loop (fail closed — no hoists). */
+        sir_node_t** body = NULL;                 /* bbq_vec */
+        cp_pmap_t in_body; cp_pmap_init(&in_body);
+        bbq_vec_push(body, ltop);
+        cp_pmap_put(&in_body, ltop, (void*)1);
+        bool capped = false;
+        for (int i = 0; i < (int)bbq_vec_len(body) && !capped; i++) {
+            sir_node_t* n = body[i];
+            for (int k = 0; k < sir_succ_count(n); k++) {
+                sir_node_t* s = sir_succ(n, k);
+                if (!s || s == exit || cp_pmap_get(&in_body, s)) continue;
+                if (bbq_vec_len(body) >= (1 << 15)) { capped = true; break; }
+                cp_pmap_put(&in_body, s, (void*)1);
+                bbq_vec_push(body, s);
+            }
+        }
+        if (capped) { bbq_vec_free(body); cp_pmap_free(&in_body); continue; }
+
+        int sc = method->max_locals > 0 ? method->max_locals : 1;
+        bool* body_def = (bool*)bbq_arena_alloc(arena, (size_t)sc * sizeof(bool));
+        memset(body_def, 0, (size_t)sc * sizeof(bool));
+        for (int i = 0; i < (int)bbq_vec_len(body); i++) {
+            int d = cp_node_def_slot(body[i]);
+            if (d >= 0 && d < sc) body_def[d] = true;
+        }
+
+        cp_pmap_t hoisted; cp_pmap_init(&hoisted);
+        cp_licm_ctx_t L = { arena, method, body_def, sc, &hoisted, ltop, 0 };
+        for (int i = 0; i < (int)bbq_vec_len(body); i++) {
+            sir_node_t* n = body[i];
+            for (int c = 0; c < sir_arity(n); c++) {
+                sir_node_t** cs = sir_child_slot(n, c);
+                if (cs) cp_licm_try_hoist(&L, cs, 64);
+            }
+        }
+
+        if (L.count > 0) {
+            /* Re-point every OUT-OF-BODY edge into Ltop at the chain. */
+            sir_node_t** spine = sir_collect_spine(method->entry);
+            for (int i = 0; i < (int)bbq_vec_len(spine); i++) {
+                sir_node_t* p = spine[i];
+                if (cp_pmap_get(&in_body, p)) continue;      /* back edges stay */
+                for (int k = 0; k < sir_succ_count(p); k++)
+                    if (sir_succ(p, k) == ltop) sir_set_succ(p, k, L.chain_head);
+            }
+            bbq_vec_free(spine);
+            if (method->entry == ltop) method->entry = L.chain_head;
+            total += L.count;
+        }
+        cp_pmap_free(&hoisted);
+        cp_pmap_free(&in_body);
+        bbq_vec_free(body);
+    }
+    return total;
+}
+
 void sir_optimize(compiler_ctx_t* ctx, int method_idx) {
     if (!ctx) return;
     /* Everything comes out of the ONE context — the method, the sema, the arena,
@@ -12045,6 +12205,15 @@ void sir_optimize(compiler_ctx_t* ctx, int method_idx) {
     if (method_arena_live) bbq_arena_free(&method_arena);
 
     cp_debug_dump_spine(method, dump_cn, "mid");   /* post-rewrite, PRE-pack slot numbers */
+    /* LICM on the FINAL graph, before pack numbers the fresh temps. The count
+     * logs like the guard census — a yield nobody can re-measure is a claim
+     * waiting to rot. */
+    {
+        int nh = cp_licm(method, facts, fact_count, arena);
+        if (nh > 0 && getenv("JAVELINA_GUARD_CENSUS"))
+            fprintf(stderr, "licm: %s hoisted=%d\n",
+                    method->name ? method->name : "?", nh);
+    }
     cp_pack(method, sema, arena, initial_max_locals);
 
     cp_debug_dump_spine(method, dump_cn, "post");
