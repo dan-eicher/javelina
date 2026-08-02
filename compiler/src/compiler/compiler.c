@@ -560,12 +560,18 @@ void compiler_init(compiler_ctx_t* ctx, bbq_arena* arena, const sema_ctx_t* sema
 }
 
 void compiler_destroy(compiler_ctx_t* ctx) {
-    /* The constant-data index is the one thing here that is NOT arena-backed — bbq_htree owns
-     * its own nodes — so it is the one thing that has to be released by hand. The pool it
-     * indexes is a bbq_vec on ctx->arena and goes with the compile. */
+    /* The constant-data index is NOT arena-backed — bbq_htree owns its own nodes — so it
+     * has to be released by hand. The pool it indexes is a bbq_vec on ctx->arena and goes
+     * with the compile. The cross-field invariant table's vecs are plain heap bbq_vecs. */
     if (ctx && ctx->const_data_index) {
         bbq_htree_destroy(ctx->const_data_index);
         ctx->const_data_index = NULL;
+    }
+    if (ctx) {
+        bbq_vec_free(ctx->vinv_class);
+        bbq_vec_free(ctx->vinv_count_fld);
+        bbq_vec_free(ctx->vinv_data_fld);
+        bbq_vec_free(ctx->vinv_holds);
     }
 }
 

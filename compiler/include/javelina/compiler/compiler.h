@@ -423,6 +423,40 @@ typedef struct {
      * (a cycle) refines to a fixpoint. Summaries are monotone over finite domains, so it
      * terminates; an acyclic graph converges in one confirming pass. */
     bool summary_changed;
+
+    /* ── The CROSS-FIELD invariant table: `count ≤ arraylength(data)` per
+     * (class, count-field, data-field) ─────────────────────────────────────
+     *
+     * A user guard refines an index against a COUNT FIELD while the §15
+     * IDX_HIGH tests it against `arraylength(data-field)`; the link between
+     * them is a CLASS INVARIANT that every writer of either field maintains.
+     *
+     * Candidates are DEMAND-driven: a pair is entered only when some surviving
+     * guard actually has that shape, so the table stays the size of the shapes
+     * the program uses, not of its field pairs.
+     *
+     * `holds` is the AND over every writer's obligation in every method, so it
+     * starts true and only ever falls — a writer whose store cannot be proved
+     * within its OWN method kills the pair (JLS §6.6 makes the writer set
+     * statically enumerable, and Java 1.0 has no reflective field write, so
+     * "every writer" is exactly the enumerated PutFields).
+     *
+     * Published after convergence and IMMUTABLE during any later per-method
+     * solve, which is what lets a consumer read it with no re-arm machinery:
+     * the fact cannot move underneath the solve that consults it. */
+    int*  vinv_class;      /* bbq_vec (heap — freed in compiler_destroy): the declaring class */
+    int*  vinv_count_fld;  /* bbq_vec: the count field index */
+    int*  vinv_data_fld;   /* bbq_vec: the data (array) field index */
+    bool* vinv_holds;      /* bbq_vec: the AND over all writers */
+    int   vinv_count;
+    /* PUBLISHED, and it is the immutability itself: while false the table is
+     * still being built (candidates enter, obligations clear verdicts) and
+     * NOTHING may read a verdict — an unfinished AND is not a proof. The
+     * convergence driver sets it once, after the sweep that takes the AND over
+     * every method; from then on discovery and verification are closed and the
+     * verdicts cannot move underneath a solve that consults them, which is what
+     * lets a consumer read one with no re-arm machinery. */
+    bool  vinv_published;
     /* Per-method refinement of the same signal, armed only by the convergence
      * driver: when non-NULL, cp_summarize also flags WHICH method moved, so a
      * pass re-summarizes only the CALLERS of moved methods (Kildall over the

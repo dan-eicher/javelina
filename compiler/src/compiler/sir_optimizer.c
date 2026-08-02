@@ -2361,6 +2361,31 @@ static void cp_compute_branch_refinements(cp_engine_t* eng) {
                 b_rt[b]  = cp_new_refine(eng, tested_vn, sym);
                 b_und_t[b] = tested_vn;
                 any = true;
+                /* C4 generates a π per operand per ARM, and relates the two on
+                 * the else edge with weight −1: `w_t ≤ v_k − 1`. The taken arm
+                 * above is `tested ≤ bound`; its negation is `bound ≤ tested`
+                 * with the strictness complemented, and that is a fact about the
+                 * OTHER operand — minted onto it, not onto the one compared.
+                 * Only when that operand is a slot read: a Refine over an
+                 * expression rewires no loads. It takes whichever of the arm's
+                 * two slots is free, since the GE-false mirror above may already
+                 * hold the first. */
+                {
+                    sir_node_t* bnd_node =
+                        (cmp->tag == SIR_LT || cmp->tag == SIR_LE) ? rhs : lhs;
+                    bool free_slot = (b_rf[b] < 0) || (b_rf2[b] < 0);
+                    if (free_slot && bnd_node && bnd_node->tag == SIR_LOADLOCAL
+                            && bnd_node->load_local.data_type == SIR_DTINT) {
+                        cp_const_t symf = { .state = CP_C_RANGE, .cwidth = CP_W_I32,
+                                            .lo = INT32_MIN, .hi = INT32_MAX,
+                                            .stride = 1,
+                                            .hi_vn1 = tested_vn + 1,
+                                            .hi_vn_incl = incl ? 0 : 1 };
+                        int rf = cp_new_refine(eng, bound_vn, symf);
+                        if (b_rf[b] < 0) { b_rf[b] = rf;  b_und_f[b] = bound_vn; }
+                        else             { b_rf2[b] = rf; b_und_f2[b] = bound_vn; }
+                    }
+                }
                 continue;
             }
             /* The FALSE-edge half of the §5 rule: the fall-through of `l > r`
@@ -4089,6 +4114,174 @@ static bool cp_bound_base_holds(cp_engine_t* eng, int self, int slot,
     return pc.state == CP_C_RANGE && pc.cwidth < CP_W_F32 && pc.lo >= 0;
 }
 
+/* ── The cross-field invariant table ────────────────────────────────────────
+ *
+ * Candidates are entered ON DEMAND, from the one place both halves of the shape
+ * are already in hand: the §15 IDX_HIGH consumer, which holds the guard's
+ * length operand and the index's symbolic bound. Nothing scans the program for
+ * field pairs, so the table is the size of the shapes the program USES.
+ *
+ * `holds` starts true and only falls — it is the AND over every writer's
+ * obligation, and a writer that cannot be proved kills the pair (rule 9). */
+static int cp_vinv_intern(compiler_ctx_t* ctx, int cls, int cfld, int dfld) {
+    if (!ctx || cls < 0 || cfld < 0 || dfld < 0) return -1;
+    for (int i = 0; i < ctx->vinv_count; i++)
+        if (ctx->vinv_class[i] == cls && ctx->vinv_count_fld[i] == cfld
+                && ctx->vinv_data_fld[i] == dfld)
+            return i;
+    bbq_vec_push(ctx->vinv_class, cls);
+    bbq_vec_push(ctx->vinv_count_fld, cfld);
+    bbq_vec_push(ctx->vinv_data_fld, dfld);
+    bbq_vec_push(ctx->vinv_holds, true);
+    return ctx->vinv_count++;
+}
+
+/* The expression a vnode ultimately computes, or NULL. Through the VALUE
+ * authority, which follows Followers and Refines as well as copies: a field
+ * read consumed under an enclosing guard arrives as a refinement WINDOW, and
+ * the copy-only walk stops on that window and reports no expression at all. */
+static const sir_node_t* cp_ultimate_expr(cp_engine_t* eng, int vn) {
+    if (vn < 0) return NULL;
+    int u = cp_value_leader(eng, vn);
+    if (u < 0 || u >= eng->vnode_count) return NULL;
+    return eng->vnodes[u]->kind == CP_VN_EXPR ? eng->vnodes[u]->expr : NULL;
+}
+
+/* `arraylength(GetField(f, o))` — the guard's array side. Returns the USER
+ * field's GetField, or NULL. The array overlay interposes its backing accessor
+ * between the length and the user's field — the length's operand is
+ * `GetField(wrapper.backing, GetField(user_field, o))` — and the wrapper is a
+ * synthetic class, so returning the backing read names the WRONG (class, field)
+ * pair. lat_is_array_data_cell is the authority for which (class, field) is a
+ * backing cell; a backing read's RECEIVER is the user's field. Each hop first
+ * resolves to the value it ultimately is (spilled temps, refinement windows). */
+static const sir_node_t* cp_len_of_field(cp_engine_t* eng, int len_vn) {
+    const sir_node_t* le = cp_ultimate_expr(eng, len_vn);
+    if (!le || le->tag != SIR_ARRAYLENGTH) return NULL;
+    sir_node_t* arr = sir_child((sir_node_t*)le, 0);
+    if (!arr) return NULL;
+    const sir_node_t* ae = arr->tag == SIR_GETFIELD ? arr
+                         : cp_ultimate_expr(eng, cp_vnode_of(eng, arr));
+    if (!ae || ae->tag != SIR_GETFIELD) return NULL;
+    if (eng->sema && lat_is_array_data_cell(eng->sema, ae->get_field.class_id,
+                                            ae->get_field.field_idx)) {
+        sir_node_t* obj = sir_child((sir_node_t*)ae, 0);
+        if (!obj) return NULL;
+        const sir_node_t* oe = obj->tag == SIR_GETFIELD ? obj
+                             : cp_ultimate_expr(eng, cp_vnode_of(eng, obj));
+        return oe && oe->tag == SIR_GETFIELD ? oe : NULL;
+    }
+    return ae;
+}
+
+/* Do two names denote ONE value? Two reads of one reference, or of one field,
+ * are two vnodes — `o.count` and `o.data` each read `o` for themselves — so the
+ * question is congruence and GVN answers it: one partition. Each side resolves
+ * through the VALUE authority first, because a read under an enclosing
+ * null-check arrives as a Refine and a Refine is a partition Leader in its own
+ * right; comparing the windows would ask whether two guards are the same rather
+ * than whether two values are. ONE authority for the question, because this
+ * design asks it in four places — the candidate's shape, a writer's obligation,
+ * the check a writer stands under, and the guard's verdict — and they must not
+ * disagree. */
+static bool cp_same_value(cp_engine_t* eng, int a_vn, int b_vn) {
+    int a = cp_value_leader(eng, a_vn), b = cp_value_leader(eng, b_vn);
+    if (a < 0 || b < 0 || a >= eng->vnode_count || b >= eng->vnode_count) return false;
+    int pa = eng->vnodes[a]->partition;
+    return pa >= 0 && pa == eng->vnodes[b]->partition;
+}
+
+static int cp_cell_lookup(cp_engine_t* eng, uint32_t key);
+
+/* Do the two reads see COMPATIBLE memory versions — the same reaching version
+ * for both fields' cells, no store to either intervening?
+ *
+ * The invariant relates the count VALUE and the data VALUE a state holds: every
+ * writer re-establishes it, so it is a fact about the PAIR at a state, never
+ * about two values sampled at two of them. The state both must belong to is the
+ * guard's own, and each cell's reaching version there is an INDEXED read of the
+ * state table cp_resolve published before the solve — the same read the §12.5
+ * ctor discharge makes, and the same fact each load already carries as its own
+ * memory input. A read whose version IS the guard's reaching version for its
+ * cell has no store between it and the guard; requiring that of BOTH cells is
+ * the whole condition. Nothing is searched and nothing is ordered.
+ *
+ * The rows come from the recorded cond→rows index, because a Branch is a spine
+ * row and no def-use edge reaches one. A condition several rows test must
+ * satisfy this at EVERY one of them — folding the compare folds all of them —
+ * and one no row tests can be shown nothing. Both fail closed, as do a spliced
+ * row with no published state and a cell the method never interned. */
+static bool cp_reads_one_mem_state(cp_engine_t* eng, int self, int a, int b) {
+    if (a < 0 || b < 0 || a >= eng->vnode_count || b >= eng->vnode_count) return false;
+    const cp_vnode_t* va = eng->vnodes[a];
+    const cp_vnode_t* vb = eng->vnodes[b];
+    if (va->kind != CP_VN_EXPR || !va->expr || va->input_count < 2) return false;
+    if (vb->kind != CP_VN_EXPR || !vb->expr || vb->input_count < 2) return false;
+    if (!eng->slot_in || eng->mem_cell_count <= 0) return false;
+    int ma = va->inputs[va->input_count - 1];
+    int mb = vb->inputs[vb->input_count - 1];
+    if (ma < 0 || mb < 0) return false;
+    int ca = cp_cell_lookup(eng, cp_cell_key_field(va->expr->get_field.class_id,
+                                                   va->expr->get_field.field_idx));
+    int cb = cp_cell_lookup(eng, cp_cell_key_field(vb->expr->get_field.class_id,
+                                                   vb->expr->get_field.field_idx));
+    if (ca < 0 || cb < 0) return false;
+    if (self < 0 || !eng->condrow_off || self >= eng->condrow_rows) return false;
+    int rows = 0;
+    for (int k = eng->condrow_off[self]; k < eng->condrow_off[self + 1]; k++) {
+        int row = eng->condrow_list[k];
+        if (row < 0 || row >= eng->slot_in_rows) return false;
+        if (eng->slot_in[row][eng->slot_count + ca] != ma) return false;
+        if (eng->slot_in[row][eng->slot_count + cb] != mb) return false;
+        rows++;
+    }
+    return rows > 0;
+}
+
+/* The CROSS-FIELD verdict, read at the §15 IDX_HIGH consumer: `i < count` plus
+ * the published `count ≤ arraylength(data)` gives `i < arraylength(data)`, which
+ * is exactly what this guard tests. It answers the case the partition test
+ * cannot — the bound and the length are two DIFFERENT values, related by a
+ * class invariant instead of by congruence.
+ *
+ * Four conditions, all fail-closed:
+ *   - the bound is a count-field read and the length is that class's data-field
+ *     read (`cp_len_of_field` descends the array overlay's backing accessor);
+ *   - the two reads name ONE object. Two reads of one reference are two vnodes
+ *     — `this.count` and `this.data` each read `this` for themselves — so the
+ *     question is congruence and GVN answers it: one partition. The VALUE
+ *     authority resolves each receiver FIRST, because a read under an enclosing
+ *     null-check arrives as a Refine, and a Refine is a partition Leader in its
+ *     own right — comparing the windows would ask whether two guards are the
+ *     same rather than whether two receivers are. Both endpoints are recorded
+ *     as premises: partition membership is optimistic mid-solve, so a split
+ *     that separates them re-arms this compare and the verdict falls;
+ *   - they see one memory state;
+ *   - the pair's AND over every writer HOLDS in the published table.
+ * The table is immutable once published (nothing may consult it before), so it
+ * needs no re-arm: the fact cannot move underneath this solve. */
+static bool cp_vinv_verdict(cp_engine_t* eng, int self, int bound_id, int len_in) {
+    compiler_ctx_t* ctx = eng->ctx;
+    if (!ctx || !ctx->vinv_published || ctx->vinv_count == 0) return false;
+    const sir_node_t* cf = cp_ultimate_expr(eng, bound_id);
+    if (!cf || cf->tag != SIR_GETFIELD) return false;
+    const sir_node_t* df = cp_len_of_field(eng, len_in);
+    if (!df || df->get_field.class_id != cf->get_field.class_id) return false;
+    int p = -1;
+    for (int i = 0; i < ctx->vinv_count; i++)
+        if (ctx->vinv_class[i] == cf->get_field.class_id
+                && ctx->vinv_count_fld[i] == cf->get_field.field_idx
+                && ctx->vinv_data_fld[i] == df->get_field.field_idx) { p = i; break; }
+    int oc = cp_value_leader(eng, cp_vnode_of(eng, sir_child((sir_node_t*)cf, 0)));
+    int od = cp_value_leader(eng, cp_vnode_of(eng, sir_child((sir_node_t*)df, 0)));
+    cp_record_premise(eng, self, 2, oc);
+    cp_record_premise(eng, self, 3, od);
+    if (p < 0 || !ctx->vinv_holds[p]) return false;
+    if (!cp_same_value(eng, cp_vnode_of(eng, sir_child((sir_node_t*)cf, 0)),
+                        cp_vnode_of(eng, sir_child((sir_node_t*)df, 0)))) return false;
+    return cp_reads_one_mem_state(eng, self, cp_vnode_of(eng, cf), cp_vnode_of(eng, df));
+}
+
 static cp_const_t cp_symbolic_bound_const(cp_engine_t* eng, const cp_vnode_t* v,
                                            bool* handled) {
     *handled = false;
@@ -4169,14 +4362,6 @@ static cp_const_t cp_symbolic_bound_const(cp_engine_t* eng, const cp_vnode_t* v,
     if (v->input_count != 2 || v->inputs[0] < 0 || v->inputs[1] < 0) return r;
 
     const cp_vnode_t* iv = eng->vnodes[v->inputs[0]];          /* the index  */
-    if (getenv("JAV_GEDBG")) {   /* TEMPORARY probe */
-        const cp_vnode_t* i0 = eng->vnodes[v->inputs[0]];
-        fprintf(stderr, "[ge-consume] iv=%d kind=%d in0=%d state=%d hi_vn1=%d incl=%d\n",
-                v->inputs[0], (int)i0->kind,
-                i0->input_count > 0 ? i0->inputs[0] : -1,
-                (int)iv->constant.state, iv->constant.hi_vn1,
-                (int)iv->constant.hi_vn_incl);
-    }
     if (iv->constant.state != CP_C_RANGE || iv->constant.hi_vn1 == 0) return r;
     if (!cp_bound_base_holds(eng, self, 4, iv->constant)) return r;
 
@@ -4191,8 +4376,16 @@ static cp_const_t cp_symbolic_bound_const(cp_engine_t* eng, const cp_vnode_t* v,
     if (bp < 0 || lp < 0) return r;
 
     if (!iv->constant.hi_vn_incl) {
-        /* STRICT: `i < B` and `B ≡ len` ⟹ `i >= len` is FALSE. */
-        if (bp != lp) return r;
+        /* STRICT: `i < B` and `B ≡ len` ⟹ `i >= len` is FALSE. Failing that,
+         * the two may still be related by a CLASS INVARIANT rather than by
+         * congruence — `i < o.count` with `o.count ≤ arraylength(o.data)`
+         * published for the pair. Premise slots 2 and 3 carry that read's
+         * endpoints; the inclusive arm below spends the same two on the Add's
+         * operands, which is sound because a node evaluates ONE arm and
+         * cp_record_premise diffs a slot when it is re-pointed. */
+        if (bp != lp && !cp_vinv_verdict(eng, self, iv->constant.hi_vn1 - 1,
+                                         v->inputs[1]))
+            return r;
     } else {
         /* INCLUSIVE: `i <= B` is `i < B+1`, so this proves `i >= len` false exactly when
          * `len ≡ B+1` — NOT when `len ≡ B`, where i reaches len and the read is genuinely
@@ -4697,6 +4890,37 @@ static cp_const_t cp_node_const(cp_engine_t* eng, int v_idx) {
                                       .lo = 0, .hi = cp_width_max(w) - 1,
                                       .stride = 1,
                                       .hi_vn1 = a.hi_vn1, .hi_vn_incl = 0 };
+                }
+            }
+            /* C3's OTHER half. The row is `v := u + c` ⟹ `v ≤ u + c` for a
+             * constant of either sign; the engine carried only c < 0 (the Sub
+             * below, and the inc-opaque decrement). Upward, one increment lands
+             * exactly on the bound itself: `u < B` is `u ≤ B − 1`, so
+             * `u + 1 ≤ B` — INCLUSIVE, deliberately weaker than u's own fact,
+             * which is what stops it deleting the check u's bound came from.
+             *
+             * The bound IS the wrap fence and no other is invented: `u < B` with
+             * B of this width gives u ≤ B − 1 ≤ MAX − 1, so u + 1 is
+             * representable and the add cannot wrap — the same exactness T2
+             * rests on. The symbolic half is knowledge ON TOP of the interval:
+             * when the numeric fold produced a range it is kept whole, and only
+             * when it refused (`[lo, MAX] + 1` wraps, correctly) is the range
+             * rebuilt from the bound's own no-wrap argument.
+             * A larger c lands between two ids and a difference bound's
+             * subtrahend would have to be that constant to cancel; neither is
+             * representable, so neither is claimed. */
+            if (e->tag == SIR_ADD && a.cwidth < CP_W_F32
+                    && a.state == CP_C_RANGE && b.state == CP_C_KNOWN
+                    && b.cwidth < CP_W_F32 && cp_known_i64(b) == 1
+                    && a.hi_vn1 && !a.hi_sub_vn1 && !a.hi_vn_incl) {
+                if (r.state == CP_C_RANGE) {
+                    r.hi_vn1 = a.hi_vn1; r.hi_vn_incl = 1; r.hi_sub_vn1 = 0;
+                } else if (r.state == CP_C_BOTTOM) {
+                    cp_cwidth_t w = a.cwidth;
+                    r = (cp_const_t){ .state = CP_C_RANGE, .cwidth = w,
+                                      .lo = a.lo + 1, .hi = cp_width_max(w),
+                                      .stride = 1,
+                                      .hi_vn1 = a.hi_vn1, .hi_vn_incl = 1 };
                 }
             }
             if (e->tag == SIR_SUB && r.state == CP_C_RANGE
@@ -5974,6 +6198,34 @@ static void cp_follow_field(cp_engine_t* eng, int c, cp_pts_t from, cp_pts_t* ou
     }
 }
 
+/* A callee with no compiled body whose behavior the TOOLCHAIN itself defines:
+ * a §8.8.9 synthesized default constructor executes `super()` and this class's
+ * instance-variable initializers — nothing else. With NO instance initializers
+ * and a super chain of the same shape, the ctor writes nothing, calls nothing
+ * observable, and does not retain its receiver — knowable from the DECLARATION
+ * alone, which sema carries even when the body lives in another module (the
+ * declaration-carried-contract pattern of sema_method_t.ret_nonnull). Object
+ * roots the chain (super_id -1; its one field has no initializer). Fail-closed
+ * on any declared ctor, any instance initializer, any break in the chain. */
+static bool cp_import_ctor_is_noop(const sema_ctx_t* sema, int class_id, int method_idx) {
+    if (!sema) return false;
+    for (int hops = 0; hops < 64; hops++) {
+        const sema_class_t* c = sema_get_class(sema, class_id);
+        if (!c) return false;
+        if (method_idx < 0 || method_idx >= (int)bbq_vec_len((void*)c->methods)) return false;
+        const sema_method_t* m = &c->methods[method_idx];
+        if (!m->is_constructor || !m->is_synthetic_default || m->param_count != 0)
+            return false;
+        for (int f = 0; f < (int)bbq_vec_len((void*)c->fields); f++)
+            if (c->fields[f].init_expr && !(c->fields[f].modifiers & ACC_STATIC))
+                return false;
+        if (c->super_id < 0) return true;              /* Object closes the chain */
+        method_idx = sema_noarg_ctor_index(sema, c->super_id);
+        class_id   = c->super_id;
+    }
+    return false;
+}
+
 /* Fig 7 (UpdateCallerNodes / UpdateNodes) at ONE call site: instantiate the callee summary's
  * NonLocalGraph into the caller. Seed MapsToObj(root) = PointsTo(actual) for each formal
  * (Statements 27-28), then walk field edges in lock-step with the caller's own heap
@@ -6204,6 +6456,14 @@ static void cp_escape_call_site(cp_engine_t* eng, sir_node_t* e) {
     case SIR_INVOKESPECIAL: {
         int ce = ctx ? compiler_method_index(ctx, e->invoke_special.class_id,
                                              e->invoke_special.method_idx) : -1;
+        /* A no-body callee is §7's BOTTOM — EXCEPT one the toolchain itself
+         * defines: an imported synthesized default ctor with nothing to run is
+         * a call the analysis KNOWS is empty. Skipping the MapsTo is exactly
+         * what a computed empty summary would do: no escape marks, no clobber
+         * rows, no bottom poison. The emitted call is untouched. */
+        if (ce < 0 && cp_import_ctor_is_noop(eng->sema, e->invoke_special.class_id,
+                                             e->invoke_special.method_idx))
+            break;
         /* The summary is parameter-indexed, so arg i is param i for every call kind. */
         cp_mapsto_arg(eng, ctx, ce, e->invoke_special.obj, true, -1);
         for (int i = 0; i < e->invoke_special.args_count; i++)
@@ -11513,9 +11773,403 @@ static bool cp_summary_differ(const compiler_summary_t* a, const compiler_summar
     return false;
 }
 
+/* WRITER OBLIGATIONS, as a per-method readout of this method's SOLVED facts —
+ * §7's discipline that whoever performs the analysis produces the summary.
+ *
+ * For each candidate pair, every store to either field must be proved HERE,
+ * from this method alone:
+ *   PutField(count, o, s)  ⟹  s ≤ arraylength(GetField(data, o))
+ *   PutField(data,  o, s)  ⟹  count-value ≤ arraylength(s)
+ * A store that cannot be proved kills the pair — the table is an AND, and an
+ * unprovable writer is the absent fact that must read as BOTTOM.
+ *
+ * v1 RESTRICTION, and it is deliberate: a writer proof may NOT assume the
+ * invariant. A writer that maintains `count ≤ data.length` only BECAUSE that
+ * already held fails its obligation and its pair dies. Sound, and it is what
+ * keeps the table from supporting itself; whether a cyclic assume-verify tier
+ * is worth designing is a question for the re-census, not for this code.
+ *
+ * The scan is over this method's OWN vnodes, which is what a summary readout
+ * is — not a traversal of the program, and not a search for a fact that should
+ * have arrived through an input. */
+/* PIECE 1, from the GUARD CENSUS MACHINERY'S VIEW — the recorded §15 rows, not
+ * a program scan for field pairs and not a hook in a transfer. The row is the
+ * right source because it exists whether or not the compare is still being
+ * evaluated: the ddcg records an IDX_HIGH guard with its Branch as the key, and
+ * the Branch's condition holds BOTH halves of the shape at once — the index and
+ * the length it is tested against.
+ *
+ * A pair is entered when the index carries a symbolic bound naming a COUNT
+ * field read and the length names a DATA field read on the same class. Whether
+ * the invariant actually holds is the writers' verdict, and is nothing to do
+ * with this. */
+static void cp_vinv_collect_candidates(compiler_ctx_t* ctx, cp_engine_t* e) {
+    if (!ctx || !e) return;
+    for (int gi = 0; gi < e->fact_count; gi++) {
+        const compiler_fact_t* f = &e->facts[gi];
+        if (f->kind != COMPILER_FACT_GUARD) continue;
+        if (f->a != COMPILER_GUARD_ARRAY_INDEX_HIGH) continue;
+        if (!f->key || f->key->tag != SIR_BRANCH) continue;
+        sir_node_t* cmp = f->key->branch.cond;
+        if (!cmp || cmp->tag != SIR_GE) continue;
+        /* The row says WHICH branch is a guard; the guard's own condition says
+         * what it tests. Both halves of the shape are its two operands as the
+         * engine wired them — the index carrying whatever the enclosing arms
+         * refined onto it, and the length. The slot the row records is pass-A's
+         * reaching definition, which is the value BEFORE an arm's refinement
+         * window, so it cannot see the bound this shape is made of. */
+        int cmpv = cp_vnode_of(e, cmp);
+        if (cmpv < 0 || cmpv >= e->vnode_count) continue;
+        const cp_vnode_t* cv = e->vnodes[cmpv];
+        if (cv->input_count < 2 || cv->inputs[0] < 0 || cv->inputs[1] < 0) continue;
+        /* SURVIVING. The row's Branch keeps its tag until the rewrite retags it,
+         * and this runs inside the analysis — so the tag says nothing here and
+         * the guard's own verdict is what does: a condition the solve folded to
+         * KNOWN 0 is a guard that is already gone, and a candidate entered for it
+         * is demand nothing is asking for. */
+        if (cv->constant.state == CP_C_KNOWN && cv->constant.value == 0) continue;
+        cp_const_t ic = e->vnodes[cv->inputs[0]]->constant;
+        if (ic.state != CP_C_RANGE || !ic.hi_vn1) continue;
+        const sir_node_t* cf = cp_ultimate_expr(e, ic.hi_vn1 - 1);
+        const sir_node_t* df = cp_len_of_field(e, cv->inputs[1]);
+        if (!cf || cf->tag != SIR_GETFIELD || !df) continue;
+        if (df->get_field.class_id != cf->get_field.class_id) continue;
+        /* ONE RECEIVER: the shape is `GetField(data, o)` and `GetField(count, o)`
+         * — the same o. Two reads of one reference are two vnodes, so the
+         * question is congruence and GVN answers it, each receiver resolved
+         * through the value authority first because a read under a null-check
+         * arrives as a Refine and a Refine is a partition Leader of its own.
+         * Without this a guard pairing one object's count with another's array
+         * enters a candidate the shape never exhibited. */
+        if (!cp_same_value(e, cp_vnode_of(e, sir_child((sir_node_t*)cf, 0)),
+                            cp_vnode_of(e, sir_child((sir_node_t*)df, 0)))) continue;
+        cp_vinv_intern(ctx, cf->get_field.class_id,
+                       cf->get_field.field_idx, df->get_field.field_idx);
+    }
+}
+
+/* Did a check crossed on EVERY path to this row bound `xvn` below the length of
+ * this receiver's data field?
+ *
+ * The fact a writer stands under is the §15 check the code ahead of it already
+ * passed — `data[count] = x` leaves `count < arraylength(data)` true wherever
+ * control reached the store after it. That fact belongs to the ROW, not to the
+ * value: the check names one read of the field and the store's increment reads
+ * it again, and the two are one value without either knowing about the other.
+ *
+ * So it is read where it is recorded. The §3.6 rows already hold, per spine
+ * node, the (branch, taken-bit) facts every path from entry crosses; this
+ * indexes the store's own row and decodes that row's bits. The alternative —
+ * having the check push its fact onto every congruent reader — would have to go
+ * find them, which is the shape that leaves the fixpoint.
+ *
+ * FALL-THROUGH facts only (bit 0): the taken arm is the throw. */
+static bool cp_checked_below_field_len(cp_engine_t* e, int row, int xvn,
+                                       int cls, int data_fld, int recv_vn) {
+    if (!e->verdict_words || row < 0 || row >= e->verdict_rows) return false;
+    if (xvn < 0 || recv_vn < 0) return false;
+    const uint64_t* w = e->verdict_words + (size_t)row * e->verdict_stride;
+    for (int i = 0; i < e->verdict_stride; i++) {
+        uint64_t bits = w[i];
+        while (bits) {
+            int fid = i * 64 + __builtin_ctzll(bits);
+            bits &= bits - 1;
+            if (fid & 1) continue;                     /* the check FIRED on this arm */
+            int fb = e->fact_branch[fid >> 1];
+            /* `branch_cond_vn` is per SPINE ROW and sized as such — bounding it
+             * by the vnode count would index past its own allocation. */
+            int cvn = (fb >= 0 && fb < e->spine_count) ? e->branch_cond_vn[fb] : -1;
+            if (cvn < 0 || cvn >= e->vnode_count) continue;
+            const cp_vnode_t* cv = e->vnodes[cvn];
+            if (cv->kind != CP_VN_EXPR || !cv->expr || cv->expr->tag != SIR_GE) continue;
+            if (cv->input_count < 2 || cv->inputs[0] < 0 || cv->inputs[1] < 0) continue;
+            if (!cp_same_value(e, cv->inputs[0], xvn)) continue;
+            const sir_node_t* df = cp_len_of_field(e, cv->inputs[1]);
+            if (!df || df->get_field.class_id != cls
+                    || df->get_field.field_idx != data_fld) continue;
+            if (!cp_same_value(e, cp_vnode_of(e, sir_child((sir_node_t*)df, 0)), recv_vn))
+                continue;
+            return true;
+        }
+    }
+    return false;
+}
+
+/* The data-store MIRROR of the readout above: did a check crossed on EVERY
+ * path to this row bound the pair's COUNT read (this receiver's) below the
+ * length of the STORED array? `if (count > n.length) …` fallen through leaves
+ * `count ≤ arraylength(n)` true wherever control reached `data = n` — the same
+ * recorded (branch, taken-bit) row facts, decoded the same way. GE-false
+ * proves strictly and GT-false inclusively; the obligation is inclusive, so
+ * both do. The length's operand descends the array overlay's backing accessor
+ * exactly as cp_len_of_field does — the stored value is the USER-visible
+ * array, and the backing read's RECEIVER is what names it. */
+static bool cp_checked_count_below_len(cp_engine_t* e, int row, int cls,
+                                       int count_fld, int recv_vn, int stored_vn) {
+    if (!e->verdict_words || row < 0 || row >= e->verdict_rows) return false;
+    if (recv_vn < 0 || stored_vn < 0) return false;
+    const uint64_t* w = e->verdict_words + (size_t)row * e->verdict_stride;
+    for (int i = 0; i < e->verdict_stride; i++) {
+        uint64_t bits = w[i];
+        while (bits) {
+            int fid = i * 64 + __builtin_ctzll(bits);
+            bits &= bits - 1;
+            if (fid & 1) continue;                     /* the check FIRED on this arm */
+            int fb = e->fact_branch[fid >> 1];
+            int cvn = (fb >= 0 && fb < e->spine_count) ? e->branch_cond_vn[fb] : -1;
+            if (cvn < 0 || cvn >= e->vnode_count) continue;
+            const cp_vnode_t* cv = e->vnodes[cvn];
+            if (cv->kind != CP_VN_EXPR || !cv->expr) continue;
+            if (cv->expr->tag != SIR_GE && cv->expr->tag != SIR_GT) continue;
+            if (cv->input_count < 2 || cv->inputs[0] < 0 || cv->inputs[1] < 0) continue;
+            const sir_node_t* cf = cp_ultimate_expr(e, cv->inputs[0]);
+            if (!cf || cf->tag != SIR_GETFIELD || cf->get_field.class_id != cls
+                    || cf->get_field.field_idx != count_fld) continue;
+            if (!cp_same_value(e, cp_vnode_of(e, sir_child((sir_node_t*)cf, 0)), recv_vn))
+                continue;
+            /* The length operand, resolved along the SAME links cp_value_leader
+             * walks — but inspecting EVERY hop: the arraylength of a fresh
+             * alloc is a Follower of its SIZE expression (CP_FK_ARRLEN), so
+             * the single leader jump lands past the ARRAYLENGTH identity this
+             * shape is recognised by. */
+            bool len_of_stored = false;
+            for (int hv = cv->inputs[1], hop = 0;
+                    hv >= 0 && hv < e->vnode_count && hop < 256 && !len_of_stored;
+                    hop++) {
+                int uv = cp_ultimate_value(e, hv);
+                if (uv < 0 || uv >= e->vnode_count) break;
+                const cp_vnode_t* hn = e->vnodes[uv];
+                const sir_node_t* hx = hn->kind == CP_VN_EXPR ? hn->expr : NULL;
+                if (hx && hx->tag == SIR_ARRAYLENGTH) {
+                    sir_node_t* arr = sir_child((sir_node_t*)hx, 0);
+                    const sir_node_t* ae = !arr ? NULL
+                        : arr->tag == SIR_GETFIELD ? arr
+                        : cp_ultimate_expr(e, cp_vnode_of(e, arr));
+                    int avn = arr ? cp_vnode_of(e, arr) : -1;
+                    if (ae && ae->tag == SIR_GETFIELD && e->sema
+                            && lat_is_array_data_cell(e->sema, ae->get_field.class_id,
+                                                      ae->get_field.field_idx))
+                        avn = cp_vnode_of(e, sir_child((sir_node_t*)ae, 0));
+                    len_of_stored = cp_same_value(e, avn, stored_vn);
+                }
+                int next = uv;
+                if (hn->leader >= 0)                                  next = hn->leader;
+                else if (hn->kind == CP_VN_REFINE && hn->input_count >= 1
+                         && hn->inputs[0] >= 0)                       next = hn->inputs[0];
+                if (next == uv) break;
+                hv = next;
+            }
+            if (!len_of_stored) continue;
+            return true;
+        }
+    }
+    return false;
+}
+
+static void cp_vinv_writer_obligations(compiler_ctx_t* ctx, cp_engine_t* e) {
+    if (!ctx || ctx->vinv_count == 0) return;
+    /* A constructor's obligations may use §12.5: the body runs on a freshly
+     * created object whose instance variables hold their DEFAULT values. */
+    bool is_ctor = false;
+    if (e->sema && e->method && e->method->class_id >= 0) {
+        const sema_class_t* mcl = sema_get_class(e->sema, e->method->class_id);
+        if (mcl && e->method->method_id >= 0
+                && e->method->method_id < (int)bbq_vec_len((void*)mcl->methods))
+            is_ctor = mcl->methods[e->method->method_id].is_constructor;
+    }
+    /* The count-field READS this method makes, gathered ONCE. A data-store's
+     * obligation is stated against the count value, and re-finding that value
+     * per store would walk the method's vnodes again for every store — the
+     * recompute of something this pass has already seen. */
+    int* cgets = NULL; int ncget = 0;
+    for (int vi = 0; vi < e->vnode_count; vi++) {
+        const cp_vnode_t* cv = e->vnodes[vi];
+        if (cv->kind != CP_VN_EXPR || !cv->expr
+                || cv->expr->tag != SIR_GETFIELD) continue;
+        for (int p = 0; p < ctx->vinv_count; p++)
+            if (cv->expr->get_field.class_id == ctx->vinv_class[p]
+                    && cv->expr->get_field.field_idx == ctx->vinv_count_fld[p]) {
+                bbq_vec_push(cgets, vi); ncget++;
+                break;
+            }
+    }
+    /* Writers are SPINE rows, not value exprs — a store computes nothing, so it
+     * never enters the value graph. The §7.2 write-set readout above walks the
+     * same rows for the same reason. Scanning vnodes here matches NOTHING and
+     * every obligation passes vacuously — the fail-open rule 9 forbids. */
+    for (int si2 = 0; si2 < e->spine_count; si2++) {
+        if (!cp_spine_reachable(e, si2)) continue;
+        sir_node_t* n = e->spine[si2];
+        if (n->tag != SIR_PUTFIELD) continue;
+        int cls = n->put_field.class_id;
+        int fld = n->put_field.field_idx;
+        sir_node_t* recv  = n->put_field.obj;
+        sir_node_t* value = n->put_field.value;
+        if (!recv || !value) continue;
+        cp_const_t sc = { .state = CP_C_BOTTOM };
+        int val_vn = cp_vnode_of(e, value);
+        if (val_vn >= 0) sc = e->vnodes[val_vn]->constant;
+
+        for (int p = 0; p < ctx->vinv_count; p++) {
+            if (!ctx->vinv_holds[p] || ctx->vinv_class[p] != cls) continue;
+            bool is_count = (fld == ctx->vinv_count_fld[p]);
+            bool is_data  = (fld == ctx->vinv_data_fld[p]);
+            if (!is_count && !is_data) continue;
+            bool proved = false;
+            if (is_count) {
+                /* `stored ≤ arraylength(data-value)`, READ OFF the method's own
+                 * solved facts. Two proofs, both reads of the §5 lattice:
+                 * a KNOWN value ≤ 0 is below EVERY length (a length is never
+                 * negative — §10.7); otherwise the stored value's symbolic
+                 * upper bound must name this receiver's data-field length. */
+                if (sc.state == CP_C_KNOWN && sc.cwidth < CP_W_F32
+                        && cp_known_i64(sc) <= 0)
+                    proved = true;
+                if (!proved && sc.state == CP_C_RANGE && sc.hi <= 0)
+                    proved = true;
+                /* A bound is the whole TRIPLE, so `stored ≤ L − q` is as much a
+                 * symbolic bound as `stored ≤ L` — and it proves this obligation
+                 * whenever q ≥ 0, which is the subtracted half's own authority's
+                 * question. A readout has no consumer to re-arm, so it records
+                 * no premise (self = -1). */
+                /* The check this store stands under. `count = count + 1` after
+                 * `data[count] = x` stores one more than a value the §15 check
+                 * proved below the length, and `X < len` gives `X + 1 <= len`
+                 * exactly — the same C3 arithmetic, applied to the store's own
+                 * form because the recorded fact is about the row, not the
+                 * value. C3's row is `v <= u + c` for a constant of EITHER
+                 * sign, and `u <= len - 1` gives `u + c <= len` exactly when
+                 * c <= 1 — so that is the whole condition. No lower fence: a
+                 * decrement satisfies the obligation with more room, not less,
+                 * and a bound invented past the row's own arithmetic is a rule
+                 * nobody can cite. */
+                if (!proved) {
+                    /* The value it ultimately IS, before its shape is examined:
+                     * the lowering spills the sum into a temp, so the store
+                     * names a slot read and the Add is one hop further in. */
+                    int xvn = cp_value_leader(e, val_vn);
+                    int64_t k = 0;
+                    const cp_vnode_t* sv2 = (xvn >= 0 && xvn < e->vnode_count)
+                                          ? e->vnodes[xvn] : NULL;
+                    if (sv2 && sv2->kind == CP_VN_EXPR && sv2->expr
+                            && sv2->expr->tag == SIR_ADD && sv2->input_count == 2
+                            && sv2->inputs[0] >= 0 && sv2->inputs[1] >= 0) {
+                        cp_const_t kc = e->vnodes[sv2->inputs[1]]->constant;
+                        if (kc.state == CP_C_KNOWN && kc.cwidth < CP_W_F32) {
+                            k = cp_known_i64(kc);
+                            xvn = sv2->inputs[0];
+                        }
+                    }
+                    if (k <= 1)
+                        proved = cp_checked_below_field_len(e, si2, xvn, cls,
+                                                            ctx->vinv_data_fld[p],
+                                                            cp_vnode_of(e, recv));
+                }
+                if (!proved && sc.state == CP_C_RANGE && sc.hi_vn1
+                        && cp_bound_base_holds(e, -1, 0, sc)) {
+                    const sir_node_t* gf = cp_len_of_field(e, sc.hi_vn1 - 1);
+                    if (gf && gf->get_field.class_id == cls
+                            && gf->get_field.field_idx == ctx->vinv_data_fld[p])
+                        proved = cp_same_value(e, cp_vnode_of(e, sir_child((sir_node_t*)gf, 0)),
+                                                cp_vnode_of(e, recv));
+                }
+            } else {
+                /* The mirror, read the same way: the count VALUE this method
+                 * holds must carry a symbolic bound naming `arraylength(stored)`.
+                 * The count value is the field's own read in this method; with
+                 * no such read there is no fact, and an absent fact is BOTTOM. */
+                for (int ci = 0; ci < ncget && !proved; ci++) {
+                    const cp_vnode_t* cv = e->vnodes[cgets[ci]];
+                    if (cv->expr->get_field.class_id != cls
+                            || cv->expr->get_field.field_idx != ctx->vinv_count_fld[p])
+                        continue;
+                    if (!cp_same_value(e, cp_vnode_of(e, sir_child(cv->expr, 0)),
+                                        cp_vnode_of(e, recv))) continue;
+                    cp_const_t cc = cv->constant;
+                    if (cc.state != CP_C_RANGE || !cc.hi_vn1 || cc.hi_sub_vn1) continue;
+                    int sv = cp_value_leader(e, val_vn);
+                    const sir_node_t* lex = cp_ultimate_expr(e, cc.hi_vn1 - 1);
+                    if (lex && lex->tag == SIR_ARRAYLENGTH) {
+                        /* The length's operand reads the array through the
+                         * overlay's backing cell; the ARRAY the bound is about
+                         * is that read's receiver (see cp_len_of_field). */
+                        sir_node_t* lc = sir_child((sir_node_t*)lex, 0);
+                        const sir_node_t* lce = lc && lc->tag == SIR_GETFIELD ? lc
+                            : cp_ultimate_expr(e, cp_vnode_of(e, lc));
+                        int la = -1;
+                        if (lce && lce->tag == SIR_GETFIELD && e->sema
+                                && lat_is_array_data_cell(e->sema, lce->get_field.class_id,
+                                                          lce->get_field.field_idx))
+                            la = cp_value_leader(e, cp_vnode_of(e, sir_child((sir_node_t*)lce, 0)));
+                        else if (lc)
+                            la = cp_value_leader(e, cp_vnode_of(e, lc));
+                        proved = (la >= 0 && sv >= 0 && la == sv);
+                    }
+                }
+                /* The check this store stands under, mirrored from the
+                 * count-store side: a crossed compare bounding the pair's
+                 * count read below the stored array's length is this
+                 * obligation verbatim, recorded at the row. */
+                if (!proved)
+                    proved = cp_checked_count_below_len(e, si2, cls,
+                                                        ctx->vinv_count_fld[p],
+                                                        cp_vnode_of(e, recv), val_vn);
+                /* §12.5 — the BASE CASE the whole induction stands on: a
+                 * constructor's fresh object holds DEFAULT field values, so a
+                 * `this`-count no store or callee has touched is 0, and 0 is
+                 * below every length. "Untouched" is the recorded version
+                 * chain at THIS row, walked exactly as the load-forwarder
+                 * walks it (cp_load_forward_target): a call's kill passes
+                 * only when the callee provably preserves the cell; the walk
+                 * ends at the SEED (§12.5: the default — proved) or at a
+                 * STORE to this object whose value proves like any other. */
+                if (!proved && is_ctor) {
+                    int rv = cp_vnode_of(e, recv);
+                    int robj = rv >= 0 ? cp_pts_sole_obj(e, e->vnodes[rv]->pts) : -1;
+                    if (robj >= 0 && robj == e->obj_this) {
+                        uint32_t ck = cp_cell_key_field(cls, ctx->vinv_count_fld[p]);
+                        int cell = e->mem_cell_count > 0 ? cp_cell_lookup(e, ck) : -1;
+                        int mem = (cell >= 0 && e->slot_in && si2 < e->slot_in_rows)
+                                ? e->slot_in[si2][e->slot_count + cell] : -1;
+                        while (mem >= 0 && mem < e->mem_rows
+                                && e->mem_kind[mem] == CP_MEM_KILL) {
+                            if (!cp_call_preserves_cell(e, robj, e->mem_cell[mem]))
+                                { mem = -1; break; }
+                            mem = e->mem_prev[mem];
+                        }
+                        if (mem >= 0 && mem < e->mem_rows) {
+                            if (e->mem_kind[mem] == CP_MEM_SEED)
+                                proved = true;
+                            else if (e->mem_kind[mem] == CP_MEM_STORE
+                                    && e->mem_obj[mem] >= 0 && e->mem_val[mem] >= 0
+                                    && e->vnodes[e->mem_obj[mem]]->partition
+                                        == e->vnodes[rv]->partition) {
+                                cp_const_t kc = e->vnodes[e->mem_val[mem]]->constant;
+                                if ((kc.state == CP_C_KNOWN && kc.cwidth < CP_W_F32
+                                        && cp_known_i64(kc) <= 0)
+                                    || (kc.state == CP_C_RANGE && kc.hi <= 0))
+                                    proved = true;
+                            }
+                        }
+                    }
+                }
+            }
+            if (!proved) ctx->vinv_holds[p] = false;
+        }
+    }
+    bbq_vec_free(cgets);
+}
+
 static void cp_summarize(compiler_ctx_t* ctx, int method_idx,
                          const sir_method_t* method, cp_engine_t* e) {
     if (!ctx || !e || method_idx < 0 || method_idx >= ctx->method_count) return;
+    /* Only while the table is still being built. Once it is published it is
+     * frozen: a verdict that could still fall is one a consumer may already
+     * have folded a guard on. */
+    if (!ctx->vinv_published) {
+        cp_vinv_collect_candidates(ctx, e);
+        cp_vinv_writer_obligations(ctx, e);
+    }
     if (!ctx->summaries) {
         ctx->summaries = (compiler_summary_t*)bbq_arena_alloc(ctx->arena,
             (size_t)(ctx->method_count > 0 ? ctx->method_count : 1) * sizeof(compiler_summary_t));
@@ -12189,6 +12843,29 @@ void compiler_summarize_to_convergence(compiler_ctx_t* ctx) {
     if (moved)
         fprintf(stderr, "compiler: interprocedural summaries did not converge in %d passes "
                 "(non-monotone?) — summaries are sound but may be imprecise\n", mc + 8);
+
+    /* The cross-field verdict is the AND over every writer's obligation in ALL
+     * methods, taken after convergence. The rounds above summarize only the
+     * methods they re-arm, and a pair becomes a candidate part-way through a
+     * round — so the methods that ran before it never put their stores to it,
+     * and obligations only ever CLEAR. One sweep over every method closes that.
+     * With no candidates the AND is over nothing and the sweep is skipped. */
+    if (ctx->vinv_count > 0) {
+        int seen = ctx->vinv_count;
+        for (int m = 0; m < mc; m++) sir_summarize(ctx, m);
+        /* A pair discovered DURING the sweep was never put to the methods the
+         * sweep had already passed. An incomplete AND is not a proof. */
+        for (int p = seen; p < ctx->vinv_count; p++) ctx->vinv_holds[p] = false;
+        /* The AND is now over every writer of every method: PUBLISH, which
+         * closes discovery and verification for good. */
+        ctx->vinv_published = true;
+        /* CONSUMPTION. §4.10 applies the PUBLISHED solve — sir_optimize
+         * replays these facts rather than re-solving — so a verdict folds a
+         * guard only if the analysis that publishes consulted it, and the
+         * analysis may consult it only now that the AND is frozen. One more
+         * round, re-publishing every method's facts with the table readable. */
+        for (int m = 0; m < mc; m++) sir_summarize(ctx, m);
+    }
 }
 
 /* The method/arena resolution both entry points need. Returns NULL when there is nothing to

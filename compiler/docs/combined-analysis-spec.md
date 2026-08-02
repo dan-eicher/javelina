@@ -177,6 +177,33 @@ the class hierarchy + array collapse. Derived, so it's free once `pts` runs.
   narrows the taken edge. Loop back-edges **widen** — read the loop scope from the
   **sidecar** (`compiler_try_region_t`-pattern recorded loop bounds), *not* a dominator-based
   natural-loop finder.
+- **Transfer, symbolic half** (the bound a value carries is a value id, not a number —
+  ABCD's constraint table, *Eliminating Array Bounds Checks on Demand*, Table 1 p.6, with
+  our own extension named as such):
+  - a value's upper bound is the TRIPLE `(hi_vn1, hi_sub_vn1, inclusivity)`: below
+    `value(hi_vn1)`, or below `value(hi_vn1) − value(hi_sub_vn1)` when the subtracted id
+    is set. The ids are **knowledge, not identity** — they are excluded from the partition
+    split comparison and included in change detection, φ-meet canonicalization, intersect,
+    widening, Refine identity/hash, the fixpoint checksum, and the published-fact strip.
+  - `A.length` self-seeds `≤ A.length` inclusive (Table 1 C1); `v := u ± c` preserves the
+    triple through a decrement and mints through a `Sub` (C3), both wrap-fenced.
+  - a branch on `v ≤ w` refines **per operand per arm** (C4), the false arm strictly.
+  - **a check that SURVIVES constrains the code after it** (C5): a §15 guard's
+    fall-through mints `idx ≤ len − 1` onto a NEW name (the Refine), never onto the
+    operand the branch condition reads — ABCD §3, "otherwise it could erroneously lead to
+    elimination of some bound checks, including the check itself".
+  - **beyond ABCD** (p.3 makes a variable+variable sum unconstrained there, so this is
+    ours and is fenced to exactly one `Add`): a guard on a SUM bounds **both** addends by
+    a DIFFERENCE — `t + p ≤ L` mints `t ≤ L − p` and `p ≤ L − t`; and `Add(t, i)` where
+    `t ≤ L − p` and `i < p` composes to `< L`. Both fenced on their own operands'
+    `lo ≥ 0`. The composition does **not** depend on the numeric interval fold, which
+    correctly refuses the sum (both addends `[0, MAX]` may overflow) — the symbolic proof
+    is what shows the add cannot wrap.
+  - a φ is a MAX node bounded by its **weakest** in-edge (ABCD Def. 2 / Eq. 1): the meet
+    drops the bound unless the ids agree, and two ids agree when their vnodes share a
+    PARTITION — an optimistic fact, so the agreement is a **recorded premise** that
+    re-arms the φ when a split retracts it (ABCD §7.1 consults value numbering on demand;
+    ours is mid-solve, so the consultation must be recorded).
 - **Consumers**: drop §15 **ArrayIndexOutOfBounds** when `idx ⊑ [0, len)`; drop **/,%
   by-zero** (ArithmeticException) when the divisor range excludes 0; drop the `INT_MIN/-1`
   overflow-wrap guard when the range excludes that pair; drop **NegativeArraySize** when the

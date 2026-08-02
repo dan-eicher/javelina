@@ -6210,6 +6210,927 @@ int main(void) {
         }
     }
 
+    /* ── V-class: `index < count ⟹ index < data.length` ───────────────────────
+     * A user guard refines the index against a COUNT FIELD, while the §15
+     * IDX_HIGH tests it against `arraylength(data-field)`. The missing link is
+     * the CLASS INVARIANT `count ≤ data.length`, which every writer of either
+     * field maintains — so the proof is whole-program, and this block runs the
+     * real driver (`compiler_summarize_to_convergence`) rather than optimizing
+     * one method in isolation.
+     *
+     * Each negative kills exactly ONE leg: the AND over writers, the object
+     * identity, the memory-version compatibility, and the bound's source.
+     * The version negative is the one a graph SCAN would get wrong while an
+     * input-read gets right — a store to `data` between the count-read and the
+     * access makes the two fields' reaching versions incompatible, which is a
+     * property of the load's inputs, not of anything reachable by walking. */
+    {
+        struct { const char* src; const char* cls; const char* m;
+                 int want_surviving; const char* what; } vcases[] = {
+          /* The growth arm carries a defensive re-check. Under the v1
+           * restriction a writer proof may not assume the invariant, and the
+           * plan's own fence (with ABCD p.3) excludes multiplication — so an
+           * UNCHECKED doubling store (`count <= count * 2 + 1` needs nonlinear
+           * arithmetic) is unprovable BY DESIGN and correctly kills the pair.
+           * The re-check is the minimal growth whose data-store proves from
+           * the method's own facts: C4's fall-through at the store's row. */
+          { "class V { private int count; private int[] data;"
+            "  V(){ data = new int[4]; count = 0; }"
+            "  void add(int x){"
+            "    if (count == data.length) {"
+            "      int[] n = new int[count * 2 + 1];"
+            "      if (count > n.length) return;"
+            "      int i = 0;"
+            "      while (i < count) { n[i] = data[i]; i = i + 1; } data = n; }"
+            "    data[count] = x; count = count + 1; }"
+            "  int get(int index){"
+            "    if (index < 0 || index >= count) return -1;"
+            "    return data[index]; } }", "V", "get", 0,
+            "mini-Vector: get's IDX_HIGH dies on the class invariant "
+            "count <= data.length" },
+          { "class V { private int count; private int[] data;"
+            "  V(){ data = new int[4]; count = 0; }"
+            "  void bad(){ count = data.length + 1; }"
+            "  int get(int index){"
+            "    if (index < 0 || index >= count) return -1;"
+            "    return data[index]; } }", "V", "get", 1,
+            "(a) ONE writer violates the invariant (count = data.length + 1) — "
+            "the AND over writers kills the pair: IDX_HIGH SURVIVES" },
+          { "class V { int count; int[] data;"
+            "  V(){ data = new int[4]; count = 4; }"
+            "  static int g(V v1, V v2, int index){"
+            "    if (index < 0 || index >= v1.count) return -1;"
+            "    return v2.data[index]; } }", "V", "g", 1,
+            "(b) two DISTINCT objects (v1.count guarding v2.data): IDX_HIGH "
+            "SURVIVES" },
+          { "class V { int count; int[] data;"
+            "  V(){ data = new int[4]; count = 4; }"
+            "  static int g(V v, int index, int[] other){"
+            "    if (index < 0 || index >= v.count) return -1;"
+            "    v.data = other;"
+            "    return v.data[index]; } }", "V", "g", 1,
+            "(c) a store to `data` between the count-read and the access — the "
+            "two fields' versions are incompatible: IDX_HIGH SURVIVES" },
+          { "class V { int count; int[] data; int other;"
+            "  V(){ data = new int[4]; count = 4; other = 99; }"
+            "  static int g(V v, int index){"
+            "    if (index < 0 || index >= v.other) return -1;"
+            "    return v.data[index]; } }", "V", "g", 1,
+            "(d) the index is bounded by a field that is NOT the pair's count: "
+            "IDX_HIGH SURVIVES" },
+        };
+        for (int t = 0; t < (int)(sizeof vcases / sizeof vcases[0]); t++) {
+            bbq_arena a; bbq_arena_init(&a, 1 << 16);
+            int nlib = 0;
+            ast_program_t* prog = build_program(vcases[t].src, &a, &nlib);
+            sema_ctx_t sctx; sema_init(&sctx, &a);
+            sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
+            if (!sir_analyze(&sctx)) printf("  (note: sema reported errors)\n");
+            compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
+            int mc = 0;
+            sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
+            compiler_summarize_to_convergence(&cctx);   /* the real driver */
+            int cid = sema_find_class(&sctx, vcases[t].cls);
+            int surviving = -1;
+            for (int i = 0; i < mc; i++) {
+                if (ms[i]->class_id != cid) continue;
+                if (!ms[i]->name || strcmp(ms[i]->name, vcases[t].m)) continue;
+                /* LOCALIZATION, positive only, read BEFORE the optimize: the
+                 * consumer's first condition is the index carrying the user
+                 * guard's count bound. The no-writer class pins this in the
+                 * table block; this is the same read on the class where a
+                 * WRITER exists, so a red here says the bound is lost upstream
+                 * of the verdict and a red on the count alone says it is lost
+                 * at the verdict's own conditions. */
+                if (t == 0) {
+                    int nfe = 0;
+                    const compiler_fact_t* fe = compiler_get_facts(&cctx, i, &nfe);
+                    cp_engine_t* ge = cp_build_ctx(&cctx, ms[i], fe, nfe);
+                    const sir_node_t* gc = NULL;
+                    for (int j = 0; j < nfe; j++)
+                        if (fe[j].kind == COMPILER_FACT_GUARD
+                                && fe[j].a == COMPILER_GUARD_ARRAY_INDEX_HIGH
+                                && fe[j].key && (int)fe[j].key->tag == SIR_BRANCH) {
+                            gc = fe[j].key->branch.cond; break;
+                        }
+                    cp_vnode_t* gv = (ge && gc) ? vnode_for(ge, gc) : NULL;
+                    cp_vnode_t* gi2 = (gv && gv->input_count > 0 && gv->inputs[0] >= 0)
+                                    ? ge->vnodes[gv->inputs[0]] : NULL;
+                    if (gi2 && gi2->constant.hi_vn1 == 0)
+                        printf("        writer-present class: guard index carries NO "
+                               "symbolic bound (state=%d)\n", (int)gi2->constant.state);
+                    CHECK(gi2 && gi2->constant.hi_vn1 != 0,
+                          "writer-present class: the guard's index still carries the "
+                          "user guard's count bound");
+                    if (ge) cp_free(ge);
+                }
+                sir_optimize(&cctx, i);
+                int nf = 0;
+                const compiler_fact_t* f = compiler_get_facts(&cctx, i, &nf);
+                surviving = 0;
+                for (int j = 0; j < nf; j++)
+                    if (f[j].kind == COMPILER_FACT_GUARD
+                            && f[j].a == COMPILER_GUARD_ARRAY_INDEX_HIGH
+                            && f[j].key && (int)f[j].key->tag == SIR_BRANCH)
+                        surviving++;
+                break;
+            }
+            if (surviving != vcases[t].want_surviving)
+                printf("        %s: %d IDX_HIGH surviving, want %d\n",
+                       vcases[t].what, surviving, vcases[t].want_surviving);
+            CHECK(surviving == vcases[t].want_surviving, vcases[t].what);
+            sema_destroy(&sctx); bbq_arena_free(&a);
+        }
+    }
+
+    /* ── The invariant TABLE itself, not just what it buys ────────────────────
+     * The verdict is a published fact, so it is pinned as one: after the driver
+     * converges, the candidate must BE in the table, and its `holds` must say
+     * what the writers actually proved. Without this the table's state is only
+     * ever visible through a temporary probe, and "why is it empty" becomes a
+     * question answered by theorising instead of by the suite.
+     *
+     * A candidate is entered only when a SURVIVING guard exhibits the shape, so
+     * this also pins the ORDERING: discovery happens during a solve, and the
+     * convergence loop has to still be running to read the writers of a pair it
+     * has just learned about. */
+    {
+        struct { const char* src; int want_pairs; int want_holds; const char* what; } tcases[] = {
+          { "class V { private int count; private int[] data;"
+            "  V(){ data = new int[4]; count = 0; }"
+            "  int get(int index){"
+            "    if (index < 0 || index >= count) return -1;"
+            "    return data[index]; } }", 1, 1,
+            "the (V, count, data) pair is IN the published table after "
+            "convergence, and its writers proved it" },
+          { "class V { private int count; private int[] data;"
+            "  V(){ data = new int[4]; count = 0; }"
+            "  void bad(){ count = data.length + 1; }"
+            "  int get(int index){"
+            "    if (index < 0 || index >= count) return -1;"
+            "    return data[index]; } }", 1, 0,
+            "…and one unprovable writer makes the SAME pair's verdict false — "
+            "the AND, published, not merely absent" },
+        };
+        for (int t = 0; t < (int)(sizeof tcases / sizeof tcases[0]); t++) {
+            bbq_arena a; bbq_arena_init(&a, 1 << 16);
+            int nlib = 0;
+            ast_program_t* prog = build_program(tcases[t].src, &a, &nlib);
+            sema_ctx_t sctx; sema_init(&sctx, &a);
+            sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
+            if (!sir_analyze(&sctx)) printf("  (note: sema reported errors)\n");
+            compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
+            int mc = 0;
+            sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
+            compiler_summarize_to_convergence(&cctx);
+            int after_sum = cctx.vinv_count;
+            /* HALF 2, on the REAL lowering: the guard's length operand has to
+             * resolve to a read of the DATA FIELD. The hand-built pin in
+             * test_click_partition shows half 1 (the index's bound names the
+             * count field) already works — and the array overlay's backing
+             * accessor is exactly what can sit between `arraylength` and the
+             * GetField. Read BEFORE the per-method optimize: consumption
+             * retags the eliminated guard, so the shape is only visible on the
+             * pre-optimize facts. */
+            if (t == 0) {
+                int nf2 = 0;
+                const compiler_fact_t* f2 = compiler_get_facts(&cctx, 0, &nf2);
+                for (int i = 0; i < mc; i++)
+                    if (ms[i]->class_id == sema_find_class(&sctx, "V")
+                            && ms[i]->name && !strcmp(ms[i]->name, "get"))
+                        f2 = compiler_get_facts(&cctx, i, &nf2);
+                const sir_node_t* lenop = NULL;
+                for (int j = 0; j < nf2; j++)
+                    if (f2[j].kind == COMPILER_FACT_GUARD
+                            && f2[j].a == COMPILER_GUARD_ARRAY_INDEX_HIGH
+                            && f2[j].key && (int)f2[j].key->tag == SIR_BRANCH) {
+                        const sir_node_t* c = f2[j].key->branch.cond;
+                        if (c) lenop = sir_child((sir_node_t*)c, 1);
+                        break;
+                    }
+                /* HALF 1 on the REAL lowering: rebuild the engine over `get`
+                 * and read the guard index's own fact. The hand-built pin shows
+                 * the mint works; this says whether it survives to the §15
+                 * guard once the whole program is in play. */
+                int gidx = -1;
+                for (int i = 0; i < mc; i++)
+                    if (ms[i]->class_id == sema_find_class(&sctx, "V")
+                            && ms[i]->name && !strcmp(ms[i]->name, "get")) gidx = i;
+                if (gidx >= 0) {
+                    int nfe = 0;
+                    const compiler_fact_t* fe = compiler_get_facts(&cctx, gidx, &nfe);
+                    cp_engine_t* ge = cp_build_ctx(&cctx, ms[gidx], fe, nfe);
+                    const sir_node_t* gc = NULL;
+                    for (int j = 0; j < nfe; j++)
+                        if (fe[j].kind == COMPILER_FACT_GUARD
+                                && fe[j].a == COMPILER_GUARD_ARRAY_INDEX_HIGH
+                                && fe[j].key && (int)fe[j].key->tag == SIR_BRANCH) {
+                            gc = fe[j].key->branch.cond; break;
+                        }
+                    cp_vnode_t* gv = (ge && gc) ? vnode_for(ge, gc) : NULL;
+                    cp_vnode_t* gi2 = (gv && gv->input_count > 0 && gv->inputs[0] >= 0)
+                                    ? ge->vnodes[gv->inputs[0]] : NULL;
+                    if (gi2 && gi2->constant.hi_vn1 == 0)
+                        printf("        half 1 (real lowering): the guard index carries "
+                               "NO symbolic bound (state=%d)\n", (int)gi2->constant.state);
+                    CHECK(gi2 && gi2->constant.hi_vn1 != 0,
+                          "half 1 (real lowering): the guard's index still carries the "
+                          "user guard's count bound");
+                    /* …and WHAT it names. The hand-built pin says GetField; the
+                     * lowering may spill `count` into a temp first, exactly as
+                     * it spills a sum before a compare. */
+                    if (ge && gi2 && gi2->constant.hi_vn1) {
+                        int bv = gi2->constant.hi_vn1 - 1;
+                        const sir_node_t* bex = (bv >= 0 && bv < ge->vnode_count
+                                                 && ge->vnodes[bv]->kind == CP_VN_EXPR)
+                                              ? ge->vnodes[bv]->expr : NULL;
+                        if (!bex || (int)bex->tag != SIR_GETFIELD)
+                            printf("        half 1c: the bound names tag %d, not "
+                                   "SIR_GETFIELD (%d)\n",
+                                   bex ? (int)bex->tag : -1, (int)SIR_GETFIELD);
+                        CHECK(bex && (int)bex->tag == SIR_GETFIELD,
+                              "half 1c: the index's bound names the COUNT FIELD read");
+                    }
+                    if (ge) cp_free(ge);
+                }
+                CHECK(lenop && (int)lenop->tag == SIR_ARRAYLENGTH,
+                      "half 2a: the IDX_HIGH guard tests against an ArrayLength");
+                if (lenop && (int)lenop->tag == SIR_ARRAYLENGTH) {
+                    const sir_node_t* arr = sir_child((sir_node_t*)lenop, 0);
+                    if (arr && (int)arr->tag != SIR_GETFIELD)
+                        printf("        half 2b: length operand's child tag is %d, "
+                               "not SIR_GETFIELD (%d)\n", (int)arr->tag, (int)SIR_GETFIELD);
+                    CHECK(arr && (int)arr->tag == SIR_GETFIELD,
+                          "half 2b: …and that ArrayLength reads the DATA FIELD directly");
+                }
+            }
+            /* …and again after the per-method optimize. The two counts LOCALISE
+             * the entry: both zero means the shape is never recognised in the
+             * whole-program setting at all; zero-then-nonzero means it is
+             * recognised only in the pass that runs AFTER the driver, which is
+             * an ordering fault and not a detection one. Without both numbers
+             * the single "table is empty" is a fact with two possible causes. */
+            int cid2 = sema_find_class(&sctx, "V");
+            for (int i = 0; i < mc; i++) {
+                if (ms[i]->class_id != cid2) continue;
+                if (!ms[i]->name || strcmp(ms[i]->name, "get")) continue;
+                sir_optimize(&cctx, i);
+                break;
+            }
+            int after_opt = cctx.vinv_count;
+            int holds = -1;
+            for (int p = 0; p < cctx.vinv_count; p++)
+                if (cctx.vinv_holds[p]) holds = 1; else if (holds < 0) holds = 0;
+            if (after_sum != tcases[t].want_pairs || after_opt != tcases[t].want_pairs)
+                printf("        %s: pairs after summarize=%d after optimize=%d, want %d\n",
+                       tcases[t].what, after_sum, after_opt, tcases[t].want_pairs);
+            CHECK(after_opt == tcases[t].want_pairs,
+                  "the guard's shape IS recognised in the whole-program setting");
+            CHECK(after_sum == tcases[t].want_pairs, tcases[t].what);
+            if (after_sum == tcases[t].want_pairs)
+                CHECK(holds == tcases[t].want_holds,
+                      tcases[t].want_holds ? "…its verdict HOLDS"
+                                           : "…its verdict is FALSE");
+            sema_destroy(&sctx); bbq_arena_free(&a);
+        }
+    }
+
+    /* ── The verdict's FOUR conditions, one fixture per condition ─────────────
+     * Elimination is conditioned on four things at once: the index carries a
+     * bound naming a COUNT field; that read and the length's DATA read name ONE
+     * object; the two reads see COMPATIBLE memory versions; and the pair's
+     * verdict HOLDS in the published table. A negative is only a pin on its own
+     * condition when the other three PASS — otherwise it says "kept", the reader
+     * believes the leg is covered, and the leg is not covered at all.
+     *
+     * That is exactly what the block above cannot say. Its (b)/(c)/(d) classes
+     * are constructed with `V(){ … count = 4; }` and `other = 99`, whose count
+     * store cannot be proved against the data length from the constructor's own
+     * facts — so their verdict is FALSE and every one of them is kept by the AND
+     * no matter what the other three conditions do. Same fixtures, rebuilt on
+     * the constructor whose writers DO prove (`count = 0`, the form the table
+     * pins record holding), so that each keeps for the reason it is named for.
+     *
+     * The positive is in the same family and is load-bearing: without it, four
+     * negatives all passing is equally consistent with a consumer that never
+     * fires. */
+    {
+        /* One class shape, five variations. The constructor is the SAME in all
+         * of them and its two stores are provable, so the pair's verdict holds
+         * for every case here and only the named condition can decide. */
+        struct { const char* src; const char* m; int want_surviving;
+                 const char* what; } pcases[] = {
+          { "class V { int count; int[] data;"
+            "  V(){ data = new int[4]; count = 0; }"
+            "  static int g(V v, int index){"
+            "    if (index < 0 || index >= v.count) return -1;"
+            "    return v.data[index]; } }", "g", 0,
+            "POSITIVE: all four conditions hold — IDX_HIGH is ELIMINATED (without "
+            "this the four negatives below are also consistent with a consumer "
+            "that never fires)" },
+          /* The cross-object guard is not the shape piece 1 collects — that shape
+           * names ONE receiver — so this class would have no candidate at all if
+           * `g` were its only guard, and the case would prove nothing. `one`
+           * supplies the same-object guard that makes the pair, and `g` is the
+           * case: a holding pair that must still not reach a guard on a
+           * DIFFERENT object. */
+          { "class V { int count; int[] data;"
+            "  V(){ data = new int[4]; count = 0; }"
+            "  static int one(V v, int index){"
+            "    if (index < 0 || index >= v.count) return -1;"
+            "    return v.data[index]; }"
+            "  static int g(V v1, V v2, int index){"
+            "    if (index < 0 || index >= v1.count) return -1;"
+            "    return v2.data[index]; } }", "g", 1,
+            "condition 2 ALONE: two DISTINCT objects (v1.count guarding "
+            "v2.data) — the pair's verdict HOLDS, so only obj != obj' can keep "
+            "this guard" },
+          /* The intervening store has to be one the writers' AND ACCEPTS, or the
+           * fixture tests the AND instead of the versions. `count = 0` is such a
+           * store — zero is below every length, so it proves — while a store to
+           * `data` is not: proving one needs the stored array's length against
+           * the count value, which no method but a constructor currently has.
+           * So the version leg is pinned on the count cell; V1's (c) keeps its
+           * data-store shape and is kept by the AND, which is what it can say. */
+          { "class V { int count; int[] data;"
+            "  V(){ data = new int[4]; count = 0; }"
+            "  static int g(V v, int index){"
+            "    if (index < 0 || index >= v.count) return -1;"
+            "    v.count = 0;"
+            "    return v.data[index]; } }", "g", 1,
+            "condition 3 ALONE: a PROVABLE store to `count` between the count-read "
+            "and the access — the pair still holds, so only the version leg can "
+            "keep this guard" },
+          /* Condition 1 is about the BOUND's source, so the guard under test must
+           * carry a bound naming no field at all — a constant. The class still
+           * needs a holding pair for the other three conditions to be satisfied,
+           * so `g` supplies it and `h` is the case. */
+          { "class V { int count; int[] data;"
+            "  V(){ data = new int[4]; count = 0; }"
+            "  static int g(V v, int index){"
+            "    if (index < 0 || index >= v.count) return -1;"
+            "    return v.data[index]; }"
+            "  static int h(V v, int index){"
+            "    if (index < 0 || index >= 4) return -1;"
+            "    return v.data[index]; } }", "h", 1,
+            "condition 1 ALONE: the index's bound is a CONSTANT, naming no count "
+            "field — the pair holds and is irrelevant to this guard" },
+        };
+        for (int t = 0; t < (int)(sizeof pcases / sizeof pcases[0]); t++) {
+            bbq_arena a; bbq_arena_init(&a, 1 << 16);
+            int nlib = 0;
+            ast_program_t* prog = build_program(pcases[t].src, &a, &nlib);
+            sema_ctx_t sctx; sema_init(&sctx, &a);
+            sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
+            if (!sir_analyze(&sctx)) printf("  (note: sema reported errors)\n");
+            compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
+            int mc = 0;
+            sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
+            compiler_summarize_to_convergence(&cctx);
+            /* The other three conditions are only "satisfied" if the verdict is
+             * one the consumer can act on, so the fixture's own premise is
+             * asserted before its outcome: a case that keeps because its pair
+             * died is not testing the leg its name claims. */
+            int holds = 0;
+            for (int p = 0; p < cctx.vinv_count; p++) if (cctx.vinv_holds[p]) holds = 1;
+            if (!holds)
+                printf("        %s: PREMISE BROKEN — no pair in the table holds, "
+                       "so this fixture cannot isolate its condition\n", pcases[t].what);
+            CHECK(holds == 1,
+                  "the fixture's own premise: its (count, data) pair's verdict HOLDS");
+            int cid = sema_find_class(&sctx, "V");
+            int surviving = -1;
+            for (int i = 0; i < mc; i++) {
+                if (ms[i]->class_id != cid) continue;
+                if (!ms[i]->name || strcmp(ms[i]->name, pcases[t].m)) continue;
+                sir_optimize(&cctx, i);
+                int nf = 0;
+                const compiler_fact_t* f = compiler_get_facts(&cctx, i, &nf);
+                surviving = 0;
+                for (int j = 0; j < nf; j++)
+                    if (f[j].kind == COMPILER_FACT_GUARD
+                            && f[j].a == COMPILER_GUARD_ARRAY_INDEX_HIGH
+                            && f[j].key && (int)f[j].key->tag == SIR_BRANCH)
+                        surviving++;
+                break;
+            }
+            if (surviving != pcases[t].want_surviving)
+                printf("        %s: %d IDX_HIGH surviving, want %d\n",
+                       pcases[t].what, surviving, pcases[t].want_surviving);
+            CHECK(surviving == pcases[t].want_surviving, pcases[t].what);
+            sema_destroy(&sctx); bbq_arena_free(&a);
+        }
+    }
+
+    /* ── The table's OWN three clauses: demand, the v1 restriction, the AND ────
+     * These are properties of the table rather than of any one guard, so each is
+     * read off the published table directly.
+     *
+     * DEMAND is the clause that keeps the table the size of the shapes a program
+     * USES: a pair is entered only when some surviving guard exhibits the shape,
+     * never by scanning the program's field pairs. A class carrying both fields
+     * and no such guard is the negative that says so — and it is the one a
+     * "collect every (int, int[]) pair in the class" implementation passes every
+     * other test without failing.
+     *
+     * The v1 RESTRICTION is that a writer proof may not assume the invariant. A
+     * store that is safe ONLY because `count <= data.length` already held is the
+     * cyclic case the restriction excludes: its pair dies, and its guards stay.
+     *
+     * The AND is over every writer in EVERY method, so it cannot depend on where
+     * the violating writer falls in the analysis order — the same violation is
+     * placed before and after the guard's method. */
+    {
+        struct { const char* src; int want_pairs; int want_holds;
+                 const char* what; } gcases[] = {
+          { "class V { int count; int[] data;"
+            "  V(){ data = new int[4]; count = 0; }"
+            "  static int g(V v, int index){"
+            "    if (index < 0 || index >= v.data.length) return -1;"
+            "    return v.data[index]; } }", 0, -1,
+            "DEMAND: a class with both fields and NO guard of the cross-field "
+            "shape enters NO candidate — the table is not a scan of field pairs" },
+          { "class V { int count; int[] data;"
+            "  V(){ data = new int[4]; count = 0; }"
+            "  void shrink(int k){ if (k <= count) count = k; }"
+            "  static int g(V v, int index){"
+            "    if (index < 0 || index >= v.count) return -1;"
+            "    return v.data[index]; } }", 1, 0,
+            "v1 RESTRICTION: a writer that maintains the invariant only BECAUSE "
+            "the invariant already held is not a proof — the pair DIES" },
+          { "class V { int count; int[] data;"
+            "  V(){ data = new int[4]; count = 0; }"
+            "  void bad(){ count = data.length + 1; }"
+            "  static int g(V v, int index){"
+            "    if (index < 0 || index >= v.count) return -1;"
+            "    return v.data[index]; } }", 1, 0,
+            "the AND, violator declared BEFORE the guard's method: verdict FALSE" },
+          { "class V { int count; int[] data;"
+            "  V(){ data = new int[4]; count = 0; }"
+            "  static int g(V v, int index){"
+            "    if (index < 0 || index >= v.count) return -1;"
+            "    return v.data[index]; }"
+            "  void bad(){ count = data.length + 1; } }", 1, 0,
+            "…and declared AFTER it: the AND is over every method, so the "
+            "verdict is FALSE either way (order-independence)" },
+          /* The writer that stands under a CHECK. `count = count + 1` after
+           * `data[count] = x` stores one more than a value the §15 check just
+           * proved below the length, so `count + 1 <= data.length` holds — from
+           * this method's own facts, with no invariant assumed. The growth path
+           * is left out on purpose: it makes the OTHER store (`data = n`) the
+           * subject, and this fixture is about the count store alone. */
+          { "class V { int count; int[] data;"
+            "  V(){ data = new int[4]; count = 0; }"
+            "  void add(int x){ data[count] = x; count = count + 1; }"
+            "  static int g(V v, int index){"
+            "    if (index < 0 || index >= v.count) return -1;"
+            "    return v.data[index]; } }", 1, 1,
+            "a count store under the array check proves from the check itself: "
+            "`count < len` gives `count + 1 <= len`" },
+          /* The base case the whole induction stands on is §12.5, and §12.5 is
+           * about a CONSTRUCTOR's freshly created object. The identical store in
+           * an ordinary method has no default to lean on — the object it writes
+           * has been live and its count may hold anything — so the discharge must
+           * not apply there, and the pair dies fail-closed. */
+          { "class V { int count; int[] data;"
+            "  V(){ count = 0; }"
+            "  void init(){ data = new int[4]; }"
+            "  static int g(V v, int index){"
+            "    if (index < 0 || index >= v.count) return -1;"
+            "    return v.data[index]; } }", 1, 0,
+            "§12.5 is a CONSTRUCTOR's fresh object: the same data-store in an "
+            "ordinary method proves nothing, so the pair DIES" },
+          /* The DATA-store mirror of the check-readout: a growth arm that
+           * re-checks its own postcondition. The unchecked doubling store is
+           * unprovable BY DESIGN (count <= count*2+1 is multiplication
+           * reasoning — outside ABCD p.3 and this tier's fence), and the
+           * crossed `count > n.length` fall-through is the obligation
+           * verbatim: `count <= arraylength(stored)`, at the store's row. */
+          { "class V { int count; int[] data;"
+            "  V(){ data = new int[4]; count = 0; }"
+            "  void grow(){"
+            "    int[] n = new int[count * 2 + 1];"
+            "    if (count > n.length) return;"
+            "    data = n; }"
+            "  static int g(V v, int index){"
+            "    if (index < 0 || index >= v.count) return -1;"
+            "    return v.data[index]; } }", 1, 1,
+            "a data store under its own re-check proves from the check itself: "
+            "the crossed `count > n.length` fall-through is the obligation" },
+        };
+        for (int t = 0; t < (int)(sizeof gcases / sizeof gcases[0]); t++) {
+            bbq_arena a; bbq_arena_init(&a, 1 << 16);
+            int nlib = 0;
+            ast_program_t* prog = build_program(gcases[t].src, &a, &nlib);
+            sema_ctx_t sctx; sema_init(&sctx, &a);
+            sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
+            if (!sir_analyze(&sctx)) printf("  (note: sema reported errors)\n");
+            compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
+            int mc = 0;
+            compiler_compile(&cctx, prog, &mc);
+            compiler_summarize_to_convergence(&cctx);
+            if (cctx.vinv_count != gcases[t].want_pairs)
+                printf("        %s: %d pairs, want %d\n",
+                       gcases[t].what, cctx.vinv_count, gcases[t].want_pairs);
+            CHECK(cctx.vinv_count == gcases[t].want_pairs, gcases[t].what);
+            if (gcases[t].want_holds >= 0 && cctx.vinv_count == gcases[t].want_pairs) {
+                int holds = 0;
+                for (int p = 0; p < cctx.vinv_count; p++) if (cctx.vinv_holds[p]) holds = 1;
+                CHECK(holds == gcases[t].want_holds,
+                      gcases[t].want_holds ? "…and its verdict HOLDS"
+                                           : "…and its verdict is FALSE");
+            }
+            /* IMMUTABLE during any later per-method solve — the property that
+             * lets a consumer read a verdict with no re-arm machinery. Snapshot
+             * the whole table, run the per-method pass over EVERY method, and
+             * compare: a table that grows or whose verdicts move during that
+             * pass has already been read by a guard that folded on the old one. */
+            int pre_count = cctx.vinv_count;
+            bool pre[8];
+            for (int p = 0; p < pre_count && p < 8; p++) pre[p] = cctx.vinv_holds[p];
+            for (int i = 0; i < mc; i++) sir_optimize(&cctx, i);
+            bool same = (cctx.vinv_count == pre_count);
+            for (int p = 0; p < pre_count && p < 8 && same; p++)
+                same = (cctx.vinv_holds[p] == pre[p]);
+            if (!same)
+                printf("        table MOVED during the per-method pass: %d pairs "
+                       "before, %d after\n", pre_count, cctx.vinv_count);
+            CHECK(same, "the published table is IMMUTABLE across the later "
+                        "per-method solve — discovery and verification are closed");
+            sema_destroy(&sctx); bbq_arena_free(&a);
+        }
+    }
+
+    /* ── Two reads of ONE field are one value, in the LOWERED shape ───────────
+     * The sibling of §7.3: an element write cannot change what a FIELD read
+     * sees, so `count` before `data[count] = x` and `count` after it are the
+     * same value — one cell, one receiver, one reaching version. Every proof
+     * that spans a statement rests on this, and it was pinned only on
+     * hand-built SIR, where the lowering's spills and overlay accessors are
+     * absent. Asserted here on the real thing, with the version question split
+     * out: if the reads carry DIFFERENT versions, the element store killed a
+     * cell it cannot have touched, and that is a different defect from two
+     * congruent reads failing to land in one partition. */
+    {
+        bbq_arena a; bbq_arena_init(&a, 1 << 16);
+        int nlib = 0;
+        ast_program_t* prog = build_program(
+            "class V { int count; int[] data;"
+            "  V(){ data = new int[4]; count = 0; }"
+            "  void add(int x){ data[count] = x; count = count + 1; } }", &a, &nlib);
+        sema_ctx_t sctx; sema_init(&sctx, &a);
+        sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
+        if (!sir_analyze(&sctx)) printf("  (note: sema reported errors)\n");
+        compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
+        int mc = 0;
+        sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
+        int reads = 0, same_ver = -1, same_part = -1;
+        for (int i = 0; i < mc; i++) {
+            if (ms[i]->class_id < nlib) continue;
+            if (!ms[i]->name || strcmp(ms[i]->name, "add")) continue;
+            int nf = 0;
+            const compiler_fact_t* fs = compiler_get_facts(&cctx, i, &nf);
+            cp_engine_t* e = cp_build_ctx(&cctx, ms[i], fs, nf);
+            if (!e) break;
+            int first = -1;
+            for (int v = 0; v < e->vnode_count; v++) {
+                const cp_vnode_t* vn = e->vnodes[v];
+                if (vn->kind != CP_VN_EXPR || !vn->expr) continue;
+                if (vn->expr->tag != SIR_GETFIELD) continue;
+                if (vn->expr->get_field.field_idx != 0) continue;   /* count */
+                if (vn->expr->get_field.class_id < nlib) continue;
+                reads++;
+                if (first < 0) { first = v; continue; }
+                const cp_vnode_t* f0 = e->vnodes[first];
+                same_part = (f0->partition >= 0 && f0->partition == vn->partition);
+                same_ver = (f0->input_count >= 2 && vn->input_count >= 2
+                            && f0->inputs[f0->input_count - 1]
+                               == vn->inputs[vn->input_count - 1]);
+            }
+            cp_free(e);
+            break;
+        }
+        if (reads < 2 || same_ver != 1 || same_part != 1)
+            printf("        lowered field reads: count=%d same_version=%d "
+                   "same_partition=%d\n", reads, same_ver, same_part);
+        CHECK(reads >= 2, "the fixture really does read `count` twice");
+        CHECK(same_ver == 1,
+              "an element write cannot change a FIELD's contents, so both reads "
+              "carry the same reaching version");
+        CHECK(same_part == 1,
+              "…and two reads of one cell, one receiver, one version are ONE "
+              "value: same partition");
+        sema_destroy(&sctx); bbq_arena_free(&a);
+    }
+
+    /* ── The readout's four links, on the REAL lowering ───────────────────────
+     * The hand-built pins show the channel works: the check's fall-through is
+     * recorded at the store's row and the checked value is the stored value's
+     * operand. The whole-program obligation still fails, so one of those links
+     * does not survive the lowering — the spilled index, the overlay's backing
+     * accessor, the extra guards. Each link is asserted separately here so the
+     * failure names which one, instead of "the verdict is false". */
+    {
+        bbq_arena a; bbq_arena_init(&a, 1 << 16);
+        int nlib = 0;
+        ast_program_t* prog = build_program(
+            "class V { int count; int[] data;"
+            "  V(){ data = new int[4]; count = 0; }"
+            "  void add(int x){ data[count] = x; count = count + 1; } }", &a, &nlib);
+        sema_ctx_t sctx; sema_init(&sctx, &a);
+        sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
+        if (!sir_analyze(&sctx)) printf("  (note: sema reported errors)\n");
+        compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
+        int mc = 0;
+        sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
+        int have_row = 0, have_fact = 0, have_ge = 0, same_val = 0;
+        for (int i = 0; i < mc; i++) {
+            if (ms[i]->class_id < nlib) continue;
+            if (!ms[i]->name || strcmp(ms[i]->name, "add")) continue;
+            int nf = 0;
+            const compiler_fact_t* fs = compiler_get_facts(&cctx, i, &nf);
+            cp_engine_t* e = cp_build_ctx(&cctx, ms[i], fs, nf);
+            if (!e) break;
+            for (int r = 0; r < e->spine_count; r++) {
+                sir_node_t* n = e->spine[r];
+                if (n->tag != SIR_PUTFIELD) continue;
+                if (!e->verdict_words || r >= e->verdict_rows) continue;
+                have_row = 1;
+                /* Resolve to the value it ultimately IS BEFORE matching its
+                 * shape: the lowering spills both the sum and the compared
+                 * value into temps, so the store names a slot read and the Add
+                 * is a hop further in. Written out rather than calling the
+                 * engine's own walk — an oracle that calls the routine under
+                 * test proves nothing. */
+                cp_vnode_t* xv = vnode_for(e, n->put_field.value);
+                for (int pass = 0; pass < 2; pass++) {
+                    for (int h = 0; h < 64 && xv; h++) {
+                        if (xv->leader >= 0) { xv = e->vnodes[xv->leader]; continue; }
+                        if (xv->kind == CP_VN_REFINE && xv->input_count >= 1
+                                && xv->inputs[0] >= 0)
+                            { xv = e->vnodes[xv->inputs[0]]; continue; }
+                        if (xv->kind == CP_VN_EXPR && xv->expr
+                                && xv->expr->tag == SIR_LOADLOCAL
+                                && xv->input_count == 1 && xv->inputs[0] >= 0)
+                            { xv = e->vnodes[xv->inputs[0]]; continue; }
+                        break;
+                    }
+                    if (pass == 0 && xv && xv->kind == CP_VN_EXPR && xv->expr
+                            && xv->expr->tag == SIR_ADD && xv->input_count == 2
+                            && xv->inputs[0] >= 0)
+                        xv = e->vnodes[xv->inputs[0]];
+                }
+                int xvn = (xv && xv->partition >= 0) ? xv->partition : -1;
+                const uint64_t* w = e->verdict_words + (size_t)r * e->verdict_stride;
+                for (int q = 0; q < e->verdict_stride; q++) {
+                    uint64_t bits = w[q];
+                    while (bits) {
+                        int fid = q * 64 + __builtin_ctzll(bits);
+                        bits &= bits - 1;
+                        if (fid & 1) continue;
+                        have_fact = 1;
+                        int fb = e->fact_branch[fid >> 1];
+                        int cvn = fb >= 0 ? e->branch_cond_vn[fb] : -1;
+                        if (cvn < 0 || cvn >= e->vnode_count) continue;
+                        const cp_vnode_t* cv = e->vnodes[cvn];
+                        if (cv->kind != CP_VN_EXPR || !cv->expr
+                                || cv->expr->tag != SIR_GE || cv->input_count < 2) continue;
+                        have_ge = 1;
+                        cp_vnode_t* tv = cv->inputs[0] >= 0
+                                       ? e->vnodes[cv->inputs[0]] : NULL;
+                        for (int h = 0; h < 64 && tv; h++) {
+                            if (tv->leader >= 0) { tv = e->vnodes[tv->leader]; continue; }
+                            if (tv->kind == CP_VN_REFINE && tv->input_count >= 1
+                                    && tv->inputs[0] >= 0)
+                                { tv = e->vnodes[tv->inputs[0]]; continue; }
+                            if (tv->kind == CP_VN_EXPR && tv->expr
+                                    && tv->expr->tag == SIR_LOADLOCAL
+                                    && tv->input_count == 1 && tv->inputs[0] >= 0)
+                                { tv = e->vnodes[tv->inputs[0]]; continue; }
+                            break;
+                        }
+                        if (tv && xvn >= 0 && tv->partition == xvn) same_val = 1;
+                    }
+                }
+            }
+            cp_free(e);
+            break;
+        }
+        if (!(have_row && have_fact && have_ge && same_val))
+            printf("        readout links on the real lowering: row=%d fact=%d "
+                   "ge=%d same_value=%d\n", have_row, have_fact, have_ge, same_val);
+        CHECK(have_row, "LINK 1: the count store's row has a published verdict row");
+        CHECK(have_fact, "LINK 2: …carrying a FALL-THROUGH fact of some check");
+        CHECK(have_ge, "LINK 3: …one of which is a GE — the §15 upper-bound shape");
+        CHECK(same_val, "LINK 4: …whose tested value IS the value the store "
+                        "increments (one partition)");
+        sema_destroy(&sctx); bbq_arena_free(&a);
+    }
+
+    /* ── The blessed no-op ctor is blessed from DECLARATIONS, and fails closed ─
+     * A §8.8.9 synthesized default constructor runs `super()` and this class's
+     * instance-variable initializers and nothing else, so an imported one with
+     * neither is a call the analysis knows is empty — that is what lets a user
+     * ctor's `this` survive its own `super()` when the library is
+     * declaration-only, and it is the base case §12.5's discharge stands on.
+     * The blessing is only sound while every link of the chain has that shape.
+     * Here the superclass DECLARES its constructors, so the chain breaks, the
+     * call stays a bottom method, `this` is poisoned, and the discharge that
+     * needs it fails — the pair's verdict goes false rather than being taken on
+     * trust. The same fixture with the default chain holds it (the table pins
+     * above), so this is the fail-closed half of that pair. */
+    {
+        bbq_arena a; bbq_arena_init(&a, 1 << 16);
+        int nlib = 0;
+        ast_program_t* prog = build_program(
+            "class W extends java.util.Vector {"
+            "  int count; int[] data;"
+            "  W(){ data = new int[4]; count = 0; }"
+            "  int get(int index){"
+            "    if (index < 0 || index >= count) return -1;"
+            "    return data[index]; } }", &a, &nlib);
+        sema_ctx_t sctx; sema_init(&sctx, &a);
+        sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
+        if (!sir_analyze(&sctx)) printf("  (note: sema reported errors)\n");
+        compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
+        int mc = 0;
+        compiler_compile(&cctx, prog, &mc);
+        compiler_summarize_to_convergence(&cctx);
+        int holds = -1;
+        for (int p = 0; p < cctx.vinv_count; p++)
+            if (cctx.vinv_holds[p]) holds = 1; else if (holds < 0) holds = 0;
+        if (holds == 1)
+            printf("        import-ctor: a superclass that DECLARES its ctors was "
+                   "still treated as an empty call\n");
+        CHECK(holds != 1,
+              "a super chain that does not consist of synthesized default ctors "
+              "is NOT blessed: the call stays bottom and the §12.5 discharge "
+              "fails closed");
+        sema_destroy(&sctx); bbq_arena_free(&a);
+    }
+
+    /* ── The published-fact strip, at the boundary that can actually leak ─────
+     * A symbolic bound is a per-method VNODE ID and means nothing in another
+     * method. The summary struct cannot carry one — its range is two scalars —
+     * so the leak cannot happen there. It can happen at the CONSUMER: whatever a
+     * caller builds from a callee's summary is a fresh fact, and if it were
+     * given a symbolic half, the id would name some unrelated node of the
+     * CALLER, and a guard could fold against a bound that was never about it.
+     *
+     * The callee returns a value carrying exactly such a bound (`i` under
+     * `i < a.length`), and the caller does nothing but call and index, so any
+     * upper-bound id on the index is one that crossed the boundary. */
+    {
+        bbq_arena a; bbq_arena_init(&a, 1 << 16);
+        int nlib = 0;
+        ast_program_t* prog = build_program(
+            "class T {"
+            "  static int idx(int[] a, int i){"
+            "    if (i < 0 || i >= a.length) return 0;"
+            "    return i; }"
+            "  static int g(int[] b, int[] a, int i){"
+            "    return b[idx(a, i)]; } }", &a, &nlib);
+        sema_ctx_t sctx; sema_init(&sctx, &a);
+        sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
+        if (!sir_analyze(&sctx)) printf("  (note: sema reported errors)\n");
+        compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
+        int mc = 0;
+        sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
+        compiler_summarize_to_convergence(&cctx);
+        int leaked = -1, surviving = -1;
+        for (int i = 0; i < mc; i++) {
+            if (ms[i]->class_id < nlib) continue;
+            if (!ms[i]->name || strcmp(ms[i]->name, "g")) continue;
+            int nf = 0;
+            const compiler_fact_t* fe = compiler_get_facts(&cctx, i, &nf);
+            cp_engine_t* ge = cp_build_ctx(&cctx, ms[i], fe, nf);
+            if (ge) {
+                leaked = 0; surviving = 0;
+                for (int j = 0; j < nf; j++) {
+                    if (fe[j].kind != COMPILER_FACT_GUARD) continue;
+                    if (fe[j].a != COMPILER_GUARD_ARRAY_INDEX_HIGH) continue;
+                    if (!fe[j].key || (int)fe[j].key->tag != SIR_BRANCH) continue;
+                    surviving++;
+                    cp_vnode_t* gv = vnode_for(ge, fe[j].key->branch.cond);
+                    if (gv && gv->input_count > 0 && gv->inputs[0] >= 0
+                            && ge->vnodes[gv->inputs[0]]->constant.hi_vn1 != 0)
+                        leaked = 1;
+                }
+                cp_free(ge);
+            }
+            break;
+        }
+        if (leaked != 0)
+            printf("        strip: the caller's index carries a symbolic upper "
+                   "bound that can only have come from the callee\n");
+        CHECK(leaked == 0,
+              "the published strip holds at the CONSUMER: a callee's per-method "
+              "vnode id never becomes a bound in its caller");
+        CHECK(surviving == 1,
+              "…and the pin is not vacuous: the caller's IDX_HIGH is there to "
+              "have been folded by such a bound");
+        sema_destroy(&sctx); bbq_arena_free(&a);
+    }
+
+    /* ── §7.3: "no statement can change the size of an array" ─────────────────
+     * The paper's aliasing argument, and the engine leans on it every time two
+     * reads of one array's length are counted as one value. A store to an
+     * unrelated field sits between the guard and the access here: if the length
+     * reads either side of it are two values, the bound the guard established
+     * cannot reach the access and its check survives. */
+    {
+        bbq_arena a; bbq_arena_init(&a, 1 << 16);
+        int nlib = 0;
+        ast_program_t* prog = build_program(
+            "class T { int f;"
+            "  static int g(T o, int[] a, int i){"
+            "    if (i < 0 || i >= a.length) return -1;"
+            "    o.f = i;"
+            "    return a[i]; } }", &a, &nlib);
+        sema_ctx_t sctx; sema_init(&sctx, &a);
+        sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
+        if (!sir_analyze(&sctx)) printf("  (note: sema reported errors)\n");
+        compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
+        int mc = 0;
+        sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
+        int surviving = -1;
+        for (int i = 0; i < mc; i++) {
+            if (ms[i]->class_id < nlib) continue;
+            if (!ms[i]->name || strcmp(ms[i]->name, "g")) continue;
+            sir_optimize(&cctx, i);
+            int nf = 0;
+            const compiler_fact_t* f = compiler_get_facts(&cctx, i, &nf);
+            surviving = 0;
+            for (int j = 0; j < nf; j++)
+                if (f[j].kind == COMPILER_FACT_GUARD
+                        && f[j].a == COMPILER_GUARD_ARRAY_INDEX_HIGH
+                        && f[j].key && (int)f[j].key->tag == SIR_BRANCH)
+                    surviving++;
+            break;
+        }
+        if (surviving != 0)
+            printf("        §7.3: %d IDX_HIGH surviving, want 0\n", surviving);
+        CHECK(surviving == 0,
+              "§7.3: a store to an unrelated field cannot change an array's "
+              "size, so the guard's bound still reaches the access");
+        sema_destroy(&sctx); bbq_arena_free(&a);
+    }
+
+    /* ── §6/§6.2: a check does not MOVE ───────────────────────────────────────
+     * ABCD's PRE inserts compensation checks to make a partially redundant check
+     * fully redundant; its own §6.2 concedes traps cannot move, and here the
+     * guard IS the trap with its location pinned by precise exceptions. So a
+     * loop-INVARIANT bounds check — the paper's own motivating example for PRE —
+     * must stay inside the loop, however invariant it is. The oracle is the
+     * recorded LOOP row, the same sidecar the hoisting pins below consult. */
+    {
+        bbq_arena a; bbq_arena_init(&a, 1 << 16);
+        int nlib = 0;
+        ast_program_t* prog = build_program(
+            "class T { static int f(int[] a, int n){ int h = 0;"
+            "  for (int i = 0; i < n; i++) h += a[3];"
+            "  return h; } }", &a, &nlib);
+        sema_ctx_t sctx; sema_init(&sctx, &a);
+        sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
+        if (!sir_analyze(&sctx)) printf("  (note: sema reported errors)\n");
+        compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
+        int mc = 0;
+        sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
+        int in_prefix = -1;
+        for (int i = 0; i < mc; i++) {
+            if (ms[i]->class_id < nlib) continue;
+            if (!ms[i]->name || strcmp(ms[i]->name, "f")) continue;
+            sir_optimize(&cctx, i);
+            int nf = 0;
+            const compiler_fact_t* fs = compiler_get_facts(&cctx, i, &nf);
+            const sir_node_t* ltop = NULL;
+            for (int j = 0; j < nf; j++)
+                if (fs[j].kind == COMPILER_FACT_SCOPE && fs[j].a == COMPILER_SCOPE_LOOP)
+                    ltop = fs[j].key;
+            if (!ltop) break;
+            /* Is any surviving IDX guard's Branch in the ENTRY PREFIX — i.e. did
+             * a check leave the loop? */
+            in_prefix = 0;
+            for (int j = 0; j < nf; j++) {
+                if (fs[j].kind != COMPILER_FACT_GUARD) continue;
+                if (fs[j].a != COMPILER_GUARD_ARRAY_INDEX_HIGH
+                        && fs[j].a != COMPILER_GUARD_ARRAY_INDEX_LOW) continue;
+                if (!fs[j].key || (int)fs[j].key->tag != SIR_BRANCH) continue;
+                for (sir_node_t* n = ms[i]->entry; n && n != ltop; n = sir_get_next(n))
+                    if (n == fs[j].key) { in_prefix = 1; break; }
+                if (in_prefix) break;
+            }
+            break;
+        }
+        if (in_prefix != 0)
+            printf("        §6.2: a bounds check moved into the entry prefix "
+                   "(in_prefix=%d)\n", in_prefix);
+        CHECK(in_prefix == 0,
+              "§6.2: the guard IS the trap and precise exceptions pin its "
+              "location — a loop-invariant check is never hoisted out");
+        sema_destroy(&sctx); bbq_arena_free(&a);
+    }
+
     /* ── LICM-lite: a pure loop-invariant tree computes ONCE, before the header ──
      * Oracle: after sir_optimize, the SIR_MUL of `x * y` (both operands defined
      * before the loop) lives in the ENTRY PREFIX — the next-chain from

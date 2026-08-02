@@ -2987,6 +2987,588 @@ static void test_cp_difference_bound_second_id_must_agree(void) {
     bbq_arena_free(&a);
 }
 
+/* ── Can a READOUT prove the store from what is already recorded? ──────────
+ *
+ * The obligation on `count = count + 1` needs `stored ≤ arraylength(data)`, and
+ * the fact that establishes it is the check on `data[count] = x` that every
+ * path to the store crossed. The question is whether that is READABLE where the
+ * store is, or whether it would have to be pushed onto the store's operand by
+ * something that goes looking for congruent readers.
+ *
+ * The §3.6 verdict rows are the channel: per spine node, the (branch, taken-bit)
+ * facts every path from entry crosses, with each recorded branch's condition
+ * vnode beside them. This walks that record the way a readout would — an
+ * indexed row, then its own bits — and asserts the three things such a readout
+ * depends on, separately, so a failure names WHICH one is missing. The decode is
+ * written out here rather than calling the engine's own consumer: an oracle that
+ * calls the routine under test proves nothing.
+ *
+ * The last one is the link that makes the proof: the value the recorded check
+ * TESTED must be the value the store's increment READS. */
+static void test_cp_recorded_check_is_readable_at_the_store(void) {
+    bbq_arena a; bbq_arena_init(&a, 1 << 16);
+    /* slot 0 = o (ref); field 0 = count, field 1 = data */
+    sir_node_t* dat  = sir_get_field(&a, SIR_DTREF,
+        sir_load_local(&a, 0, SIR_DTREF, NULL), 0, 1);
+    sir_node_t* cnt1 = sir_get_field(&a, SIR_DTINT,
+        sir_load_local(&a, 0, SIR_DTREF, NULL), 0, 0);
+    sir_node_t* cnt2 = sir_get_field(&a, SIR_DTINT,
+        sir_load_local(&a, 0, SIR_DTREF, NULL), 0, 0);
+    sir_node_t* inc  = sir_add(&a, SIR_DTINT, cnt2,
+        sir_load_const(&a, 1, SIR_DTINT));
+    sir_node_t* guard = sir_ge(&a, cnt1, sir_array_length(&a, dat));
+    /* the fall-through: `count = count + 1`, the row the obligation walks */
+    sir_node_t* store = sir_put_field(&a, SIR_DTINT,
+        sir_load_local(&a, 0, SIR_DTREF, NULL), 0, 0, inc,
+        sir_return(&a, sir_load_const(&a, 0, SIR_DTINT), SIR_DTINT));
+    sir_node_t* brG = sir_branch(&a, guard,
+        sir_return(&a, sir_load_const(&a, 1, SIR_DTINT), SIR_DTINT), store);
+    sir_method_t* m = sir_method(&a, "readout", 0, 1, 1, brG);
+    cp_engine_t* e = cp_build(m, NULL, &a, NULL, 0);
+    TEST_ASSERT_NOT_NULL(e);
+
+    int brow = -1, srow = -1;
+    for (int i = 0; i < e->spine_count; i++) {
+        if (e->spine[i] == brG)  brow = i;
+        if (e->spine[i] == store) srow = i;
+    }
+    TEST_ASSERT_TRUE_MESSAGE(brow >= 0 && srow >= 0,
+        "the fixture's branch and store are both spine rows");
+    TEST_ASSERT_TRUE_MESSAGE(e->verdict_words != NULL && e->verdict_rows > srow,
+        "STEP 1: the verdict rows are computed in the configuration a readout "
+        "runs in — NULL here means the channel does not exist to be read");
+    TEST_ASSERT_TRUE_MESSAGE(e->branch_fact_ord && e->branch_fact_ord[brow] >= 0,
+        "STEP 2: the check's branch is one of the RECORDED facts — no ordinal "
+        "means the check is invisible to the record");
+
+    /* STEP 3: at the store's row, is the recorded verdict for that branch
+     * "condition FALSE", i.e. the path crossed the check's fall-through? */
+    int bit = -1, tested_vn = -1;
+    if (e->verdict_words && e->verdict_rows > srow) {
+        const uint64_t* row = e->verdict_words + (size_t)srow * e->verdict_stride;
+        for (int w = 0; w < e->verdict_stride; w++) {
+            uint64_t bits = row[w];
+            while (bits) {
+                int fid = w * 64 + __builtin_ctzll(bits);
+                bits &= bits - 1;
+                if (e->fact_branch[fid >> 1] != brow) continue;
+                bit = fid & 1;
+                tested_vn = e->branch_cond_vn[brow];
+            }
+        }
+    }
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, bit,
+        "STEP 3: every path to the store crossed the check's FALL-THROUGH, and "
+        "the row records it — -1 means the fact is not readable where the "
+        "obligation stands");
+    /* STEP 4: the recorded condition's tested operand and the store's operand
+     * are ONE value, which is what turns `X < len` into `stored = X + 1 <= len`. */
+    cp_vnode_t* cv = (tested_vn >= 0 && tested_vn < e->vnode_count)
+                   ? e->vnodes[tested_vn] : NULL;
+    cp_vnode_t* c2 = cp_vnode_for(e, cnt2);
+    TEST_ASSERT_TRUE_MESSAGE(cv && cv->input_count >= 1 && cv->inputs[0] >= 0
+            && c2 && e->vnodes[cv->inputs[0]]->partition >= 0
+            && e->vnodes[cv->inputs[0]]->partition == c2->partition,
+        "STEP 4: the value the recorded check TESTED is the value the store's "
+        "increment READS — one partition, which is the link the proof needs");
+    cp_free(e);
+    bbq_arena_free(&a);
+}
+
+/* ── …and the same readout with the STORE the check guards in between ─────
+ * `data[count] = x; count = count + 1;` — the element write sits between the
+ * check and the store that must be proved. It writes an ARRAY cell, not the
+ * count field, so the two reads of `count` still share a memory version and are
+ * still one value. If they are not, the readout's last link is broken by a
+ * store that cannot have touched what it reads. */
+static void test_cp_recorded_check_survives_the_array_store(void) {
+    bbq_arena a; bbq_arena_init(&a, 1 << 16);
+    /* slot 0 = o (ref), 1 = x; field 0 = count, field 1 = data */
+    sir_node_t* dat  = sir_get_field(&a, SIR_DTREF,
+        sir_load_local(&a, 0, SIR_DTREF, NULL), 0, 1);
+    sir_node_t* cnt1 = sir_get_field(&a, SIR_DTINT,
+        sir_load_local(&a, 0, SIR_DTREF, NULL), 0, 0);
+    sir_node_t* cnt2 = sir_get_field(&a, SIR_DTINT,
+        sir_load_local(&a, 0, SIR_DTREF, NULL), 0, 0);
+    sir_node_t* inc  = sir_add(&a, SIR_DTINT, cnt2,
+        sir_load_const(&a, 1, SIR_DTINT));
+    sir_node_t* guard = sir_ge(&a, cnt1, sir_array_length(&a, dat));
+    sir_node_t* store = sir_put_field(&a, SIR_DTINT,
+        sir_load_local(&a, 0, SIR_DTREF, NULL), 0, 0, inc,
+        sir_return(&a, sir_load_const(&a, 0, SIR_DTINT), SIR_DTINT));
+    /* the guarded element write, between the check and the field store */
+    sir_node_t* astore = sir_array_store(&a, SIR_DTINT,
+        sir_get_field(&a, SIR_DTREF, sir_load_local(&a, 0, SIR_DTREF, NULL), 0, 1),
+        sir_get_field(&a, SIR_DTINT, sir_load_local(&a, 0, SIR_DTREF, NULL), 0, 0),
+        sir_load_local(&a, 1, SIR_DTINT, NULL), store, NULL);
+    sir_node_t* brG = sir_branch(&a, guard,
+        sir_return(&a, sir_load_const(&a, 1, SIR_DTINT), SIR_DTINT), astore);
+    sir_method_t* m = sir_method(&a, "readout2", 0, 2, 2, brG);
+    cp_engine_t* e = cp_build(m, NULL, &a, NULL, 0);
+    TEST_ASSERT_NOT_NULL(e);
+    int srow = -1;
+    for (int i = 0; i < e->spine_count; i++) if (e->spine[i] == store) srow = i;
+    TEST_ASSERT_TRUE_MESSAGE(srow >= 0, "the store is a spine row");
+    cp_vnode_t* v1 = cp_vnode_for(e, cnt1);
+    cp_vnode_t* v2 = cp_vnode_for(e, cnt2);
+    TEST_ASSERT_NOT_NULL(v1); TEST_ASSERT_NOT_NULL(v2);
+    TEST_ASSERT_TRUE_MESSAGE(v1->partition >= 0 && v1->partition == v2->partition,
+        "an ARRAY element write does not touch the count FIELD, so the read the "
+        "check tested and the read the store increments are still one value");
+    int seen = 0;
+    if (e->verdict_words && e->verdict_rows > srow) {
+        const uint64_t* w = e->verdict_words + (size_t)srow * e->verdict_stride;
+        for (int i = 0; i < e->verdict_stride; i++) {
+            uint64_t bits = w[i];
+            while (bits) {
+                int fid = i * 64 + __builtin_ctzll(bits);
+                bits &= bits - 1;
+                if ((fid & 1) == 0) seen = 1;
+            }
+        }
+    }
+    TEST_ASSERT_EQUAL_INT_MESSAGE(1, seen,
+        "…and the check's fall-through is still recorded at the store's row");
+    cp_free(e);
+    bbq_arena_free(&a);
+}
+
+/* ── …and the DATA-store mirror's link: the re-check names the STORED array ─
+ * `int[] n = new int[p]; if (count > n.length) return; data = n;` — the
+ * crossed check's fall-through is `count ≤ arraylength(n)`, the data-store
+ * obligation verbatim. The §10.7 identity makes `n.length` a FOLLOWER of the
+ * SIZE expression, so a decode that reads only the END of the leader chain
+ * sees the size and never the ARRAYLENGTH — the identity must stay READABLE
+ * on the chain (the engine's own no-path-compression rule is what guarantees
+ * a hop-walk still visits it). Decoded by hand: an oracle that calls the
+ * routine under test proves nothing. */
+static void test_cp_recheck_names_the_stored_arrays_length(void) {
+    bbq_arena a; bbq_arena_init(&a, 1 << 16);
+    /* slot 0 = o (ref), 1 = p (int), 2 = n (ref); field 0 = count, 1 = data */
+    sir_node_t* cnt = sir_get_field(&a, SIR_DTINT,
+        sir_load_local(&a, 0, SIR_DTREF, NULL), 0, 0);
+    sir_node_t* len = sir_array_length(&a, sir_load_local(&a, 2, SIR_DTREF, NULL));
+    sir_node_t* nread = sir_load_local(&a, 2, SIR_DTREF, NULL);
+    sir_node_t* store = sir_put_field(&a, SIR_DTREF,
+        sir_load_local(&a, 0, SIR_DTREF, NULL), 0, 1, nread,
+        sir_return(&a, sir_load_const(&a, 0, SIR_DTINT), SIR_DTINT));
+    sir_node_t* brR = sir_branch(&a, sir_gt(&a, cnt, len),
+        sir_return(&a, sir_load_const(&a, 1, SIR_DTINT), SIR_DTINT), store);
+    sir_node_t* mk = sir_store_local(&a, 2, SIR_DTREF, NULL,
+        sir_new_array(&a, SIR_ATINT, sir_load_local(&a, 1, SIR_DTINT, NULL)), brR);
+    sir_method_t* m = sir_method(&a, "recheck", 0, 2, 3, mk);
+    cp_engine_t* e = cp_build(m, NULL, &a, NULL, 0);
+    TEST_ASSERT_NOT_NULL(e);
+
+    int srow = -1;
+    for (int i = 0; i < e->spine_count; i++) if (e->spine[i] == store) srow = i;
+    TEST_ASSERT_TRUE_MESSAGE(srow >= 0, "the store is a spine row");
+    cp_vnode_t* sv = cp_vnode_for(e, nread);
+    TEST_ASSERT_NOT_NULL(sv);
+    int found_len_of_stored = 0;
+    if (e->verdict_words && e->verdict_rows > srow) {
+        const uint64_t* w = e->verdict_words + (size_t)srow * e->verdict_stride;
+        for (int i = 0; i < e->verdict_stride; i++) {
+            uint64_t bits = w[i];
+            while (bits) {
+                int fid = i * 64 + __builtin_ctzll(bits);
+                bits &= bits - 1;
+                if (fid & 1) continue;                     /* fall-through only */
+                int fb = e->fact_branch[fid >> 1];
+                int cvn = fb >= 0 ? e->branch_cond_vn[fb] : -1;
+                if (cvn < 0 || cvn >= e->vnode_count) continue;
+                const cp_vnode_t* cv = e->vnodes[cvn];
+                if (cv->kind != CP_VN_EXPR || !cv->expr
+                        || cv->expr->tag != SIR_GT || cv->input_count < 2) continue;
+                /* Walk the RHS hop by hop — leader, Refine input, LoadLocal
+                 * input — looking for an ARRAYLENGTH whose operand IS the
+                 * stored value. Only the chain's END would be the size. */
+                for (int hv = cv->inputs[1], hop = 0; hv >= 0 && hop < 64; hop++) {
+                    const cp_vnode_t* hn = e->vnodes[hv];
+                    const sir_node_t* hx = hn->kind == CP_VN_EXPR ? hn->expr : NULL;
+                    if (hx && hx->tag == SIR_ARRAYLENGTH) {
+                        cp_vnode_t* av = cp_vnode_for(e, sir_child((sir_node_t*)hx, 0));
+                        if (av && av->partition >= 0 && av->partition == sv->partition)
+                            found_len_of_stored = 1;
+                    }
+                    int next = hv;
+                    if (hn->leader >= 0)                                  next = hn->leader;
+                    else if (hn->kind == CP_VN_REFINE && hn->input_count >= 1
+                             && hn->inputs[0] >= 0)                       next = hn->inputs[0];
+                    else if (hx && hx->tag == SIR_LOADLOCAL && hn->input_count == 1
+                             && hn->inputs[0] >= 0)                       next = hn->inputs[0];
+                    if (next == hv) break;
+                    hv = next;
+                }
+            }
+        }
+    }
+    TEST_ASSERT_EQUAL_INT_MESSAGE(1, found_len_of_stored,
+        "the re-check's length operand still NAMES the stored array on its "
+        "chain — a decode reading only the chain's end sees the size "
+        "expression and loses the link the data-store obligation needs");
+    cp_free(e);
+    bbq_arena_free(&a);
+}
+
+/* ── p.3's scope sentence, as the FENCE it licenses ───────────────────────
+ * "If a variable is defined in an assignment that generates more complex
+ * constraints (e.g., those outside C1–C3), then ABCD considers the variable
+ * unconstrained." A variable+variable sum is outside C1–C3, so the difference
+ * rule that handles ONE such Add is ours and not the paper's — and it is fenced
+ * to exactly one. A CHAIN must therefore constrain nothing: the inner sum's
+ * composed bound does not survive a second variable addend. Without this the
+ * fence is a sentence in a plan with nothing holding it. */
+static void test_cp_sum_chain_is_unconstrained(void) {
+    bbq_arena a; bbq_arena_init(&a, 1 << 16);
+    /* slot 0 = v (ref), 1 = t, 2 = p, 3 = i, 4 = j */
+    sir_node_t* inner = sir_add(&a, SIR_DTINT,               /* t + i  — composes */
+        sir_load_local(&a, 1, SIR_DTINT, NULL),
+        sir_load_local(&a, 3, SIR_DTINT, NULL));
+    sir_node_t* outer = sir_add(&a, SIR_DTINT, inner,        /* (t + i) + j — must not */
+        sir_load_local(&a, 4, SIR_DTINT, NULL));
+    sir_node_t* len_c = sir_array_length(&a, sir_load_local(&a, 0, SIR_DTREF, NULL));
+    sir_node_t* brI = sir_branch(&a,                          /* i < p */
+        sir_lt(&a, sir_load_local(&a, 3, SIR_DTINT, NULL),
+                   sir_load_local(&a, 2, SIR_DTINT, NULL)),
+        sir_return(&a, outer, SIR_DTINT),
+        sir_return(&a, sir_load_const(&a, 0, SIR_DTINT), SIR_DTINT));
+    sir_node_t* brI0 = sir_branch(&a,                         /* i >= 0 */
+        sir_lt(&a, sir_load_local(&a, 3, SIR_DTINT, NULL),
+                   sir_load_const(&a, 0, SIR_DTINT)),
+        sir_return(&a, sir_load_const(&a, 4, SIR_DTINT), SIR_DTINT), brI);
+    sir_node_t* brS = sir_branch(&a,                          /* t + p <= len */
+        sir_le(&a, sir_add(&a, SIR_DTINT,
+                       sir_load_local(&a, 1, SIR_DTINT, NULL),
+                       sir_load_local(&a, 2, SIR_DTINT, NULL)), len_c),
+        brI0, sir_return(&a, sir_load_const(&a, 3, SIR_DTINT), SIR_DTINT));
+    sir_node_t* brP0 = sir_branch(&a,
+        sir_lt(&a, sir_load_local(&a, 2, SIR_DTINT, NULL),
+                   sir_load_const(&a, 0, SIR_DTINT)),
+        sir_return(&a, sir_load_const(&a, 6, SIR_DTINT), SIR_DTINT), brS);
+    sir_node_t* brT0 = sir_branch(&a,
+        sir_lt(&a, sir_load_local(&a, 1, SIR_DTINT, NULL),
+                   sir_load_const(&a, 0, SIR_DTINT)),
+        sir_return(&a, sir_load_const(&a, 5, SIR_DTINT), SIR_DTINT), brP0);
+    sir_method_t* m = sir_method(&a, "chain", 0, 5, 5, brT0);
+    cp_engine_t* e = cp_build(m, NULL, &a, NULL, 0);
+    TEST_ASSERT_NOT_NULL(e);
+    cp_vnode_t* iv = cp_vnode_for(e, inner);
+    TEST_ASSERT_NOT_NULL(iv);
+    TEST_ASSERT_TRUE_MESSAGE(iv->constant.hi_vn1 != 0,
+        "the premise: the ONE Add the rule covers does compose");
+    cp_vnode_t* ov = cp_vnode_for(e, outer);
+    TEST_ASSERT_NOT_NULL(ov);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, ov->constant.hi_vn1,
+        "…and a SECOND variable addend constrains nothing: outside C1-C3 the "
+        "variable is unconstrained, and the difference rule stops at one Add");
+    cp_free(e);
+    bbq_arena_free(&a);
+}
+
+/* ── Bounds live OUTSIDE congruence (the SPLIT comparison ignores the ids) ──
+ * Two independent reads of one array's length each self-seed C1 with a bound
+ * naming THEMSELVES, so their facts differ in the symbolic half while their
+ * intervals agree. If the split comparison read those ids, the two reads would
+ * be pulled apart into separate partitions — and the whole two-read join rests
+ * on their staying together. The ids are knowledge, not identity. */
+static void test_cp_bound_ids_do_not_split_congruent_lengths(void) {
+    bbq_arena a; bbq_arena_init(&a, 1 << 16);
+    sir_node_t* len1 = sir_array_length(&a, sir_load_local(&a, 0, SIR_DTREF, NULL));
+    sir_node_t* len2 = sir_array_length(&a, sir_load_local(&a, 0, SIR_DTREF, NULL));
+    sir_method_t* m = sir_method(&a, "twolen", 0, 1, 1,
+        sir_return(&a, sir_add(&a, SIR_DTINT, len1, len2), SIR_DTINT));
+    cp_engine_t* e = cp_build(m, NULL, &a, NULL, 0);
+    TEST_ASSERT_NOT_NULL(e);
+    cp_vnode_t* v1 = cp_vnode_for(e, len1);
+    cp_vnode_t* v2 = cp_vnode_for(e, len2);
+    TEST_ASSERT_NOT_NULL(v1); TEST_ASSERT_NOT_NULL(v2);
+    TEST_ASSERT_TRUE_MESSAGE(v1->constant.hi_vn1 != v2->constant.hi_vn1,
+        "the premise: each length self-seeds a bound naming ITSELF, so the two "
+        "facts really do differ in the symbolic half");
+    TEST_ASSERT_TRUE_MESSAGE(v1->partition >= 0 && v1->partition == v2->partition,
+        "…and they stay CONGRUENT anyway: a bound id is knowledge, not identity, "
+        "and the split comparison never reads one");
+    cp_free(e);
+    bbq_arena_free(&a);
+}
+
+/* ── Table 1 C3 downward, on a DIFFERENCE bound: the whole triple rides ────
+ * `v := u − 1` generates `v ≤ u − 1`, so a `u ≤ L − p` becomes `v ≤ L − p − 1`
+ * — still a difference. Carrying only the base id would silently restate it as
+ * `v < L`, which holds only while p ≥ 0 and is a different transfer's fact to
+ * assume. The subtracted id must survive the decrement with the base. */
+static void test_cp_c3_decrement_preserves_the_triple(void) {
+    bbq_arena a; bbq_arena_init(&a, 1 << 16);
+    /* slot 0 = v (ref), 1 = t, 2 = p */
+    sir_node_t* dec = sir_sub(&a, SIR_DTINT,                 /* t - 1 */
+        sir_load_local(&a, 1, SIR_DTINT, NULL),
+        sir_load_const(&a, 1, SIR_DTINT));
+    sir_node_t* len_c = sir_array_length(&a, sir_load_local(&a, 0, SIR_DTREF, NULL));
+    sir_node_t* brS = sir_branch(&a,                          /* t + p <= len */
+        sir_le(&a, sir_add(&a, SIR_DTINT,
+                       sir_load_local(&a, 1, SIR_DTINT, NULL),
+                       sir_load_local(&a, 2, SIR_DTINT, NULL)), len_c),
+        sir_return(&a, dec, SIR_DTINT),                       /* taken: t <= L - p */
+        sir_return(&a, sir_load_const(&a, 3, SIR_DTINT), SIR_DTINT));
+    sir_node_t* brP0 = sir_branch(&a,                         /* p >= 0 */
+        sir_lt(&a, sir_load_local(&a, 2, SIR_DTINT, NULL),
+                   sir_load_const(&a, 0, SIR_DTINT)),
+        sir_return(&a, sir_load_const(&a, 6, SIR_DTINT), SIR_DTINT), brS);
+    sir_node_t* brT0 = sir_branch(&a,                         /* t >= 0 */
+        sir_lt(&a, sir_load_local(&a, 1, SIR_DTINT, NULL),
+                   sir_load_const(&a, 0, SIR_DTINT)),
+        sir_return(&a, sir_load_const(&a, 5, SIR_DTINT), SIR_DTINT), brP0);
+    sir_method_t* m = sir_method(&a, "c3dec", 0, 3, 3, brT0);
+    cp_engine_t* e = cp_build(m, NULL, &a, NULL, 0);
+    TEST_ASSERT_NOT_NULL(e);
+    cp_vnode_t* dv = cp_vnode_for(e, dec);
+    TEST_ASSERT_NOT_NULL(dv);
+    TEST_ASSERT_TRUE_MESSAGE(dv->constant.state == CP_C_RANGE
+                             && dv->constant.hi_vn1 != 0,
+        "C3 downward: `t - 1` keeps the bound it was given");
+    TEST_ASSERT_TRUE_MESSAGE(dv->constant.hi_sub_vn1 != 0,
+        "…and keeps the SUBTRACTED id: dropping it restates `t < L - p` as "
+        "`t < L`, which holds only while p >= 0");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, (int)dv->constant.hi_vn_incl,
+        "…and subtracting 1 makes an inclusive bound STRICT");
+    cp_free(e);
+    bbq_arena_free(&a);
+}
+
+/* ── Table 1 C1: `v := A.length` generates `v ≤ A.length`, edge weight 0 ───
+ * Weight 0, not −1: the length bounds itself INCLUSIVELY. Strict here would be
+ * a fact the program does not have, and it is the seed every other row composes
+ * against — C3 decrements from it, C5 subtracts one from it, the φ meets it. */
+static void test_cp_c1_length_self_seed_is_inclusive(void) {
+    bbq_arena a; bbq_arena_init(&a, 1 << 16);
+    sir_node_t* len = sir_array_length(&a, sir_load_local(&a, 0, SIR_DTREF, NULL));
+    sir_method_t* m = sir_method(&a, "c1", 0, 1, 1,
+        sir_return(&a, len, SIR_DTINT));
+    cp_engine_t* e = cp_build(m, NULL, &a, NULL, 0);
+    TEST_ASSERT_NOT_NULL(e);
+    cp_vnode_t* lv = cp_vnode_for(e, len);
+    TEST_ASSERT_NOT_NULL(lv);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(CP_C_RANGE, lv->constant.state,
+        "C1: an array length is a RANGE");
+    TEST_ASSERT_TRUE_MESSAGE(lv->constant.hi_vn1 != 0,
+        "C1: the length carries a bound naming itself — 0 means no self-seed");
+    int b = lv->constant.hi_vn1 - 1;
+    TEST_ASSERT_TRUE_MESSAGE(b >= 0 && b < e->vnode_count
+            && e->vnodes[b]->partition == lv->partition,
+        "C1: …and the id it names IS the length");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(1, (int)lv->constant.hi_vn_incl,
+        "C1: edge weight 0 — `v <= A.length`, INCLUSIVE, never strict");
+    cp_free(e);
+    bbq_arena_free(&a);
+}
+
+/* ── Def 3 / Theorem 1: redundant IFF `v_j ≤ A.length − 1` ─────────────────
+ * The check is redundant only when the index is below the length. A value that
+ * is `≤ length` reaches the length itself, where the access is out of bounds —
+ * so an inclusive bound must prove NOTHING here. This is the soundness
+ * direction of the same fact C3's increment produces, and the reason that
+ * increment is pinned inclusive. */
+static void test_cp_inclusive_bound_never_eliminates(void) {
+    bbq_arena a; bbq_arena_init(&a, 1 << 16);
+    /* slot 0 = arr (ref), 1 = i.  `if (i > a.length) return; else …` leaves i
+     * INCLUSIVE-bounded by the length on the fall-through. */
+    sir_node_t* len_r = sir_array_length(&a, sir_load_local(&a, 0, SIR_DTREF, NULL));
+    sir_node_t* guard = sir_ge(&a, sir_load_local(&a, 1, SIR_DTINT, NULL),
+        sir_array_length(&a, sir_load_local(&a, 0, SIR_DTREF, NULL)));
+    sir_node_t* brG = sir_branch(&a, guard,
+        sir_return(&a, sir_load_const(&a, 1, SIR_DTINT), SIR_DTINT),
+        sir_return(&a, sir_load_const(&a, 2, SIR_DTINT), SIR_DTINT));
+    sir_node_t* brI = sir_branch(&a,                        /* i > a.length */
+        sir_gt(&a, sir_load_local(&a, 1, SIR_DTINT, NULL), len_r),
+        sir_return(&a, sir_load_const(&a, 0, SIR_DTINT), SIR_DTINT), brG);
+    sir_method_t* m = sir_method(&a, "incl", 0, 2, 2, brI);
+    cp_engine_t* e = cp_build(m, NULL, &a, NULL, 0);
+    TEST_ASSERT_NOT_NULL(e);
+    cp_vnode_t* gv = cp_vnode_for(e, guard);
+    TEST_ASSERT_NOT_NULL(gv);
+    cp_vnode_t* ix = e->vnodes[gv->inputs[0]];
+    TEST_ASSERT_TRUE_MESSAGE(ix->constant.hi_vn1 == 0 || ix->constant.hi_vn_incl == 1,
+        "the fall-through of `i > len` bounds i INCLUSIVELY (or not at all)");
+    TEST_ASSERT_TRUE_MESSAGE(!(gv->constant.state == CP_C_KNOWN
+                               && gv->constant.value == 0),
+        "`i <= len` must NOT fold `i >= len` — i can BE the length, where the "
+        "access is out of bounds and the check must fire");
+    cp_free(e);
+    bbq_arena_free(&a);
+}
+
+/* ── Table 1 C4: a π per operand per arm, the else arm with weight −1 ──────
+ * The row generates constraints on BOTH operands of `if v ≤ w`, on BOTH arms;
+ * on the else arm the two are related with weight −1 (`w_t ≤ v_k − 1`). The
+ * engine mints on the compared value; this pins the OTHER operand's π, which is
+ * what makes `if (i <= n) … else …`'s else arm say `n < i`. */
+static void test_cp_c4_pi_on_both_operands(void) {
+    bbq_arena a; bbq_arena_init(&a, 1 << 16);
+    /* slot 0 = i, 1 = n.  else arm of `i <= n` ⟹ n <= i - 1, i.e. n < i */
+    sir_node_t* nread = sir_load_local(&a, 1, SIR_DTINT, NULL);
+    sir_node_t* use   = sir_return(&a, nread, SIR_DTINT);
+    sir_node_t* brC   = sir_branch(&a,
+        sir_le(&a, sir_load_local(&a, 0, SIR_DTINT, NULL),
+                   sir_load_local(&a, 1, SIR_DTINT, NULL)),
+        sir_return(&a, sir_load_const(&a, 0, SIR_DTINT), SIR_DTINT),
+        use);                                   /* else: i > n, so n < i */
+    sir_method_t* m = sir_method(&a, "c4", 0, 2, 2, brC);
+    cp_engine_t* e = cp_build(m, NULL, &a, NULL, 0);
+    TEST_ASSERT_NOT_NULL(e);
+    cp_vnode_t* nv = cp_vnode_for(e, nread);
+    TEST_ASSERT_NOT_NULL(nv);
+    TEST_ASSERT_TRUE_MESSAGE(nv->constant.state == CP_C_RANGE
+                             && nv->constant.hi_vn1 != 0,
+        "C4: the else arm bounds the RIGHT operand too — `w_t <= v_k - 1`; "
+        "0 means only the compared value gets a π");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, (int)nv->constant.hi_vn_incl,
+        "C4: …and weight -1 makes it STRICT: n < i");
+    cp_free(e);
+    bbq_arena_free(&a);
+}
+
+/* ── Def 2 / Eq 1: a φ is a MAX node, bounded by its WEAKEST in-edge ───────
+ * Both arms bound i by the same length, one STRICTLY (`i >= len` false) and one
+ * INCLUSIVELY (`i > len` false). The join must take the weaker of the two —
+ * taking the stronger would let the merge prove what only one path established,
+ * which is the max-node semantics inverted. */
+static void test_cp_phi_takes_the_weakest_strictness(void) {
+    bbq_arena a; bbq_arena_init(&a, 1 << 16);
+    /* slot 0 = arr, 1 = i */
+    sir_node_t* merge = sir_nop(&a, NULL);
+    sir_node_t* out   = sir_load_local(&a, 1, SIR_DTINT, NULL);
+    merge->nop.next   = sir_return(&a, out, SIR_DTINT);
+    sir_node_t* brStrict = sir_branch(&a,                     /* i >= len */
+        sir_ge(&a, sir_load_local(&a, 1, SIR_DTINT, NULL),
+               sir_array_length(&a, sir_load_local(&a, 0, SIR_DTREF, NULL))),
+        sir_return(&a, sir_load_const(&a, 1, SIR_DTINT), SIR_DTINT), merge);
+    sir_node_t* brIncl = sir_branch(&a,                       /* i > len */
+        sir_gt(&a, sir_load_local(&a, 1, SIR_DTINT, NULL),
+               sir_array_length(&a, sir_load_local(&a, 0, SIR_DTREF, NULL))),
+        sir_return(&a, sir_load_const(&a, 2, SIR_DTINT), SIR_DTINT), merge);
+    sir_node_t* pick = sir_branch(&a,
+        sir_lt(&a, sir_load_local(&a, 1, SIR_DTINT, NULL),
+                   sir_load_const(&a, 0, SIR_DTINT)),
+        brIncl, brStrict);
+    sir_method_t* m = sir_method(&a, "weakest", 0, 2, 2, pick);
+    cp_engine_t* e = cp_build(m, NULL, &a, NULL, 0);
+    TEST_ASSERT_NOT_NULL(e);
+    cp_vnode_t* ov = cp_vnode_for(e, out);
+    TEST_ASSERT_NOT_NULL(ov);
+    if (ov->constant.state == CP_C_RANGE && ov->constant.hi_vn1 != 0)
+        TEST_ASSERT_EQUAL_INT_MESSAGE(1, (int)ov->constant.hi_vn_incl,
+            "Eq 1: the join of `i < len` and `i <= len` is the WEAKER of the "
+            "two — an inclusive bound, never the strict one");
+    cp_free(e);
+    bbq_arena_free(&a);
+}
+
+/* ── Table 1 C3, the half the engine does not carry ────────────────────────
+ *
+ * The row is `v_i := v_j + c` ⟹ `v_i ≤ v_j + c`, edge weight c — a constant of
+ * EITHER sign. The engine carries it downward only: a Sub mints, and an
+ * inc-opaque decrement preserves. Upward it drops the bound entirely, and that
+ * is the missing half.
+ *
+ * Composed with C5 (`check A[v]` ⟹ the π result is `≤ A.length − 1`), the
+ * increment lands exactly on the length:
+ *     i < a.length            the check that survived, on its fall-through
+ *     j := i + 1              C3, weight +1
+ *     j ≤ (a.length − 1) + 1  =  a.length
+ * INCLUSIVE, and that is the whole point of pinning the inclusivity: `j ≤ len`
+ * does not prove `j < len`, so a bound minted strict here would delete a check
+ * that must fire on the last element. */
+static void test_cp_c3_increment_lands_on_the_length(void) {
+    bbq_arena a; bbq_arena_init(&a, 1 << 16);
+    /* slot 0 = arr (ref), 1 = i */
+    sir_node_t* len = sir_array_length(&a, sir_load_local(&a, 0, SIR_DTREF, NULL));
+    sir_node_t* inc = sir_add(&a, SIR_DTINT,                     /* i + 1 */
+        sir_load_local(&a, 1, SIR_DTINT, NULL),
+        sir_load_const(&a, 1, SIR_DTINT));
+    sir_node_t* brG = sir_branch(&a,                             /* i >= a.length */
+        sir_ge(&a, sir_load_local(&a, 1, SIR_DTINT, NULL), len),
+        sir_return(&a, sir_load_const(&a, 1, SIR_DTINT), SIR_DTINT),
+        sir_return(&a, inc, SIR_DTINT));                         /* fall-through: i < len */
+    sir_node_t* brI0 = sir_branch(&a,                            /* i >= 0, the wrap fence */
+        sir_lt(&a, sir_load_local(&a, 1, SIR_DTINT, NULL),
+                   sir_load_const(&a, 0, SIR_DTINT)),
+        sir_return(&a, sir_load_const(&a, 4, SIR_DTINT), SIR_DTINT), brG);
+    sir_method_t* m = sir_method(&a, "c3inc", 0, 2, 2, brI0);
+
+    cp_engine_t* e = cp_build(m, NULL, &a, NULL, 0);
+    TEST_ASSERT_NOT_NULL(e);
+    cp_vnode_t* av = cp_vnode_for(e, inc);
+    TEST_ASSERT_NOT_NULL(av);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(CP_C_RANGE, av->constant.state,
+        "`i + 1` under a check that bounds i is a RANGE");
+    TEST_ASSERT_TRUE_MESSAGE(av->constant.hi_vn1 != 0,
+        "C3 carries the bound UP through a constant increment: 0 means the row's "
+        "`v_i <= v_j + c` fires only for c < 0");
+    cp_vnode_t* lv = cp_vnode_for(e, len);
+    TEST_ASSERT_NOT_NULL(lv);
+    int b = av->constant.hi_vn1 - 1;
+    TEST_ASSERT_TRUE_MESSAGE(b >= 0 && b < e->vnode_count
+            && e->vnodes[b]->partition >= 0
+            && e->vnodes[b]->partition == lv->partition,
+        "…and the bound names THE LENGTH the check tested");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(1, (int)av->constant.hi_vn_incl,
+        "…INCLUSIVE: i < len gives i + 1 <= len, and a strict bound here would "
+        "delete the check on the last element");
+    cp_free(e);
+    bbq_arena_free(&a);
+}
+
+/* ── The cross-field SHAPE, at the level that owns it ──────────────────────
+ *
+ * `if (i >= o.count) …; else o.data[i]` — the user guard bounds i by a COUNT
+ * FIELD, and the §15 guard tests i against `arraylength(data-field)`. Before
+ * any invariant can be consulted, the two halves have to be VISIBLE at the
+ * consumer: i's symbolic bound must name the count GetField, and the guard's
+ * length operand must name the data GetField. This pins exactly that, so a
+ * failure says WHICH half is missing instead of "the table is empty". */
+static void test_cp_cross_field_shape_is_visible(void) {
+    bbq_arena a; bbq_arena_init(&a, 1 << 16);
+    /* slot 0 = o (ref), 1 = i */
+    sir_node_t* cnt = sir_get_field(&a, SIR_DTINT,
+        sir_load_local(&a, 0, SIR_DTREF, NULL), 0, 0);
+    sir_node_t* dat = sir_get_field(&a, SIR_DTREF,
+        sir_load_local(&a, 0, SIR_DTREF, NULL), 0, 1);
+    sir_node_t* guard = sir_ge(&a, sir_load_local(&a, 1, SIR_DTINT, NULL),
+                                   sir_array_length(&a, dat));
+    sir_node_t* brG = sir_branch(&a, guard,
+        sir_return(&a, sir_load_const(&a, 1, SIR_DTINT), SIR_DTINT),
+        sir_return(&a, sir_load_const(&a, 2, SIR_DTINT), SIR_DTINT));
+    sir_node_t* brU = sir_branch(&a,                        /* i >= o.count */
+        sir_ge(&a, sir_load_local(&a, 1, SIR_DTINT, NULL), cnt),
+        sir_return(&a, sir_load_const(&a, 0, SIR_DTINT), SIR_DTINT),
+        brG);                                               /* fall-through: i < count */
+    sir_method_t* m = sir_method(&a, "xfield", 0, 2, 2, brU);
+
+    cp_engine_t* e = cp_build(m, NULL, &a, NULL, 0);
+    TEST_ASSERT_NOT_NULL(e);
+    cp_vnode_t* v = cp_vnode_for(e, guard);
+    TEST_ASSERT_NOT_NULL(v);
+    cp_vnode_t* ix = e->vnodes[v->inputs[0]];
+    TEST_ASSERT_TRUE_MESSAGE(ix->constant.hi_vn1 != 0,
+        "HALF 1: the user guard `i >= o.count` bounds i on its fall-through — "
+        "0 means the count-field guard mints no symbolic bound at all");
+    int bu = ix->constant.hi_vn1 - 1;
+    const sir_node_t* be = (bu >= 0 && bu < e->vnode_count
+                            && e->vnodes[bu]->kind == CP_VN_EXPR)
+                         ? e->vnodes[bu]->expr : NULL;
+    TEST_ASSERT_TRUE_MESSAGE(be && be->tag == SIR_GETFIELD,
+        "HALF 1b: that bound names the COUNT FIELD read, not something else");
+
+    /* HALF 1 reads the guard compare's OPERAND, which is the value the engine
+     * wired — the refinement window an enclosing arm installed. The row's SLOT
+     * is a different thing: pass-A's reaching definition, the value BEFORE that
+     * window, which carries no arm's bound. Both are recorded facts about the
+     * guard; only the operand is the one this shape lives on. */
+    cp_free(e);
+    bbq_arena_free(&a);
+}
+
 /* Loop back-edges WIDEN — THE loop-carried lemma the fabricated "optimistic
  * header-keep" was faking. i is loop-invariant (the latch bumps c, not i), so it carries
  * `i < a.length` on BOTH header edges. §5's mechanism is widening, and widening a
@@ -7174,6 +7756,18 @@ void test_click_partition_suite(void) {
     RUN_TEST(test_cp_difference_bound_composes_through_loop);
     RUN_TEST(test_cp_difference_bound_composes_through_copy_and_low_guard);
     RUN_TEST(test_cp_difference_bound_second_id_must_agree);
+    RUN_TEST(test_cp_recorded_check_is_readable_at_the_store);
+    RUN_TEST(test_cp_recorded_check_survives_the_array_store);
+    RUN_TEST(test_cp_recheck_names_the_stored_arrays_length);
+    RUN_TEST(test_cp_sum_chain_is_unconstrained);
+    RUN_TEST(test_cp_bound_ids_do_not_split_congruent_lengths);
+    RUN_TEST(test_cp_c3_decrement_preserves_the_triple);
+    RUN_TEST(test_cp_c1_length_self_seed_is_inclusive);
+    RUN_TEST(test_cp_inclusive_bound_never_eliminates);
+    RUN_TEST(test_cp_c4_pi_on_both_operands);
+    RUN_TEST(test_cp_phi_takes_the_weakest_strictness);
+    RUN_TEST(test_cp_c3_increment_lands_on_the_length);
+    RUN_TEST(test_cp_cross_field_shape_is_visible);
     RUN_TEST(test_cp_mem_dse_overwritten_field_store_is_dead);
     RUN_TEST(test_cp_mem_dse_distinct_receivers_both_live);
     RUN_TEST(test_cp_mem_dse_intervening_load_keeps_store);
