@@ -271,11 +271,12 @@ static bool is_assignable_target(const ast_expr_t* e) {
     return false;
 }
 
-/* If `target` is a write to a final field, emit an error unless the
- * write is inside a constructor. JLS §16.9: final fields can be
- * assigned by the constructor of the declaring class only. The
- * "exactly once" half is enforced via definite assignment for
- * final fields, which is currently a follow-up. */
+/* §8.3.1.2: "Any attempt to assign to a final field results in a compile-time
+ * error." No carve-out exists — a 1.0 final is bound by its DECLARATOR (the
+ * same section requires the initializer there), so a constructor or static-
+ * initializer assignment is an attempt like any other; §8.5 and §8.6 grant no
+ * exception. The declarator's own initialization is not an assignment
+ * expression and never reaches here. */
 static void* encode_member_loc(int owner, int index);                            /* defined below */
 static const sema_field_t* decode_field_loc(const sema_ctx_t* ctx, void* enc);   /* defined below */
 
@@ -288,12 +289,7 @@ static void check_not_final_field(sema_ctx_t* ctx, ast_expr_t* target,
     const sema_field_t* f = decode_field_loc(ctx,
         bbq_htree_search(ctx->resolved_fields, ptr_key(target)));
     if (!f || !(f->modifiers & ACC_FINAL)) return;
-    /* JLS §8.3.1.1/§16.8: a blank final may be definitely assigned once — an instance
-     * final in a constructor, a static final in a static-initializer block. */
-    bool in_static_final_init = ctx->in_static_init && (f->modifiers & ACC_STATIC);
-    if (!ctx->in_constructor && !in_static_final_init) {
-        sema_error(ctx, loc, "cannot assign to final field '%s'", f->name);
-    }
+    sema_error(ctx, loc, "cannot assign to final field '%s'", f->name);
 }
 
 /* Map a Java type tag (java_type_tag_t) to a SEMA_DT_* tag. */

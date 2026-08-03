@@ -31,6 +31,8 @@ public class Lib8 {
         r.register(new Sn8FinalReferent());
         r.register(new Sn8FinalNoInitializer());
         r.register(new Sn8FinalAssigned());
+        r.register(new Sn8FinalAssignedInCtor());
+        r.register(new Sn8FinalAssignedInStaticInit());
     }
 }
 
@@ -109,6 +111,49 @@ class Sn8FinalAssigned implements Snippet {
              + "\n"
              + "    void bump() {\n"
              + "        fixed = 8;\n"
+             + "    }\n"
+             + "}";
+    }
+    public Val expect(Val[] h) { return Val.compileError("final field"); }
+}
+
+/** §8.3.1.2, second sentence, in a CONSTRUCTOR: "any attempt" has no constructor carve-out —
+ *  the 1.0 field is bound by its declarator, and a constructor assignment on top of it is an
+ *  attempt like any other (the 1.1 blank-final rule is what would accept it; §8.5 and §8.6
+ *  grant no exception either). */
+class Sn8FinalAssignedInCtor implements Snippet {
+    public String   id()        { return "t8.final.assigned.ctor"; }
+    public String[] sections()  { return Strs.of("8.3.1.2"); }
+    public String   type()      { return Registry.REJECT; }
+    public String[] holeTypes() { return Strs.none(); }
+
+    public String render(String[] h) {
+        return "class T8FinalAssignedCtor {\n"
+             + "    final int fixed = 7;\n"
+             + "\n"
+             + "    T8FinalAssignedCtor() {\n"
+             + "        fixed = 8;\n"
+             + "    }\n"
+             + "}";
+    }
+    public Val expect(Val[] h) { return Val.compileError("final field"); }
+}
+
+/** §8.3.1.2, second sentence, in a STATIC INITIALIZER: the static twin of the constructor
+ *  case — a static final is bound by its declarator, and the initializer block's assignment
+ *  is an attempt like any other. */
+class Sn8FinalAssignedInStaticInit implements Snippet {
+    public String   id()        { return "t8.final.assigned.staticinit"; }
+    public String[] sections()  { return Strs.of("8.3.1.2"); }
+    public String   type()      { return Registry.REJECT; }
+    public String[] holeTypes() { return Strs.none(); }
+
+    public String render(String[] h) {
+        return "class T8FinalAssignedStatic {\n"
+             + "    static final int FIXED = 7;\n"
+             + "\n"
+             + "    static {\n"
+             + "        FIXED = 8;\n"
              + "    }\n"
              + "}";
     }
