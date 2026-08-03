@@ -1077,6 +1077,11 @@ typedef struct {
      * reaches a load iff no KILLING store intervenes, and none can. Sized mem_cell_count;
      * lat_is_array_data_cell (the type lattice) is the authority for which cells. */
     bool*     cell_immutable;
+    /* Per CELL: a FINAL field's cell (§8.3.1.2 — writes are ctor-only). Immune to
+     * every call EXCEPT a constructor invocation, which is decided PER CALL at
+     * kill creation: the ctor call both writes the fresh object's final cells and
+     * carries its summary writes into the caller through the kill rows. */
+    bool*     cell_final;
     int*      mem_dep_off;
     int*      mem_dep_cnt;
     int*      mem_dep_list;

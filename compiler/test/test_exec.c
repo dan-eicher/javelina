@@ -296,6 +296,27 @@ int main(void) {
           { "class A { int m(){ return 5; } } class B extends A { int m(){ return 7; } }"
             " class T { static int f(){ A a = new B(); return a.m(); } }",
             7, "virtual override: A a = new B(); a.m() == 7" },
+          /* Construction stays visible through calls that cannot write a final
+           * cell: construct, mutate the final field's REFERENT through calls
+           * in a loop, read the field after — the value is the pin. The cooc
+           * bench kernel caught this as an -O NullPointerException when the
+           * constructor's writes went invisible (calls under ExprEffect /
+           * StoreLocal wrappers were never recognized as ctor invocations, so
+           * final cells kept no record of construction); this is the same
+           * shape at its owning level. Three +1 passes leave every element 3,
+           * so s = 3·(31³+31²+31+1) = 3·30784 = 92352. */
+          { "class Q { final int[] y = new int[4];"
+            "  void m(){ int k = 0; while (k < 4) { y[k] = y[k] + 1; k = k + 1; } } }"
+            " class T { static int f(){"
+            "   Q c = new Q();"
+            "   int i = 0;"
+            "   while (i < 3) { c.m(); i = i + 1; }"
+            "   int s = 0;"
+            "   i = 0;"
+            "   while (i < 4) { s = s * 31 + c.y[i]; i = i + 1; }"
+            "   return s; } }",
+            92352, "a final field read after a call loop sees CONSTRUCTION — "
+                   "the ctor's writes reach every later reader" },
         };
         for (int i = 0; i < (int)(sizeof vd / sizeof vd[0]); i++) {
             bbq_arena a; bbq_arena_init(&a, 1 << 18); emit_wasm_ctx mod = {0};

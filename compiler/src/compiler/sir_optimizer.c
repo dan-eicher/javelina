@@ -245,6 +245,23 @@ static uint32_t cp_cell_key_for_spine(const sir_node_t* e) {
     }
 }
 
+/* The CALL a spine row carries, unwrapped the same way the classifier above
+ * unwraps it: an invoke is a VALUE expr, so it reaches the spine wrapped in an
+ * ExprEffect or a StoreLocal — a spine row's own tag is never an invoke. NULL
+ * when the row carries no call. */
+static sir_node_t* cp_spine_call_expr(const sir_node_t* e) {
+    sir_node_t* v = NULL;
+    switch (e->tag) {
+        case SIR_EXPREFFECT: v = e->expr_effect.value; break;
+        case SIR_STORELOCAL: v = e->store_local.value; break;
+        default: return NULL;
+    }
+    if (v && (v->tag == SIR_INVOKEVIRTUAL || v->tag == SIR_INVOKESPECIAL
+          ||  v->tag == SIR_INVOKESTATIC  || v->tag == SIR_INVOKEINTERFACE))
+        return v;
+    return NULL;
+}
+
 static cp_vnode_t* cp_alloc_vnode(cp_engine_t* eng, int* out_idx) {
     int idx = eng->vnode_count;
     cp_vnode_t* v = (cp_vnode_t*)bbq_arena_alloc(eng->arena, sizeof *v);
@@ -1401,9 +1418,28 @@ static void cp_resolve(cp_engine_t* eng) {
             rd.def_mem_vnode[n] = cp_new_opaque(eng);   /* the CP_CELL_ALL marker */
             rd.def_mem_wide[n]  = (int*)bbq_arena_alloc(a,
                                       (size_t)(mc > 0 ? mc : 1) * sizeof(int));
+            /* Is THIS call a constructor invocation? Only ctors write final
+             * cells (§8.3.1.2 — the declarator inits §12.5 compiles in), and a
+             * ctor is only ever invoked non-virtually, so the callee is on the
+             * call expr — which sits UNDER the spine row (ExprEffect/StoreLocal
+             * wrap it; a spine row's own tag is never an invoke). A ctor call
+             * must kill final cells: the kill rows are also what carry the
+             * callee's summary writes into this method. */
+            bool ctor_call = false;
+            sir_node_t* callx = cp_spine_call_expr(node);
+            if (callx && callx->tag == SIR_INVOKESPECIAL && eng->sema) {
+                const sema_class_t* cc = sema_get_class(eng->sema,
+                                             callx->invoke_special.class_id);
+                if (cc && callx->invoke_special.method_idx >= 0
+                        && callx->invoke_special.method_idx
+                            < (int)bbq_vec_len((void*)cc->methods))
+                    ctor_call = cc->methods[callx->invoke_special.method_idx]
+                                    .is_constructor;
+            }
             for (int c = 0; c < mc; c++)
                 rd.def_mem_wide[n][c] =
-                    (eng->cell_immutable && eng->cell_immutable[c])
+                    ((eng->cell_immutable && eng->cell_immutable[c])
+                     || (!ctor_call && eng->cell_final && eng->cell_final[c]))
                         ? -1                            /* not killed at all — see cp_out_state */
                         : cp_new_opaque(eng);
         } else if (key != CP_CELL_NONE) {
@@ -2700,40 +2736,38 @@ static void cp_enumerate_memory_cells(cp_engine_t* eng) {
     /* Which cells can no code write after the allocation? A call kills every cell it
      * COULD write, and it cannot write these — so it must not shadow them (see
      * cp_out_state). The type lattice is the one authority for which cells they are;
-     * the key is decoded with the same packing that built it.
+     * the key is decoded with the same packing that built it. Backing cells only:
+     * their stores are INLINE at the allocation site, so no callee ever writes one.
      *
-     * FINAL fields join the set, outside constructors: §8.3.1.2 makes any
-     * assignment a compile-time error, so a final field's only writes are the
-     * declarator-init stores §12.5 compiles into constructors — a call cannot
-     * write the cell. The fence is the §8.6.5 explicit constructor invocation,
-     * which writes the object UNDER CONSTRUCTION's final cells (its own
-     * class's and, through super(), inherited ones) — so a constructor body
-     * analyzes them as ordinary cells. A callee constructing a FRESH object
-     * writes only that object's cells, which no pre-existing receiver can name
-     * (per-object filtering at every version-chain reader — the same argument
-     * the backing cell has always stood on). */
-    bool in_ctor = false;
-    if (eng->method && eng->sema && eng->method->class_id >= 0) {
-        const sema_class_t* mcl = sema_get_class(eng->sema, eng->method->class_id);
-        if (mcl && eng->method->method_id >= 0
-                && eng->method->method_id < (int)bbq_vec_len((void*)mcl->methods))
-            in_ctor = mcl->methods[eng->method->method_id].is_constructor;
-    }
+     * FINAL-field cells are immune PER CALL, not per cell (cell_final below): §8.3.1.2
+     * makes any assignment a compile-time error, so a final field's only writes are
+     * the declarator-init stores §12.5 compiles into CONSTRUCTORS — and a constructor
+     * invocation (§8.6.5 explicit, or the ctor call `new` emits) is therefore the one
+     * call kind that writes final cells. The kill-creation site consults cell_final
+     * and the callee: a ctor call kills final cells like any mutable cell — which is
+     * also what carries the ctor's summary writes into the caller (the inject rides
+     * the kill rows; suppressing them made construction invisible, and the cooc
+     * kernel caught the miscompile on its first -O run). Every other call leaves
+     * them unkilled. */
     eng->cell_immutable = (bool*)bbq_arena_alloc(eng->arena,
+                              (size_t)(eng->mem_cell_count > 0 ? eng->mem_cell_count : 1)
+                              * sizeof(bool));
+    eng->cell_final = (bool*)bbq_arena_alloc(eng->arena,
                               (size_t)(eng->mem_cell_count > 0 ? eng->mem_cell_count : 1)
                               * sizeof(bool));
     for (int c = 0; c < eng->mem_cell_count; c++) {
         eng->cell_immutable[c] = false;
+        eng->cell_final[c] = false;
         if (!eng->sema) continue;
         uint32_t k = eng->mem_cell_keys[c];
         if ((k & CP_CELL_KIND_MASK) != CP_CELL_KIND_FIELD) continue;
         int class_id = (int)((k >> 16) & 0x3FFF);
         int field_ix = (int)(k & 0xFFFF);
         eng->cell_immutable[c] = lat_is_array_data_cell(eng->sema, class_id, field_ix);
-        if (!eng->cell_immutable[c] && !in_ctor) {
+        if (!eng->cell_immutable[c]) {
             const sema_class_t* fc = sema_get_class(eng->sema, class_id);
             if (fc && field_ix >= 0 && field_ix < (int)bbq_vec_len((void*)fc->fields))
-                eng->cell_immutable[c] =
+                eng->cell_final[c] =
                     (fc->fields[field_ix].modifiers & ACC_FINAL) != 0;
         }
     }

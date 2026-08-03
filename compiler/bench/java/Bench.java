@@ -63,7 +63,11 @@
 //   itail  virtual tail dispatch — return_call_ref (tailrec covers the static return_call)
 //   coo    sparse mvm, coordinate storage (Luján 2004 Fig. 1): y[indx[k]] += v[k]*x[jndx[k]]
 //          — the INDIRECTION family; two indirect IDX_HIGH per iteration, the number
-//          array-content invariants would move
+//          array-content invariants would move. RAW parameter arrays: the unverifiable
+//          shape, so its checks all stay — the BASELINE
+//   cooc   coo's CLASS-SHAPED twin (Fig. 11's spirit): a Coo class owns private final
+//          index arrays, ctor fills them through checked stores — the verifiable shape;
+//          the cooc/coo delta at -O prices the array-content tier
 import javelina.simd.*;
 
 public class Bench {
@@ -564,6 +568,24 @@ public class Bench {
         return h;
     }
 
+    /* coo's CLASS-SHAPED twin (Luján 2004 Fig. 11's spirit): the same six-line
+     * kernel over arrays a class OWNS — private final indirection arrays,
+     * filled by the constructor through checked stores. This is the shape the
+     * array-content invariant verifies: the two indirect IDX_HIGH per
+     * iteration fold, where coo's (raw parameter arrays — the shape the
+     * paper's design exists to escape) must stay. coo is the baseline; the
+     * cooc/coo delta at -O prices the tier. Same geometry, same LCG, same
+     * computation — the checked fill rejects nothing, so the checksums MATCH
+     * coo's, which makes the pair a referee as well as a ratio (sdot/dot's
+     * pattern). */
+    static int cooc(int n) {
+        Coo c = new Coo();
+        for (int it = 0; it < n; it++) c.mvm();
+        int h = 0;
+        for (int i = 0; i < 200; i++) h = h * 31 + (int) c.y[i];
+        return h;
+    }
+
     static int run(int which, int scale) {
         switch (which) {
             case 0: return arith(scale);
@@ -597,6 +619,7 @@ public class Bench {
             case 28: return vshuf(scale);
             case 29: return itail(scale);
             case 30: return coo(scale);
+            case 31: return cooc(scale);
         }
         return -1;
     }
@@ -624,7 +647,7 @@ public class Bench {
                            "sbuild", "sconcat", "scmp", "shash", "sidx", "ssub", "scase",
                            "schars", "sconv",
                            "dmix", "fmix", "fmath", "refeq", "lcmp", "narrow", "memops",
-                           "vshuf", "itail", "coo" };
+                           "vshuf", "itail", "coo", "cooc" };
         /* Full scales are CALIBRATED from measured quick-mode data (~1 ms / 1000 interpreted
          * iterations on the O0 interpreter, the slowest config), targeting ~2-4 s per rep there
          * so the whole 4-config matrix lands in minutes — while keeping the JIT's reps in the
@@ -636,7 +659,9 @@ public class Bench {
                         10000, 17000, 15000, 45000, 9000, 30000, 6000,
                         11000, 50000,
                         750000, 600000, 1500000, 400000, 400000, 350000, 750000,
-                        3000000, 2000000, 300 };   /* coo: 2000 nnz × 300 mvm passes,
+                        3000000, 2000000, 300, 300 };   /* coo/cooc, same scale — the
+                                       delta between them at -O IS the measurement.
+                                       coo: 2000 nnz × 300 mvm passes,
                                        ~5 array ops per k-iteration → ~3 s per O0-interp
                                        rep by the same per-1000-iteration reading. */
                                     /* the opcode-family scales are calibrated
@@ -659,7 +684,7 @@ public class Bench {
                         200, 200, 200, 200, 200, 200, 200,
                         200, 200,
                         1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000,
-                        100000, 3 };   /* itail quick = 100K, for tailrec's reason: past any
+                        100000, 3, 3 };   /* itail quick = 100K, for tailrec's reason: past any
                                        frame-stack depth, so even the quick gate proves the
                                        VIRTUAL tail call, not just its byte.
                                        tailrec quick = 100K:
@@ -742,4 +767,34 @@ class Ci extends Shape {
 class Tr extends Shape {
     int b; Tr(int b) { this.b = b; }
     int area(int x) { return (b * x) >> 1; }
+}
+
+/* cooc's indirection owner: fixed geometry so every length is KNOWN, private
+ * final index arrays that never leave the class, checked fills — the exact
+ * shape the array-content verifier proves one class at a time. */
+class Coo {
+    private final int[] indx = new int[2000];
+    private final int[] jndx = new int[2000];
+    final double[] value = new double[2000];
+    final double[] y = new double[200];
+    final double[] x = new double[200];
+
+    Coo() {
+        int seed = 12345;
+        for (int k = 0; k < 2000; k++) {
+            seed = seed * 1103515245 + 12345;
+            int a = (seed >>> 16) % 200;
+            if (a >= 0 && a < y.length) indx[k] = a;
+            seed = seed * 1103515245 + 12345;
+            int b = (seed >>> 16) % 200;
+            if (b >= 0 && b < x.length) jndx[k] = b;
+            value[k] = (k % 7) + 1;
+        }
+        for (int i = 0; i < 200; i++) x[i] = (i % 5) + 1;
+    }
+
+    void mvm() {
+        for (int k = 0; k < value.length; k++)
+            y[indx[k]] += value[k] * x[jndx[k]];
+    }
 }

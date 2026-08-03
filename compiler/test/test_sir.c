@@ -7255,19 +7255,22 @@ int main(void) {
             "    return data[index] + t; } }", "F", "get", 1,
             "…the NON-final twin: the call may write the fields, IDX_HIGH "
             "SURVIVES" },
-          /* The constructor fence: inside a ctor the object is under
-           * construction and §8.6.5 invocations write final cells, so the
-           * immunity must not apply there. */
+          /* The constructor-INVOCATION case: a ctor call is the one call kind
+           * that writes final cells, so it must KILL them — the kill rows are
+           * what carry the callee's writes into the caller (construction
+           * visibility; the cooc kernel caught the miscompile when the kills
+           * went missing, and the kill-rows pin below holds the mechanism).
+           * The kill breaks version compatibility, so the guard is KEPT:
+           * conservative — a finality-aware snapshot argument could fold it —
+           * but correct, and the machinery claims only what it implements. */
           { "class F { final int[] data = new int[4]; final int count = 4;"
-            "  int r;"
-            "  int poke(){ return 1; }"
-            "  F(int index){"
-            "    if (index >= 0 && index < count) {"
-            "      int t = poke();"
-            "      r = data[index] + t;"
-            "    } else { r = -1; } } }", "F", "<init>", 1,
-            "…the CTOR fence: under construction the immunity is OFF, IDX_HIGH "
-            "SURVIVES" },
+            "  F(){ }"
+            "  int get(int index){"
+            "    if (index < 0 || index >= count) return -1;"
+            "    F g = new F();"
+            "    return data[index] + g.count; } }", "F", "get", 1,
+            "…a ctor invocation between the reads kills final cells, the "
+            "version fence refuses: IDX_HIGH SURVIVES" },
         };
         for (int t = 0; t < (int)(sizeof fcases / sizeof fcases[0]); t++) {
             bbq_arena a; bbq_arena_init(&a, 1 << 16);
@@ -7305,6 +7308,41 @@ int main(void) {
                 printf("        %s: %d IDX_HIGH surviving, want %d\n",
                        fcases[t].what, surviving, fcases[t].want_surviving);
             CHECK(surviving == fcases[t].want_surviving, fcases[t].what);
+            /* The ctor-invocation case's OWN mechanism, pinned: the ctor call
+             * must create KILL rows for the final cells — they are both the
+             * version fence and the carrier of the callee's summary writes. */
+            if (t == 2) {
+                for (int i = 0; i < mc; i++) {
+                    if (ms[i]->class_id != cid || !ms[i]->name
+                            || strcmp(ms[i]->name, "get")) continue;
+                    int nf2 = 0;
+                    const compiler_fact_t* f2 = compiler_get_facts(&cctx, i, &nf2);
+                    cp_engine_t* e2 = cp_build_ctx(&cctx, ms[i], f2, nf2);
+                    if (!e2) break;
+                    /* The FINAL cells' kills, not any kill: a count over every
+                     * cell let this pin stay green while the ctor detection
+                     * was broken (other cells' kills existed). A final cell is
+                     * one flagged in cell_final; the ctor invocation must have
+                     * killed at least one of THOSE. */
+                    int final_kills = 0;
+                    for (int r = 0; r < e2->mem_rows; r++) {
+                        if (r >= e2->vnode_count) break;
+                        if (e2->mem_kind[r] != CP_MEM_KILL) continue;
+                        int c2 = e2->mem_cell[r];
+                        if (c2 >= 0 && c2 < e2->mem_cell_count
+                                && e2->cell_final && e2->cell_final[c2])
+                            final_kills++;
+                    }
+                    if (final_kills == 0)
+                        printf("        ctor-call case: NO FINAL-cell KILL rows "
+                               "in get's engine\n");
+                    CHECK(final_kills > 0,
+                          "the ctor invocation kills the FINAL cells — "
+                          "construction's carrier exists");
+                    cp_free(e2);
+                    break;
+                }
+            }
             sema_destroy(&sctx); bbq_arena_free(&a);
         }
     }
