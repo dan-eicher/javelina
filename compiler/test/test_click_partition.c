@@ -3519,6 +3519,217 @@ static void test_cp_c3_increment_lands_on_the_length(void) {
     bbq_arena_free(&a);
 }
 
+/* ── The monotone Mul row: `x * c >= x` for c >= 1, x >= 0 ─────────────────
+ *
+ * ONE ordering fact, not a multiplication tier: multiplying a non-negative
+ * value by a factor of at least one cannot decrease it. It is the lower-bound
+ * mirror of C3's increment above, and it is what makes a doubling growth
+ * allocation provably big enough for the count it replaces.
+ *
+ * The fence is the interval, exactly as the D-class rows state it: x >= 0 for
+ * the ordering itself, and x * c representable for the wrap (§15.18.2) — a
+ * product that overflows is negative, and `x * c >= x` is false there.
+ */
+static void test_cp_mul_carries_monotone_lower_bound(void) {
+    bbq_arena a; bbq_arena_init(&a, 1 << 16);
+    /* slot 0 = x, fenced to [0, 99] by two checks */
+    sir_node_t* mul = sir_mul(&a, SIR_DTINT,
+        sir_load_local(&a, 0, SIR_DTINT, NULL),
+        sir_load_const(&a, 2, SIR_DTINT));
+    sir_node_t* brHi = sir_branch(&a,                        /* x >= 100 */
+        sir_ge(&a, sir_load_local(&a, 0, SIR_DTINT, NULL),
+                   sir_load_const(&a, 100, SIR_DTINT)),
+        sir_return(&a, sir_load_const(&a, 1, SIR_DTINT), SIR_DTINT),
+        sir_return(&a, mul, SIR_DTINT));                     /* x <= 99 here */
+    sir_node_t* brLo = sir_branch(&a,                        /* x < 0 */
+        sir_lt(&a, sir_load_local(&a, 0, SIR_DTINT, NULL),
+                   sir_load_const(&a, 0, SIR_DTINT)),
+        sir_return(&a, sir_load_const(&a, 2, SIR_DTINT), SIR_DTINT), brHi);
+    sir_method_t* m = sir_method(&a, "mulmono", 0, 1, 1, brLo);
+
+    cp_engine_t* e = cp_build(m, NULL, &a, NULL, 0);
+    TEST_ASSERT_NOT_NULL(e);
+    cp_vnode_t* mv = cp_vnode_for(e, mul);
+    TEST_ASSERT_NOT_NULL(mv);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(CP_C_RANGE, mv->constant.state,
+        "`x * 2` with x fenced to [0, 99] is a RANGE");
+    TEST_ASSERT_TRUE_MESSAGE(mv->constant.lo_vn1 != 0,
+        "the Mul row carries the symbolic LOWER bound: 0 means `x * c >= x` is "
+        "not minted at all");
+    int b = mv->constant.lo_vn1 - 1;
+    TEST_ASSERT_TRUE_MESSAGE(mv->input_count >= 1 && mv->inputs[0] >= 0,
+        "the Mul's own def-use inputs are what the row reads");
+    cp_vnode_t* xv = e->vnodes[mv->inputs[0]];
+    TEST_ASSERT_TRUE_MESSAGE(b >= 0 && b < e->vnode_count
+            && e->vnodes[b]->partition >= 0
+            && e->vnodes[b]->partition == xv->partition,
+        "…and the bound names X ITSELF, the value multiplied");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(1, (int)mv->constant.lo_vn_incl,
+        "…INCLUSIVE: x * 1 IS x, so the fact is `>=` and a strict bound would "
+        "be false for c == 1 and for x == 0");
+    cp_free(e);
+    bbq_arena_free(&a);
+}
+
+/* ── C3's LOWER half: `x + k >= x` for k >= 0 ───────────────────────────────
+ *
+ * The mirror of test_cp_c3_increment_lands_on_the_length above. C3's row is
+ * `v := u + c` for a constant of either sign, and the engine carried it on the
+ * symbolic UPPER bound only — so a lower bound died at the first addition. The
+ * composition this exists for is the growth allocation `x * 2 + 1`, whose
+ * ordering against x is the Mul row's fact carried up through the increment.
+ *
+ * The fence is the INTERVAL, not the bound: unlike the upper half — where
+ * `u < B` gives `u <= B - 1` and so pays for itself — `x >= B` says nothing
+ * about how large x is, so only `x.hi <= MAX - k` excludes the wrap.
+ */
+static void test_cp_c3_lower_bound_survives_increment(void) {
+    bbq_arena a; bbq_arena_init(&a, 1 << 16);
+    /* slot 0 = x, fenced to [0, 99]; size = x * 2 + 1 */
+    sir_node_t* mul = sir_mul(&a, SIR_DTINT,
+        sir_load_local(&a, 0, SIR_DTINT, NULL),
+        sir_load_const(&a, 2, SIR_DTINT));
+    sir_node_t* sum = sir_add(&a, SIR_DTINT, mul,
+        sir_load_const(&a, 1, SIR_DTINT));
+    sir_node_t* brHi = sir_branch(&a,
+        sir_ge(&a, sir_load_local(&a, 0, SIR_DTINT, NULL),
+                   sir_load_const(&a, 100, SIR_DTINT)),
+        sir_return(&a, sir_load_const(&a, 1, SIR_DTINT), SIR_DTINT),
+        sir_return(&a, sum, SIR_DTINT));
+    sir_node_t* brLo = sir_branch(&a,
+        sir_lt(&a, sir_load_local(&a, 0, SIR_DTINT, NULL),
+                   sir_load_const(&a, 0, SIR_DTINT)),
+        sir_return(&a, sir_load_const(&a, 2, SIR_DTINT), SIR_DTINT), brHi);
+    sir_method_t* m = sir_method(&a, "c3low", 0, 1, 1, brLo);
+
+    cp_engine_t* e = cp_build(m, NULL, &a, NULL, 0);
+    TEST_ASSERT_NOT_NULL(e);
+    cp_vnode_t* sv = cp_vnode_for(e, sum);
+    TEST_ASSERT_NOT_NULL(sv);
+    TEST_ASSERT_TRUE_MESSAGE(sv->constant.lo_vn1 != 0,
+        "C3 carries the bound DOWNWARD through a constant increment too: 0 means "
+        "the row fires only on the upper half, and `x * 2 + 1 >= x` is lost");
+    int b = sv->constant.lo_vn1 - 1;
+    cp_vnode_t* mv = cp_vnode_for(e, mul);
+    TEST_ASSERT_NOT_NULL(mv);
+    TEST_ASSERT_TRUE_MESSAGE(b >= 0 && b < e->vnode_count
+            && e->vnodes[b]->partition >= 0
+            && e->vnodes[b]->partition == e->vnodes[mv->inputs[0]]->partition,
+        "…and the bound still names X, the value the ordering is about");
+    cp_free(e);
+    bbq_arena_free(&a);
+}
+
+/* k < 0 REVERSES it: `0 * 2 - 1 = -1 < 0`. The row is k >= 0 and nothing
+ * weaker, so a decrement must drop the lower bound rather than carry it. */
+static void test_cp_c3_lower_bound_dropped_on_decrement(void) {
+    bbq_arena a; bbq_arena_init(&a, 1 << 16);
+    sir_node_t* mul = sir_mul(&a, SIR_DTINT,
+        sir_load_local(&a, 0, SIR_DTINT, NULL),
+        sir_load_const(&a, 2, SIR_DTINT));
+    sir_node_t* sum = sir_add(&a, SIR_DTINT, mul,
+        sir_load_const(&a, -1, SIR_DTINT));
+    sir_node_t* brHi = sir_branch(&a,
+        sir_ge(&a, sir_load_local(&a, 0, SIR_DTINT, NULL),
+                   sir_load_const(&a, 100, SIR_DTINT)),
+        sir_return(&a, sir_load_const(&a, 1, SIR_DTINT), SIR_DTINT),
+        sir_return(&a, sum, SIR_DTINT));
+    sir_node_t* brLo = sir_branch(&a,
+        sir_lt(&a, sir_load_local(&a, 0, SIR_DTINT, NULL),
+                   sir_load_const(&a, 0, SIR_DTINT)),
+        sir_return(&a, sir_load_const(&a, 2, SIR_DTINT), SIR_DTINT), brHi);
+    sir_method_t* m = sir_method(&a, "c3lowneg", 0, 1, 1, brLo);
+
+    cp_engine_t* e = cp_build(m, NULL, &a, NULL, 0);
+    TEST_ASSERT_NOT_NULL(e);
+    cp_vnode_t* sv = cp_vnode_for(e, sum);
+    TEST_ASSERT_NOT_NULL(sv);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, sv->constant.lo_vn1,
+        "a DECREMENT does not preserve `>= x`, so no lower bound is carried");
+    cp_free(e);
+    bbq_arena_free(&a);
+}
+
+/* The wrap fence, isolated: x carries a symbolic lower bound from `x == y` but
+ * its interval is unbounded above, so `x + 1` may wrap to INT_MIN — which is
+ * below y, not above it. This is the case the upper half never has to face. */
+static void test_cp_c3_lower_bound_dropped_when_sum_may_wrap(void) {
+    bbq_arena a; bbq_arena_init(&a, 1 << 16);
+    /* slot 0 = x, slot 1 = y */
+    sir_node_t* inc = sir_add(&a, SIR_DTINT,
+        sir_load_local(&a, 0, SIR_DTINT, NULL),
+        sir_load_const(&a, 1, SIR_DTINT));
+    sir_node_t* brEq = sir_branch(&a,                    /* x == y binds x >= y */
+        sir_eq(&a, sir_load_local(&a, 0, SIR_DTINT, NULL),
+                   sir_load_local(&a, 1, SIR_DTINT, NULL)),
+        sir_return(&a, inc, SIR_DTINT),
+        sir_return(&a, sir_load_const(&a, 0, SIR_DTINT), SIR_DTINT));
+    sir_method_t* m = sir_method(&a, "c3lowwrap", 0, 2, 2, brEq);
+
+    cp_engine_t* e = cp_build(m, NULL, &a, NULL, 0);
+    TEST_ASSERT_NOT_NULL(e);
+    cp_vnode_t* iv = cp_vnode_for(e, inc);
+    TEST_ASSERT_NOT_NULL(iv);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, iv->constant.lo_vn1,
+        "x is unbounded ABOVE, so x + 1 may wrap below its own lower bound — "
+        "the interval is the fence on this side, and it refuses");
+    cp_free(e);
+    bbq_arena_free(&a);
+}
+
+/* x may be NEGATIVE: `-3 * 2 = -6 < -3`. The ordering is false, and only the
+ * lower fence can say so — the upper one is present here precisely so the
+ * failure cannot be blamed on a missing wrap fence. */
+static void test_cp_mul_no_lower_bound_when_x_may_be_negative(void) {
+    bbq_arena a; bbq_arena_init(&a, 1 << 16);
+    sir_node_t* mul = sir_mul(&a, SIR_DTINT,
+        sir_load_local(&a, 0, SIR_DTINT, NULL),
+        sir_load_const(&a, 2, SIR_DTINT));
+    sir_node_t* brHi = sir_branch(&a,                        /* x >= 100 only */
+        sir_ge(&a, sir_load_local(&a, 0, SIR_DTINT, NULL),
+                   sir_load_const(&a, 100, SIR_DTINT)),
+        sir_return(&a, sir_load_const(&a, 1, SIR_DTINT), SIR_DTINT),
+        sir_return(&a, mul, SIR_DTINT));
+    sir_method_t* m = sir_method(&a, "mulneg", 0, 1, 1, brHi);
+
+    cp_engine_t* e = cp_build(m, NULL, &a, NULL, 0);
+    TEST_ASSERT_NOT_NULL(e);
+    cp_vnode_t* mv = cp_vnode_for(e, mul);
+    TEST_ASSERT_NOT_NULL(mv);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, mv->constant.lo_vn1,
+        "x may be negative, so `x * 2 >= x` is FALSE and no bound is carried");
+    cp_free(e);
+    bbq_arena_free(&a);
+}
+
+/* c <= 0 shrinks (or flips) even a non-negative x: `5 * 0 = 0 < 5`. The row is
+ * `c >= 1` and nothing weaker. */
+static void test_cp_mul_no_lower_bound_when_factor_not_positive(void) {
+    bbq_arena a; bbq_arena_init(&a, 1 << 16);
+    sir_node_t* mul = sir_mul(&a, SIR_DTINT,                 /* x * -1 */
+        sir_load_local(&a, 0, SIR_DTINT, NULL),
+        sir_load_const(&a, -1, SIR_DTINT));
+    sir_node_t* brHi = sir_branch(&a,
+        sir_ge(&a, sir_load_local(&a, 0, SIR_DTINT, NULL),
+                   sir_load_const(&a, 100, SIR_DTINT)),
+        sir_return(&a, sir_load_const(&a, 1, SIR_DTINT), SIR_DTINT),
+        sir_return(&a, mul, SIR_DTINT));
+    sir_node_t* brLo = sir_branch(&a,
+        sir_lt(&a, sir_load_local(&a, 0, SIR_DTINT, NULL),
+                   sir_load_const(&a, 0, SIR_DTINT)),
+        sir_return(&a, sir_load_const(&a, 2, SIR_DTINT), SIR_DTINT), brHi);
+    sir_method_t* m = sir_method(&a, "mulnegc", 0, 1, 1, brLo);
+
+    cp_engine_t* e = cp_build(m, NULL, &a, NULL, 0);
+    TEST_ASSERT_NOT_NULL(e);
+    cp_vnode_t* mv = cp_vnode_for(e, mul);
+    TEST_ASSERT_NOT_NULL(mv);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, mv->constant.lo_vn1,
+        "c <= 0 does not preserve the ordering, so no bound is carried");
+    cp_free(e);
+    bbq_arena_free(&a);
+}
+
 /* ── The cross-field SHAPE, at the level that owns it ──────────────────────
  *
  * `if (i >= o.count) …; else o.data[i]` — the user guard bounds i by a COUNT
@@ -7767,6 +7978,12 @@ void test_click_partition_suite(void) {
     RUN_TEST(test_cp_c4_pi_on_both_operands);
     RUN_TEST(test_cp_phi_takes_the_weakest_strictness);
     RUN_TEST(test_cp_c3_increment_lands_on_the_length);
+    RUN_TEST(test_cp_mul_carries_monotone_lower_bound);
+    RUN_TEST(test_cp_c3_lower_bound_survives_increment);
+    RUN_TEST(test_cp_c3_lower_bound_dropped_on_decrement);
+    RUN_TEST(test_cp_c3_lower_bound_dropped_when_sum_may_wrap);
+    RUN_TEST(test_cp_mul_no_lower_bound_when_x_may_be_negative);
+    RUN_TEST(test_cp_mul_no_lower_bound_when_factor_not_positive);
     RUN_TEST(test_cp_cross_field_shape_is_visible);
     RUN_TEST(test_cp_mem_dse_overwritten_field_store_is_dead);
     RUN_TEST(test_cp_mem_dse_distinct_receivers_both_live);

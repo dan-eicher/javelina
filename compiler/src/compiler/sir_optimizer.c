@@ -4923,6 +4923,27 @@ static cp_const_t cp_node_const(cp_engine_t* eng, int v_idx) {
                                       .hi_vn1 = a.hi_vn1, .hi_vn_incl = 1 };
                 }
             }
+            /* C3's LOWER half, and the reason it is a separate row rather than
+             * a sign flip of the one above: the two halves do not share a
+             * fence. `u < B` pays for its own (u ≤ B − 1 ≤ MAX − 1, so u + 1 is
+             * representable), but `u >= B` says nothing about how LARGE u is,
+             * so only the interval excludes the wrap — `x.hi ≤ MAX − k`, which
+             * is the mirror of the Sub row's `a.lo ≥ MIN + k` below.
+             *
+             * Strictness rides along unchanged: `x >= B` with k ≥ 0 gives
+             * `x + k >= B`, and `x > B` gives `x + k > B`. Nothing is tightened
+             * — claiming strict from inclusive would delete a check that must
+             * fire when k is 0. */
+            if (e->tag == SIR_ADD && a.cwidth < CP_W_F32
+                    && r.state == CP_C_RANGE
+                    && a.state == CP_C_RANGE && a.lo_vn1
+                    && b.state == CP_C_KNOWN && b.cwidth < CP_W_F32) {
+                int64_t k = cp_known_i64(b);
+                if (k >= 0 && a.hi <= cp_width_max(a.cwidth) - k) {
+                    r.lo_vn1 = a.lo_vn1;
+                    r.lo_vn_incl = a.lo_vn_incl;
+                }
+            }
             if (e->tag == SIR_SUB && r.state == CP_C_RANGE
                     && a.state == CP_C_RANGE && b.state == CP_C_KNOWN
                     && r.cwidth < CP_W_F32) {
@@ -4944,6 +4965,27 @@ static cp_const_t cp_node_const(cp_engine_t* eng, int v_idx) {
                         if (lvn >= 0) { r.hi_vn1 = lvn + 1; r.hi_vn_incl = 0; }
                     }
                 }
+            }
+            /* The monotone ordering row, the LOWER-bound mirror of C3's
+             * increment: `x * c >= x` for a KNOWN c ≥ 1 and x ≥ 0. Multiplying
+             * a non-negative value by a factor of at least one cannot decrease
+             * it — one ordering fact, not multiplication folding, and nothing
+             * here composes two of them.
+             *
+             * The wrap fence is the interval fold's OWN overflow verdict: a
+             * product that wraps is not ≥ its operand (§15.18.2), and the range
+             * fold returns BOTTOM exactly when the operand box can overflow, so
+             * a RANGE result IS the no-wrap proof — read from the authority
+             * that owns it instead of recomputed here. `x ≥ 0` is the
+             * ordering's own condition, which no interval gives for free.
+             * INCLUSIVE: c == 1 leaves x itself, and x == 0 leaves 0. */
+            if (e->tag == SIR_MUL && a.cwidth < CP_W_F32
+                    && r.state == CP_C_RANGE
+                    && a.state == CP_C_RANGE && a.lo >= 0
+                    && b.state == CP_C_KNOWN && b.cwidth < CP_W_F32
+                    && cp_known_i64(b) >= 1) {
+                int lvn = cp_ultimate_value(eng, v->inputs[0]);
+                if (lvn >= 0) { r.lo_vn1 = lvn + 1; r.lo_vn_incl = 1; }
             }
             return r;
         }
@@ -11966,6 +12008,65 @@ static bool cp_checked_count_below_len(cp_engine_t* e, int row, int cls,
     return false;
 }
 
+/* The pair's own count value in the PRE-state at this row — what the inductive
+ * step is allowed to assume about.
+ *
+ * Soundness is induction over execution and both halves are here: the BASE CASE
+ * is the §12.5 discharge below (a constructor's fresh object holds defaults), and
+ * this is the INDUCTIVE STEP's subject. A writer that re-establishes the invariant
+ * FROM the invariant — every growing container does — proves nothing without it.
+ *
+ * The value is the reaching version of the count cell at this store's row, read
+ * from `slot_in` exactly as the §12.5 walk indexes it, matched against a read the
+ * method already made: a GetField carries its reaching version as its LAST du
+ * input, so both sides are reads and neither is a walk.
+ *
+ * SELF-assumption only. The caller passes the pair's OWN class, count field and
+ * receiver, so no obligation can ever spend a different pair's invariant. */
+static int cp_vinv_settled_ver(cp_engine_t* e, int mem, int robj) {
+    /* A call the callee cannot reach through does not end a version — the walk
+     * the §12.5 discharge makes, and the same one cp_load_forward_target makes. */
+    while (mem >= 0 && mem < e->mem_rows && e->mem_kind[mem] == CP_MEM_KILL) {
+        if (robj < 0 || !cp_call_preserves_cell(e, robj, e->mem_cell[mem])) return -1;
+        mem = e->mem_prev[mem];
+    }
+    return mem;
+}
+
+static bool cp_is_this(const sir_node_t* e);
+
+static int cp_vinv_pre_count_vn(cp_engine_t* e, int row, int cls, int count_fld,
+                                sir_node_t* recv, int recv_vn,
+                                const int* cgets, int ncget) {
+    if (recv_vn < 0 || row < 0 || !e->slot_in || row >= e->slot_in_rows) return -1;
+    if (e->mem_cell_count <= 0) return -1;
+    int cell = cp_cell_lookup(e, cp_cell_key_field(cls, count_fld));
+    if (cell < 0) return -1;
+    int robj = cp_pts_sole_obj(e, e->vnodes[recv_vn]->pts);
+    int want = cp_vinv_settled_ver(e, e->slot_in[row][e->slot_count + cell], robj);
+    if (want < 0) return -1;
+    for (int ci = 0; ci < ncget; ci++) {
+        const cp_vnode_t* cv = e->vnodes[cgets[ci]];
+        if (cv->expr->get_field.class_id != cls
+                || cv->expr->get_field.field_idx != count_fld) continue;
+        if (cv->input_count < 2) continue;
+        if (cp_vinv_settled_ver(e, cv->inputs[cv->input_count - 1], robj) != want) continue;
+        /* Same RECEIVER. `this` has TWO lowered forms (LoadThis, and the
+         * synthesized slot-0 LoadLocal — cp_is_this keys off THIS, never one
+         * form), each read sits under its own null-check whose Refine is a
+         * Leader of its own with a per-site narrowed phantom — so neither
+         * congruence nor pts identifies two this-reads across an excepting
+         * point. §15.8.3 makes `this` unassignable: every this-form in one
+         * body IS one object. Any other receiver falls to the value
+         * authority, exactly as the crossed-check readouts compare theirs. */
+        sir_node_t* crecv = sir_child(cv->expr, 0);
+        if (!((cp_is_this(recv) && cp_is_this(crecv))
+              || cp_same_value(e, cp_vnode_of(e, crecv), recv_vn))) continue;
+        return cgets[ci];
+    }
+    return -1;
+}
+
 static void cp_vinv_writer_obligations(compiler_ctx_t* ctx, cp_engine_t* e) {
     if (!ctx || ctx->vinv_count == 0) return;
     /* A constructor's obligations may use §12.5: the body runs on a freshly
@@ -12043,28 +12144,26 @@ static void cp_vinv_writer_obligations(compiler_ctx_t* ctx, cp_engine_t* e) {
                  * decrement satisfies the obligation with more room, not less,
                  * and a bound invented past the row's own arithmetic is a rule
                  * nobody can cite. */
-                if (!proved) {
-                    /* The value it ultimately IS, before its shape is examined:
-                     * the lowering spills the sum into a temp, so the store
-                     * names a slot read and the Add is one hop further in. */
-                    int xvn = cp_value_leader(e, val_vn);
-                    int64_t k = 0;
-                    const cp_vnode_t* sv2 = (xvn >= 0 && xvn < e->vnode_count)
-                                          ? e->vnodes[xvn] : NULL;
-                    if (sv2 && sv2->kind == CP_VN_EXPR && sv2->expr
-                            && sv2->expr->tag == SIR_ADD && sv2->input_count == 2
-                            && sv2->inputs[0] >= 0 && sv2->inputs[1] >= 0) {
-                        cp_const_t kc = e->vnodes[sv2->inputs[1]]->constant;
-                        if (kc.state == CP_C_KNOWN && kc.cwidth < CP_W_F32) {
-                            k = cp_known_i64(kc);
-                            xvn = sv2->inputs[0];
-                        }
+                /* The value it ultimately IS, before its shape is examined:
+                 * the lowering spills the sum into a temp, so the store
+                 * names a slot read and the Add is one hop further in. */
+                int xvn = cp_value_leader(e, val_vn);
+                int64_t k = 0;
+                const cp_vnode_t* sv2 = (xvn >= 0 && xvn < e->vnode_count)
+                                      ? e->vnodes[xvn] : NULL;
+                if (sv2 && sv2->kind == CP_VN_EXPR && sv2->expr
+                        && sv2->expr->tag == SIR_ADD && sv2->input_count == 2
+                        && sv2->inputs[0] >= 0 && sv2->inputs[1] >= 0) {
+                    cp_const_t kc = e->vnodes[sv2->inputs[1]]->constant;
+                    if (kc.state == CP_C_KNOWN && kc.cwidth < CP_W_F32) {
+                        k = cp_known_i64(kc);
+                        xvn = sv2->inputs[0];
                     }
-                    if (k <= 1)
-                        proved = cp_checked_below_field_len(e, si2, xvn, cls,
-                                                            ctx->vinv_data_fld[p],
-                                                            cp_vnode_of(e, recv));
                 }
+                if (!proved && k <= 1)
+                    proved = cp_checked_below_field_len(e, si2, xvn, cls,
+                                                        ctx->vinv_data_fld[p],
+                                                        cp_vnode_of(e, recv));
                 if (!proved && sc.state == CP_C_RANGE && sc.hi_vn1
                         && cp_bound_base_holds(e, -1, 0, sc)) {
                     const sir_node_t* gf = cp_len_of_field(e, sc.hi_vn1 - 1);
@@ -12073,6 +12172,41 @@ static void cp_vinv_writer_obligations(compiler_ctx_t* ctx, cp_engine_t* e) {
                         proved = cp_same_value(e, cp_vnode_of(e, sir_child((sir_node_t*)gf, 0)),
                                                 cp_vnode_of(e, recv));
                 }
+                /* The INDUCTIVE STEP. A value at or below the pre-state count
+                 * is below the length because the count was — the invariant
+                 * assumed of the version this store overwrites. Either shape
+                 * says it: the stored value IS `count_pre + k` for k ≤ 0, or it
+                 * carries a symbolic bound naming that read (`k <= count` on a
+                 * guard's taken edge). Both strictnesses serve, since a strict
+                 * bound is the stronger fact. */
+                int pre = cp_vinv_pre_count_vn(e, si2, cls, ctx->vinv_count_fld[p],
+                                               recv, cp_vnode_of(e, recv),
+                                               cgets, ncget);
+                if (!proved && pre >= 0) {
+                    if (k <= 0 && cp_same_value(e, xvn, pre))
+                        proved = true;
+                    else if (sc.state == CP_C_RANGE && sc.hi_vn1 && !sc.hi_sub_vn1
+                            && cp_same_value(e, cp_ultimate_value(e, sc.hi_vn1 - 1), pre))
+                        proved = true;
+                }
+                /* The COMPANION clause: `count >= 0`, verified for the same
+                 * store, in the same AND, as one `holds`. The upper half alone
+                 * is not the invariant a growth proof needs — `x * c >= x` rests
+                 * on the sign, and a shrink to a negative count satisfies
+                 * `k <= count` while destroying the pair. §12.5's zero is its
+                 * base case, exactly as for the upper half. */
+                bool proved_lo = false;
+                if (sc.state == CP_C_KNOWN && sc.cwidth < CP_W_F32
+                        && cp_known_i64(sc) >= 0)
+                    proved_lo = true;
+                else if (sc.state == CP_C_RANGE && sc.lo >= 0)
+                    proved_lo = true;
+                else if (pre >= 0 && k >= 0 && cp_same_value(e, xvn, pre))
+                    proved_lo = true;                    /* count_pre + k, both ≥ 0 */
+                else if (pre >= 0 && sc.state == CP_C_RANGE && sc.lo_vn1
+                        && cp_same_value(e, cp_ultimate_value(e, sc.lo_vn1 - 1), pre))
+                    proved_lo = true;
+                proved = proved && proved_lo;
             } else {
                 /* The mirror, read the same way: the count VALUE this method
                  * holds must carry a symbolic bound naming `arraylength(stored)`.
@@ -12114,6 +12248,102 @@ static void cp_vinv_writer_obligations(compiler_ctx_t* ctx, cp_engine_t* e) {
                     proved = cp_checked_count_below_len(e, si2, cls,
                                                         ctx->vinv_count_fld[p],
                                                         cp_vnode_of(e, recv), val_vn);
+                /* The INDUCTIVE STEP on this side: a growth writer allocates
+                 * FROM the pre-state count, and under the pair's own invariant
+                 * — `count_pre ≥ 0`, the companion clause, assumed HERE inside
+                 * this readout and nowhere else — the new array is no smaller
+                 * than the count it will carry. The ctor discharge below is the
+                 * base case that licenses the assumption; obligations only ever
+                 * CLEAR `holds`, so a pair with no base case cannot be
+                 * resurrected by it.
+                 *
+                 * The stored ALLOCATION is resolved by the pts lattice — sole
+                 * object, then the engine's own inverse map — because the expr
+                 * walk lands on the array OVERLAY's struct node, not the
+                 * array.new whose SIZE is the §10.7 length. The size's shape is
+                 * then read off its value's own du inputs, one Mul and one Add
+                 * at most — the mirror of the count-store's Add peel above:
+                 *   count            (§10.7 identity — the obligation verbatim)
+                 *   count + k, k ≥ 0 (adding non-negative cannot decrease)
+                 *   count·2 (+ 0|1)  (the doubling shapes)
+                 * Wrap (§15.18.2) is excluded by the size's own crossed
+                 * §15.10.1 check: this store is on the NegativeArraySize
+                 * fall-through, so the size is ≥ 0 here, and for exactly these
+                 * shapes a wrapped result stays negative — one non-negative Add
+                 * of int operands wraps at most once, c = 2 keeps a wrapped
+                 * product negative and k ≤ 1 cannot wrap it back around, while
+                 * c ≥ 3 (or k ≥ 2 over the product) can re-enter the
+                 * non-negative range, so those shapes are refused. */
+                if (!proved) {
+                    int pre = cp_vinv_pre_count_vn(e, si2, cls,
+                                                   ctx->vinv_count_fld[p],
+                                                   recv, cp_vnode_of(e, recv),
+                                                   cgets, ncget);
+                    int so = pre >= 0 ? cp_pts_sole_obj(e, e->vnodes[val_vn]->pts) : -1;
+                    int av = (so >= 0 && so < e->obj_count) ? e->vnode_of_obj[so] : -1;
+                    const cp_vnode_t* an = (av >= 0 && av < e->vnode_count)
+                                         ? e->vnodes[av] : NULL;
+                    /* The user-visible array is the OVERLAY struct; the raw
+                     * storage whose size is the §10.7 length sits one heap hop
+                     * in, through the backing cell — which is IMMUTABLE
+                     * (written once, at construction), so the cell's contents
+                     * for this object are exact and the hop is one field
+                     * follow, the same read MapsTo makes. Sole-object keeps it
+                     * fail-closed. */
+                    if (an && an->kind == CP_VN_EXPR && an->expr
+                            && an->expr->tag == SIR_NEW && so >= 0) {
+                        cp_pts_t from = cp_pts_new(e);
+                        cp_pts_t back = cp_pts_new(e);
+                        cp_pts_add(e, &from, so);
+                        for (int c = 0; c < e->mem_cell_count; c++)
+                            if (e->cell_immutable[c])
+                                cp_follow_field(e, c, from, &back);
+                        int bo = cp_pts_sole_obj(e, back);
+                        av = (bo >= 0 && bo < e->obj_count) ? e->vnode_of_obj[bo] : -1;
+                        an = (av >= 0 && av < e->vnode_count) ? e->vnodes[av] : NULL;
+                    }
+                    if (an && (an->kind != CP_VN_EXPR || !an->expr
+                               || an->expr->tag != SIR_NEWARRAY
+                               || an->input_count < 1 || an->inputs[0] < 0))
+                        an = NULL;
+                    if (an) {
+                        cp_const_t szc = e->vnodes[an->inputs[0]]->constant;
+                        bool fenced = szc.state == CP_C_RANGE && szc.lo >= 0;
+                        /* Value leaders locate the SHAPE; whether an operand IS
+                         * the pre-state count is congruence, and GVN answers it
+                         * — the method may read the field many times, and any
+                         * congruent read is the same value. */
+                        int cur = cp_value_leader(e, an->inputs[0]);
+                        int64_t k = -1;                      /* -1: no Add peeled */
+                        const cp_vnode_t* sv3 = (cur >= 0 && cur < e->vnode_count)
+                                              ? e->vnodes[cur] : NULL;
+                        if (sv3 && sv3->kind == CP_VN_EXPR && sv3->expr
+                                && sv3->expr->tag == SIR_ADD && sv3->input_count == 2
+                                && sv3->inputs[0] >= 0 && sv3->inputs[1] >= 0) {
+                            cp_const_t kc = e->vnodes[sv3->inputs[1]]->constant;
+                            if (kc.state == CP_C_KNOWN && kc.cwidth < CP_W_F32
+                                    && cp_known_i64(kc) >= 0) {
+                                k = cp_known_i64(kc);
+                                cur = cp_value_leader(e, sv3->inputs[0]);
+                                sv3 = (cur >= 0 && cur < e->vnode_count)
+                                    ? e->vnodes[cur] : NULL;
+                            }
+                        }
+                        if (cur >= 0 && cp_same_value(e, cur, pre)) {
+                            proved = (k < 0) || fenced;      /* count, or count + k */
+                        } else if (sv3 && sv3->kind == CP_VN_EXPR && sv3->expr
+                                   && sv3->expr->tag == SIR_MUL
+                                   && sv3->input_count == 2
+                                   && sv3->inputs[0] >= 0 && sv3->inputs[1] >= 0
+                                   && k <= 1) {
+                            cp_const_t cc2 = e->vnodes[sv3->inputs[1]]->constant;
+                            proved = cc2.state == CP_C_KNOWN && cc2.cwidth < CP_W_F32
+                                  && cp_known_i64(cc2) == 2
+                                  && cp_same_value(e, sv3->inputs[0], pre)
+                                  && fenced;
+                        }
+                    }
+                }
                 /* §12.5 — the BASE CASE the whole induction stands on: a
                  * constructor's fresh object holds DEFAULT field values, so a
                  * `this`-count no store or callee has touched is 0, and 0 is

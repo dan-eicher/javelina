@@ -610,6 +610,39 @@ static cp_vnode_t* vnode_for(cp_engine_t* e, const sir_node_t* expr) {
     return NULL;
 }
 
+static int vnode_idx_for(cp_engine_t* e, const sir_node_t* expr) {
+    for (int i = 0; i < e->vnode_count; i++)
+        if (e->vnodes[i]->kind == CP_VN_EXPR && e->vnodes[i]->expr == expr) return i;
+    return -1;
+}
+
+/* Test-side mirror of the engine's value-leader walk (copies via LoadLocal
+ * inputs, then Followers, then Refine inputs), so a pin can state WHERE two
+ * values' resolutions land. An oracle for the composition under test, not a
+ * reimplementation inside it. */
+static int leader_walk(cp_engine_t* e, int vi) {
+    for (int hops = 0; hops < 256; hops++) {
+        for (int u = 0; u < 128; u++) {
+            if (vi < 0 || vi >= e->vnode_count) return vi;
+            cp_vnode_t* v = e->vnodes[vi];
+            if (v->kind != CP_VN_EXPR || !v->expr
+                    || v->expr->tag != SIR_LOADLOCAL || v->input_count != 1) break;
+            if (v->inputs[0] == vi) break;
+            vi = v->inputs[0];
+        }
+        if (vi < 0 || vi >= e->vnode_count) return vi;
+        cp_vnode_t* v = e->vnodes[vi];
+        int next = vi;
+        if (v->leader >= 0) next = v->leader;
+        else if (v->kind == CP_VN_REFINE && v->input_count >= 1 && v->inputs[0] >= 0)
+            next = v->inputs[0];
+        if (next == vi) return vi;
+        vi = next;
+    }
+    return vi;
+}
+
+
 /* The first two nodes of `tag` reachable from `entry`, in walk order (spine node or
  * anywhere in its expression trees). */
 static void collect_two_expr(const sir_node_t* e, int tag,
@@ -6226,14 +6259,14 @@ int main(void) {
      * property of the load's inputs, not of anything reachable by walking. */
     {
         struct { const char* src; const char* cls; const char* m;
-                 int want_surviving; const char* what; } vcases[] = {
-          /* The growth arm carries a defensive re-check. Under the v1
-           * restriction a writer proof may not assume the invariant, and the
-           * plan's own fence (with ABCD p.3) excludes multiplication — so an
-           * UNCHECKED doubling store (`count <= count * 2 + 1` needs nonlinear
-           * arithmetic) is unprovable BY DESIGN and correctly kills the pair.
-           * The re-check is the minimal growth whose data-store proves from
-           * the method's own facts: C4's fall-through at the store's row. */
+                 int want_surviving; int kind; const char* what; } vcases[] = {
+          /* The growth arm carries a defensive re-check. This fixture is the
+           * FIRST-LAYER pin: the re-check is the minimal growth whose
+           * data-store proves from the method's own facts alone — C4's
+           * fall-through at the store's row — with no invariant assumed. The
+           * UNCHECKED doubling is the assume-verify layer's positive, pinned
+           * separately below; this one stays as written so the first layer
+           * keeps its own red. */
           { "class V { private int count; private int[] data;"
             "  V(){ data = new int[4]; count = 0; }"
             "  void add(int x){"
@@ -6245,7 +6278,7 @@ int main(void) {
             "    data[count] = x; count = count + 1; }"
             "  int get(int index){"
             "    if (index < 0 || index >= count) return -1;"
-            "    return data[index]; } }", "V", "get", 0,
+            "    return data[index]; } }", "V", "get", 0, COMPILER_GUARD_ARRAY_INDEX_HIGH,
             "mini-Vector: get's IDX_HIGH dies on the class invariant "
             "count <= data.length" },
           { "class V { private int count; private int[] data;"
@@ -6253,14 +6286,14 @@ int main(void) {
             "  void bad(){ count = data.length + 1; }"
             "  int get(int index){"
             "    if (index < 0 || index >= count) return -1;"
-            "    return data[index]; } }", "V", "get", 1,
+            "    return data[index]; } }", "V", "get", 1, COMPILER_GUARD_ARRAY_INDEX_HIGH,
             "(a) ONE writer violates the invariant (count = data.length + 1) — "
             "the AND over writers kills the pair: IDX_HIGH SURVIVES" },
           { "class V { int count; int[] data;"
             "  V(){ data = new int[4]; count = 4; }"
             "  static int g(V v1, V v2, int index){"
             "    if (index < 0 || index >= v1.count) return -1;"
-            "    return v2.data[index]; } }", "V", "g", 1,
+            "    return v2.data[index]; } }", "V", "g", 1, COMPILER_GUARD_ARRAY_INDEX_HIGH,
             "(b) two DISTINCT objects (v1.count guarding v2.data): IDX_HIGH "
             "SURVIVES" },
           { "class V { int count; int[] data;"
@@ -6268,16 +6301,87 @@ int main(void) {
             "  static int g(V v, int index, int[] other){"
             "    if (index < 0 || index >= v.count) return -1;"
             "    v.data = other;"
-            "    return v.data[index]; } }", "V", "g", 1,
+            "    return v.data[index]; } }", "V", "g", 1, COMPILER_GUARD_ARRAY_INDEX_HIGH,
             "(c) a store to `data` between the count-read and the access — the "
             "two fields' versions are incompatible: IDX_HIGH SURVIVES" },
           { "class V { int count; int[] data; int other;"
             "  V(){ data = new int[4]; count = 4; other = 99; }"
             "  static int g(V v, int index){"
             "    if (index < 0 || index >= v.other) return -1;"
-            "    return v.data[index]; } }", "V", "g", 1,
+            "    return v.data[index]; } }", "V", "g", 1, COMPILER_GUARD_ARRAY_INDEX_HIGH,
             "(d) the index is bounded by a field that is NOT the pair's count: "
             "IDX_HIGH SURVIVES" },
+          /* The NATURAL container, with no defensive re-check anywhere: growth
+           * re-establishes the invariant FROM the invariant, which is what every
+           * real maintainer does. The data store `data = n` proves because
+           * `arraylength(n) = count*2+1 >= count` — the monotone Mul ordering
+           * fact under the assumed `count >= 0` — and the count store proves from
+           * the §15 check it stands under. Mutual induction: base case §12.5 in
+           * the constructor, inductive step here. */
+          { "class V { private int count; private int[] data;"
+            "  V(){ data = new int[4]; count = 0; }"
+            "  void add(int x){"
+            "    if (count == data.length) {"
+            "      int[] n = new int[count * 2 + 1];"
+            "      int i = 0;"
+            "      while (i < count) { n[i] = data[i]; i = i + 1; } data = n; }"
+            "    data[count] = x; count = count + 1; }"
+            "  int get(int index){"
+            "    if (index < 0 || index >= count) return -1;"
+            "    return data[index]; } }", "V", "get", 0, COMPILER_GUARD_ARRAY_INDEX_HIGH,
+            "the NATURAL mini-Vector: unchecked doubling growth, get's IDX_HIGH "
+            "dies on the assume-verify invariant" },
+          /* The assumption is READOUT-LOCAL. It is made while proving a writer
+           * obligation and must not become an engine fact: if `count <= data.length`
+           * leaked onto the count READ, the Sub transfer would carry it down to
+           * `count - 1 < data.length` and delete a check that must fire. The pair
+           * itself holds here (both count stores are KNOWN 0), so the assumption
+           * IS being made — this pins that nothing outside the readout can see it. */
+          { "class V { private int count; private int[] data;"
+            "  V(){ data = new int[4]; count = 0; }"
+            "  void dec(){ if (count >= 1) { data[count - 1] = 0; } count = 0; }"
+            "  int get(int index){"
+            "    if (index < 0 || index >= count) return -1;"
+            "    return data[index]; } }", "V", "dec", 1, COMPILER_GUARD_ARRAY_INDEX_HIGH,
+            "the assumption never LEAKS: a §15 guard inside the writer's own "
+            "body does not fold on the assumed bound — IDX_HIGH SURVIVES" },
+          /* SELF-assumption only. Two pairs share one data array, so `a = b` is
+           * safe exactly BECAUSE of the other pair's invariant (`b <= p.length`).
+           * Mutual induction ACROSS pairs is sound in principle and is not this
+           * part: P1's obligation may not spend P2's invariant, so P1 dies. */
+          { "class V { int a; int b; int[] p;"
+            "  V(){ p = new int[4]; a = 0; b = 0; }"
+            "  void w(){ a = b; }"
+            "  static int g1(V v, int i){"
+            "    if (i < 0 || i >= v.a) return -1; return v.p[i]; }"
+            "  static int g2(V v, int i){"
+            "    if (i < 0 || i >= v.b) return -1; return v.p[i]; } }", "V", "g1", 1, COMPILER_GUARD_ARRAY_INDEX_HIGH,
+            "no CROSS-PAIR assumption: `a = b` is provable only from the OTHER "
+            "pair's invariant, so this pair dies — IDX_HIGH SURVIVES" },
+          { "class V { int a; int b; int[] p;"
+            "  V(){ p = new int[4]; a = 0; b = 0; }"
+            "  void w(){ a = b; }"
+            "  static int g1(V v, int i){"
+            "    if (i < 0 || i >= v.a) return -1; return v.p[i]; }"
+            "  static int g2(V v, int i){"
+            "    if (i < 0 || i >= v.b) return -1; return v.p[i]; } }", "V", "g2", 0, COMPILER_GUARD_ARRAY_INDEX_HIGH,
+            "…and the pair whose own writers prove is UNAFFECTED by the other's "
+            "death: its IDX_HIGH still falls" },
+          /* The SIGN half of the assumption must not leak either. `count >= 0`
+           * is assumed while the table is being VERIFIED — it is the induction
+           * hypothesis, not a fact about every int field — so once the table is
+           * published it must be gone: `data[count]`'s LOWER check is the guard
+           * that would fold on it, and it must still be there. Together with the
+           * `dec` case above this pins both halves of the seed. */
+          { "class V { private int count; private int[] data;"
+            "  V(){ data = new int[4]; count = 0; }"
+            "  void put(int x){ data[count] = x; count = count + 1; }"
+            "  int get(int index){"
+            "    if (index < 0 || index >= count) return -1; "
+            "    return data[index]; } }", "V", "put", 1,
+            COMPILER_GUARD_ARRAY_INDEX_LOW,
+            "the assumed SIGN never leaks either: `count >= 0` is the hypothesis "
+            "the table is verified UNDER, so `data[count]`'s IDX_LOW SURVIVES" },
         };
         for (int t = 0; t < (int)(sizeof vcases / sizeof vcases[0]); t++) {
             bbq_arena a; bbq_arena_init(&a, 1 << 16);
@@ -6330,7 +6434,7 @@ int main(void) {
                 surviving = 0;
                 for (int j = 0; j < nf; j++)
                     if (f[j].kind == COMPILER_FACT_GUARD
-                            && f[j].a == COMPILER_GUARD_ARRAY_INDEX_HIGH
+                            && f[j].a == vcases[t].kind
                             && f[j].key && (int)f[j].key->tag == SIR_BRANCH)
                         surviving++;
                 break;
@@ -6341,6 +6445,272 @@ int main(void) {
             CHECK(surviving == vcases[t].want_surviving, vcases[t].what);
             sema_destroy(&sctx); bbq_arena_free(&a);
         }
+    }
+
+    /* ── The growth data-store's four facts, on the REAL lowered shape ───────
+     *
+     * `data = new int[count]` is what a growth writer's obligation is read off,
+     * and the readout composes exactly four facts. Each is pinned separately
+     * HERE, because a red on the table's verdict says only "the pair died" and
+     * cannot say WHICH fact is missing — and the shape has to be the one the
+     * lowering actually emits (the size is spilled to a temp, and §15.10.1's
+     * check tests that temp), so a hand-built method would pin a shape no Java
+     * program produces. */
+    {
+        const char* src =
+          "class V { int count; int[] data;"
+          "  V(){ data = new int[4]; count = 0; }"
+          "  void grow(){ int[] n = new int[count]; data = n; }"
+          "  static int g(V v, int index){"
+          "    if (index < 0 || index >= v.count) return -1;"
+          "    return v.data[index]; } }";
+        bbq_arena a; bbq_arena_init(&a, 1 << 16);
+        int nlib = 0;
+        ast_program_t* prog = build_program(src, &a, &nlib);
+        sema_ctx_t sctx; sema_init(&sctx, &a);
+        sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
+        if (!sir_analyze(&sctx)) printf("  (note: sema reported errors)\n");
+        compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
+        int mc = 0;
+        sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
+        compiler_summarize_to_convergence(&cctx);
+        int cid = sema_find_class(&sctx, "V");
+        for (int i = 0; i < mc; i++) {
+            if (!ms[i]->name || strcmp(ms[i]->name, "grow")) continue;
+            int nf = 0;
+            const compiler_fact_t* f = compiler_get_facts(&cctx, i, &nf);
+            cp_engine_t* e = cp_build_ctx(&cctx, ms[i], f, nf);
+            if (!e) { CHECK(false, "growth facts: the engine builds"); break; }
+
+            /* The class filter matters: the array OVERLAY lowers `new int[n]`
+             * through its own DTREF backing store, whose receiver is the fresh
+             * array — the pair's store is the one on class V. */
+            int srow = -1;
+            for (int s = 0; s < e->spine_count; s++)
+                if (e->spine[s]->tag == SIR_PUTFIELD
+                        && e->spine[s]->put_field.data_type == SIR_DTREF
+                        && e->spine[s]->put_field.class_id == cid) { srow = s; break; }
+            CHECK(srow >= 0, "the data store is a spine row");
+            cp_vnode_t* alloc = NULL;
+            for (int j = 0; j < e->vnode_count && !alloc; j++)
+                if (e->vnodes[j]->kind == CP_VN_EXPR && e->vnodes[j]->expr
+                        && e->vnodes[j]->expr->tag == SIR_NEWARRAY
+                        && e->vnodes[j]->expr != NULL
+                        && e->vnodes[j]->expr->new_array.size != NULL)
+                    alloc = e->vnodes[j];
+            /* FACT 1 — the stored value IS the allocation, one heap hop in:
+             * the user-visible array is the OVERLAY struct, and the raw
+             * storage whose size is the §10.7 length sits in its IMMUTABLE
+             * backing cell — a CP_MEM_STORE row on an immutable cell, receiver
+             * congruent with the stored value, whose stored value is the
+             * array.new. This is the resolution the obligation makes (pts
+             * object → site → backing cell), stated on the memory rows the
+             * test can read. */
+            cp_vnode_t* stored = (srow >= 0)
+                ? vnode_for(e, e->spine[srow]->put_field.value) : NULL;
+            bool backing_ok = false;
+            for (int r = 0; stored && r < e->mem_rows && !backing_ok; r++) {
+                if (e->mem_kind[r] != CP_MEM_STORE) continue;
+                int c = e->mem_cell[r];
+                if (c < 0 || c >= e->mem_cell_count || !e->cell_immutable[c]) continue;
+                if (e->mem_obj[r] < 0 || e->mem_val[r] < 0) continue;
+                if (e->vnodes[e->mem_obj[r]]->partition < 0
+                        || e->vnodes[e->mem_obj[r]]->partition != stored->partition)
+                    continue;
+                backing_ok = alloc
+                    && e->vnodes[e->mem_val[r]]->partition == alloc->partition;
+            }
+            if (!backing_ok)
+                printf("        FACT 1: no immutable-cell store from the stored "
+                       "value's partition %d to the array.new's partition %d\n",
+                       stored ? stored->partition : -2,
+                       alloc ? alloc->partition : -2);
+            CHECK(backing_ok,
+                  "FACT 1: the stored value resolves to the ALLOCATION through "
+                  "the overlay's immutable backing cell");
+
+            /* FACT 2 — §10.7: the allocation's size is the array's length, and
+             * it is the pair's COUNT read. No `n.length` read need exist. */
+            cp_vnode_t* szv = (alloc && alloc->input_count >= 1 && alloc->inputs[0] >= 0)
+                            ? e->vnodes[alloc->inputs[0]] : NULL;
+            cp_vnode_t* cntv = NULL;
+            for (int j = 0; j < e->vnode_count && !cntv; j++)
+                if (e->vnodes[j]->kind == CP_VN_EXPR && e->vnodes[j]->expr
+                        && e->vnodes[j]->expr->tag == SIR_GETFIELD
+                        && e->vnodes[j]->expr->get_field.data_type == SIR_DTINT)
+                    cntv = e->vnodes[j];
+            /* Through the REFINE, deliberately: §15.10.1's check has already
+             * refined the size on this arm, and a Refine is a Leader of its own
+             * — congruence must not merge a checked value with an unchecked one.
+             * So the walk descends leaders AND refine inputs, which is the same
+             * hop-walk the crossed-check readout makes for the same reason. */
+            int sres = -1;
+            for (int hv = (alloc && alloc->input_count >= 1) ? alloc->inputs[0] : -1, hop = 0;
+                    hv >= 0 && hv < e->vnode_count && hop < 256; hop++) {
+                cp_vnode_t* hn = e->vnodes[hv];
+                if (cntv && hn->partition >= 0 && hn->partition == cntv->partition)
+                    { sres = hv; break; }
+                int next = hv;
+                if (hn->leader >= 0) next = hn->leader;
+                else if (hn->kind == CP_VN_REFINE && hn->input_count >= 1
+                         && hn->inputs[0] >= 0) next = hn->inputs[0];
+                if (next == hv) break;
+                hv = next;
+            }
+            if (sres < 0)
+                printf("        FACT 2: size part %d, count read part %d, no "
+                       "refine/leader hop reaches it\n",
+                       szv ? szv->partition : -2, cntv ? cntv->partition : -2);
+            CHECK(sres >= 0,
+                  "FACT 2: the allocation's SIZE resolves to the count read "
+                  "(§10.7), through the check's refine");
+
+            /* FACT 3 — the wrap fence's second form: §15.10.1's negative-size
+             * check has fallen through at the allocation, so the size carries a
+             * non-negative floor THERE. A wrapped product is negative, so this
+             * is what excludes it. */
+            if (!szv || szv->constant.state != CP_C_RANGE || szv->constant.lo < 0)
+                printf("        FACT 3: size const state=%d lo=%lld\n",
+                       szv ? (int)szv->constant.state : -2,
+                       szv ? (long long)szv->constant.lo : 0);
+            CHECK(szv && szv->constant.state == CP_C_RANGE && szv->constant.lo >= 0,
+                  "FACT 3: the fallen-through negative-size check floors the "
+                  "allocation's size at 0");
+
+            /* FACT 4 — the PRE-STATE match: the count value the assumption is
+             * made about is the version the store's row sees. The read names its
+             * own version as its last du input; the row names one through
+             * slot_in. A call that cannot reach the cell does not end a version,
+             * so both settle through kills before they are compared. */
+            int cmem = (cntv && cntv->input_count >= 2)
+                     ? cntv->inputs[cntv->input_count - 1] : -1;
+            int cell = (cmem >= 0 && cmem < e->mem_rows) ? e->mem_cell[cmem] : -1;
+            int rowver = (cell >= 0 && srow >= 0 && srow < e->slot_in_rows)
+                       ? e->slot_in[srow][e->slot_count + cell] : -1;
+            if (cmem < 0 || cmem != rowver)
+                printf("        FACT 4: read ver %d, row ver %d, cell %d "
+                       "(kinds %d/%d)\n", cmem, rowver, cell,
+                       cmem >= 0 && cmem < e->mem_rows ? (int)e->mem_kind[cmem] : -1,
+                       rowver >= 0 && rowver < e->mem_rows ? (int)e->mem_kind[rowver] : -1);
+            CHECK(cmem >= 0 && cmem == rowver,
+                  "FACT 4: the count read IS the version reaching the store's row "
+                  "— the same row, with nothing to cross");
+
+            /* FACT 4b — and it is a read of THE SAME OBJECT the store writes.
+             * NOT a congruence or pts claim: each receiver read sits under its
+             * own null-check whose Refine is a Leader of its own with a
+             * per-site phantom, so those authorities correctly refuse across
+             * the excepting allocation. The rule that holds is the receiver's
+             * own duality: `this` has two lowered forms (LoadThis, and the
+             * synthesized slot-0 LoadLocal), §15.8.3 makes it unassignable,
+             * and both reads here ARE this-forms — one object. */
+            sir_node_t* sro = (srow >= 0) ? e->spine[srow]->put_field.obj : NULL;
+            sir_node_t* cro = cntv ? sir_child((sir_node_t*)cntv->expr, 0) : NULL;
+            bool s_this = sro && (sro->tag == SIR_LOADTHIS
+                          || (sro->tag == SIR_LOADLOCAL && sro->load_local.slot == 0));
+            bool c_this = cro && (cro->tag == SIR_LOADTHIS
+                          || (cro->tag == SIR_LOADLOCAL && cro->load_local.slot == 0));
+            if (!s_this || !c_this)
+                printf("        FACT 4b: store recv tag %d, count-read recv tag "
+                       "%d — not both this-forms\n",
+                       sro ? (int)sro->tag : -1, cro ? (int)cro->tag : -1);
+            CHECK(s_this && c_this,
+                  "FACT 4b: the count read and the store name the SAME receiver "
+                  "— both are this-forms (§15.8.3: `this` is unassignable)");
+
+            /* FACT 5 — the hypothesis is GONE once the table is published. The
+             * assumption is what the obligations are verified UNDER; it is not a
+             * fact about the field, and a published `count >= 0` would fold
+             * lower-bound checks all over the program. The phase bit is what
+             * separates the two, so this reads the count's published constant
+             * and requires no assumed floor on it. */
+            if (cntv && cntv->constant.state == CP_C_RANGE && cntv->constant.lo >= 0)
+                printf("        FACT 5: published count read carries lo=%lld\n",
+                       (long long)cntv->constant.lo);
+            CHECK(!cntv || cntv->constant.state != CP_C_RANGE
+                  || cntv->constant.lo < 0,
+                  "FACT 5: the assumed floor does not survive into the PUBLISHED "
+                  "facts — it is a hypothesis, not a property of the field");
+            cp_free(e);
+
+            /* FACT 6 — and the hypothesis is READOUT-LOCAL: even in the
+             * VERIFYING phase, the ENGINE never sees `count >= 0`. The
+             * assumption is made inside the writer-obligation readout and
+             * nowhere else — a leaked assumption is the unsoundness, because
+             * everything in a solve (branch folding, range composition,
+             * published facts) would inherit a fact that is only a hypothesis.
+             * Reproduced by putting the phase bit where verification has it. */
+            cctx.vinv_published = false;
+            e = cp_build_ctx(&cctx, ms[i], f, nf);
+            cctx.vinv_published = true;
+            if (!e) { CHECK(false, "growth facts: the engine rebuilds"); break; }
+            cp_vnode_t* alloc2 = NULL;
+            for (int j = 0; j < e->vnode_count && !alloc2; j++)
+                if (e->vnodes[j]->kind == CP_VN_EXPR && e->vnodes[j]->expr
+                        && e->vnodes[j]->expr->tag == SIR_NEWARRAY)
+                    alloc2 = e->vnodes[j];
+            cp_vnode_t* cnt2 = NULL; int cnt2i = -1;
+            for (int j = 0; j < e->vnode_count && !cnt2; j++)
+                if (e->vnodes[j]->kind == CP_VN_EXPR && e->vnodes[j]->expr
+                        && e->vnodes[j]->expr->tag == SIR_GETFIELD
+                        && e->vnodes[j]->expr->get_field.data_type == SIR_DTINT)
+                    { cnt2 = e->vnodes[j]; cnt2i = j; }
+            if (cnt2 && cnt2->constant.state == CP_C_RANGE && cnt2->constant.lo >= 0)
+                printf("        FACT 6a: verifying-phase count read LEAKED the "
+                       "hypothesis (state=%d lo=%lld)\n",
+                       (int)cnt2->constant.state, (long long)cnt2->constant.lo);
+            CHECK(cnt2 && !(cnt2->constant.state == CP_C_RANGE
+                            && cnt2->constant.lo >= 0),
+                  "FACT 6a: even WHILE VERIFYING, the engine never sees "
+                  "`count >= 0` — the hypothesis is readout-local");
+
+            /* FACT 8 — the identity term of the data-store route, on its own,
+             * in the SAME verifying engine: the allocation's size and the count
+             * read RESOLVE to one value through the leader walk. */
+            int szi = alloc2
+                ? vnode_idx_for(e, sir_child((sir_node_t*)alloc2->expr, 0)) : -1;
+            int t_sz = szi >= 0 ? leader_walk(e, szi) : -2;
+            int t_pre = cnt2i >= 0 ? leader_walk(e, cnt2i) : -3;
+            if (t_sz < 0 || t_sz != t_pre)
+                printf("        FACT 8b: size terminal %d (from vn%d), count "
+                       "read terminal %d (from vn%d)\n", t_sz, szi, t_pre, cnt2i);
+            CHECK(t_sz >= 0 && t_sz == t_pre,
+                  "FACT 8b: the size and the count read resolve to ONE value — "
+                  "the route's identity term");
+            cp_free(e);
+
+            /* FACT 7 — the verdict, ONE WRITER AT A TIME, through the
+             * production path. The table's `holds` is an AND over every store
+             * in every method, so its red names the pair and not the writer.
+             * `sir_summarize` is the driver's own per-method step: reset the
+             * pair, run one method in the verifying phase, read the table.
+             * A red here names the METHOD whose obligation fails. */
+            if (cctx.vinv_count == 1) {
+                cctx.vinv_published = false;
+                for (int m = 0; m < mc; m++) {
+                    if (!ms[m]->name) continue;
+                    bool is_grow = !strcmp(ms[m]->name, "grow");
+                    bool is_ctor = !strcmp(ms[m]->name, "<init>")
+                                || !strcmp(ms[m]->name, "V");
+                    if (!is_grow && !is_ctor) continue;
+                    cctx.vinv_holds[0] = true;
+                    sir_summarize(&cctx, m);
+                    if (!cctx.vinv_holds[0])
+                        printf("        FACT 7: writer obligations FAIL in %s "
+                               "alone\n", ms[m]->name);
+                    CHECK(cctx.vinv_holds[0], is_grow
+                          ? "FACT 7: grow's data store proves ON ITS OWN in the "
+                            "verifying phase"
+                          : "FACT 7: the ctor's stores prove ON THEIR OWN in the "
+                            "verifying phase");
+                }
+                cctx.vinv_published = true;
+            } else {
+                CHECK(false, "FACT 7: expected exactly one pair in the table");
+            }
+            break;
+        }
+        sema_destroy(&sctx); bbq_arena_free(&a);
     }
 
     /* ── The invariant TABLE itself, not just what it buys ────────────────────
@@ -6656,8 +7026,19 @@ int main(void) {
             "  static int g(V v, int index){"
             "    if (index < 0 || index >= v.count) return -1;"
             "    return v.data[index]; } }", 1, 0,
-            "v1 RESTRICTION: a writer that maintains the invariant only BECAUSE "
-            "the invariant already held is not a proof — the pair DIES" },
+            "the COMPANION clause: `k <= count` proves the upper half from the "
+            "assumption, but k may be NEGATIVE, so `count >= 0` fails — DIES" },
+          /* The flip of the case above, and the reason the companion clause is
+           * part of the invariant rather than an afterthought: guard BOTH sides
+           * and the same writer proves. Upper half from the assumed
+           * `count <= data.length`, lower half from the guard's own `k >= 0`. */
+          { "class V { int count; int[] data;"
+            "  V(){ data = new int[4]; count = 0; }"
+            "  void shrink(int k){ if (k >= 0 && k <= count) count = k; }"
+            "  static int g(V v, int index){"
+            "    if (index < 0 || index >= v.count) return -1;"
+            "    return v.data[index]; } }", 1, 1,
+            "…and the SIGN-GUARDED shrink proves both clauses: the pair HOLDS" },
           { "class V { int count; int[] data;"
             "  V(){ data = new int[4]; count = 0; }"
             "  void bad(){ count = data.length + 1; }"
@@ -6701,11 +7082,11 @@ int main(void) {
             "§12.5 is a CONSTRUCTOR's fresh object: the same data-store in an "
             "ordinary method proves nothing, so the pair DIES" },
           /* The DATA-store mirror of the check-readout: a growth arm that
-           * re-checks its own postcondition. The unchecked doubling store is
-           * unprovable BY DESIGN (count <= count*2+1 is multiplication
-           * reasoning — outside ABCD p.3 and this tier's fence), and the
-           * crossed `count > n.length` fall-through is the obligation
-           * verbatim: `count <= arraylength(stored)`, at the store's row. */
+           * re-checks its own postcondition. The crossed `count > n.length`
+           * fall-through is the obligation verbatim — `count <=
+           * arraylength(stored)`, at the store's row — proved from the
+           * method's own facts with no invariant assumed, which is what keeps
+           * this route independent of the assume-verify layer's. */
           { "class V { int count; int[] data;"
             "  V(){ data = new int[4]; count = 0; }"
             "  void grow(){"
@@ -6717,6 +7098,84 @@ int main(void) {
             "    return v.data[index]; } }", 1, 1,
             "a data store under its own re-check proves from the check itself: "
             "the crossed `count > n.length` fall-through is the obligation" },
+          /* The assume-verify ladder, one obligation per rung, so a red names
+           * WHICH half of the induction is missing instead of "the mini-Vector
+           * does not fold".
+           *
+           * Rung 0: the allocation's size IS the count. No arithmetic at all —
+           * `count <= arraylength(new int[count])` is the §10.7 identity and
+           * nothing else, so a red here is the pre-state count read or the
+           * stored value's identity, never the ordering rows. */
+          { "class V { int count; int[] data;"
+            "  V(){ data = new int[4]; count = 0; }"
+            "  void grow(){ int[] n = new int[count]; data = n; }"
+            "  static int g(V v, int index){"
+            "    if (index < 0 || index >= v.count) return -1;"
+            "    return v.data[index]; } }", 1, 1,
+            "rung 0: a data store of an array allocated AT the count proves by "
+            "§10.7 alone — the size is the length" },
+          /* Rung 0b: one constant added. C3's row read downward — adding a
+           * non-negative constant cannot decrease — with no multiplication. */
+          { "class V { int count; int[] data;"
+            "  V(){ data = new int[4]; count = 0; }"
+            "  void grow(){ int[] n = new int[count + 1]; data = n; }"
+            "  static int g(V v, int index){"
+            "    if (index < 0 || index >= v.count) return -1;"
+            "    return v.data[index]; } }", 1, 1,
+            "rung 0b: …and with a constant added to the size, which cannot "
+            "decrease it" },
+          /* Rung 1: the doubling data store ALONE, with no
+           * re-check and no other writer — `arraylength(new int[count*2+1])`
+           * reaches count because the allocation's size is its length (§10.7),
+           * `x * c >= x` for c >= 1, and the assumed `count >= 0`. */
+          { "class V { int count; int[] data;"
+            "  V(){ data = new int[4]; count = 0; }"
+            "  void grow(){ int[] n = new int[count * 2 + 1]; data = n; }"
+            "  static int g(V v, int index){"
+            "    if (index < 0 || index >= v.count) return -1;"
+            "    return v.data[index]; } }", 1, 1,
+            "rung 1: the UNCHECKED doubling data store proves on its own — the "
+            "allocation's size is the length it will carry" },
+          /* Rung 2: the same store with the element COPY LOOP between the
+           * allocation and it. The loop reads both fields and defines a φ for
+           * every slot it carries, so this is where a proof that depends on the
+           * stored value's identity would lose it. */
+          { "class V { int count; int[] data;"
+            "  V(){ data = new int[4]; count = 0; }"
+            "  void grow(){ int[] n = new int[count * 2 + 1];"
+            "    int i = 0;"
+            "    while (i < count) { n[i] = data[i]; i = i + 1; }"
+            "    data = n; }"
+            "  static int g(V v, int index){"
+            "    if (index < 0 || index >= v.count) return -1;"
+            "    return v.data[index]; } }", 1, 1,
+            "rung 2: …and still proves with the element copy loop between the "
+            "allocation and the store" },
+          /* The wrap fence's OWN negatives. `count * 3` can wrap back into the
+           * non-negative range (3·(2^30+1) mod 2^32 is positive and SMALLER
+           * than count), so the crossed NegativeArraySize check no longer
+           * excludes the wrap and `size >= count` is simply false on real
+           * inputs — the shape must be refused, not proved. */
+          { "class V { int count; int[] data;"
+            "  V(){ data = new int[4]; count = 0; }"
+            "  void grow(){ int[] n = new int[count * 3]; data = n; }"
+            "  static int g(V v, int index){"
+            "    if (index < 0 || index >= v.count) return -1;"
+            "    return v.data[index]; } }", 1, 0,
+            "wrap fence: `count * 3` can wrap back POSITIVE, so the negative-"
+            "size check excludes nothing and the pair DIES" },
+          /* Same boundary from the Add side: `count * 2` is even, so a wrapped
+           * product is negative — but `+ 2` can carry it past 2^32 back to
+           * non-negative (count = 2^31 - 1 gives 0), where `size >= count` is
+           * false. k <= 1 cannot cross; k = 2 must be refused. */
+          { "class V { int count; int[] data;"
+            "  V(){ data = new int[4]; count = 0; }"
+            "  void grow(){ int[] n = new int[count * 2 + 2]; data = n; }"
+            "  static int g(V v, int index){"
+            "    if (index < 0 || index >= v.count) return -1;"
+            "    return v.data[index]; } }", 1, 0,
+            "wrap fence: `count * 2 + 2` can wrap back to ZERO at the boundary, "
+            "so the pair DIES" },
         };
         for (int t = 0; t < (int)(sizeof gcases / sizeof gcases[0]); t++) {
             bbq_arena a; bbq_arena_init(&a, 1 << 16);
