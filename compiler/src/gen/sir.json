@@ -1002,6 +1002,24 @@
             {
               "flag": "none",
               "is_schema": true,
+              "name": "left",
+              "type": "node"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "right",
+              "type": "node"
+            }
+          ],
+          "name": "GeU"
+        },
+        {
+          "base": "Node",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
               "name": "cls",
               "type": "node"
             }

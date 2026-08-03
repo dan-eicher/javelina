@@ -13316,12 +13316,6 @@ static const Type* cp_reintern_type(type_pool_t* dst, const Type* t) {
     return type_bottom(dst);   /* fail-closed: an unknown kind is no information */
 }
 
-int compiler_click_vnode_of(const struct compiler_click_facts* f, const sir_node_t* e) {
-    if (!f || !e) return -1;
-    void* v = cp_pmap_get(&f->expr_idx, e);
-    return v ? (int)((uintptr_t)v - 1) : -1;
-}
-
 void cp_publish_facts(compiler_ctx_t* ctx, int method_idx, cp_engine_t* eng) {
     if (!ctx || !eng || method_idx < 0 || method_idx >= ctx->method_count) return;
     if (!ctx->click_facts) {
@@ -13711,6 +13705,51 @@ static void cp_licm_try_hoist(cp_licm_ctx_t* L, sir_node_t** slot, int depth) {
     }
 }
 
+/* §7.2's merged unsigned compare, on the recorded guard rows. A §15.13.1
+ * bounds pair the solve could NOT remove — the IDX_LOW branch (`i < 0`,
+ * throws AIOOBE on true) whose fall-through reaches the IDX_HIGH branch
+ * (`i >= a.length`, same subject slot, same arm shape) — is ONE test:
+ * `(u)i >= (u)len`, since a negative i is a huge unsigned value. Runs after
+ * cp_rewrite (both branches' survival is final), reads only the published
+ * guard rows and the graph — never the engine. §11.3.1 holds: the surviving
+ * branch raises the same exception (both arms construct the same no-arg
+ * AIOOBE) in exactly the union of the cases the pair raised it.
+ *
+ * Every premise is checked on the CURRENT graph and a failed one skips the
+ * pair: both keys still SIR_BRANCH; both throw on TRUE; same subject slot;
+ * the low's false edge reaches the high directly (through Nop debris only —
+ * nothing between them can redefine the subject); the high's condition is
+ * still the signed Ge whose operands the merged test reuses. */
+static int cp_collapse_bounds_pairs(const compiler_fact_t* facts, int nfacts,
+                                    bbq_arena* arena) {
+    if (!facts) return 0;
+    int merged = 0;
+    for (int lo = 0; lo < nfacts; lo++) {
+        if (facts[lo].kind != COMPILER_FACT_GUARD) continue;
+        if (facts[lo].a != COMPILER_GUARD_ARRAY_INDEX_LOW) continue;
+        sir_node_t* lk = facts[lo].key;
+        if (!lk || lk->tag != SIR_BRANCH || facts[lo].d != 1) continue;
+        sir_node_t* next = cp_follow_nops_gotos(lk->branch.on_false);
+        for (int hi = 0; hi < nfacts; hi++) {
+            if (facts[hi].kind != COMPILER_FACT_GUARD) continue;
+            if (facts[hi].a != COMPILER_GUARD_ARRAY_INDEX_HIGH) continue;
+            if (facts[hi].key != next || facts[hi].d != 1) continue;
+            if (facts[hi].b != facts[lo].b) continue;
+            sir_node_t* hk = facts[hi].key;
+            if (hk->tag != SIR_BRANCH) continue;
+            sir_node_t* cond = hk->branch.cond;
+            if (!cond || cond->tag != SIR_GE) continue;
+            hk->branch.cond = sir_ge_u(arena, cond->ge.left, cond->ge.right);
+            sir_node_t* target = lk->branch.on_false;
+            lk->tag = SIR_NOP;
+            lk->nop.next = target;
+            merged++;
+            break;
+        }
+    }
+    return merged;
+}
+
 static int cp_licm(sir_method_t* method, const compiler_fact_t* facts,
                    int nfacts, bbq_arena* arena) {
     if (!method || !method->entry || !facts) return 0;
@@ -13943,6 +13982,15 @@ void sir_optimize(compiler_ctx_t* ctx, int method_idx) {
     /* After cp_free and after the census above has read the engine: the method's analysis
      * memory has no remaining reader, so it goes. cp_pack works off ctx->arena. */
     if (method_arena_live) bbq_arena_free(&method_arena);
+
+    /* Merge the bounds pairs the solve left standing — logged like the guard
+     * census, so the yield stays re-measurable. */
+    {
+        int nm = cp_collapse_bounds_pairs(facts, fact_count, arena);
+        if (nm > 0 && getenv("JAVELINA_GUARD_CENSUS"))
+            fprintf(stderr, "geu-merge: %s merged=%d\n",
+                    method->name ? method->name : "?", nm);
+    }
 
     cp_debug_dump_spine(method, dump_cn, "mid");   /* post-rewrite, PRE-pack slot numbers */
     /* LICM on the FINAL graph, before pack numbers the fresh temps. The count

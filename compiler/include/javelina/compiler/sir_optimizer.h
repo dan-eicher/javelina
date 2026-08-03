@@ -1160,8 +1160,14 @@ const struct compiler_click_facts* compiler_click_facts_of(const compiler_ctx_t*
                                                            int method_idx);
 
 /* The vnode index a SIR node was solved as, or -1. The application phase's entry point into
- * the facts — every per-node lookup goes through it. */
-int compiler_click_vnode_of(const struct compiler_click_facts* f, const sir_node_t* e);
+ * the facts — every per-node lookup goes through it. Inline so consumers that never link
+ * the optimizer (the burg matcher's where-guards) still route through this one lookup. */
+static inline int compiler_click_vnode_of(const struct compiler_click_facts* f,
+                                          const sir_node_t* e) {
+    if (!f || !e) return -1;
+    void* v = bbq_hmap_get(&f->expr_idx.map, (uint64_t)(uintptr_t)e);
+    return v ? (int)((uintptr_t)v - 1) : -1;
+}
 
 /* Build the graph for `method` and LOAD `pf` into it in place of solving — what the
  * application phase runs on. NULL if the shapes disagree (the caller then solves).

@@ -1779,6 +1779,20 @@ int main(void) {
           { "class T { static int f(int z){ int[] a = new int[3];"
             "  try { return a[-1]; } catch (ArrayIndexOutOfBoundsException e) { return 33; } } }",
             0, 33, "read negative index → ArrayIndexOutOfBoundsException" },
+          /* The index is UNKNOWN here, so the whole §15.13.1 pair survives the
+           * solve and (under -O) is merged into one unsigned compare — a
+           * negative index must still raise the same catchable AIOOBE through
+           * the merged test. The constant-index twins above never exercise the
+           * merge: their low half folds KNOWN. */
+          { "class T { static int f(int z){ int[] a = new int[3];"
+            "  try { return a[z]; } catch (ArrayIndexOutOfBoundsException e) { return 34; } } }",
+            -1, 34, "unknown negative index → AIOOBE through the merged unsigned test" },
+          { "class T { static int f(int z){ int[] a = new int[3];"
+            "  try { return a[z]; } catch (ArrayIndexOutOfBoundsException e) { return 35; } } }",
+            5, 35, "unknown too-large index → AIOOBE through the merged unsigned test" },
+          { "class T { static int f(int z){ int[] a = new int[3]; a[1] = 8;"
+            "  try { return a[z]; } catch (ArrayIndexOutOfBoundsException e) { return 36; } } }",
+            1, 8, "unknown in-bounds index reads through the merged unsigned test" },
           { "class T { static int f(int z){ int[] a = null;"
             "  try { a[0] = 1; return 0; } catch (NullPointerException e) { return 44; } } }",
             0, 44, "null array write → catchable NullPointerException" },

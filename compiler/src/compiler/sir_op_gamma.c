@@ -145,6 +145,7 @@ static int32_t gamma_fold_cmp(int op, int32_t l, int32_t r) {  /* op = node tag 
         case SIR_GE: return l >= r;
         case SIR_GT: return l >  r;
         case SIR_LE: return l <= r;
+        case SIR_GEU: return (uint32_t)l >= (uint32_t)r;
     }
     return 0;
 }
@@ -478,6 +479,14 @@ static cp_const_t gamma_range_fold_cmp(int op, cp_const_t a, cp_const_t b) {  /*
         case SIR_GE: if (a_ge_b) result = 1; else if (a_lt_b) result = 0; break;
         case SIR_GT: if (a_gt_b) result = 1; else if (a_le_b) result = 0; break;
         case SIR_LE: if (a_le_b) result = 1; else if (a_gt_b) result = 0; break;
+        /* Unsigned ≥: the interval flags above are computed in SIGNED order,
+         * which coincides with unsigned order only when both intervals are
+         * non-negative. A possibly-negative operand claims nothing. */
+        case SIR_GEU:
+            if (a_lo >= 0 && b_lo >= 0) {
+                if (a_ge_b) result = 1; else if (a_lt_b) result = 0;
+            }
+            break;
     }
     if (result < 0) return (cp_const_t){ .state = CP_C_BOTTOM };
     return (cp_const_t){ .state = CP_C_KNOWN, .value = result };
@@ -979,6 +988,15 @@ const sir_op_gamma_t sir_op_gamma[SIR_TAG_COUNT] = {
                  .fold_cmp = gamma_fold_cmp,
                  .fold_cmp_range = gamma_range_fold_cmp, .cong_fold = GC_CMP_REFLEXIVE },
     [SIR_GE] = { .tag = SIR_GE, .mnemonic = "ge",
+                 .is_congruent = true, .is_pure_if_children_pure = true, .arity = 2,
+                 .type_kind = GT_PRIM_FIXED, .type_prim_fixed_dt = SIR_DTBYTE,
+                 .fold_cmp = gamma_fold_cmp,
+                 .fold_cmp_range = gamma_range_fold_cmp, .cong_fold = GC_CMP_REFLEXIVE },
+    /* Unsigned ≥ — minted by the bounds-pair merge, never by the frontend.
+     * Same pure two-child boolean shape as the six above; its fold arms
+     * compare in UNSIGNED order (and the range arm claims nothing unless
+     * both intervals are non-negative, where the orders coincide). */
+    [SIR_GEU] = { .tag = SIR_GEU, .mnemonic = "ge_u",
                  .is_congruent = true, .is_pure_if_children_pure = true, .arity = 2,
                  .type_kind = GT_PRIM_FIXED, .type_prim_fixed_dt = SIR_DTBYTE,
                  .fold_cmp = gamma_fold_cmp,

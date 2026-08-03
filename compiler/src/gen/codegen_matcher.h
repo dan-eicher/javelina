@@ -79,6 +79,7 @@
 #define BURG_Le SIR_LE
 #define BURG_Gt SIR_GT
 #define BURG_Ge SIR_GE
+#define BURG_GeU SIR_GEU
 #define BURG_New SIR_NEW
 #define BURG_InstanceOf SIR_INSTANCEOF
 #define BURG_CheckCast SIR_CHECKCAST
@@ -168,6 +169,7 @@
    #include "javelina/compiler/emit_wasm.h"
    #include "javelina/compiler/type_lattice.h"
    #include "javelina/compiler/wasm_types.h"
+   #include "javelina/compiler/sir_optimizer.h"
 
    #define E (&ctx->emit)
 
@@ -297,6 +299,28 @@
     * compile time or compute UB, so both are refused and the ops emit as usual. */
    #define JF_DIVOK32(a,b) ((b) != 0 && !((a) == INT32_MIN && (b) == -1))
    #define JF_DIVOK64(a,b) ((b) != 0 && !((a) == INT64_MIN && (b) == -1))
+   /* §15.17.1: multiplication wraps, so x·2^k ≡ x<<k for the positive powers
+    * of two. k ≥ 2 — ×1 belongs to the identity rules, and negative constants
+    * (MIN_VALUE included) are not powers of two as signed values. Works for
+    * both widths; the ctz helpers are per-width for the shift amount. */
+   #define JF_POW2(k) ((k) >= 2 && ((k) & ((k) - 1)) == 0)
+   static inline int32_t jf_ctz32(int32_t k) { return (int32_t)__builtin_ctz((uint32_t)k); }
+   static inline int64_t jf_ctz64(int64_t k) { return (int64_t)__builtin_ctzll((uint64_t)k); }
+
+   /* Is `n` proven non-negative by the published analysis facts on the context?
+    * A RANGE with lo ≥ 0 or a non-negative KNOWN, i32 carrier only. An absent
+    * strip, an unindexed node, or any other state proves nothing — the guard
+    * fails and the ungated rule covers. */
+   static inline bool jf_pub_nonneg_i32(const struct compiler_click_facts* f,
+                                        const sir_node_t* n) {
+       int v = compiler_click_vnode_of(f, n);
+       if (v < 0 || v >= f->vnode_count) return false;
+       const cp_const_t* c = &f->v[v].constant;
+       if (c->cwidth != CP_W_I32) return false;
+       if (c->state == CP_C_KNOWN) return c->value >= 0;
+       if (c->state == CP_C_RANGE) return c->lo >= 0;
+       return false;
+   }
    #define CV(n)  const_val(n)
    #define LV(n)  ((n)->load_long_const.value)
    #define KID(n,i) sir_child((n),(i))
@@ -360,6 +384,7 @@ typedef struct burg_ctx_t {
     const char* burg_error_msg;
     int burg_error_arg;
     emit_wasm_ctx emit; struct wasm_types_t* types;
+           const struct compiler_click_facts* facts;
 } burg_ctx_t;
 
 void burg_ctx_init(burg_ctx_t* ctx);

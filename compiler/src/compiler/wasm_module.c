@@ -421,6 +421,7 @@ bool wasm_assemble_program(compiler_ctx_t* cctx, const sema_ctx_t* sctx,
          * decode via the shared reader into a jav_func_body (the grammar gate). */
         int nsc = 0; const compiler_fact_t* sc = compiler_get_facts(cctx, ai, &nsc);
         burg_ctx_t bc = {0}; burg_ctx_init(&bc); bc.types = wt;
+        bc.facts = compiler_click_facts_of(cctx, ai);
         codegen_method_structured(methods[ai], sc, nsc, &bc);
         if (burg_has_error(&bc)) {
             fprintf(stderr, "wasm_assemble: %s.%s (func %d) — %s (%d); body truncated, "
@@ -507,6 +508,7 @@ bool wasm_assemble_program(compiler_ctx_t* cctx, const sema_ctx_t* sctx,
             if (cctx->optimize) sir_optimize(cctx, SIR_OPT_CLINIT);
             else                sir_pack_slots(cctx, SIR_OPT_CLINIT);
             burg_ctx_init(&bc); bc.types = wt;
+            bc.facts = compiler_click_facts_of(cctx, SIR_OPT_CLINIT);
             codegen_method_structured(cctx->clinit, cctx->clinit_facts,
                                       cctx->clinit_fact_count, &bc);
             if (burg_has_error(&bc)) {

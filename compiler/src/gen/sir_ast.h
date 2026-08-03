@@ -93,6 +93,7 @@ typedef enum {
     SIR_LE,
     SIR_GT,
     SIR_GE,
+    SIR_GEU,
     SIR_CLASSINSTANTIABLE,
     SIR_CLASSCONSTRUCT,
     SIR_NEW,
@@ -374,6 +375,10 @@ struct sir_node_t {
             sir_node_t* left;
             sir_node_t* right;
         } ge;
+        struct {
+            sir_node_t* left;
+            sir_node_t* right;
+        } ge_u;
         struct {
             sir_node_t* cls;
         } class_instantiable;
@@ -1280,6 +1285,16 @@ static inline sir_node_t* sir_ge(bbq_arena* _a, sir_node_t* left, sir_node_t* ri
     _n->tag = SIR_GE;
     _n->ge.left = left;
     _n->ge.right = right;
+    _n->exc = NULL;
+    return _n;
+}
+
+static inline sir_node_t* sir_ge_u(bbq_arena* _a, sir_node_t* left, sir_node_t* right) {
+    sir_node_t* _n = (sir_node_t*)bbq_arena_alloc(_a, sizeof(sir_node_t));
+    _n->loc = (sir_srcloc){0};   /* zero the common source location — arena_alloc doesn't; it's stamped later */
+    _n->tag = SIR_GEU;
+    _n->ge_u.left = left;
+    _n->ge_u.right = right;
     _n->exc = NULL;
     return _n;
 }
@@ -2322,6 +2337,10 @@ static inline sir_node_t* sir_node_copy(bbq_arena* _a, sir_copy_memo* _memo, con
     case SIR_GE:
         _n->ge.left = sir_node_copy(_a, _memo, _src->ge.left);
         _n->ge.right = sir_node_copy(_a, _memo, _src->ge.right);
+        break;
+    case SIR_GEU:
+        _n->ge_u.left = sir_node_copy(_a, _memo, _src->ge_u.left);
+        _n->ge_u.right = sir_node_copy(_a, _memo, _src->ge_u.right);
         break;
     case SIR_CLASSINSTANTIABLE:
         _n->class_instantiable.cls = sir_node_copy(_a, _memo, _src->class_instantiable.cls);

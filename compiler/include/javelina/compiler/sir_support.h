@@ -59,7 +59,10 @@ static inline void sir_set_next(sir_node_t* n, sir_node_t* next) {
 }
 
 /* True for the six distinct comparison nodes (Eq/Ne/Lt/Le/Gt/Ge) — the
- * operator is the tag, so this is the "is a comparison" test. */
+ * operator is the tag, so this is the "is a comparison" test. GeU is NOT
+ * here: every consumer of this family (branch refinement, the range
+ * transfer) reasons in §15.20's SIGNED order, which is wrong for an
+ * unsigned compare — GeU falls to the opaque default in those paths. */
 static inline bool sir_is_cmp(const sir_node_t* n) {
     if (!n) return false;
     switch (n->tag) {
@@ -183,6 +186,7 @@ static inline int sir_arity(const sir_node_t* n) {
     case SIR_ADD: case SIR_SUB: case SIR_MUL: case SIR_DIV: case SIR_REM:
     case SIR_AND: case SIR_OR: case SIR_XOR: case SIR_SHL: case SIR_SHR: case SIR_USHR:
     case SIR_EQ: case SIR_NE: case SIR_LT: case SIR_LE: case SIR_GT: case SIR_GE:
+    case SIR_GEU:
     case SIR_ARRAYLOAD:
     case SIR_PUTFIELD:
     case SIR_SETHEADER:
@@ -266,6 +270,7 @@ static inline sir_node_t* sir_child(const sir_node_t* n, int i) {
     case SIR_LE: return i == 0 ? n->le.left : n->le.right;
     case SIR_GT: return i == 0 ? n->gt.left : n->gt.right;
     case SIR_GE: return i == 0 ? n->ge.left : n->ge.right;
+    case SIR_GEU: return i == 0 ? n->ge_u.left : n->ge_u.right;
     case SIR_ARRAYLOAD: return i == 0 ? n->array_load.arr : n->array_load.index;
     case SIR_GETFIELD: return n->get_field.obj;
     case SIR_CLASSINSTANTIABLE: return n->class_instantiable.cls;
@@ -374,6 +379,7 @@ static inline sir_node_t** sir_child_slot(sir_node_t* n, int i) {
     case SIR_SHR: return i == 0 ? &n->shr.left : &n->shr.right;
     case SIR_USHR: return i == 0 ? &n->ushr.left : &n->ushr.right;
     SIR_CMP_CASES return sir_cmp_child_slot(n, i);
+    case SIR_GEU: return i == 0 ? &n->ge_u.left : &n->ge_u.right;
     case SIR_ARRAYLOAD: return i == 0 ? &n->array_load.arr : &n->array_load.index;
     case SIR_GETFIELD: return &n->get_field.obj;
     case SIR_CLASSINSTANTIABLE: return &n->class_instantiable.cls;

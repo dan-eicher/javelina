@@ -170,6 +170,23 @@ static const compiler_fact_t* guards_of(const compiler_ctx_t* c, int mi, int* n)
     return guard_rows;
 }
 
+// An IDX_LOW row still CHECKS its bound in either of its two sound forms: its
+// own surviving Branch, or the pair merge — the IDX_HIGH partner on the same
+// subject slot surviving as the UNSIGNED compare, which throws for every
+// negative index the low arm threw for. A row in neither form was folded
+// AWAY, which is what the survival pins exist to catch.
+static bool guard_low_still_checked(const compiler_fact_t* fs, int nf, int lo) {
+    if (fs[lo].key && fs[lo].key->tag == SIR_BRANCH) return true;
+    for (int g = 0; g < nf; g++)
+        if (fs[g].kind == COMPILER_FACT_GUARD
+            && fs[g].a == COMPILER_GUARD_ARRAY_INDEX_HIGH
+            && fs[g].b == fs[lo].b
+            && fs[g].key && fs[g].key->tag == SIR_BRANCH
+            && fs[g].key->branch.cond
+            && fs[g].key->branch.cond->tag == SIR_GEU) return true;
+    return false;
+}
+
 // Collect every EXCEPTING node in the graph — the JLS §11.1 set: throws, calls,
 // allocations (and ClassConstruct, a call_ref). The §31 completeness pin walks with
 // this: tests may walk; the optimizer may not.
@@ -1990,10 +2007,11 @@ int main(void) {
         CHECK(lo >= 0, "§47c: the DDCG emitted a lower-bounds guard for buf[--p]");
         if (lo >= 0) {
             sir_optimize(&cctx, mi);
-            CHECK(gs[lo].key->tag == SIR_BRANCH,
-                  "§47c (decrement-into-fixed-buffer): buf[--p]'s IDX_LOW guard must "
+            CHECK(guard_low_still_checked(gs, ng, lo),
+                  "§47c (decrement-into-fixed-buffer): buf[--p]'s IDX_LOW check must "
                   "SURVIVE — the analysis cannot bound the decrement count, so `p-1 >= 0` "
-                  "is not provable; folding it writes below index 0");
+                  "is not provable; its own branch or the merged unsigned test, but "
+                  "folding it away writes below index 0");
         }
         sema_destroy(&sctx); bbq_arena_free(&arena);
     }
@@ -6432,11 +6450,15 @@ int main(void) {
                 int nf = 0;
                 const compiler_fact_t* f = compiler_get_facts(&cctx, i, &nf);
                 surviving = 0;
-                for (int j = 0; j < nf; j++)
-                    if (f[j].kind == COMPILER_FACT_GUARD
-                            && f[j].a == vcases[t].kind
-                            && f[j].key && (int)f[j].key->tag == SIR_BRANCH)
+                for (int j = 0; j < nf; j++) {
+                    if (f[j].kind != COMPILER_FACT_GUARD
+                            || f[j].a != vcases[t].kind) continue;
+                    if (f[j].key && (int)f[j].key->tag == SIR_BRANCH)
                         surviving++;
+                    else if (vcases[t].kind == COMPILER_GUARD_ARRAY_INDEX_LOW
+                            && guard_low_still_checked(f, nf, j))
+                        surviving++;   /* merged into the pair's unsigned test */
+                }
                 break;
             }
             if (surviving != vcases[t].want_surviving)
@@ -8230,6 +8252,82 @@ int main(void) {
                   "PEA ctor replay keeps the argument's computation (q + 1 survives)");
         }
         sema_destroy(&sctx); bbq_arena_free(&a);
+    }
+
+    // §7.2's merged unsigned compare: a SURVIVING §15.13.1 bounds pair —
+    // `i < 0 || i >= a.length`, spine-adjacent, same subject, both arms raising
+    // AIOOBE — is ONE test: `(u)i >= (u)a.length` (a negative i is a huge
+    // unsigned value). The application phase merges it after the solve, reading
+    // the published partitions for subject identity; §11.3.1 is undisturbed
+    // because the surviving branch raises the same exception in the same cases.
+    {
+        bbq_arena arena; bbq_arena_init(&arena, 1 << 16);
+        int nlib = 0;
+        ast_program_t* prog = build_program(
+            "class T { static int f(int[] a, int i) { return a[i]; } }", &arena, &nlib);
+        sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
+        sir_analyze(&sctx);
+        compiler_ctx_t cctx; compiler_init(&cctx, &arena, &sctx);
+        int mc = 0;
+        sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
+        int mi = -1;
+        for (int k = 0; k < mc; k++)
+            if (ms[k]->class_id >= nlib && ms[k]->name && !strcmp(ms[k]->name, "f")) mi = k;
+        CHECK(mi >= 0, "GeU merge: f resolves");
+        int ng = 0;
+        const compiler_fact_t* gs = guards_of(&cctx, mi, &ng);
+        sir_optimize(&cctx, mi);
+        int lo = -1, hi = -1;
+        for (int g = 0; g < ng; g++) {
+            if (gs[g].a == COMPILER_GUARD_ARRAY_INDEX_LOW)  lo = g;
+            if (gs[g].a == COMPILER_GUARD_ARRAY_INDEX_HIGH) hi = g;
+        }
+        CHECK(lo >= 0 && hi >= 0, "GeU merge: the bounds pair is recorded");
+        if (lo >= 0 && hi >= 0) {
+            CHECK(gs[lo].key->tag != SIR_BRANCH,
+                  "GeU merge: the LOW branch is gone — folded into the unsigned test");
+            CHECK(gs[hi].key->tag == SIR_BRANCH && gs[hi].key->branch.cond
+                  && gs[hi].key->branch.cond->tag == SIR_GEU,
+                  "GeU merge: the surviving branch tests (u)i >= (u)a.length");
+        }
+        sema_destroy(&sctx); bbq_arena_free(&arena);
+    }
+
+    // …and the merge needs a PAIR. When refinement already folded the LOW half
+    // (i proven ≥ 0 on the taken edge), the HIGH branch is alone and keeps its
+    // SIGNED compare — an unsigned rewrite without the low guard would turn
+    // "i >= len throws" into nonsense for the i it no longer tests.
+    {
+        bbq_arena arena; bbq_arena_init(&arena, 1 << 16);
+        int nlib = 0;
+        ast_program_t* prog = build_program(
+            "class T { static int f(int[] a, int i) { if (i >= 0) return a[i]; return -1; } }",
+            &arena, &nlib);
+        sema_ctx_t sctx; sema_init(&sctx, &arena); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
+        sir_analyze(&sctx);
+        compiler_ctx_t cctx; compiler_init(&cctx, &arena, &sctx);
+        int mc = 0;
+        sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
+        int mi = -1;
+        for (int k = 0; k < mc; k++)
+            if (ms[k]->class_id >= nlib && ms[k]->name && !strcmp(ms[k]->name, "f")) mi = k;
+        int ng = 0;
+        const compiler_fact_t* gs = guards_of(&cctx, mi, &ng);
+        sir_optimize(&cctx, mi);
+        int lo = -1, hi = -1;
+        for (int g = 0; g < ng; g++) {
+            if (gs[g].a == COMPILER_GUARD_ARRAY_INDEX_LOW)  lo = g;
+            if (gs[g].a == COMPILER_GUARD_ARRAY_INDEX_HIGH) hi = g;
+        }
+        CHECK(lo >= 0 && hi >= 0, "no-pair: both rows recorded");
+        if (lo >= 0 && hi >= 0) {
+            CHECK(gs[lo].key->tag != SIR_BRANCH,
+                  "no-pair premise: refinement folded the LOW half (i >= 0 taken edge)");
+            CHECK(gs[hi].key->tag == SIR_BRANCH && gs[hi].key->branch.cond
+                  && gs[hi].key->branch.cond->tag == SIR_GE,
+                  "no-pair: the lone HIGH branch keeps its SIGNED compare");
+        }
+        sema_destroy(&sctx); bbq_arena_free(&arena);
     }
 
     return TEST_SUMMARY("test_sir");

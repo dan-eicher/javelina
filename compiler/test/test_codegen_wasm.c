@@ -209,6 +209,7 @@ int main(void) {
     TILE(RI(sir_le(a,I0,I1)), "i32.le_s", 0x20,0,0x20,1,0x4C,0x0F);
     TILE(RI(sir_gt(a,I0,I1)), "i32.gt_s", 0x20,0,0x20,1,0x4A,0x0F);
     TILE(RI(sir_ge(a,I0,I1)), "i32.ge_s", 0x20,0,0x20,1,0x4E,0x0F);
+    TILE(RI(sir_ge_u(a,I0,I1)), "i32.ge_u", 0x20,0,0x20,1,0x4F,0x0F);
     TILE(RI(sir_eq(a,L0,L1)), "i64.eq",   0x20,0,0x20,1,0x51,0x0F);
     TILE(RI(sir_lt(a,L0,L1)), "i64.lt_s", 0x20,0,0x20,1,0x53,0x0F);
     TILE(RI(sir_eq(a,F0,F1)), "f32.eq",   0x20,0,0x20,1,0x5B,0x0F);
@@ -411,6 +412,74 @@ int main(void) {
          0x41,0x80,0x80,0x80,0x80,0x78, 0x41,0x7F, 0x6D, 0x0F);
     TILE(RL(sir_div(a,SIR_DTLONG,KL(7),KL(0))), "7L / 0L does NOT fold",
          0x42,0x07, 0x42,0x00, 0x7F, 0x0F);
+
+    /* ── strength reduction: ×2^k is a shift ───────────────────────────────
+     *
+     * §15.17.1 multiplication is two's-complement wraparound, so x·2^k ≡ x<<k
+     * for the POSITIVE powers of two. The family is k in [2, 2^30]: ×1 is the
+     * identity rule's (cost 0), and negative constants — including MIN_VALUE —
+     * are not powers of two as int values, so they keep their multiply. */
+    TILE(RI(sir_mul(a,SIR_DTINT,I0,K(8))),  "x * 8 → x << 3",  0x20,0, 0x41,0x03, 0x74, 0x0F);
+    TILE(RI(sir_mul(a,SIR_DTINT,K(8),I0)),  "8 * x → x << 3",  0x20,0, 0x41,0x03, 0x74, 0x0F);
+    TILE(RI(sir_mul(a,SIR_DTINT,I0,K(2))),  "x * 2 → x << 1",  0x20,0, 0x41,0x01, 0x74, 0x0F);
+    TILE(RI(sir_mul(a,SIR_DTINT,I0,K(1<<30))), "x * 2^30 → x << 30", 0x20,0, 0x41,0x1E, 0x74, 0x0F);
+    TILE(RL(sir_mul(a,SIR_DTLONG,L0,KL(16))), "l * 16L → l << 4", 0x20,0, 0x42,0x04, 0x86, 0x0F);
+    TILE(RL(sir_mul(a,SIR_DTLONG,KL(16),L0)), "16L * l → l << 4", 0x20,0, 0x42,0x04, 0x86, 0x0F);
+
+    /* …and the constants NOT in the family keep their multiply. */
+    TILE(RI(sir_mul(a,SIR_DTINT,I0,K(6))),  "x * 6 keeps its multiply",  0x20,0, 0x41,0x06, 0x6C, 0x0F);
+    TILE(RI(sir_mul(a,SIR_DTINT,I0,K(-8))), "x * -8 keeps its multiply", 0x20,0, 0x41,0x78, 0x6C, 0x0F);
+    TILE(RI(sir_mul(a,SIR_DTINT,I0,K(INT32_MIN))), "x * MIN keeps its multiply",
+         0x20,0, 0x41,0x80,0x80,0x80,0x80,0x78, 0x6C, 0x0F);
+    TILE(RL(sir_mul(a,SIR_DTLONG,L0,KL(6))), "l * 6L keeps its multiply", 0x20,0, 0x42,0x06, 0x7E, 0x0F);
+
+    /* ── analysis-gated division: /2^k is shr_s when the dividend is ≥ 0 ───
+     *
+     * §15.17.2 division truncates toward zero; for a non-negative dividend
+     * truncation and flooring agree, so x/2^k ≡ x>>k (arithmetic). The sign is
+     * not in the tree — it is the optimizer's published §8.1.1 fact, installed
+     * on the burg context and read by the rule's where-guard. No fact strip, a
+     * fact that admits negatives, or a divisor off the 2^k family = the plain
+     * division. FTILE tiles with a one-row strip on the DIVIDEND node. */
+    #define FTILE(dvd, tree, st, lo_, val_, m, ...) do { \
+        burg_ctx_t ctx = {0}; burg_ctx_init(&ctx); \
+        compiler_click_vfact_t vrow; memset(&vrow, 0, sizeof vrow); \
+        vrow.constant.state = (st); vrow.constant.cwidth = CP_W_I32; \
+        vrow.constant.lo = (lo_); vrow.constant.hi = INT32_MAX; \
+        vrow.constant.value = (val_); \
+        struct compiler_click_facts f; memset(&f, 0, sizeof f); \
+        f.computed = true; f.vnode_count = 1; f.v = &vrow; \
+        bbq_hmap_init(&f.expr_idx.map, 0); \
+        bbq_hmap_put(&f.expr_idx.map, (uint64_t)(uintptr_t)(dvd), (void*)1); \
+        ctx.facts = &f; \
+        burg_rewrite((tree), &ctx); \
+        const uint8_t want[] = { __VA_ARGS__ }; \
+        CHECK(!burg_has_error(&ctx), m " (no burg error)"); \
+        if (!eq_code(&ctx, want, (int)sizeof want)) { \
+            printf("  FAIL  %s\n    want:", m); \
+            for (int i=0;i<(int)sizeof want;i++) printf(" %02X", want[i]); \
+            printf("\n    got: "); \
+            for (int i=0;i<(int)bbq_vec_len(ctx.emit.code);i++) printf(" %02X", ctx.emit.code[i]); \
+            printf("\n"); TEST_FAILED(); \
+        } \
+        bbq_hmap_free(&f.expr_idx.map); \
+        bbq_vec_free(ctx.emit.code); burg_ctx_free(&ctx); } while (0)
+
+    { sir_node_t* x = I0;
+      FTILE(x, RI(sir_div(a,SIR_DTINT,x,K(8))), CP_C_RANGE, 0, 0,
+            "x pub >= 0: x / 8 -> x >> 3 (shr_s)", 0x20,0, 0x41,0x03, 0x75, 0x0F); }
+    { sir_node_t* x = I0;
+      FTILE(x, RI(sir_div(a,SIR_DTINT,x,K(8))), CP_C_KNOWN, 0, 5,
+            "x pub KNOWN 5: x / 8 -> x >> 3 (shr_s)", 0x20,0, 0x41,0x03, 0x75, 0x0F); }
+    { sir_node_t* x = I0;
+      FTILE(x, RI(sir_div(a,SIR_DTINT,x,K(8))), CP_C_RANGE, -1, 0,
+            "x pub lo=-1: x / 8 keeps div_s", 0x20,0, 0x41,0x08, 0x6D, 0x0F); }
+    { sir_node_t* x = I0;
+      FTILE(x, RI(sir_div(a,SIR_DTINT,x,K(6))), CP_C_RANGE, 0, 0,
+            "x pub >= 0 but 6 is not 2^k: div_s stays", 0x20,0, 0x41,0x06, 0x6D, 0x0F); }
+    TILE(RI(sir_div(a,SIR_DTINT,I0,K(8))), "no facts: x / 8 keeps div_s",
+         0x20,0, 0x41,0x08, 0x6D, 0x0F);
+    #undef FTILE
 
     #undef ONE
     #undef M1
