@@ -1312,8 +1312,12 @@ fun pre_array_access(arr: ast.expr, idx: ast.expr, arr_dt: ir.datatype,
                       build ir.LoadLocal(t_i, DtInt, nil), array_elem_ref(arr)),
                     build ir.LoadConst(step, arr_dt));
     let store_new = build ir.StoreLocal(t_new, arr_dt, nil, new_val, astore);
+    // §15.14.1: same checks as a plain access, before the old value is read.
+    let bounds    = bounds_guard(t_a, t_i, array_elem_ref(arr), arr_dt,
+                                 store_new, rho);
+    let checked   = null_guard(t_a, bounds, rho);
     let i_chain   = gen(idx, rho, loc(t_i, DtInt),
-                         single(store_new), store_new);
+                         single(checked), checked);
     gen(arr, rho, locref(t_a, expr_ref(arr)), single(i_chain), i_chain);
 }
 
@@ -1336,8 +1340,12 @@ fun post_array_access(arr: ast.expr, idx: ast.expr, arr_dt: ir.datatype,
                         array_backing(t_a, array_elem_ref(arr), arr_dt),
                         build ir.LoadLocal(t_i, DtInt, nil), array_elem_ref(arr)),
                       astore);
+    // §15.15.1: same checks as a plain access, before the old value is read.
+    let bounds  = bounds_guard(t_a, t_i, array_elem_ref(arr), arr_dt,
+                               store_old, rho);
+    let checked = null_guard(t_a, bounds, rho);
     let i_chain = gen(idx, rho, loc(t_i, DtInt),
-                       single(store_old), store_old);
+                       single(checked), checked);
     gen(arr, rho, locref(t_a, expr_ref(arr)), single(i_chain), i_chain);
 }
 
@@ -1578,8 +1586,15 @@ fun compound_array(arr: ast.expr, idx: ast.expr, op: ast.binop,
                       array_backing(t_a, array_elem_ref(arr), arr_dt),
                       build ir.LoadLocal(t_i, DtInt, nil), array_elem_ref(arr)),
                     v_chain);
+    // §15.26.2: the compound access performs the same §15.12 checks as a
+    // plain one — null on the array ref, then both index bounds, before the
+    // old value is read. One guard set serves the load AND the write-back:
+    // t_a/t_i are evaluated once, so the verdict cannot change between them.
+    let bounds   = bounds_guard(t_a, t_i, array_elem_ref(arr), arr_dt,
+                                save_old, rho);
+    let checked  = null_guard(t_a, bounds, rho);
     let i_chain  = gen(idx, rho, loc(t_i, DtInt),
-                        single(save_old), save_old);
+                        single(checked), checked);
     gen(arr, rho, locref(t_a, expr_ref(arr)), single(i_chain), i_chain);
 }
 

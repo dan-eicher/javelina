@@ -305,6 +305,23 @@ int main(void) {
            * final cells kept no record of construction); this is the same
            * shape at its owning level. Three +1 passes leave every element 3,
            * so s = 3·(31³+31²+31+1) = 3·30784 = 92352. */
+          /* §15.26.2 / §15.14.1: a compound assignment or increment on an
+           * array component performs the SAME §15.12 checks as a plain access
+           * — the write-back lowerings emitted none (no null check, no bounds
+           * pair), so an OOB `a[i] += v` reached the VM's own trap instead of
+           * throwing a catchable ArrayIndexOutOfBoundsException. */
+          { "class T { static int f(){ int[] a = new int[4];"
+            "  try { a[5] += 1; } catch (ArrayIndexOutOfBoundsException e)"
+            "  { return 1; } return 0; } }",
+            1, "OOB compound assignment throws catchable AIOOBE" },
+          { "class T { static int f(){ int[] a = new int[4];"
+            "  try { a[7]++; } catch (ArrayIndexOutOfBoundsException e)"
+            "  { return 2; } return 0; } }",
+            2, "OOB post-increment throws catchable AIOOBE" },
+          { "class T { static int f(){ int[] a = null;"
+            "  try { a[0] += 1; } catch (NullPointerException e)"
+            "  { return 3; } return 0; } }",
+            3, "compound assignment on a null array throws catchable NPE" },
           { "class Q { final int[] y = new int[4];"
             "  void m(){ int k = 0; while (k < 4) { y[k] = y[k] + 1; k = k + 1; } } }"
             " class T { static int f(){"

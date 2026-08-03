@@ -12650,8 +12650,12 @@ static void cp_vinv_content_obligations(compiler_ctx_t* ctx, cp_engine_t* e) {
         int dfld = ctx->vinv_data_fld[p];
         bool ok = true;
         /* Sites this method PUBLISHES into the indx field — their element
-         * stores are obligations even before the publish. */
-        int* sites = NULL; int nsites = 0;
+         * stores are obligations even before the publish. Each carries its
+         * publishing PutField's RECEIVER: an in-method element store to the
+         * fresh array resolves (through load-forwarding) to the ALLOCATION,
+         * not to a field read, so the pair's receiver has no read to compare
+         * against — the publish is where the object met the field. */
+        int* sites = NULL; sir_node_t** site_recv = NULL; int nsites = 0;
 
         /* FRESH + the data field's write discipline, over the spine. */
         for (int si = 0; si < e->spine_count && ok; si++) {
@@ -12737,7 +12741,9 @@ static void cp_vinv_content_obligations(compiler_ctx_t* ctx, cp_engine_t* e) {
                 }
             }
             if (!est) { ok = false; continue; }
-            bbq_vec_push(sites, so); nsites++;
+            bbq_vec_push(sites, so);
+            bbq_vec_push(site_recv, n->put_field.obj);
+            nsites++;
         }
 
         /* SEALED: every use of every value that IS the field read, off the du
@@ -12836,12 +12842,16 @@ static void cp_vinv_content_obligations(compiler_ctx_t* ctx, cp_engine_t* e) {
             const sir_node_t* ae = avn >= 0 ? cp_user_array_field(e, avn) : NULL;
             bool mine = ae && ae->get_field.class_id == cls
                      && ae->get_field.field_idx == ifld;
+            sir_node_t* mine_recv = NULL;        /* the pair's receiver, when
+                                                    the array is not a read */
             if (!mine && avn >= 0 && avn < e->vnode_count && inch[avn])
                 mine = true;                     /* a merged alias of the array */
             if (!mine && avn >= 0)
                 for (int s2 = 0; s2 < nsites && !mine; s2++)
-                    if (cp_pts_has(e, e->vnodes[avn]->pts, sites[s2]))
+                    if (cp_pts_has(e, e->vnodes[avn]->pts, sites[s2])) {
                         mine = true;
+                        mine_recv = site_recv[s2];
+                    }
             if (!mine) continue;
             int val_vn = cp_vnode_of(e, n->array_store.value);
             cp_const_t sc = val_vn >= 0 ? e->vnodes[val_vn]->constant
@@ -12858,8 +12868,12 @@ static void cp_vinv_content_obligations(compiler_ctx_t* ctx, cp_engine_t* e) {
                 if (lf && lf->get_field.class_id == cls
                         && lf->get_field.field_idx == dfld) {
                     sir_node_t* lrecv = sir_child((sir_node_t*)lf, 0);
+                    /* The receiver the pair binds to: the field read the
+                     * array came from, or — for a pre-publish fresh array,
+                     * which resolves to its ALLOCATION and has no read — the
+                     * PUBLISHING PutField's receiver. */
                     sir_node_t* srecv = ae && ae->tag == SIR_GETFIELD
-                        ? sir_child((sir_node_t*)ae, 0) : NULL;
+                        ? sir_child((sir_node_t*)ae, 0) : mine_recv;
                     hi_ok = lrecv && srecv
                          && ((cp_is_this(lrecv) && cp_is_this(srecv))
                              || cp_same_value(e, cp_vnode_of(e, lrecv),
@@ -12870,6 +12884,7 @@ static void cp_vinv_content_obligations(compiler_ctx_t* ctx, cp_engine_t* e) {
             if (!lo_ok) ok = false;
         }
         bbq_vec_free(sites);
+        bbq_vec_free(site_recv);
         if (!ok) ctx->vinv_holds[p] = false;
     }
 }

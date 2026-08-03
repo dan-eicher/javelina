@@ -7499,6 +7499,234 @@ int main(void) {
         }
     }
 
+    /* ── The bench Coo class, verbatim, at this level ─────────────────────────
+     * The whole-bench census keeps mvm's two indirect IDX_HIGH while the V5
+     * fixtures fold the identical shape. This fixture is Coo as the bench
+     * declares it (two content pairs, LCG fills through checked stores, the
+     * six-line kernel) — if the guards fold HERE, the divergence lives in the
+     * rest of the bench program; if they survive here, the per-writer pins
+     * name the obligation. Either way the divergence stops being invisible
+     * below e2e. */
+    {
+        const char* src =
+          "class Coo {"
+          "  final double[] value = new double[2000];"
+          "  final double[] y = new double[200];"
+          "  final double[] x = new double[200];"
+          "  private final int[] indx = new int[2000];"
+          "  private final int[] jndx = new int[2000];"
+          "  Coo() {"
+          "    int seed = 12345;"
+          "    for (int k = 0; k < 2000; k++) {"
+          "      seed = seed * 1103515245 + 12345;"
+          "      int a = (seed >>> 16) % 200;"
+          "      if (a >= 0 && a < y.length) indx[k] = a;"
+          "      seed = seed * 1103515245 + 12345;"
+          "      int b = (seed >>> 16) % 200;"
+          "      if (b >= 0 && b < x.length) jndx[k] = b;"
+          "      value[k] = (k % 7) + 1;"
+          "    }"
+          "    for (int i = 0; i < 200; i++) x[i] = (i % 5) + 1;"
+          "  }"
+          "  void mvm() {"
+          "    for (int k = 0; k < value.length; k++)"
+          "      y[indx[k]] += value[k] * x[jndx[k]];"
+          "  }"
+          "}";
+        bbq_arena a; bbq_arena_init(&a, 1 << 16);
+        int nlib = 0;
+        ast_program_t* prog = build_program(src, &a, &nlib);
+        sema_ctx_t sctx; sema_init(&sctx, &a);
+        sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
+        if (!sir_analyze(&sctx)) printf("  (note: sema reported errors)\n");
+        compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
+        int mc = 0;
+        sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
+        compiler_summarize_to_convergence(&cctx);
+        int cpairs = 0, cholds = 0;
+        for (int p = 0; p < cctx.vinv_count; p++)
+            if (cctx.vinv_kind[p] == COMPILER_VINV_CONTENT) {
+                cpairs++;
+                if (cctx.vinv_holds[p]) cholds++;
+            }
+        if (cpairs != 2 || cholds != 2) {
+            printf("        Coo verbatim: %d content pairs, %d hold\n",
+                   cpairs, cholds);
+            for (int p = 0; p < cctx.vinv_count; p++)
+                if (cctx.vinv_kind[p] == COMPILER_VINV_CONTENT)
+                    printf("        …pair (cls %d, indx fld %d, data fld %d) "
+                           "holds=%d\n", cctx.vinv_class[p],
+                           cctx.vinv_count_fld[p], cctx.vinv_data_fld[p],
+                           (int)cctx.vinv_holds[p]);
+        }
+        CHECK(cpairs == 2, "Coo verbatim: both content pairs (indx,y) and "
+                           "(jndx,x) are discovered");
+        CHECK(cholds == 2, "…and both HOLD — the checked ctor fills prove");
+        int cid = sema_find_class(&sctx, "Coo");
+        int surviving = -1;
+        for (int i = 0; i < mc; i++) {
+            if (ms[i]->class_id != cid) continue;
+            if (!ms[i]->name || strcmp(ms[i]->name, "mvm")) continue;
+            sir_optimize(&cctx, i);
+            int nf = 0;
+            const compiler_fact_t* f = compiler_get_facts(&cctx, i, &nf);
+            surviving = 0;
+            for (int j = 0; j < nf; j++)
+                if (f[j].kind == COMPILER_FACT_GUARD
+                        && f[j].a == COMPILER_GUARD_ARRAY_INDEX_HIGH
+                        && f[j].key && (int)f[j].key->tag == SIR_BRANCH)
+                    surviving++;
+            break;
+        }
+        /* Five IDX_HIGH emitted (value[k], indx[k], jndx[k], and the two
+         * indirect accesses — the write-back path guards too, since the
+         * §15.26.2 fix). value[k] folds on the loop bound (invariant-free),
+         * both INDIRECT checks fold on the content invariant, and only the
+         * index-array checks stay: 2 surviving. */
+        if (surviving != 2)
+            printf("        Coo verbatim: mvm IDX_HIGH surviving %d, want 2\n",
+                   surviving);
+        /* On a discovery red: the demand terms of every surviving IDX_HIGH in
+         * mvm, so the term the missing pair fails names itself. */
+        if (cpairs != 2)
+            for (int i = 0; i < mc; i++) {
+                if (ms[i]->class_id != cid) continue;
+                if (!ms[i]->name || strcmp(ms[i]->name, "mvm")) continue;
+                int nf = 0;
+                const compiler_fact_t* f = compiler_get_facts(&cctx, i, &nf);
+                cp_engine_t* e = cp_build_ctx(&cctx, ms[i], f, nf);
+                if (!e) break;
+                for (int j = 0; j < nf; j++) {
+                    if (f[j].kind != COMPILER_FACT_GUARD
+                            || f[j].a != COMPILER_GUARD_ARRAY_INDEX_HIGH
+                            || !f[j].key || (int)f[j].key->tag != SIR_BRANCH)
+                        continue;
+                    sir_node_t* cmp = f[j].key->branch.cond;
+                    cp_vnode_t* cv = cmp ? vnode_for(e, cmp) : NULL;
+                    if (!cv || cv->input_count < 2) continue;
+                    printf("        guard[%d]: cond tag %d st %d", j,
+                           cmp ? (int)cmp->tag : -1, (int)cv->constant.state);
+                    int iv = cv->inputs[0];
+                    int it = iv >= 0 ? leader_walk(e, iv) : -1;
+                    cp_vnode_t* itn = it >= 0 && it < e->vnode_count
+                                    ? e->vnodes[it] : NULL;
+                    printf(" idx-ult tag %d",
+                           itn && itn->expr ? (int)itn->expr->tag : -1);
+                    if (itn && itn->expr && itn->expr->tag == SIR_ARRAYLOAD) {
+                        int av = leader_walk(e,
+                            vnode_idx_for(e, sir_child(itn->expr, 0)));
+                        cp_vnode_t* an = av >= 0 && av < e->vnode_count
+                                       ? e->vnodes[av] : NULL;
+                        printf(" arr-ult tag %d",
+                               an && an->expr ? (int)an->expr->tag : -1);
+                        if (an && an->expr && an->expr->tag == SIR_GETFIELD)
+                            printf(" fld=(%d,%d)",
+                                   an->expr->get_field.class_id,
+                                   an->expr->get_field.field_idx);
+                    }
+                    printf("\n");
+                }
+                cp_free(e);
+                break;
+            }
+        CHECK(surviving == 2,
+              "Coo verbatim: mvm keeps only the two index-array checks — both "
+              "INDIRECT checks fold on the content invariant");
+        sema_destroy(&sctx); bbq_arena_free(&a);
+    }
+
+    /* ── …and the UNCHECKED twin: garbage in the index arrays keeps BOTH
+     * indirect checks. Whatever folds an indirect check must be traceable to
+     * the checked fills — a fold that survives this twin is unsound. ── */
+    {
+        const char* src =
+          "class CooU {"
+          "  final double[] value = new double[2000];"
+          "  final double[] y = new double[200];"
+          "  final double[] x = new double[200];"
+          "  private final int[] indx = new int[2000];"
+          "  private final int[] jndx = new int[2000];"
+          "  CooU(int[] junk) {"
+          "    for (int k = 0; k < 2000; k++) {"
+          "      indx[k] = junk[k];"
+          "      jndx[k] = junk[k];"
+          "      value[k] = 1;"
+          "    }"
+          "  }"
+          "  void mvm() {"
+          "    for (int k = 0; k < value.length; k++)"
+          "      y[indx[k]] += value[k] * x[jndx[k]];"
+          "  }"
+          "}";
+        bbq_arena a; bbq_arena_init(&a, 1 << 16);
+        int nlib = 0;
+        ast_program_t* prog = build_program(src, &a, &nlib);
+        sema_ctx_t sctx; sema_init(&sctx, &a);
+        sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
+        if (!sir_analyze(&sctx)) printf("  (note: sema reported errors)\n");
+        compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
+        int mc = 0;
+        sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
+        compiler_summarize_to_convergence(&cctx);
+        int cid = sema_find_class(&sctx, "CooU");
+        int surviving = -1;
+        for (int i = 0; i < mc; i++) {
+            if (ms[i]->class_id != cid) continue;
+            if (!ms[i]->name || strcmp(ms[i]->name, "mvm")) continue;
+            sir_optimize(&cctx, i);
+            int nf = 0;
+            const compiler_fact_t* f = compiler_get_facts(&cctx, i, &nf);
+            surviving = 0;
+            for (int j = 0; j < nf; j++)
+                if (f[j].kind == COMPILER_FACT_GUARD
+                        && f[j].a == COMPILER_GUARD_ARRAY_INDEX_HIGH
+                        && f[j].key && (int)f[j].key->tag == SIR_BRANCH)
+                    surviving++;
+            break;
+        }
+        /* value[k]'s loop-bound fold is invariant-free and stands; the four
+         * others — both index-array checks and BOTH indirect checks — stay. */
+        if (surviving != 4) {
+            printf("        CooU (unchecked fills): mvm IDX_HIGH surviving %d, "
+                   "want 4\n", surviving);
+            printf("        CooU table: %d pairs total\n", cctx.vinv_count);
+            for (int p = 0; p < cctx.vinv_count; p++)
+                printf("        …pair kind=%d (cls %d, %d, %d) holds=%d\n",
+                       cctx.vinv_kind[p], cctx.vinv_class[p],
+                       cctx.vinv_count_fld[p], cctx.vinv_data_fld[p],
+                       (int)cctx.vinv_holds[p]);
+            /* Every IDX_HIGH fact in mvm, folded or not, with its recorded
+             * (subject=index slot, aux=array slot) — names WHICH access's
+             * guard folded without a table to justify it. */
+            for (int i = 0; i < mc; i++) {
+                if (ms[i]->class_id != cid) continue;
+                if (!ms[i]->name || strcmp(ms[i]->name, "mvm")) continue;
+                int nf = 0;
+                const compiler_fact_t* f = compiler_get_facts(&cctx, i, &nf);
+                cp_engine_t* e = cp_build_ctx(&cctx, ms[i], f, nf);
+                if (!e) break;
+                for (int j = 0; j < nf; j++) {
+                    if (f[j].kind != COMPILER_FACT_GUARD
+                            || f[j].a != COMPILER_GUARD_ARRAY_INDEX_HIGH
+                            || !f[j].key || (int)f[j].key->tag != SIR_BRANCH)
+                        continue;
+                    sir_node_t* cmp = f[j].key->branch.cond;
+                    cp_vnode_t* cv = cmp ? vnode_for(e, cmp) : NULL;
+                    printf("        mvm IDX_HIGH[%d]: idx-slot=%d arr-slot=%d "
+                           "cond-st=%d val=%lld\n", j, f[j].b, f[j].c,
+                           cv ? (int)cv->constant.state : -1,
+                           cv ? (long long)cv->constant.value : -1);
+                }
+                cp_free(e);
+                break;
+            }
+        }
+        CHECK(surviving == 4,
+              "unchecked fills: both INDIRECT checks are KEPT — no fold "
+              "without a proved invariant");
+        sema_destroy(&sctx); bbq_arena_free(&a);
+    }
+
     /* ── Two reads of ONE field are one value, in the LOWERED shape ───────────
      * The sibling of §7.3: an element write cannot change what a FIELD read
      * sees, so `count` before `data[count] = x` and `count` after it are the

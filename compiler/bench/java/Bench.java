@@ -773,11 +773,15 @@ class Tr extends Shape {
  * final index arrays that never leave the class, checked fills — the exact
  * shape the array-content verifier proves one class at a time. */
 class Coo {
-    private final int[] indx = new int[2000];
-    private final int[] jndx = new int[2000];
+    /* The bounded arrays are declared BEFORE the index arrays that point into
+     * them: §12.5 runs declarator initializers in textual order, and the
+     * content invariant's base case — a fresh index array's zeros are within
+     * [0, bound) — needs the bound to exist when the index array publishes. */
     final double[] value = new double[2000];
     final double[] y = new double[200];
     final double[] x = new double[200];
+    private final int[] indx = new int[2000];
+    private final int[] jndx = new int[2000];
 
     Coo() {
         int seed = 12345;
