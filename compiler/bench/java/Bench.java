@@ -61,6 +61,9 @@
 //   memops memory.fill / memory.copy — bulk linear memory
 //   vshuf  v128.const + i8x16.shuffle — the two immediate-operand SIMD opcodes
 //   itail  virtual tail dispatch — return_call_ref (tailrec covers the static return_call)
+//   coo    sparse mvm, coordinate storage (Luján 2004 Fig. 1): y[indx[k]] += v[k]*x[jndx[k]]
+//          — the INDIRECTION family; two indirect IDX_HIGH per iteration, the number
+//          array-content invariants would move
 import javelina.simd.*;
 
 public class Bench {
@@ -528,6 +531,39 @@ public class Bench {
         return h;
     }
 
+    /* Sparse matrix-vector multiplication, coordinate storage (Luján/Gurd/Freeman/
+     * Miguel 2004, Fig. 1 — their kernel verbatim): y[indx[k]] += value[k] * x[jndx[k]].
+     * The INDIRECTION shape: every iteration carries two indirect IDX_HIGH checks
+     * (y through indx, x through jndx) that no direct-index analysis can touch —
+     * the number array-content invariants would move. Values are small ints in
+     * f64, so the arithmetic is exact and the checksum reproducible. */
+    static void mvmCOO(int indx[], int jndx[],
+                       double value[], double y[], double x[]) {
+        for (int k = 0; k < value.length; k++)
+            y[indx[k]] += value[k] * x[jndx[k]];
+    }
+
+    static int coo(int n) {
+        int rows = 200, nnz = 2000;
+        int[] indx = new int[nnz];
+        int[] jndx = new int[nnz];
+        double[] value = new double[nnz];
+        double[] x = new double[rows], y = new double[rows];
+        int seed = 12345;
+        for (int k = 0; k < nnz; k++) {
+            seed = seed * 1103515245 + 12345;
+            indx[k] = (seed >>> 16) % rows;
+            seed = seed * 1103515245 + 12345;
+            jndx[k] = (seed >>> 16) % rows;
+            value[k] = (k % 7) + 1;
+        }
+        for (int i = 0; i < rows; i++) x[i] = (i % 5) + 1;
+        for (int it = 0; it < n; it++) mvmCOO(indx, jndx, value, y, x);
+        int h = 0;
+        for (int i = 0; i < rows; i++) h = h * 31 + (int) y[i];
+        return h;
+    }
+
     static int run(int which, int scale) {
         switch (which) {
             case 0: return arith(scale);
@@ -560,6 +596,7 @@ public class Bench {
             case 27: return memops(scale);
             case 28: return vshuf(scale);
             case 29: return itail(scale);
+            case 30: return coo(scale);
         }
         return -1;
     }
@@ -587,7 +624,7 @@ public class Bench {
                            "sbuild", "sconcat", "scmp", "shash", "sidx", "ssub", "scase",
                            "schars", "sconv",
                            "dmix", "fmix", "fmath", "refeq", "lcmp", "narrow", "memops",
-                           "vshuf", "itail" };
+                           "vshuf", "itail", "coo" };
         /* Full scales are CALIBRATED from measured quick-mode data (~1 ms / 1000 interpreted
          * iterations on the O0 interpreter, the slowest config), targeting ~2-4 s per rep there
          * so the whole 4-config matrix lands in minutes — while keeping the JIT's reps in the
@@ -599,7 +636,10 @@ public class Bench {
                         10000, 17000, 15000, 45000, 9000, 30000, 6000,
                         11000, 50000,
                         750000, 600000, 1500000, 400000, 400000, 350000, 750000,
-                        3000000, 2000000 };   /* the opcode-family scales are calibrated
+                        3000000, 2000000, 300 };   /* coo: 2000 nnz × 300 mvm passes,
+                                       ~5 array ops per k-iteration → ~3 s per O0-interp
+                                       rep by the same per-1000-iteration reading. */
+                                    /* the opcode-family scales are calibrated
                                        the same way: measured O0-interp quick-mode cost
                                        (2026-07-31, per 1000 iterations — dmix 4 ms, fmix 5,
                                        fmath 2, refeq 7, lcmp 7, narrow 9, memops 4, vshuf 1;
@@ -619,7 +659,7 @@ public class Bench {
                         200, 200, 200, 200, 200, 200, 200,
                         200, 200,
                         1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000,
-                        100000 };   /* itail quick = 100K, for tailrec's reason: past any
+                        100000, 3 };   /* itail quick = 100K, for tailrec's reason: past any
                                        frame-stack depth, so even the quick gate proves the
                                        VIRTUAL tail call, not just its byte.
                                        tailrec quick = 100K:

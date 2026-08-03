@@ -4123,16 +4123,18 @@ static bool cp_bound_base_holds(cp_engine_t* eng, int self, int slot,
  *
  * `holds` starts true and only falls — it is the AND over every writer's
  * obligation, and a writer that cannot be proved kills the pair (rule 9). */
-static int cp_vinv_intern(compiler_ctx_t* ctx, int cls, int cfld, int dfld) {
+static int cp_vinv_intern(compiler_ctx_t* ctx, int cls, int cfld, int dfld,
+                          int kind) {
     if (!ctx || cls < 0 || cfld < 0 || dfld < 0) return -1;
     for (int i = 0; i < ctx->vinv_count; i++)
         if (ctx->vinv_class[i] == cls && ctx->vinv_count_fld[i] == cfld
-                && ctx->vinv_data_fld[i] == dfld)
+                && ctx->vinv_data_fld[i] == dfld && ctx->vinv_kind[i] == kind)
             return i;
     bbq_vec_push(ctx->vinv_class, cls);
     bbq_vec_push(ctx->vinv_count_fld, cfld);
     bbq_vec_push(ctx->vinv_data_fld, dfld);
     bbq_vec_push(ctx->vinv_holds, true);
+    bbq_vec_push(ctx->vinv_kind, kind);
     return ctx->vinv_count++;
 }
 
@@ -4269,7 +4271,8 @@ static bool cp_vinv_verdict(cp_engine_t* eng, int self, int bound_id, int len_in
     if (!df || df->get_field.class_id != cf->get_field.class_id) return false;
     int p = -1;
     for (int i = 0; i < ctx->vinv_count; i++)
-        if (ctx->vinv_class[i] == cf->get_field.class_id
+        if (ctx->vinv_kind[i] == COMPILER_VINV_SCALAR
+                && ctx->vinv_class[i] == cf->get_field.class_id
                 && ctx->vinv_count_fld[i] == cf->get_field.field_idx
                 && ctx->vinv_data_fld[i] == df->get_field.field_idx) { p = i; break; }
     int oc = cp_value_leader(eng, cp_vnode_of(eng, sir_child((sir_node_t*)cf, 0)));
@@ -4280,6 +4283,49 @@ static bool cp_vinv_verdict(cp_engine_t* eng, int self, int bound_id, int len_in
     if (!cp_same_value(eng, cp_vnode_of(eng, sir_child((sir_node_t*)cf, 0)),
                         cp_vnode_of(eng, sir_child((sir_node_t*)df, 0)))) return false;
     return cp_reads_one_mem_state(eng, self, cp_vnode_of(eng, cf), cp_vnode_of(eng, df));
+}
+
+static bool cp_is_this(const sir_node_t* e);
+static const sir_node_t* cp_user_array_field(cp_engine_t* eng, int vn);
+
+/* The CONTENT-pair verdict, the indirect mirror of the scalar one above: the
+ * guard's index is an ELEMENT of the array a verified indirection field holds
+ * (`data[indx[k]]`), so the published invariant — every stored element in
+ * [0, arraylength(data)) — is the bound the index itself never carries. Same
+ * receiver by congruence, same field-version compatibility, premises recorded
+ * before any partition read, published-table gate identical. */
+static bool cp_vinv_content_verdict(cp_engine_t* eng, int self, int idx_in,
+                                    int len_in) {
+    compiler_ctx_t* ctx = eng->ctx;
+    if (!ctx || !ctx->vinv_published || ctx->vinv_count == 0) return false;
+    const sir_node_t* ld = cp_ultimate_expr(eng, idx_in);
+    if (!ld || ld->tag != SIR_ARRAYLOAD) return false;
+    const sir_node_t* bf = cp_user_array_field(eng,
+        cp_vnode_of(eng, sir_child((sir_node_t*)ld, 0)));
+    if (!bf) return false;
+    const sir_node_t* df = cp_len_of_field(eng, len_in);
+    if (!df || df->get_field.class_id != bf->get_field.class_id) return false;
+    int p = -1;
+    for (int i = 0; i < ctx->vinv_count; i++)
+        if (ctx->vinv_kind[i] == COMPILER_VINV_CONTENT
+                && ctx->vinv_class[i] == bf->get_field.class_id
+                && ctx->vinv_count_fld[i] == bf->get_field.field_idx
+                && ctx->vinv_data_fld[i] == df->get_field.field_idx) { p = i; break; }
+    int oc = cp_value_leader(eng, cp_vnode_of(eng, sir_child((sir_node_t*)bf, 0)));
+    int od = cp_value_leader(eng, cp_vnode_of(eng, sir_child((sir_node_t*)df, 0)));
+    cp_record_premise(eng, self, 2, oc);
+    cp_record_premise(eng, self, 3, od);
+    if (p < 0 || !ctx->vinv_holds[p]) return false;
+    {   /* same receiver across the excepting element load: §15.8.3's this-
+         * duality first, congruence for everything else */
+        sir_node_t* br = sir_child((sir_node_t*)bf, 0);
+        sir_node_t* dr = sir_child((sir_node_t*)df, 0);
+        if (!((cp_is_this(br) && cp_is_this(dr))
+              || cp_same_value(eng, cp_vnode_of(eng, br), cp_vnode_of(eng, dr))))
+            return false;
+    }
+    return cp_reads_one_mem_state(eng, self, cp_vnode_of(eng, bf),
+                                  cp_vnode_of(eng, df));
 }
 
 static cp_const_t cp_symbolic_bound_const(cp_engine_t* eng, const cp_vnode_t* v,
@@ -4362,6 +4408,17 @@ static cp_const_t cp_symbolic_bound_const(cp_engine_t* eng, const cp_vnode_t* v,
     if (v->input_count != 2 || v->inputs[0] < 0 || v->inputs[1] < 0) return r;
 
     const cp_vnode_t* iv = eng->vnodes[v->inputs[0]];          /* the index  */
+    /* The CONTENT route first: an index that is an element of a verified
+     * indirection array carries no bound of its own — the published invariant
+     * IS its bound. */
+    if (iv->constant.hi_vn1 == 0
+            && cp_vinv_content_verdict(eng, self, v->inputs[0], v->inputs[1])) {
+        *handled = true;
+        r.state  = CP_C_KNOWN;
+        r.cwidth = CP_W_I32;
+        r.value  = 0;
+        return r;
+    }
     if (iv->constant.state != CP_C_RANGE || iv->constant.hi_vn1 == 0) return r;
     if (!cp_bound_base_holds(eng, self, 4, iv->constant)) return r;
 
@@ -11886,7 +11943,68 @@ static void cp_vinv_collect_candidates(compiler_ctx_t* ctx, cp_engine_t* e) {
         if (!cp_same_value(e, cp_vnode_of(e, sir_child((sir_node_t*)cf, 0)),
                             cp_vnode_of(e, sir_child((sir_node_t*)df, 0)))) continue;
         cp_vinv_intern(ctx, cf->get_field.class_id,
-                       cf->get_field.field_idx, df->get_field.field_idx);
+                       cf->get_field.field_idx, df->get_field.field_idx,
+                       COMPILER_VINV_SCALAR);
+    }
+}
+
+/* The USER-level field an array VALUE was read from: an element access reads
+ * through the overlay's backing accessor, so the value's ultimate expr is the
+ * backing GetField and the USER's field read is its receiver — the same
+ * descent cp_len_of_field makes for a length operand. */
+static const sir_node_t* cp_user_array_field(cp_engine_t* eng, int vn) {
+    const sir_node_t* ae = cp_ultimate_expr(eng, vn);
+    if (!ae || ae->tag != SIR_GETFIELD) return NULL;
+    if (eng->sema && lat_is_array_data_cell(eng->sema, ae->get_field.class_id,
+                                            ae->get_field.field_idx)) {
+        sir_node_t* obj = sir_child((sir_node_t*)ae, 0);
+        const sir_node_t* oe = !obj ? NULL
+            : obj->tag == SIR_GETFIELD ? obj
+            : cp_ultimate_expr(eng, cp_vnode_of(eng, obj));
+        return oe && oe->tag == SIR_GETFIELD ? oe : NULL;
+    }
+    return ae;
+}
+
+/* CONTENT-pair demand: a surviving IDX_HIGH whose INDEX is an element loaded
+ * from one field's array and whose LENGTH is another field's, same receiver —
+ * `data[indx[k]]`. The candidate is (class, indx field, data field); its
+ * invariant is over the CONTENTS of whatever object the indx field holds, so
+ * verification attaches to that object — a variable may alias the array, and a
+ * per-variable fact would survive its own violation. */
+static void cp_vinv_collect_content(compiler_ctx_t* ctx, cp_engine_t* e) {
+    if (!ctx || !e) return;
+    for (int gi = 0; gi < e->fact_count; gi++) {
+        const compiler_fact_t* f = &e->facts[gi];
+        if (f->kind != COMPILER_FACT_GUARD) continue;
+        if (f->a != COMPILER_GUARD_ARRAY_INDEX_HIGH) continue;
+        if (!f->key || f->key->tag != SIR_BRANCH) continue;
+        sir_node_t* cmp = f->key->branch.cond;
+        if (!cmp || cmp->tag != SIR_GE) continue;
+        int cmpv = cp_vnode_of(e, cmp);
+        if (cmpv < 0 || cmpv >= e->vnode_count) continue;
+        const cp_vnode_t* cv = e->vnodes[cmpv];
+        if (cv->input_count < 2 || cv->inputs[0] < 0 || cv->inputs[1] < 0) continue;
+        if (cv->constant.state == CP_C_KNOWN && cv->constant.value == 0) continue;
+        const sir_node_t* ld = cp_ultimate_expr(e, cv->inputs[0]);
+        if (!ld || ld->tag != SIR_ARRAYLOAD) continue;
+        const sir_node_t* bf = cp_user_array_field(e,
+            cp_vnode_of(e, sir_child((sir_node_t*)ld, 0)));
+        const sir_node_t* df = cp_len_of_field(e, cv->inputs[1]);
+        if (!bf || !df) continue;
+        if (bf->get_field.class_id != df->get_field.class_id) continue;
+        if (bf->get_field.field_idx == df->get_field.field_idx) continue;
+        /* Same receiver: the excepting element load sits between the two
+         * reads, so `this`-forms are identified by §15.8.3's unassignability
+         * (the rule the scalar readouts use); others by congruence. */
+        sir_node_t* br = sir_child((sir_node_t*)bf, 0);
+        sir_node_t* dr = sir_child((sir_node_t*)df, 0);
+        if (!((cp_is_this(br) && cp_is_this(dr))
+              || cp_same_value(e, cp_vnode_of(e, br), cp_vnode_of(e, dr))))
+            continue;
+        cp_vinv_intern(ctx, bf->get_field.class_id,
+                       bf->get_field.field_idx, df->get_field.field_idx,
+                       COMPILER_VINV_CONTENT);
     }
 }
 
@@ -12113,6 +12231,7 @@ static void cp_vinv_writer_obligations(compiler_ctx_t* ctx, cp_engine_t* e) {
 
         for (int p = 0; p < ctx->vinv_count; p++) {
             if (!ctx->vinv_holds[p] || ctx->vinv_class[p] != cls) continue;
+            if (ctx->vinv_kind[p] != COMPILER_VINV_SCALAR) continue;
             bool is_count = (fld == ctx->vinv_count_fld[p]);
             bool is_data  = (fld == ctx->vinv_data_fld[p]);
             if (!is_count && !is_data) continue;
@@ -12390,6 +12509,262 @@ static void cp_vinv_writer_obligations(compiler_ctx_t* ctx, cp_engine_t* e) {
     bbq_vec_free(cgets);
 }
 
+/* CONTENT-pair obligations — one method's readout, the second KIND on the same
+ * table. The invariant: every element of the array the indx field holds is in
+ * [0, arraylength(data)). Verification is per-OBJECT, which the three §4.1-
+ * shaped rules make one-method-at-a-time checkable:
+ *   FRESH  — only a this-method allocation may be stored into the indx field;
+ *            a retained caller array is aliased before the class ever owns it.
+ *   SEALED — the field's value reaches only array-operand positions (element
+ *            access, length, its own null check); any other use is an alias
+ *            leaving the class, and the du index makes the check complete.
+ *   PROVED — every element store into the held array fits the bound, from the
+ *            §5 facts (the checked-setter refinement naming the data length,
+ *            or a KNOWN below a KNOWN length at a compatible version); a
+ *            fresh array's §15.10.2 zeros need the bound ≥ 1 at that row.
+ * Everything else — an ArrayCopy landing in the array, a φ carrying the value,
+ * a shape outside these — kills the pair: an absent proof is BOTTOM. */
+static void cp_vinv_content_obligations(compiler_ctx_t* ctx, cp_engine_t* e) {
+    if (!ctx || ctx->vinv_count == 0) return;
+    bool is_ctor = false;
+    if (e->sema && e->method && e->method->class_id >= 0) {
+        const sema_class_t* mcl = sema_get_class(e->sema, e->method->class_id);
+        if (mcl && e->method->method_id >= 0
+                && e->method->method_id < (int)bbq_vec_len((void*)mcl->methods))
+            is_ctor = mcl->methods[e->method->method_id].is_constructor;
+    }
+    for (int p = 0; p < ctx->vinv_count; p++) {
+        if (!ctx->vinv_holds[p] || ctx->vinv_kind[p] != COMPILER_VINV_CONTENT)
+            continue;
+        int cls = ctx->vinv_class[p];
+        int ifld = ctx->vinv_count_fld[p];
+        int dfld = ctx->vinv_data_fld[p];
+        bool ok = true;
+        /* Sites this method PUBLISHES into the indx field — their element
+         * stores are obligations even before the publish. */
+        int* sites = NULL; int nsites = 0;
+
+        /* FRESH + the data field's write discipline, over the spine. */
+        for (int si = 0; si < e->spine_count && ok; si++) {
+            if (!cp_spine_reachable(e, si)) continue;
+            sir_node_t* n = e->spine[si];
+            if (n->tag == SIR_ARRAYCOPY) {
+                /* A bulk write we do not decompose: if its DESTINATION may be
+                 * the pair's array, nothing proves the copied elements. */
+                sir_node_t* dst = n->array_copy.dst;
+                const sir_node_t* de = dst
+                    ? cp_user_array_field(e, cp_vnode_of(e, dst)) : NULL;
+                if (de && de->get_field.class_id == cls
+                        && de->get_field.field_idx == ifld)
+                    ok = false;
+                continue;
+            }
+            if (n->tag != SIR_PUTFIELD) continue;
+            if (n->put_field.class_id != cls) continue;
+            if (n->put_field.field_idx == dfld) {
+                /* The bound may be set only where the base case can see it:
+                 * the constructor. A later replacement changes the bound under
+                 * elements proved against the old one. */
+                if (!is_ctor) ok = false;
+                continue;
+            }
+            if (n->put_field.field_idx != ifld) continue;
+            /* FRESH: the stored value resolves through the pts lattice to a
+             * this-method array allocation (the overlay hop, as the scalar
+             * data-store route makes it). */
+            int val_vn = cp_vnode_of(e, n->put_field.value);
+            int so = val_vn >= 0
+                   ? cp_pts_sole_obj(e, e->vnodes[val_vn]->pts) : -1;
+            int av = (so >= 0 && so < e->obj_count) ? e->vnode_of_obj[so] : -1;
+            const cp_vnode_t* an = (av >= 0 && av < e->vnode_count)
+                                 ? e->vnodes[av] : NULL;
+            if (an && an->kind == CP_VN_EXPR && an->expr
+                    && an->expr->tag == SIR_NEW && so >= 0) {
+                cp_pts_t from = cp_pts_new(e);
+                cp_pts_t back = cp_pts_new(e);
+                cp_pts_add(e, &from, so);
+                for (int c = 0; c < e->mem_cell_count; c++)
+                    if (e->cell_immutable[c])
+                        cp_follow_field(e, c, from, &back);
+                int bo = cp_pts_sole_obj(e, back);
+                av = (bo >= 0 && bo < e->obj_count) ? e->vnode_of_obj[bo] : -1;
+                an = (av >= 0 && av < e->vnode_count) ? e->vnodes[av] : NULL;
+            }
+            if (!an || an->kind != CP_VN_EXPR || !an->expr
+                    || an->expr->tag != SIR_NEWARRAY) { ok = false; continue; }
+            /* ESTABLISHMENT: the fresh array's §15.10.2 zeros are in range iff
+             * the pair's bound at THIS row is at least 1 — the data cell's
+             * reaching version must be a store of a KNOWN-size allocation. */
+            int cell = cp_cell_lookup(e, cp_cell_key_field(cls, dfld));
+            int mem = (cell >= 0 && e->slot_in && si < e->slot_in_rows)
+                    ? cp_vinv_settled_ver(e, e->slot_in[si][e->slot_count + cell],
+                          cp_pts_sole_obj(e, e->vnodes[cp_vnode_of(e, n->put_field.obj)]->pts))
+                    : -1;
+            bool est = false;
+            if (mem >= 0 && mem < e->mem_rows && e->mem_kind[mem] == CP_MEM_STORE
+                    && e->mem_val[mem] >= 0) {
+                int dso = cp_pts_sole_obj(e, e->vnodes[e->mem_val[mem]]->pts);
+                int dav = (dso >= 0 && dso < e->obj_count) ? e->vnode_of_obj[dso] : -1;
+                const cp_vnode_t* dn = (dav >= 0 && dav < e->vnode_count)
+                                     ? e->vnodes[dav] : NULL;
+                if (dn && dn->kind == CP_VN_EXPR && dn->expr
+                        && dn->expr->tag == SIR_NEW && dso >= 0) {
+                    cp_pts_t f2 = cp_pts_new(e);
+                    cp_pts_t b2 = cp_pts_new(e);
+                    cp_pts_add(e, &f2, dso);
+                    for (int c = 0; c < e->mem_cell_count; c++)
+                        if (e->cell_immutable[c])
+                            cp_follow_field(e, c, f2, &b2);
+                    int dbo = cp_pts_sole_obj(e, b2);
+                    dav = (dbo >= 0 && dbo < e->obj_count) ? e->vnode_of_obj[dbo] : -1;
+                    dn = (dav >= 0 && dav < e->vnode_count) ? e->vnodes[dav] : NULL;
+                }
+                if (dn && dn->kind == CP_VN_EXPR && dn->expr
+                        && dn->expr->tag == SIR_NEWARRAY
+                        && dn->input_count >= 1 && dn->inputs[0] >= 0) {
+                    cp_const_t zc = e->vnodes[dn->inputs[0]]->constant;
+                    est = zc.state == CP_C_KNOWN && zc.cwidth < CP_W_F32
+                       && cp_known_i64(zc) >= 1;
+                }
+            }
+            if (!est) { ok = false; continue; }
+            bbq_vec_push(sites, so); nsites++;
+        }
+
+        /* SEALED: every use of every value that IS the field read, off the du
+         * index — complete, because a consumer's input names some vnode in the
+         * read's CHAIN, and the chain is closed as a small membership fixpoint:
+         * the seed is every vnode resolving to the read (copies and refines
+         * resolve through), and a φ or opaque USER joins the chain — the value
+         * under a merged name is still the value, so its users get the same
+         * check instead of a blanket kill. */
+        bool* inch = (bool*)bbq_arena_alloc(e->arena,
+                         (size_t)(e->vnode_count > 0 ? e->vnode_count : 1)
+                         * sizeof(bool));
+        for (int vi = 0; vi < e->vnode_count; vi++) {
+            const sir_node_t* ue = cp_ultimate_expr(e, vi);
+            inch[vi] = ue && ue->tag == SIR_GETFIELD
+                    && ue->get_field.class_id == cls
+                    && ue->get_field.field_idx == ifld;
+        }
+        for (bool grew = true; grew; ) {
+            grew = false;
+            for (int vi = 0; vi < e->vnode_count; vi++) {
+                if (!inch[vi]) continue;
+                for (int k = e->du_off[vi]; k < e->du_off[vi] + e->du_cnt[vi]; k++) {
+                    const cp_vnode_t* u = e->vnodes[e->du_user[k]];
+                    if ((u->kind == CP_VN_PHI || u->kind == CP_VN_OPAQUE)
+                            && !inch[e->du_user[k]]) {
+                        inch[e->du_user[k]] = true;
+                        grew = true;
+                    }
+                }
+            }
+        }
+        for (int vi = 0; vi < e->vnode_count && ok; vi++) {
+            if (!inch[vi]) continue;
+            for (int k = e->du_off[vi]; k < e->du_off[vi] + e->du_cnt[vi] && ok; k++) {
+                const cp_vnode_t* u = e->vnodes[e->du_user[k]];
+                if (inch[e->du_user[k]]) continue;              /* in-chain */
+                if (u->kind == CP_VN_REFINE) continue;          /* in-chain */
+                if (u->kind != CP_VN_EXPR || !u->expr) { ok = false; break; }
+                switch (u->expr->tag) {
+                    case SIR_LOADLOCAL:                          /* a copy */
+                    case SIR_ARRAYLENGTH: break;
+                    case SIR_GETFIELD:
+                        /* the overlay's backing accessor, reading THROUGH the
+                         * field value on its way to an element op — sanctioned
+                         * in receiver position only */
+                        if (!(e->sema && e->du_input[k] == 0
+                              && lat_is_array_data_cell(e->sema,
+                                     u->expr->get_field.class_id,
+                                     u->expr->get_field.field_idx)))
+                            ok = false;
+                        break;
+                    case SIR_ARRAYLOAD:
+                        if (e->du_input[k] != 0) ok = false; break;
+                    case SIR_EQ: case SIR_NE: {
+                        /* its own null check */
+                        sir_node_t* l = sir_child((sir_node_t*)u->expr, 0);
+                        sir_node_t* r = sir_child((sir_node_t*)u->expr, 1);
+                        if (!((l && l->tag == SIR_LOADNULL)
+                                || (r && r->tag == SIR_LOADNULL))) ok = false;
+                        break;
+                    }
+                    default: ok = false; break;
+                }
+            }
+        }
+        /* …and the spine consumers a value graph never sees. The array-operand
+         * position of an element access is the sanctioned use; the VALUE
+         * position of any store, and a return, are aliases leaving the class. */
+        for (int si = 0; si < e->spine_count && ok; si++) {
+            if (!cp_spine_reachable(e, si)) continue;
+            sir_node_t* n = e->spine[si];
+            sir_node_t* v = NULL;
+            switch (n->tag) {
+                case SIR_PUTFIELD:
+                    /* the publish itself is FRESH-checked above; a fresh
+                     * allocation is not the field read */
+                    v = n->put_field.value; break;
+                case SIR_PUTSTATIC:  v = n->put_static.value; break;
+                case SIR_ARRAYSTORE: v = n->array_store.value; break;
+                case SIR_RETURN:     v = n->return_.value; break;
+                default: continue;
+            }
+            int vvn = v ? cp_vnode_of(e, v) : -1;
+            if (vvn >= 0 && vvn < e->vnode_count && inch[vvn])
+                ok = false;
+        }
+
+        /* PROVED: every element store into the held array. */
+        for (int si = 0; si < e->spine_count && ok; si++) {
+            if (!cp_spine_reachable(e, si)) continue;
+            sir_node_t* n = e->spine[si];
+            if (n->tag != SIR_ARRAYSTORE) continue;
+            sir_node_t* arr = n->array_store.arr;
+            int avn = arr ? cp_vnode_of(e, arr) : -1;
+            const sir_node_t* ae = avn >= 0 ? cp_user_array_field(e, avn) : NULL;
+            bool mine = ae && ae->get_field.class_id == cls
+                     && ae->get_field.field_idx == ifld;
+            if (!mine && avn >= 0 && avn < e->vnode_count && inch[avn])
+                mine = true;                     /* a merged alias of the array */
+            if (!mine && avn >= 0)
+                for (int s2 = 0; s2 < nsites && !mine; s2++)
+                    if (cp_pts_has(e, e->vnodes[avn]->pts, sites[s2]))
+                        mine = true;
+            if (!mine) continue;
+            int val_vn = cp_vnode_of(e, n->array_store.value);
+            cp_const_t sc = val_vn >= 0 ? e->vnodes[val_vn]->constant
+                                        : (cp_const_t){ .state = CP_C_BOTTOM };
+            bool lo_ok = (sc.state == CP_C_KNOWN && sc.cwidth < CP_W_F32
+                          && cp_known_i64(sc) >= 0)
+                      || (sc.state == CP_C_RANGE && sc.lo >= 0);
+            bool hi_ok = false;
+            if (sc.state == CP_C_RANGE && sc.hi_vn1 && !sc.hi_vn_incl
+                    && !sc.hi_sub_vn1) {
+                /* the checked-setter shape: the stored value's own bound names
+                 * the pair's data length, same receiver */
+                const sir_node_t* lf = cp_len_of_field(e, sc.hi_vn1 - 1);
+                if (lf && lf->get_field.class_id == cls
+                        && lf->get_field.field_idx == dfld) {
+                    sir_node_t* lrecv = sir_child((sir_node_t*)lf, 0);
+                    sir_node_t* srecv = ae && ae->tag == SIR_GETFIELD
+                        ? sir_child((sir_node_t*)ae, 0) : NULL;
+                    hi_ok = lrecv && srecv
+                         && ((cp_is_this(lrecv) && cp_is_this(srecv))
+                             || cp_same_value(e, cp_vnode_of(e, lrecv),
+                                              cp_vnode_of(e, srecv)));
+                }
+            }
+            if (!hi_ok) ok = false;
+            if (!lo_ok) ok = false;
+        }
+        bbq_vec_free(sites);
+        if (!ok) ctx->vinv_holds[p] = false;
+    }
+}
+
 static void cp_summarize(compiler_ctx_t* ctx, int method_idx,
                          const sir_method_t* method, cp_engine_t* e) {
     if (!ctx || !e || method_idx < 0 || method_idx >= ctx->method_count) return;
@@ -12398,7 +12773,9 @@ static void cp_summarize(compiler_ctx_t* ctx, int method_idx,
      * have folded a guard on. */
     if (!ctx->vinv_published) {
         cp_vinv_collect_candidates(ctx, e);
+        cp_vinv_collect_content(ctx, e);
         cp_vinv_writer_obligations(ctx, e);
+        cp_vinv_content_obligations(ctx, e);
     }
     if (!ctx->summaries) {
         ctx->summaries = (compiler_summary_t*)bbq_arena_alloc(ctx->arena,

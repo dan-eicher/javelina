@@ -7220,6 +7220,158 @@ int main(void) {
         }
     }
 
+    /* ── Array-CONTENT invariants: `data[indx[k]]` (Luján 2004) ───────────────
+     * The indirection shape: the check on `data` needs the CONTENTS of the
+     * indx array bounded — ∀ stored e: 0 ≤ e < arraylength(data). The paper's
+     * §4.1 conditions (only fresh allocations stored into the field; private;
+     * the field's value never leaks) become the candidate's KILL rules, its
+     * §4.3 checked setter becomes a static proof at each ArrayStore, and the
+     * invariant attaches to the OBJECT — its Fig. 10 aliases two variables
+     * over one array, which is why a variable can never carry it. Same table,
+     * same fail-closed AND, same published-verdict consumption as the scalar
+     * pairs: a second candidate KIND, not a second mechanism. */
+    {
+        struct { const char* src; const char* cls; const char* m;
+                 int want_surviving; int kind; const char* what; } icases[] = {
+          /* The positive: ctor establishes (fresh arrays, §15.10.2 zeros below
+           * a KNOWN length), the setter is the paper's §4.3 checked set as a
+           * guard, the reader guards k against indx.length (the INNER check —
+           * out of scope by the paper's own p.3 — folds by the ordinary
+           * symbolic bound). The indirect IDX_HIGH on data dies on the
+           * content invariant. */
+          { "class I { private int[] indx; private int[] data;"
+            "  I(){ data = new int[8]; indx = new int[4]; }"
+            "  void set(int i, int v){"
+            "    if (i < 0 || i >= indx.length) return;"
+            "    if (v >= 0 && v < data.length) indx[i] = v; }"
+            "  int get(int k){"
+            "    if (k < 0 || k >= indx.length) return -1;"
+            "    return data[indx[k]]; } }", "I", "get", 0,
+            COMPILER_GUARD_ARRAY_INDEX_HIGH,
+            "indirection: get's IDX_HIGH dies on the array-content invariant "
+            "0 <= indx[*] < data.length" },
+          /* A writer storing an UNPROVEN value kills the pair — the AND. */
+          { "class I { private int[] indx; private int[] data;"
+            "  I(){ data = new int[8]; indx = new int[4]; }"
+            "  void bad(int i, int v){"
+            "    if (i < 0 || i >= indx.length) return;"
+            "    indx[i] = v; }"
+            "  int get(int k){"
+            "    if (k < 0 || k >= indx.length) return -1;"
+            "    return data[indx[k]]; } }", "I", "get", 1,
+            COMPILER_GUARD_ARRAY_INDEX_HIGH,
+            "(a) a writer stores an UNPROVEN value: the pair dies, IDX_HIGH "
+            "SURVIVES" },
+          /* A store to indx between the established invariant and the access:
+           * the stored value is a parameter, so it proves nothing and the
+           * check must stay. */
+          { "class I { private int[] indx; private int[] data;"
+            "  I(){ data = new int[8]; indx = new int[4]; }"
+            "  int get(int k, int v){"
+            "    if (k < 0 || k >= indx.length) return -1;"
+            "    indx[0] = v;"
+            "    return data[indx[k]]; } }", "I", "get", 2,
+            COMPILER_GUARD_ARRAY_INDEX_HIGH,
+            "(b) a store to indx between the invariant-established point and "
+            "the access: BOTH IDX_HIGH survive (the store's own and the "
+            "indirect one)" },
+          /* Two DISTINCT indirection objects: a.indx's contents say nothing
+           * about b.data's length (the object attachment, Fig. 10's lesson). */
+          { "class I { int[] indx; int[] data;"
+            "  I(){ data = new int[8]; indx = new int[4]; }"
+            "  static int g(I a, I b, int k){"
+            "    if (k < 0 || k >= a.indx.length) return -1;"
+            "    return b.data[a.indx[k]]; } }", "I", "g", 1,
+            COMPILER_GUARD_ARRAY_INDEX_HIGH,
+            "(c) two DISTINCT indirection objects (a.indx into b.data): "
+            "IDX_HIGH SURVIVES" },
+          /* KILL rule: the ctor stores the PARAMETER array (the paper's Fig. 5
+           * `array = values`) — the caller retains an alias, so the class can
+           * never own its contents. */
+          { "class I { private int[] indx; private int[] data;"
+            "  I(int[] p){ data = new int[8]; indx = p; }"
+            "  int get(int k){"
+            "    if (k < 0 || k >= indx.length) return -1;"
+            "    return data[indx[k]]; } }", "I", "get", 1,
+            COMPILER_GUARD_ARRAY_INDEX_HIGH,
+            "(d) the ctor stores the PARAMETER array into indx (Fig. 5): the "
+            "pair dies, IDX_HIGH SURVIVES" },
+          /* KILL rule: a method RETURNS the field (the paper's Fig. 5
+           * getArray) — the value leaks, aliases exist beyond the class. */
+          { "class I { private int[] indx; private int[] data;"
+            "  I(){ data = new int[8]; indx = new int[4]; }"
+            "  int[] leak(){ return indx; }"
+            "  int get(int k){"
+            "    if (k < 0 || k >= indx.length) return -1;"
+            "    return data[indx[k]]; } }", "I", "get", 1,
+            COMPILER_GUARD_ARRAY_INDEX_HIGH,
+            "(e) a method RETURNS indx (Fig. 5's getArray): the field leaks, "
+            "the pair dies, IDX_HIGH SURVIVES" },
+        };
+        for (int t = 0; t < (int)(sizeof icases / sizeof icases[0]); t++) {
+            bbq_arena a; bbq_arena_init(&a, 1 << 16);
+            int nlib = 0;
+            ast_program_t* prog = build_program(icases[t].src, &a, &nlib);
+            sema_ctx_t sctx; sema_init(&sctx, &a);
+            sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
+            if (!sir_analyze(&sctx)) printf("  (note: sema reported errors)\n");
+            compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
+            int mc = 0;
+            sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
+            compiler_summarize_to_convergence(&cctx);
+            int cid = sema_find_class(&sctx, icases[t].cls);
+            int surviving = -1;
+            for (int i = 0; i < mc; i++) {
+                if (ms[i]->class_id != cid) continue;
+                if (!ms[i]->name || strcmp(ms[i]->name, icases[t].m)) continue;
+                sir_optimize(&cctx, i);
+                int nf = 0;
+                const compiler_fact_t* f = compiler_get_facts(&cctx, i, &nf);
+                surviving = 0;
+                for (int j = 0; j < nf; j++)
+                    if (f[j].kind == COMPILER_FACT_GUARD
+                            && f[j].a == icases[t].kind
+                            && f[j].key && (int)f[j].key->tag == SIR_BRANCH)
+                        surviving++;
+                break;
+            }
+            if (surviving != icases[t].want_surviving)
+                printf("        %s: %d IDX_HIGH surviving, want %d\n",
+                       icases[t].what, surviving, icases[t].want_surviving);
+            CHECK(surviving == icases[t].want_surviving, icases[t].what);
+            /* The POSITIVE's table verdict, one writer at a time, through the
+             * production path — so its red names the stage (discovery, a
+             * writer, or consumption) instead of "did not fold". */
+            if (t == 0) {
+                int cpair = -1;
+                for (int p2 = 0; p2 < cctx.vinv_count; p2++)
+                    if (cctx.vinv_kind[p2] == COMPILER_VINV_CONTENT) cpair = p2;
+                CHECK(cpair >= 0, "the CONTENT pair is discovered");
+                if (cpair >= 0) {
+                    if (!cctx.vinv_holds[cpair])
+                        printf("        content pair holds=0 after the driver\n");
+                    CHECK(cctx.vinv_holds[cpair],
+                          "…and its verdict HOLDS after the full driver");
+                    cctx.vinv_published = false;
+                    for (int m2 = 0; m2 < mc; m2++) {
+                        if (!ms[m2]->name) continue;
+                        cctx.vinv_holds[cpair] = true;
+                        sir_summarize(&cctx, m2);
+                        if (!cctx.vinv_holds[cpair])
+                            printf("        content obligations FAIL in %s "
+                                   "alone\n", ms[m2]->name);
+                        CHECK(cctx.vinv_holds[cpair],
+                              "…each method's content obligations prove on "
+                              "their own");
+                    }
+                    cctx.vinv_published = true;
+                    cctx.vinv_holds[cpair] = true;
+                }
+            }
+            sema_destroy(&sctx); bbq_arena_free(&a);
+        }
+    }
+
     /* ── Two reads of ONE field are one value, in the LOWERED shape ───────────
      * The sibling of §7.3: an element write cannot change what a FIELD read
      * sees, so `count` before `data[count] = x` and `count` after it are the

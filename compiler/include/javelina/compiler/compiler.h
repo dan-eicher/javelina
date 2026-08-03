@@ -445,9 +445,21 @@ typedef struct {
      * solve, which is what lets a consumer read it with no re-arm machinery:
      * the fact cannot move underneath the solve that consults it. */
     int*  vinv_class;      /* bbq_vec (heap — freed in compiler_destroy): the declaring class */
-    int*  vinv_count_fld;  /* bbq_vec: the count field index */
+    int*  vinv_count_fld;  /* bbq_vec: the count field index (kind CONTENT: the indx field) */
     int*  vinv_data_fld;   /* bbq_vec: the data (array) field index */
     bool* vinv_holds;      /* bbq_vec: the AND over all writers */
+    /* The pair's KIND — one table, two invariant shapes:
+     *   SCALAR:  count ≤ arraylength(data), maintained by every PutField of
+     *            either field (the count/data pairs).
+     *   CONTENT: ∀ stored e in the array held by the indx field:
+     *            0 ≤ e < arraylength(data) — maintained by every PutField of
+     *            either field AND every ArrayStore reaching the indx-held
+     *            array. The invariant attaches to the OBJECT the field holds,
+     *            never a variable: two variables may alias one array, so a
+     *            per-variable fact would survive its own violation. */
+#define COMPILER_VINV_SCALAR  0
+#define COMPILER_VINV_CONTENT 1
+    int*  vinv_kind;       /* bbq_vec: COMPILER_VINV_SCALAR / _CONTENT */
     int   vinv_count;
     /* PUBLISHED, and it is the immutability itself: while false the table is
      * still being built (candidates enter, obligations clear verdicts) and

@@ -572,6 +572,7 @@ void compiler_destroy(compiler_ctx_t* ctx) {
         bbq_vec_free(ctx->vinv_count_fld);
         bbq_vec_free(ctx->vinv_data_fld);
         bbq_vec_free(ctx->vinv_holds);
+        bbq_vec_free(ctx->vinv_kind);
     }
 }
 
