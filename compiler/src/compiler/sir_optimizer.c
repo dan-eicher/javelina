@@ -2700,7 +2700,25 @@ static void cp_enumerate_memory_cells(cp_engine_t* eng) {
     /* Which cells can no code write after the allocation? A call kills every cell it
      * COULD write, and it cannot write these — so it must not shadow them (see
      * cp_out_state). The type lattice is the one authority for which cells they are;
-     * the key is decoded with the same packing that built it. */
+     * the key is decoded with the same packing that built it.
+     *
+     * FINAL fields join the set, outside constructors: §8.3.1.2 makes any
+     * assignment a compile-time error, so a final field's only writes are the
+     * declarator-init stores §12.5 compiles into constructors — a call cannot
+     * write the cell. The fence is the §8.6.5 explicit constructor invocation,
+     * which writes the object UNDER CONSTRUCTION's final cells (its own
+     * class's and, through super(), inherited ones) — so a constructor body
+     * analyzes them as ordinary cells. A callee constructing a FRESH object
+     * writes only that object's cells, which no pre-existing receiver can name
+     * (per-object filtering at every version-chain reader — the same argument
+     * the backing cell has always stood on). */
+    bool in_ctor = false;
+    if (eng->method && eng->sema && eng->method->class_id >= 0) {
+        const sema_class_t* mcl = sema_get_class(eng->sema, eng->method->class_id);
+        if (mcl && eng->method->method_id >= 0
+                && eng->method->method_id < (int)bbq_vec_len((void*)mcl->methods))
+            in_ctor = mcl->methods[eng->method->method_id].is_constructor;
+    }
     eng->cell_immutable = (bool*)bbq_arena_alloc(eng->arena,
                               (size_t)(eng->mem_cell_count > 0 ? eng->mem_cell_count : 1)
                               * sizeof(bool));
@@ -2712,6 +2730,12 @@ static void cp_enumerate_memory_cells(cp_engine_t* eng) {
         int class_id = (int)((k >> 16) & 0x3FFF);
         int field_ix = (int)(k & 0xFFFF);
         eng->cell_immutable[c] = lat_is_array_data_cell(eng->sema, class_id, field_ix);
+        if (!eng->cell_immutable[c] && !in_ctor) {
+            const sema_class_t* fc = sema_get_class(eng->sema, class_id);
+            if (fc && field_ix >= 0 && field_ix < (int)bbq_vec_len((void*)fc->fields))
+                eng->cell_immutable[c] =
+                    (fc->fields[field_ix].modifiers & ACC_FINAL) != 0;
+        }
     }
 }
 
@@ -12290,6 +12314,57 @@ static void cp_vinv_writer_obligations(compiler_ctx_t* ctx, cp_engine_t* e) {
                             && gf->get_field.field_idx == ctx->vinv_data_fld[p])
                         proved = cp_same_value(e, cp_vnode_of(e, sir_child((sir_node_t*)gf, 0)),
                                                 cp_vnode_of(e, recv));
+                }
+                /* A KNOWN count against the data length the row can SEE: the
+                 * data cell's reaching version resolves (through the overlay,
+                 * as everywhere) to an allocation of KNOWN size — `count = 4`
+                 * after `data = new int[4]` is the whole declarator-init
+                 * family §12.5 compiles in textual order. */
+                if (!proved && sc.state == CP_C_KNOWN && sc.cwidth < CP_W_F32
+                        && cp_known_i64(sc) >= 0) {
+                    int cell = cp_cell_lookup(e,
+                        cp_cell_key_field(cls, ctx->vinv_data_fld[p]));
+                    int rv2 = cp_vnode_of(e, recv);
+                    int mem = (cell >= 0 && e->slot_in && si2 < e->slot_in_rows
+                               && rv2 >= 0)
+                            ? cp_vinv_settled_ver(e,
+                                  e->slot_in[si2][e->slot_count + cell],
+                                  cp_pts_sole_obj(e, e->vnodes[rv2]->pts))
+                            : -1;
+                    if (mem >= 0 && mem < e->mem_rows
+                            && e->mem_kind[mem] == CP_MEM_STORE
+                            && e->mem_val[mem] >= 0
+                            && e->mem_obj[mem] >= 0 && rv2 >= 0
+                            && e->vnodes[e->mem_obj[mem]]->partition >= 0
+                            && e->vnodes[e->mem_obj[mem]]->partition
+                                == e->vnodes[rv2]->partition) {
+                        int dso = cp_pts_sole_obj(e, e->vnodes[e->mem_val[mem]]->pts);
+                        int dav = (dso >= 0 && dso < e->obj_count)
+                                ? e->vnode_of_obj[dso] : -1;
+                        const cp_vnode_t* dn = (dav >= 0 && dav < e->vnode_count)
+                                             ? e->vnodes[dav] : NULL;
+                        if (dn && dn->kind == CP_VN_EXPR && dn->expr
+                                && dn->expr->tag == SIR_NEW && dso >= 0) {
+                            cp_pts_t f2 = cp_pts_new(e);
+                            cp_pts_t b2 = cp_pts_new(e);
+                            cp_pts_add(e, &f2, dso);
+                            for (int c2 = 0; c2 < e->mem_cell_count; c2++)
+                                if (e->cell_immutable[c2])
+                                    cp_follow_field(e, c2, f2, &b2);
+                            int dbo = cp_pts_sole_obj(e, b2);
+                            dav = (dbo >= 0 && dbo < e->obj_count)
+                                ? e->vnode_of_obj[dbo] : -1;
+                            dn = (dav >= 0 && dav < e->vnode_count)
+                               ? e->vnodes[dav] : NULL;
+                        }
+                        if (dn && dn->kind == CP_VN_EXPR && dn->expr
+                                && dn->expr->tag == SIR_NEWARRAY
+                                && dn->input_count >= 1 && dn->inputs[0] >= 0) {
+                            cp_const_t zc = e->vnodes[dn->inputs[0]]->constant;
+                            proved = zc.state == CP_C_KNOWN && zc.cwidth < CP_W_F32
+                                  && cp_known_i64(sc) <= cp_known_i64(zc);
+                        }
+                    }
                 }
                 /* The INDUCTIVE STEP. A value at or below the pre-state count
                  * is below the length because the count was — the invariant

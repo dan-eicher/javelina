@@ -7220,6 +7220,95 @@ int main(void) {
         }
     }
 
+    /* ── `final` is an analysis fact: a call cannot write a final cell ────────
+     * §8.3.1.2 makes any assignment to a final field a compile-time error, so
+     * after sema a final field's only writes are the declarator-init stores
+     * §12.5 compiles into constructors. A CALL therefore cannot write the cell
+     * — except an explicit constructor invocation (§8.6.5) writing the object
+     * under construction, which is why constructors get no immunity. The
+     * mechanism is the overlay backing's own (cell_immutable); the yield is
+     * version compatibility across calls, where a KILL row otherwise makes
+     * the two-field consumption refuse. */
+    {
+        struct { const char* src; const char* cls; const char* m;
+                 int want_surviving; const char* what; } fcases[] = {
+          /* FINAL pair, a helper call between the count read and the access:
+           * the call preserves both cells, versions stay compatible, the
+           * invariant consumption fires. */
+          { "class F { final int[] data = new int[4]; final int count = 4;"
+            "  int poke(){ return 1; }"
+            "  int get(int index){"
+            "    if (index < 0 || index >= count) return -1;"
+            "    int t = poke();"
+            "    return data[index] + t; } }", "F", "get", 0,
+            "FINAL pair with a call between the reads: the call cannot write a "
+            "final cell, versions stay compatible, IDX_HIGH dies" },
+          /* The NON-final twin: the call may write either field, the KILL row
+           * stands, and the refusal is the correct behavior — pinned so the
+           * widening cannot leak past finality. */
+          { "class F { int count; int[] data;"
+            "  F(){ data = new int[4]; count = 4; }"
+            "  int poke(){ return 1; }"
+            "  int get(int index){"
+            "    if (index < 0 || index >= count) return -1;"
+            "    int t = poke();"
+            "    return data[index] + t; } }", "F", "get", 1,
+            "…the NON-final twin: the call may write the fields, IDX_HIGH "
+            "SURVIVES" },
+          /* The constructor fence: inside a ctor the object is under
+           * construction and §8.6.5 invocations write final cells, so the
+           * immunity must not apply there. */
+          { "class F { final int[] data = new int[4]; final int count = 4;"
+            "  int r;"
+            "  int poke(){ return 1; }"
+            "  F(int index){"
+            "    if (index >= 0 && index < count) {"
+            "      int t = poke();"
+            "      r = data[index] + t;"
+            "    } else { r = -1; } } }", "F", "<init>", 1,
+            "…the CTOR fence: under construction the immunity is OFF, IDX_HIGH "
+            "SURVIVES" },
+        };
+        for (int t = 0; t < (int)(sizeof fcases / sizeof fcases[0]); t++) {
+            bbq_arena a; bbq_arena_init(&a, 1 << 16);
+            int nlib = 0;
+            ast_program_t* prog = build_program(fcases[t].src, &a, &nlib);
+            sema_ctx_t sctx; sema_init(&sctx, &a);
+            sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
+            if (!sir_analyze(&sctx)) printf("  (note: sema reported errors)\n");
+            compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
+            int mc = 0;
+            sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
+            compiler_summarize_to_convergence(&cctx);
+            int cid = sema_find_class(&sctx, fcases[t].cls);
+            bool want_ctor = !strcmp(fcases[t].m, "<init>");
+            int surviving = -1;
+            for (int i = 0; i < mc; i++) {
+                if (ms[i]->class_id != cid) continue;
+                bool is_init = ms[i]->name
+                    && (!strcmp(ms[i]->name, "<init>") || !strcmp(ms[i]->name, fcases[t].cls));
+                if (want_ctor ? !is_init
+                              : (!ms[i]->name || strcmp(ms[i]->name, fcases[t].m)))
+                    continue;
+                sir_optimize(&cctx, i);
+                int nf = 0;
+                const compiler_fact_t* f = compiler_get_facts(&cctx, i, &nf);
+                surviving = 0;
+                for (int j = 0; j < nf; j++)
+                    if (f[j].kind == COMPILER_FACT_GUARD
+                            && f[j].a == COMPILER_GUARD_ARRAY_INDEX_HIGH
+                            && f[j].key && (int)f[j].key->tag == SIR_BRANCH)
+                        surviving++;
+                break;
+            }
+            if (surviving != fcases[t].want_surviving)
+                printf("        %s: %d IDX_HIGH surviving, want %d\n",
+                       fcases[t].what, surviving, fcases[t].want_surviving);
+            CHECK(surviving == fcases[t].want_surviving, fcases[t].what);
+            sema_destroy(&sctx); bbq_arena_free(&a);
+        }
+    }
+
     /* ── Array-CONTENT invariants: `data[indx[k]]` (Luján 2004) ───────────────
      * The indirection shape: the check on `data` needs the CONTENTS of the
      * indx array bounded — ∀ stored e: 0 ≤ e < arraylength(data). The paper's
