@@ -448,7 +448,7 @@ typedef struct {
     int*  vinv_count_fld;  /* bbq_vec: the count field index (kind CONTENT: the indx field) */
     int*  vinv_data_fld;   /* bbq_vec: the data (array) field index */
     bool* vinv_holds;      /* bbq_vec: the AND over all writers */
-    /* The pair's KIND — one table, two invariant shapes:
+    /* The row's KIND — one table, three invariant shapes:
      *   SCALAR:  count ≤ arraylength(data), maintained by every PutField of
      *            either field (the count/data pairs).
      *   CONTENT: ∀ stored e in the array held by the indx field:
@@ -456,10 +456,34 @@ typedef struct {
      *            either field AND every ArrayStore reaching the indx-held
      *            array. The invariant attaches to the OBJECT the field holds,
      *            never a variable: two variables may alias one array, so a
-     *            per-variable fact would survive its own violation. */
+     *            per-variable fact would survive its own violation.
+     *   RANGE:   the UNARY kind — the field's value lies in [lo, hi], the
+     *            interval HULL of every provable store program-wide, §12.5's
+     *            default 0 joining the hull unless every constructor of the
+     *            class establishes the field before the receiver can escape.
+     *            CLASS-level (the hull quantifies over all instances), so a
+     *            consumer needs no object identity. data_fld is -1. */
 #define COMPILER_VINV_SCALAR  0
 #define COMPILER_VINV_CONTENT 1
-    int*  vinv_kind;       /* bbq_vec: COMPILER_VINV_SCALAR / _CONTENT */
+#define COMPILER_VINV_RANGE   2
+    int*  vinv_kind;       /* bbq_vec: COMPILER_VINV_* */
+    /* RANGE payload, parallel to the row vectors. The hull starts EMPTY
+     * (lo > hi) and only ever WIDENS — monotone alongside `holds`, which only
+     * ever falls. `established` is the §12.5 base-case verdict: cleared when
+     * a ctor's return is not reached by a store to the field, or when the
+     * class (or an ancestor whose ctor runs inside the window) lets `this`
+     * escape mid-construction; at publish a cleared row joins 0 into its
+     * hull. */
+    int64_t* vinv_lo;      /* bbq_vec */
+    int64_t* vinv_hi;      /* bbq_vec */
+    bool*    vinv_established; /* bbq_vec */
+    /* Set-only, [class count], arena-allocated at first use (zeroed): this
+     * class has a constructor that lets `this` escape before construction
+     * completes — a call handed `this` (other than the §8.8.7 super()/this()
+     * chain), a virtual dispatch on `this`, or a store of `this` into the
+     * heap. While an ancestor's ctor runs, `this` IS the subclass object, so
+     * a RANGE row consults the whole ancestor chain. */
+    bool* ctor_leaks_this;
     int   vinv_count;
     /* PUBLISHED, and it is the immutability itself: while false the table is
      * still being built (candidates enter, obligations clear verdicts) and

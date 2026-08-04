@@ -1768,6 +1768,27 @@ int main(void) {
             -1, (int32_t)0x80000000, "MIN_VALUE / -1 wraps to MIN_VALUE (no trap)" },
           { "class T { static int f(int z){ int m = -2147483648; return m % z; } }",
             -1, 0, "MIN_VALUE % -1 == 0 (no trap)" },
+          /* The unary field-range invariant, behaviorally: an established
+           * divisor field divides (the guard folds under -O, the answer must
+           * not move); a field any writer stores unprovably keeps its guard,
+           * so dividing by the stored 0 still raises the catchable §11
+           * ArithmeticException; and a ctor that hands `this` out BEFORE
+           * establishing lets the §12.5 default 0 be READ mid-construction —
+           * the invariant must include 0, the observer's own guard must
+           * survive, and the observed division must throw, not trap. */
+          { "class V { int stride; V(){ stride = 4; } }"
+            "class T { static int f(int z){ V v = new V(); return 100 / v.stride; } }",
+            0, 25, "established divisor field: 100 / stride == 25" },
+          { "class V { int stride; V(){ stride = 4; } void set(int s){ stride = s; } }"
+            "class T { static int f(int z){ V v = new V(); v.set(z);"
+            "  try { return 100 / v.stride; } catch (ArithmeticException e) { return 77; } } }",
+            0, 77, "a parameter store keeps the guard: dividing by the stored 0 throws" },
+          { "class H3 { int r; void probe(V2 v){"
+            "  try { r = 10 / v.d; } catch (ArithmeticException e) { r = 55; } } }"
+            "class V2 { int d; V2(H3 h){ h.probe(this); d = 5; } }"
+            "class T { static int f(int z){ H3 h = new H3(); V2 v = new V2(h); return h.r; } }",
+            0, 55, "a mid-construction observer reads the §12.5 default: its guard "
+                   "survives and the division throws catchably" },
           /* §15.13.1 (E7): array access null-checks + bounds-checks throw CATCHABLE
            * NullPointerException / ArrayIndexOutOfBoundsException, not WASM traps. */
           { "class T { static int f(int z){ int[] a = null;"

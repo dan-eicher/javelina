@@ -4183,7 +4183,9 @@ static bool cp_bound_base_holds(cp_engine_t* eng, int self, int slot,
  * obligation, and a writer that cannot be proved kills the pair (rule 9). */
 static int cp_vinv_intern(compiler_ctx_t* ctx, int cls, int cfld, int dfld,
                           int kind) {
-    if (!ctx || cls < 0 || cfld < 0 || dfld < 0) return -1;
+    /* The unary RANGE kind has no second field: dfld is its -1 sentinel. */
+    if (!ctx || cls < 0 || cfld < 0) return -1;
+    if (dfld < 0 && kind != COMPILER_VINV_RANGE) return -1;
     for (int i = 0; i < ctx->vinv_count; i++)
         if (ctx->vinv_class[i] == cls && ctx->vinv_count_fld[i] == cfld
                 && ctx->vinv_data_fld[i] == dfld && ctx->vinv_kind[i] == kind)
@@ -4193,6 +4195,12 @@ static int cp_vinv_intern(compiler_ctx_t* ctx, int cls, int cfld, int dfld,
     bbq_vec_push(ctx->vinv_data_fld, dfld);
     bbq_vec_push(ctx->vinv_holds, true);
     bbq_vec_push(ctx->vinv_kind, kind);
+    /* RANGE payload rides every row (one table, parallel columns): the hull
+     * starts EMPTY (lo > hi) and only widens; established starts true and
+     * only falls, like holds. */
+    bbq_vec_push(ctx->vinv_lo, INT64_MAX);
+    bbq_vec_push(ctx->vinv_hi, INT64_MIN);
+    bbq_vec_push(ctx->vinv_established, true);
     return ctx->vinv_count++;
 }
 
@@ -4252,6 +4260,8 @@ static bool cp_same_value(cp_engine_t* eng, int a_vn, int b_vn) {
 }
 
 static int cp_cell_lookup(cp_engine_t* eng, uint32_t key);
+static int cp_field_cwidth(const sir_node_t* gf);
+static int cp_vinv_settled_ver(cp_engine_t* e, int mem, int robj);
 
 /* Do the two reads see COMPATIBLE memory versions — the same reaching version
  * for both fields' cells, no store to either intervening?
@@ -4928,6 +4938,33 @@ static cp_const_t cp_node_const(cp_engine_t* eng, int v_idx) {
             if (a.state == CP_C_TOP) return top;
             if (a.state == CP_C_KNOWN) return gc->fold_convert(a);
             return bot;
+        }
+    }
+
+    /* The published unary field-range (the RANGE kind): a read of the field
+     * carries the hull — every store program-wide landed inside it, and the
+     * §12.5 default joined it unless every ctor establishes first — so the
+     * ordinary §5 range machinery is the consumer (`Eq(divisor, 0)` folds
+     * when the hull excludes 0, `Eq(divisor, -1)` when it excludes -1). The
+     * table is frozen once published and nothing may consult it before, so
+     * the fact cannot move underneath this solve: no re-arm. A load that
+     * already forwards to its store takes the Leader path above instead —
+     * the invariant serves the reads no store reaches. */
+    if (e->tag == SIR_GETFIELD && eng->ctx && eng->ctx->vinv_published) {
+        compiler_ctx_t* cx = eng->ctx;
+        int fw = cp_field_cwidth(e);
+        for (int p = 0; fw >= 0 && p < cx->vinv_count; p++) {
+            if (cx->vinv_kind[p] != COMPILER_VINV_RANGE) continue;
+            if (!cx->vinv_holds[p]) continue;
+            if (cx->vinv_class[p] != e->get_field.class_id
+                    || cx->vinv_count_fld[p] != e->get_field.field_idx) continue;
+            if (cx->vinv_lo[p] > cx->vinv_hi[p]) break;   /* empty hull: no fact */
+            cp_const_t r; memset(&r, 0, sizeof r);
+            r.state  = CP_C_RANGE;
+            r.cwidth = (cp_cwidth_t)fw;
+            r.lo = cx->vinv_lo[p];
+            r.hi = cx->vinv_hi[p];
+            return r;
         }
     }
 
@@ -12066,6 +12103,173 @@ static void cp_vinv_collect_content(compiler_ctx_t* ctx, cp_engine_t* e) {
     }
 }
 
+/* Unwrap the value a spine row computes (the cg_store shapes), or NULL. */
+static sir_node_t* cp_spine_row_value(sir_node_t* n) {
+    if (!n) return NULL;
+    switch (n->tag) {
+        case SIR_STORELOCAL: return n->store_local.value;
+        case SIR_EXPREFFECT: return n->expr_effect.value;
+        case SIR_RETURN:     return n->return_.value;
+        default:             return NULL;
+    }
+}
+
+/* The integer-family carrier of a field read, or -1 for a field the range
+ * lattice does not cover (float/double/ref). */
+static int cp_field_cwidth(const sir_node_t* gf) {
+    switch (gf->get_field.data_type) {
+        case SIR_DTBYTE: case SIR_DTSHORT: case SIR_DTCHAR:
+        case SIR_DTINT:  return CP_W_I32;
+        case SIR_DTLONG: return CP_W_I64;
+        default:         return -1;
+    }
+}
+
+/* RANGE demand: a surviving DIV_ZERO / DIV_OVERFLOW guard whose DIVISOR
+ * resolves (value authority) to an integer field read — or, for the overflow
+ * arm, whose DIVIDEND does: the arm exists only for MIN/-1 (§15.17.2), so a
+ * dividend hull excluding MIN serves it as well as a divisor hull excluding
+ * -1. The candidate is the unary (class, field); whether it holds is the
+ * writers' verdict, as for the other kinds. */
+static void cp_vinv_collect_range(compiler_ctx_t* ctx, cp_engine_t* e) {
+    if (!ctx || !e) return;
+    for (int gi = 0; gi < e->fact_count; gi++) {
+        const compiler_fact_t* f = &e->facts[gi];
+        if (f->kind != COMPILER_FACT_GUARD) continue;
+        if (f->a != COMPILER_GUARD_DIV_ZERO
+                && f->a != COMPILER_GUARD_DIV_OVERFLOW) continue;
+        if (!f->key || f->key->tag != SIR_BRANCH) continue;
+        sir_node_t* cmp = f->key->branch.cond;
+        if (!cmp || cmp->tag != SIR_EQ) continue;
+        int cmpv = cp_vnode_of(e, cmp);
+        if (cmpv < 0 || cmpv >= e->vnode_count) continue;
+        const cp_vnode_t* cv = e->vnodes[cmpv];
+        if (cv->input_count < 2 || cv->inputs[0] < 0) continue;
+        if (cv->constant.state == CP_C_KNOWN && cv->constant.value == 0) continue;
+        const sir_node_t* df = cp_ultimate_expr(e, cv->inputs[0]);
+        if (df && df->tag == SIR_GETFIELD && cp_field_cwidth(df) >= 0)
+            cp_vinv_intern(ctx, df->get_field.class_id,
+                           df->get_field.field_idx, -1, COMPILER_VINV_RANGE);
+        if (f->a != COMPILER_GUARD_DIV_OVERFLOW) continue;
+        /* The dividend, off the arm's own Div (the false arm computes it;
+         * a widened dividend reads through one conversion). */
+        sir_node_t* dv = cp_spine_row_value(f->key->branch.on_false);
+        if (!dv || dv->tag != SIR_DIV) continue;
+        sir_node_t* a0 = sir_child(dv, 0);
+        const sir_node_t* ae = a0 ? cp_ultimate_expr(e, cp_vnode_of(e, a0)) : NULL;
+        if (ae && ae->tag == SIR_I2L)
+            ae = cp_ultimate_expr(e, cp_vnode_of(e, sir_child((sir_node_t*)ae, 0)));
+        if (ae && ae->tag == SIR_GETFIELD && cp_field_cwidth(ae) >= 0)
+            cp_vinv_intern(ctx, ae->get_field.class_id,
+                           ae->get_field.field_idx, -1, COMPILER_VINV_RANGE);
+    }
+}
+
+/* The §12.5 base case of the RANGE kind, and the escape that voids it.
+ *
+ * A fresh object's field holds the DEFAULT 0 until some store lands, so 0 is
+ * in the field's value set unless NO read can observe the pre-store state:
+ * every constructor of the declaring class must establish the field before
+ * the receiver can escape. Two readouts, both over this method's own rows:
+ *
+ *   - establishment: at every RETURN row of a ctor of the row's class, the
+ *     field cell's version chain for `this` (the walk the §12.5 discharge
+ *     makes — kills pass only via Gate 5) lands on a STORE to this. SEED, or
+ *     a refused walk, clears `established`.
+ *   - the leak: ANY ctor that hands `this` out mid-construction — an
+ *     argument or virtual receiver whose pts names obj_this (pts, not a
+ *     shape test: a spilled `this` is still `this`), or a store of `this`
+ *     into the heap — marks its CLASS. The §8.8.7 super()/this() chain call
+ *     is the one exemption (receiver `this`, callee a constructor;
+ *     §8.8.7.1 keeps `this` out of its arguments), because the ancestor's
+ *     ctor body is subject to the same readout on its own class — a RANGE
+ *     row consults the whole ancestor chain at publish. */
+static void cp_vinv_range_base(compiler_ctx_t* ctx, cp_engine_t* e) {
+    if (!ctx || !e || !e->method || !e->sema) return;
+    bool is_ctor = false;
+    if (e->method->class_id >= 0) {
+        const sema_class_t* mcl = sema_get_class(e->sema, e->method->class_id);
+        if (mcl && e->method->method_id >= 0
+                && e->method->method_id < (int)bbq_vec_len((void*)mcl->methods))
+            is_ctor = mcl->methods[e->method->method_id].is_constructor;
+    }
+    if (!is_ctor) return;
+    int cls = e->method->class_id;
+    for (int si = 0; si < e->spine_count; si++) {
+        if (!cp_spine_reachable(e, si)) continue;
+        sir_node_t* n = e->spine[si];
+        /* Establishment at the returns. */
+        if (n->tag == SIR_RETURN || n->tag == SIR_RETURNVOID) {
+            for (int p = 0; p < ctx->vinv_count; p++) {
+                if (ctx->vinv_kind[p] != COMPILER_VINV_RANGE) continue;
+                if (!ctx->vinv_established[p] || ctx->vinv_class[p] != cls) continue;
+                int cell = e->mem_cell_count > 0
+                    ? cp_cell_lookup(e, cp_cell_key_field(cls, ctx->vinv_count_fld[p]))
+                    : -1;
+                int mem = (cell >= 0 && e->slot_in && si < e->slot_in_rows)
+                        ? cp_vinv_settled_ver(e, e->slot_in[si][e->slot_count + cell],
+                                              e->obj_this)
+                        : -1;
+                bool stored = mem >= 0 && mem < e->mem_rows
+                    && e->mem_kind[mem] == CP_MEM_STORE
+                    && e->mem_obj[mem] >= 0
+                    && cp_pts_sole_obj(e, e->vnodes[e->mem_obj[mem]]->pts)
+                        == e->obj_this;
+                if (!stored) ctx->vinv_established[p] = false;
+            }
+            continue;
+        }
+        /* The leak, on any spine row of any ctor. */
+        bool leaks = false;
+        sir_node_t* call = cp_spine_call_expr(n);
+        if (call) {
+            int argc = sir_arity(call);
+            int first_arg = 0;
+            if (call->tag == SIR_INVOKESPECIAL) {
+                /* the §8.8.7 chain: receiver `this`, callee a constructor */
+                sir_node_t* r0 = sir_child(call, 0);
+                int rvn = r0 ? cp_vnode_of(e, r0) : -1;
+                bool recv_this = rvn >= 0
+                    && cp_pts_sole_obj(e, e->vnodes[rvn]->pts) == e->obj_this;
+                const sema_class_t* cc =
+                    sema_get_class(e->sema, call->invoke_special.class_id);
+                bool callee_ctor = cc
+                    && call->invoke_special.method_idx >= 0
+                    && call->invoke_special.method_idx < (int)bbq_vec_len((void*)cc->methods)
+                    && cc->methods[call->invoke_special.method_idx].is_constructor;
+                if (recv_this && callee_ctor) first_arg = 1;
+            }
+            for (int a = first_arg; a < argc && !leaks; a++) {
+                sir_node_t* arg = sir_child(call, a);
+                int avn = arg ? cp_vnode_of(e, arg) : -1;
+                if (avn >= 0 && e->vnodes[avn]->pts.bits
+                        && cp_pts_has(e, e->vnodes[avn]->pts, e->obj_this))
+                    leaks = true;
+            }
+        } else if (n->tag == SIR_PUTFIELD || n->tag == SIR_PUTSTATIC
+                || n->tag == SIR_ARRAYSTORE) {
+            sir_node_t* val = n->tag == SIR_PUTFIELD  ? n->put_field.value
+                            : n->tag == SIR_PUTSTATIC ? n->put_static.value
+                            : n->array_store.value;
+            int vvn = val ? cp_vnode_of(e, val) : -1;
+            if (vvn >= 0 && e->vnodes[vvn]->pts.bits
+                    && cp_pts_has(e, e->vnodes[vvn]->pts, e->obj_this))
+                leaks = true;
+        }
+        if (leaks) {
+            if (!ctx->ctor_leaks_this && ctx->sema) {
+                int nc = (int)bbq_vec_len((void*)ctx->sema->classes);
+                if (nc > 0) {
+                    ctx->ctor_leaks_this = (bool*)bbq_arena_alloc(
+                        ctx->arena, (size_t)nc * sizeof(bool));
+                    memset(ctx->ctor_leaks_this, 0, (size_t)nc * sizeof(bool));
+                }
+            }
+            if (ctx->ctor_leaks_this) ctx->ctor_leaks_this[cls] = true;
+        }
+    }
+}
+
 /* Did a check crossed on EVERY path to this row bound `xvn` below the length of
  * this receiver's data field?
  *
@@ -12289,6 +12493,26 @@ static void cp_vinv_writer_obligations(compiler_ctx_t* ctx, cp_engine_t* e) {
 
         for (int p = 0; p < ctx->vinv_count; p++) {
             if (!ctx->vinv_holds[p] || ctx->vinv_class[p] != cls) continue;
+            /* The RANGE kind's whole obligation is the stored value's own §5
+             * fact: a KNOWN joins [k,k], a RANGE joins its numeric interval
+             * (the interval half is sound whether or not a symbolic bound
+             * rides along); anything else is an absent fact — BOTTOM — and
+             * the row dies. The hull only ever WIDENS, so re-summarized
+             * methods re-join idempotently. */
+            if (ctx->vinv_kind[p] == COMPILER_VINV_RANGE) {
+                if (fld != ctx->vinv_count_fld[p]) continue;
+                if (sc.state == CP_C_KNOWN && sc.cwidth < CP_W_F32) {
+                    int64_t k = cp_known_i64(sc);
+                    if (k < ctx->vinv_lo[p]) ctx->vinv_lo[p] = k;
+                    if (k > ctx->vinv_hi[p]) ctx->vinv_hi[p] = k;
+                } else if (sc.state == CP_C_RANGE) {
+                    if (sc.lo < ctx->vinv_lo[p]) ctx->vinv_lo[p] = sc.lo;
+                    if (sc.hi > ctx->vinv_hi[p]) ctx->vinv_hi[p] = sc.hi;
+                } else {
+                    ctx->vinv_holds[p] = false;
+                }
+                continue;
+            }
             if (ctx->vinv_kind[p] != COMPILER_VINV_SCALAR) continue;
             bool is_count = (fld == ctx->vinv_count_fld[p]);
             bool is_data  = (fld == ctx->vinv_data_fld[p]);
@@ -12898,8 +13122,10 @@ static void cp_summarize(compiler_ctx_t* ctx, int method_idx,
     if (!ctx->vinv_published) {
         cp_vinv_collect_candidates(ctx, e);
         cp_vinv_collect_content(ctx, e);
+        cp_vinv_collect_range(ctx, e);
         cp_vinv_writer_obligations(ctx, e);
         cp_vinv_content_obligations(ctx, e);
+        cp_vinv_range_base(ctx, e);
     }
     if (!ctx->summaries) {
         ctx->summaries = (compiler_summary_t*)bbq_arena_alloc(ctx->arena,
@@ -13581,6 +13807,25 @@ void compiler_summarize_to_convergence(compiler_ctx_t* ctx) {
         /* A pair discovered DURING the sweep was never put to the methods the
          * sweep had already passed. An incomplete AND is not a proof. */
         for (int p = seen; p < ctx->vinv_count; p++) ctx->vinv_holds[p] = false;
+        /* The RANGE base case closes here, where the leak bits are complete:
+         * a class whose ctor chain — its own or any ANCESTOR's, since `this`
+         * IS the subclass object while an ancestor's ctor runs — lets `this`
+         * out is not established, and an unestablished row's §12.5 default 0
+         * joins its hull. After this the hull is the row's whole fact. */
+        for (int p = 0; p < ctx->vinv_count; p++) {
+            if (ctx->vinv_kind[p] != COMPILER_VINV_RANGE) continue;
+            if (ctx->vinv_established[p] && ctx->ctor_leaks_this) {
+                for (int c = ctx->vinv_class[p]; c >= 0; ) {
+                    if (ctx->ctor_leaks_this[c]) { ctx->vinv_established[p] = false; break; }
+                    const sema_class_t* sc2 = sema_get_class(ctx->sema, c);
+                    c = sc2 ? sc2->super_id : -1;
+                }
+            }
+            if (!ctx->vinv_established[p]) {
+                if (ctx->vinv_lo[p] > 0) ctx->vinv_lo[p] = 0;
+                if (ctx->vinv_hi[p] < 0) ctx->vinv_hi[p] = 0;
+            }
+        }
         /* The AND is now over every writer of every method: PUBLISH, which
          * closes discovery and verification for good. */
         ctx->vinv_published = true;
@@ -13748,6 +13993,62 @@ static int cp_collapse_bounds_pairs(const compiler_fact_t* facts, int nfacts,
         }
     }
     return merged;
+}
+
+/* The DIV_OVERFLOW arm's DIVIDEND route. The arm exists for exactly one
+ * input (§15.17.2: MIN/-1 wraps in Java, traps in wasm), so when the
+ * dividend provably cannot be MIN the two arms compute the same value
+ * everywhere — `a / -1 == -a` for every a ≠ MIN — and the branch is one
+ * dead test. Reads the published facts (the divisor-excluding-(-1) route
+ * needs no code here: the published hull folds the Eq inside the solve);
+ * every premise is checked on the CURRENT graph, each failure skipping the
+ * row fail-closed. The retag is the branch-fold analog: the surviving arm
+ * is the DIVISION, which cannot trap once MIN is excluded. */
+static int cp_collapse_divmin(compiler_ctx_t* ctx, int method_idx,
+                              const compiler_fact_t* facts, int nfacts) {
+    if (!facts || method_idx < 0) return 0;
+    const struct compiler_click_facts* pf = compiler_click_facts_of(ctx, method_idx);
+    int folded = 0;
+    for (int i = 0; i < nfacts; i++) {
+        if (facts[i].kind != COMPILER_FACT_GUARD) continue;
+        if (facts[i].a != COMPILER_GUARD_DIV_OVERFLOW) continue;
+        sir_node_t* br = facts[i].key;
+        if (!br || br->tag != SIR_BRANCH) continue;
+        sir_node_t* dv = cp_spine_row_value(cp_follow_nops_gotos(br->branch.on_false));
+        if (!dv || dv->tag != SIR_DIV) continue;
+        sir_node_t* a0 = sir_child(dv, 0);
+        if (!a0) continue;
+        bool wide = dv->div.data_type == SIR_DTLONG;
+        int64_t wmin = wide ? INT64_MIN : INT32_MIN;
+        bool safe = false;
+        /* A widened dividend can never be the wide MIN (§5.1.2 preserves the
+         * int value, and INT64_MIN is not an int); a dividend the rewrite
+         * already folded is a constant right here. */
+        if (a0->tag == SIR_I2L)
+            safe = true;
+        else if (a0->tag == SIR_LOADCONST)
+            safe = (int64_t)a0->load_const.value != wmin;
+        else if (a0->tag == SIR_LOADLONGCONST)
+            safe = a0->load_long_const.value != wmin;
+        else if (pf) {
+            const sir_node_t* an = a0;
+            if (an->tag == SIR_I2L) an = sir_child((sir_node_t*)an, 0);
+            int vn = an ? compiler_click_vnode_of(pf, an) : -1;
+            if (vn >= 0 && vn < pf->vnode_count) {
+                cp_const_t c = pf->v[vn].constant;
+                if (c.state == CP_C_KNOWN && c.cwidth < CP_W_F32)
+                    safe = cp_known_i64(c) != wmin;
+                else if (c.state == CP_C_RANGE)
+                    safe = c.lo > wmin;
+            }
+        }
+        if (!safe) continue;
+        sir_node_t* target = br->branch.on_false;
+        br->tag = SIR_NOP;
+        br->nop.next = target;
+        folded++;
+    }
+    return folded;
 }
 
 static int cp_licm(sir_method_t* method, const compiler_fact_t* facts,
@@ -13990,6 +14291,13 @@ void sir_optimize(compiler_ctx_t* ctx, int method_idx) {
         if (nm > 0 && getenv("JAVELINA_GUARD_CENSUS"))
             fprintf(stderr, "geu-merge: %s merged=%d\n",
                     method->name ? method->name : "?", nm);
+    }
+    /* …and the overflow arms whose dividend cannot be MIN. */
+    {
+        int nd = cp_collapse_divmin(ctx, method_idx, facts, fact_count);
+        if (nd > 0 && getenv("JAVELINA_GUARD_CENSUS"))
+            fprintf(stderr, "divmin-fold: %s folded=%d\n",
+                    method->name ? method->name : "?", nd);
     }
 
     cp_debug_dump_spine(method, dump_cn, "mid");   /* post-rewrite, PRE-pack slot numbers */

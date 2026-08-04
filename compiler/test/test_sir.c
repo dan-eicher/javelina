@@ -5763,10 +5763,21 @@ int main(void) {
               "unoptimized: 2 range checks + div zero/-1 arms + rem zero arm");
         CHECK(compile_count_in(DZ, "f", SIR_BRANCH, 1) == 2,
               "divisor in [1,100]: by-zero AND -1-wrap guards fold");
+        /* The by-zero guard MUST stay (x spans 0 — the §11 throw is real);
+         * the -1-wrap arm folds on the DIVIDEND instead: 1000 is not MIN, so
+         * a/-1 == -a and the two arms compute the same value (§15.17.2 —
+         * the arm throws nothing, no behavior is lost). */
         const char* DK = "class T { static int g(int x){ if (x < -5 || x > 100) return 0; "
                          "return 1000 / x; } }";
-        CHECK(compile_count_in(DK, "g", SIR_BRANCH, 1) == 4,
-              "SOUNDNESS: divisor range spans 0 and -1 -> both arms stay");
+        CHECK(compile_count_in(DK, "g", SIR_BRANCH, 1) == 3,
+              "SOUNDNESS: divisor spans 0 -> by-zero stays; known dividend "
+              "folds the wrap arm");
+        /* …and with the dividend UNKNOWN too, NEITHER arm may fold. */
+        const char* DK2 = "class T { static int g(int a, int x){ "
+                          "if (x < -5 || x > 100) return 0; return a / x; } }";
+        CHECK(compile_count_in(DK2, "g", SIR_BRANCH, 1) == 4,
+              "SOUNDNESS: divisor spans 0 and -1, dividend unknown -> "
+              "both arms stay");
         /* Unoptimized 3 = x<0 + NegativeArraySize + the NPE guard on
          * a.length. Optimized 1 = only x<0 survives: the size guard folds
          * on x's [0,MAX] refine (§5) and the NPE guard folds on the fresh
@@ -8252,6 +8263,102 @@ int main(void) {
                   "PEA ctor replay keeps the argument's computation (q + 1 survives)");
         }
         sema_destroy(&sctx); bbq_arena_free(&a);
+    }
+
+    /* ── The unary field-range invariant: (class, field, range) ─────────────
+     *
+     * The third KIND on the one table: a field whose every store provably
+     * lands in a range, §12.5's default 0 joining the hull unless every ctor
+     * establishes the field before the receiver can escape. Consumed by the
+     * §15 DIV guards through the §5 range lattice: a read of the field
+     * carries the published hull, so `Eq(divisor, 0)` folds when the hull
+     * excludes 0 (DIV_ZERO) and `Eq(divisor, -1)` when it excludes -1
+     * (DIV_OVERFLOW); a dividend hull excluding INT_MIN collapses the
+     * overflow arm even with an unknown divisor (§15.17.2: a/-1 == -a
+     * everywhere but MIN). The invariant is CLASS-level — obligations sweep
+     * every writer program-wide — so consumption needs no object identity. */
+    {
+        struct { const char* src; const char* cls; const char* m;
+                 int want_surviving; int kind; const char* what; } hcases[] = {
+          { "class V { int stride; V(){ stride = 4; }"
+            "  int f(int x){ return x / stride; } }", "V", "f", 0,
+            COMPILER_GUARD_DIV_ZERO,
+            "ctor-established nonzero divisor field: DIV_ZERO folds on the "
+            "published hull [4,4]" },
+          { "class V { int stride; V(){ stride = 4; }"
+            "  int f(int x){ return x / stride; } }", "V", "f", 0,
+            COMPILER_GUARD_DIV_OVERFLOW,
+            "…and the same hull excludes -1: DIV_OVERFLOW folds too" },
+          { "class V { final int stride = 4;"
+            "  int f(int x){ return x / stride; } }", "V", "f", 0,
+            COMPILER_GUARD_DIV_ZERO,
+            "the declarator-init final field is the same route (§12.5 "
+            "textual order compiles it into the ctor): DIV_ZERO folds" },
+          { "class L { long d; L(){ d = 8; }"
+            "  long f(long x){ return x / d; } }", "L", "f", 0,
+            COMPILER_GUARD_DIV_ZERO,
+            "an i64 field rides the same hull (cwidth-keyed): DIV_ZERO folds" },
+          { "class V { int stride; V(){ stride = 4; }"
+            "  static int g(V a, V b){ return a.stride / b.stride; } }", "V", "g", 0,
+            COMPILER_GUARD_DIV_ZERO,
+            "the invariant is CLASS-level: a read through ANY object carries "
+            "the hull — two distinct receivers, the divisor's guard folds" },
+          { "class V { int stride; V(){ stride = 4; }"
+            "  void set(int s){ stride = s; }"
+            "  int f(int x){ return x / stride; } }", "V", "f", 1,
+            COMPILER_GUARD_DIV_ZERO,
+            "a store of a PARAMETER is an unprovable writer: the AND clears, "
+            "DIV_ZERO is KEPT" },
+          { "class H2 { void use(V v){ } }"
+            "class V { int stride; V(H2 h){ h.use(this); stride = 4; }"
+            "  int f(int x){ return x / stride; } }", "V", "f", 1,
+            COMPILER_GUARD_DIV_ZERO,
+            "the ctor hands `this` out BEFORE establishing: the §12.5 "
+            "default 0 joins the hull and DIV_ZERO is KEPT" },
+          { "class W { int total; W(){ total = 100; }"
+            "  int f(int n){ return total / n; } }", "W", "f", 1,
+            COMPILER_GUARD_DIV_ZERO,
+            "dividend route premise: the divisor is a PARAMETER, so "
+            "DIV_ZERO is KEPT" },
+          { "class W { int total; W(){ total = 100; }"
+            "  int f(int n){ return total / n; } }", "W", "f", 0,
+            COMPILER_GUARD_DIV_OVERFLOW,
+            "…but the DIVIDEND's hull excludes INT_MIN, and a/-1 == -a "
+            "everywhere but MIN (§15.17.2): DIV_OVERFLOW collapses" },
+        };
+        for (int t = 0; t < (int)(sizeof hcases / sizeof hcases[0]); t++) {
+            bbq_arena a; bbq_arena_init(&a, 1 << 16);
+            int nlib = 0;
+            ast_program_t* prog = build_program(hcases[t].src, &a, &nlib);
+            sema_ctx_t sctx; sema_init(&sctx, &a);
+            sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
+            if (!sir_analyze(&sctx)) printf("  (note: sema reported errors)\n");
+            compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
+            int mc = 0;
+            sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
+            compiler_summarize_to_convergence(&cctx);
+            int cid = sema_find_class(&sctx, hcases[t].cls);
+            int surviving = -1;
+            for (int i = 0; i < mc; i++) {
+                if (ms[i]->class_id != cid) continue;
+                if (!ms[i]->name || strcmp(ms[i]->name, hcases[t].m)) continue;
+                sir_optimize(&cctx, i);
+                int nf = 0;
+                const compiler_fact_t* f = compiler_get_facts(&cctx, i, &nf);
+                surviving = 0;
+                for (int j = 0; j < nf; j++)
+                    if (f[j].kind == COMPILER_FACT_GUARD
+                            && f[j].a == hcases[t].kind
+                            && f[j].key && (int)f[j].key->tag == SIR_BRANCH)
+                        surviving++;
+                break;
+            }
+            if (surviving != hcases[t].want_surviving)
+                printf("        %s: %d surviving, want %d\n",
+                       hcases[t].what, surviving, hcases[t].want_surviving);
+            CHECK(surviving == hcases[t].want_surviving, hcases[t].what);
+            sema_destroy(&sctx); bbq_arena_free(&a);
+        }
     }
 
     // §7.2's merged unsigned compare: a SURVIVING §15.13.1 bounds pair —
