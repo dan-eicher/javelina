@@ -29,6 +29,12 @@ esac
 cd "$(dirname "$0")/.."           # compiler/
 B=build
 QUICK=""; [ "$1" = "--quick" ] && QUICK=quick
+T_START=$(date +%s)
+# The wall-clock BUDGET (full mode): the whole matrix — compiles included — must
+# stay under this, or it stops being run and stops measuring anything. When the
+# warning fires, the fix is recalibrating Bench.java's full[] scales (the formula
+# is in its comment), not deleting kernels and not living with it.
+BUDGET=600
 
 # History worth keeping: this harness's FIRST run caught a Click -O miscompile (array-element
 # stores took §2 strong updates, so a rotating dispatch devirtualized on a false singleton and
@@ -90,3 +96,8 @@ awk '/^RESULT/ {
 }'
 echo ""
 echo "raw per-config outputs: $B/bench-<config>.out (stable RESULT lines — diff them across compiler changes)"
+T_ELAPSED=$(( $(date +%s) - T_START ))
+echo "matrix wall clock: ${T_ELAPSED}s (budget ${BUDGET}s)"
+if [ "$T_ELAPSED" -gt "$BUDGET" ]; then
+    echo "WARNING: over budget — recalibrate Bench.java full[] scales (see its comment)"
+fi

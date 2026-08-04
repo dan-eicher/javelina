@@ -7,11 +7,20 @@ tree shapes and leaves the rest still, which is what makes a delta attributable.
 
 ## How to run
 
-    make bench          # full scales, ~15 min: compiles jre+Bench at -O0 and -O,
-                        #   runs all four configs, prints the comparison table
+    make bench          # full scales, BUDGETED under 10 min: compiles jre+Bench at
+                        #   -O0 and -O, runs all four configs, prints the table
     make test-bench     # tiny scales, ~2 min: correctness gate only (checksums
                         #   must agree across configs). Runs as a leg of `make test`.
     sh bench/bench.sh [--quick]   # the same two, directly
+
+The full matrix has a WALL-CLOCK BUDGET (600 s, printed and checked at the end
+of every run): a benchmark that takes half an hour stops being run, and a
+benchmark nobody runs measures nothing. Scales are calibrated to ~1 s per
+O0-interp rep (the slowest config), min-of-3 reps — the between-process ±7%
+floor below limits every claim anyway, so more reps or bigger scales buy
+precision the floor then eats. When compiler speedups drift the O0 floor, the
+budget warning fires and the fix is re-deriving `full[]` in Bench.java by its
+documented formula — not deleting kernels, and not living with the warning.
 
 Expected build noise: exactly one compiler warning —
 `method 'fib' participates in a recursion cycle through a non-tail call` —
@@ -109,6 +118,20 @@ per loop back-edge — so the time, and the jit×, attribute to the family:
 | memops | memory.fill / memory.copy — bulk linear memory |
 | vshuf  | v128.const + i8x16.shuffle — the two immediate-operand SIMD opcodes |
 | itail  | virtual tail dispatch — return_call_ref (tailrec covers the static return_call) |
+
+Invariant-tier family — each row is one CLASS-INVARIANT tier the optimizer
+proves, paired against the shape it cannot prove, so the -O delta (and the
+guard census over the bench compile) prices the tier:
+
+| kernel | leans on |
+|---|---|
+| coo    | Luján Fig. 1 sparse mvm over RAW parameter arrays — nothing folds; the surviving bounds pairs are ALSO the merged-unsigned-compare (§7.2 GeU) input |
+| cooc   | coo's class-shaped twin: private final indirection arrays, ctor-checked fills — the count/data PAIR and array-CONTENT invariants fold the indirect checks; same inputs, so the pair referees checksums like sdot/dot |
+| fixdiv | division by an ESTABLISHED field (`final int scale = 16`) — the unary RANGE invariant folds the §15.17 by-zero and -1-wrap guards; the receiver is static so scalar replacement cannot turn it into constant division |
+
+Every invariant tier the optimizer gains lands with its kernel here (or names
+in this table why it cannot have one) — the same rule the opcode-family
+kernels enforce for the backend: coverage is declared, not assumed.
 
 Two construction notes that are load-bearing, not decoration. `itail`'s two
 implementations dispatch through each other's `peer` so the receiver is genuinely

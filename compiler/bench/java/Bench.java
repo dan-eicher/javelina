@@ -586,6 +586,24 @@ public class Bench {
         return h;
     }
 
+    /* fixdiv — division whose divisor is an ESTABLISHED field: the unary
+     * field-range invariant publishes FD.scale ∈ [16,16], so -O folds the two
+     * §15.17 guards (by-zero, and the -1 wrap arm) on every iteration; -O0
+     * runs them per division. FD is STATIC on purpose: a method-local FixPt
+     * scalar-replaces, the read becomes the constant, and the kernel would
+     * measure constant division instead of the invariant. */
+    static FixPt FD = new FixPt();
+
+    static int fixdiv(int n) {
+        FixPt f = FD;
+        int acc = 7;
+        for (int i = 0; i < n; i++) {
+            int x = (i << 8) + (i & 63);
+            acc = acc * 31 + x / f.scale + x % f.scale;
+        }
+        return acc;
+    }
+
     static int run(int which, int scale) {
         switch (which) {
             case 0: return arith(scale);
@@ -620,6 +638,7 @@ public class Bench {
             case 29: return itail(scale);
             case 30: return coo(scale);
             case 31: return cooc(scale);
+            case 32: return fixdiv(scale);
         }
         return -1;
     }
@@ -641,50 +660,41 @@ public class Bench {
      * the test suite runs so this file cannot silently rot. */
     public static void main(String[] args) {
         boolean quick = args.length > 0;
-        int reps = quick ? 3 : 7;
+        /* min-of-3. The between-PROCESS ±7% floor (README) is what limits every
+         * claim; more within-process reps sharpen a min that floor then eats.
+         * 7 reps + warmup was 8 executions per kernel-config and half of a
+         * >30-minute matrix wall clock — a benchmark nobody re-runs. */
+        int reps = 3;
         String[] names = { "arith", "lmix", "sieve", "fib", "mat", "alloc", "virt", "tailrec",
                            "sdot", "dot", "memv", "memb",
                            "sbuild", "sconcat", "scmp", "shash", "sidx", "ssub", "scase",
                            "schars", "sconv",
                            "dmix", "fmix", "fmath", "refeq", "lcmp", "narrow", "memops",
-                           "vshuf", "itail", "coo", "cooc" };
-        /* Full scales are CALIBRATED from measured quick-mode data (~1 ms / 1000 interpreted
-         * iterations on the O0 interpreter, the slowest config), targeting ~2-4 s per rep there
-         * so the whole 4-config matrix lands in minutes — while keeping the JIT's reps in the
-         * tens of ms, above the ms clock's floor. The first guess (20M iters) put single
-         * interpreter reps at ~20 s and the matrix at ~45 min: a benchmark nobody re-runs.
-         * One scale per workload, shared by every config — checksums must stay comparable. */
-        int[] full  = { 4000000, 4000000, 1000000, 28, 140, 1000000, 3000000, 2000000,
-                        30000, 30000, 1000000, 2000000,
-                        10000, 17000, 15000, 45000, 9000, 30000, 6000,
-                        11000, 50000,
-                        750000, 600000, 1500000, 400000, 400000, 350000, 750000,
-                        3000000, 2000000, 300, 300 };   /* coo/cooc, same scale — the
-                                       delta between them at -O IS the measurement.
-                                       coo: 2000 nnz × 300 mvm passes,
-                                       ~5 array ops per k-iteration → ~3 s per O0-interp
-                                       rep by the same per-1000-iteration reading. */
-                                    /* the opcode-family scales are calibrated
-                                       the same way: measured O0-interp quick-mode cost
-                                       (2026-07-31, per 1000 iterations — dmix 4 ms, fmix 5,
-                                       fmath 2, refeq 7, lcmp 7, narrow 9, memops 4, vshuf 1;
-                                       itail 153 ms per 100000), each scaled to ~3 s per rep
-                                       on that config. These loops are unrolled in their
-                                       family, so an iteration is worth several of arith's —
-                                       reading across from arith's scale would have set dmix
-                                       and lcmp 3-5x too high.
-                                       sdot==dot scale: the referee needs
-                                       identical inputs, so identical scales. The s* scales
-                                       are CALIBRATED from measured quick-mode O0-interp
-                                       times (2026-07-25: 60-480 µs per round — the jre
-                                       char loops are 100-500x an arith iteration), each
-                                       targeting ~3 s per O0-interp rep. */
+                           "vshuf", "itail", "coo", "cooc", "fixdiv" };
+        /* Full scales are CALIBRATED from the measured O0-interp mins of the
+         * 2026-08-03 matrix (the slowest config), each retargeted to ~1 s per
+         * rep there: scale_new = scale_old * 1000 / min_ms_old, rounded. That
+         * puts the whole 4-config matrix under the ~10-minute budget bench.sh
+         * enforces. The slowest config's rep stays ~1 s (clock grain well under
+         * 1%); the fastest jit cells land 25-50 ms — 2-4% grain, inside the ±7%
+         * floor everything is priced against. When compiler speedups drift the
+         * O0 floor again, re-run once and re-derive with the same formula. One
+         * scale per workload, shared by every config — checksums must stay
+         * comparable. sdot==dot (the referee needs identical inputs) and
+         * coo==cooc (the delta between them at -O IS the measurement) keep
+         * identical scales, calibrated on the slower twin. */
+        int[] full  = { 1000000, 900000, 250000, 28, 80, 400000, 275000, 1800000,
+                        2000, 2000, 600000, 550000,
+                        2000, 6000, 4500, 15000, 2800, 11000, 2000,
+                        3500, 16000,
+                        300000, 230000, 600000, 160000, 200000, 130000, 270000,
+                        850000, 750000, 75, 75, 400000 };
         int[] small = { 1000, 1000, 1000, 10, 8, 1000, 1000, 100000,
                         100, 100, 1000, 1000,
                         200, 200, 200, 200, 200, 200, 200,
                         200, 200,
                         1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000,
-                        100000, 3, 3 };   /* itail quick = 100K, for tailrec's reason: past any
+                        100000, 3, 3, 1000 };   /* itail quick = 100K, for tailrec's reason: past any
                                        frame-stack depth, so even the quick gate proves the
                                        VIRTUAL tail call, not just its byte.
                                        tailrec quick = 100K:
@@ -732,6 +742,13 @@ class Node {
  * class cannot produce those opcodes however it is used. */
 class Packed {
     byte b; short s; char c;
+}
+
+/* fixdiv's divisor holder. The declarator init is the establishment route:
+ * §12.5 compiles it into the ctor before `this` can escape, so the published
+ * hull is exactly [16,16]. */
+class FixPt {
+    final int scale = 16;
 }
 
 /* itail's alternating pair: each one's tail call dispatches through the OTHER's vtable, so
