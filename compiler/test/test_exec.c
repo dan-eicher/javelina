@@ -345,6 +345,25 @@ int main(void) {
         }
     }
 
+    /* §15.11.1 / §6.5.2 — a package-qualified static CALL, end to end. The
+     * qualified-field form (java.lang.Integer.MAX_VALUE) already worked; the
+     * call form is the same reclassification of the same AmbiguousName, so it
+     * has to reach the same place and actually run. */
+    {
+        bbq_arena a; bbq_arena_init(&a, 1 << 18); emit_wasm_ctx mod = {0};
+        bool pb = assemble_plugin(&a,
+            "class T { static int f(){"
+            "  int n = java.lang.Integer.parseInt(\"40\");"
+            "  int m = java.lang.Math.abs(-2);"
+            "  String s = java.lang.String.valueOf(n + m);"
+            "  return java.lang.Integer.parseInt(s); } }", &mod);
+        wasm_val_t res[1] = { WASM_INIT_VAL };
+        exec_status st = pb ? exec_call_shared(mod.code, bbq_vec_len(mod.code), "T.f", NULL, 0, res, 1) : EXEC_INVALID;
+        CHECK(pb && st == EXEC_OK && res[0].of.i32 == 42,
+              "§6.5.2 package-qualified static calls compile and run");
+        bbq_vec_free(mod.code); bbq_arena_free(&a);
+    }
+
     /* §20.1.2 Object.toString() = getClass().getName() + '@' + hex(hashCode()); stable per
      * object. The default toString() was the one E7.2 library obligation without a committed
      * case — array Class names (§10.8), clone (§10.7/§20.1.5), ArrayStoreException (§10.10),

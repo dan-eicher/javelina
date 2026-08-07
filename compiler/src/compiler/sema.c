@@ -2645,8 +2645,23 @@ static java_type_t analyze_expr(sema_ctx_t* ctx, ast_expr_t* e) {
     case AST_METHODCALL: {
         java_type_t obj_type;
         int target_class;
+        /* §6.5.2 reclassification, the same one AST_FIELDACCESS does: the
+         * receiver of `java.lang.Integer.parseInt(...)` is an AmbiguousName
+         * that names a TYPE, not a value chain. Analyzing it as an expression
+         * descends to the leftmost segment and reports "undefined 'java'".
+         * §15.11.1: "If it is a qualified name of the form TypeName .
+         * Identifier, then the name of the method is the Identifier and the
+         * class to search is the one named by the TypeName." */
+        bool obj_is_typename = false;
         if (e->method_call.obj) {
-            obj_type = analyze_expr(ctx, e->method_call.obj);
+            int qcls = qualified_type_base(ctx, e->method_call.obj);
+            if (qcls >= 0) {
+                obj_type = jt_class(qcls);
+                obj_is_typename = true;
+                store_type(ctx, e->method_call.obj, obj_type);  /* codegen reads the base's type */
+            } else {
+                obj_type = analyze_expr(ctx, e->method_call.obj);
+            }
             if (jt_is_error(obj_type)) break;
             if (obj_type.tag == JT_ARRAY) {
                 target_class = ctx->wk.object_id;   /* §10.7 an array is an Object — its Object methods (getClass/hashCode/equals/toString/clone) dispatch */
@@ -2689,6 +2704,17 @@ static java_type_t analyze_expr(sema_ctx_t* ctx, ast_expr_t* e) {
                 sema_error(ctx, e->loc,
                     "instance method '%s' cannot be referenced from static context",
                     e->method_call.method);
+            /* §15.11.3: with a TypeName qualifier "the compile-time declaration
+             * should be static. If the compile-time declaration for the method
+             * invocation is for an instance method, then a compile-time error
+             * occurs. (The reason is that a method invocation of this form does
+             * not specify a reference to an object that can serve as this
+             * within the instance method.)" There is no receiver to emit, so
+             * accepting it would be a miscompile, not a lax diagnostic. */
+            if (obj_is_typename && !(m->modifiers & ACC_STATIC))
+                sema_error(ctx, e->loc,
+                    "instance method '%s' cannot be invoked through the type name '%s'",
+                    e->method_call.method, ctx->classes[target_class].name);
             /* Check argument types */
             for (int i = 0; i < ac && i < m->param_count; i++) {
                 java_type_t at = sema_type_of(ctx, e->method_call.args[i]);

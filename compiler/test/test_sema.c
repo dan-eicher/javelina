@@ -261,6 +261,34 @@ int main(void) {
     CHECK(analyze("class C { static int f(){ return java.lang.Integer.MAX_VALUE; } }", false) == 0,
           "package-qualified static field access (java.lang.Integer.MAX_VALUE) resolves");
 
+    // 1a3b. The same reclassification in a method INVOCATION. §15.11.1 takes a
+    // MethodName, which is an AmbiguousName followed by an identifier, and
+    // §6.5.2 reclassifies that AmbiguousName exactly as it does for a field
+    // access — so if the field form above resolves, the call form must too.
+    printf("== qualified static method invocation ==\n");
+    CHECK(analyze("class C { static int f(){ return java.lang.Integer.parseInt(\"42\"); } }",
+                  false) == 0,
+          "package-qualified static method call (java.lang.Integer.parseInt) resolves");
+    CHECK(analyze("class C { static int f(){ return java.lang.Math.abs(-7); } }", false) == 0,
+          "package-qualified static method call on a one-package name resolves");
+    CHECK(analyze("class C { static String f(){ return java.lang.String.valueOf(1); } }",
+                  false) == 0,
+          "package-qualified static call returning a reference type resolves");
+    // The single-segment form already worked; it is here so a regression that
+    // "fixes" the qualified case by breaking the simple one cannot pass.
+    CHECK(analyze("class C { static int f(){ return Integer.parseInt(\"42\"); } }", false) == 0,
+          "the unqualified form still resolves");
+    // And a name that really is undefined must still be an error, so the fix
+    // cannot be "stop reporting undefined identifiers".
+    CHECK(analyze("class C { static int f(){ return no.such.Thing.m(); } }", false) > 0,
+          "an unresolvable qualified call is still an error");
+    // §15.11.3: with a TypeName qualifier the declaration must be static —
+    // there is no reference to serve as `this`. Accepting it would emit a call
+    // with no receiver, so this is a miscompile guard, not a style rule.
+    CHECK(analyze("class C { static int f(){ return java.lang.Integer.intValue(); } }",
+                  false) > 0,
+          "§15.11.3 an instance method through a TypeName qualifier is rejected");
+
     // 1a4. JLS §12.4 needs_init: a class needs initialization iff it (or a superCLASS) declares static-init code.
     printf("== class initialization analysis (JLS 12.4) ==\n");
     {
