@@ -191,10 +191,24 @@ typedef enum {
     CP_REF_NEW,      /* ref_id = vnode index of the New site */
     CP_REF_STATIC,   /* ref_id = packed (class_id, field_idx) of the final-static field */
 } cp_ref_kind_t;
-/* Which carrier holds a KNOWN value. CP_W_I32 (the default, ordinal 0) covers
- * byte/short/char/int — all i32 — and is the only width with a RANGE lattice.
- * The wider WASM types are KNOWN-or-not (no range/stride): i64 in `lvalue`,
- * f32 in `fvalue`, f64 in `dvalue`.
+/* Which carrier holds a KNOWN value.
+ *
+ * CP_W_UNSET is ordinal 0, so a zero-initialised cp_const_t says "nobody has
+ * given this a width" and cannot be mistaken for a value. It previously read as
+ * CP_W_I32, which made "unset" and "it is an int" the same state: a float const
+ * that missed its width assignment silently became an integer, consumers read
+ * the `value` field of a value whose payload lives in `dvalue`, and folds
+ * returned zero out of a carrier nobody wrote. Ordinal 0 meaning ABSENCE is the
+ * rule everywhere else in this engine — CP_FK_NONE, CP_OBJK_NONE ("fail
+ * closed"), CP_ESC_NONE, CP_C_TOP — and this enum was the exception.
+ *
+ * Every consumer must DECLINE on UNSET rather than assume a width. Switches
+ * over this enum carry no `default:` for the same reason: -Wall -Werror then
+ * makes a missing case a build failure instead of a silent guess.
+ *
+ * CP_W_I32 covers byte/short/char/int — all i32 — and is the only width with a
+ * RANGE lattice. The wider WASM types are KNOWN-or-not (no range/stride): i64
+ * in `lvalue`, f32 in `fvalue`, f64 in `dvalue`.
  *
  * An f32 gets its OWN carrier rather than riding in the double: f32 ⊂ f64 holds
  * for *numeric* values but NOT for bit patterns. Widening a signaling NaN to
@@ -204,11 +218,11 @@ typedef enum {
  * does not canonicalise). Arithmetic likewise computes in the operand's own
  * width: f32 division rounded through double can double-round (JLS §15.17). */
 typedef enum {
-    CP_W_I32 = 0, CP_W_I64, CP_W_F32, CP_W_F64
+    CP_W_UNSET = 0, CP_W_I32, CP_W_I64, CP_W_F32, CP_W_F64
 } cp_cwidth_t;
 typedef struct cp_const_t {
     cp_const_state_t state;
-    cp_cwidth_t      cwidth;      /* width of the KNOWN/RANGE value (i32 default) */
+    cp_cwidth_t      cwidth;      /* width of the KNOWN/RANGE value; UNSET until stated */
     int32_t          value;       /* KNOWN, cwidth == CP_W_I32 */
     int64_t          lvalue;      /* KNOWN, cwidth == CP_W_I64 */
     float            fvalue;      /* KNOWN, cwidth == CP_W_F32 (exact bits) */

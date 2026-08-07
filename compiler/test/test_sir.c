@@ -4997,7 +4997,8 @@ int main(void) {
         compiler_summarize_to_convergence(&cctx);
         const compiler_summary_t* sf = compiler_method_summary(&cctx, i_five);
         CHECK(sf && sf->computed && sf->ret_cstate == COMPILER_RETC_KNOWN
-                 && sf->ret_cwidth == 0 && sf->ret_clo == 5 && sf->ret_chi == 5,
+                 && sf->ret_cwidth == (unsigned char)CP_W_I32
+                 && sf->ret_clo == 5 && sf->ret_chi == 5,
               "§46c producer: five() exports KNOWN i32 5");
         const compiler_summary_t* sp = compiler_method_summary(&cctx, i_pick);
         CHECK(sp && sp->computed && sp->ret_cstate == COMPILER_RETC_RANGE
@@ -5005,7 +5006,8 @@ int main(void) {
               "§46c producer: pick() exports the MEET of its returns — RANGE [1,2]");
         const compiler_summary_t* sb = compiler_method_summary(&cctx, i_big);
         CHECK(sb && sb->computed && sb->ret_cstate == COMPILER_RETC_KNOWN
-                 && sb->ret_cwidth == 1 && sb->ret_clo == 9000000000LL,
+                 && sb->ret_cwidth == (unsigned char)CP_W_I64
+                 && sb->ret_clo == 9000000000LL,
               "§46c producer: big() exports KNOWN at the i64 width — no i32 truncation");
         {
             int nsc = 0;

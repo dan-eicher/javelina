@@ -240,7 +240,9 @@ struct compiler_summary {
     int            ret_param;        /* COMPILER_RET_FORMAL: -1 = `this`, else parameter index */
     bool           ret_maybe_null;   /* COMPILER_RET_FORMAL: a return can also yield null */
     unsigned char  ret_cstate;       /* compiler_ret_const_state_t (numeric returns only) */
-    unsigned char  ret_cwidth;       /* 0=i32 1=i64 2=f32 3=f64 (mirrors cp_cwidth_t) */
+    unsigned char  ret_cwidth;       /* a cp_cwidth_t ordinal — name the enum, never the
+                                      * number: this used to document "0=i32 1=i64 ..." and
+                                      * went stale the moment CP_W_UNSET took ordinal 0 */
     int64_t        ret_clo;          /* KNOWN: the value (floats: bit pattern); RANGE: lo */
     int64_t        ret_chi;          /* KNOWN: == ret_clo;                     RANGE: hi */
     int            slot_count;

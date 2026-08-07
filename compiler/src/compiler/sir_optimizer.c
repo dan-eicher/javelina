@@ -1749,6 +1749,11 @@ cp_const_t cp_const_intersect(cp_const_t a, cp_const_t b) {
     /* REF vs anything non-REF: the refinement doesn't apply (the
      * lattice doesn't carry ref-vs-range crossings); preserve a. */
     if (a.state == CP_C_REF || b.state == CP_C_REF) return a;
+    /* A width nobody stated names no carrier, so there is nothing to meet:
+     * BOTTOM rather than fall into the integer-range path below and read `lo`
+     * and `hi` off a value that may not be an integer at all. */
+    if (a.cwidth == CP_W_UNSET || b.cwidth == CP_W_UNSET)
+        return (cp_const_t){ .state = CP_C_BOTTOM };
     /* Floats have no range lattice — exact-or-BOTTOM. */
     if (a.cwidth >= CP_W_F32 || b.cwidth >= CP_W_F32)
         return cp_const_eq(a, b) ? a : (cp_const_t){ .state = CP_C_BOTTOM };
@@ -2193,6 +2198,42 @@ static void cp_compute_branch_refinements(cp_engine_t* eng) {
             continue;
         }
 
+        /* Everything from here down mints CP_C_RANGE facts with CP_W_I32
+         * hardcoded, because the range lattice IS integer-only — spec §5 is an
+         * interval "[lo,hi] per int SSA value", and the cwidth comment says
+         * "CP_W_I32 ... is the only width with a RANGE lattice" (i64 shares the
+         * fold). Nothing checked the compared operands' type, so a float
+         * comparison stapled an INT32_MIN..INT32_MAX i32 range onto a float
+         * value; the Refine then read back through the i32 carrier as the
+         * constant 0, and `for (double d = 0; d < 5; d++) ... 2.0 * d` folded
+         * every product to 0.0 under -O.
+         *
+         * Gated here rather than at the six mint sites below: this is the one
+         * point every one of them is reached through. The null and instanceof
+         * refinements above are ref-typed and already returned.
+         *
+         * Only F32/F64 are excluded — the demonstrated defect. A value whose
+         * type γ cannot name still refines as before; tightening that is a
+         * separate judgement, not this fix. */
+        int lvc = cp_expr_result_vtclass(lhs);
+        int rvc = cp_expr_result_vtclass(rhs);
+        if (lvc == (int)LAT_VT_F32 || lvc == (int)LAT_VT_F64
+         || rvc == (int)LAT_VT_F32 || rvc == (int)LAT_VT_F64) continue;
+
+        /* The width AND the widest bounds come from the operand, never from a
+         * hardcoded i32. An i64 refined as [INT32_MIN, INT32_MAX] is a claim
+         * the value can violate in both directions, and it is unsound rather
+         * than merely imprecise: `if (m < -100L)` refined m to lo = INT32_MIN,
+         * so the enclosed `m < -2147483648L` folded to FALSE for
+         * m = -5000000000. The range machinery already carries i64 —
+         * cp_const_meet's "i32/i64 — same width on both", and SIR_ADD's
+         * cwidth-keyed range fold — so this widens the fact rather than
+         * dropping the refinement for longs. */
+        cp_cwidth_t rw = (lvc == (int)LAT_VT_I64 || rvc == (int)LAT_VT_I64)
+                       ? CP_W_I64 : CP_W_I32;
+        int64_t rlo = (rw == CP_W_I64) ? INT64_MIN : INT32_MIN;
+        int64_t rhi = (rw == CP_W_I64) ? INT64_MAX : INT32_MAX;
+
         /* Identify which side is the variable (non-constant) and which
          * is the constant. */
         int64_t kval = 0;
@@ -2223,8 +2264,8 @@ static void cp_compute_branch_refinements(cp_engine_t* eng) {
                 int yvn = cp_cmp_operand_ultimate(eng, rhs);
                 if (yvn < 0) yvn = cp_vnode_of(eng, rhs);
                 if (xvn >= 0 && yvn >= 0 && xvn != yvn) {
-                    cp_const_t sym = { .state = CP_C_RANGE, .cwidth = CP_W_I32,
-                                       .lo = INT32_MIN, .hi = INT32_MAX, .stride = 1,
+                    cp_const_t sym = { .state = CP_C_RANGE, .cwidth = rw,
+                                       .lo = rlo, .hi = rhi, .stride = 1,
                                        .hi_vn1 = yvn + 1, .hi_vn_incl = 1,
                                        .lo_vn1 = yvn + 1, .lo_vn_incl = 1 };
                     b_rt[b]  = cp_new_refine(eng, xvn, sym);
@@ -2267,8 +2308,8 @@ static void cp_compute_branch_refinements(cp_engine_t* eng) {
                 int bnd = cp_cmp_operand_ultimate(eng, rhs);
                 if (bnd < 0) bnd = cp_vnode_of(eng, rhs);
                 if (t >= 0 && bnd >= 0 && t != bnd) {
-                    cp_const_t symf = { .state = CP_C_RANGE, .cwidth = CP_W_I32,
-                                        .lo = INT32_MIN, .hi = INT32_MAX, .stride = 1,
+                    cp_const_t symf = { .state = CP_C_RANGE, .cwidth = rw,
+                                        .lo = rlo, .hi = rhi, .stride = 1,
                                         .hi_vn1 = bnd + 1, .hi_vn_incl = 0 };
                     b_rf[b]  = cp_new_refine(eng, t, symf);
                     b_und_f[b] = t;
@@ -2355,8 +2396,8 @@ static void cp_compute_branch_refinements(cp_engine_t* eng) {
                         if (!tn || tn->tag != SIR_LOADLOCAL
                                 || tn->load_local.data_type != SIR_DTINT) continue;
                         if (tv < 0 || pv < 0 || tv == lv || tv == pv) continue;
-                        cp_const_t sym = { .state = CP_C_RANGE, .cwidth = CP_W_I32,
-                                           .lo = INT32_MIN, .hi = INT32_MAX, .stride = 1,
+                        cp_const_t sym = { .state = CP_C_RANGE, .cwidth = rw,
+                                           .lo = rlo, .hi = rhi, .stride = 1,
                                            .hi_vn1 = lv + 1, .hi_vn_incl = strict ? 0 : 1,
                                            .hi_sub_vn1 = pv + 1 };
                         int rf = cp_new_refine(eng, tv, sym);
@@ -2390,8 +2431,8 @@ static void cp_compute_branch_refinements(cp_engine_t* eng) {
                  * was thrown away. What it is worth is the consumer's business, not this
                  * transfer's: recording a weaker fact is not the same as recording none. */
                 bool incl = (cmp->tag == SIR_LE || cmp->tag == SIR_GE);
-                cp_const_t sym = { .state = CP_C_RANGE, .cwidth = CP_W_I32,
-                                   .lo = INT32_MIN, .hi = INT32_MAX, .stride = 1,
+                cp_const_t sym = { .state = CP_C_RANGE, .cwidth = rw,
+                                   .lo = rlo, .hi = rhi, .stride = 1,
                                    .hi_vn1 = bound_vn + 1, .hi_vn_incl = incl ? 1 : 0 };
                 /* Composition with an enclosing refinement is pass B's input-chaining. */
                 b_rt[b]  = cp_new_refine(eng, tested_vn, sym);
@@ -2412,8 +2453,8 @@ static void cp_compute_branch_refinements(cp_engine_t* eng) {
                     bool free_slot = (b_rf[b] < 0) || (b_rf2[b] < 0);
                     if (free_slot && bnd_node && bnd_node->tag == SIR_LOADLOCAL
                             && bnd_node->load_local.data_type == SIR_DTINT) {
-                        cp_const_t symf = { .state = CP_C_RANGE, .cwidth = CP_W_I32,
-                                            .lo = INT32_MIN, .hi = INT32_MAX,
+                        cp_const_t symf = { .state = CP_C_RANGE, .cwidth = rw,
+                                            .lo = rlo, .hi = rhi,
                                             .stride = 1,
                                             .hi_vn1 = tested_vn + 1,
                                             .hi_vn_incl = incl ? 0 : 1 };
@@ -2445,8 +2486,8 @@ static void cp_compute_branch_refinements(cp_engine_t* eng) {
                     int bnd = cp_cmp_operand_ultimate(eng, rhs);
                     if (bnd < 0) bnd = cp_vnode_of(eng, rhs);
                     if (t >= 0 && bnd >= 0 && t != bnd) {
-                        cp_const_t symf = { .state = CP_C_RANGE, .cwidth = CP_W_I32,
-                                            .lo = INT32_MIN, .hi = INT32_MAX, .stride = 1,
+                        cp_const_t symf = { .state = CP_C_RANGE, .cwidth = rw,
+                                            .lo = rlo, .hi = rhi, .stride = 1,
                                             .hi_vn1 = bnd + 1, .hi_vn_incl = 1 };
                         b_rf[b]  = cp_new_refine(eng, t, symf);
                         b_und_f[b] = t;
@@ -3768,6 +3809,10 @@ static bool cp_const_eq(cp_const_t a, cp_const_t b) {
     if (a.state == CP_C_KNOWN) {
         if (a.cwidth != b.cwidth) return false;
         switch (a.cwidth) {
+            /* No `default:` — the enum is closed, so -Wall -Werror turns a new
+             * width into a build failure instead of a silent int comparison. */
+            case CP_W_UNSET: return false;   /* no carrier named: never congruent */
+            case CP_W_I32: return a.value == b.value;
             case CP_W_I64: return a.lvalue == b.lvalue;
             /* Bit-compare floats: congruent ⇔ identical bits, so +0.0/-0.0
              * stay distinct and same-bit NaNs stay congruent (sound for VN).
@@ -3775,8 +3820,8 @@ static bool cp_const_eq(cp_const_t a, cp_const_t b) {
              * fvalue, and NaN payloads differ below the double's resolution. */
             case CP_W_F32: return memcmp(&a.fvalue, &b.fvalue, sizeof a.fvalue) == 0;
             case CP_W_F64: return memcmp(&a.dvalue, &b.dvalue, sizeof a.dvalue) == 0;
-            default:       return a.value == b.value;
         }
+        return false;
     }
     if (a.state == CP_C_RANGE)
         return a.lo == b.lo && a.hi == b.hi && a.stride == b.stride
@@ -3897,6 +3942,13 @@ static cp_const_t cp_fold_wide(int tag, cp_const_t a, cp_const_t b) {
     cp_const_t bot = { .state = CP_C_BOTTOM };
     cp_cwidth_t w = a.cwidth;
 
+    /* BOTH operands must carry the width being folded at. Taking the width from
+     * one operand and then reading the OTHER's carrier for it reads a field
+     * nobody wrote — the carriers are effectively a union, so an i32 KNOWN
+     * leaves `dvalue` at zero and `cp_known_f64` on it yields 0.0.
+     * SIR_NEG is the only unary op routed here; every other tag reads `b`. */
+    if (tag != SIR_NEG && b.cwidth != w) return bot;
+
     switch (tag) {
         case SIR_EQ: case SIR_NE: case SIR_LT:
         case SIR_LE: case SIR_GT: case SIR_GE: {
@@ -3909,10 +3961,12 @@ static cp_const_t cp_fold_wide(int tag, cp_const_t a, cp_const_t b) {
                 float x = cp_known_f32(a), y = cp_known_f32(b);
                 r = tag==SIR_EQ ? x==y : tag==SIR_NE ? x!=y : tag==SIR_LT ? x<y :
                     tag==SIR_LE ? x<=y : tag==SIR_GT ? x>y : x>=y;
-            } else {
+            } else if (w == CP_W_F64) {
                 double x = cp_known_f64(a), y = cp_known_f64(b);
                 r = tag==SIR_EQ ? x==y : tag==SIR_NE ? x!=y : tag==SIR_LT ? x<y :
                     tag==SIR_LE ? x<=y : tag==SIR_GT ? x>y : x>=y;
+            } else {
+                return bot;      /* i32 has its own path; UNSET names no carrier */
             }
             return (cp_const_t){ .state = CP_C_KNOWN, .cwidth = CP_W_I32, .value = r };
         }
@@ -3961,7 +4015,7 @@ static cp_const_t cp_fold_wide(int tag, cp_const_t a, cp_const_t b) {
         return (cp_const_t){ .state = CP_C_KNOWN, .cwidth = CP_W_F32, .fvalue = r };
     }
 
-    {  /* f64 */
+    if (w == CP_W_F64) {
         double x = cp_known_f64(a), y = cp_known_f64(b), r;
         switch (tag) {
             case SIR_ADD: r = x + y; break;
@@ -3974,6 +4028,8 @@ static cp_const_t cp_fold_wide(int tag, cp_const_t a, cp_const_t b) {
         }
         return (cp_const_t){ .state = CP_C_KNOWN, .cwidth = CP_W_F64, .dvalue = r };
     }
+
+    return bot;      /* CP_W_I32 folds elsewhere; CP_W_UNSET names no carrier */
 }
 
 /* §2's `classOf(O) ≤ τ`, tri-state — defined with the other Obj queries, below. */
@@ -4583,6 +4639,15 @@ static cp_const_t cp_node_const(cp_engine_t* eng, int v_idx) {
         if (v->input_count > 0 && v->inputs[0] >= 0) {
             cp_const_t a = cp_input_const(eng, v->inputs[0]);
             if (a.state == CP_C_TOP) return top;
+            /* The range lattice is INTEGER-only — combined-analysis-spec §5:
+             * "CP_W_I32 ... is the only width with a RANGE lattice", and the
+             * i64 fold shares it (this transfer's own comment says "i32 and
+             * i64 alike"). A float induction variable has no integer carrier,
+             * so cp_known_i64 below would read a field nobody wrote and mint
+             * the range [0,0] — which then reads back as the constant zero.
+             * That is how `for (double d = 0; d < 5; d++) ... 2.0 * d` folded
+             * every product to 0.0. No integer width, no induction fact. */
+            if (a.cwidth != CP_W_I32 && a.cwidth != CP_W_I64) return bot;
             if (a.state == CP_C_KNOWN) {
                 int64_t k = cp_known_i64(a);
                 a.state = CP_C_RANGE; a.lo = k; a.hi = k; a.stride = 1;
@@ -4778,7 +4843,8 @@ static cp_const_t cp_node_const(cp_engine_t* eng, int v_idx) {
     }
     sir_node_t* e = v->expr;
     if (e->tag == SIR_LOADCONST) {
-        cp_const_t k = { .state = CP_C_KNOWN, .value = e->load_const.value };
+        cp_const_t k = { .state = CP_C_KNOWN, .cwidth = CP_W_I32,
+                         .value = e->load_const.value };
         return k;
     }
     if (e->tag == SIR_LOADLONGCONST)
@@ -4852,12 +4918,14 @@ static cp_const_t cp_node_const(cp_engine_t* eng, int v_idx) {
         if (lc.state == CP_C_KNOWN && lc.cwidth == CP_W_I32
                 && cp_absorbing_const(e->tag, lc.value, &absorb)
                 && ri >= 0 && cp_expr_is_pure(eng->vnodes[ri]->expr)) {
-            cp_const_t k = { .state = CP_C_KNOWN, .value = absorb }; return k;
+            cp_const_t k = { .state = CP_C_KNOWN, .cwidth = CP_W_I32,
+                             .value = absorb }; return k;
         }
         if (rc.state == CP_C_KNOWN && rc.cwidth == CP_W_I32
                 && cp_absorbing_const(e->tag, rc.value, &absorb)
                 && li >= 0 && cp_expr_is_pure(eng->vnodes[li]->expr)) {
-            cp_const_t k = { .state = CP_C_KNOWN, .value = absorb }; return k;
+            cp_const_t k = { .state = CP_C_KNOWN, .cwidth = CP_W_I32,
+                             .value = absorb }; return k;
         }
     }
 
@@ -4908,7 +4976,7 @@ static cp_const_t cp_node_const(cp_engine_t* eng, int v_idx) {
                     same = false;
             }
             if (same) {
-                cp_const_t k = { .state = CP_C_KNOWN, .value = 0 };
+                cp_const_t k = { .state = CP_C_KNOWN, .cwidth = CP_W_I32, .value = 0 };
                 if (gcong->cong_fold == GC_CMP_REFLEXIVE) {
                     /* CMP's reflexive result is 1 for EQ / LE / GE, 0 for
                      * NE / LT / GT — engine reads the discriminator field
@@ -5148,7 +5216,7 @@ static cp_const_t cp_node_const(cp_engine_t* eng, int v_idx) {
     if (a.cwidth != CP_W_I32 || (binary && b.cwidth != CP_W_I32))
         return cp_fold_wide(e->tag, a, b);
     /* every needed operand is CP_C_KNOWN */
-    cp_const_t k = { .state = CP_C_KNOWN, .value = 0 };
+    cp_const_t k = { .state = CP_C_KNOWN, .cwidth = CP_W_I32, .value = 0 };
     if (g->fold_cmp) {                          /* SIR_CMP */
         k.value = g->fold_cmp(e->tag, a.value, b.value);
         return k;
@@ -6911,9 +6979,13 @@ static bool cp_summary_ret_const(const compiler_summary_t* s, cp_const_t* out) {
     if (!s || !s->computed || s->ret_cstate == COMPILER_RETC_UNKNOWN) return false;
     memset(out, 0, sizeof *out);
     out->cwidth = (cp_cwidth_t)s->ret_cwidth;
+    /* A summary that never stated its return width names no carrier to unpack
+     * `ret_clo` into — decline rather than pick one. */
+    if (out->cwidth == CP_W_UNSET) return false;
     if (s->ret_cstate == COMPILER_RETC_KNOWN) {
         out->state = CP_C_KNOWN;
         switch (out->cwidth) {
+            case CP_W_UNSET: return false;          /* guarded above */
             case CP_W_I32: out->value  = (int32_t)s->ret_clo;
                            out->lvalue = s->ret_clo;               break;
             case CP_W_I64: out->lvalue = s->ret_clo;               break;
@@ -13289,10 +13361,13 @@ static void cp_summarize(compiler_ctx_t* ctx, int method_idx,
             sawc = true;
             acc = cp_const_meet(acc, c);           /* TOP is the meet identity */
         }
-        if (sawc && okc && acc.state == CP_C_KNOWN) {
+        if (sawc && okc && acc.state == CP_C_KNOWN && acc.cwidth != CP_W_UNSET) {
             sm->ret_cstate = COMPILER_RETC_KNOWN;
             sm->ret_cwidth = (unsigned char)acc.cwidth;
             switch (acc.cwidth) {
+                /* Guarded above: a KNOWN with no stated width has no carrier to
+                 * publish, so it never becomes a summary's return constant. */
+                case CP_W_UNSET: break;
                 case CP_W_I32: sm->ret_clo = acc.value;  break;
                 case CP_W_I64: sm->ret_clo = acc.lvalue; break;
                 case CP_W_F32: { uint32_t b; memcpy(&b, &acc.fvalue, sizeof b);
@@ -13302,7 +13377,9 @@ static void cp_summarize(compiler_ctx_t* ctx, int method_idx,
             }
             sm->ret_chi = sm->ret_clo;
         } else if (sawc && okc && acc.state == CP_C_RANGE
-                   && acc.cwidth <= CP_W_I64) {    /* floats have no range lattice */
+                   && (acc.cwidth == CP_W_I32 || acc.cwidth == CP_W_I64)) {
+            /* Named, not `<= CP_W_I64`: floats have no range lattice, and an
+             * ordinal comparison also swept in CP_W_UNSET once it took 0. */
             sm->ret_cstate = COMPILER_RETC_RANGE;
             sm->ret_cwidth = (unsigned char)acc.cwidth;
             sm->ret_clo = acc.lo;
@@ -14167,6 +14244,36 @@ void sir_optimize(compiler_ctx_t* ctx, int method_idx) {
         if (!e) { bbq_arena_free(&method_arena); method_arena_live = false; }
     }
     if (!e) e = cp_build_ctx(ctx, method, facts, fact_count);
+    /* JAVELINA_DUMP_VALUES=<substring>: every vnode of a matching method with
+     * its partition, leader and SOLVED constant printed AT ITS OWN WIDTH. The
+     * phi dump beside this one prints only `constant.value` — the i32 carrier —
+     * so a float fact reads as 0 there whatever it actually holds, which makes
+     * a wrong float constant indistinguishable from no constant at all. */
+    if (e && getenv("JAVELINA_DUMP_VALUES") && method->name
+          && strstr(method->name, getenv("JAVELINA_DUMP_VALUES"))) {
+        static const char* wn[] = { "unset", "i32", "i64", "f32", "f64" };
+        static const char* sn[] = { "TOP", "KNOWN", "RANGE", "REF", "BOTTOM" };
+        fprintf(stderr, "[values] == %s ==\n", method->name);
+        for (int v = 0; v < e->vnode_count; v++) {
+            cp_vnode_t* vn = e->vnodes[v];
+            const cp_const_t* c = &vn->constant;
+            char val[64];
+            switch (c->cwidth) {
+                case CP_W_I64: snprintf(val, sizeof val, "%lld", (long long)c->lvalue); break;
+                case CP_W_F32: snprintf(val, sizeof val, "%.17g", (double)c->fvalue); break;
+                case CP_W_F64: snprintf(val, sizeof val, "%.17g", c->dvalue); break;
+                case CP_W_I32: snprintf(val, sizeof val, "%d", c->value); break;
+                case CP_W_UNSET: snprintf(val, sizeof val, "-"); break;
+            }
+            fprintf(stderr, "[values] vn%-3d kind=%d op=%-3d part=%-3d leader=%-3d fk=%d "
+                            "%s/%s=%s ins:",
+                    v, (int)vn->kind, vn->op, vn->partition, vn->leader,
+                    (int)vn->follower_kind,
+                    sn[(int)c->state], wn[(int)c->cwidth], val);
+            for (int k = 0; k < vn->input_count; k++) fprintf(stderr, " vn%d", vn->inputs[k]);
+            fprintf(stderr, "\n");
+        }
+    }
     if (e && getenv("JAVELINA_DUMP_PHIS") && method->name
           && strstr(method->name, getenv("JAVELINA_DUMP_PHIS"))) {
         for (int v = 0; v < e->vnode_count; v++) {

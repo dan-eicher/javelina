@@ -345,6 +345,90 @@ int main(void) {
         }
     }
 
+    /* A -O MISCOMPILE, minimized from the first Benchmarks Game program ported
+     * (mandelbrot, whose entire bitmap came out blank against the published
+     * reference). Multiplying a floating-point LOOP-CARRIED value by a constant
+     * yields 0.0 when the constant is on the LEFT.
+     *
+     * Three ingredients, all required: a floating type (f32 and f64 both; i32
+     * and i64 do not reproduce), a phi operand (a parameter, a constant-
+     * initialised local, or an array element are all fine), and the constant on
+     * the left — `d * 2.0` is correct, `2.0 * d` is not.
+     *
+     * These pass in the plain leg and fail under JAVELINA_CLICK=1, which is
+     * where the defect is. No bench kernel drives float work from a float
+     * counter, so the four-config checksum gate never emits this shape and
+     * could not have caught it; that gap is as much the finding as the bug. */
+    {
+        struct { const char* src; int32_t want; const char* label; } fp[] = {
+          { "class T { static int f(int x){ double s=0;"
+            "  for (double d=0; d<5; d++) s = s + 2.0*d;"
+            "  return (int)s; } }",
+            20, "f64: 2.0 * <loop phi> (constant on the LEFT)" },
+          { "class T { static int f(int x){ double s=0;"
+            "  for (double d=0; d<5; d++) s = s + d*2.0;"
+            "  return (int)s; } }",
+            20, "f64: <loop phi> * 2.0 (constant on the right) — the control" },
+          { "class T { static int f(int x){ float s=0;"
+            "  for (float g=0; g<5; g++) s = s + 2.0f*g;"
+            "  return (int)s; } }",
+            20, "f32: 2.0f * <loop phi>" },
+          { "class T { static int f(int x){ long s=0;"
+            "  for (long n=0; n<5; n++) s = s + 2L*n;"
+            "  return (int)s; } }",
+            20, "i64: 2L * <loop phi> — integer phis are unaffected" },
+        };
+        for (int i = 0; i < (int)(sizeof fp / sizeof fp[0]); i++) {
+            bbq_arena a; bbq_arena_init(&a, 1 << 18); emit_wasm_ctx mod = {0};
+            bool pb = assemble_plugin(&a, fp[i].src, &mod);
+            wasm_val_t arg = (wasm_val_t)WASM_I32_VAL(0);
+            wasm_val_t res[1] = { WASM_INIT_VAL };
+            exec_status st = pb ? exec_call_shared(mod.code, bbq_vec_len(mod.code), "T.f", &arg, 1, res, 1) : EXEC_INVALID;
+            CHECK(pb && st == EXEC_OK && res[0].of.i32 == fp[i].want, fp[i].label);
+            bbq_vec_free(mod.code); bbq_arena_free(&a);
+        }
+    }
+
+    /* The same branch-refinement site, but for LONGS. It mints its range with
+     * `.cwidth = CP_W_I32, .lo = INT32_MIN, .hi = INT32_MAX` hardcoded, onto
+     * whatever value the comparison tested. On an i64 that is both a wrong
+     * width claim and a NARROWING bounds claim — a long holds values the
+     * interval excludes. Every value below is deliberately outside
+     * INT32_MIN..INT32_MAX, so a refine asserting that interval is asserting
+     * something the value contradicts. Floats are gated out at that site; longs
+     * are deliberately still allowed through, so these say whether that is
+     * sound. */
+    {
+        struct { const char* src; int32_t want; const char* label; } lg[] = {
+          { "class T { static int f(int x){ long n = 5000000000L;"
+            "  if (n > 100L) { return (n > 2147483647L) ? 1 : 0; } return -1; } }",
+            1, "i64: a value above INT32_MAX stays above it after a refining branch" },
+          { "class T { static int f(int x){ long m = -5000000000L;"
+            "  if (m < -100L) { return (m < -2147483648L) ? 1 : 0; } return -1; } }",
+            1, "i64: a value below INT32_MIN stays below it after a refining branch" },
+          { "class T { static int f(int x){ long c = 0;"
+            "  for (long i = 2147483640L; i < 2147483650L; i++) c = c + 1;"
+            "  return (int)c; } }",
+            10, "i64: a loop counter crossing 2^31 iterates the right number of times" },
+          { "class T { static int f(int x){ long s = 0;"
+            "  for (long k = 2147483640L; k < 2147483645L; k++) s = s + 2L*k;"
+            "  return (int)(s / 1000000L); } }",
+            21474, "i64: 2L * <loop phi> past 2^31 sums correctly" },
+          { "class T { static int f(int x){ long n = 5000000000L;"
+            "  if (n > 100L) { return (int)(n / 1000L); } return -1; } }",
+            5000000, "i64: division after a refining branch keeps the full value" },
+        };
+        for (int i = 0; i < (int)(sizeof lg / sizeof lg[0]); i++) {
+            bbq_arena a; bbq_arena_init(&a, 1 << 18); emit_wasm_ctx mod = {0};
+            bool pb = assemble_plugin(&a, lg[i].src, &mod);
+            wasm_val_t arg = (wasm_val_t)WASM_I32_VAL(0);
+            wasm_val_t res[1] = { WASM_INIT_VAL };
+            exec_status st = pb ? exec_call_shared(mod.code, bbq_vec_len(mod.code), "T.f", &arg, 1, res, 1) : EXEC_INVALID;
+            CHECK(pb && st == EXEC_OK && res[0].of.i32 == lg[i].want, lg[i].label);
+            bbq_vec_free(mod.code); bbq_arena_free(&a);
+        }
+    }
+
     /* §15.11.1 / §6.5.2 — a package-qualified static CALL, end to end. The
      * qualified-field form (java.lang.Integer.MAX_VALUE) already worked; the
      * call form is the same reclassification of the same AmbiguousName, so it
