@@ -33,7 +33,8 @@ $PEGC test/peg/Fixture.peg -lang java -frames "$FRAMES" -o $GEN \
 # The fixture is genuinely recursive (a group contains a Start), so the
 # recursion-cycle warning is expected output, not noise to hide.
 $B/javelinac --libdir lib/java $GEN/FixtureParser.java test/peg/PegSmoke.java \
-      -o $GEN/peg-smoke.wasm 2>&1 | grep -v 'recursion cycle' || true
+      test/peg/MachineSmoke.java -o $GEN/peg-smoke.wasm 2>&1 \
+      | grep -v 'recursion cycle' || true
 
 fail=0
 for tier in -nojit -jit; do

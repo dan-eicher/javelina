@@ -16,6 +16,11 @@ public class Span {
         len = 0;
     }
 
+    public Span(int start, int len) {
+        this.start = start;
+        this.len = len;
+    }
+
     public void set(int start, int len) {
         this.start = start;
         this.len = len;

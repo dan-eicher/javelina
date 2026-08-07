@@ -117,6 +117,14 @@ $(GEN)/sir_ast.h: grammar/sir.asdl $(SIR_TEMPLATE) $(ASDL)
 # ── Section 3: AST→SIR via ddcgc (compiler.ddcg consumes JSON sidecars
 # of the source AST + target IR; emits the dispatcher compiler_compile.{h,c}) ──
 DDCGC_LIB := $(BBQ)/ddcgc/lib
+# The runtime PEG machine's node classes. Generated INTO the library tree, the
+# way lib/java/lang/CharacterData.java is — javelinac globs lib/javelina/peg
+# into the prelude, so this is jre source that happens to have a generator.
+PEG_NODES := lib/javelina/peg/PegNodes.java
+$(PEG_NODES): grammar/peg.asdl $(ASDL) $(ASDL_TEMPLATES)/java.inja
+	$(ASDL) -i grammar/peg.asdl -t $(ASDL_TEMPLATES)/java.inja -lang java \
+	        -java-package javelina.peg -o $@
+
 $(GEN)/java.json: grammar/Java.asdl $(ASDL)
 	$(ASDL) -i grammar/Java.asdl --json $(GEN)/java.json
 $(GEN)/sir.json: grammar/sir.asdl $(ASDL)
@@ -219,7 +227,7 @@ javelinac: generate-parser generate-ddcg generate-codegen | $(B)
 
 # ── The jre.wasm runtime artifact: the prelude compiled once in RUNTIME mode. ──
 .PHONY: jre
-jre: javelinac
+jre: javelinac $(PEG_NODES)
 	$(B)/javelinac --mode jre --libdir lib/java -o $(B)/jre.wasm
 	@echo "  built $(B)/jre.wasm ($$(wc -c < $(B)/jre.wasm) bytes)"
 

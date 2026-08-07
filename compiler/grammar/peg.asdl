@@ -1,0 +1,92 @@
+// =============================================================
+// peg — the runtime PEG machine's IR.
+//
+// Three sums, generated to Java by `asdl -lang java`:
+//
+//   pexp   a parsing expression. Built at runtime (java.util.regex compiles a
+//          pattern string into one), so it is data, not code.
+//   kont   a continuation frame — what to do after the current expression
+//          SUCCEEDS. The chain is the K of the CEK machine.
+//   bt     a backtrack entry — what to do when the current expression FAILS.
+//          PEG needs both: ordered choice is failure-directed control flow.
+//
+// Both chains live in the heap, so the machine's step function self-tail-calls
+// and the wasm stack stays O(1) however deep a pattern nests. That is the one
+// place this departs from java.util.regex's own architecture, which is the same
+// node tree but recurses on the Java stack — the reason long alternations throw
+// StackOverflowError there.
+//
+// The generated `int kind` tag is INTERNAL. No public method takes or returns
+// one and no caller switches on it; it stands in for the sealed types a modern
+// JLS would use, and keeping it out of the API is what makes the port forward a
+// mechanical edit rather than a redesign.
+// =============================================================
+module peg
+{
+    // Callbacks are single-method interfaces, never abstract classes: one
+    // method makes each a functional interface the moment someone compiles
+    // against Java 8+, so an action becomes a lambda with no API change.
+    type action    = "PegAction"
+    type predicate = "PegPredicate"
+
+    // A character class as inclusive ranges. Two parallel arrays here is an
+    // internal encoding, not API — a class is a handful of ranges, so matching
+    // is a linear scan; a binary search would cost more than it saves.
+    charset = (int *lo, int *hi, bool negated)
+
+    // ── Parsing expressions ──────────────────────────────────
+    //
+    // PEG core plus three: PTest (a zero-width user predicate), PCapture, and
+    // PAction. There are no anchor nodes — `$` is PNot(PAny), and `^` under
+    // MULTILINE is a position predicate that core PEG cannot express, so it is
+    // a PTest. One hook covers anchors, \b, and anything else positional
+    // without one client's needs dictating the node set.
+    //
+    // The regex extensions Medeiros et al. formalise (independent, possessive,
+    // lazy, lookahead — Fig. 7) add nothing here: the transformation compiles
+    // every one of them into core PEG, so they live in RegexToPeg.
+    pexp = PSeq(pexp *elems)
+         | PChoice(pexp *alts)              // ordered — first match wins
+         | PStar(pexp body)                 // possessive, as all PEG repetition is
+         | PPlus(pexp body)
+         | POpt(pexp body)
+         | PAnd(pexp body)                  // &e — succeeds, consumes nothing
+         | PNot(pexp body)                  // !e — fails if e matches
+         | PRule(identifier name, int id)   // id is resolved at Grammar.finish; -1 until then
+         | PAny
+         | PLiteral(string value)
+         | PClass(charset set)
+         | PTest(predicate p)
+         | PCapture(int slot, pexp body)
+         | PAction(action a, pexp body)
+
+    // ── Continuations: what happens on SUCCESS ───────────────
+    kont = KHalt
+         | KSeqRest(pexp *elems, int idx, kont next)
+         | KStarBody(pexp body, kont next)       // loop, updating the recovery point
+         | KPlusRest(pexp body, kont next)       // first body matched; become a star
+         | KAndRestore(int pos, kont next)       // &e matched: rewind, continue
+         | KNotRestore(int pos, kont next)       // !e matched: rewind, then FAIL
+         | KCommit(kont next)                    // succeeded: drop my own recovery point
+         | KCapEnd(int slot, int start, kont next)
+         | KActionEnd(action a, int start, int vals, kont next)
+
+    // ── Backtracking: what happens on FAILURE ────────────────
+    //
+    // Only two shapes are needed. BAlt resumes the next alternative of an
+    // ordered choice. BRecover turns a failure into a success at a saved
+    // position — which is exactly optional, the end of a repetition, AND a
+    // satisfied not-predicate; all three restore and continue, so they are one
+    // entry rather than three.
+    //
+    // An entry that has served its purpose must be dropped, or a later,
+    // unrelated failure resumes it: an optional that MATCHED must not be
+    // re-entered when something after it fails. That is what KCommit is for,
+    // and it is LPEG's Commit instruction under another name.
+    //
+    // `caps` and `vals` are the capture-trail and value-stack depths at the
+    // point the entry was pushed. Restoring truncates both, so a failed
+    // alternative leaves behind neither a capture nor a half-built value.
+    bt = BAlt(pexp *alts, int idx, int pos, kont k, int caps, int vals, bt next)
+       | BRecover(int pos, kont k, int caps, int vals, bt next)
+}

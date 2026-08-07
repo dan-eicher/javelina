@@ -25,6 +25,10 @@ public class PegSmoke {
         check("x",            false, "wrong opener");
         check("",             false, "empty input");
 
+        // The runtime machine, including the differential gate against this
+        // very parser — same grammar, two paths, one answer.
+        failures += MachineSmoke.run();
+
         System.out.println("PEG-RESULT failures=" + failures);
     }
 
