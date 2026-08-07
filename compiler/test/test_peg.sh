@@ -38,13 +38,25 @@ $PEGC test/peg/Fixture.peg -lang java -frames "$FRAMES" -o $GEN \
 # success and the script went on to run whatever .wasm was left over from the
 # previous run — which passed, because it was built from the previous sources.
 if ! $B/javelinac --libdir lib/java $GEN/FixtureParser.java test/peg/PegSmoke.java \
-        test/peg/MachineSmoke.java test/peg/RegexSmoke.java \
+        test/peg/MachineSmoke.java test/peg/RegexSmoke.java test/peg/PatternSmoke.java \
         -o $GEN/peg-smoke.wasm > $GEN/compile.log 2>&1; then
     sed 's/^/  /' $GEN/compile.log
     echo "test_peg: javelinac failed"
     exit 1
 fi
 grep -v 'recursion cycle' $GEN/compile.log || true
+
+# java.util.regex is a POST-1.0 extension. The 1.0 API surface is java.lang,
+# java.util and java.io as the spec defines them, and nothing in those may reach
+# the extension or the machinery under it — otherwise "this compiles Java 1.0"
+# stops being true. Checked structurally, because it is cheap and exact.
+leak=$(grep -rl 'java\.util\.regex\|javelina\.peg' \
+         lib/java/lang lib/java/util/*.java lib/java/io 2>/dev/null || true)
+if [ -n "$leak" ]; then
+    echo "test_peg: the 1.0 API surface reaches a post-1.0 extension:"
+    echo "$leak" | sed 's/^/  /'
+    exit 1
+fi
 
 fail=0
 for tier in -nojit -jit; do

@@ -322,7 +322,11 @@ public class PegMachine {
         while (trailN > trail) {
             trailN--;
             int slot = trailSlot[trailN];
-            if (trailLen_[trailN] < 0) caps[slot] = null;
+            // A negative START means the slot held nothing. Length cannot carry
+            // that flag: an OPEN capture has length -1, so using it for both
+            // made undoing a capture-end erase its capture-start, and any group
+            // with pattern after it lost its extent.
+            if (trailStart[trailN] < 0) caps[slot] = null;
             else caps[slot] = new Span(trailStart[trailN], trailLen_[trailN]);
         }
         valN = val;
@@ -342,8 +346,8 @@ public class PegMachine {
         }
         Span old = caps[slot];
         trailSlot[trailN] = slot;
-        trailStart[trailN] = old == null ? 0 : old.start;
-        trailLen_[trailN] = old == null ? -1 : old.len;
+        trailStart[trailN] = old == null ? -1 : old.start;
+        trailLen_[trailN] = old == null ? 0 : old.len;
         trailN++;
         caps[slot] = new Span(start, len);
     }

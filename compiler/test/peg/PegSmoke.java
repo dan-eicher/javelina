@@ -29,6 +29,7 @@ public class PegSmoke {
         // very parser — same grammar, two paths, one answer.
         failures += MachineSmoke.run();
         failures += RegexSmoke.run();
+        failures += PatternSmoke.run();
 
         System.out.println("PEG-RESULT failures=" + failures);
     }

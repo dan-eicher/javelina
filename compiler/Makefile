@@ -125,6 +125,15 @@ $(PEG_NODES): grammar/peg.asdl $(ASDL) $(ASDL_TEMPLATES)/java.inja
 	$(ASDL) -i grammar/peg.asdl -t $(ASDL_TEMPLATES)/java.inja -lang java \
 	        -java-package javelina.peg -o $@
 
+# The regex-syntax parser, through pegc's Java backend. java.util.regex compiles
+# a pattern string at RUNTIME, but the syntax of a pattern is fixed at build
+# time — so the grammar is pegc's job and only the resulting Rexp tree is the
+# machine's. This is the split the two backends exist for.
+REGEX_PARSER := lib/javelina/peg/RegexParser.java
+$(REGEX_PARSER): grammar/regex.peg $(PEGC) $(PEG_FRAMES)/JavaParser.frame
+	$(PEGC) grammar/regex.peg -lang java -frames $(PEG_FRAMES) \
+	        -o lib/javelina/peg -prefix Regex -java-package javelina.peg
+
 $(GEN)/java.json: grammar/Java.asdl $(ASDL)
 	$(ASDL) -i grammar/Java.asdl --json $(GEN)/java.json
 $(GEN)/sir.json: grammar/sir.asdl $(ASDL)
@@ -227,7 +236,7 @@ javelinac: generate-parser generate-ddcg generate-codegen | $(B)
 
 # ── The jre.wasm runtime artifact: the prelude compiled once in RUNTIME mode. ──
 .PHONY: jre
-jre: javelinac $(PEG_NODES)
+jre: javelinac $(PEG_NODES) $(REGEX_PARSER)
 	$(B)/javelinac --mode jre --libdir lib/java -o $(B)/jre.wasm
 	@echo "  built $(B)/jre.wasm ($$(wc -c < $(B)/jre.wasm) bytes)"
 

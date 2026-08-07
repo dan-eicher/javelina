@@ -1,0 +1,176 @@
+// =============================================================
+// regex.peg — the syntax of a java.util.regex pattern.
+//
+// Compiled to Java by pegc's Java backend; the result builds an Rexp tree,
+// which RegexToPeg then transforms into a PEG. This is the pegc Java backend's
+// first real customer, and the division is the one the tools are for: pegc
+// handles a grammar known at build time, the CEK machine handles the one built
+// at Pattern.compile time.
+//
+// There is no IGNORE directive on purpose. In a regex, whitespace is a literal
+// character, so the generated skip() calls find no whitespace table and do
+// nothing.
+//
+// Precedence is layered the usual way: alternation binds loosest, then
+// concatenation, then the postfix quantifiers, then atoms.
+//
+// Java has no output parameters, so every production returns through a
+// one-element array — the convention the Java backend documents.
+// =============================================================
+
+COMPILER Regex
+
+(. import javelina.peg.RegexBuilder;
+   import javelina.peg.RegexParse;
+   import javelina.peg.RAnchorEnd;
+   import javelina.peg.RAnchorStart;
+   import javelina.peg.RAny;
+   import javelina.peg.RAtomic;
+   import javelina.peg.RGroup;
+   import javelina.peg.RLookahead;
+   import javelina.peg.RNegLookahead;
+   import javelina.peg.Rexp;
+.)
+
+CHARACTERS
+  digit    = '0'..'9' .
+  digit19  = '1'..'9' .
+  meta     = '|' + '*' + '+' + '?' + '(' + ')' + '[' + ']' + '{' + '}'
+           + '.' + '\\' + '^' + '$' .
+  plain    = ANY - meta .
+  classch  = ANY - ']' - '\\' .
+
+PRODUCTIONS
+
+// The start production, and it takes no parameters on purpose: pegc's generated
+// entry point is `parse()` with no arguments, so a start production that
+// returned through one could not be reached from outside the class. The result
+// goes where the rest of the parse state already lives — the cursor's
+// user-data, which is the C runtime's void* user_data by another name.
+Regex
+    (. RegexParse st = (RegexParse) p.userData;
+       Rexp[] out = new Rexp[1]; .)
+    = Alt<out>
+      (. st.result = out[0]; .)
+.
+
+// Alternation is ORDERED here, which is the whole point: RAlt is tried left to
+// right, so `a|ab` and `ab|a` are different patterns.
+Alt <. Rexp[] out .>
+    (. Rexp[] r = new Rexp[1]; .)
+    = Concat<out>
+      { '|' Concat<r>   (. out[0] = RegexBuilder.alt(out[0], r[0]); .) }
+.
+
+Concat <. Rexp[] out .>
+    (. Rexp[] r = new Rexp[1]; out[0] = null; .)
+    = { Quantified<r>   (. out[0] = RegexBuilder.seq(out[0], r[0]); .) }
+      (. if (out[0] == null) out[0] = RegexBuilder.empty(); .)
+.
+
+Quantified <. Rexp[] out .>
+    (. char[] kind = new char[1]; char[] mod = new char[1];
+       int[] bounds = new int[2]; .)
+    = Atom<out>
+      [ Quantifier<kind, mod>
+        (. out[0] = RegexBuilder.quantify(out[0], kind[0], mod[0]); .)
+      | Bounded<bounds>
+        (. out[0] = RegexBuilder.bounded(out[0], bounds[0], bounds[1]); .)
+      ]
+.
+
+// A quantifier's modifier: '+' makes it possessive, '?' lazy, absent greedy.
+Quantifier <. char[] kind, char[] mod .>
+    (. mod[0] = ' '; .)
+    = ( '*' (. kind[0] = '*'; .)
+      | '+' (. kind[0] = '+'; .)
+      | '?' (. kind[0] = '?'; .)
+      )
+      [ '+' (. mod[0] = '+'; .)
+      | '?' (. mod[0] = '?'; .)
+      ]
+.
+
+// {n}, {n,} and {n,m}. Desugared to concatenation by RegexBuilder.bounded, so
+// the core needs no counted-repetition node.
+// {n} is exactly n, {n,m} is a range, and {n,} is unbounded above — so the
+// comma has to be recorded separately from the second number. Without that flag
+// {n,} reads as {n}, which is a silent wrong answer rather than an error.
+Bounded <. int[] bounds .>
+    (. int[] a = new int[1]; int[] b = new int[1];
+       boolean[] comma = new boolean[1]; b[0] = -2; .)
+    = '{' Number<a> [ ',' (. comma[0] = true; .) [ Number<b> ] ] '}'
+      (. bounds[0] = a[0];
+         bounds[1] = comma[0] ? ((b[0] == -2) ? -1 : b[0]) : a[0]; .)
+.
+
+Number <. int[] out .>
+    (. int v = 0; .)
+    = digit (. v = p.charAt(p.save() - 1) - '0'; .)
+      { digit (. v = v * 10 + (p.charAt(p.save() - 1) - '0'); .) }
+      (. out[0] = v; .)
+.
+
+Atom <. Rexp[] out .>
+    = Group<out>
+    | Class<out>
+    | '.'  (. out[0] = new RAny(); .)
+    | '^'  (. out[0] = new RAnchorStart(); .)
+    | '$'  (. out[0] = new RAnchorEnd(); .)
+    | Escape<out>
+    | plain (. out[0] = RegexBuilder.literal(p.charAt(p.save() - 1)); .)
+.
+
+// (e) captures, (?:e) does not, and the three (?...) forms are the extensions
+// the transformation handles. The capture-slot counter lives in the cursor's
+// user-data — the Java sibling of peg_state's void* user_data — because pegc
+// emits no fields of its own. Slots are allocated at the OPENING paren, so
+// numbering follows source order the way java.util.regex's does.
+Group <. Rexp[] out .>
+    (. int slot = -1; .)
+    = '(' ( "?:" Alt<out> ')'
+          | "?=" Alt<out> ')'  (. out[0] = new RLookahead(out[0]); .)
+          | "?!" Alt<out> ')'  (. out[0] = new RNegLookahead(out[0]); .)
+          | "?>" Alt<out> ')'  (. out[0] = new RAtomic(out[0]); .)
+          | (. slot = ((RegexParse) p.userData).slots++; .)
+            Alt<out> ')'       (. out[0] = new RGroup(slot, out[0]); .)
+          )
+.
+
+// A backreference is not a PEG. Section 6 of the paper adapts the
+// transformation for exactly four extensions and a backreference is not among
+// them — the languages are not context-free. Rejected here with a message that
+// says so, rather than silently mis-parsed as a literal.
+Escape <. Rexp[] out .>
+    = '\\' ( digit19
+             (. throw new javelina.peg.PegException(
+                    "backreferences are not supported: no parsing expression "
+                    + "grammar can express one"); .)
+           | ( 'd' | 'D' | 'w' | 'W' | 's' | 'S' )
+             (. out[0] = RegexBuilder.escapeClass(p.charAt(p.save() - 1)); .)
+           | ANY
+             (. out[0] = RegexBuilder.escapeChar(p.charAt(p.save() - 1)); .)
+           )
+.
+
+Class <. Rexp[] out .>
+    (. RegexBuilder b = new RegexBuilder(); .)
+    = '[' [ '^' (. b.negate(); .) ]
+      ClassItem<b> { ClassItem<b> }
+      ']'
+      (. out[0] = b.build(); .)
+.
+
+ClassItem <. RegexBuilder b .>
+    (. char lo = 0; .)
+    = '\\' ( ( 'd' | 'w' | 's' )
+             (. b.addEscapeClass(p.charAt(p.save() - 1)); .)
+           | ANY
+             (. b.addChar(p.charAt(p.save() - 1)); .)
+           )
+    | classch (. lo = p.charAt(p.save() - 1); .)
+      [ '-' classch (. b.addRange(lo, p.charAt(p.save() - 1)); lo = 0; .) ]
+      (. if (lo != 0) b.addChar(lo); .)
+.
+
+END Regex.

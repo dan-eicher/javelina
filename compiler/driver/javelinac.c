@@ -235,6 +235,10 @@ int main(int argc, char** argv) {
     snprintf(pkgdir, sizeof pkgdir, "%s/lang", libdir); glob_dir(pkgdir, &types, &ctxs);
     snprintf(pkgdir, sizeof pkgdir, "%s/util", libdir); glob_dir(pkgdir, &types, &ctxs);
     snprintf(pkgdir, sizeof pkgdir, "%s/io",   libdir); glob_dir(pkgdir, &types, &ctxs);
+    /* java.util.regex — a post-1.0 extension, so it is globbed explicitly
+     * rather than reached by recursion: the 1.0 API surface stays exactly the
+     * three packages above plus this one named addition. */
+    snprintf(pkgdir, sizeof pkgdir, "%s/util/regex", libdir); glob_dir(pkgdir, &types, &ctxs);
     /* javelina.simd — the v128 value type + lane intrinsic classes. A sibling
      * package root of java/, so it lives beside (not under) the java tree;
      * glob_dir skips it silently when a custom --libdir has no simd library. */

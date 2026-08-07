@@ -111,6 +111,19 @@ public class PegCursor {
         return new String(input, span.start, span.len);
     }
 
+    // The character at an absolute index. A generated action reads the
+    // character it just matched as charAt(save() - 1), the way a C action reads
+    // it back out of the span.
+    public char charAt(int index) {
+        return input[index];
+    }
+
+    // Whatever a grammar needs to carry across its productions — the Java
+    // sibling of peg_state's void* user_data. A generated parser's actions are
+    // free code in the grammar's own language; this is where their state lives,
+    // since pegc emits no fields of its own.
+    public Object userData;
+
     // ── Skip configuration ─────────────────────────────────
 
     public void setWhitespace(char c, boolean isWhitespace) {
