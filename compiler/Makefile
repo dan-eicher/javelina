@@ -253,6 +253,14 @@ bench: javelinac javelina
 test-bench: javelinac javelina
 	@sh bench/bench.sh --quick
 
+# ── The pegc Java backend, end to end (test/test_peg.sh): a grammar through
+# pegc -lang java, through javelinac, run in both tiers. pegc's own tests pin
+# the emitted TEXT; this pins what the text MEANS — that ordered choice really
+# backtracks and that the two tiers agree. Needs BBQ's pegc built. ──
+.PHONY: test-peg
+test-peg: javelinac javelina jre
+	@sh test/test_peg.sh
+
 # The test targets (per-suite objects, per-suite binaries, the `test` gate)
 # live in test.mk, included at the bottom of this file — after every source-set
 # variable it reads has been defined.

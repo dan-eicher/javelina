@@ -1,0 +1,32 @@
+// Fixture grammar for the pegc Java backend gate (test/test_peg.sh).
+//
+// `Pair` is the load-bearing production: its first alternative consumes an
+// ident and then fails on the missing ":", so a bare ident parses only if
+// ordered choice restored the cursor to where that alternative started. A
+// generated `save` with no matching `restore` passes every other case here.
+//
+// The delimiters are brackets, not keywords, on purpose: with `[` and `]` no
+// production can swallow its own terminator, so a failure is the emitter's
+// and not the grammar's.
+
+COMPILER Fixture
+
+CHARACTERS
+  letter = 'a'..'z' .
+  digit  = '0'..'9' .
+
+TOKENS
+  ident      = letter { letter | digit } .
+  string_lit = '"' { !'"' ANY } '"' .
+
+IGNORE ' ' + '\t' + '\n'
+
+PRODUCTIONS
+
+Start = "[" { Item } "]" .
+
+Item  = Pair | string_lit | "(" Start ")" .
+
+Pair  = ident ":" ident | ident .
+
+END Fixture.

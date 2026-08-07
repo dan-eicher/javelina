@@ -187,6 +187,13 @@ test: generate-parser generate-ddcg generate-codegen $(addprefix $(B)/,$(COMPILE
 	  echo ""; echo "── test_exec (Click ON) ─────────────────────────"; \
 	  sed 's/^/  | /' $(LOGS)/test_exec_click.log | head -60; \
 	fi; \
+	if $(MAKE) --no-print-directory test-peg > $(LOGS)/test_peg.log 2>&1; then \
+	  echo "  PASS  test-peg (pegc java backend, both tiers)"; pass=$$((pass+1)); \
+	else \
+	  echo "  FAIL  test-peg (pegc java backend, both tiers)"; fail=$$((fail+1)); \
+	  echo ""; echo "── test-peg ─────────────────────────────────────"; \
+	  sed 's/^/  | /' $(LOGS)/test_peg.log | tail -40; \
+	fi; \
 	if $(MAKE) --no-print-directory test-bench > $(LOGS)/test_bench.log 2>&1; then \
 	  echo "  PASS  test-bench (quick matrix, checksum gate)"; pass=$$((pass+1)); \
 	else \

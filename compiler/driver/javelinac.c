@@ -239,6 +239,9 @@ int main(int argc, char** argv) {
      * package root of java/, so it lives beside (not under) the java tree;
      * glob_dir skips it silently when a custom --libdir has no simd library. */
     snprintf(pkgdir, sizeof pkgdir, "%s/../javelina/simd", libdir); glob_dir(pkgdir, &types, &ctxs);
+    /* javelina.peg — the cursor pegc-generated Java parsers run on, and the PEG
+     * machine java.util.regex executes. Same sibling-root treatment as simd. */
+    snprintf(pkgdir, sizeof pkgdir, "%s/../javelina/peg", libdir); glob_dir(pkgdir, &types, &ctxs);
     int nlib = (int)bbq_vec_len(types);
     if (nlib == 0) {
         fprintf(stderr, "%s: no prelude classes found under '%s' (wrong --libdir?)\n", prog_name, libdir);
