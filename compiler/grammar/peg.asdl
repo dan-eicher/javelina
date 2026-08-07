@@ -57,8 +57,46 @@ module peg
          | PLiteral(string value)
          | PClass(charset set)
          | PTest(predicate p)
-         | PCapture(int slot, pexp body)
+         // A capture is two zero-width marks, not a wrapper. The regex
+         // transformation is continuation-passing — pi(e, k) means "match e,
+         // then k" — so a node wrapping its body would enclose the
+         // continuation as well and capture the rest of the pattern. Marks
+         // compose with CPS; Peg.capture keeps the wrapper ergonomics.
+         | PCapStart(int slot)
+         | PCapEnd(int slot)
          | PAction(action a, pexp body)
+
+    // ── Regexes ──────────────────────────────────────────────
+    //
+    // The input side of the Medeiros/Mascarenhas/Ierusalimschy transformation.
+    // A regex is NOT a regular expression: its alternation is ordered, and it
+    // carries extensions no regular expression can express. Both facts are why
+    // it translates to a PEG at all.
+    //
+    // This lives in the same ASDL module as pexp because it shares `charset`
+    // and lands in the same Java package — a separate module would generate a
+    // second Charset class with the same name.
+    //
+    // The five extension constructors are exactly the ones section 6 adapts the
+    // transformation for. Backreferences are absent and stay absent: they are
+    // not expressible as a PEG, and the paper does not cover them.
+    rexp = REmpty                              // epsilon
+         | RChar(int ch)
+         | RClass(charset set)
+         | RAny
+         | RSeq(rexp left, rexp right)
+         | RAlt(rexp left, rexp right)         // ORDERED, unlike a regular expression's union
+         | RStar(rexp body)
+         | RPlus(rexp body)
+         | ROpt(rexp body)
+         | RGroup(int slot, rexp body)         // a capturing group
+         | RAtomic(rexp body)                  // ?>e   independent
+         | RPossStar(rexp body)                // e*+   possessive
+         | RLazyStar(rexp body)                // e*?   lazy
+         | RLookahead(rexp body)               // ?=e
+         | RNegLookahead(rexp body)            // ?!e
+         | RAnchorStart
+         | RAnchorEnd
 
     // ── Continuations: what happens on SUCCESS ───────────────
     kont = KHalt
@@ -68,7 +106,6 @@ module peg
          | KAndRestore(int pos, kont next)       // &e matched: rewind, continue
          | KNotRestore(int pos, kont next)       // !e matched: rewind, then FAIL
          | KCommit(kont next)                    // succeeded: drop my own recovery point
-         | KCapEnd(int slot, int start, kont next)
          | KActionEnd(action a, int start, int vals, kont next)
 
     // ── Backtracking: what happens on FAILURE ────────────────

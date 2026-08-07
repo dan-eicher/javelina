@@ -28,6 +28,7 @@ public class PegSmoke {
         // The runtime machine, including the differential gate against this
         // very parser — same grammar, two paths, one answer.
         failures += MachineSmoke.run();
+        failures += RegexSmoke.run();
 
         System.out.println("PEG-RESULT failures=" + failures);
     }

@@ -32,9 +32,19 @@ $PEGC test/peg/Fixture.peg -lang java -frames "$FRAMES" -o $GEN \
 
 # The fixture is genuinely recursive (a group contains a Start), so the
 # recursion-cycle warning is expected output, not noise to hide.
-$B/javelinac --libdir lib/java $GEN/FixtureParser.java test/peg/PegSmoke.java \
-      test/peg/MachineSmoke.java -o $GEN/peg-smoke.wasm 2>&1 \
-      | grep -v 'recursion cycle' || true
+#
+# The exit status is checked BEFORE the warning filter. Piping javelinac into
+# grep hands the pipeline grep's status, so a compilation failure looked like a
+# success and the script went on to run whatever .wasm was left over from the
+# previous run — which passed, because it was built from the previous sources.
+if ! $B/javelinac --libdir lib/java $GEN/FixtureParser.java test/peg/PegSmoke.java \
+        test/peg/MachineSmoke.java test/peg/RegexSmoke.java \
+        -o $GEN/peg-smoke.wasm > $GEN/compile.log 2>&1; then
+    sed 's/^/  /' $GEN/compile.log
+    echo "test_peg: javelinac failed"
+    exit 1
+fi
+grep -v 'recursion cycle' $GEN/compile.log || true
 
 fail=0
 for tier in -nojit -jit; do

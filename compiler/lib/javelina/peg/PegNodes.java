@@ -33,12 +33,39 @@ public abstract class Pexp {
     public static final int KIND_PLITERAL = 9;
     public static final int KIND_PCLASS = 10;
     public static final int KIND_PTEST = 11;
-    public static final int KIND_PCAPTURE = 12;
-    public static final int KIND_PACTION = 13;
+    public static final int KIND_PCAPSTART = 12;
+    public static final int KIND_PCAPEND = 13;
+    public static final int KIND_PACTION = 14;
 
     public int kind;
 
     Pexp(int kind) {
+        this.kind = kind;
+    }
+}
+
+public abstract class Rexp {
+    public static final int KIND_REMPTY = 0;
+    public static final int KIND_RCHAR = 1;
+    public static final int KIND_RCLASS = 2;
+    public static final int KIND_RANY = 3;
+    public static final int KIND_RSEQ = 4;
+    public static final int KIND_RALT = 5;
+    public static final int KIND_RSTAR = 6;
+    public static final int KIND_RPLUS = 7;
+    public static final int KIND_ROPT = 8;
+    public static final int KIND_RGROUP = 9;
+    public static final int KIND_RATOMIC = 10;
+    public static final int KIND_RPOSSSTAR = 11;
+    public static final int KIND_RLAZYSTAR = 12;
+    public static final int KIND_RLOOKAHEAD = 13;
+    public static final int KIND_RNEGLOOKAHEAD = 14;
+    public static final int KIND_RANCHORSTART = 15;
+    public static final int KIND_RANCHOREND = 16;
+
+    public int kind;
+
+    Rexp(int kind) {
         this.kind = kind;
     }
 }
@@ -51,8 +78,7 @@ public abstract class Kont {
     public static final int KIND_KANDRESTORE = 4;
     public static final int KIND_KNOTRESTORE = 5;
     public static final int KIND_KCOMMIT = 6;
-    public static final int KIND_KCAPEND = 7;
-    public static final int KIND_KACTIONEND = 8;
+    public static final int KIND_KACTIONEND = 7;
 
     public int kind;
 
@@ -180,14 +206,21 @@ public final class PTest extends Pexp {
     }
 }
 
-public final class PCapture extends Pexp {
+public final class PCapStart extends Pexp {
     public int slot;
-    public Pexp body;
 
-    public PCapture(int slot, Pexp body) {
-        super(Pexp.KIND_PCAPTURE);
+    public PCapStart(int slot) {
+        super(Pexp.KIND_PCAPSTART);
         this.slot = slot;
-        this.body = body;
+    }
+}
+
+public final class PCapEnd extends Pexp {
+    public int slot;
+
+    public PCapEnd(int slot) {
+        super(Pexp.KIND_PCAPEND);
+        this.slot = slot;
     }
 }
 
@@ -199,6 +232,157 @@ public final class PAction extends Pexp {
         super(Pexp.KIND_PACTION);
         this.a = a;
         this.body = body;
+    }
+}
+
+public final class REmpty extends Rexp {
+
+    public REmpty() {
+        super(Rexp.KIND_REMPTY);
+    }
+}
+
+public final class RChar extends Rexp {
+    public int ch;
+
+    public RChar(int ch) {
+        super(Rexp.KIND_RCHAR);
+        this.ch = ch;
+    }
+}
+
+public final class RClass extends Rexp {
+    public Charset set;
+
+    public RClass(Charset set) {
+        super(Rexp.KIND_RCLASS);
+        this.set = set;
+    }
+}
+
+public final class RAny extends Rexp {
+
+    public RAny() {
+        super(Rexp.KIND_RANY);
+    }
+}
+
+public final class RSeq extends Rexp {
+    public Rexp left;
+    public Rexp right;
+
+    public RSeq(Rexp left, Rexp right) {
+        super(Rexp.KIND_RSEQ);
+        this.left = left;
+        this.right = right;
+    }
+}
+
+public final class RAlt extends Rexp {
+    public Rexp left;
+    public Rexp right;
+
+    public RAlt(Rexp left, Rexp right) {
+        super(Rexp.KIND_RALT);
+        this.left = left;
+        this.right = right;
+    }
+}
+
+public final class RStar extends Rexp {
+    public Rexp body;
+
+    public RStar(Rexp body) {
+        super(Rexp.KIND_RSTAR);
+        this.body = body;
+    }
+}
+
+public final class RPlus extends Rexp {
+    public Rexp body;
+
+    public RPlus(Rexp body) {
+        super(Rexp.KIND_RPLUS);
+        this.body = body;
+    }
+}
+
+public final class ROpt extends Rexp {
+    public Rexp body;
+
+    public ROpt(Rexp body) {
+        super(Rexp.KIND_ROPT);
+        this.body = body;
+    }
+}
+
+public final class RGroup extends Rexp {
+    public int slot;
+    public Rexp body;
+
+    public RGroup(int slot, Rexp body) {
+        super(Rexp.KIND_RGROUP);
+        this.slot = slot;
+        this.body = body;
+    }
+}
+
+public final class RAtomic extends Rexp {
+    public Rexp body;
+
+    public RAtomic(Rexp body) {
+        super(Rexp.KIND_RATOMIC);
+        this.body = body;
+    }
+}
+
+public final class RPossStar extends Rexp {
+    public Rexp body;
+
+    public RPossStar(Rexp body) {
+        super(Rexp.KIND_RPOSSSTAR);
+        this.body = body;
+    }
+}
+
+public final class RLazyStar extends Rexp {
+    public Rexp body;
+
+    public RLazyStar(Rexp body) {
+        super(Rexp.KIND_RLAZYSTAR);
+        this.body = body;
+    }
+}
+
+public final class RLookahead extends Rexp {
+    public Rexp body;
+
+    public RLookahead(Rexp body) {
+        super(Rexp.KIND_RLOOKAHEAD);
+        this.body = body;
+    }
+}
+
+public final class RNegLookahead extends Rexp {
+    public Rexp body;
+
+    public RNegLookahead(Rexp body) {
+        super(Rexp.KIND_RNEGLOOKAHEAD);
+        this.body = body;
+    }
+}
+
+public final class RAnchorStart extends Rexp {
+
+    public RAnchorStart() {
+        super(Rexp.KIND_RANCHORSTART);
+    }
+}
+
+public final class RAnchorEnd extends Rexp {
+
+    public RAnchorEnd() {
+        super(Rexp.KIND_RANCHOREND);
     }
 }
 
@@ -271,19 +455,6 @@ public final class KCommit extends Kont {
 
     public KCommit(Kont next) {
         super(Kont.KIND_KCOMMIT);
-        this.next = next;
-    }
-}
-
-public final class KCapEnd extends Kont {
-    public int slot;
-    public int start;
-    public Kont next;
-
-    public KCapEnd(int slot, int start, Kont next) {
-        super(Kont.KIND_KCAPEND);
-        this.slot = slot;
-        this.start = start;
         this.next = next;
     }
 }

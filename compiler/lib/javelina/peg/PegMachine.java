@@ -168,13 +168,6 @@ public class PegMachine {
                         break;
                     }
 
-                    case Kont.KIND_KCAPEND: {
-                        KCapEnd ce = (KCapEnd) k;
-                        setCapture(ce.slot, ce.start, pos);
-                        k = ce.next;
-                        break;
-                    }
-
                     case Kont.KIND_KACTIONEND: {
                         KActionEnd ae = (KActionEnd) k;
                         int n = valN - ae.vals;
@@ -286,10 +279,21 @@ public class PegMachine {
                     else { noteFail("a position predicate"); failing = true; }
                     break;
 
-                case Pexp.KIND_PCAPTURE: {
-                    PCapture cp = (PCapture) c;
-                    k = new KCapEnd(cp.slot, pos, k);
-                    c = cp.body;
+                // A capture opens with len -1 and closes by rewriting it. Both
+                // marks go through the same trail as any other capture write,
+                // so an alternative that opened a group and then failed leaves
+                // nothing behind.
+                case Pexp.KIND_PCAPSTART:
+                    setCapture(((PCapStart) c).slot, pos, -1);
+                    c = null;
+                    break;
+
+                case Pexp.KIND_PCAPEND: {
+                    int slot = ((PCapEnd) c).slot;
+                    Span open = slot < caps.length ? caps[slot] : null;
+                    int st = open == null ? pos : open.start;
+                    setCapture(slot, st, pos - st);
+                    c = null;
                     break;
                 }
 
@@ -324,7 +328,7 @@ public class PegMachine {
         valN = val;
     }
 
-    private void setCapture(int slot, int start, int stop) {
+    private void setCapture(int slot, int start, int len) {
         if (slot >= caps.length) {
             Span[] c2 = new Span[slot * 2 + 2];
             System.arraycopy(caps, 0, c2, 0, caps.length);
@@ -341,7 +345,7 @@ public class PegMachine {
         trailStart[trailN] = old == null ? 0 : old.start;
         trailLen_[trailN] = old == null ? -1 : old.len;
         trailN++;
-        caps[slot] = new Span(start, stop - start);
+        caps[slot] = new Span(start, len);
     }
 
     private void pushValue(Object v) {

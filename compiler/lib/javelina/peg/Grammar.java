@@ -100,7 +100,6 @@ public class Grammar {
             case Pexp.KIND_POPT:     resolve(((POpt) e).body); return;
             case Pexp.KIND_PAND:     resolve(((PAnd) e).body); return;
             case Pexp.KIND_PNOT:     resolve(((PNot) e).body); return;
-            case Pexp.KIND_PCAPTURE: resolve(((PCapture) e).body); return;
             case Pexp.KIND_PACTION:  resolve(((PAction) e).body); return;
             default: return;        // terminals hold no references
         }
@@ -176,9 +175,10 @@ public class Grammar {
             case Pexp.KIND_PAND:
             case Pexp.KIND_PNOT:
             case Pexp.KIND_PTEST:
+            case Pexp.KIND_PCAPSTART:
+            case Pexp.KIND_PCAPEND:
                 return true;                                    // zero-width
             case Pexp.KIND_PPLUS:    return isNullable(((PPlus) e).body);
-            case Pexp.KIND_PCAPTURE: return isNullable(((PCapture) e).body);
             case Pexp.KIND_PACTION:  return isNullable(((PAction) e).body);
             case Pexp.KIND_PLITERAL: return ((PLiteral) e).value.length() == 0;
             case Pexp.KIND_PRULE:    return nullable[((PRule) e).id];
@@ -206,7 +206,6 @@ public class Grammar {
             case Pexp.KIND_POPT:     leftCalls(((POpt) e).body, out); return;
             case Pexp.KIND_PAND:     leftCalls(((PAnd) e).body, out); return;
             case Pexp.KIND_PNOT:     leftCalls(((PNot) e).body, out); return;
-            case Pexp.KIND_PCAPTURE: leftCalls(((PCapture) e).body, out); return;
             case Pexp.KIND_PACTION:  leftCalls(((PAction) e).body, out); return;
             case Pexp.KIND_PRULE:    out[((PRule) e).id] = true; return;
             default: return;

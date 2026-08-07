@@ -99,9 +99,19 @@ public class Peg {
 
     // ── Captures and actions ───────────────────────────────
 
+    // The wrapper form, for a caller writing a grammar by hand. It expands to
+    // the two marks the machine actually runs, which is also the form a
+    // continuation-passing producer (the regex transformation) emits directly.
     public static Pexp capture(int slot, Pexp body) {
-        return new PCapture(slot, body);
+        Pexp[] e = new Pexp[3];
+        e[0] = new PCapStart(slot);
+        e[1] = body;
+        e[2] = new PCapEnd(slot);
+        return new PSeq(e);
     }
+
+    public static Pexp capStart(int slot) { return new PCapStart(slot); }
+    public static Pexp capEnd(int slot)   { return new PCapEnd(slot); }
 
     public static Pexp action(PegAction a, Pexp body) {
         return new PAction(a, body);
