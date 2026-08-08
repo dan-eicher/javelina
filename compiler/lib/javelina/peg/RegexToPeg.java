@@ -30,10 +30,85 @@ public class RegexToPeg {
 
     private Grammar g;
     private int fresh;
+    private boolean dotAll;
 
-    private RegexToPeg(Grammar g) {
+    /* Mirrors java.util.regex.Pattern.DOTALL, named here so the translator does
+     * not depend on the package it is the engine for. */
+    public static final int DOTALL = 0x20;
+
+    /* java.util.regex on `.`: "In dotall mode, the expression . matches any
+     * character, including a line terminator. By default this expression does
+     * not match line terminators." The recognised terminators are LF (000A),
+     * CR (000D), NEL (0085), LINE SEPARATOR (2028) and PARAGRAPH SEPARATOR
+     * (2029), so an ordinary `.` is the complement of those five. Translating
+     * it to a bare Peg.any() made `.` match a newline, which silently turned
+     * `>.*\n` into a match over the whole input. */
+    private static final int[] TERM_LO = { 0x0A, 0x0D, 0x85, 0x2028 };
+    private static final int[] TERM_HI = { 0x0A, 0x0D, 0x85, 0x2029 };
+
+    /* Mirrors java.util.regex.Pattern's other two flags. */
+    public static final int CASE_INSENSITIVE = 0x02;
+    public static final int MULTILINE        = 0x08;
+
+    private boolean fold;
+    private boolean multiline;
+
+    private RegexToPeg(Grammar g, int flags) {
         this.g = g;
         this.fresh = 0;
+        this.dotAll = (flags & DOTALL) != 0;
+        this.fold = (flags & CASE_INSENSITIVE) != 0;
+        this.multiline = (flags & MULTILINE) != 0;
+    }
+
+    /* `.` as a PEG expression, under this pattern's flags. */
+    private Pexp anyChar() {
+        return dotAll ? Peg.any() : Peg.charClass(TERM_LO, TERM_HI, true);
+    }
+
+    /* java.util.regex: "By default, case-insensitive matching assumes that only
+     * characters in the US-ASCII charset are being matched. Unicode-aware case
+     * folding can be enabled by specifying the UNICODE_CASE flag" — which this
+     * package does not offer, so the fold is ASCII and only ASCII. */
+    private static char asciiLower(char c) {
+        return (c >= 'A' && c <= 'Z') ? (char) (c + 32) : c;
+    }
+    private static char asciiUpper(char c) {
+        return (c >= 'a' && c <= 'z') ? (char) (c - 32) : c;
+    }
+
+    /* One literal character under the current flags. */
+    private Pexp oneChar(char c) {
+        char lo = asciiLower(c), up = asciiUpper(c);
+        if (!fold || lo == up) return Peg.lit(String.valueOf(c));
+        int[] a = { lo, up };
+        int[] b = { lo, up };
+        return Peg.charClass(a, b, false);
+    }
+
+    /* A character class under the current flags. Folding ADDS the case-swapped
+     * ranges to the set before it is negated, which is right in both polarities:
+     * [a-c] also admits A-C, and [^a-c] must reject A-C too. */
+    private Pexp classOf(Charset s) {
+        if (!fold) return Peg.charClass(s.lo, s.hi, s.negated);
+        int n = s.lo.length;
+        int[] lo = new int[n * 3];
+        int[] hi = new int[n * 3];
+        int m = 0;
+        for (int i = 0; i < n; i++) {
+            lo[m] = s.lo[i]; hi[m] = s.hi[i]; m++;
+            /* the part of this range inside a-z, shifted to A-Z, and vice versa */
+            int l = s.lo[i] > 'a' ? s.lo[i] : 'a';
+            int h = s.hi[i] < 'z' ? s.hi[i] : 'z';
+            if (l <= h) { lo[m] = l - 32; hi[m] = h - 32; m++; }
+            l = s.lo[i] > 'A' ? s.lo[i] : 'A';
+            h = s.hi[i] < 'Z' ? s.hi[i] : 'Z';
+            if (l <= h) { lo[m] = l + 32; hi[m] = h + 32; m++; }
+        }
+        int[] flo = new int[m];
+        int[] fhi = new int[m];
+        for (int i = 0; i < m; i++) { flo[i] = lo[i]; fhi[i] = hi[i]; }
+        return Peg.charClass(flo, fhi, s.negated);
     }
 
     private String freshName() {
@@ -45,9 +120,9 @@ public class RegexToPeg {
     // An anchored match: the pattern must match starting where the parse
     // starts. Section 2 (p. 7): a standalone regular expression is transformed
     // with epsilon as the continuation, giving a PEG equivalent to `e`.
-    public static Grammar anchored(Rexp e) {
+    public static Grammar anchored(Rexp e, int flags) {
         Grammar g = new Grammar();
-        RegexToPeg t = new RegexToPeg(g);
+        RegexToPeg t = new RegexToPeg(g, flags);
         g.start(t.pi(fOut(e), empty()));
         g.finish();
         return g;
@@ -65,16 +140,16 @@ public class RegexToPeg {
     // Section 4.3 sharpens it when the pattern is a repetition of single
     // characters followed by something else: the repetition can be consumed
     // possessively before retrying, so the retry does not re-scan it.
-    public static Grammar search(Rexp e) {
+    public static Grammar search(Rexp e, int flags) {
         Grammar g = new Grammar();
-        RegexToPeg t = new RegexToPeg(g);
+        RegexToPeg t = new RegexToPeg(g, flags);
         Rexp w = fOut(e);
         Pexp p = t.pi(w, empty());
 
         String s = t.freshName();
         Pexp sref = Peg.rule(s);
 
-        FirstSet f = first(w);
+        FirstSet f = t.first(w);
         Pexp skip = f.skippable()
             ? Peg.star(Peg.seq(Peg.not(f.toPexp()), Peg.any()))
             : empty();
@@ -109,21 +184,32 @@ public class RegexToPeg {
 
             // Pi(a, G_k) = G_k[a p_k]
             case Rexp.KIND_RCHAR:
-                return Peg.seq(Peg.lit(String.valueOf((char) ((RChar) e).ch)), k);
-            case Rexp.KIND_RCLASS: {
-                Charset s = ((RClass) e).set;
-                return Peg.seq(Peg.charClass(s.lo, s.hi, s.negated), k);
-            }
+                return Peg.seq(oneChar((char) ((RChar) e).ch), k);
+            case Rexp.KIND_RCLASS:
+                return Peg.seq(classOf(((RClass) e).set), k);
             case Rexp.KIND_RANY:
-                return Peg.seq(Peg.any(), k);
+                /* anyChar(), not Peg.any(): outside dotall mode `.` excludes the
+                 * line terminators. The search scaffolding above and the end
+                 * anchor below keep Peg.any() — those step over the subject and
+                 * ask "is there a character at all", which newlines answer. */
+                return Peg.seq(anyChar(), k);
 
             // The end anchor needs no predicate: in a PEG, "no more input" is
             // !any. The start anchor is a question about the position, which
             // core PEG cannot ask, so it is the one place a PTest is needed.
+            /* java.util.regex: "By default these expressions only match at the
+             * beginning and the end of the entire input sequence"; under
+             * MULTILINE they match "just after or just before, respectively, a
+             * line terminator or the end of the input sequence". Both are
+             * questions about the position, so both are PTests — the end anchor
+             * can no longer be `!any`, because by default `$` also matches
+             * before a FINAL terminator. */
             case Rexp.KIND_RANCHORSTART:
-                return Peg.seq(Peg.test(new AtInputStart()), k);
+                return Peg.seq(Peg.test(multiline ? (PegPredicate) new AtLineStart()
+                                                  : (PegPredicate) new AtInputStart()), k);
             case Rexp.KIND_RANCHOREND:
-                return Peg.seq(Peg.not(Peg.any()), k);
+                return Peg.seq(Peg.test(multiline ? (PegPredicate) new AtLineEnd()
+                                                  : (PegPredicate) new AtInputEnd()), k);
 
             // Pi(e1 e2, G_k) = Pi(e1, Pi(e2, G_k))
             case Rexp.KIND_RSEQ: {
@@ -406,16 +492,37 @@ public class RegexToPeg {
     // construction: an atomic grouping reports its subexpression's set, which
     // may be a proper superset of what it actually consumes.
 
-    static FirstSet first(Rexp e) {
+    /* Not static: FIRST decides which positions the search may SKIP, so under
+     * CASE_INSENSITIVE it has to name both cases. Reporting only the written
+     * case skips every position where the other one starts, and the match is
+     * missed entirely — the folded matcher never gets asked. */
+    FirstSet first(Rexp e) {
         FirstSet f = new FirstSet();
         switch (e.kind) {
-            case Rexp.KIND_RCHAR:
-                f.add(((RChar) e).ch, ((RChar) e).ch);
+            case Rexp.KIND_RCHAR: {
+                char c = (char) ((RChar) e).ch;
+                f.add(c, c);
+                if (fold) {
+                    char lo = asciiLower(c), up = asciiUpper(c);
+                    f.add(lo, lo);
+                    f.add(up, up);
+                }
                 return f;
+            }
             case Rexp.KIND_RCLASS: {
                 Charset s = ((RClass) e).set;
                 if (s.negated) { f.all = true; return f; }
-                for (int i = 0; i < s.lo.length; i++) f.add(s.lo[i], s.hi[i]);
+                for (int i = 0; i < s.lo.length; i++) {
+                    f.add(s.lo[i], s.hi[i]);
+                    if (fold) {
+                        int l = s.lo[i] > 'a' ? s.lo[i] : 'a';
+                        int h = s.hi[i] < 'z' ? s.hi[i] : 'z';
+                        if (l <= h) f.add(l - 32, h - 32);
+                        l = s.lo[i] > 'A' ? s.lo[i] : 'A';
+                        h = s.hi[i] < 'Z' ? s.hi[i] : 'Z';
+                        if (l <= h) f.add(l + 32, h + 32);
+                    }
+                }
                 return f;
             }
             case Rexp.KIND_RANY:
@@ -507,5 +614,54 @@ class FirstSet {
 class AtInputStart implements PegPredicate {
     public boolean holds(String input, int pos, int end) {
         return pos == 0;
+    }
+}
+
+/* The line terminators java.util.regex recognises: LF, CR, CRLF as one unit,
+ * NEL (0085), LINE SEPARATOR (2028) and PARAGRAPH SEPARATOR (2029). */
+class LineTerm {
+    static boolean is(char c) {
+        return c == '\n' || c == '\r' || c == ''
+            || c == ' ' || c == ' ';
+    }
+    /* Is `pos` in the MIDDLE of a CRLF? That position is inside one terminator,
+     * so neither ^ nor $ may match there. */
+    static boolean insideCrLf(String input, int pos, int end) {
+        return pos > 0 && pos < end
+            && input.charAt(pos - 1) == '\r' && input.charAt(pos) == '\n';
+    }
+}
+
+/* MULTILINE ^: the start of input, or just after a line terminator — but not at
+ * the end of input, where there is no line for it to begin. */
+class AtLineStart implements PegPredicate {
+    public boolean holds(String input, int pos, int end) {
+        if (pos == 0) return true;
+        if (pos >= end) return false;
+        if (LineTerm.insideCrLf(input, pos, end)) return false;
+        return LineTerm.is(input.charAt(pos - 1));
+    }
+}
+
+/* Default $: the end of input, or just before a final terminator. A trailing
+ * CRLF counts as the one terminator, so `a$` matches "a\r\n" at the same place
+ * it matches "a\n". */
+class AtInputEnd implements PegPredicate {
+    public boolean holds(String input, int pos, int end) {
+        if (pos == end) return true;
+        if (LineTerm.insideCrLf(input, pos, end)) return false;
+        if (!LineTerm.is(input.charAt(pos))) return false;
+        int after = pos + 1;
+        if (input.charAt(pos) == '\r' && after < end && input.charAt(after) == '\n') after++;
+        return after == end;      /* only a FINAL terminator, nothing beyond it */
+    }
+}
+
+/* MULTILINE $: the end of input, or just before any line terminator. */
+class AtLineEnd implements PegPredicate {
+    public boolean holds(String input, int pos, int end) {
+        if (pos == end) return true;
+        if (LineTerm.insideCrLf(input, pos, end)) return false;
+        return LineTerm.is(input.charAt(pos));
     }
 }

@@ -1,0 +1,41 @@
+# Published Computer Language Benchmarks Game times, single-threaded rows only.
+# Selected from the game's public/data/data.csv: cpu-time > 0 (a 0 is an
+# unrecorded measurement, not an instant one) and cpu within 15% of elapsed,
+# so no multi-threaded entry is compared against a single-threaded engine.
+bench,impl,id,n,cpu_s,elapsed_s
+binarytrees,javavm,6,21,5.635,4.910
+binarytrees,clang,1,21,17.858,17.864
+binarytrees,gcc,1,21,21.206,21.214
+binarytrees,javaxint,3,21,67.741,67.052
+fannkuchredux,clang,4,12,13.384,13.389
+fannkuchredux,gcc,4,12,14.040,14.047
+fannkuchredux,javavm,3,12,40.092,40.016
+fannkuchredux,javaxint,3,12,497.215,498.575
+mandelbrot,javavm,1,16000,24.577,24.544
+mandelbrot,gcc,8,16000,25.164,25.171
+mandelbrot,clang,8,16000,25.467,25.477
+mandelbrot,javaxint,1,16000,359.885,361.426
+nbody,gcc,9,50000000,2.099,2.101
+nbody,clang,9,50000000,2.200,2.203
+nbody,javavm,4,50000000,6.932,6.921
+nbody,javaxint,4,50000000,160.555,160.540
+spectralnorm,gcc,8,5500,5.402,5.406
+spectralnorm,clang,8,5500,5.408,5.413
+spectralnorm,javavm,1,5500,5.508,5.470
+spectralnorm,javaxint,8,5500,84.128,84.131
+fasta,clang,3,25000000,0.782,0.784
+fasta,gcc,3,25000000,0.784,0.786
+fasta,javavm,4,25000000,3.411,3.322
+fasta,javaxint,4,25000000,25.452,25.468
+pidigits,gcc,2,10000,0.733,0.737
+pidigits,clang,2,10000,0.735,0.738
+pidigits,javavm,3,10000,0.852,0.841
+pidigits,javaxint,2,10000,1.429,1.456
+revcomp,gcc,5,100000001,1.533,1.535
+revcomp,clang,5,100000001,2.004,2.006
+revcomp,javavm,5,100000001,4.921,4.805
+revcomp,javaxint,4,100000001,80.449,80.451
+knucleotide,javavm,4,25000000,34.684,34.376
+knucleotide,javaxint,4,25000000,727.605,727.604
+regexredux,gcc,2,5000000,3.213,3.217
+regexredux,clang,2,5000000,3.222,3.225

@@ -59,12 +59,15 @@ public class RegexSmoke {
         return r;
     }
 
+    /* Flags 0: these pin the transformation itself, where `.` carries its
+     * default meaning. The flag surface is pinned in PatternSmoke, through the
+     * java.util.regex API that supplies them. */
     static PegResult match(Rexp e, String subject) {
-        return new PegMachine(RegexToPeg.anchored(e)).run(subject);
+        return new PegMachine(RegexToPeg.anchored(e, 0)).run(subject);
     }
 
     static PegResult find(Rexp e, String subject) {
-        return new PegMachine(RegexToPeg.search(e)).run(subject);
+        return new PegMachine(RegexToPeg.search(e, 0)).run(subject);
     }
 
     // ── The paper's opening example (printed p. 3) ─────────

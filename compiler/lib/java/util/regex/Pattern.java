@@ -65,8 +65,8 @@ public final class Pattern {
 
         this.groups = st.slots - 1;
         Rexp whole = new RGroup(0, tree);
-        this.anchoredGrammar = RegexToPeg.anchored(whole);
-        this.searchGrammar = RegexToPeg.search(whole);
+        this.anchoredGrammar = RegexToPeg.anchored(whole, patternFlags);
+        this.searchGrammar = RegexToPeg.search(whole, patternFlags);
     }
 
     private static Rexp literalTree(String s) {

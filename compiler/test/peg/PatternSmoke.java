@@ -19,8 +19,48 @@ public class PatternSmoke {
         replacement();
         splitting();
         rejected();
+        flags();
         regexredux();
         return failures;
+    }
+
+    /* The compile(regex, flags) overload. Every other test here uses the
+     * single-argument form, so the flag surface had no coverage at all — and
+     * two of the four declared flags turned out to be constants nothing reads,
+     * which is silently the wrong answer rather than an error. */
+    static void flags() {
+        // DOTALL. Default: '.' does not match a line terminator.
+        ok(!Pattern.compile("a.b").matcher("a\nb").find(),
+           ". does not match a newline by default");
+        ok(Pattern.compile("a.b").matcher("axb").find(),
+           ". matches an ordinary character");
+        ok(Pattern.compile("a.b", Pattern.DOTALL).matcher("a\nb").find(),
+           ". matches a newline under DOTALL");
+        // The FASTA header strip regexredux opens with, which is what noticed it.
+        ok("ACGT".equals(Pattern.compile(">.*\n|\n").matcher(">hdr\nACGT\n").replaceAll("")),
+           ">.*\\n|\\n strips headers and newlines, not the whole subject");
+
+        // CASE_INSENSITIVE.
+        ok(!Pattern.compile("abc").matcher("ABC").find(),
+           "matching is case-sensitive by default");
+        ok(Pattern.compile("abc", Pattern.CASE_INSENSITIVE).matcher("ABC").find(),
+           "CASE_INSENSITIVE matches a differently-cased literal");
+        ok(Pattern.compile("[a-c]+", Pattern.CASE_INSENSITIVE).matcher("ABC").find(),
+           "CASE_INSENSITIVE applies inside a character class");
+
+        // MULTILINE: ^ and $ match at line boundaries, not just input bounds.
+        ok(!Pattern.compile("^b").matcher("a\nb").find(),
+           "^ is anchored to the input by default");
+        ok(Pattern.compile("^b", Pattern.MULTILINE).matcher("a\nb").find(),
+           "MULTILINE lets ^ match after a line terminator");
+        ok(Pattern.compile("a$", Pattern.MULTILINE).matcher("a\nb").find(),
+           "MULTILINE lets $ match before a line terminator");
+
+        // LITERAL: the pattern is matched as text, metacharacters and all.
+        ok(Pattern.compile("a.c", Pattern.LITERAL).matcher("a.c").find(),
+           "LITERAL matches the metacharacter as itself");
+        ok(!Pattern.compile("a.c", Pattern.LITERAL).matcher("abc").find(),
+           "LITERAL does not let . match a wildcard");
     }
 
     static void ok(boolean cond, String what) {
