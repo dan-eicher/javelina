@@ -633,6 +633,8 @@ typedef struct ddcg_ctx {
 /* ─── Auxiliaries / predicates (caller supplies) ─── */
 label_t ddcg_fresh_label(ddcg_ctx_t* ctx);
 sir_node_t* ddcg_panic_unreachable(ddcg_ctx_t* ctx, const char* _arg0);
+sir_node_t* ddcg_ident_unresolved_error(ddcg_ctx_t* ctx, ast_expr_t* _arg0);
+sir_datatype_t ddcg_dt_panic(ddcg_ctx_t* ctx, const char* _arg0);
 sir_datatype_t ddcg_sema_data_type(ddcg_ctx_t* ctx, ast_expr_t* _arg0);
 sir_datatype_t ddcg_sema_data_type_or(ddcg_ctx_t* ctx, ast_expr_t* _arg0, sir_datatype_t _arg1);
 sir_datatype_t ddcg_dt_promote(ddcg_ctx_t* ctx, sir_datatype_t _arg0, sir_datatype_t _arg1);

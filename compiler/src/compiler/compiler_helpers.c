@@ -23,12 +23,40 @@ sir_node_t* ddcg_panic_unreachable(ddcg_ctx_t* ctx, const char* arg) {
     abort();
 }
 
-/* sema_data_type returns -1 when the node wasn't tagged. The default is
- * SIR_DTINT — the WASM default integer width (a node that needed a sub-int
- * width is always tagged). */
+/* panic_unreachable for the arms whose type is a datatype, not a node. */
+sir_datatype_t ddcg_dt_panic(ddcg_ctx_t* ctx, const char* arg) {
+    (void)ctx;
+    fprintf(stderr, "ycdg: dt_panic: %s\n", arg ? arg : "(null)");
+    abort();
+}
+
+/* An Ident that resolved to none of local/param, instance field or static field.
+ * Every value this could return would be invented, so it returns none: the name
+ * goes to stderr and compilation stops. */
+sir_node_t* ddcg_ident_unresolved_error(ddcg_ctx_t* ctx, ast_expr_t* expr) {
+    (void)ctx;
+    fprintf(stderr, "ycdg: unresolved identifier '%s' reached codegen\n",
+            (expr && expr->tag == AST_IDENT && expr->ident.name)
+                ? expr->ident.name : "(unknown)");
+    abort();
+}
+
+/* sema_data_type returns -1 when the node wasn't tagged. There is no width to
+ * fall back to: the callers are the binop rules, where an untagged node meant an
+ * int-typed operation over whatever the operands actually were — an f64 subtract
+ * silently becoming an i32 one. The old default was SIR_DTINT (the grammar's
+ * comment still claims SIR_DTSHORT, from the Java Card lineage where short WAS
+ * the machine word). Neither is a Java datatype for an untyped node, so this
+ * reports instead. Verified unreachable across the whole prelude and every
+ * corpus program before being made fatal. */
 sir_datatype_t ddcg_sema_data_type(ddcg_ctx_t* ctx, ast_expr_t* expr) {
     int32_t dt = sema_data_type(ctx->sema, expr);
-    return dt < 0 ? SIR_DTINT : (sir_datatype_t)dt;
+    if (dt < 0) {
+        fprintf(stderr, "ycdg: expression (ast tag %d) reached codegen untyped\n",
+                expr ? (int)expr->tag : -1);
+        abort();
+    }
+    return (sir_datatype_t)dt;
 }
 
 /* Parametric fallback variant — caller-provided when the node isn't

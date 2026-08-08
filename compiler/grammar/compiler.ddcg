@@ -139,6 +139,16 @@ AUXILIARIES
   // C implementation is __attribute__((noreturn)) and aborts.
   panic_unreachable : (string) -> ir_root
 
+  // An Ident that resolved to none of local/param, instance field or static
+  // field. Same shape as panic_unreachable — the ir_root return satisfies the
+  // dispatcher and the C body never returns — but it names the identifier,
+  // because that name is the whole diagnostic.
+  ident_unresolved_error : (ast.expr) -> ir_root
+
+  // panic_unreachable for the arms that must yield a datatype rather than a
+  // node. Also never returns; the ir.datatype result is only for the typechecker.
+  dt_panic : (string) -> ir.datatype
+
   // Sema queries — sema's data_types / ident_kinds tables are
   // pointer-keyed by AST node, so these take the matched node.
   // sema_data_type returns SIR_DTSHORT for nodes sema didn't tag;
@@ -2906,7 +2916,11 @@ rule int_lit : ast.IntLit(value: v) {
 }
 
 rule bool_lit : ast.BoolLit(value: v) {
-    cg_store(build ir.LoadConst(v ? 1 : 0, DtShort), delta, gamma, Lnext);
+    // DtByte, matching what local_var_decl gives a `boolean` local. The literal
+    // used to be DtShort while its own declared type was DtByte — two different
+    // widths for the one Java type, inherited from the Java Card lineage where
+    // short was the machine word.
+    cg_store(build ir.LoadConst(v ? 1 : 0, DtByte), delta, gamma, Lnext);
 }
 
 rule null_lit : ast.NullLit() {
@@ -3101,14 +3115,15 @@ rule ident_static_field_rule : ast.Ident() where ident_is_static_field(node) {
     ident_static_field(node, rho, delta, gamma, Lnext);
 }
 rule ident_unresolved : ast.Ident() {
-    // Class-name idents (`T` in `T.staticField` / `T.staticMethod()`)
-    // pass sema as `jt_class` but don't get an ident_kinds entry —
-    // they're namespace markers, not value references. The enclosing
-    // FieldAccess / MethodCall handles the actual lowering and only
-    // compiles the obj in effect context if sema_may_have_effects
-    // says so (and class names don't). Defensive LoadConst(0) here
-    // covers any path that does ask for a value, matching legacy.
-    cg_store(build ir.LoadConst(0, DtShort), delta, gamma, Lnext);
+    // Class-name idents (`T` in `T.staticField` / `T.staticMethod()`) pass sema
+    // as `jt_class` but get no ident_kinds entry — they're namespace markers,
+    // not value references, and the enclosing FieldAccess / MethodCall lowers
+    // them. Nothing else should arrive, and for what does there is no value to
+    // deliver: an unresolved name is a sema hole or a source error, and both
+    // want a diagnostic. This used to deliver LoadConst(0, DtShort) — a Java
+    // Card native-type default with no meaning in Java SE — which turned a
+    // reportable bug into silently wrong arithmetic.
+    ident_unresolved_error(node);
 }
 
 // JLS §14.6 — empty statement (`;`). No effect; just propagate to
@@ -3567,7 +3582,7 @@ rule throw_stmt : ast.Throw(e: e) {
 rule super_call : ast.SuperCall(method: m, args: as) {
     let parent = sema_super_parent_class_id();
     (not sema_super_method_resolved(node)) or (parent < 0)
-      ? cg_store(build ir.LoadConst(0, DtShort), delta, gamma, Lnext)
+      ? panic_unreachable("super_call: super method unresolved")
       : { let cp        = sema_method_index(node);
           let cp_safe   = cp >= 0 ? cp : 0;
           // §15.11 invokespecial targets the resolved super method's DECLARING class, which
@@ -3604,7 +3619,7 @@ rule super_call : ast.SuperCall(method: m, args: as) {
 rule constructor_call : ast.ConstructorCall(args: as) {
     let target_class = sema_ctor_call_target_class(node);
     target_class < 0
-      ? cg_store(build ir.LoadConst(0, DtShort), delta, gamma, Lnext)
+      ? panic_unreachable("constructor_call: target class unresolved")
       : { let cp        = sema_method_index(node);
           let cp_safe   = cp >= 0 ? cp : 0;
           let t_args:    list<int>         = [];
@@ -3990,7 +4005,7 @@ rule method_call : ast.MethodCall(obj: rcvr, method: m, args: as)
                      and not sema_is_simd_intrinsic(node) {
     let kind = sema_invoke_kind(node);
     kind < 0
-      ? cg_store(build ir.LoadConst(0, DtShort), delta, gamma, Lnext)
+      ? panic_unreachable("method_call: invoke kind unresolved")
       : { // The invoke carries the method's DEFINING class, not the receiver's
           // static type — `cp` (sema_method_index) is the method's index in its
           // defining class, so wasm_vtable_slot/wasm_func_index/functype must read
@@ -4092,7 +4107,7 @@ rule super_access : ast.SuperAccess(field: f) {
     let dt     = sema_super_field_dt(node);
     let cp     = sema_super_field_cp(node);
     parent < 0
-      ? cg_store(build ir.LoadConst(0, DtShort), delta, gamma, Lnext)
+      ? panic_unreachable("super_access: no parent class")
       : (sema_super_field_is_static(node)
           ? cg_deliver_effectful(build ir.GetStatic(dt, parent, cp),
                                   delta, gamma, Lnext)
@@ -4455,7 +4470,11 @@ rule local_var_decl : ast.LocalVarDecl(ty: t, decls: ds) {
       | ast.DoubleType() => DtDouble
       | ast.ClassType()  => DtRef
       | ast.ArrayType()  => DtRef
-      | _other           => DtShort
+      // Every Java 1.0 type is enumerated above. A declaration of some other
+      // type has no width to guess at — the old `DtShort` came from Java Card,
+      // where short was the machine word, and would have typed the local wrong
+      // rather than saying so.
+      | _other           => dt_panic("local_var_decl: unhandled declared type")
     };
     let last = last_init_index(ds);
     last < 0

@@ -332,6 +332,59 @@ static const sir_node_t* compile_find(const char* user_src, int tag, int opt) {
     return NULL;
 }
 
+/* The StoreLocal whose stored VALUE is rooted at `optag` — the write-back half
+ * of a compound assignment `v op= x`, told apart from the return-slot store and
+ * from the plain stores the loop scaffolding makes. */
+static const sir_node_t* find_store_of(const sir_node_t* n, int optag, int depth) {
+    if (!n || depth <= 0) return NULL;
+    if ((int)n->tag == SIR_STORELOCAL && n->store_local.value
+        && (int)n->store_local.value->tag == optag) return n;
+    for (int i = 0; i < sir_arity(n); i++) {
+        const sir_node_t* r = find_store_of(sir_child(n, i), optag, depth - 1);
+        if (r) return r;
+    }
+    for (int i = 0; i < sir_succ_count(n); i++) {   /* the spine, as find_tag walks it */
+        const sir_node_t* r = find_store_of(sir_succ(n, i), optag, depth - 1);
+        if (r) return r;
+    }
+    return NULL;
+}
+
+/* The first LoadConst carrying `dt` — used to prove a datatype the ddcg only
+ * ever produced as a fabricated sentinel does not appear. */
+static const sir_node_t* find_const_of_dt(const sir_node_t* n, int dt, int depth) {
+    if (!n || depth <= 0) return NULL;
+    if ((int)n->tag == SIR_LOADCONST && (int)n->load_const.data_type == dt) return n;
+    for (int i = 0; i < sir_arity(n); i++) {
+        const sir_node_t* r = find_const_of_dt(sir_child(n, i), dt, depth - 1);
+        if (r) return r;
+    }
+    for (int i = 0; i < sir_succ_count(n); i++) {
+        const sir_node_t* r = find_const_of_dt(sir_succ(n, i), dt, depth - 1);
+        if (r) return r;
+    }
+    return NULL;
+}
+
+/* compile_find, but for the compound-assignment write-back rooted at `optag`. */
+static const sir_node_t* compile_find_store(const char* user_src, int optag, int opt) {
+    bbq_arena* arena = sess_arena();
+    int nlib = 0;
+    ast_program_t* prog = build_program(user_src, arena, &nlib);
+    sema_ctx_t sctx; sema_init(&sctx, arena); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
+    if (!sir_analyze(&sctx)) { printf("  (note: sema reported errors)\n"); }
+    compiler_ctx_t cctx; compiler_init(&cctx, arena, &sctx);
+    int mc = 0;
+    sir_method_t** methods = compiler_compile(&cctx, prog, &mc);
+    for (int i = 0; i < mc; i++) {
+        if (methods[i]->class_id < nlib) continue;          // skip java.lang prelude
+        if (opt) sir_optimize(&cctx, i);
+        const sir_node_t* r = find_store_of(methods[i]->entry, optag, 400);
+        if (r) return r;
+    }
+    return NULL;
+}
+
 // Compile user source through the full pipeline, then bin-pack the named
 // user method's slots against the REAL sema (the path sir_optimize takes in
 // the driver). Returns the packed max_locals, or -1 if the method is absent.
@@ -2091,6 +2144,24 @@ int main(void) {
           { "class T { static final int A = 3; static final int B = A * 4 + 1;"
             "  static int f(){ return B; } }",
             "an initializer BUILT from other constant variables folds (§15.27)" },
+          /* Every case above reads a constant declared in the SAME class, and the
+           * only "built from another constant" case is int-typed. nbody's is
+           * neither: `Body.SOLAR_MASS = 4 * PI * PI` is a DOUBLE built from
+           * another double constant and read from a different class. §12.4.1 is
+           * what makes the distinction matter — a use of a constant variable is
+           * NOT an active use, so it must not trigger the declaring class's
+           * initialization; a GetStatic here reads the field's 0.0 default
+           * whenever the reader runs before that class's <clinit>. */
+          { "class D { static final double K = 0.5; }"
+            "class T { static double f(){ return D.K; } }",
+            "a CROSS-CLASS static final double use folds (§12.4.1: not an active use)" },
+          { "class D { static final double PI = 3.141592653589793;"
+            "          static final double M = 4 * PI * PI; }"
+            "class T { static double f(){ return D.M; } }",
+            "a cross-class DOUBLE built from another double constant folds (nbody's SOLAR_MASS)" },
+          { "class D { static final double DPY = 365.24; }"
+            "class T { static double f(){ return 1.66e-3 * D.DPY; } }",
+            "a cross-class double constant folds INSIDE a larger expression" },
         };
         for (int i = 0; i < (int)(sizeof cv / sizeof cv[0]); i++) {
             bbq_arena arena; bbq_arena_init(&arena, 1 << 16);
@@ -8437,6 +8508,190 @@ int main(void) {
                   "no-pair: the lone HIGH branch keeps its SIGNED compare");
         }
         sema_destroy(&sctx); bbq_arena_free(&arena);
+    }
+
+    /* ── §15.26.2 compound assignment on a FLOATING-POINT local ───────────────
+     *
+     * `E1 op= E2` is `E1 = (T)((E1) op (E2))` with T the type of E1. Every
+     * compound-assignment pin in the tree was on an integral type (long, byte,
+     * short, char) and every one of them lived in test_exec — so the e2e layer
+     * was the only thing that could ever notice a floating-point compound
+     * lowering to the wrong datatype, which is the level the README forbids
+     * discovering a defect at. These pin the lowering itself: T is the local's
+     * own type, on both halves of the read-modify-write, per operator. */
+    {
+        struct { const char* src; int optag; int dt; const char* what; } cs[] = {
+          { "class T { static double f(double e, double x){ e += x; return e; } }",
+            SIR_ADD, SIR_DTDOUBLE, "double += double" },
+          { "class T { static double f(double e, double x){ e -= x; return e; } }",
+            SIR_SUB, SIR_DTDOUBLE, "double -= double" },
+          { "class T { static double f(double e, double x){ e *= x; return e; } }",
+            SIR_MUL, SIR_DTDOUBLE, "double *= double" },
+          { "class T { static double f(double e, double x){ e /= x; return e; } }",
+            SIR_DIV, SIR_DTDOUBLE, "double /= double" },
+          { "class T { static float f(float e, float x){ e += x; return e; } }",
+            SIR_ADD, SIR_DTFLOAT,  "float += float" },
+          /* §5.6.2: the int operand widens; T is still the LHS's double. */
+          { "class T { static double f(double e, int k){ e += k; return e; } }",
+            SIR_ADD, SIR_DTDOUBLE, "double += int (binary numeric promotion)" },
+        };
+        for (int i = 0; i < (int)(sizeof cs / sizeof cs[0]); i++) {
+            char lbl[160];
+            const sir_node_t* st = compile_find_store(cs[i].src, cs[i].optag, 0);
+            snprintf(lbl, sizeof lbl, "%s: write-back store exists", cs[i].what);
+            CHECK_CASE(lbl, st != NULL);
+            if (!st) continue;
+            /* §sema_param_slot: a static method's first parameter is slot 0, so
+             * the write-back lands back in the LHS itself — the §15.7.1 spill
+             * temps the operands read from are slots past the user's. */
+            snprintf(lbl, sizeof lbl, "%s: writes back to the LHS's own slot", cs[i].what);
+            CHECK_CASE(lbl, st->store_local.slot == 0);
+            snprintf(lbl, sizeof lbl, "%s: store carries the LHS's datatype", cs[i].what);
+            CHECK_CASE(lbl, (int)st->store_local.data_type == cs[i].dt);
+            const sir_node_t* lhs = sir_child((sir_node_t*)st->store_local.value, 0);
+            snprintf(lbl, sizeof lbl, "%s: read half loads at that datatype", cs[i].what);
+            CHECK_CASE(lbl, lhs && (int)lhs->tag == SIR_LOADLOCAL
+                                && (int)lhs->load_local.data_type == cs[i].dt);
+        }
+    }
+
+    /* The nbody `energy()` shape at this level: ONE double accumulator that a
+     * compound assignment writes at TWO different loop-nesting depths. Each
+     * write-back is its own lowering; the outer `+=` must not take the datatype
+     * of the inner `-=` (or vice versa) just because they share a slot. */
+    {
+        static const char* SRC =
+          "class T { static double f(double[] a){"
+          "  double e = 0;"
+          "  for (int i=0;i<a.length;++i){"
+          "    e += a[i];"
+          "    for (int j=i+1;j<a.length;++j) e -= a[j];"
+          "  } return e; } }";
+        const sir_node_t* add = compile_find_store(SRC, SIR_ADD, 0);
+        const sir_node_t* sub = compile_find_store(SRC, SIR_SUB, 0);
+        CHECK(add && (int)add->store_local.data_type == SIR_DTDOUBLE,
+              "nested loops: the OUTER `e += ...` writes back as a double");
+        CHECK(sub && (int)sub->store_local.data_type == SIR_DTDOUBLE,
+              "nested loops: the INNER `e -= ...` writes back as a double");
+        CHECK(add && sub && add->store_local.slot == sub->store_local.slot,
+              "nested loops: both write-backs name the one accumulator slot");
+    }
+
+    /* ── §20.11: the four direct-opcode Math intrinsics ───────────────────────
+     *
+     * Math.sqrt had thirteen uses in the tree and every one of them was in
+     * test_exec — nothing below the e2e layer pinned that the call REACHES the
+     * intrinsic node rather than falling back to a host import (or to the wrong
+     * intrinsic: sema_math_intrinsic_kind hands back 1..4 and a swap between
+     * them is invisible until a program prints a number). */
+    {
+        struct { const char* src; int tag; const char* what; } ms[] = {
+          { "class T { static double f(double d){ return Math.sqrt(d); } }",
+            SIR_F64SQRT,    "Math.sqrt  -> F64Sqrt" },
+          { "class T { static double f(double d){ return Math.floor(d); } }",
+            SIR_F64FLOOR,   "Math.floor -> F64Floor" },
+          { "class T { static double f(double d){ return Math.ceil(d); } }",
+            SIR_F64CEIL,    "Math.ceil  -> F64Ceil" },
+          { "class T { static double f(double d){ return Math.rint(d); } }",
+            SIR_F64NEAREST, "Math.rint  -> F64Nearest" },
+        };
+        for (int i = 0; i < (int)(sizeof ms / sizeof ms[0]); i++) {
+            char lbl[160];
+            const sir_node_t* n = compile_find(ms[i].src, ms[i].tag, 0);
+            snprintf(lbl, sizeof lbl, "%s", ms[i].what);
+            CHECK_CASE(lbl, n != NULL);
+            snprintf(lbl, sizeof lbl, "%s: operand is the argument", ms[i].what);
+            CHECK_CASE(lbl, n && sir_arity((sir_node_t*)n) == 1
+                              && sir_child((sir_node_t*)n, 0) != NULL);
+        }
+        /* Each intrinsic is DISTINCT: sqrt must not also produce a floor node. */
+        CHECK(compile_find("class T { static double f(double d){ return Math.sqrt(d); } }",
+                           SIR_F64FLOOR, 0) == NULL,
+              "§20.11: Math.sqrt lowers to F64Sqrt ONLY (no sibling intrinsic)");
+    }
+
+    /* ── §15.15 unary minus carries the OPERAND's type, never a default int ───
+     *
+     * `unary_op` types the whole operation with `sema_data_type_or(inner, DtInt)`
+     * — a lookup miss silently becomes int, and an i32 negate applied to a
+     * double is a valid module computing garbage. Nothing below test_exec pinned
+     * unary minus on a floating-point operand at all, so the int default had no
+     * test that could catch it. nbody is written in negative double literals
+     * (`-2.76742510726862411e-03`), which is the shape below. */
+    {
+        struct { const char* src; int dt; const char* what; } ns[] = {
+          { "class T { static double f(double d){ return -d; } }",
+            SIR_DTDOUBLE, "-double local" },
+          { "class T { static float f(float d){ return -d; } }",
+            SIR_DTFLOAT,  "-float local" },
+          { "class T { static long f(long d){ return -d; } }",
+            SIR_DTLONG,   "-long local" },
+          { "class T { static int f(int d){ return -d; } }",
+            SIR_DTINT,    "-int local" },
+          /* nbody's own shape: a negated double literal scaled by a constant. */
+          { "class T { static double f(double d){ return -2.76742510726862411e-03 * d; } }",
+            SIR_DTDOUBLE, "negated double LITERAL in a product" },
+        };
+        for (int i = 0; i < (int)(sizeof ns / sizeof ns[0]); i++) {
+            char lbl[160];
+            const sir_node_t* n = compile_find(ns[i].src, SIR_NEG, 0);
+            /* A negated literal may fold outright — that is correct too, but it
+             * must NOT survive as an int-typed Neg over a wider operand. */
+            snprintf(lbl, sizeof lbl, "%s: Neg carries the operand's datatype", ns[i].what);
+            CHECK_CASE(lbl, n == NULL || (int)n->neg.data_type == ns[i].dt);
+        }
+    }
+
+    /* ── No Java Card sentinel survives in code that declares no `short` ──────
+     *
+     * The ddcg used to answer six different "I could not resolve this" cases
+     * with `LoadConst(0, DtShort)` — an unresolved ident, an unresolved super
+     * call, an unresolved constructor call, an unresolved method call, a super
+     * field access with no parent, and a local declared at an unhandled type.
+     * `short` is Java Card's machine word; in Java SE none of those means "the
+     * short constant 0", and delivering one turned a reportable compiler bug
+     * into silently wrong arithmetic. A boolean LITERAL was DtShort too, while
+     * a boolean LOCAL was DtByte — one Java type carrying two widths.
+     *
+     * `short` is still a Java type, so `LoadConst(_, DtShort)` is legitimate for
+     * a program that HAS shorts; these fixtures deliberately declare none, which
+     * makes any surviving DtShort constant a fabricated one. */
+    {
+        static const char* srcs[] = {
+          "class T { static boolean f(){ return true; } }",
+          "class T { static boolean f(){ boolean b = false; return !b; } }",
+          "class B { int v; B(){ v = 7; } }"
+          "class D extends B { D(){ super(); } int g(){ return v; } }"
+          "class T { static int f(){ return new D().g(); } }",
+          "class B { int v = 3; int m(){ return v; } }"
+          "class D extends B { int m(){ return super.m() + 1; } }"
+          "class T { static int f(){ return new D().m(); } }",
+          "class B { int v = 4; }"
+          "class D extends B { int g(){ return super.v; } }"
+          "class T { static int f(){ return new D().g(); } }",
+          "class C { C(){ this(5); } C(int k){ n = k; } int n; } class T { static int f(){ return new C().n; } }",
+          "class T { static boolean f(Object o){ return o instanceof String; } }",
+          "class T { static double f(double e, double x){ e += x; return e; } }",
+        };
+        for (int i = 0; i < (int)(sizeof srcs / sizeof srcs[0]); i++) {
+            char lbl[96];
+            snprintf(lbl, sizeof lbl, "fixture %d: no fabricated DtShort constant", i);
+            const sir_node_t* bad = NULL;
+            bbq_arena* arena = sess_arena();
+            int nlib = 0;
+            ast_program_t* prog = build_program(srcs[i], arena, &nlib);
+            sema_ctx_t sctx; sema_init(&sctx, arena);
+            sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
+            sir_analyze(&sctx);
+            compiler_ctx_t cctx; compiler_init(&cctx, arena, &sctx);
+            int mc = 0;
+            sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
+            for (int k = 0; k < mc && !bad; k++) {
+                if (ms[k]->class_id < nlib) continue;      /* user classes only */
+                bad = find_const_of_dt(ms[k]->entry, SIR_DTSHORT, 400);
+            }
+            CHECK_CASE(lbl, bad == NULL);
+        }
     }
 
     return TEST_SUMMARY("test_sir");
