@@ -1,5 +1,5 @@
-#ifndef BBQ_GENERATED_TYPES_H
-#define BBQ_GENERATED_TYPES_H
+#ifndef JAV_TYPES_H
+#define JAV_TYPES_H
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -1109,4 +1109,4 @@ static inline void jav_rec_type_free(jav_rec_type_t* p) {
 
 #include "jav_utf8.h"
 
-#endif /* BBQ_GENERATED_TYPES_H */
+#endif /* JAV_TYPES_H */

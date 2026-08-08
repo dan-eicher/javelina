@@ -227,5 +227,11 @@ extern const unsigned char opcode_cp_ref_offset[256];
 /* Stack cells popped by an opcode (sum of stack_in widths).
  * OPCD_VARIABLE for per-call-site opcodes (invokes/dup_x/switch). */
 extern const signed char   opcode_stack_pops[256];
+/* The narrower encoding of a wide-form opcode, 0 when there is none.
+ * A peephole substitutes it once the operand is known to fit. */
+extern const unsigned char opcode_narrow_form[256];
+/* The local slot a shorthand opcode implies, -1 when the index is an
+ * operand instead of being baked into the mnemonic. */
+extern const signed char   opcode_local_index[256];
 
 #endif /* OPGEN_GEN_OPCODES_H */

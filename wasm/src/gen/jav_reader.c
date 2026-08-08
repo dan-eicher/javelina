@@ -1360,7 +1360,7 @@ bool jav_module_read(bbq_ctx_t* ctx, jav_module_t* out) {
 }
 static bool jav_heap_type_k1(bbq_ctx_t* ctx, jav_heap_type_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_sleb128_i64(ctx, &out->x)) return bbq_fail(ctx, "x: read failed");
+    if (!bbq_read_sleb128_i64(ctx, &out->x)) return bbq_fail(ctx, "HeapType.x: read failed");
     BBQ_MUSTTAIL return jav_heap_type_k0(ctx, out, _struct_start);
 }
 static bool jav_heap_type_k0(bbq_ctx_t* ctx, jav_heap_type_t* out, size_t _struct_start) {
@@ -1369,12 +1369,12 @@ static bool jav_heap_type_k0(bbq_ctx_t* ctx, jav_heap_type_t* out, size_t _struc
 }
 static bool jav_val_type_k1(bbq_ctx_t* ctx, jav_val_type_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_u8(ctx, &out->head)) return bbq_fail(ctx, "head: read failed");
+    if (!bbq_read_u8(ctx, &out->head)) return bbq_fail(ctx, "ValType.head: read failed");
     BBQ_MUSTTAIL return jav_val_type_k0(ctx, out, _struct_start);
 }
 static bool jav_val_type_k0(bbq_ctx_t* ctx, jav_val_type_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!((((((out->head >= 123) && (out->head <= 127)) || (out->head == 99)) || (out->head == 100)) || ((out->head >= 105) && (out->head <= 116))))) return bbq_fail(ctx, "constraint failed");
+    if (!((((((out->head >= 123) && (out->head <= 127)) || (out->head == 99)) || (out->head == 100)) || ((out->head >= 105) && (out->head <= 116))))) return bbq_fail(ctx, "ValType.constraint failed");
     BBQ_MUSTTAIL return jav_val_type_k3(ctx, out, _struct_start);
 }
 static bool jav_val_type_k3(bbq_ctx_t* ctx, jav_val_type_t* out, size_t _struct_start) {
@@ -1386,7 +1386,7 @@ static bool jav_val_type_k3(bbq_ctx_t* ctx, jav_val_type_t* out, size_t _struct_
 static bool jav_val_type_k7(bbq_ctx_t* ctx, jav_val_type_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_heap_type_read(ctx, &out->ht.value)) return bbq_fail(ctx, "HeapType failed");
+    if (!jav_heap_type_read(ctx, &out->ht.value)) return bbq_fail(ctx, "ValType.ht.value: HeapType failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_val_type_k6(ctx, out, _struct_start);
 }
@@ -1396,12 +1396,12 @@ static bool jav_val_type_k6(bbq_ctx_t* ctx, jav_val_type_t* out, size_t _struct_
 }
 static bool jav_storage_type_k1(bbq_ctx_t* ctx, jav_storage_type_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_u8(ctx, &out->head)) return bbq_fail(ctx, "head: read failed");
+    if (!bbq_read_u8(ctx, &out->head)) return bbq_fail(ctx, "StorageType.head: read failed");
     BBQ_MUSTTAIL return jav_storage_type_k0(ctx, out, _struct_start);
 }
 static bool jav_storage_type_k0(bbq_ctx_t* ctx, jav_storage_type_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!((((((((out->head >= 123) && (out->head <= 127)) || (out->head == 99)) || (out->head == 100)) || ((out->head >= 105) && (out->head <= 116))) || (out->head == 119)) || (out->head == 120)))) return bbq_fail(ctx, "constraint failed");
+    if (!((((((((out->head >= 123) && (out->head <= 127)) || (out->head == 99)) || (out->head == 100)) || ((out->head >= 105) && (out->head <= 116))) || (out->head == 119)) || (out->head == 120)))) return bbq_fail(ctx, "StorageType.constraint failed");
     BBQ_MUSTTAIL return jav_storage_type_k3(ctx, out, _struct_start);
 }
 static bool jav_storage_type_k3(bbq_ctx_t* ctx, jav_storage_type_t* out, size_t _struct_start) {
@@ -1413,7 +1413,7 @@ static bool jav_storage_type_k3(bbq_ctx_t* ctx, jav_storage_type_t* out, size_t 
 static bool jav_storage_type_k7(bbq_ctx_t* ctx, jav_storage_type_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_heap_type_read(ctx, &out->ht.value)) return bbq_fail(ctx, "HeapType failed");
+    if (!jav_heap_type_read(ctx, &out->ht.value)) return bbq_fail(ctx, "StorageType.ht.value: HeapType failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_storage_type_k6(ctx, out, _struct_start);
 }
@@ -1424,18 +1424,18 @@ static bool jav_storage_type_k6(bbq_ctx_t* ctx, jav_storage_type_t* out, size_t 
 static bool jav_field_type_k0(bbq_ctx_t* ctx, jav_field_type_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_storage_type_read(ctx, &out->storage)) return bbq_fail(ctx, "StorageType failed");
+    if (!jav_storage_type_read(ctx, &out->storage)) return bbq_fail(ctx, "FieldType.storage: StorageType failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_field_type_k3(ctx, out, _struct_start);
 }
 static bool jav_field_type_k3(bbq_ctx_t* ctx, jav_field_type_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_u8(ctx, &out->mut)) return bbq_fail(ctx, "mut: read failed");
+    if (!bbq_read_u8(ctx, &out->mut)) return bbq_fail(ctx, "FieldType.mut: read failed");
     BBQ_MUSTTAIL return jav_field_type_k4(ctx, out, _struct_start);
 }
 static bool jav_field_type_k4(bbq_ctx_t* ctx, jav_field_type_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!((out->mut <= 1))) return bbq_fail(ctx, "constraint failed");
+    if (!((out->mut <= 1))) return bbq_fail(ctx, "FieldType.constraint failed");
     BBQ_MUSTTAIL return jav_field_type_k6(ctx, out, _struct_start);
 }
 static bool jav_field_type_k6(bbq_ctx_t* ctx, jav_field_type_t* out, size_t _struct_start) {
@@ -1445,7 +1445,7 @@ static bool jav_field_type_k6(bbq_ctx_t* ctx, jav_field_type_t* out, size_t _str
 static bool jav_array_type_k0(bbq_ctx_t* ctx, jav_array_type_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_field_type_read(ctx, &out->field)) return bbq_fail(ctx, "FieldType failed");
+    if (!jav_field_type_read(ctx, &out->field)) return bbq_fail(ctx, "ArrayType.field: FieldType failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_array_type_k3(ctx, out, _struct_start);
 }
@@ -1455,7 +1455,7 @@ static bool jav_array_type_k3(bbq_ctx_t* ctx, jav_array_type_t* out, size_t _str
 }
 static bool jav_struct_type_k1(bbq_ctx_t* ctx, jav_struct_type_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_uleb128_u32(ctx, &out->field_count)) return bbq_fail(ctx, "field_count: read failed");
+    if (!bbq_read_uleb128_u32(ctx, &out->field_count)) return bbq_fail(ctx, "StructType.field_count: read failed");
     BBQ_MUSTTAIL return jav_struct_type_k0(ctx, out, _struct_start);
 }
 static bool jav_struct_type_k0(bbq_ctx_t* ctx, jav_struct_type_t* out, size_t _struct_start) {
@@ -1463,7 +1463,7 @@ static bool jav_struct_type_k0(bbq_ctx_t* ctx, jav_struct_type_t* out, size_t _s
     { size_t _n = (size_t)(out->field_count);
       out->fields.count = _n;
       out->fields.items = calloc(_n ? _n : 1, sizeof(*out->fields.items));
-      if (!out->fields.items) return bbq_fail(ctx, "fields: alloc failed");
+      if (!out->fields.items) return bbq_fail(ctx, "StructType.fields: alloc failed");
       if (_n == 0) { BBQ_MUSTTAIL return jav_struct_type_k8(ctx, out, _struct_start); }
       bbq_push_loop_n(ctx, (int64_t)_n); }
     BBQ_MUSTTAIL return jav_struct_type_k5(ctx, out, _struct_start);
@@ -1471,7 +1471,7 @@ static bool jav_struct_type_k0(bbq_ctx_t* ctx, jav_struct_type_t* out, size_t _s
 static bool jav_struct_type_k5(bbq_ctx_t* ctx, jav_struct_type_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_field_type_read(ctx, &out->fields.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)])) return bbq_fail(ctx, "FieldType failed");
+    if (!jav_field_type_read(ctx, &out->fields.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)])) return bbq_fail(ctx, "StructType.fields.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)]: FieldType failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_struct_type_k7(ctx, out, _struct_start);
 }
@@ -1487,7 +1487,7 @@ static bool jav_struct_type_k8(bbq_ctx_t* ctx, jav_struct_type_t* out, size_t _s
 }
 static bool jav_func_type_k1(bbq_ctx_t* ctx, jav_func_type_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_uleb128_u32(ctx, &out->param_count)) return bbq_fail(ctx, "param_count: read failed");
+    if (!bbq_read_uleb128_u32(ctx, &out->param_count)) return bbq_fail(ctx, "FuncType.param_count: read failed");
     BBQ_MUSTTAIL return jav_func_type_k0(ctx, out, _struct_start);
 }
 static bool jav_func_type_k0(bbq_ctx_t* ctx, jav_func_type_t* out, size_t _struct_start) {
@@ -1495,7 +1495,7 @@ static bool jav_func_type_k0(bbq_ctx_t* ctx, jav_func_type_t* out, size_t _struc
     { size_t _n = (size_t)(out->param_count);
       out->params.count = _n;
       out->params.items = calloc(_n ? _n : 1, sizeof(*out->params.items));
-      if (!out->params.items) return bbq_fail(ctx, "params: alloc failed");
+      if (!out->params.items) return bbq_fail(ctx, "FuncType.params: alloc failed");
       if (_n == 0) { BBQ_MUSTTAIL return jav_func_type_k8(ctx, out, _struct_start); }
       bbq_push_loop_n(ctx, (int64_t)_n); }
     BBQ_MUSTTAIL return jav_func_type_k5(ctx, out, _struct_start);
@@ -1503,7 +1503,7 @@ static bool jav_func_type_k0(bbq_ctx_t* ctx, jav_func_type_t* out, size_t _struc
 static bool jav_func_type_k5(bbq_ctx_t* ctx, jav_func_type_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_val_type_read(ctx, &out->params.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)])) return bbq_fail(ctx, "ValType failed");
+    if (!jav_val_type_read(ctx, &out->params.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)])) return bbq_fail(ctx, "FuncType.params.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)]: ValType failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_func_type_k7(ctx, out, _struct_start);
 }
@@ -1515,7 +1515,7 @@ static bool jav_func_type_k7(bbq_ctx_t* ctx, jav_func_type_t* out, size_t _struc
 }
 static bool jav_func_type_k8(bbq_ctx_t* ctx, jav_func_type_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_uleb128_u32(ctx, &out->result_count)) return bbq_fail(ctx, "result_count: read failed");
+    if (!bbq_read_uleb128_u32(ctx, &out->result_count)) return bbq_fail(ctx, "FuncType.result_count: read failed");
     BBQ_MUSTTAIL return jav_func_type_k9(ctx, out, _struct_start);
 }
 static bool jav_func_type_k9(bbq_ctx_t* ctx, jav_func_type_t* out, size_t _struct_start) {
@@ -1523,7 +1523,7 @@ static bool jav_func_type_k9(bbq_ctx_t* ctx, jav_func_type_t* out, size_t _struc
     { size_t _n = (size_t)(out->result_count);
       out->results.count = _n;
       out->results.items = calloc(_n ? _n : 1, sizeof(*out->results.items));
-      if (!out->results.items) return bbq_fail(ctx, "results: alloc failed");
+      if (!out->results.items) return bbq_fail(ctx, "FuncType.results: alloc failed");
       if (_n == 0) { BBQ_MUSTTAIL return jav_func_type_k16(ctx, out, _struct_start); }
       bbq_push_loop_n(ctx, (int64_t)_n); }
     BBQ_MUSTTAIL return jav_func_type_k13(ctx, out, _struct_start);
@@ -1531,7 +1531,7 @@ static bool jav_func_type_k9(bbq_ctx_t* ctx, jav_func_type_t* out, size_t _struc
 static bool jav_func_type_k13(bbq_ctx_t* ctx, jav_func_type_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_val_type_read(ctx, &out->results.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)])) return bbq_fail(ctx, "ValType failed");
+    if (!jav_val_type_read(ctx, &out->results.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)])) return bbq_fail(ctx, "FuncType.results.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)]: ValType failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_func_type_k15(ctx, out, _struct_start);
 }
@@ -1547,7 +1547,7 @@ static bool jav_func_type_k16(bbq_ctx_t* ctx, jav_func_type_t* out, size_t _stru
 }
 static bool jav_comp_type_k1(bbq_ctx_t* ctx, jav_comp_type_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_u8(ctx, &out->head)) return bbq_fail(ctx, "head: read failed");
+    if (!bbq_read_u8(ctx, &out->head)) return bbq_fail(ctx, "CompType.head: read failed");
     BBQ_MUSTTAIL return jav_comp_type_k0(ctx, out, _struct_start);
 }
 static bool jav_comp_type_k0(bbq_ctx_t* ctx, jav_comp_type_t* out, size_t _struct_start) {
@@ -1566,21 +1566,21 @@ static bool jav_comp_type_k0(bbq_ctx_t* ctx, jav_comp_type_t* out, size_t _struc
 static bool jav_comp_type_k6(bbq_ctx_t* ctx, jav_comp_type_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_func_type_read(ctx, &out->body.u.case_2)) return bbq_fail(ctx, "FuncType failed");
+    if (!jav_func_type_read(ctx, &out->body.u.case_2)) return bbq_fail(ctx, "CompType.body.u.case_2: FuncType failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_comp_type_k8(ctx, out, _struct_start);
 }
 static bool jav_comp_type_k9(bbq_ctx_t* ctx, jav_comp_type_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_struct_type_read(ctx, &out->body.u.case_1)) return bbq_fail(ctx, "StructType failed");
+    if (!jav_struct_type_read(ctx, &out->body.u.case_1)) return bbq_fail(ctx, "CompType.body.u.case_1: StructType failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_comp_type_k8(ctx, out, _struct_start);
 }
 static bool jav_comp_type_k11(bbq_ctx_t* ctx, jav_comp_type_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_array_type_read(ctx, &out->body.u.case_0)) return bbq_fail(ctx, "ArrayType failed");
+    if (!jav_array_type_read(ctx, &out->body.u.case_0)) return bbq_fail(ctx, "CompType.body.u.case_0: ArrayType failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_comp_type_k8(ctx, out, _struct_start);
 }
@@ -1590,7 +1590,7 @@ static bool jav_comp_type_k8(bbq_ctx_t* ctx, jav_comp_type_t* out, size_t _struc
 }
 static bool jav_sub_type_k1(bbq_ctx_t* ctx, jav_sub_type_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_uleb128_u32(ctx, &out->super_count)) return bbq_fail(ctx, "super_count: read failed");
+    if (!bbq_read_uleb128_u32(ctx, &out->super_count)) return bbq_fail(ctx, "SubType.super_count: read failed");
     BBQ_MUSTTAIL return jav_sub_type_k0(ctx, out, _struct_start);
 }
 static bool jav_sub_type_k0(bbq_ctx_t* ctx, jav_sub_type_t* out, size_t _struct_start) {
@@ -1598,14 +1598,14 @@ static bool jav_sub_type_k0(bbq_ctx_t* ctx, jav_sub_type_t* out, size_t _struct_
     { size_t _n = (size_t)(out->super_count);
       out->supers.count = _n;
       out->supers.items = calloc(_n ? _n : 1, sizeof(*out->supers.items));
-      if (!out->supers.items) return bbq_fail(ctx, "supers: alloc failed");
+      if (!out->supers.items) return bbq_fail(ctx, "SubType.supers: alloc failed");
       if (_n == 0) { BBQ_MUSTTAIL return jav_sub_type_k8(ctx, out, _struct_start); }
       bbq_push_loop_n(ctx, (int64_t)_n); }
     BBQ_MUSTTAIL return jav_sub_type_k3(ctx, out, _struct_start);
 }
 static bool jav_sub_type_k3(bbq_ctx_t* ctx, jav_sub_type_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_uleb128_u32(ctx, &out->supers.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)])) return bbq_fail(ctx, ": read failed");
+    if (!bbq_read_uleb128_u32(ctx, &out->supers.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)])) return bbq_fail(ctx, "SubType.supers.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)]: read failed");
     BBQ_MUSTTAIL return jav_sub_type_k5(ctx, out, _struct_start);
 }
 static bool jav_sub_type_k5(bbq_ctx_t* ctx, jav_sub_type_t* out, size_t _struct_start) {
@@ -1617,7 +1617,7 @@ static bool jav_sub_type_k5(bbq_ctx_t* ctx, jav_sub_type_t* out, size_t _struct_
 static bool jav_sub_type_k8(bbq_ctx_t* ctx, jav_sub_type_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_comp_type_read(ctx, &out->body)) return bbq_fail(ctx, "CompType failed");
+    if (!jav_comp_type_read(ctx, &out->body)) return bbq_fail(ctx, "SubType.body: CompType failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_sub_type_k10(ctx, out, _struct_start);
 }
@@ -1627,7 +1627,7 @@ static bool jav_sub_type_k10(bbq_ctx_t* ctx, jav_sub_type_t* out, size_t _struct
 }
 static bool jav_rec_member_k1(bbq_ctx_t* ctx, jav_rec_member_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_u8(ctx, &out->head)) return bbq_fail(ctx, "head: read failed");
+    if (!bbq_read_u8(ctx, &out->head)) return bbq_fail(ctx, "RecMember.head: read failed");
     BBQ_MUSTTAIL return jav_rec_member_k0(ctx, out, _struct_start);
 }
 static bool jav_rec_member_k0(bbq_ctx_t* ctx, jav_rec_member_t* out, size_t _struct_start) {
@@ -1650,35 +1650,35 @@ static bool jav_rec_member_k0(bbq_ctx_t* ctx, jav_rec_member_t* out, size_t _str
 static bool jav_rec_member_k8(bbq_ctx_t* ctx, jav_rec_member_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_func_type_read(ctx, &out->body.u.case_4)) return bbq_fail(ctx, "FuncType failed");
+    if (!jav_func_type_read(ctx, &out->body.u.case_4)) return bbq_fail(ctx, "RecMember.body.u.case_4: FuncType failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_rec_member_k10(ctx, out, _struct_start);
 }
 static bool jav_rec_member_k11(bbq_ctx_t* ctx, jav_rec_member_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_struct_type_read(ctx, &out->body.u.case_3)) return bbq_fail(ctx, "StructType failed");
+    if (!jav_struct_type_read(ctx, &out->body.u.case_3)) return bbq_fail(ctx, "RecMember.body.u.case_3: StructType failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_rec_member_k10(ctx, out, _struct_start);
 }
 static bool jav_rec_member_k13(bbq_ctx_t* ctx, jav_rec_member_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_array_type_read(ctx, &out->body.u.case_2)) return bbq_fail(ctx, "ArrayType failed");
+    if (!jav_array_type_read(ctx, &out->body.u.case_2)) return bbq_fail(ctx, "RecMember.body.u.case_2: ArrayType failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_rec_member_k10(ctx, out, _struct_start);
 }
 static bool jav_rec_member_k15(bbq_ctx_t* ctx, jav_rec_member_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_sub_type_read(ctx, &out->body.u.case_1)) return bbq_fail(ctx, "SubType failed");
+    if (!jav_sub_type_read(ctx, &out->body.u.case_1)) return bbq_fail(ctx, "RecMember.body.u.case_1: SubType failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_rec_member_k10(ctx, out, _struct_start);
 }
 static bool jav_rec_member_k17(bbq_ctx_t* ctx, jav_rec_member_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_sub_type_read(ctx, &out->body.u.case_0)) return bbq_fail(ctx, "SubType failed");
+    if (!jav_sub_type_read(ctx, &out->body.u.case_0)) return bbq_fail(ctx, "RecMember.body.u.case_0: SubType failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_rec_member_k10(ctx, out, _struct_start);
 }
@@ -1688,7 +1688,7 @@ static bool jav_rec_member_k10(bbq_ctx_t* ctx, jav_rec_member_t* out, size_t _st
 }
 static bool jav_rec_group_k1(bbq_ctx_t* ctx, jav_rec_group_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_uleb128_u32(ctx, &out->count)) return bbq_fail(ctx, "count: read failed");
+    if (!bbq_read_uleb128_u32(ctx, &out->count)) return bbq_fail(ctx, "RecGroup.count: read failed");
     BBQ_MUSTTAIL return jav_rec_group_k0(ctx, out, _struct_start);
 }
 static bool jav_rec_group_k0(bbq_ctx_t* ctx, jav_rec_group_t* out, size_t _struct_start) {
@@ -1696,7 +1696,7 @@ static bool jav_rec_group_k0(bbq_ctx_t* ctx, jav_rec_group_t* out, size_t _struc
     { size_t _n = (size_t)(out->count);
       out->members.count = _n;
       out->members.items = calloc(_n ? _n : 1, sizeof(*out->members.items));
-      if (!out->members.items) return bbq_fail(ctx, "members: alloc failed");
+      if (!out->members.items) return bbq_fail(ctx, "RecGroup.members: alloc failed");
       if (_n == 0) { BBQ_MUSTTAIL return jav_rec_group_k8(ctx, out, _struct_start); }
       bbq_push_loop_n(ctx, (int64_t)_n); }
     BBQ_MUSTTAIL return jav_rec_group_k5(ctx, out, _struct_start);
@@ -1704,7 +1704,7 @@ static bool jav_rec_group_k0(bbq_ctx_t* ctx, jav_rec_group_t* out, size_t _struc
 static bool jav_rec_group_k5(bbq_ctx_t* ctx, jav_rec_group_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_rec_member_read(ctx, &out->members.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)])) return bbq_fail(ctx, "RecMember failed");
+    if (!jav_rec_member_read(ctx, &out->members.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)])) return bbq_fail(ctx, "RecGroup.members.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)]: RecMember failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_rec_group_k7(ctx, out, _struct_start);
 }
@@ -1720,7 +1720,7 @@ static bool jav_rec_group_k8(bbq_ctx_t* ctx, jav_rec_group_t* out, size_t _struc
 }
 static bool jav_rec_type_k1(bbq_ctx_t* ctx, jav_rec_type_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_u8(ctx, &out->head)) return bbq_fail(ctx, "head: read failed");
+    if (!bbq_read_u8(ctx, &out->head)) return bbq_fail(ctx, "RecType.head: read failed");
     BBQ_MUSTTAIL return jav_rec_type_k0(ctx, out, _struct_start);
 }
 static bool jav_rec_type_k0(bbq_ctx_t* ctx, jav_rec_type_t* out, size_t _struct_start) {
@@ -1745,42 +1745,42 @@ static bool jav_rec_type_k0(bbq_ctx_t* ctx, jav_rec_type_t* out, size_t _struct_
 static bool jav_rec_type_k9(bbq_ctx_t* ctx, jav_rec_type_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_func_type_read(ctx, &out->body.u.case_5)) return bbq_fail(ctx, "FuncType failed");
+    if (!jav_func_type_read(ctx, &out->body.u.case_5)) return bbq_fail(ctx, "RecType.body.u.case_5: FuncType failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_rec_type_k11(ctx, out, _struct_start);
 }
 static bool jav_rec_type_k12(bbq_ctx_t* ctx, jav_rec_type_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_struct_type_read(ctx, &out->body.u.case_4)) return bbq_fail(ctx, "StructType failed");
+    if (!jav_struct_type_read(ctx, &out->body.u.case_4)) return bbq_fail(ctx, "RecType.body.u.case_4: StructType failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_rec_type_k11(ctx, out, _struct_start);
 }
 static bool jav_rec_type_k14(bbq_ctx_t* ctx, jav_rec_type_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_array_type_read(ctx, &out->body.u.case_3)) return bbq_fail(ctx, "ArrayType failed");
+    if (!jav_array_type_read(ctx, &out->body.u.case_3)) return bbq_fail(ctx, "RecType.body.u.case_3: ArrayType failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_rec_type_k11(ctx, out, _struct_start);
 }
 static bool jav_rec_type_k16(bbq_ctx_t* ctx, jav_rec_type_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_sub_type_read(ctx, &out->body.u.case_2)) return bbq_fail(ctx, "SubType failed");
+    if (!jav_sub_type_read(ctx, &out->body.u.case_2)) return bbq_fail(ctx, "RecType.body.u.case_2: SubType failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_rec_type_k11(ctx, out, _struct_start);
 }
 static bool jav_rec_type_k18(bbq_ctx_t* ctx, jav_rec_type_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_sub_type_read(ctx, &out->body.u.case_1)) return bbq_fail(ctx, "SubType failed");
+    if (!jav_sub_type_read(ctx, &out->body.u.case_1)) return bbq_fail(ctx, "RecType.body.u.case_1: SubType failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_rec_type_k11(ctx, out, _struct_start);
 }
 static bool jav_rec_type_k20(bbq_ctx_t* ctx, jav_rec_type_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_rec_group_read(ctx, &out->body.u.case_0)) return bbq_fail(ctx, "RecGroup failed");
+    if (!jav_rec_group_read(ctx, &out->body.u.case_0)) return bbq_fail(ctx, "RecType.body.u.case_0: RecGroup failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_rec_type_k11(ctx, out, _struct_start);
 }
@@ -1790,7 +1790,7 @@ static bool jav_rec_type_k11(bbq_ctx_t* ctx, jav_rec_type_t* out, size_t _struct
 }
 static bool jav_type_section_k1(bbq_ctx_t* ctx, jav_type_section_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_uleb128_u32(ctx, &out->count)) return bbq_fail(ctx, "count: read failed");
+    if (!bbq_read_uleb128_u32(ctx, &out->count)) return bbq_fail(ctx, "TypeSection.count: read failed");
     BBQ_MUSTTAIL return jav_type_section_k0(ctx, out, _struct_start);
 }
 static bool jav_type_section_k0(bbq_ctx_t* ctx, jav_type_section_t* out, size_t _struct_start) {
@@ -1798,7 +1798,7 @@ static bool jav_type_section_k0(bbq_ctx_t* ctx, jav_type_section_t* out, size_t 
     { size_t _n = (size_t)(out->count);
       out->types.count = _n;
       out->types.items = calloc(_n ? _n : 1, sizeof(*out->types.items));
-      if (!out->types.items) return bbq_fail(ctx, "types: alloc failed");
+      if (!out->types.items) return bbq_fail(ctx, "TypeSection.types: alloc failed");
       if (_n == 0) { BBQ_MUSTTAIL return jav_type_section_k8(ctx, out, _struct_start); }
       bbq_push_loop_n(ctx, (int64_t)_n); }
     BBQ_MUSTTAIL return jav_type_section_k5(ctx, out, _struct_start);
@@ -1806,7 +1806,7 @@ static bool jav_type_section_k0(bbq_ctx_t* ctx, jav_type_section_t* out, size_t 
 static bool jav_type_section_k5(bbq_ctx_t* ctx, jav_type_section_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_rec_type_read(ctx, &out->types.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)])) return bbq_fail(ctx, "RecType failed");
+    if (!jav_rec_type_read(ctx, &out->types.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)])) return bbq_fail(ctx, "TypeSection.types.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)]: RecType failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_type_section_k7(ctx, out, _struct_start);
 }
@@ -1826,7 +1826,7 @@ static bool jav_empty_k0(bbq_ctx_t* ctx, jav_empty_t* out, size_t _struct_start)
 }
 static bool jav_idx_imm_k1(bbq_ctx_t* ctx, jav_idx_imm_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_uleb128_u32(ctx, &out->x)) return bbq_fail(ctx, "x: read failed");
+    if (!bbq_read_uleb128_u32(ctx, &out->x)) return bbq_fail(ctx, "IdxImm.x: read failed");
     BBQ_MUSTTAIL return jav_idx_imm_k0(ctx, out, _struct_start);
 }
 static bool jav_idx_imm_k0(bbq_ctx_t* ctx, jav_idx_imm_t* out, size_t _struct_start) {
@@ -1835,12 +1835,12 @@ static bool jav_idx_imm_k0(bbq_ctx_t* ctx, jav_idx_imm_t* out, size_t _struct_st
 }
 static bool jav_idx2_imm_k1(bbq_ctx_t* ctx, jav_idx2_imm_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_uleb128_u32(ctx, &out->x)) return bbq_fail(ctx, "x: read failed");
+    if (!bbq_read_uleb128_u32(ctx, &out->x)) return bbq_fail(ctx, "Idx2Imm.x: read failed");
     BBQ_MUSTTAIL return jav_idx2_imm_k0(ctx, out, _struct_start);
 }
 static bool jav_idx2_imm_k0(bbq_ctx_t* ctx, jav_idx2_imm_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_uleb128_u32(ctx, &out->y)) return bbq_fail(ctx, "y: read failed");
+    if (!bbq_read_uleb128_u32(ctx, &out->y)) return bbq_fail(ctx, "Idx2Imm.y: read failed");
     BBQ_MUSTTAIL return jav_idx2_imm_k3(ctx, out, _struct_start);
 }
 static bool jav_idx2_imm_k3(bbq_ctx_t* ctx, jav_idx2_imm_t* out, size_t _struct_start) {
@@ -1849,7 +1849,7 @@ static bool jav_idx2_imm_k3(bbq_ctx_t* ctx, jav_idx2_imm_t* out, size_t _struct_
 }
 static bool jav_i32_imm_k1(bbq_ctx_t* ctx, jav_i32_imm_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_sleb128_i32(ctx, &out->v)) return bbq_fail(ctx, "v: read failed");
+    if (!bbq_read_sleb128_i32(ctx, &out->v)) return bbq_fail(ctx, "I32Imm.v: read failed");
     BBQ_MUSTTAIL return jav_i32_imm_k0(ctx, out, _struct_start);
 }
 static bool jav_i32_imm_k0(bbq_ctx_t* ctx, jav_i32_imm_t* out, size_t _struct_start) {
@@ -1858,7 +1858,7 @@ static bool jav_i32_imm_k0(bbq_ctx_t* ctx, jav_i32_imm_t* out, size_t _struct_st
 }
 static bool jav_i64_imm_k1(bbq_ctx_t* ctx, jav_i64_imm_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_sleb128_i64(ctx, &out->v)) return bbq_fail(ctx, "v: read failed");
+    if (!bbq_read_sleb128_i64(ctx, &out->v)) return bbq_fail(ctx, "I64Imm.v: read failed");
     BBQ_MUSTTAIL return jav_i64_imm_k0(ctx, out, _struct_start);
 }
 static bool jav_i64_imm_k0(bbq_ctx_t* ctx, jav_i64_imm_t* out, size_t _struct_start) {
@@ -1867,7 +1867,7 @@ static bool jav_i64_imm_k0(bbq_ctx_t* ctx, jav_i64_imm_t* out, size_t _struct_st
 }
 static bool jav_f32_imm_k1(bbq_ctx_t* ctx, jav_f32_imm_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_f32(ctx, &out->v)) return bbq_fail(ctx, "v: read failed");
+    if (!bbq_read_f32(ctx, &out->v)) return bbq_fail(ctx, "F32Imm.v: read failed");
     BBQ_MUSTTAIL return jav_f32_imm_k0(ctx, out, _struct_start);
 }
 static bool jav_f32_imm_k0(bbq_ctx_t* ctx, jav_f32_imm_t* out, size_t _struct_start) {
@@ -1876,7 +1876,7 @@ static bool jav_f32_imm_k0(bbq_ctx_t* ctx, jav_f32_imm_t* out, size_t _struct_st
 }
 static bool jav_f64_imm_k1(bbq_ctx_t* ctx, jav_f64_imm_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_f64(ctx, &out->v)) return bbq_fail(ctx, "v: read failed");
+    if (!bbq_read_f64(ctx, &out->v)) return bbq_fail(ctx, "F64Imm.v: read failed");
     BBQ_MUSTTAIL return jav_f64_imm_k0(ctx, out, _struct_start);
 }
 static bool jav_f64_imm_k0(bbq_ctx_t* ctx, jav_f64_imm_t* out, size_t _struct_start) {
@@ -1885,7 +1885,7 @@ static bool jav_f64_imm_k0(bbq_ctx_t* ctx, jav_f64_imm_t* out, size_t _struct_st
 }
 static bool jav_heap_imm_k1(bbq_ctx_t* ctx, jav_heap_imm_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_sleb128_i64(ctx, &out->ht)) return bbq_fail(ctx, "ht: read failed");
+    if (!bbq_read_sleb128_i64(ctx, &out->ht)) return bbq_fail(ctx, "HeapImm.ht: read failed");
     BBQ_MUSTTAIL return jav_heap_imm_k0(ctx, out, _struct_start);
 }
 static bool jav_heap_imm_k0(bbq_ctx_t* ctx, jav_heap_imm_t* out, size_t _struct_start) {
@@ -1894,7 +1894,7 @@ static bool jav_heap_imm_k0(bbq_ctx_t* ctx, jav_heap_imm_t* out, size_t _struct_
 }
 static bool jav_lane_imm_k1(bbq_ctx_t* ctx, jav_lane_imm_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_u8(ctx, &out->lane)) return bbq_fail(ctx, "lane: read failed");
+    if (!bbq_read_u8(ctx, &out->lane)) return bbq_fail(ctx, "LaneImm.lane: read failed");
     BBQ_MUSTTAIL return jav_lane_imm_k0(ctx, out, _struct_start);
 }
 static bool jav_lane_imm_k0(bbq_ctx_t* ctx, jav_lane_imm_t* out, size_t _struct_start) {
@@ -1903,7 +1903,7 @@ static bool jav_lane_imm_k0(bbq_ctx_t* ctx, jav_lane_imm_t* out, size_t _struct_
 }
 static bool jav_v128_imm_k1(bbq_ctx_t* ctx, jav_v128_imm_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_bytes(ctx, &out->bytes.data, &out->bytes.length, (size_t)(16))) return bbq_fail(ctx, "bytes: read failed");
+    if (!bbq_read_bytes(ctx, &out->bytes.data, &out->bytes.length, (size_t)(16))) return bbq_fail(ctx, "V128Imm.bytes: read failed");
     BBQ_MUSTTAIL return jav_v128_imm_k0(ctx, out, _struct_start);
 }
 static bool jav_v128_imm_k0(bbq_ctx_t* ctx, jav_v128_imm_t* out, size_t _struct_start) {
@@ -1912,25 +1912,25 @@ static bool jav_v128_imm_k0(bbq_ctx_t* ctx, jav_v128_imm_t* out, size_t _struct_
 }
 static bool jav_mem_arg_k1(bbq_ctx_t* ctx, jav_mem_arg_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_uleb128_u32(ctx, &out->align)) return bbq_fail(ctx, "align: read failed");
+    if (!bbq_read_uleb128_u32(ctx, &out->align)) return bbq_fail(ctx, "MemArg.align: read failed");
     BBQ_MUSTTAIL return jav_mem_arg_k0(ctx, out, _struct_start);
 }
 static bool jav_mem_arg_k0(bbq_ctx_t* ctx, jav_mem_arg_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!((out->align < 128))) return bbq_fail(ctx, "constraint failed");
+    if (!((out->align < 128))) return bbq_fail(ctx, "MemArg.constraint failed");
     BBQ_MUSTTAIL return jav_mem_arg_k3(ctx, out, _struct_start);
 }
 static bool jav_mem_arg_k3(bbq_ctx_t* ctx, jav_mem_arg_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     out->memidx.has_value = (((out->align & 64) != 0)) ? true : false;
     if (out->memidx.has_value) {
-        if (!bbq_read_uleb128_u32(ctx, &out->memidx.value)) return bbq_fail(ctx, "memidx: read failed");
+        if (!bbq_read_uleb128_u32(ctx, &out->memidx.value)) return bbq_fail(ctx, "MemArg.memidx: read failed");
     }
     BBQ_MUSTTAIL return jav_mem_arg_k5(ctx, out, _struct_start);
 }
 static bool jav_mem_arg_k5(bbq_ctx_t* ctx, jav_mem_arg_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_uleb128_u64(ctx, &out->offset)) return bbq_fail(ctx, "offset: read failed");
+    if (!bbq_read_uleb128_u64(ctx, &out->offset)) return bbq_fail(ctx, "MemArg.offset: read failed");
     BBQ_MUSTTAIL return jav_mem_arg_k7(ctx, out, _struct_start);
 }
 static bool jav_mem_arg_k7(bbq_ctx_t* ctx, jav_mem_arg_t* out, size_t _struct_start) {
@@ -1940,13 +1940,13 @@ static bool jav_mem_arg_k7(bbq_ctx_t* ctx, jav_mem_arg_t* out, size_t _struct_st
 static bool jav_mem_lane_imm_k0(bbq_ctx_t* ctx, jav_mem_lane_imm_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_mem_arg_read(ctx, &out->mem)) return bbq_fail(ctx, "MemArg failed");
+    if (!jav_mem_arg_read(ctx, &out->mem)) return bbq_fail(ctx, "MemLaneImm.mem: MemArg failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_mem_lane_imm_k3(ctx, out, _struct_start);
 }
 static bool jav_mem_lane_imm_k3(bbq_ctx_t* ctx, jav_mem_lane_imm_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_u8(ctx, &out->lane)) return bbq_fail(ctx, "lane: read failed");
+    if (!bbq_read_u8(ctx, &out->lane)) return bbq_fail(ctx, "MemLaneImm.lane: read failed");
     BBQ_MUSTTAIL return jav_mem_lane_imm_k4(ctx, out, _struct_start);
 }
 static bool jav_mem_lane_imm_k4(bbq_ctx_t* ctx, jav_mem_lane_imm_t* out, size_t _struct_start) {
@@ -1955,7 +1955,7 @@ static bool jav_mem_lane_imm_k4(bbq_ctx_t* ctx, jav_mem_lane_imm_t* out, size_t 
 }
 static bool jav_br_table_k1(bbq_ctx_t* ctx, jav_br_table_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_uleb128_u32(ctx, &out->count)) return bbq_fail(ctx, "count: read failed");
+    if (!bbq_read_uleb128_u32(ctx, &out->count)) return bbq_fail(ctx, "BrTable.count: read failed");
     BBQ_MUSTTAIL return jav_br_table_k0(ctx, out, _struct_start);
 }
 static bool jav_br_table_k0(bbq_ctx_t* ctx, jav_br_table_t* out, size_t _struct_start) {
@@ -1963,14 +1963,14 @@ static bool jav_br_table_k0(bbq_ctx_t* ctx, jav_br_table_t* out, size_t _struct_
     { size_t _n = (size_t)(out->count);
       out->targets.count = _n;
       out->targets.items = calloc(_n ? _n : 1, sizeof(*out->targets.items));
-      if (!out->targets.items) return bbq_fail(ctx, "targets: alloc failed");
+      if (!out->targets.items) return bbq_fail(ctx, "BrTable.targets: alloc failed");
       if (_n == 0) { BBQ_MUSTTAIL return jav_br_table_k7(ctx, out, _struct_start); }
       bbq_push_loop_n(ctx, (int64_t)_n); }
     BBQ_MUSTTAIL return jav_br_table_k3(ctx, out, _struct_start);
 }
 static bool jav_br_table_k3(bbq_ctx_t* ctx, jav_br_table_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_uleb128_u32(ctx, &out->targets.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)])) return bbq_fail(ctx, ": read failed");
+    if (!bbq_read_uleb128_u32(ctx, &out->targets.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)])) return bbq_fail(ctx, "BrTable.targets.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)]: read failed");
     BBQ_MUSTTAIL return jav_br_table_k5(ctx, out, _struct_start);
 }
 static bool jav_br_table_k5(bbq_ctx_t* ctx, jav_br_table_t* out, size_t _struct_start) {
@@ -1981,7 +1981,7 @@ static bool jav_br_table_k5(bbq_ctx_t* ctx, jav_br_table_t* out, size_t _struct_
 }
 static bool jav_br_table_k7(bbq_ctx_t* ctx, jav_br_table_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_uleb128_u32(ctx, &out->default_target)) return bbq_fail(ctx, "default_target: read failed");
+    if (!bbq_read_uleb128_u32(ctx, &out->default_target)) return bbq_fail(ctx, "BrTable.default_target: read failed");
     BBQ_MUSTTAIL return jav_br_table_k8(ctx, out, _struct_start);
 }
 static bool jav_br_table_k8(bbq_ctx_t* ctx, jav_br_table_t* out, size_t _struct_start) {
@@ -1990,7 +1990,7 @@ static bool jav_br_table_k8(bbq_ctx_t* ctx, jav_br_table_t* out, size_t _struct_
 }
 static bool jav_select_t_k1(bbq_ctx_t* ctx, jav_select_t_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_uleb128_u32(ctx, &out->count)) return bbq_fail(ctx, "count: read failed");
+    if (!bbq_read_uleb128_u32(ctx, &out->count)) return bbq_fail(ctx, "SelectT.count: read failed");
     BBQ_MUSTTAIL return jav_select_t_k0(ctx, out, _struct_start);
 }
 static bool jav_select_t_k0(bbq_ctx_t* ctx, jav_select_t_t* out, size_t _struct_start) {
@@ -1998,7 +1998,7 @@ static bool jav_select_t_k0(bbq_ctx_t* ctx, jav_select_t_t* out, size_t _struct_
     { size_t _n = (size_t)(out->count);
       out->types.count = _n;
       out->types.items = calloc(_n ? _n : 1, sizeof(*out->types.items));
-      if (!out->types.items) return bbq_fail(ctx, "types: alloc failed");
+      if (!out->types.items) return bbq_fail(ctx, "SelectT.types: alloc failed");
       if (_n == 0) { BBQ_MUSTTAIL return jav_select_t_k8(ctx, out, _struct_start); }
       bbq_push_loop_n(ctx, (int64_t)_n); }
     BBQ_MUSTTAIL return jav_select_t_k5(ctx, out, _struct_start);
@@ -2006,7 +2006,7 @@ static bool jav_select_t_k0(bbq_ctx_t* ctx, jav_select_t_t* out, size_t _struct_
 static bool jav_select_t_k5(bbq_ctx_t* ctx, jav_select_t_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_val_type_read(ctx, &out->types.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)])) return bbq_fail(ctx, "ValType failed");
+    if (!jav_val_type_read(ctx, &out->types.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)])) return bbq_fail(ctx, "SelectT.types.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)]: ValType failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_select_t_k7(ctx, out, _struct_start);
 }
@@ -2022,22 +2022,22 @@ static bool jav_select_t_k8(bbq_ctx_t* ctx, jav_select_t_t* out, size_t _struct_
 }
 static bool jav_br_on_cast_k1(bbq_ctx_t* ctx, jav_br_on_cast_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_u8(ctx, &out->flags)) return bbq_fail(ctx, "flags: read failed");
+    if (!bbq_read_u8(ctx, &out->flags)) return bbq_fail(ctx, "BrOnCast.flags: read failed");
     BBQ_MUSTTAIL return jav_br_on_cast_k0(ctx, out, _struct_start);
 }
 static bool jav_br_on_cast_k0(bbq_ctx_t* ctx, jav_br_on_cast_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_uleb128_u32(ctx, &out->label)) return bbq_fail(ctx, "label: read failed");
+    if (!bbq_read_uleb128_u32(ctx, &out->label)) return bbq_fail(ctx, "BrOnCast.label: read failed");
     BBQ_MUSTTAIL return jav_br_on_cast_k3(ctx, out, _struct_start);
 }
 static bool jav_br_on_cast_k3(bbq_ctx_t* ctx, jav_br_on_cast_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_sleb128_i64(ctx, &out->ht1)) return bbq_fail(ctx, "ht1: read failed");
+    if (!bbq_read_sleb128_i64(ctx, &out->ht1)) return bbq_fail(ctx, "BrOnCast.ht1: read failed");
     BBQ_MUSTTAIL return jav_br_on_cast_k5(ctx, out, _struct_start);
 }
 static bool jav_br_on_cast_k5(bbq_ctx_t* ctx, jav_br_on_cast_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_sleb128_i64(ctx, &out->ht2)) return bbq_fail(ctx, "ht2: read failed");
+    if (!bbq_read_sleb128_i64(ctx, &out->ht2)) return bbq_fail(ctx, "BrOnCast.ht2: read failed");
     BBQ_MUSTTAIL return jav_br_on_cast_k7(ctx, out, _struct_start);
 }
 static bool jav_br_on_cast_k7(bbq_ctx_t* ctx, jav_br_on_cast_t* out, size_t _struct_start) {
@@ -2046,7 +2046,7 @@ static bool jav_br_on_cast_k7(bbq_ctx_t* ctx, jav_br_on_cast_t* out, size_t _str
 }
 static bool jav_block_type_k1(bbq_ctx_t* ctx, jav_block_type_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_sleb128_i64(ctx, &out->bt)) return bbq_fail(ctx, "bt: read failed");
+    if (!bbq_read_sleb128_i64(ctx, &out->bt)) return bbq_fail(ctx, "BlockType.bt: read failed");
     BBQ_MUSTTAIL return jav_block_type_k0(ctx, out, _struct_start);
 }
 static bool jav_block_type_k0(bbq_ctx_t* ctx, jav_block_type_t* out, size_t _struct_start) {
@@ -2058,7 +2058,7 @@ static bool jav_block_type_k0(bbq_ctx_t* ctx, jav_block_type_t* out, size_t _str
 static bool jav_block_type_k5(bbq_ctx_t* ctx, jav_block_type_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_heap_type_read(ctx, &out->ht.value)) return bbq_fail(ctx, "HeapType failed");
+    if (!jav_heap_type_read(ctx, &out->ht.value)) return bbq_fail(ctx, "BlockType.ht.value: HeapType failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_block_type_k4(ctx, out, _struct_start);
 }
@@ -2069,7 +2069,7 @@ static bool jav_block_type_k4(bbq_ctx_t* ctx, jav_block_type_t* out, size_t _str
 static bool jav_block_k0(bbq_ctx_t* ctx, jav_block_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_block_type_read(ctx, &out->bt)) return bbq_fail(ctx, "BlockType failed");
+    if (!jav_block_type_read(ctx, &out->bt)) return bbq_fail(ctx, "Block.bt: BlockType failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_block_k3(ctx, out, _struct_start);
 }
@@ -2082,14 +2082,14 @@ static bool jav_block_k3(bbq_ctx_t* ctx, jav_block_t* out, size_t _struct_start)
     // true at the start (cond = !(until) is the read-another guard) — what the CEK does.
     if (!((!((bbq_pos(ctx) < bbq_effective_end(ctx) ? (int64_t)ctx->data[bbq_pos(ctx)] : (int64_t)0) == 11)))) { bbq_pop_loop(ctx); BBQ_MUSTTAIL return jav_block_k9(ctx, out, _struct_start); }
     out->instrs.items = bbq_array_grow(ctx, out->instrs.items, sizeof(*out->instrs.items));
-    if (!out->instrs.items) return bbq_fail(ctx, "instrs: alloc failed");
+    if (!out->instrs.items) return bbq_fail(ctx, "Block.instrs: alloc failed");
     out->instrs.count = 1;
     BBQ_MUSTTAIL return jav_block_k6(ctx, out, _struct_start);
 }
 static bool jav_block_k6(bbq_ctx_t* ctx, jav_block_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_instr_read(ctx, &out->instrs.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)])) return bbq_fail(ctx, "Instr failed");
+    if (!jav_instr_read(ctx, &out->instrs.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)])) return bbq_fail(ctx, "Block.instrs.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)]: Instr failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_block_k8(ctx, out, _struct_start);
 }
@@ -2098,7 +2098,7 @@ static bool jav_block_k8(bbq_ctx_t* ctx, jav_block_t* out, size_t _struct_start)
     bbq_loop_advance(ctx);
     if ((!((bbq_pos(ctx) < bbq_effective_end(ctx) ? (int64_t)ctx->data[bbq_pos(ctx)] : (int64_t)0) == 11))) {
         out->instrs.items = bbq_array_grow(ctx, out->instrs.items, sizeof(*out->instrs.items));
-        if (!out->instrs.items) return bbq_fail(ctx, "array: grow failed");
+        if (!out->instrs.items) return bbq_fail(ctx, "Block.instrs: array: grow failed");
         out->instrs.count = (size_t)(bbq_loop_index(ctx) + 1);
         BBQ_MUSTTAIL return jav_block_k6(ctx, out, _struct_start);
     }
@@ -2107,12 +2107,12 @@ static bool jav_block_k8(bbq_ctx_t* ctx, jav_block_t* out, size_t _struct_start)
 }
 static bool jav_block_k9(bbq_ctx_t* ctx, jav_block_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_u8(ctx, &out->end)) return bbq_fail(ctx, "end: read failed");
+    if (!bbq_read_u8(ctx, &out->end)) return bbq_fail(ctx, "Block.end: read failed");
     BBQ_MUSTTAIL return jav_block_k10(ctx, out, _struct_start);
 }
 static bool jav_block_k10(bbq_ctx_t* ctx, jav_block_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!((out->end == 11))) return bbq_fail(ctx, "constraint failed");
+    if (!((out->end == 11))) return bbq_fail(ctx, "Block.constraint failed");
     BBQ_MUSTTAIL return jav_block_k12(ctx, out, _struct_start);
 }
 static bool jav_block_k12(bbq_ctx_t* ctx, jav_block_t* out, size_t _struct_start) {
@@ -2121,12 +2121,12 @@ static bool jav_block_k12(bbq_ctx_t* ctx, jav_block_t* out, size_t _struct_start
 }
 static bool jav_else_clause_k1(bbq_ctx_t* ctx, jav_else_clause_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_u8(ctx, &out->marker)) return bbq_fail(ctx, "marker: read failed");
+    if (!bbq_read_u8(ctx, &out->marker)) return bbq_fail(ctx, "ElseClause.marker: read failed");
     BBQ_MUSTTAIL return jav_else_clause_k0(ctx, out, _struct_start);
 }
 static bool jav_else_clause_k0(bbq_ctx_t* ctx, jav_else_clause_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!((out->marker == 5))) return bbq_fail(ctx, "constraint failed");
+    if (!((out->marker == 5))) return bbq_fail(ctx, "ElseClause.constraint failed");
     BBQ_MUSTTAIL return jav_else_clause_k3(ctx, out, _struct_start);
 }
 static bool jav_else_clause_k3(bbq_ctx_t* ctx, jav_else_clause_t* out, size_t _struct_start) {
@@ -2138,14 +2138,14 @@ static bool jav_else_clause_k3(bbq_ctx_t* ctx, jav_else_clause_t* out, size_t _s
     // true at the start (cond = !(until) is the read-another guard) — what the CEK does.
     if (!((!((bbq_pos(ctx) < bbq_effective_end(ctx) ? (int64_t)ctx->data[bbq_pos(ctx)] : (int64_t)0) == 11)))) { bbq_pop_loop(ctx); BBQ_MUSTTAIL return jav_else_clause_k10(ctx, out, _struct_start); }
     out->instrs.items = bbq_array_grow(ctx, out->instrs.items, sizeof(*out->instrs.items));
-    if (!out->instrs.items) return bbq_fail(ctx, "instrs: alloc failed");
+    if (!out->instrs.items) return bbq_fail(ctx, "ElseClause.instrs: alloc failed");
     out->instrs.count = 1;
     BBQ_MUSTTAIL return jav_else_clause_k7(ctx, out, _struct_start);
 }
 static bool jav_else_clause_k7(bbq_ctx_t* ctx, jav_else_clause_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_instr_read(ctx, &out->instrs.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)])) return bbq_fail(ctx, "Instr failed");
+    if (!jav_instr_read(ctx, &out->instrs.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)])) return bbq_fail(ctx, "ElseClause.instrs.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)]: Instr failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_else_clause_k9(ctx, out, _struct_start);
 }
@@ -2154,7 +2154,7 @@ static bool jav_else_clause_k9(bbq_ctx_t* ctx, jav_else_clause_t* out, size_t _s
     bbq_loop_advance(ctx);
     if ((!((bbq_pos(ctx) < bbq_effective_end(ctx) ? (int64_t)ctx->data[bbq_pos(ctx)] : (int64_t)0) == 11))) {
         out->instrs.items = bbq_array_grow(ctx, out->instrs.items, sizeof(*out->instrs.items));
-        if (!out->instrs.items) return bbq_fail(ctx, "array: grow failed");
+        if (!out->instrs.items) return bbq_fail(ctx, "ElseClause.instrs: array: grow failed");
         out->instrs.count = (size_t)(bbq_loop_index(ctx) + 1);
         BBQ_MUSTTAIL return jav_else_clause_k7(ctx, out, _struct_start);
     }
@@ -2168,7 +2168,7 @@ static bool jav_else_clause_k10(bbq_ctx_t* ctx, jav_else_clause_t* out, size_t _
 static bool jav_if_k0(bbq_ctx_t* ctx, jav_if_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_block_type_read(ctx, &out->bt)) return bbq_fail(ctx, "BlockType failed");
+    if (!jav_block_type_read(ctx, &out->bt)) return bbq_fail(ctx, "If.bt: BlockType failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_if_k3(ctx, out, _struct_start);
 }
@@ -2181,14 +2181,14 @@ static bool jav_if_k3(bbq_ctx_t* ctx, jav_if_t* out, size_t _struct_start) {
     // true at the start (cond = !(until) is the read-another guard) — what the CEK does.
     if (!((!(((bbq_pos(ctx) < bbq_effective_end(ctx) ? (int64_t)ctx->data[bbq_pos(ctx)] : (int64_t)0) == 5) || ((bbq_pos(ctx) < bbq_effective_end(ctx) ? (int64_t)ctx->data[bbq_pos(ctx)] : (int64_t)0) == 11))))) { bbq_pop_loop(ctx); BBQ_MUSTTAIL return jav_if_k9(ctx, out, _struct_start); }
     out->then_body.items = bbq_array_grow(ctx, out->then_body.items, sizeof(*out->then_body.items));
-    if (!out->then_body.items) return bbq_fail(ctx, "then_body: alloc failed");
+    if (!out->then_body.items) return bbq_fail(ctx, "If.then_body: alloc failed");
     out->then_body.count = 1;
     BBQ_MUSTTAIL return jav_if_k6(ctx, out, _struct_start);
 }
 static bool jav_if_k6(bbq_ctx_t* ctx, jav_if_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_instr_read(ctx, &out->then_body.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)])) return bbq_fail(ctx, "Instr failed");
+    if (!jav_instr_read(ctx, &out->then_body.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)])) return bbq_fail(ctx, "If.then_body.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)]: Instr failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_if_k8(ctx, out, _struct_start);
 }
@@ -2197,7 +2197,7 @@ static bool jav_if_k8(bbq_ctx_t* ctx, jav_if_t* out, size_t _struct_start) {
     bbq_loop_advance(ctx);
     if ((!(((bbq_pos(ctx) < bbq_effective_end(ctx) ? (int64_t)ctx->data[bbq_pos(ctx)] : (int64_t)0) == 5) || ((bbq_pos(ctx) < bbq_effective_end(ctx) ? (int64_t)ctx->data[bbq_pos(ctx)] : (int64_t)0) == 11)))) {
         out->then_body.items = bbq_array_grow(ctx, out->then_body.items, sizeof(*out->then_body.items));
-        if (!out->then_body.items) return bbq_fail(ctx, "array: grow failed");
+        if (!out->then_body.items) return bbq_fail(ctx, "If.then_body: array: grow failed");
         out->then_body.count = (size_t)(bbq_loop_index(ctx) + 1);
         BBQ_MUSTTAIL return jav_if_k6(ctx, out, _struct_start);
     }
@@ -2213,18 +2213,18 @@ static bool jav_if_k9(bbq_ctx_t* ctx, jav_if_t* out, size_t _struct_start) {
 static bool jav_if_k12(bbq_ctx_t* ctx, jav_if_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_else_clause_read(ctx, &out->else_body.value)) return bbq_fail(ctx, "ElseClause failed");
+    if (!jav_else_clause_read(ctx, &out->else_body.value)) return bbq_fail(ctx, "If.else_body.value: ElseClause failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_if_k11(ctx, out, _struct_start);
 }
 static bool jav_if_k11(bbq_ctx_t* ctx, jav_if_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_u8(ctx, &out->end)) return bbq_fail(ctx, "end: read failed");
+    if (!bbq_read_u8(ctx, &out->end)) return bbq_fail(ctx, "If.end: read failed");
     BBQ_MUSTTAIL return jav_if_k14(ctx, out, _struct_start);
 }
 static bool jav_if_k14(bbq_ctx_t* ctx, jav_if_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!((out->end == 11))) return bbq_fail(ctx, "constraint failed");
+    if (!((out->end == 11))) return bbq_fail(ctx, "If.constraint failed");
     BBQ_MUSTTAIL return jav_if_k16(ctx, out, _struct_start);
 }
 static bool jav_if_k16(bbq_ctx_t* ctx, jav_if_t* out, size_t _struct_start) {
@@ -2233,20 +2233,20 @@ static bool jav_if_k16(bbq_ctx_t* ctx, jav_if_t* out, size_t _struct_start) {
 }
 static bool jav_catch_k1(bbq_ctx_t* ctx, jav_catch_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_u8(ctx, &out->kind)) return bbq_fail(ctx, "kind: read failed");
+    if (!bbq_read_u8(ctx, &out->kind)) return bbq_fail(ctx, "Catch.kind: read failed");
     BBQ_MUSTTAIL return jav_catch_k0(ctx, out, _struct_start);
 }
 static bool jav_catch_k0(bbq_ctx_t* ctx, jav_catch_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     out->tag.has_value = (((out->kind == 0) || (out->kind == 1))) ? true : false;
     if (out->tag.has_value) {
-        if (!bbq_read_uleb128_u32(ctx, &out->tag.value)) return bbq_fail(ctx, "tag: read failed");
+        if (!bbq_read_uleb128_u32(ctx, &out->tag.value)) return bbq_fail(ctx, "Catch.tag: read failed");
     }
     BBQ_MUSTTAIL return jav_catch_k3(ctx, out, _struct_start);
 }
 static bool jav_catch_k3(bbq_ctx_t* ctx, jav_catch_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_uleb128_u32(ctx, &out->label)) return bbq_fail(ctx, "label: read failed");
+    if (!bbq_read_uleb128_u32(ctx, &out->label)) return bbq_fail(ctx, "Catch.label: read failed");
     BBQ_MUSTTAIL return jav_catch_k5(ctx, out, _struct_start);
 }
 static bool jav_catch_k5(bbq_ctx_t* ctx, jav_catch_t* out, size_t _struct_start) {
@@ -2256,13 +2256,13 @@ static bool jav_catch_k5(bbq_ctx_t* ctx, jav_catch_t* out, size_t _struct_start)
 static bool jav_try_table_k0(bbq_ctx_t* ctx, jav_try_table_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_block_type_read(ctx, &out->bt)) return bbq_fail(ctx, "BlockType failed");
+    if (!jav_block_type_read(ctx, &out->bt)) return bbq_fail(ctx, "TryTable.bt: BlockType failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_try_table_k3(ctx, out, _struct_start);
 }
 static bool jav_try_table_k3(bbq_ctx_t* ctx, jav_try_table_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_uleb128_u32(ctx, &out->count)) return bbq_fail(ctx, "count: read failed");
+    if (!bbq_read_uleb128_u32(ctx, &out->count)) return bbq_fail(ctx, "TryTable.count: read failed");
     BBQ_MUSTTAIL return jav_try_table_k4(ctx, out, _struct_start);
 }
 static bool jav_try_table_k4(bbq_ctx_t* ctx, jav_try_table_t* out, size_t _struct_start) {
@@ -2270,7 +2270,7 @@ static bool jav_try_table_k4(bbq_ctx_t* ctx, jav_try_table_t* out, size_t _struc
     { size_t _n = (size_t)(out->count);
       out->catches.count = _n;
       out->catches.items = calloc(_n ? _n : 1, sizeof(*out->catches.items));
-      if (!out->catches.items) return bbq_fail(ctx, "catches: alloc failed");
+      if (!out->catches.items) return bbq_fail(ctx, "TryTable.catches: alloc failed");
       if (_n == 0) { BBQ_MUSTTAIL return jav_try_table_k11(ctx, out, _struct_start); }
       bbq_push_loop_n(ctx, (int64_t)_n); }
     BBQ_MUSTTAIL return jav_try_table_k8(ctx, out, _struct_start);
@@ -2278,7 +2278,7 @@ static bool jav_try_table_k4(bbq_ctx_t* ctx, jav_try_table_t* out, size_t _struc
 static bool jav_try_table_k8(bbq_ctx_t* ctx, jav_try_table_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_catch_read(ctx, &out->catches.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)])) return bbq_fail(ctx, "Catch failed");
+    if (!jav_catch_read(ctx, &out->catches.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)])) return bbq_fail(ctx, "TryTable.catches.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)]: Catch failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_try_table_k10(ctx, out, _struct_start);
 }
@@ -2297,14 +2297,14 @@ static bool jav_try_table_k11(bbq_ctx_t* ctx, jav_try_table_t* out, size_t _stru
     // true at the start (cond = !(until) is the read-another guard) — what the CEK does.
     if (!((!((bbq_pos(ctx) < bbq_effective_end(ctx) ? (int64_t)ctx->data[bbq_pos(ctx)] : (int64_t)0) == 11)))) { bbq_pop_loop(ctx); BBQ_MUSTTAIL return jav_try_table_k17(ctx, out, _struct_start); }
     out->instrs.items = bbq_array_grow(ctx, out->instrs.items, sizeof(*out->instrs.items));
-    if (!out->instrs.items) return bbq_fail(ctx, "instrs: alloc failed");
+    if (!out->instrs.items) return bbq_fail(ctx, "TryTable.instrs: alloc failed");
     out->instrs.count = 1;
     BBQ_MUSTTAIL return jav_try_table_k14(ctx, out, _struct_start);
 }
 static bool jav_try_table_k14(bbq_ctx_t* ctx, jav_try_table_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_instr_read(ctx, &out->instrs.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)])) return bbq_fail(ctx, "Instr failed");
+    if (!jav_instr_read(ctx, &out->instrs.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)])) return bbq_fail(ctx, "TryTable.instrs.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)]: Instr failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_try_table_k16(ctx, out, _struct_start);
 }
@@ -2313,7 +2313,7 @@ static bool jav_try_table_k16(bbq_ctx_t* ctx, jav_try_table_t* out, size_t _stru
     bbq_loop_advance(ctx);
     if ((!((bbq_pos(ctx) < bbq_effective_end(ctx) ? (int64_t)ctx->data[bbq_pos(ctx)] : (int64_t)0) == 11))) {
         out->instrs.items = bbq_array_grow(ctx, out->instrs.items, sizeof(*out->instrs.items));
-        if (!out->instrs.items) return bbq_fail(ctx, "array: grow failed");
+        if (!out->instrs.items) return bbq_fail(ctx, "TryTable.instrs: array: grow failed");
         out->instrs.count = (size_t)(bbq_loop_index(ctx) + 1);
         BBQ_MUSTTAIL return jav_try_table_k14(ctx, out, _struct_start);
     }
@@ -2322,12 +2322,12 @@ static bool jav_try_table_k16(bbq_ctx_t* ctx, jav_try_table_t* out, size_t _stru
 }
 static bool jav_try_table_k17(bbq_ctx_t* ctx, jav_try_table_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_u8(ctx, &out->end)) return bbq_fail(ctx, "end: read failed");
+    if (!bbq_read_u8(ctx, &out->end)) return bbq_fail(ctx, "TryTable.end: read failed");
     BBQ_MUSTTAIL return jav_try_table_k18(ctx, out, _struct_start);
 }
 static bool jav_try_table_k18(bbq_ctx_t* ctx, jav_try_table_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!((out->end == 11))) return bbq_fail(ctx, "constraint failed");
+    if (!((out->end == 11))) return bbq_fail(ctx, "TryTable.constraint failed");
     BBQ_MUSTTAIL return jav_try_table_k20(ctx, out, _struct_start);
 }
 static bool jav_try_table_k20(bbq_ctx_t* ctx, jav_try_table_t* out, size_t _struct_start) {
@@ -2336,7 +2336,7 @@ static bool jav_try_table_k20(bbq_ctx_t* ctx, jav_try_table_t* out, size_t _stru
 }
 static bool jav_misc_instr_k1(bbq_ctx_t* ctx, jav_misc_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_uleb128_u32(ctx, &out->sub)) return bbq_fail(ctx, "sub: read failed");
+    if (!bbq_read_uleb128_u32(ctx, &out->sub)) return bbq_fail(ctx, "MiscInstr.sub: read failed");
     BBQ_MUSTTAIL return jav_misc_instr_k0(ctx, out, _struct_start);
 }
 static bool jav_misc_instr_k0(bbq_ctx_t* ctx, jav_misc_instr_t* out, size_t _struct_start) {
@@ -2376,63 +2376,63 @@ static bool jav_misc_instr_k0(bbq_ctx_t* ctx, jav_misc_instr_t* out, size_t _str
 static bool jav_misc_instr_k12(bbq_ctx_t* ctx, jav_misc_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_idx_imm_read(ctx, &out->body.u.case_8)) return bbq_fail(ctx, "IdxImm failed");
+    if (!jav_idx_imm_read(ctx, &out->body.u.case_8)) return bbq_fail(ctx, "MiscInstr.body.u.case_8: IdxImm failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_misc_instr_k14(ctx, out, _struct_start);
 }
 static bool jav_misc_instr_k15(bbq_ctx_t* ctx, jav_misc_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_idx2_imm_read(ctx, &out->body.u.case_7)) return bbq_fail(ctx, "Idx2Imm failed");
+    if (!jav_idx2_imm_read(ctx, &out->body.u.case_7)) return bbq_fail(ctx, "MiscInstr.body.u.case_7: Idx2Imm failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_misc_instr_k14(ctx, out, _struct_start);
 }
 static bool jav_misc_instr_k17(bbq_ctx_t* ctx, jav_misc_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_idx_imm_read(ctx, &out->body.u.case_6)) return bbq_fail(ctx, "IdxImm failed");
+    if (!jav_idx_imm_read(ctx, &out->body.u.case_6)) return bbq_fail(ctx, "MiscInstr.body.u.case_6: IdxImm failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_misc_instr_k14(ctx, out, _struct_start);
 }
 static bool jav_misc_instr_k19(bbq_ctx_t* ctx, jav_misc_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_idx2_imm_read(ctx, &out->body.u.case_5)) return bbq_fail(ctx, "Idx2Imm failed");
+    if (!jav_idx2_imm_read(ctx, &out->body.u.case_5)) return bbq_fail(ctx, "MiscInstr.body.u.case_5: Idx2Imm failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_misc_instr_k14(ctx, out, _struct_start);
 }
 static bool jav_misc_instr_k21(bbq_ctx_t* ctx, jav_misc_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_idx_imm_read(ctx, &out->body.u.case_4)) return bbq_fail(ctx, "IdxImm failed");
+    if (!jav_idx_imm_read(ctx, &out->body.u.case_4)) return bbq_fail(ctx, "MiscInstr.body.u.case_4: IdxImm failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_misc_instr_k14(ctx, out, _struct_start);
 }
 static bool jav_misc_instr_k23(bbq_ctx_t* ctx, jav_misc_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_idx2_imm_read(ctx, &out->body.u.case_3)) return bbq_fail(ctx, "Idx2Imm failed");
+    if (!jav_idx2_imm_read(ctx, &out->body.u.case_3)) return bbq_fail(ctx, "MiscInstr.body.u.case_3: Idx2Imm failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_misc_instr_k14(ctx, out, _struct_start);
 }
 static bool jav_misc_instr_k25(bbq_ctx_t* ctx, jav_misc_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_idx_imm_read(ctx, &out->body.u.case_2)) return bbq_fail(ctx, "IdxImm failed");
+    if (!jav_idx_imm_read(ctx, &out->body.u.case_2)) return bbq_fail(ctx, "MiscInstr.body.u.case_2: IdxImm failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_misc_instr_k14(ctx, out, _struct_start);
 }
 static bool jav_misc_instr_k27(bbq_ctx_t* ctx, jav_misc_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_idx2_imm_read(ctx, &out->body.u.case_1)) return bbq_fail(ctx, "Idx2Imm failed");
+    if (!jav_idx2_imm_read(ctx, &out->body.u.case_1)) return bbq_fail(ctx, "MiscInstr.body.u.case_1: Idx2Imm failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_misc_instr_k14(ctx, out, _struct_start);
 }
 static bool jav_misc_instr_k29(bbq_ctx_t* ctx, jav_misc_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_empty_read(ctx, &out->body.u.case_0)) return bbq_fail(ctx, "Empty failed");
+    if (!jav_empty_read(ctx, &out->body.u.case_0)) return bbq_fail(ctx, "MiscInstr.body.u.case_0: Empty failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_misc_instr_k14(ctx, out, _struct_start);
 }
@@ -2442,7 +2442,7 @@ static bool jav_misc_instr_k14(bbq_ctx_t* ctx, jav_misc_instr_t* out, size_t _st
 }
 static bool jav_gc_instr_k1(bbq_ctx_t* ctx, jav_gc_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_uleb128_u32(ctx, &out->sub)) return bbq_fail(ctx, "sub: read failed");
+    if (!bbq_read_uleb128_u32(ctx, &out->sub)) return bbq_fail(ctx, "GcInstr.sub: read failed");
     BBQ_MUSTTAIL return jav_gc_instr_k0(ctx, out, _struct_start);
 }
 static bool jav_gc_instr_k0(bbq_ctx_t* ctx, jav_gc_instr_t* out, size_t _struct_start) {
@@ -2497,77 +2497,77 @@ static bool jav_gc_instr_k0(bbq_ctx_t* ctx, jav_gc_instr_t* out, size_t _struct_
 static bool jav_gc_instr_k14(bbq_ctx_t* ctx, jav_gc_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_empty_read(ctx, &out->body.u.case_10)) return bbq_fail(ctx, "Empty failed");
+    if (!jav_empty_read(ctx, &out->body.u.case_10)) return bbq_fail(ctx, "GcInstr.body.u.case_10: Empty failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_gc_instr_k16(ctx, out, _struct_start);
 }
 static bool jav_gc_instr_k17(bbq_ctx_t* ctx, jav_gc_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_br_on_cast_read(ctx, &out->body.u.case_9)) return bbq_fail(ctx, "BrOnCast failed");
+    if (!jav_br_on_cast_read(ctx, &out->body.u.case_9)) return bbq_fail(ctx, "GcInstr.body.u.case_9: BrOnCast failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_gc_instr_k16(ctx, out, _struct_start);
 }
 static bool jav_gc_instr_k19(bbq_ctx_t* ctx, jav_gc_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_heap_imm_read(ctx, &out->body.u.case_8)) return bbq_fail(ctx, "HeapImm failed");
+    if (!jav_heap_imm_read(ctx, &out->body.u.case_8)) return bbq_fail(ctx, "GcInstr.body.u.case_8: HeapImm failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_gc_instr_k16(ctx, out, _struct_start);
 }
 static bool jav_gc_instr_k21(bbq_ctx_t* ctx, jav_gc_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_idx2_imm_read(ctx, &out->body.u.case_7)) return bbq_fail(ctx, "Idx2Imm failed");
+    if (!jav_idx2_imm_read(ctx, &out->body.u.case_7)) return bbq_fail(ctx, "GcInstr.body.u.case_7: Idx2Imm failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_gc_instr_k16(ctx, out, _struct_start);
 }
 static bool jav_gc_instr_k23(bbq_ctx_t* ctx, jav_gc_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_idx_imm_read(ctx, &out->body.u.case_6)) return bbq_fail(ctx, "IdxImm failed");
+    if (!jav_idx_imm_read(ctx, &out->body.u.case_6)) return bbq_fail(ctx, "GcInstr.body.u.case_6: IdxImm failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_gc_instr_k16(ctx, out, _struct_start);
 }
 static bool jav_gc_instr_k25(bbq_ctx_t* ctx, jav_gc_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_empty_read(ctx, &out->body.u.case_5)) return bbq_fail(ctx, "Empty failed");
+    if (!jav_empty_read(ctx, &out->body.u.case_5)) return bbq_fail(ctx, "GcInstr.body.u.case_5: Empty failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_gc_instr_k16(ctx, out, _struct_start);
 }
 static bool jav_gc_instr_k27(bbq_ctx_t* ctx, jav_gc_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_idx_imm_read(ctx, &out->body.u.case_4)) return bbq_fail(ctx, "IdxImm failed");
+    if (!jav_idx_imm_read(ctx, &out->body.u.case_4)) return bbq_fail(ctx, "GcInstr.body.u.case_4: IdxImm failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_gc_instr_k16(ctx, out, _struct_start);
 }
 static bool jav_gc_instr_k29(bbq_ctx_t* ctx, jav_gc_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_idx2_imm_read(ctx, &out->body.u.case_3)) return bbq_fail(ctx, "Idx2Imm failed");
+    if (!jav_idx2_imm_read(ctx, &out->body.u.case_3)) return bbq_fail(ctx, "GcInstr.body.u.case_3: Idx2Imm failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_gc_instr_k16(ctx, out, _struct_start);
 }
 static bool jav_gc_instr_k31(bbq_ctx_t* ctx, jav_gc_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_idx_imm_read(ctx, &out->body.u.case_2)) return bbq_fail(ctx, "IdxImm failed");
+    if (!jav_idx_imm_read(ctx, &out->body.u.case_2)) return bbq_fail(ctx, "GcInstr.body.u.case_2: IdxImm failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_gc_instr_k16(ctx, out, _struct_start);
 }
 static bool jav_gc_instr_k33(bbq_ctx_t* ctx, jav_gc_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_idx2_imm_read(ctx, &out->body.u.case_1)) return bbq_fail(ctx, "Idx2Imm failed");
+    if (!jav_idx2_imm_read(ctx, &out->body.u.case_1)) return bbq_fail(ctx, "GcInstr.body.u.case_1: Idx2Imm failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_gc_instr_k16(ctx, out, _struct_start);
 }
 static bool jav_gc_instr_k35(bbq_ctx_t* ctx, jav_gc_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_idx_imm_read(ctx, &out->body.u.case_0)) return bbq_fail(ctx, "IdxImm failed");
+    if (!jav_idx_imm_read(ctx, &out->body.u.case_0)) return bbq_fail(ctx, "GcInstr.body.u.case_0: IdxImm failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_gc_instr_k16(ctx, out, _struct_start);
 }
@@ -2577,7 +2577,7 @@ static bool jav_gc_instr_k16(bbq_ctx_t* ctx, jav_gc_instr_t* out, size_t _struct
 }
 static bool jav_simd_instr_k1(bbq_ctx_t* ctx, jav_simd_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_uleb128_u32(ctx, &out->sub)) return bbq_fail(ctx, "sub: read failed");
+    if (!bbq_read_uleb128_u32(ctx, &out->sub)) return bbq_fail(ctx, "SimdInstr.sub: read failed");
     BBQ_MUSTTAIL return jav_simd_instr_k0(ctx, out, _struct_start);
 }
 static bool jav_simd_instr_k0(bbq_ctx_t* ctx, jav_simd_instr_t* out, size_t _struct_start) {
@@ -2866,140 +2866,140 @@ static bool jav_simd_instr_k0(bbq_ctx_t* ctx, jav_simd_instr_t* out, size_t _str
 static bool jav_simd_instr_k23(bbq_ctx_t* ctx, jav_simd_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_empty_read(ctx, &out->body.u.case_19)) return bbq_fail(ctx, "Empty failed");
+    if (!jav_empty_read(ctx, &out->body.u.case_19)) return bbq_fail(ctx, "SimdInstr.body.u.case_19: Empty failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_simd_instr_k25(ctx, out, _struct_start);
 }
 static bool jav_simd_instr_k26(bbq_ctx_t* ctx, jav_simd_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_empty_read(ctx, &out->body.u.case_18)) return bbq_fail(ctx, "Empty failed");
+    if (!jav_empty_read(ctx, &out->body.u.case_18)) return bbq_fail(ctx, "SimdInstr.body.u.case_18: Empty failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_simd_instr_k25(ctx, out, _struct_start);
 }
 static bool jav_simd_instr_k28(bbq_ctx_t* ctx, jav_simd_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_empty_read(ctx, &out->body.u.case_17)) return bbq_fail(ctx, "Empty failed");
+    if (!jav_empty_read(ctx, &out->body.u.case_17)) return bbq_fail(ctx, "SimdInstr.body.u.case_17: Empty failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_simd_instr_k25(ctx, out, _struct_start);
 }
 static bool jav_simd_instr_k30(bbq_ctx_t* ctx, jav_simd_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_empty_read(ctx, &out->body.u.case_16)) return bbq_fail(ctx, "Empty failed");
+    if (!jav_empty_read(ctx, &out->body.u.case_16)) return bbq_fail(ctx, "SimdInstr.body.u.case_16: Empty failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_simd_instr_k25(ctx, out, _struct_start);
 }
 static bool jav_simd_instr_k32(bbq_ctx_t* ctx, jav_simd_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_empty_read(ctx, &out->body.u.case_15)) return bbq_fail(ctx, "Empty failed");
+    if (!jav_empty_read(ctx, &out->body.u.case_15)) return bbq_fail(ctx, "SimdInstr.body.u.case_15: Empty failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_simd_instr_k25(ctx, out, _struct_start);
 }
 static bool jav_simd_instr_k34(bbq_ctx_t* ctx, jav_simd_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_empty_read(ctx, &out->body.u.case_14)) return bbq_fail(ctx, "Empty failed");
+    if (!jav_empty_read(ctx, &out->body.u.case_14)) return bbq_fail(ctx, "SimdInstr.body.u.case_14: Empty failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_simd_instr_k25(ctx, out, _struct_start);
 }
 static bool jav_simd_instr_k36(bbq_ctx_t* ctx, jav_simd_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_empty_read(ctx, &out->body.u.case_13)) return bbq_fail(ctx, "Empty failed");
+    if (!jav_empty_read(ctx, &out->body.u.case_13)) return bbq_fail(ctx, "SimdInstr.body.u.case_13: Empty failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_simd_instr_k25(ctx, out, _struct_start);
 }
 static bool jav_simd_instr_k38(bbq_ctx_t* ctx, jav_simd_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_empty_read(ctx, &out->body.u.case_12)) return bbq_fail(ctx, "Empty failed");
+    if (!jav_empty_read(ctx, &out->body.u.case_12)) return bbq_fail(ctx, "SimdInstr.body.u.case_12: Empty failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_simd_instr_k25(ctx, out, _struct_start);
 }
 static bool jav_simd_instr_k40(bbq_ctx_t* ctx, jav_simd_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_empty_read(ctx, &out->body.u.case_11)) return bbq_fail(ctx, "Empty failed");
+    if (!jav_empty_read(ctx, &out->body.u.case_11)) return bbq_fail(ctx, "SimdInstr.body.u.case_11: Empty failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_simd_instr_k25(ctx, out, _struct_start);
 }
 static bool jav_simd_instr_k42(bbq_ctx_t* ctx, jav_simd_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_empty_read(ctx, &out->body.u.case_10)) return bbq_fail(ctx, "Empty failed");
+    if (!jav_empty_read(ctx, &out->body.u.case_10)) return bbq_fail(ctx, "SimdInstr.body.u.case_10: Empty failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_simd_instr_k25(ctx, out, _struct_start);
 }
 static bool jav_simd_instr_k44(bbq_ctx_t* ctx, jav_simd_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_empty_read(ctx, &out->body.u.case_9)) return bbq_fail(ctx, "Empty failed");
+    if (!jav_empty_read(ctx, &out->body.u.case_9)) return bbq_fail(ctx, "SimdInstr.body.u.case_9: Empty failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_simd_instr_k25(ctx, out, _struct_start);
 }
 static bool jav_simd_instr_k46(bbq_ctx_t* ctx, jav_simd_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_empty_read(ctx, &out->body.u.case_8)) return bbq_fail(ctx, "Empty failed");
+    if (!jav_empty_read(ctx, &out->body.u.case_8)) return bbq_fail(ctx, "SimdInstr.body.u.case_8: Empty failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_simd_instr_k25(ctx, out, _struct_start);
 }
 static bool jav_simd_instr_k48(bbq_ctx_t* ctx, jav_simd_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_empty_read(ctx, &out->body.u.case_7)) return bbq_fail(ctx, "Empty failed");
+    if (!jav_empty_read(ctx, &out->body.u.case_7)) return bbq_fail(ctx, "SimdInstr.body.u.case_7: Empty failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_simd_instr_k25(ctx, out, _struct_start);
 }
 static bool jav_simd_instr_k50(bbq_ctx_t* ctx, jav_simd_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_mem_arg_read(ctx, &out->body.u.case_6)) return bbq_fail(ctx, "MemArg failed");
+    if (!jav_mem_arg_read(ctx, &out->body.u.case_6)) return bbq_fail(ctx, "SimdInstr.body.u.case_6: MemArg failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_simd_instr_k25(ctx, out, _struct_start);
 }
 static bool jav_simd_instr_k52(bbq_ctx_t* ctx, jav_simd_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_mem_lane_imm_read(ctx, &out->body.u.case_5)) return bbq_fail(ctx, "MemLaneImm failed");
+    if (!jav_mem_lane_imm_read(ctx, &out->body.u.case_5)) return bbq_fail(ctx, "SimdInstr.body.u.case_5: MemLaneImm failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_simd_instr_k25(ctx, out, _struct_start);
 }
 static bool jav_simd_instr_k54(bbq_ctx_t* ctx, jav_simd_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_empty_read(ctx, &out->body.u.case_4)) return bbq_fail(ctx, "Empty failed");
+    if (!jav_empty_read(ctx, &out->body.u.case_4)) return bbq_fail(ctx, "SimdInstr.body.u.case_4: Empty failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_simd_instr_k25(ctx, out, _struct_start);
 }
 static bool jav_simd_instr_k56(bbq_ctx_t* ctx, jav_simd_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_lane_imm_read(ctx, &out->body.u.case_3)) return bbq_fail(ctx, "LaneImm failed");
+    if (!jav_lane_imm_read(ctx, &out->body.u.case_3)) return bbq_fail(ctx, "SimdInstr.body.u.case_3: LaneImm failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_simd_instr_k25(ctx, out, _struct_start);
 }
 static bool jav_simd_instr_k58(bbq_ctx_t* ctx, jav_simd_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_empty_read(ctx, &out->body.u.case_2)) return bbq_fail(ctx, "Empty failed");
+    if (!jav_empty_read(ctx, &out->body.u.case_2)) return bbq_fail(ctx, "SimdInstr.body.u.case_2: Empty failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_simd_instr_k25(ctx, out, _struct_start);
 }
 static bool jav_simd_instr_k60(bbq_ctx_t* ctx, jav_simd_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_v128_imm_read(ctx, &out->body.u.case_1)) return bbq_fail(ctx, "V128Imm failed");
+    if (!jav_v128_imm_read(ctx, &out->body.u.case_1)) return bbq_fail(ctx, "SimdInstr.body.u.case_1: V128Imm failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_simd_instr_k25(ctx, out, _struct_start);
 }
 static bool jav_simd_instr_k62(bbq_ctx_t* ctx, jav_simd_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_mem_arg_read(ctx, &out->body.u.case_0)) return bbq_fail(ctx, "MemArg failed");
+    if (!jav_mem_arg_read(ctx, &out->body.u.case_0)) return bbq_fail(ctx, "SimdInstr.body.u.case_0: MemArg failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_simd_instr_k25(ctx, out, _struct_start);
 }
@@ -3009,7 +3009,7 @@ static bool jav_simd_instr_k25(bbq_ctx_t* ctx, jav_simd_instr_t* out, size_t _st
 }
 static bool jav_instr_k1(bbq_ctx_t* ctx, jav_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_u8(ctx, &out->op)) return bbq_fail(ctx, "op: read failed");
+    if (!bbq_read_u8(ctx, &out->op)) return bbq_fail(ctx, "Instr.op: read failed");
     BBQ_MUSTTAIL return jav_instr_k0(ctx, out, _struct_start);
 }
 static bool jav_instr_k0(bbq_ctx_t* ctx, jav_instr_t* out, size_t _struct_start) {
@@ -3249,224 +3249,224 @@ static bool jav_instr_k0(bbq_ctx_t* ctx, jav_instr_t* out, size_t _struct_start)
 static bool jav_instr_k35(bbq_ctx_t* ctx, jav_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_simd_instr_read(ctx, &out->body.u.case_31)) return bbq_fail(ctx, "SimdInstr failed");
+    if (!jav_simd_instr_read(ctx, &out->body.u.case_31)) return bbq_fail(ctx, "Instr.body.u.case_31: SimdInstr failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_instr_k37(ctx, out, _struct_start);
 }
 static bool jav_instr_k38(bbq_ctx_t* ctx, jav_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_misc_instr_read(ctx, &out->body.u.case_30)) return bbq_fail(ctx, "MiscInstr failed");
+    if (!jav_misc_instr_read(ctx, &out->body.u.case_30)) return bbq_fail(ctx, "Instr.body.u.case_30: MiscInstr failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_instr_k37(ctx, out, _struct_start);
 }
 static bool jav_instr_k40(bbq_ctx_t* ctx, jav_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_gc_instr_read(ctx, &out->body.u.case_29)) return bbq_fail(ctx, "GcInstr failed");
+    if (!jav_gc_instr_read(ctx, &out->body.u.case_29)) return bbq_fail(ctx, "Instr.body.u.case_29: GcInstr failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_instr_k37(ctx, out, _struct_start);
 }
 static bool jav_instr_k42(bbq_ctx_t* ctx, jav_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_idx_imm_read(ctx, &out->body.u.case_28)) return bbq_fail(ctx, "IdxImm failed");
+    if (!jav_idx_imm_read(ctx, &out->body.u.case_28)) return bbq_fail(ctx, "Instr.body.u.case_28: IdxImm failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_instr_k37(ctx, out, _struct_start);
 }
 static bool jav_instr_k44(bbq_ctx_t* ctx, jav_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_empty_read(ctx, &out->body.u.case_27)) return bbq_fail(ctx, "Empty failed");
+    if (!jav_empty_read(ctx, &out->body.u.case_27)) return bbq_fail(ctx, "Instr.body.u.case_27: Empty failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_instr_k37(ctx, out, _struct_start);
 }
 static bool jav_instr_k46(bbq_ctx_t* ctx, jav_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_idx_imm_read(ctx, &out->body.u.case_26)) return bbq_fail(ctx, "IdxImm failed");
+    if (!jav_idx_imm_read(ctx, &out->body.u.case_26)) return bbq_fail(ctx, "Instr.body.u.case_26: IdxImm failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_instr_k37(ctx, out, _struct_start);
 }
 static bool jav_instr_k48(bbq_ctx_t* ctx, jav_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_empty_read(ctx, &out->body.u.case_25)) return bbq_fail(ctx, "Empty failed");
+    if (!jav_empty_read(ctx, &out->body.u.case_25)) return bbq_fail(ctx, "Instr.body.u.case_25: Empty failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_instr_k37(ctx, out, _struct_start);
 }
 static bool jav_instr_k50(bbq_ctx_t* ctx, jav_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_heap_imm_read(ctx, &out->body.u.case_24)) return bbq_fail(ctx, "HeapImm failed");
+    if (!jav_heap_imm_read(ctx, &out->body.u.case_24)) return bbq_fail(ctx, "Instr.body.u.case_24: HeapImm failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_instr_k37(ctx, out, _struct_start);
 }
 static bool jav_instr_k52(bbq_ctx_t* ctx, jav_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_empty_read(ctx, &out->body.u.case_23)) return bbq_fail(ctx, "Empty failed");
+    if (!jav_empty_read(ctx, &out->body.u.case_23)) return bbq_fail(ctx, "Instr.body.u.case_23: Empty failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_instr_k37(ctx, out, _struct_start);
 }
 static bool jav_instr_k54(bbq_ctx_t* ctx, jav_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_f64_imm_read(ctx, &out->body.u.case_22)) return bbq_fail(ctx, "F64Imm failed");
+    if (!jav_f64_imm_read(ctx, &out->body.u.case_22)) return bbq_fail(ctx, "Instr.body.u.case_22: F64Imm failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_instr_k37(ctx, out, _struct_start);
 }
 static bool jav_instr_k56(bbq_ctx_t* ctx, jav_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_f32_imm_read(ctx, &out->body.u.case_21)) return bbq_fail(ctx, "F32Imm failed");
+    if (!jav_f32_imm_read(ctx, &out->body.u.case_21)) return bbq_fail(ctx, "Instr.body.u.case_21: F32Imm failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_instr_k37(ctx, out, _struct_start);
 }
 static bool jav_instr_k58(bbq_ctx_t* ctx, jav_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_i64_imm_read(ctx, &out->body.u.case_20)) return bbq_fail(ctx, "I64Imm failed");
+    if (!jav_i64_imm_read(ctx, &out->body.u.case_20)) return bbq_fail(ctx, "Instr.body.u.case_20: I64Imm failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_instr_k37(ctx, out, _struct_start);
 }
 static bool jav_instr_k60(bbq_ctx_t* ctx, jav_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_i32_imm_read(ctx, &out->body.u.case_19)) return bbq_fail(ctx, "I32Imm failed");
+    if (!jav_i32_imm_read(ctx, &out->body.u.case_19)) return bbq_fail(ctx, "Instr.body.u.case_19: I32Imm failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_instr_k37(ctx, out, _struct_start);
 }
 static bool jav_instr_k62(bbq_ctx_t* ctx, jav_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_idx_imm_read(ctx, &out->body.u.case_18)) return bbq_fail(ctx, "IdxImm failed");
+    if (!jav_idx_imm_read(ctx, &out->body.u.case_18)) return bbq_fail(ctx, "Instr.body.u.case_18: IdxImm failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_instr_k37(ctx, out, _struct_start);
 }
 static bool jav_instr_k64(bbq_ctx_t* ctx, jav_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_mem_arg_read(ctx, &out->body.u.case_17)) return bbq_fail(ctx, "MemArg failed");
+    if (!jav_mem_arg_read(ctx, &out->body.u.case_17)) return bbq_fail(ctx, "Instr.body.u.case_17: MemArg failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_instr_k37(ctx, out, _struct_start);
 }
 static bool jav_instr_k66(bbq_ctx_t* ctx, jav_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_idx_imm_read(ctx, &out->body.u.case_16)) return bbq_fail(ctx, "IdxImm failed");
+    if (!jav_idx_imm_read(ctx, &out->body.u.case_16)) return bbq_fail(ctx, "Instr.body.u.case_16: IdxImm failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_instr_k37(ctx, out, _struct_start);
 }
 static bool jav_instr_k68(bbq_ctx_t* ctx, jav_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_try_table_read(ctx, &out->body.u.case_15)) return bbq_fail(ctx, "TryTable failed");
+    if (!jav_try_table_read(ctx, &out->body.u.case_15)) return bbq_fail(ctx, "Instr.body.u.case_15: TryTable failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_instr_k37(ctx, out, _struct_start);
 }
 static bool jav_instr_k70(bbq_ctx_t* ctx, jav_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_select_t_read(ctx, &out->body.u.case_14)) return bbq_fail(ctx, "SelectT failed");
+    if (!jav_select_t_read(ctx, &out->body.u.case_14)) return bbq_fail(ctx, "Instr.body.u.case_14: SelectT failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_instr_k37(ctx, out, _struct_start);
 }
 static bool jav_instr_k72(bbq_ctx_t* ctx, jav_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_empty_read(ctx, &out->body.u.case_13)) return bbq_fail(ctx, "Empty failed");
+    if (!jav_empty_read(ctx, &out->body.u.case_13)) return bbq_fail(ctx, "Instr.body.u.case_13: Empty failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_instr_k37(ctx, out, _struct_start);
 }
 static bool jav_instr_k74(bbq_ctx_t* ctx, jav_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_idx_imm_read(ctx, &out->body.u.case_12)) return bbq_fail(ctx, "IdxImm failed");
+    if (!jav_idx_imm_read(ctx, &out->body.u.case_12)) return bbq_fail(ctx, "Instr.body.u.case_12: IdxImm failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_instr_k37(ctx, out, _struct_start);
 }
 static bool jav_instr_k76(bbq_ctx_t* ctx, jav_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_idx2_imm_read(ctx, &out->body.u.case_11)) return bbq_fail(ctx, "Idx2Imm failed");
+    if (!jav_idx2_imm_read(ctx, &out->body.u.case_11)) return bbq_fail(ctx, "Instr.body.u.case_11: Idx2Imm failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_instr_k37(ctx, out, _struct_start);
 }
 static bool jav_instr_k78(bbq_ctx_t* ctx, jav_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_idx_imm_read(ctx, &out->body.u.case_10)) return bbq_fail(ctx, "IdxImm failed");
+    if (!jav_idx_imm_read(ctx, &out->body.u.case_10)) return bbq_fail(ctx, "Instr.body.u.case_10: IdxImm failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_instr_k37(ctx, out, _struct_start);
 }
 static bool jav_instr_k80(bbq_ctx_t* ctx, jav_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_idx2_imm_read(ctx, &out->body.u.case_9)) return bbq_fail(ctx, "Idx2Imm failed");
+    if (!jav_idx2_imm_read(ctx, &out->body.u.case_9)) return bbq_fail(ctx, "Instr.body.u.case_9: Idx2Imm failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_instr_k37(ctx, out, _struct_start);
 }
 static bool jav_instr_k82(bbq_ctx_t* ctx, jav_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_idx_imm_read(ctx, &out->body.u.case_8)) return bbq_fail(ctx, "IdxImm failed");
+    if (!jav_idx_imm_read(ctx, &out->body.u.case_8)) return bbq_fail(ctx, "Instr.body.u.case_8: IdxImm failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_instr_k37(ctx, out, _struct_start);
 }
 static bool jav_instr_k84(bbq_ctx_t* ctx, jav_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_empty_read(ctx, &out->body.u.case_7)) return bbq_fail(ctx, "Empty failed");
+    if (!jav_empty_read(ctx, &out->body.u.case_7)) return bbq_fail(ctx, "Instr.body.u.case_7: Empty failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_instr_k37(ctx, out, _struct_start);
 }
 static bool jav_instr_k86(bbq_ctx_t* ctx, jav_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_br_table_read(ctx, &out->body.u.case_6)) return bbq_fail(ctx, "BrTable failed");
+    if (!jav_br_table_read(ctx, &out->body.u.case_6)) return bbq_fail(ctx, "Instr.body.u.case_6: BrTable failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_instr_k37(ctx, out, _struct_start);
 }
 static bool jav_instr_k88(bbq_ctx_t* ctx, jav_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_idx_imm_read(ctx, &out->body.u.case_5)) return bbq_fail(ctx, "IdxImm failed");
+    if (!jav_idx_imm_read(ctx, &out->body.u.case_5)) return bbq_fail(ctx, "Instr.body.u.case_5: IdxImm failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_instr_k37(ctx, out, _struct_start);
 }
 static bool jav_instr_k90(bbq_ctx_t* ctx, jav_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_empty_read(ctx, &out->body.u.case_4)) return bbq_fail(ctx, "Empty failed");
+    if (!jav_empty_read(ctx, &out->body.u.case_4)) return bbq_fail(ctx, "Instr.body.u.case_4: Empty failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_instr_k37(ctx, out, _struct_start);
 }
 static bool jav_instr_k92(bbq_ctx_t* ctx, jav_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_idx_imm_read(ctx, &out->body.u.case_3)) return bbq_fail(ctx, "IdxImm failed");
+    if (!jav_idx_imm_read(ctx, &out->body.u.case_3)) return bbq_fail(ctx, "Instr.body.u.case_3: IdxImm failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_instr_k37(ctx, out, _struct_start);
 }
 static bool jav_instr_k94(bbq_ctx_t* ctx, jav_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_if_read(ctx, &out->body.u.case_2)) return bbq_fail(ctx, "If failed");
+    if (!jav_if_read(ctx, &out->body.u.case_2)) return bbq_fail(ctx, "Instr.body.u.case_2: If failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_instr_k37(ctx, out, _struct_start);
 }
 static bool jav_instr_k96(bbq_ctx_t* ctx, jav_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_block_read(ctx, &out->body.u.case_1)) return bbq_fail(ctx, "Block failed");
+    if (!jav_block_read(ctx, &out->body.u.case_1)) return bbq_fail(ctx, "Instr.body.u.case_1: Block failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_instr_k37(ctx, out, _struct_start);
 }
 static bool jav_instr_k98(bbq_ctx_t* ctx, jav_instr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_empty_read(ctx, &out->body.u.case_0)) return bbq_fail(ctx, "Empty failed");
+    if (!jav_empty_read(ctx, &out->body.u.case_0)) return bbq_fail(ctx, "Instr.body.u.case_0: Empty failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_instr_k37(ctx, out, _struct_start);
 }
@@ -3483,14 +3483,14 @@ static bool jav_expr_k2(bbq_ctx_t* ctx, jav_expr_t* out, size_t _struct_start) {
     // true at the start (cond = !(until) is the read-another guard) — what the CEK does.
     if (!((!((bbq_pos(ctx) < bbq_effective_end(ctx) ? (int64_t)ctx->data[bbq_pos(ctx)] : (int64_t)0) == 11)))) { bbq_pop_loop(ctx); BBQ_MUSTTAIL return jav_expr_k6(ctx, out, _struct_start); }
     out->instrs.items = bbq_array_grow(ctx, out->instrs.items, sizeof(*out->instrs.items));
-    if (!out->instrs.items) return bbq_fail(ctx, "instrs: alloc failed");
+    if (!out->instrs.items) return bbq_fail(ctx, "Expr.instrs: alloc failed");
     out->instrs.count = 1;
     BBQ_MUSTTAIL return jav_expr_k3(ctx, out, _struct_start);
 }
 static bool jav_expr_k3(bbq_ctx_t* ctx, jav_expr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_instr_read(ctx, &out->instrs.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)])) return bbq_fail(ctx, "Instr failed");
+    if (!jav_instr_read(ctx, &out->instrs.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)])) return bbq_fail(ctx, "Expr.instrs.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)]: Instr failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_expr_k5(ctx, out, _struct_start);
 }
@@ -3499,7 +3499,7 @@ static bool jav_expr_k5(bbq_ctx_t* ctx, jav_expr_t* out, size_t _struct_start) {
     bbq_loop_advance(ctx);
     if ((!((bbq_pos(ctx) < bbq_effective_end(ctx) ? (int64_t)ctx->data[bbq_pos(ctx)] : (int64_t)0) == 11))) {
         out->instrs.items = bbq_array_grow(ctx, out->instrs.items, sizeof(*out->instrs.items));
-        if (!out->instrs.items) return bbq_fail(ctx, "array: grow failed");
+        if (!out->instrs.items) return bbq_fail(ctx, "Expr.instrs: array: grow failed");
         out->instrs.count = (size_t)(bbq_loop_index(ctx) + 1);
         BBQ_MUSTTAIL return jav_expr_k3(ctx, out, _struct_start);
     }
@@ -3508,12 +3508,12 @@ static bool jav_expr_k5(bbq_ctx_t* ctx, jav_expr_t* out, size_t _struct_start) {
 }
 static bool jav_expr_k6(bbq_ctx_t* ctx, jav_expr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_u8(ctx, &out->end)) return bbq_fail(ctx, "end: read failed");
+    if (!bbq_read_u8(ctx, &out->end)) return bbq_fail(ctx, "Expr.end: read failed");
     BBQ_MUSTTAIL return jav_expr_k7(ctx, out, _struct_start);
 }
 static bool jav_expr_k7(bbq_ctx_t* ctx, jav_expr_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!((out->end == 11))) return bbq_fail(ctx, "constraint failed");
+    if (!((out->end == 11))) return bbq_fail(ctx, "Expr.constraint failed");
     BBQ_MUSTTAIL return jav_expr_k9(ctx, out, _struct_start);
 }
 static bool jav_expr_k9(bbq_ctx_t* ctx, jav_expr_t* out, size_t _struct_start) {
@@ -3522,13 +3522,13 @@ static bool jav_expr_k9(bbq_ctx_t* ctx, jav_expr_t* out, size_t _struct_start) {
 }
 static bool jav_locals_k1(bbq_ctx_t* ctx, jav_locals_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_uleb128_u32(ctx, &out->count)) return bbq_fail(ctx, "count: read failed");
+    if (!bbq_read_uleb128_u32(ctx, &out->count)) return bbq_fail(ctx, "Locals.count: read failed");
     BBQ_MUSTTAIL return jav_locals_k3(ctx, out, _struct_start);
 }
 static bool jav_locals_k3(bbq_ctx_t* ctx, jav_locals_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_val_type_read(ctx, &out->type)) return bbq_fail(ctx, "ValType failed");
+    if (!jav_val_type_read(ctx, &out->type)) return bbq_fail(ctx, "Locals.type: ValType failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_locals_k5(ctx, out, _struct_start);
 }
@@ -3538,7 +3538,7 @@ static bool jav_locals_k5(bbq_ctx_t* ctx, jav_locals_t* out, size_t _struct_star
 }
 static bool jav_func_body_k1(bbq_ctx_t* ctx, jav_func_body_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_uleb128_u32(ctx, &out->local_count)) return bbq_fail(ctx, "local_count: read failed");
+    if (!bbq_read_uleb128_u32(ctx, &out->local_count)) return bbq_fail(ctx, "FuncBody.local_count: read failed");
     BBQ_MUSTTAIL return jav_func_body_k0(ctx, out, _struct_start);
 }
 static bool jav_func_body_k0(bbq_ctx_t* ctx, jav_func_body_t* out, size_t _struct_start) {
@@ -3546,7 +3546,7 @@ static bool jav_func_body_k0(bbq_ctx_t* ctx, jav_func_body_t* out, size_t _struc
     { size_t _n = (size_t)(out->local_count);
       out->locals.count = _n;
       out->locals.items = calloc(_n ? _n : 1, sizeof(*out->locals.items));
-      if (!out->locals.items) return bbq_fail(ctx, "locals: alloc failed");
+      if (!out->locals.items) return bbq_fail(ctx, "FuncBody.locals: alloc failed");
       if (_n == 0) { BBQ_MUSTTAIL return jav_func_body_k9(ctx, out, _struct_start); }
       bbq_push_loop_n(ctx, (int64_t)_n); }
     BBQ_MUSTTAIL return jav_func_body_k5(ctx, out, _struct_start);
@@ -3554,7 +3554,7 @@ static bool jav_func_body_k0(bbq_ctx_t* ctx, jav_func_body_t* out, size_t _struc
 static bool jav_func_body_k5(bbq_ctx_t* ctx, jav_func_body_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_locals_read(ctx, &out->locals.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)])) return bbq_fail(ctx, "Locals failed");
+    if (!jav_locals_read(ctx, &out->locals.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)])) return bbq_fail(ctx, "FuncBody.locals.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)]: Locals failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_func_body_k7(ctx, out, _struct_start);
 }
@@ -3567,7 +3567,7 @@ static bool jav_func_body_k7(bbq_ctx_t* ctx, jav_func_body_t* out, size_t _struc
 static bool jav_func_body_k9(bbq_ctx_t* ctx, jav_func_body_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_expr_read(ctx, &out->body)) return bbq_fail(ctx, "Expr failed");
+    if (!jav_expr_read(ctx, &out->body)) return bbq_fail(ctx, "FuncBody.body: Expr failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_func_body_k11(ctx, out, _struct_start);
 }
@@ -3577,7 +3577,7 @@ static bool jav_func_body_k11(bbq_ctx_t* ctx, jav_func_body_t* out, size_t _stru
 }
 static bool jav_function_section_k1(bbq_ctx_t* ctx, jav_function_section_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_uleb128_u32(ctx, &out->count)) return bbq_fail(ctx, "count: read failed");
+    if (!bbq_read_uleb128_u32(ctx, &out->count)) return bbq_fail(ctx, "FunctionSection.count: read failed");
     BBQ_MUSTTAIL return jav_function_section_k0(ctx, out, _struct_start);
 }
 static bool jav_function_section_k0(bbq_ctx_t* ctx, jav_function_section_t* out, size_t _struct_start) {
@@ -3585,14 +3585,14 @@ static bool jav_function_section_k0(bbq_ctx_t* ctx, jav_function_section_t* out,
     { size_t _n = (size_t)(out->count);
       out->type_indices.count = _n;
       out->type_indices.items = calloc(_n ? _n : 1, sizeof(*out->type_indices.items));
-      if (!out->type_indices.items) return bbq_fail(ctx, "type_indices: alloc failed");
+      if (!out->type_indices.items) return bbq_fail(ctx, "FunctionSection.type_indices: alloc failed");
       if (_n == 0) { BBQ_MUSTTAIL return jav_function_section_k7(ctx, out, _struct_start); }
       bbq_push_loop_n(ctx, (int64_t)_n); }
     BBQ_MUSTTAIL return jav_function_section_k3(ctx, out, _struct_start);
 }
 static bool jav_function_section_k3(bbq_ctx_t* ctx, jav_function_section_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_uleb128_u32(ctx, &out->type_indices.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)])) return bbq_fail(ctx, ": read failed");
+    if (!bbq_read_uleb128_u32(ctx, &out->type_indices.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)])) return bbq_fail(ctx, "FunctionSection.type_indices.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)]: read failed");
     BBQ_MUSTTAIL return jav_function_section_k5(ctx, out, _struct_start);
 }
 static bool jav_function_section_k5(bbq_ctx_t* ctx, jav_function_section_t* out, size_t _struct_start) {
@@ -3607,7 +3607,7 @@ static bool jav_function_section_k7(bbq_ctx_t* ctx, jav_function_section_t* out,
 }
 static bool jav_code_entry_k1(bbq_ctx_t* ctx, jav_code_entry_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_uleb128_u32(ctx, &out->size)) return bbq_fail(ctx, "size: read failed");
+    if (!bbq_read_uleb128_u32(ctx, &out->size)) return bbq_fail(ctx, "CodeEntry.size: read failed");
     BBQ_MUSTTAIL return jav_code_entry_k0(ctx, out, _struct_start);
 }
 static bool jav_code_entry_k0(bbq_ctx_t* ctx, jav_code_entry_t* out, size_t _struct_start) {
@@ -3618,7 +3618,7 @@ static bool jav_code_entry_k0(bbq_ctx_t* ctx, jav_code_entry_t* out, size_t _str
 static bool jav_code_entry_k4(bbq_ctx_t* ctx, jav_code_entry_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_func_body_read(ctx, &out->body)) return bbq_fail(ctx, "FuncBody failed");
+    if (!jav_func_body_read(ctx, &out->body)) return bbq_fail(ctx, "CodeEntry.body: FuncBody failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_code_entry_k6(ctx, out, _struct_start);
 }
@@ -3633,7 +3633,7 @@ static bool jav_code_entry_k7(bbq_ctx_t* ctx, jav_code_entry_t* out, size_t _str
 }
 static bool jav_code_section_k1(bbq_ctx_t* ctx, jav_code_section_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_uleb128_u32(ctx, &out->count)) return bbq_fail(ctx, "count: read failed");
+    if (!bbq_read_uleb128_u32(ctx, &out->count)) return bbq_fail(ctx, "CodeSection.count: read failed");
     BBQ_MUSTTAIL return jav_code_section_k0(ctx, out, _struct_start);
 }
 static bool jav_code_section_k0(bbq_ctx_t* ctx, jav_code_section_t* out, size_t _struct_start) {
@@ -3641,7 +3641,7 @@ static bool jav_code_section_k0(bbq_ctx_t* ctx, jav_code_section_t* out, size_t 
     { size_t _n = (size_t)(out->count);
       out->entries.count = _n;
       out->entries.items = calloc(_n ? _n : 1, sizeof(*out->entries.items));
-      if (!out->entries.items) return bbq_fail(ctx, "entries: alloc failed");
+      if (!out->entries.items) return bbq_fail(ctx, "CodeSection.entries: alloc failed");
       if (_n == 0) { BBQ_MUSTTAIL return jav_code_section_k8(ctx, out, _struct_start); }
       bbq_push_loop_n(ctx, (int64_t)_n); }
     BBQ_MUSTTAIL return jav_code_section_k5(ctx, out, _struct_start);
@@ -3649,7 +3649,7 @@ static bool jav_code_section_k0(bbq_ctx_t* ctx, jav_code_section_t* out, size_t 
 static bool jav_code_section_k5(bbq_ctx_t* ctx, jav_code_section_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_code_entry_read(ctx, &out->entries.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)])) return bbq_fail(ctx, "CodeEntry failed");
+    if (!jav_code_entry_read(ctx, &out->entries.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)])) return bbq_fail(ctx, "CodeSection.entries.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)]: CodeEntry failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_code_section_k7(ctx, out, _struct_start);
 }
@@ -3665,12 +3665,12 @@ static bool jav_code_section_k8(bbq_ctx_t* ctx, jav_code_section_t* out, size_t 
 }
 static bool jav_ref_type_k1(bbq_ctx_t* ctx, jav_ref_type_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_u8(ctx, &out->head)) return bbq_fail(ctx, "head: read failed");
+    if (!bbq_read_u8(ctx, &out->head)) return bbq_fail(ctx, "RefType.head: read failed");
     BBQ_MUSTTAIL return jav_ref_type_k0(ctx, out, _struct_start);
 }
 static bool jav_ref_type_k0(bbq_ctx_t* ctx, jav_ref_type_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!((((out->head == 99) || (out->head == 100)) || ((out->head >= 105) && (out->head <= 116))))) return bbq_fail(ctx, "constraint failed");
+    if (!((((out->head == 99) || (out->head == 100)) || ((out->head >= 105) && (out->head <= 116))))) return bbq_fail(ctx, "RefType.constraint failed");
     BBQ_MUSTTAIL return jav_ref_type_k3(ctx, out, _struct_start);
 }
 static bool jav_ref_type_k3(bbq_ctx_t* ctx, jav_ref_type_t* out, size_t _struct_start) {
@@ -3682,7 +3682,7 @@ static bool jav_ref_type_k3(bbq_ctx_t* ctx, jav_ref_type_t* out, size_t _struct_
 static bool jav_ref_type_k7(bbq_ctx_t* ctx, jav_ref_type_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_heap_type_read(ctx, &out->ht.value)) return bbq_fail(ctx, "HeapType failed");
+    if (!jav_heap_type_read(ctx, &out->ht.value)) return bbq_fail(ctx, "RefType.ht.value: HeapType failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_ref_type_k6(ctx, out, _struct_start);
 }
@@ -3692,24 +3692,24 @@ static bool jav_ref_type_k6(bbq_ctx_t* ctx, jav_ref_type_t* out, size_t _struct_
 }
 static bool jav_limits_k1(bbq_ctx_t* ctx, jav_limits_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_u8(ctx, &out->flag)) return bbq_fail(ctx, "flag: read failed");
+    if (!bbq_read_u8(ctx, &out->flag)) return bbq_fail(ctx, "Limits.flag: read failed");
     BBQ_MUSTTAIL return jav_limits_k0(ctx, out, _struct_start);
 }
 static bool jav_limits_k0(bbq_ctx_t* ctx, jav_limits_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!(((out->flag & 250) == 0))) return bbq_fail(ctx, "constraint failed");
+    if (!(((out->flag & 250) == 0))) return bbq_fail(ctx, "Limits.constraint failed");
     BBQ_MUSTTAIL return jav_limits_k3(ctx, out, _struct_start);
 }
 static bool jav_limits_k3(bbq_ctx_t* ctx, jav_limits_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_uleb128_u64(ctx, &out->min)) return bbq_fail(ctx, "min: read failed");
+    if (!bbq_read_uleb128_u64(ctx, &out->min)) return bbq_fail(ctx, "Limits.min: read failed");
     BBQ_MUSTTAIL return jav_limits_k5(ctx, out, _struct_start);
 }
 static bool jav_limits_k5(bbq_ctx_t* ctx, jav_limits_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     out->max.has_value = (((out->flag & 1) != 0)) ? true : false;
     if (out->max.has_value) {
-        if (!bbq_read_uleb128_u64(ctx, &out->max.value)) return bbq_fail(ctx, "max: read failed");
+        if (!bbq_read_uleb128_u64(ctx, &out->max.value)) return bbq_fail(ctx, "Limits.max: read failed");
     }
     BBQ_MUSTTAIL return jav_limits_k7(ctx, out, _struct_start);
 }
@@ -3720,18 +3720,18 @@ static bool jav_limits_k7(bbq_ctx_t* ctx, jav_limits_t* out, size_t _struct_star
 static bool jav_global_type_k0(bbq_ctx_t* ctx, jav_global_type_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_val_type_read(ctx, &out->type)) return bbq_fail(ctx, "ValType failed");
+    if (!jav_val_type_read(ctx, &out->type)) return bbq_fail(ctx, "GlobalType.type: ValType failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_global_type_k3(ctx, out, _struct_start);
 }
 static bool jav_global_type_k3(bbq_ctx_t* ctx, jav_global_type_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_u8(ctx, &out->mut)) return bbq_fail(ctx, "mut: read failed");
+    if (!bbq_read_u8(ctx, &out->mut)) return bbq_fail(ctx, "GlobalType.mut: read failed");
     BBQ_MUSTTAIL return jav_global_type_k4(ctx, out, _struct_start);
 }
 static bool jav_global_type_k4(bbq_ctx_t* ctx, jav_global_type_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!((out->mut <= 1))) return bbq_fail(ctx, "constraint failed");
+    if (!((out->mut <= 1))) return bbq_fail(ctx, "GlobalType.constraint failed");
     BBQ_MUSTTAIL return jav_global_type_k6(ctx, out, _struct_start);
 }
 static bool jav_global_type_k6(bbq_ctx_t* ctx, jav_global_type_t* out, size_t _struct_start) {
@@ -3741,14 +3741,14 @@ static bool jav_global_type_k6(bbq_ctx_t* ctx, jav_global_type_t* out, size_t _s
 static bool jav_table_type_k0(bbq_ctx_t* ctx, jav_table_type_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_ref_type_read(ctx, &out->reftype)) return bbq_fail(ctx, "RefType failed");
+    if (!jav_ref_type_read(ctx, &out->reftype)) return bbq_fail(ctx, "TableType.reftype: RefType failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_table_type_k4(ctx, out, _struct_start);
 }
 static bool jav_table_type_k4(bbq_ctx_t* ctx, jav_table_type_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_limits_read(ctx, &out->limits)) return bbq_fail(ctx, "Limits failed");
+    if (!jav_limits_read(ctx, &out->limits)) return bbq_fail(ctx, "TableType.limits: Limits failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_table_type_k6(ctx, out, _struct_start);
 }
@@ -3758,17 +3758,17 @@ static bool jav_table_type_k6(bbq_ctx_t* ctx, jav_table_type_t* out, size_t _str
 }
 static bool jav_tag_type_k1(bbq_ctx_t* ctx, jav_tag_type_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_u8(ctx, &out->attr)) return bbq_fail(ctx, "attr: read failed");
+    if (!bbq_read_u8(ctx, &out->attr)) return bbq_fail(ctx, "TagType.attr: read failed");
     BBQ_MUSTTAIL return jav_tag_type_k0(ctx, out, _struct_start);
 }
 static bool jav_tag_type_k0(bbq_ctx_t* ctx, jav_tag_type_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!((out->attr == 0))) return bbq_fail(ctx, "constraint failed");
+    if (!((out->attr == 0))) return bbq_fail(ctx, "TagType.constraint failed");
     BBQ_MUSTTAIL return jav_tag_type_k3(ctx, out, _struct_start);
 }
 static bool jav_tag_type_k3(bbq_ctx_t* ctx, jav_tag_type_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_uleb128_u32(ctx, &out->type)) return bbq_fail(ctx, "type: read failed");
+    if (!bbq_read_uleb128_u32(ctx, &out->type)) return bbq_fail(ctx, "TagType.type: read failed");
     BBQ_MUSTTAIL return jav_tag_type_k5(ctx, out, _struct_start);
 }
 static bool jav_tag_type_k5(bbq_ctx_t* ctx, jav_tag_type_t* out, size_t _struct_start) {
@@ -3777,17 +3777,17 @@ static bool jav_tag_type_k5(bbq_ctx_t* ctx, jav_tag_type_t* out, size_t _struct_
 }
 static bool jav_name_k1(bbq_ctx_t* ctx, jav_name_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_uleb128_u32(ctx, &out->count)) return bbq_fail(ctx, "count: read failed");
+    if (!bbq_read_uleb128_u32(ctx, &out->count)) return bbq_fail(ctx, "Name.count: read failed");
     BBQ_MUSTTAIL return jav_name_k0(ctx, out, _struct_start);
 }
 static bool jav_name_k0(bbq_ctx_t* ctx, jav_name_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_bytes(ctx, &out->bytes.data, &out->bytes.length, (size_t)(out->count))) return bbq_fail(ctx, "bytes: read failed");
+    if (!bbq_read_bytes(ctx, &out->bytes.data, &out->bytes.length, (size_t)(out->count))) return bbq_fail(ctx, "Name.bytes: read failed");
     BBQ_MUSTTAIL return jav_name_k3(ctx, out, _struct_start);
 }
 static bool jav_name_k3(bbq_ctx_t* ctx, jav_name_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!(jav_name_utf8_ok(out->bytes))) return bbq_fail(ctx, "constraint failed");
+    if (!(jav_name_utf8_ok(out->bytes))) return bbq_fail(ctx, "Name.constraint failed");
     BBQ_MUSTTAIL return jav_name_k5(ctx, out, _struct_start);
 }
 static bool jav_name_k5(bbq_ctx_t* ctx, jav_name_t* out, size_t _struct_start) {
@@ -3796,12 +3796,12 @@ static bool jav_name_k5(bbq_ctx_t* ctx, jav_name_t* out, size_t _struct_start) {
 }
 static bool jav_byte_vec_k1(bbq_ctx_t* ctx, jav_byte_vec_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_uleb128_u32(ctx, &out->count)) return bbq_fail(ctx, "count: read failed");
+    if (!bbq_read_uleb128_u32(ctx, &out->count)) return bbq_fail(ctx, "ByteVec.count: read failed");
     BBQ_MUSTTAIL return jav_byte_vec_k0(ctx, out, _struct_start);
 }
 static bool jav_byte_vec_k0(bbq_ctx_t* ctx, jav_byte_vec_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_bytes(ctx, &out->bytes.data, &out->bytes.length, (size_t)(out->count))) return bbq_fail(ctx, "bytes: read failed");
+    if (!bbq_read_bytes(ctx, &out->bytes.data, &out->bytes.length, (size_t)(out->count))) return bbq_fail(ctx, "ByteVec.bytes: read failed");
     BBQ_MUSTTAIL return jav_byte_vec_k3(ctx, out, _struct_start);
 }
 static bool jav_byte_vec_k3(bbq_ctx_t* ctx, jav_byte_vec_t* out, size_t _struct_start) {
@@ -3810,7 +3810,7 @@ static bool jav_byte_vec_k3(bbq_ctx_t* ctx, jav_byte_vec_t* out, size_t _struct_
 }
 static bool jav_idx_vec_k1(bbq_ctx_t* ctx, jav_idx_vec_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_uleb128_u32(ctx, &out->count)) return bbq_fail(ctx, "count: read failed");
+    if (!bbq_read_uleb128_u32(ctx, &out->count)) return bbq_fail(ctx, "IdxVec.count: read failed");
     BBQ_MUSTTAIL return jav_idx_vec_k0(ctx, out, _struct_start);
 }
 static bool jav_idx_vec_k0(bbq_ctx_t* ctx, jav_idx_vec_t* out, size_t _struct_start) {
@@ -3818,14 +3818,14 @@ static bool jav_idx_vec_k0(bbq_ctx_t* ctx, jav_idx_vec_t* out, size_t _struct_st
     { size_t _n = (size_t)(out->count);
       out->idxs.count = _n;
       out->idxs.items = calloc(_n ? _n : 1, sizeof(*out->idxs.items));
-      if (!out->idxs.items) return bbq_fail(ctx, "idxs: alloc failed");
+      if (!out->idxs.items) return bbq_fail(ctx, "IdxVec.idxs: alloc failed");
       if (_n == 0) { BBQ_MUSTTAIL return jav_idx_vec_k7(ctx, out, _struct_start); }
       bbq_push_loop_n(ctx, (int64_t)_n); }
     BBQ_MUSTTAIL return jav_idx_vec_k3(ctx, out, _struct_start);
 }
 static bool jav_idx_vec_k3(bbq_ctx_t* ctx, jav_idx_vec_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_uleb128_u32(ctx, &out->idxs.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)])) return bbq_fail(ctx, ": read failed");
+    if (!bbq_read_uleb128_u32(ctx, &out->idxs.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)])) return bbq_fail(ctx, "IdxVec.idxs.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)]: read failed");
     BBQ_MUSTTAIL return jav_idx_vec_k5(ctx, out, _struct_start);
 }
 static bool jav_idx_vec_k5(bbq_ctx_t* ctx, jav_idx_vec_t* out, size_t _struct_start) {
@@ -3840,7 +3840,7 @@ static bool jav_idx_vec_k7(bbq_ctx_t* ctx, jav_idx_vec_t* out, size_t _struct_st
 }
 static bool jav_expr_vec_k1(bbq_ctx_t* ctx, jav_expr_vec_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_uleb128_u32(ctx, &out->count)) return bbq_fail(ctx, "count: read failed");
+    if (!bbq_read_uleb128_u32(ctx, &out->count)) return bbq_fail(ctx, "ExprVec.count: read failed");
     BBQ_MUSTTAIL return jav_expr_vec_k0(ctx, out, _struct_start);
 }
 static bool jav_expr_vec_k0(bbq_ctx_t* ctx, jav_expr_vec_t* out, size_t _struct_start) {
@@ -3848,7 +3848,7 @@ static bool jav_expr_vec_k0(bbq_ctx_t* ctx, jav_expr_vec_t* out, size_t _struct_
     { size_t _n = (size_t)(out->count);
       out->exprs.count = _n;
       out->exprs.items = calloc(_n ? _n : 1, sizeof(*out->exprs.items));
-      if (!out->exprs.items) return bbq_fail(ctx, "exprs: alloc failed");
+      if (!out->exprs.items) return bbq_fail(ctx, "ExprVec.exprs: alloc failed");
       if (_n == 0) { BBQ_MUSTTAIL return jav_expr_vec_k8(ctx, out, _struct_start); }
       bbq_push_loop_n(ctx, (int64_t)_n); }
     BBQ_MUSTTAIL return jav_expr_vec_k5(ctx, out, _struct_start);
@@ -3856,7 +3856,7 @@ static bool jav_expr_vec_k0(bbq_ctx_t* ctx, jav_expr_vec_t* out, size_t _struct_
 static bool jav_expr_vec_k5(bbq_ctx_t* ctx, jav_expr_vec_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_expr_read(ctx, &out->exprs.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)])) return bbq_fail(ctx, "Expr failed");
+    if (!jav_expr_read(ctx, &out->exprs.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)])) return bbq_fail(ctx, "ExprVec.exprs.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)]: Expr failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_expr_vec_k7(ctx, out, _struct_start);
 }
@@ -3872,7 +3872,7 @@ static bool jav_expr_vec_k8(bbq_ctx_t* ctx, jav_expr_vec_t* out, size_t _struct_
 }
 static bool jav_extern_type_k1(bbq_ctx_t* ctx, jav_extern_type_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_u8(ctx, &out->kind)) return bbq_fail(ctx, "kind: read failed");
+    if (!bbq_read_u8(ctx, &out->kind)) return bbq_fail(ctx, "ExternType.kind: read failed");
     BBQ_MUSTTAIL return jav_extern_type_k0(ctx, out, _struct_start);
 }
 static bool jav_extern_type_k0(bbq_ctx_t* ctx, jav_extern_type_t* out, size_t _struct_start) {
@@ -3895,35 +3895,35 @@ static bool jav_extern_type_k0(bbq_ctx_t* ctx, jav_extern_type_t* out, size_t _s
 static bool jav_extern_type_k8(bbq_ctx_t* ctx, jav_extern_type_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_tag_type_read(ctx, &out->body.u.case_4)) return bbq_fail(ctx, "TagType failed");
+    if (!jav_tag_type_read(ctx, &out->body.u.case_4)) return bbq_fail(ctx, "ExternType.body.u.case_4: TagType failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_extern_type_k10(ctx, out, _struct_start);
 }
 static bool jav_extern_type_k11(bbq_ctx_t* ctx, jav_extern_type_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_global_type_read(ctx, &out->body.u.case_3)) return bbq_fail(ctx, "GlobalType failed");
+    if (!jav_global_type_read(ctx, &out->body.u.case_3)) return bbq_fail(ctx, "ExternType.body.u.case_3: GlobalType failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_extern_type_k10(ctx, out, _struct_start);
 }
 static bool jav_extern_type_k13(bbq_ctx_t* ctx, jav_extern_type_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_limits_read(ctx, &out->body.u.case_2)) return bbq_fail(ctx, "Limits failed");
+    if (!jav_limits_read(ctx, &out->body.u.case_2)) return bbq_fail(ctx, "ExternType.body.u.case_2: Limits failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_extern_type_k10(ctx, out, _struct_start);
 }
 static bool jav_extern_type_k15(bbq_ctx_t* ctx, jav_extern_type_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_table_type_read(ctx, &out->body.u.case_1)) return bbq_fail(ctx, "TableType failed");
+    if (!jav_table_type_read(ctx, &out->body.u.case_1)) return bbq_fail(ctx, "ExternType.body.u.case_1: TableType failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_extern_type_k10(ctx, out, _struct_start);
 }
 static bool jav_extern_type_k17(bbq_ctx_t* ctx, jav_extern_type_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_idx_imm_read(ctx, &out->body.u.case_0)) return bbq_fail(ctx, "IdxImm failed");
+    if (!jav_idx_imm_read(ctx, &out->body.u.case_0)) return bbq_fail(ctx, "ExternType.body.u.case_0: IdxImm failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_extern_type_k10(ctx, out, _struct_start);
 }
@@ -3934,21 +3934,21 @@ static bool jav_extern_type_k10(bbq_ctx_t* ctx, jav_extern_type_t* out, size_t _
 static bool jav_import_k0(bbq_ctx_t* ctx, jav_import_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_name_read(ctx, &out->module)) return bbq_fail(ctx, "Name failed");
+    if (!jav_name_read(ctx, &out->module)) return bbq_fail(ctx, "Import.module: Name failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_import_k4(ctx, out, _struct_start);
 }
 static bool jav_import_k4(bbq_ctx_t* ctx, jav_import_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_name_read(ctx, &out->field)) return bbq_fail(ctx, "Name failed");
+    if (!jav_name_read(ctx, &out->field)) return bbq_fail(ctx, "Import.field: Name failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_import_k7(ctx, out, _struct_start);
 }
 static bool jav_import_k7(bbq_ctx_t* ctx, jav_import_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_extern_type_read(ctx, &out->desc)) return bbq_fail(ctx, "ExternType failed");
+    if (!jav_extern_type_read(ctx, &out->desc)) return bbq_fail(ctx, "Import.desc: ExternType failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_import_k9(ctx, out, _struct_start);
 }
@@ -3958,7 +3958,7 @@ static bool jav_import_k9(bbq_ctx_t* ctx, jav_import_t* out, size_t _struct_star
 }
 static bool jav_import_section_k1(bbq_ctx_t* ctx, jav_import_section_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_uleb128_u32(ctx, &out->count)) return bbq_fail(ctx, "count: read failed");
+    if (!bbq_read_uleb128_u32(ctx, &out->count)) return bbq_fail(ctx, "ImportSection.count: read failed");
     BBQ_MUSTTAIL return jav_import_section_k0(ctx, out, _struct_start);
 }
 static bool jav_import_section_k0(bbq_ctx_t* ctx, jav_import_section_t* out, size_t _struct_start) {
@@ -3966,7 +3966,7 @@ static bool jav_import_section_k0(bbq_ctx_t* ctx, jav_import_section_t* out, siz
     { size_t _n = (size_t)(out->count);
       out->imports.count = _n;
       out->imports.items = calloc(_n ? _n : 1, sizeof(*out->imports.items));
-      if (!out->imports.items) return bbq_fail(ctx, "imports: alloc failed");
+      if (!out->imports.items) return bbq_fail(ctx, "ImportSection.imports: alloc failed");
       if (_n == 0) { BBQ_MUSTTAIL return jav_import_section_k8(ctx, out, _struct_start); }
       bbq_push_loop_n(ctx, (int64_t)_n); }
     BBQ_MUSTTAIL return jav_import_section_k5(ctx, out, _struct_start);
@@ -3974,7 +3974,7 @@ static bool jav_import_section_k0(bbq_ctx_t* ctx, jav_import_section_t* out, siz
 static bool jav_import_section_k5(bbq_ctx_t* ctx, jav_import_section_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_import_read(ctx, &out->imports.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)])) return bbq_fail(ctx, "Import failed");
+    if (!jav_import_read(ctx, &out->imports.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)])) return bbq_fail(ctx, "ImportSection.imports.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)]: Import failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_import_section_k7(ctx, out, _struct_start);
 }
@@ -3991,7 +3991,7 @@ static bool jav_import_section_k8(bbq_ctx_t* ctx, jav_import_section_t* out, siz
 static bool jav_table_plain_k0(bbq_ctx_t* ctx, jav_table_plain_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_table_type_read(ctx, &out->type)) return bbq_fail(ctx, "TableType failed");
+    if (!jav_table_type_read(ctx, &out->type)) return bbq_fail(ctx, "TablePlain.type: TableType failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_table_plain_k3(ctx, out, _struct_start);
 }
@@ -4001,35 +4001,35 @@ static bool jav_table_plain_k3(bbq_ctx_t* ctx, jav_table_plain_t* out, size_t _s
 }
 static bool jav_table_init_k1(bbq_ctx_t* ctx, jav_table_init_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_u8(ctx, &out->marker0)) return bbq_fail(ctx, "marker0: read failed");
+    if (!bbq_read_u8(ctx, &out->marker0)) return bbq_fail(ctx, "TableInit.marker0: read failed");
     BBQ_MUSTTAIL return jav_table_init_k0(ctx, out, _struct_start);
 }
 static bool jav_table_init_k0(bbq_ctx_t* ctx, jav_table_init_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!((out->marker0 == 64))) return bbq_fail(ctx, "constraint failed");
+    if (!((out->marker0 == 64))) return bbq_fail(ctx, "TableInit.constraint failed");
     BBQ_MUSTTAIL return jav_table_init_k3(ctx, out, _struct_start);
 }
 static bool jav_table_init_k3(bbq_ctx_t* ctx, jav_table_init_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_u8(ctx, &out->marker1)) return bbq_fail(ctx, "marker1: read failed");
+    if (!bbq_read_u8(ctx, &out->marker1)) return bbq_fail(ctx, "TableInit.marker1: read failed");
     BBQ_MUSTTAIL return jav_table_init_k5(ctx, out, _struct_start);
 }
 static bool jav_table_init_k5(bbq_ctx_t* ctx, jav_table_init_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!((out->marker1 == 0))) return bbq_fail(ctx, "constraint failed");
+    if (!((out->marker1 == 0))) return bbq_fail(ctx, "TableInit.constraint failed");
     BBQ_MUSTTAIL return jav_table_init_k9(ctx, out, _struct_start);
 }
 static bool jav_table_init_k9(bbq_ctx_t* ctx, jav_table_init_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_table_type_read(ctx, &out->type)) return bbq_fail(ctx, "TableType failed");
+    if (!jav_table_type_read(ctx, &out->type)) return bbq_fail(ctx, "TableInit.type: TableType failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_table_init_k12(ctx, out, _struct_start);
 }
 static bool jav_table_init_k12(bbq_ctx_t* ctx, jav_table_init_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_expr_read(ctx, &out->init)) return bbq_fail(ctx, "Expr failed");
+    if (!jav_expr_read(ctx, &out->init)) return bbq_fail(ctx, "TableInit.init: Expr failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_table_init_k14(ctx, out, _struct_start);
 }
@@ -4048,16 +4048,12 @@ static bool jav_table_k2(bbq_ctx_t* ctx, jav_table_t* out, size_t _struct_start)
 }
 static bool jav_table_k3(bbq_ctx_t* ctx, jav_table_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    bbq_push_scope(ctx, out);
-    if (!jav_table_init_read(ctx, &out->u.case_0)) return bbq_fail(ctx, "TableInit failed");
-    bbq_pop_scope(ctx);
+    if (!jav_table_init_read(ctx, &out->u.case_0)) return bbq_fail(ctx, "Table.u.case_0: TableInit failed");
     BBQ_MUSTTAIL return jav_table_k5(ctx, out, _struct_start);
 }
 static bool jav_table_k6(bbq_ctx_t* ctx, jav_table_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    bbq_push_scope(ctx, out);
-    if (!jav_table_plain_read(ctx, &out->u.default_val)) return bbq_fail(ctx, "TablePlain failed");
-    bbq_pop_scope(ctx);
+    if (!jav_table_plain_read(ctx, &out->u.default_val)) return bbq_fail(ctx, "Table.u.default_val: TablePlain failed");
     BBQ_MUSTTAIL return jav_table_k5(ctx, out, _struct_start);
 }
 static bool jav_table_k5(bbq_ctx_t* ctx, jav_table_t* out, size_t _struct_start) {
@@ -4066,7 +4062,7 @@ static bool jav_table_k5(bbq_ctx_t* ctx, jav_table_t* out, size_t _struct_start)
 }
 static bool jav_table_section_k1(bbq_ctx_t* ctx, jav_table_section_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_uleb128_u32(ctx, &out->count)) return bbq_fail(ctx, "count: read failed");
+    if (!bbq_read_uleb128_u32(ctx, &out->count)) return bbq_fail(ctx, "TableSection.count: read failed");
     BBQ_MUSTTAIL return jav_table_section_k0(ctx, out, _struct_start);
 }
 static bool jav_table_section_k0(bbq_ctx_t* ctx, jav_table_section_t* out, size_t _struct_start) {
@@ -4074,7 +4070,7 @@ static bool jav_table_section_k0(bbq_ctx_t* ctx, jav_table_section_t* out, size_
     { size_t _n = (size_t)(out->count);
       out->tables.count = _n;
       out->tables.items = calloc(_n ? _n : 1, sizeof(*out->tables.items));
-      if (!out->tables.items) return bbq_fail(ctx, "tables: alloc failed");
+      if (!out->tables.items) return bbq_fail(ctx, "TableSection.tables: alloc failed");
       if (_n == 0) { BBQ_MUSTTAIL return jav_table_section_k8(ctx, out, _struct_start); }
       bbq_push_loop_n(ctx, (int64_t)_n); }
     BBQ_MUSTTAIL return jav_table_section_k5(ctx, out, _struct_start);
@@ -4082,7 +4078,7 @@ static bool jav_table_section_k0(bbq_ctx_t* ctx, jav_table_section_t* out, size_
 static bool jav_table_section_k5(bbq_ctx_t* ctx, jav_table_section_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_table_read(ctx, &out->tables.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)])) return bbq_fail(ctx, "Table failed");
+    if (!jav_table_read(ctx, &out->tables.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)])) return bbq_fail(ctx, "TableSection.tables.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)]: Table failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_table_section_k7(ctx, out, _struct_start);
 }
@@ -4099,7 +4095,7 @@ static bool jav_table_section_k8(bbq_ctx_t* ctx, jav_table_section_t* out, size_
 static bool jav_mem_entry_k0(bbq_ctx_t* ctx, jav_mem_entry_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_limits_read(ctx, &out->limits)) return bbq_fail(ctx, "Limits failed");
+    if (!jav_limits_read(ctx, &out->limits)) return bbq_fail(ctx, "MemEntry.limits: Limits failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_mem_entry_k3(ctx, out, _struct_start);
 }
@@ -4109,7 +4105,7 @@ static bool jav_mem_entry_k3(bbq_ctx_t* ctx, jav_mem_entry_t* out, size_t _struc
 }
 static bool jav_memory_section_k1(bbq_ctx_t* ctx, jav_memory_section_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_uleb128_u32(ctx, &out->count)) return bbq_fail(ctx, "count: read failed");
+    if (!bbq_read_uleb128_u32(ctx, &out->count)) return bbq_fail(ctx, "MemorySection.count: read failed");
     BBQ_MUSTTAIL return jav_memory_section_k0(ctx, out, _struct_start);
 }
 static bool jav_memory_section_k0(bbq_ctx_t* ctx, jav_memory_section_t* out, size_t _struct_start) {
@@ -4117,7 +4113,7 @@ static bool jav_memory_section_k0(bbq_ctx_t* ctx, jav_memory_section_t* out, siz
     { size_t _n = (size_t)(out->count);
       out->mems.count = _n;
       out->mems.items = calloc(_n ? _n : 1, sizeof(*out->mems.items));
-      if (!out->mems.items) return bbq_fail(ctx, "mems: alloc failed");
+      if (!out->mems.items) return bbq_fail(ctx, "MemorySection.mems: alloc failed");
       if (_n == 0) { BBQ_MUSTTAIL return jav_memory_section_k8(ctx, out, _struct_start); }
       bbq_push_loop_n(ctx, (int64_t)_n); }
     BBQ_MUSTTAIL return jav_memory_section_k5(ctx, out, _struct_start);
@@ -4125,7 +4121,7 @@ static bool jav_memory_section_k0(bbq_ctx_t* ctx, jav_memory_section_t* out, siz
 static bool jav_memory_section_k5(bbq_ctx_t* ctx, jav_memory_section_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_mem_entry_read(ctx, &out->mems.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)])) return bbq_fail(ctx, "MemEntry failed");
+    if (!jav_mem_entry_read(ctx, &out->mems.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)])) return bbq_fail(ctx, "MemorySection.mems.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)]: MemEntry failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_memory_section_k7(ctx, out, _struct_start);
 }
@@ -4142,14 +4138,14 @@ static bool jav_memory_section_k8(bbq_ctx_t* ctx, jav_memory_section_t* out, siz
 static bool jav_global_k0(bbq_ctx_t* ctx, jav_global_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_global_type_read(ctx, &out->type)) return bbq_fail(ctx, "GlobalType failed");
+    if (!jav_global_type_read(ctx, &out->type)) return bbq_fail(ctx, "Global.type: GlobalType failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_global_k4(ctx, out, _struct_start);
 }
 static bool jav_global_k4(bbq_ctx_t* ctx, jav_global_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_expr_read(ctx, &out->init)) return bbq_fail(ctx, "Expr failed");
+    if (!jav_expr_read(ctx, &out->init)) return bbq_fail(ctx, "Global.init: Expr failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_global_k6(ctx, out, _struct_start);
 }
@@ -4159,7 +4155,7 @@ static bool jav_global_k6(bbq_ctx_t* ctx, jav_global_t* out, size_t _struct_star
 }
 static bool jav_global_section_k1(bbq_ctx_t* ctx, jav_global_section_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_uleb128_u32(ctx, &out->count)) return bbq_fail(ctx, "count: read failed");
+    if (!bbq_read_uleb128_u32(ctx, &out->count)) return bbq_fail(ctx, "GlobalSection.count: read failed");
     BBQ_MUSTTAIL return jav_global_section_k0(ctx, out, _struct_start);
 }
 static bool jav_global_section_k0(bbq_ctx_t* ctx, jav_global_section_t* out, size_t _struct_start) {
@@ -4167,7 +4163,7 @@ static bool jav_global_section_k0(bbq_ctx_t* ctx, jav_global_section_t* out, siz
     { size_t _n = (size_t)(out->count);
       out->globals.count = _n;
       out->globals.items = calloc(_n ? _n : 1, sizeof(*out->globals.items));
-      if (!out->globals.items) return bbq_fail(ctx, "globals: alloc failed");
+      if (!out->globals.items) return bbq_fail(ctx, "GlobalSection.globals: alloc failed");
       if (_n == 0) { BBQ_MUSTTAIL return jav_global_section_k8(ctx, out, _struct_start); }
       bbq_push_loop_n(ctx, (int64_t)_n); }
     BBQ_MUSTTAIL return jav_global_section_k5(ctx, out, _struct_start);
@@ -4175,7 +4171,7 @@ static bool jav_global_section_k0(bbq_ctx_t* ctx, jav_global_section_t* out, siz
 static bool jav_global_section_k5(bbq_ctx_t* ctx, jav_global_section_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_global_read(ctx, &out->globals.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)])) return bbq_fail(ctx, "Global failed");
+    if (!jav_global_read(ctx, &out->globals.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)])) return bbq_fail(ctx, "GlobalSection.globals.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)]: Global failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_global_section_k7(ctx, out, _struct_start);
 }
@@ -4192,23 +4188,23 @@ static bool jav_global_section_k8(bbq_ctx_t* ctx, jav_global_section_t* out, siz
 static bool jav_export_k0(bbq_ctx_t* ctx, jav_export_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_name_read(ctx, &out->name)) return bbq_fail(ctx, "Name failed");
+    if (!jav_name_read(ctx, &out->name)) return bbq_fail(ctx, "Export.name: Name failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_export_k3(ctx, out, _struct_start);
 }
 static bool jav_export_k3(bbq_ctx_t* ctx, jav_export_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_u8(ctx, &out->kind)) return bbq_fail(ctx, "kind: read failed");
+    if (!bbq_read_u8(ctx, &out->kind)) return bbq_fail(ctx, "Export.kind: read failed");
     BBQ_MUSTTAIL return jav_export_k4(ctx, out, _struct_start);
 }
 static bool jav_export_k4(bbq_ctx_t* ctx, jav_export_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!((out->kind <= 4))) return bbq_fail(ctx, "constraint failed");
+    if (!((out->kind <= 4))) return bbq_fail(ctx, "Export.constraint failed");
     BBQ_MUSTTAIL return jav_export_k6(ctx, out, _struct_start);
 }
 static bool jav_export_k6(bbq_ctx_t* ctx, jav_export_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_uleb128_u32(ctx, &out->idx)) return bbq_fail(ctx, "idx: read failed");
+    if (!bbq_read_uleb128_u32(ctx, &out->idx)) return bbq_fail(ctx, "Export.idx: read failed");
     BBQ_MUSTTAIL return jav_export_k8(ctx, out, _struct_start);
 }
 static bool jav_export_k8(bbq_ctx_t* ctx, jav_export_t* out, size_t _struct_start) {
@@ -4217,7 +4213,7 @@ static bool jav_export_k8(bbq_ctx_t* ctx, jav_export_t* out, size_t _struct_star
 }
 static bool jav_export_section_k1(bbq_ctx_t* ctx, jav_export_section_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_uleb128_u32(ctx, &out->count)) return bbq_fail(ctx, "count: read failed");
+    if (!bbq_read_uleb128_u32(ctx, &out->count)) return bbq_fail(ctx, "ExportSection.count: read failed");
     BBQ_MUSTTAIL return jav_export_section_k0(ctx, out, _struct_start);
 }
 static bool jav_export_section_k0(bbq_ctx_t* ctx, jav_export_section_t* out, size_t _struct_start) {
@@ -4225,7 +4221,7 @@ static bool jav_export_section_k0(bbq_ctx_t* ctx, jav_export_section_t* out, siz
     { size_t _n = (size_t)(out->count);
       out->exports.count = _n;
       out->exports.items = calloc(_n ? _n : 1, sizeof(*out->exports.items));
-      if (!out->exports.items) return bbq_fail(ctx, "exports: alloc failed");
+      if (!out->exports.items) return bbq_fail(ctx, "ExportSection.exports: alloc failed");
       if (_n == 0) { BBQ_MUSTTAIL return jav_export_section_k8(ctx, out, _struct_start); }
       bbq_push_loop_n(ctx, (int64_t)_n); }
     BBQ_MUSTTAIL return jav_export_section_k5(ctx, out, _struct_start);
@@ -4233,7 +4229,7 @@ static bool jav_export_section_k0(bbq_ctx_t* ctx, jav_export_section_t* out, siz
 static bool jav_export_section_k5(bbq_ctx_t* ctx, jav_export_section_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_export_read(ctx, &out->exports.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)])) return bbq_fail(ctx, "Export failed");
+    if (!jav_export_read(ctx, &out->exports.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)])) return bbq_fail(ctx, "ExportSection.exports.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)]: Export failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_export_section_k7(ctx, out, _struct_start);
 }
@@ -4249,7 +4245,7 @@ static bool jav_export_section_k8(bbq_ctx_t* ctx, jav_export_section_t* out, siz
 }
 static bool jav_start_section_k1(bbq_ctx_t* ctx, jav_start_section_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_uleb128_u32(ctx, &out->func)) return bbq_fail(ctx, "func: read failed");
+    if (!bbq_read_uleb128_u32(ctx, &out->func)) return bbq_fail(ctx, "StartSection.func: read failed");
     BBQ_MUSTTAIL return jav_start_section_k0(ctx, out, _struct_start);
 }
 static bool jav_start_section_k0(bbq_ctx_t* ctx, jav_start_section_t* out, size_t _struct_start) {
@@ -4259,14 +4255,14 @@ static bool jav_start_section_k0(bbq_ctx_t* ctx, jav_start_section_t* out, size_
 static bool jav_elem0_k0(bbq_ctx_t* ctx, jav_elem0_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_expr_read(ctx, &out->offset)) return bbq_fail(ctx, "Expr failed");
+    if (!jav_expr_read(ctx, &out->offset)) return bbq_fail(ctx, "Elem0.offset: Expr failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_elem0_k4(ctx, out, _struct_start);
 }
 static bool jav_elem0_k4(bbq_ctx_t* ctx, jav_elem0_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_idx_vec_read(ctx, &out->funcs)) return bbq_fail(ctx, "IdxVec failed");
+    if (!jav_idx_vec_read(ctx, &out->funcs)) return bbq_fail(ctx, "Elem0.funcs: IdxVec failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_elem0_k6(ctx, out, _struct_start);
 }
@@ -4276,18 +4272,18 @@ static bool jav_elem0_k6(bbq_ctx_t* ctx, jav_elem0_t* out, size_t _struct_start)
 }
 static bool jav_elem1_k1(bbq_ctx_t* ctx, jav_elem1_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_u8(ctx, &out->elemkind)) return bbq_fail(ctx, "elemkind: read failed");
+    if (!bbq_read_u8(ctx, &out->elemkind)) return bbq_fail(ctx, "Elem1.elemkind: read failed");
     BBQ_MUSTTAIL return jav_elem1_k0(ctx, out, _struct_start);
 }
 static bool jav_elem1_k0(bbq_ctx_t* ctx, jav_elem1_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!((out->elemkind == 0))) return bbq_fail(ctx, "constraint failed");
+    if (!((out->elemkind == 0))) return bbq_fail(ctx, "Elem1.constraint failed");
     BBQ_MUSTTAIL return jav_elem1_k5(ctx, out, _struct_start);
 }
 static bool jav_elem1_k5(bbq_ctx_t* ctx, jav_elem1_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_idx_vec_read(ctx, &out->funcs)) return bbq_fail(ctx, "IdxVec failed");
+    if (!jav_idx_vec_read(ctx, &out->funcs)) return bbq_fail(ctx, "Elem1.funcs: IdxVec failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_elem1_k7(ctx, out, _struct_start);
 }
@@ -4297,30 +4293,30 @@ static bool jav_elem1_k7(bbq_ctx_t* ctx, jav_elem1_t* out, size_t _struct_start)
 }
 static bool jav_elem2_k1(bbq_ctx_t* ctx, jav_elem2_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_uleb128_u32(ctx, &out->table)) return bbq_fail(ctx, "table: read failed");
+    if (!bbq_read_uleb128_u32(ctx, &out->table)) return bbq_fail(ctx, "Elem2.table: read failed");
     BBQ_MUSTTAIL return jav_elem2_k3(ctx, out, _struct_start);
 }
 static bool jav_elem2_k3(bbq_ctx_t* ctx, jav_elem2_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_expr_read(ctx, &out->offset)) return bbq_fail(ctx, "Expr failed");
+    if (!jav_expr_read(ctx, &out->offset)) return bbq_fail(ctx, "Elem2.offset: Expr failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_elem2_k5(ctx, out, _struct_start);
 }
 static bool jav_elem2_k5(bbq_ctx_t* ctx, jav_elem2_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_u8(ctx, &out->elemkind)) return bbq_fail(ctx, "elemkind: read failed");
+    if (!bbq_read_u8(ctx, &out->elemkind)) return bbq_fail(ctx, "Elem2.elemkind: read failed");
     BBQ_MUSTTAIL return jav_elem2_k6(ctx, out, _struct_start);
 }
 static bool jav_elem2_k6(bbq_ctx_t* ctx, jav_elem2_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!((out->elemkind == 0))) return bbq_fail(ctx, "constraint failed");
+    if (!((out->elemkind == 0))) return bbq_fail(ctx, "Elem2.constraint failed");
     BBQ_MUSTTAIL return jav_elem2_k10(ctx, out, _struct_start);
 }
 static bool jav_elem2_k10(bbq_ctx_t* ctx, jav_elem2_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_idx_vec_read(ctx, &out->funcs)) return bbq_fail(ctx, "IdxVec failed");
+    if (!jav_idx_vec_read(ctx, &out->funcs)) return bbq_fail(ctx, "Elem2.funcs: IdxVec failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_elem2_k12(ctx, out, _struct_start);
 }
@@ -4330,18 +4326,18 @@ static bool jav_elem2_k12(bbq_ctx_t* ctx, jav_elem2_t* out, size_t _struct_start
 }
 static bool jav_elem3_k1(bbq_ctx_t* ctx, jav_elem3_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_u8(ctx, &out->elemkind)) return bbq_fail(ctx, "elemkind: read failed");
+    if (!bbq_read_u8(ctx, &out->elemkind)) return bbq_fail(ctx, "Elem3.elemkind: read failed");
     BBQ_MUSTTAIL return jav_elem3_k0(ctx, out, _struct_start);
 }
 static bool jav_elem3_k0(bbq_ctx_t* ctx, jav_elem3_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!((out->elemkind == 0))) return bbq_fail(ctx, "constraint failed");
+    if (!((out->elemkind == 0))) return bbq_fail(ctx, "Elem3.constraint failed");
     BBQ_MUSTTAIL return jav_elem3_k5(ctx, out, _struct_start);
 }
 static bool jav_elem3_k5(bbq_ctx_t* ctx, jav_elem3_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_idx_vec_read(ctx, &out->funcs)) return bbq_fail(ctx, "IdxVec failed");
+    if (!jav_idx_vec_read(ctx, &out->funcs)) return bbq_fail(ctx, "Elem3.funcs: IdxVec failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_elem3_k7(ctx, out, _struct_start);
 }
@@ -4352,14 +4348,14 @@ static bool jav_elem3_k7(bbq_ctx_t* ctx, jav_elem3_t* out, size_t _struct_start)
 static bool jav_elem4_k0(bbq_ctx_t* ctx, jav_elem4_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_expr_read(ctx, &out->offset)) return bbq_fail(ctx, "Expr failed");
+    if (!jav_expr_read(ctx, &out->offset)) return bbq_fail(ctx, "Elem4.offset: Expr failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_elem4_k4(ctx, out, _struct_start);
 }
 static bool jav_elem4_k4(bbq_ctx_t* ctx, jav_elem4_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_expr_vec_read(ctx, &out->exprs)) return bbq_fail(ctx, "ExprVec failed");
+    if (!jav_expr_vec_read(ctx, &out->exprs)) return bbq_fail(ctx, "Elem4.exprs: ExprVec failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_elem4_k6(ctx, out, _struct_start);
 }
@@ -4370,14 +4366,14 @@ static bool jav_elem4_k6(bbq_ctx_t* ctx, jav_elem4_t* out, size_t _struct_start)
 static bool jav_elem5_k0(bbq_ctx_t* ctx, jav_elem5_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_ref_type_read(ctx, &out->reftype)) return bbq_fail(ctx, "RefType failed");
+    if (!jav_ref_type_read(ctx, &out->reftype)) return bbq_fail(ctx, "Elem5.reftype: RefType failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_elem5_k4(ctx, out, _struct_start);
 }
 static bool jav_elem5_k4(bbq_ctx_t* ctx, jav_elem5_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_expr_vec_read(ctx, &out->exprs)) return bbq_fail(ctx, "ExprVec failed");
+    if (!jav_expr_vec_read(ctx, &out->exprs)) return bbq_fail(ctx, "Elem5.exprs: ExprVec failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_elem5_k6(ctx, out, _struct_start);
 }
@@ -4387,27 +4383,27 @@ static bool jav_elem5_k6(bbq_ctx_t* ctx, jav_elem5_t* out, size_t _struct_start)
 }
 static bool jav_elem6_k1(bbq_ctx_t* ctx, jav_elem6_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_uleb128_u32(ctx, &out->table)) return bbq_fail(ctx, "table: read failed");
+    if (!bbq_read_uleb128_u32(ctx, &out->table)) return bbq_fail(ctx, "Elem6.table: read failed");
     BBQ_MUSTTAIL return jav_elem6_k3(ctx, out, _struct_start);
 }
 static bool jav_elem6_k3(bbq_ctx_t* ctx, jav_elem6_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_expr_read(ctx, &out->offset)) return bbq_fail(ctx, "Expr failed");
+    if (!jav_expr_read(ctx, &out->offset)) return bbq_fail(ctx, "Elem6.offset: Expr failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_elem6_k6(ctx, out, _struct_start);
 }
 static bool jav_elem6_k6(bbq_ctx_t* ctx, jav_elem6_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_ref_type_read(ctx, &out->reftype)) return bbq_fail(ctx, "RefType failed");
+    if (!jav_ref_type_read(ctx, &out->reftype)) return bbq_fail(ctx, "Elem6.reftype: RefType failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_elem6_k9(ctx, out, _struct_start);
 }
 static bool jav_elem6_k9(bbq_ctx_t* ctx, jav_elem6_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_expr_vec_read(ctx, &out->exprs)) return bbq_fail(ctx, "ExprVec failed");
+    if (!jav_expr_vec_read(ctx, &out->exprs)) return bbq_fail(ctx, "Elem6.exprs: ExprVec failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_elem6_k11(ctx, out, _struct_start);
 }
@@ -4418,14 +4414,14 @@ static bool jav_elem6_k11(bbq_ctx_t* ctx, jav_elem6_t* out, size_t _struct_start
 static bool jav_elem7_k0(bbq_ctx_t* ctx, jav_elem7_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_ref_type_read(ctx, &out->reftype)) return bbq_fail(ctx, "RefType failed");
+    if (!jav_ref_type_read(ctx, &out->reftype)) return bbq_fail(ctx, "Elem7.reftype: RefType failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_elem7_k4(ctx, out, _struct_start);
 }
 static bool jav_elem7_k4(bbq_ctx_t* ctx, jav_elem7_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_expr_vec_read(ctx, &out->exprs)) return bbq_fail(ctx, "ExprVec failed");
+    if (!jav_expr_vec_read(ctx, &out->exprs)) return bbq_fail(ctx, "Elem7.exprs: ExprVec failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_elem7_k6(ctx, out, _struct_start);
 }
@@ -4435,7 +4431,7 @@ static bool jav_elem7_k6(bbq_ctx_t* ctx, jav_elem7_t* out, size_t _struct_start)
 }
 static bool jav_elem_k1(bbq_ctx_t* ctx, jav_elem_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_uleb128_u32(ctx, &out->flag)) return bbq_fail(ctx, "flag: read failed");
+    if (!bbq_read_uleb128_u32(ctx, &out->flag)) return bbq_fail(ctx, "Elem.flag: read failed");
     BBQ_MUSTTAIL return jav_elem_k0(ctx, out, _struct_start);
 }
 static bool jav_elem_k0(bbq_ctx_t* ctx, jav_elem_t* out, size_t _struct_start) {
@@ -4464,56 +4460,56 @@ static bool jav_elem_k0(bbq_ctx_t* ctx, jav_elem_t* out, size_t _struct_start) {
 static bool jav_elem_k11(bbq_ctx_t* ctx, jav_elem_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_elem7_read(ctx, &out->body.u.case_7)) return bbq_fail(ctx, "Elem7 failed");
+    if (!jav_elem7_read(ctx, &out->body.u.case_7)) return bbq_fail(ctx, "Elem.body.u.case_7: Elem7 failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_elem_k13(ctx, out, _struct_start);
 }
 static bool jav_elem_k14(bbq_ctx_t* ctx, jav_elem_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_elem6_read(ctx, &out->body.u.case_6)) return bbq_fail(ctx, "Elem6 failed");
+    if (!jav_elem6_read(ctx, &out->body.u.case_6)) return bbq_fail(ctx, "Elem.body.u.case_6: Elem6 failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_elem_k13(ctx, out, _struct_start);
 }
 static bool jav_elem_k16(bbq_ctx_t* ctx, jav_elem_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_elem5_read(ctx, &out->body.u.case_5)) return bbq_fail(ctx, "Elem5 failed");
+    if (!jav_elem5_read(ctx, &out->body.u.case_5)) return bbq_fail(ctx, "Elem.body.u.case_5: Elem5 failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_elem_k13(ctx, out, _struct_start);
 }
 static bool jav_elem_k18(bbq_ctx_t* ctx, jav_elem_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_elem4_read(ctx, &out->body.u.case_4)) return bbq_fail(ctx, "Elem4 failed");
+    if (!jav_elem4_read(ctx, &out->body.u.case_4)) return bbq_fail(ctx, "Elem.body.u.case_4: Elem4 failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_elem_k13(ctx, out, _struct_start);
 }
 static bool jav_elem_k20(bbq_ctx_t* ctx, jav_elem_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_elem3_read(ctx, &out->body.u.case_3)) return bbq_fail(ctx, "Elem3 failed");
+    if (!jav_elem3_read(ctx, &out->body.u.case_3)) return bbq_fail(ctx, "Elem.body.u.case_3: Elem3 failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_elem_k13(ctx, out, _struct_start);
 }
 static bool jav_elem_k22(bbq_ctx_t* ctx, jav_elem_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_elem2_read(ctx, &out->body.u.case_2)) return bbq_fail(ctx, "Elem2 failed");
+    if (!jav_elem2_read(ctx, &out->body.u.case_2)) return bbq_fail(ctx, "Elem.body.u.case_2: Elem2 failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_elem_k13(ctx, out, _struct_start);
 }
 static bool jav_elem_k24(bbq_ctx_t* ctx, jav_elem_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_elem1_read(ctx, &out->body.u.case_1)) return bbq_fail(ctx, "Elem1 failed");
+    if (!jav_elem1_read(ctx, &out->body.u.case_1)) return bbq_fail(ctx, "Elem.body.u.case_1: Elem1 failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_elem_k13(ctx, out, _struct_start);
 }
 static bool jav_elem_k26(bbq_ctx_t* ctx, jav_elem_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_elem0_read(ctx, &out->body.u.case_0)) return bbq_fail(ctx, "Elem0 failed");
+    if (!jav_elem0_read(ctx, &out->body.u.case_0)) return bbq_fail(ctx, "Elem.body.u.case_0: Elem0 failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_elem_k13(ctx, out, _struct_start);
 }
@@ -4523,7 +4519,7 @@ static bool jav_elem_k13(bbq_ctx_t* ctx, jav_elem_t* out, size_t _struct_start) 
 }
 static bool jav_element_section_k1(bbq_ctx_t* ctx, jav_element_section_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_uleb128_u32(ctx, &out->count)) return bbq_fail(ctx, "count: read failed");
+    if (!bbq_read_uleb128_u32(ctx, &out->count)) return bbq_fail(ctx, "ElementSection.count: read failed");
     BBQ_MUSTTAIL return jav_element_section_k0(ctx, out, _struct_start);
 }
 static bool jav_element_section_k0(bbq_ctx_t* ctx, jav_element_section_t* out, size_t _struct_start) {
@@ -4531,7 +4527,7 @@ static bool jav_element_section_k0(bbq_ctx_t* ctx, jav_element_section_t* out, s
     { size_t _n = (size_t)(out->count);
       out->elems.count = _n;
       out->elems.items = calloc(_n ? _n : 1, sizeof(*out->elems.items));
-      if (!out->elems.items) return bbq_fail(ctx, "elems: alloc failed");
+      if (!out->elems.items) return bbq_fail(ctx, "ElementSection.elems: alloc failed");
       if (_n == 0) { BBQ_MUSTTAIL return jav_element_section_k8(ctx, out, _struct_start); }
       bbq_push_loop_n(ctx, (int64_t)_n); }
     BBQ_MUSTTAIL return jav_element_section_k5(ctx, out, _struct_start);
@@ -4539,7 +4535,7 @@ static bool jav_element_section_k0(bbq_ctx_t* ctx, jav_element_section_t* out, s
 static bool jav_element_section_k5(bbq_ctx_t* ctx, jav_element_section_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_elem_read(ctx, &out->elems.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)])) return bbq_fail(ctx, "Elem failed");
+    if (!jav_elem_read(ctx, &out->elems.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)])) return bbq_fail(ctx, "ElementSection.elems.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)]: Elem failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_element_section_k7(ctx, out, _struct_start);
 }
@@ -4556,14 +4552,14 @@ static bool jav_element_section_k8(bbq_ctx_t* ctx, jav_element_section_t* out, s
 static bool jav_data0_k0(bbq_ctx_t* ctx, jav_data0_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_expr_read(ctx, &out->offset)) return bbq_fail(ctx, "Expr failed");
+    if (!jav_expr_read(ctx, &out->offset)) return bbq_fail(ctx, "Data0.offset: Expr failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_data0_k4(ctx, out, _struct_start);
 }
 static bool jav_data0_k4(bbq_ctx_t* ctx, jav_data0_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_byte_vec_read(ctx, &out->data)) return bbq_fail(ctx, "ByteVec failed");
+    if (!jav_byte_vec_read(ctx, &out->data)) return bbq_fail(ctx, "Data0.data: ByteVec failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_data0_k6(ctx, out, _struct_start);
 }
@@ -4574,7 +4570,7 @@ static bool jav_data0_k6(bbq_ctx_t* ctx, jav_data0_t* out, size_t _struct_start)
 static bool jav_data1_k0(bbq_ctx_t* ctx, jav_data1_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_byte_vec_read(ctx, &out->data)) return bbq_fail(ctx, "ByteVec failed");
+    if (!jav_byte_vec_read(ctx, &out->data)) return bbq_fail(ctx, "Data1.data: ByteVec failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_data1_k3(ctx, out, _struct_start);
 }
@@ -4584,20 +4580,20 @@ static bool jav_data1_k3(bbq_ctx_t* ctx, jav_data1_t* out, size_t _struct_start)
 }
 static bool jav_data2_k1(bbq_ctx_t* ctx, jav_data2_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_uleb128_u32(ctx, &out->memidx)) return bbq_fail(ctx, "memidx: read failed");
+    if (!bbq_read_uleb128_u32(ctx, &out->memidx)) return bbq_fail(ctx, "Data2.memidx: read failed");
     BBQ_MUSTTAIL return jav_data2_k3(ctx, out, _struct_start);
 }
 static bool jav_data2_k3(bbq_ctx_t* ctx, jav_data2_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_expr_read(ctx, &out->offset)) return bbq_fail(ctx, "Expr failed");
+    if (!jav_expr_read(ctx, &out->offset)) return bbq_fail(ctx, "Data2.offset: Expr failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_data2_k6(ctx, out, _struct_start);
 }
 static bool jav_data2_k6(bbq_ctx_t* ctx, jav_data2_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_byte_vec_read(ctx, &out->data)) return bbq_fail(ctx, "ByteVec failed");
+    if (!jav_byte_vec_read(ctx, &out->data)) return bbq_fail(ctx, "Data2.data: ByteVec failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_data2_k8(ctx, out, _struct_start);
 }
@@ -4607,7 +4603,7 @@ static bool jav_data2_k8(bbq_ctx_t* ctx, jav_data2_t* out, size_t _struct_start)
 }
 static bool jav_data_k1(bbq_ctx_t* ctx, jav_data_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_uleb128_u32(ctx, &out->flag)) return bbq_fail(ctx, "flag: read failed");
+    if (!bbq_read_uleb128_u32(ctx, &out->flag)) return bbq_fail(ctx, "Data.flag: read failed");
     BBQ_MUSTTAIL return jav_data_k0(ctx, out, _struct_start);
 }
 static bool jav_data_k0(bbq_ctx_t* ctx, jav_data_t* out, size_t _struct_start) {
@@ -4626,21 +4622,21 @@ static bool jav_data_k0(bbq_ctx_t* ctx, jav_data_t* out, size_t _struct_start) {
 static bool jav_data_k6(bbq_ctx_t* ctx, jav_data_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_data2_read(ctx, &out->body.u.case_2)) return bbq_fail(ctx, "Data2 failed");
+    if (!jav_data2_read(ctx, &out->body.u.case_2)) return bbq_fail(ctx, "Data.body.u.case_2: Data2 failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_data_k8(ctx, out, _struct_start);
 }
 static bool jav_data_k9(bbq_ctx_t* ctx, jav_data_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_data1_read(ctx, &out->body.u.case_1)) return bbq_fail(ctx, "Data1 failed");
+    if (!jav_data1_read(ctx, &out->body.u.case_1)) return bbq_fail(ctx, "Data.body.u.case_1: Data1 failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_data_k8(ctx, out, _struct_start);
 }
 static bool jav_data_k11(bbq_ctx_t* ctx, jav_data_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_data0_read(ctx, &out->body.u.case_0)) return bbq_fail(ctx, "Data0 failed");
+    if (!jav_data0_read(ctx, &out->body.u.case_0)) return bbq_fail(ctx, "Data.body.u.case_0: Data0 failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_data_k8(ctx, out, _struct_start);
 }
@@ -4650,7 +4646,7 @@ static bool jav_data_k8(bbq_ctx_t* ctx, jav_data_t* out, size_t _struct_start) {
 }
 static bool jav_data_section_k1(bbq_ctx_t* ctx, jav_data_section_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_uleb128_u32(ctx, &out->count)) return bbq_fail(ctx, "count: read failed");
+    if (!bbq_read_uleb128_u32(ctx, &out->count)) return bbq_fail(ctx, "DataSection.count: read failed");
     BBQ_MUSTTAIL return jav_data_section_k0(ctx, out, _struct_start);
 }
 static bool jav_data_section_k0(bbq_ctx_t* ctx, jav_data_section_t* out, size_t _struct_start) {
@@ -4658,7 +4654,7 @@ static bool jav_data_section_k0(bbq_ctx_t* ctx, jav_data_section_t* out, size_t 
     { size_t _n = (size_t)(out->count);
       out->datas.count = _n;
       out->datas.items = calloc(_n ? _n : 1, sizeof(*out->datas.items));
-      if (!out->datas.items) return bbq_fail(ctx, "datas: alloc failed");
+      if (!out->datas.items) return bbq_fail(ctx, "DataSection.datas: alloc failed");
       if (_n == 0) { BBQ_MUSTTAIL return jav_data_section_k8(ctx, out, _struct_start); }
       bbq_push_loop_n(ctx, (int64_t)_n); }
     BBQ_MUSTTAIL return jav_data_section_k5(ctx, out, _struct_start);
@@ -4666,7 +4662,7 @@ static bool jav_data_section_k0(bbq_ctx_t* ctx, jav_data_section_t* out, size_t 
 static bool jav_data_section_k5(bbq_ctx_t* ctx, jav_data_section_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_data_read(ctx, &out->datas.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)])) return bbq_fail(ctx, "Data failed");
+    if (!jav_data_read(ctx, &out->datas.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)])) return bbq_fail(ctx, "DataSection.datas.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)]: Data failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_data_section_k7(ctx, out, _struct_start);
 }
@@ -4682,7 +4678,7 @@ static bool jav_data_section_k8(bbq_ctx_t* ctx, jav_data_section_t* out, size_t 
 }
 static bool jav_data_count_section_k1(bbq_ctx_t* ctx, jav_data_count_section_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_uleb128_u32(ctx, &out->count)) return bbq_fail(ctx, "count: read failed");
+    if (!bbq_read_uleb128_u32(ctx, &out->count)) return bbq_fail(ctx, "DataCountSection.count: read failed");
     BBQ_MUSTTAIL return jav_data_count_section_k0(ctx, out, _struct_start);
 }
 static bool jav_data_count_section_k0(bbq_ctx_t* ctx, jav_data_count_section_t* out, size_t _struct_start) {
@@ -4691,7 +4687,7 @@ static bool jav_data_count_section_k0(bbq_ctx_t* ctx, jav_data_count_section_t* 
 }
 static bool jav_tag_section_k1(bbq_ctx_t* ctx, jav_tag_section_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_uleb128_u32(ctx, &out->count)) return bbq_fail(ctx, "count: read failed");
+    if (!bbq_read_uleb128_u32(ctx, &out->count)) return bbq_fail(ctx, "TagSection.count: read failed");
     BBQ_MUSTTAIL return jav_tag_section_k0(ctx, out, _struct_start);
 }
 static bool jav_tag_section_k0(bbq_ctx_t* ctx, jav_tag_section_t* out, size_t _struct_start) {
@@ -4699,7 +4695,7 @@ static bool jav_tag_section_k0(bbq_ctx_t* ctx, jav_tag_section_t* out, size_t _s
     { size_t _n = (size_t)(out->count);
       out->tags.count = _n;
       out->tags.items = calloc(_n ? _n : 1, sizeof(*out->tags.items));
-      if (!out->tags.items) return bbq_fail(ctx, "tags: alloc failed");
+      if (!out->tags.items) return bbq_fail(ctx, "TagSection.tags: alloc failed");
       if (_n == 0) { BBQ_MUSTTAIL return jav_tag_section_k8(ctx, out, _struct_start); }
       bbq_push_loop_n(ctx, (int64_t)_n); }
     BBQ_MUSTTAIL return jav_tag_section_k5(ctx, out, _struct_start);
@@ -4707,7 +4703,7 @@ static bool jav_tag_section_k0(bbq_ctx_t* ctx, jav_tag_section_t* out, size_t _s
 static bool jav_tag_section_k5(bbq_ctx_t* ctx, jav_tag_section_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_tag_type_read(ctx, &out->tags.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)])) return bbq_fail(ctx, "TagType failed");
+    if (!jav_tag_type_read(ctx, &out->tags.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)])) return bbq_fail(ctx, "TagSection.tags.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)]: TagType failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_tag_section_k7(ctx, out, _struct_start);
 }
@@ -4724,13 +4720,13 @@ static bool jav_tag_section_k8(bbq_ctx_t* ctx, jav_tag_section_t* out, size_t _s
 static bool jav_custom_section_k0(bbq_ctx_t* ctx, jav_custom_section_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_name_read(ctx, &out->name)) return bbq_fail(ctx, "Name failed");
+    if (!jav_name_read(ctx, &out->name)) return bbq_fail(ctx, "CustomSection.name: Name failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_custom_section_k3(ctx, out, _struct_start);
 }
 static bool jav_custom_section_k3(bbq_ctx_t* ctx, jav_custom_section_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_bytes(ctx, &out->data.data, &out->data.length, (size_t)(bbq_remaining(ctx)))) return bbq_fail(ctx, "data: read failed");
+    if (!bbq_read_bytes(ctx, &out->data.data, &out->data.length, (size_t)(bbq_remaining(ctx)))) return bbq_fail(ctx, "CustomSection.data: read failed");
     BBQ_MUSTTAIL return jav_custom_section_k4(ctx, out, _struct_start);
 }
 static bool jav_custom_section_k4(bbq_ctx_t* ctx, jav_custom_section_t* out, size_t _struct_start) {
@@ -4739,12 +4735,12 @@ static bool jav_custom_section_k4(bbq_ctx_t* ctx, jav_custom_section_t* out, siz
 }
 static bool jav_section_k1(bbq_ctx_t* ctx, jav_section_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_u8(ctx, &out->id)) return bbq_fail(ctx, "id: read failed");
+    if (!bbq_read_u8(ctx, &out->id)) return bbq_fail(ctx, "Section.id: read failed");
     BBQ_MUSTTAIL return jav_section_k0(ctx, out, _struct_start);
 }
 static bool jav_section_k0(bbq_ctx_t* ctx, jav_section_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_uleb128_u32(ctx, &out->size)) return bbq_fail(ctx, "size: read failed");
+    if (!bbq_read_uleb128_u32(ctx, &out->size)) return bbq_fail(ctx, "Section.size: read failed");
     BBQ_MUSTTAIL return jav_section_k3(ctx, out, _struct_start);
 }
 static bool jav_section_k3(bbq_ctx_t* ctx, jav_section_t* out, size_t _struct_start) {
@@ -4790,98 +4786,98 @@ static bool jav_section_k5(bbq_ctx_t* ctx, jav_section_t* out, size_t _struct_st
 static bool jav_section_k20(bbq_ctx_t* ctx, jav_section_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_tag_section_read(ctx, &out->body.u.case_13)) return bbq_fail(ctx, "TagSection failed");
+    if (!jav_tag_section_read(ctx, &out->body.u.case_13)) return bbq_fail(ctx, "Section.body.u.case_13: TagSection failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_section_k22(ctx, out, _struct_start);
 }
 static bool jav_section_k23(bbq_ctx_t* ctx, jav_section_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_data_count_section_read(ctx, &out->body.u.case_12)) return bbq_fail(ctx, "DataCountSection failed");
+    if (!jav_data_count_section_read(ctx, &out->body.u.case_12)) return bbq_fail(ctx, "Section.body.u.case_12: DataCountSection failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_section_k22(ctx, out, _struct_start);
 }
 static bool jav_section_k25(bbq_ctx_t* ctx, jav_section_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_data_section_read(ctx, &out->body.u.case_11)) return bbq_fail(ctx, "DataSection failed");
+    if (!jav_data_section_read(ctx, &out->body.u.case_11)) return bbq_fail(ctx, "Section.body.u.case_11: DataSection failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_section_k22(ctx, out, _struct_start);
 }
 static bool jav_section_k27(bbq_ctx_t* ctx, jav_section_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_code_section_read(ctx, &out->body.u.case_10)) return bbq_fail(ctx, "CodeSection failed");
+    if (!jav_code_section_read(ctx, &out->body.u.case_10)) return bbq_fail(ctx, "Section.body.u.case_10: CodeSection failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_section_k22(ctx, out, _struct_start);
 }
 static bool jav_section_k29(bbq_ctx_t* ctx, jav_section_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_element_section_read(ctx, &out->body.u.case_9)) return bbq_fail(ctx, "ElementSection failed");
+    if (!jav_element_section_read(ctx, &out->body.u.case_9)) return bbq_fail(ctx, "Section.body.u.case_9: ElementSection failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_section_k22(ctx, out, _struct_start);
 }
 static bool jav_section_k31(bbq_ctx_t* ctx, jav_section_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_start_section_read(ctx, &out->body.u.case_8)) return bbq_fail(ctx, "StartSection failed");
+    if (!jav_start_section_read(ctx, &out->body.u.case_8)) return bbq_fail(ctx, "Section.body.u.case_8: StartSection failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_section_k22(ctx, out, _struct_start);
 }
 static bool jav_section_k33(bbq_ctx_t* ctx, jav_section_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_export_section_read(ctx, &out->body.u.case_7)) return bbq_fail(ctx, "ExportSection failed");
+    if (!jav_export_section_read(ctx, &out->body.u.case_7)) return bbq_fail(ctx, "Section.body.u.case_7: ExportSection failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_section_k22(ctx, out, _struct_start);
 }
 static bool jav_section_k35(bbq_ctx_t* ctx, jav_section_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_global_section_read(ctx, &out->body.u.case_6)) return bbq_fail(ctx, "GlobalSection failed");
+    if (!jav_global_section_read(ctx, &out->body.u.case_6)) return bbq_fail(ctx, "Section.body.u.case_6: GlobalSection failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_section_k22(ctx, out, _struct_start);
 }
 static bool jav_section_k37(bbq_ctx_t* ctx, jav_section_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_memory_section_read(ctx, &out->body.u.case_5)) return bbq_fail(ctx, "MemorySection failed");
+    if (!jav_memory_section_read(ctx, &out->body.u.case_5)) return bbq_fail(ctx, "Section.body.u.case_5: MemorySection failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_section_k22(ctx, out, _struct_start);
 }
 static bool jav_section_k39(bbq_ctx_t* ctx, jav_section_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_table_section_read(ctx, &out->body.u.case_4)) return bbq_fail(ctx, "TableSection failed");
+    if (!jav_table_section_read(ctx, &out->body.u.case_4)) return bbq_fail(ctx, "Section.body.u.case_4: TableSection failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_section_k22(ctx, out, _struct_start);
 }
 static bool jav_section_k41(bbq_ctx_t* ctx, jav_section_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_function_section_read(ctx, &out->body.u.case_3)) return bbq_fail(ctx, "FunctionSection failed");
+    if (!jav_function_section_read(ctx, &out->body.u.case_3)) return bbq_fail(ctx, "Section.body.u.case_3: FunctionSection failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_section_k22(ctx, out, _struct_start);
 }
 static bool jav_section_k43(bbq_ctx_t* ctx, jav_section_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_import_section_read(ctx, &out->body.u.case_2)) return bbq_fail(ctx, "ImportSection failed");
+    if (!jav_import_section_read(ctx, &out->body.u.case_2)) return bbq_fail(ctx, "Section.body.u.case_2: ImportSection failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_section_k22(ctx, out, _struct_start);
 }
 static bool jav_section_k45(bbq_ctx_t* ctx, jav_section_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_type_section_read(ctx, &out->body.u.case_1)) return bbq_fail(ctx, "TypeSection failed");
+    if (!jav_type_section_read(ctx, &out->body.u.case_1)) return bbq_fail(ctx, "Section.body.u.case_1: TypeSection failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_section_k22(ctx, out, _struct_start);
 }
 static bool jav_section_k47(bbq_ctx_t* ctx, jav_section_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_custom_section_read(ctx, &out->body.u.case_0)) return bbq_fail(ctx, "CustomSection failed");
+    if (!jav_custom_section_read(ctx, &out->body.u.case_0)) return bbq_fail(ctx, "Section.body.u.case_0: CustomSection failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_section_k22(ctx, out, _struct_start);
 }
@@ -4896,22 +4892,22 @@ static bool jav_section_k49(bbq_ctx_t* ctx, jav_section_t* out, size_t _struct_s
 }
 static bool jav_module_k1(bbq_ctx_t* ctx, jav_module_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_u32(ctx, &out->magic)) return bbq_fail(ctx, "magic: read failed");
+    if (!bbq_read_u32(ctx, &out->magic)) return bbq_fail(ctx, "Module.magic: read failed");
     BBQ_MUSTTAIL return jav_module_k0(ctx, out, _struct_start);
 }
 static bool jav_module_k0(bbq_ctx_t* ctx, jav_module_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!((out->magic == 1836278016))) return bbq_fail(ctx, "constraint failed");
+    if (!((out->magic == 1836278016))) return bbq_fail(ctx, "Module.constraint failed");
     BBQ_MUSTTAIL return jav_module_k3(ctx, out, _struct_start);
 }
 static bool jav_module_k3(bbq_ctx_t* ctx, jav_module_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!bbq_read_u32(ctx, &out->version)) return bbq_fail(ctx, "version: read failed");
+    if (!bbq_read_u32(ctx, &out->version)) return bbq_fail(ctx, "Module.version: read failed");
     BBQ_MUSTTAIL return jav_module_k5(ctx, out, _struct_start);
 }
 static bool jav_module_k5(bbq_ctx_t* ctx, jav_module_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (!((out->version == 1))) return bbq_fail(ctx, "constraint failed");
+    if (!((out->version == 1))) return bbq_fail(ctx, "Module.constraint failed");
     BBQ_MUSTTAIL return jav_module_k7(ctx, out, _struct_start);
 }
 static bool jav_module_k7(bbq_ctx_t* ctx, jav_module_t* out, size_t _struct_start) {
@@ -4921,14 +4917,14 @@ static bool jav_module_k7(bbq_ctx_t* ctx, jav_module_t* out, size_t _struct_star
     bbq_push_loop_unbounded(ctx);
     if (bbq_pos(ctx) >= bbq_effective_end(ctx)) { bbq_pop_loop(ctx); BBQ_MUSTTAIL return jav_module_k14(ctx, out, _struct_start); }
     out->sections.items = bbq_array_grow(ctx, out->sections.items, sizeof(*out->sections.items));
-    if (!out->sections.items) return bbq_fail(ctx, "sections: alloc failed");
+    if (!out->sections.items) return bbq_fail(ctx, "Module.sections: alloc failed");
     out->sections.count = 1;
     BBQ_MUSTTAIL return jav_module_k11(ctx, out, _struct_start);
 }
 static bool jav_module_k11(bbq_ctx_t* ctx, jav_module_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
     bbq_push_scope(ctx, out);
-    if (!jav_section_read(ctx, &out->sections.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)])) return bbq_fail(ctx, "Section failed");
+    if (!jav_section_read(ctx, &out->sections.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)])) return bbq_fail(ctx, "Module.sections.items[bbq_loop_index_at(ctx, bbq_cur_loop_base(ctx) + 0)]: Section failed");
     bbq_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_module_k13(ctx, out, _struct_start);
 }
@@ -4937,7 +4933,7 @@ static bool jav_module_k13(bbq_ctx_t* ctx, jav_module_t* out, size_t _struct_sta
     bbq_loop_advance(ctx);
     if ((bbq_pos(ctx) < bbq_effective_end(ctx))) {
         out->sections.items = bbq_array_grow(ctx, out->sections.items, sizeof(*out->sections.items));
-        if (!out->sections.items) return bbq_fail(ctx, "array: grow failed");
+        if (!out->sections.items) return bbq_fail(ctx, "Module.sections: array: grow failed");
         out->sections.count = (size_t)(bbq_loop_index(ctx) + 1);
         BBQ_MUSTTAIL return jav_module_k11(ctx, out, _struct_start);
     }

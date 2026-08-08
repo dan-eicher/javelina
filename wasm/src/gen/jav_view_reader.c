@@ -1699,13 +1699,13 @@ static bool jav_view_heap_type_v_k0(bbq_view_ctx_t* ctx) {
 static bool jav_view_val_type_v_k1(bbq_view_ctx_t* ctx) {
     (void)ctx;
     { size_t _s = ctx->cur.pos;
-      if (!bbq_advance(&ctx->cur, 1)) return bbq_fail(&ctx->cur, "head: read failed");
+      if (!bbq_advance(&ctx->cur, 1)) return bbq_fail(&ctx->cur, "ValType.head: read failed");
       bbq_cap_add_field(&ctx->builder, "head", _s, ctx->cur.pos, bbq_view_int_capture(ctx, 8, false, false, true), NULL); }
     BBQ_MUSTTAIL return jav_view_val_type_v_k0(ctx);
 }
 static bool jav_view_val_type_v_k0(bbq_view_ctx_t* ctx) {
     (void)ctx;
-    if (!((_Bool)((_Bool)((_Bool)((_Bool)((_Bool)(bbq_view_i64(ctx, "head") >= 123) && (_Bool)(bbq_view_i64(ctx, "head") <= 127)) || (_Bool)(bbq_view_i64(ctx, "head") == 99)) || (_Bool)(bbq_view_i64(ctx, "head") == 100)) || (_Bool)((_Bool)(bbq_view_i64(ctx, "head") >= 105) && (_Bool)(bbq_view_i64(ctx, "head") <= 116))))) return bbq_fail(&ctx->cur, "constraint failed");
+    if (!((_Bool)((_Bool)((_Bool)((_Bool)((_Bool)(bbq_view_i64(ctx, "head") >= 123) && (_Bool)(bbq_view_i64(ctx, "head") <= 127)) || (_Bool)(bbq_view_i64(ctx, "head") == 99)) || (_Bool)(bbq_view_i64(ctx, "head") == 100)) || (_Bool)((_Bool)(bbq_view_i64(ctx, "head") >= 105) && (_Bool)(bbq_view_i64(ctx, "head") <= 116))))) return bbq_fail(&ctx->cur, "ValType.constraint failed");
     BBQ_MUSTTAIL return jav_view_val_type_v_k3(ctx);
 }
 static bool jav_view_val_type_v_k3(bbq_view_ctx_t* ctx) {
@@ -1721,7 +1721,7 @@ static bool jav_view_val_type_v_k5(bbq_view_ctx_t* ctx) {
 static bool jav_view_val_type_v_k7(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_heap_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "HeapType failed");
+    if (!jav_view_heap_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "ValType.HeapType failed");
     BBQ_MUSTTAIL return jav_view_val_type_v_k8(ctx);
 }
 static bool jav_view_val_type_v_k8(bbq_view_ctx_t* ctx) {
@@ -1736,13 +1736,13 @@ static bool jav_view_val_type_v_k6(bbq_view_ctx_t* ctx) {
 static bool jav_view_storage_type_v_k1(bbq_view_ctx_t* ctx) {
     (void)ctx;
     { size_t _s = ctx->cur.pos;
-      if (!bbq_advance(&ctx->cur, 1)) return bbq_fail(&ctx->cur, "head: read failed");
+      if (!bbq_advance(&ctx->cur, 1)) return bbq_fail(&ctx->cur, "StorageType.head: read failed");
       bbq_cap_add_field(&ctx->builder, "head", _s, ctx->cur.pos, bbq_view_int_capture(ctx, 8, false, false, true), NULL); }
     BBQ_MUSTTAIL return jav_view_storage_type_v_k0(ctx);
 }
 static bool jav_view_storage_type_v_k0(bbq_view_ctx_t* ctx) {
     (void)ctx;
-    if (!((_Bool)((_Bool)((_Bool)((_Bool)((_Bool)((_Bool)((_Bool)(bbq_view_i64(ctx, "head") >= 123) && (_Bool)(bbq_view_i64(ctx, "head") <= 127)) || (_Bool)(bbq_view_i64(ctx, "head") == 99)) || (_Bool)(bbq_view_i64(ctx, "head") == 100)) || (_Bool)((_Bool)(bbq_view_i64(ctx, "head") >= 105) && (_Bool)(bbq_view_i64(ctx, "head") <= 116))) || (_Bool)(bbq_view_i64(ctx, "head") == 119)) || (_Bool)(bbq_view_i64(ctx, "head") == 120)))) return bbq_fail(&ctx->cur, "constraint failed");
+    if (!((_Bool)((_Bool)((_Bool)((_Bool)((_Bool)((_Bool)((_Bool)(bbq_view_i64(ctx, "head") >= 123) && (_Bool)(bbq_view_i64(ctx, "head") <= 127)) || (_Bool)(bbq_view_i64(ctx, "head") == 99)) || (_Bool)(bbq_view_i64(ctx, "head") == 100)) || (_Bool)((_Bool)(bbq_view_i64(ctx, "head") >= 105) && (_Bool)(bbq_view_i64(ctx, "head") <= 116))) || (_Bool)(bbq_view_i64(ctx, "head") == 119)) || (_Bool)(bbq_view_i64(ctx, "head") == 120)))) return bbq_fail(&ctx->cur, "StorageType.constraint failed");
     BBQ_MUSTTAIL return jav_view_storage_type_v_k3(ctx);
 }
 static bool jav_view_storage_type_v_k3(bbq_view_ctx_t* ctx) {
@@ -1758,7 +1758,7 @@ static bool jav_view_storage_type_v_k5(bbq_view_ctx_t* ctx) {
 static bool jav_view_storage_type_v_k7(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_heap_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "HeapType failed");
+    if (!jav_view_heap_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "StorageType.HeapType failed");
     BBQ_MUSTTAIL return jav_view_storage_type_v_k8(ctx);
 }
 static bool jav_view_storage_type_v_k8(bbq_view_ctx_t* ctx) {
@@ -1778,7 +1778,7 @@ static bool jav_view_field_type_v_k1(bbq_view_ctx_t* ctx) {
 static bool jav_view_field_type_v_k0(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_storage_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "StorageType failed");
+    if (!jav_view_storage_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "FieldType.StorageType failed");
     BBQ_MUSTTAIL return jav_view_field_type_v_k2(ctx);
 }
 static bool jav_view_field_type_v_k2(bbq_view_ctx_t* ctx) {
@@ -1789,13 +1789,13 @@ static bool jav_view_field_type_v_k2(bbq_view_ctx_t* ctx) {
 static bool jav_view_field_type_v_k3(bbq_view_ctx_t* ctx) {
     (void)ctx;
     { size_t _s = ctx->cur.pos;
-      if (!bbq_advance(&ctx->cur, 1)) return bbq_fail(&ctx->cur, "mut: read failed");
+      if (!bbq_advance(&ctx->cur, 1)) return bbq_fail(&ctx->cur, "FieldType.mut: read failed");
       bbq_cap_add_field(&ctx->builder, "mut", _s, ctx->cur.pos, bbq_view_int_capture(ctx, 8, false, false, true), NULL); }
     BBQ_MUSTTAIL return jav_view_field_type_v_k4(ctx);
 }
 static bool jav_view_field_type_v_k4(bbq_view_ctx_t* ctx) {
     (void)ctx;
-    if (!((_Bool)(bbq_view_i64(ctx, "mut") <= 1))) return bbq_fail(&ctx->cur, "constraint failed");
+    if (!((_Bool)(bbq_view_i64(ctx, "mut") <= 1))) return bbq_fail(&ctx->cur, "FieldType.constraint failed");
     BBQ_MUSTTAIL return jav_view_field_type_v_k6(ctx);
 }
 static bool jav_view_field_type_v_k6(bbq_view_ctx_t* ctx) {
@@ -1810,7 +1810,7 @@ static bool jav_view_array_type_v_k1(bbq_view_ctx_t* ctx) {
 static bool jav_view_array_type_v_k0(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_field_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "FieldType failed");
+    if (!jav_view_field_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "ArrayType.FieldType failed");
     BBQ_MUSTTAIL return jav_view_array_type_v_k2(ctx);
 }
 static bool jav_view_array_type_v_k2(bbq_view_ctx_t* ctx) {
@@ -1843,7 +1843,7 @@ static bool jav_view_struct_type_v_k3(bbq_view_ctx_t* ctx) {
 static bool jav_view_struct_type_v_k5(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_field_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "FieldType failed");
+    if (!jav_view_field_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "StructType.FieldType failed");
     BBQ_MUSTTAIL return jav_view_struct_type_v_k6(ctx);
 }
 static bool jav_view_struct_type_v_k6(bbq_view_ctx_t* ctx) {
@@ -1887,7 +1887,7 @@ static bool jav_view_func_type_v_k3(bbq_view_ctx_t* ctx) {
 static bool jav_view_func_type_v_k5(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_val_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "ValType failed");
+    if (!jav_view_val_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "FuncType.ValType failed");
     BBQ_MUSTTAIL return jav_view_func_type_v_k6(ctx);
 }
 static bool jav_view_func_type_v_k6(bbq_view_ctx_t* ctx) {
@@ -1927,7 +1927,7 @@ static bool jav_view_func_type_v_k11(bbq_view_ctx_t* ctx) {
 static bool jav_view_func_type_v_k13(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_val_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "ValType failed");
+    if (!jav_view_val_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "FuncType.ValType failed");
     BBQ_MUSTTAIL return jav_view_func_type_v_k14(ctx);
 }
 static bool jav_view_func_type_v_k14(bbq_view_ctx_t* ctx) {
@@ -1953,7 +1953,7 @@ static bool jav_view_func_type_v_k16(bbq_view_ctx_t* ctx) {
 static bool jav_view_comp_type_v_k1(bbq_view_ctx_t* ctx) {
     (void)ctx;
     { size_t _s = ctx->cur.pos;
-      if (!bbq_advance(&ctx->cur, 1)) return bbq_fail(&ctx->cur, "head: read failed");
+      if (!bbq_advance(&ctx->cur, 1)) return bbq_fail(&ctx->cur, "CompType.head: read failed");
       bbq_cap_add_field(&ctx->builder, "head", _s, ctx->cur.pos, bbq_view_int_capture(ctx, 8, false, false, true), NULL); }
     BBQ_MUSTTAIL return jav_view_comp_type_v_k0(ctx);
 }
@@ -1981,7 +1981,7 @@ static bool jav_view_comp_type_v_k5(bbq_view_ctx_t* ctx) {
 static bool jav_view_comp_type_v_k6(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_func_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "FuncType failed");
+    if (!jav_view_func_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "CompType.FuncType failed");
     BBQ_MUSTTAIL return jav_view_comp_type_v_k7(ctx);
 }
 static bool jav_view_comp_type_v_k7(bbq_view_ctx_t* ctx) {
@@ -1997,7 +1997,7 @@ static bool jav_view_comp_type_v_k4(bbq_view_ctx_t* ctx) {
 static bool jav_view_comp_type_v_k9(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_struct_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "StructType failed");
+    if (!jav_view_struct_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "CompType.StructType failed");
     BBQ_MUSTTAIL return jav_view_comp_type_v_k10(ctx);
 }
 static bool jav_view_comp_type_v_k10(bbq_view_ctx_t* ctx) {
@@ -2013,7 +2013,7 @@ static bool jav_view_comp_type_v_k3(bbq_view_ctx_t* ctx) {
 static bool jav_view_comp_type_v_k11(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_array_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "ArrayType failed");
+    if (!jav_view_array_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "CompType.ArrayType failed");
     BBQ_MUSTTAIL return jav_view_comp_type_v_k12(ctx);
 }
 static bool jav_view_comp_type_v_k12(bbq_view_ctx_t* ctx) {
@@ -2062,7 +2062,7 @@ static bool jav_view_sub_type_v_k7(bbq_view_ctx_t* ctx) {
 static bool jav_view_sub_type_v_k8(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_comp_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "CompType failed");
+    if (!jav_view_comp_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "SubType.CompType failed");
     BBQ_MUSTTAIL return jav_view_sub_type_v_k9(ctx);
 }
 static bool jav_view_sub_type_v_k9(bbq_view_ctx_t* ctx) {
@@ -2077,7 +2077,7 @@ static bool jav_view_sub_type_v_k10(bbq_view_ctx_t* ctx) {
 static bool jav_view_rec_member_v_k1(bbq_view_ctx_t* ctx) {
     (void)ctx;
     { size_t _s = ctx->cur.pos;
-      if (!bbq_advance(&ctx->cur, 1)) return bbq_fail(&ctx->cur, "head: read failed");
+      if (!bbq_advance(&ctx->cur, 1)) return bbq_fail(&ctx->cur, "RecMember.head: read failed");
       bbq_cap_add_field(&ctx->builder, "head", _s, ctx->cur.pos, bbq_view_int_capture(ctx, 8, false, false, true), NULL); }
     BBQ_MUSTTAIL return jav_view_rec_member_v_k0(ctx);
 }
@@ -2111,7 +2111,7 @@ static bool jav_view_rec_member_v_k7(bbq_view_ctx_t* ctx) {
 static bool jav_view_rec_member_v_k8(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_func_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "FuncType failed");
+    if (!jav_view_func_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "RecMember.FuncType failed");
     BBQ_MUSTTAIL return jav_view_rec_member_v_k9(ctx);
 }
 static bool jav_view_rec_member_v_k9(bbq_view_ctx_t* ctx) {
@@ -2127,7 +2127,7 @@ static bool jav_view_rec_member_v_k6(bbq_view_ctx_t* ctx) {
 static bool jav_view_rec_member_v_k11(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_struct_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "StructType failed");
+    if (!jav_view_struct_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "RecMember.StructType failed");
     BBQ_MUSTTAIL return jav_view_rec_member_v_k12(ctx);
 }
 static bool jav_view_rec_member_v_k12(bbq_view_ctx_t* ctx) {
@@ -2143,7 +2143,7 @@ static bool jav_view_rec_member_v_k5(bbq_view_ctx_t* ctx) {
 static bool jav_view_rec_member_v_k13(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_array_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "ArrayType failed");
+    if (!jav_view_array_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "RecMember.ArrayType failed");
     BBQ_MUSTTAIL return jav_view_rec_member_v_k14(ctx);
 }
 static bool jav_view_rec_member_v_k14(bbq_view_ctx_t* ctx) {
@@ -2159,7 +2159,7 @@ static bool jav_view_rec_member_v_k4(bbq_view_ctx_t* ctx) {
 static bool jav_view_rec_member_v_k15(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_sub_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "SubType failed");
+    if (!jav_view_sub_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "RecMember.SubType failed");
     BBQ_MUSTTAIL return jav_view_rec_member_v_k16(ctx);
 }
 static bool jav_view_rec_member_v_k16(bbq_view_ctx_t* ctx) {
@@ -2175,7 +2175,7 @@ static bool jav_view_rec_member_v_k3(bbq_view_ctx_t* ctx) {
 static bool jav_view_rec_member_v_k17(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_sub_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "SubType failed");
+    if (!jav_view_sub_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "RecMember.SubType failed");
     BBQ_MUSTTAIL return jav_view_rec_member_v_k18(ctx);
 }
 static bool jav_view_rec_member_v_k18(bbq_view_ctx_t* ctx) {
@@ -2208,7 +2208,7 @@ static bool jav_view_rec_group_v_k3(bbq_view_ctx_t* ctx) {
 static bool jav_view_rec_group_v_k5(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_rec_member_v_entry(ctx)) return bbq_fail(&ctx->cur, "RecMember failed");
+    if (!jav_view_rec_member_v_entry(ctx)) return bbq_fail(&ctx->cur, "RecGroup.RecMember failed");
     BBQ_MUSTTAIL return jav_view_rec_group_v_k6(ctx);
 }
 static bool jav_view_rec_group_v_k6(bbq_view_ctx_t* ctx) {
@@ -2234,7 +2234,7 @@ static bool jav_view_rec_group_v_k8(bbq_view_ctx_t* ctx) {
 static bool jav_view_rec_type_v_k1(bbq_view_ctx_t* ctx) {
     (void)ctx;
     { size_t _s = ctx->cur.pos;
-      if (!bbq_advance(&ctx->cur, 1)) return bbq_fail(&ctx->cur, "head: read failed");
+      if (!bbq_advance(&ctx->cur, 1)) return bbq_fail(&ctx->cur, "RecType.head: read failed");
       bbq_cap_add_field(&ctx->builder, "head", _s, ctx->cur.pos, bbq_view_int_capture(ctx, 8, false, false, true), NULL); }
     BBQ_MUSTTAIL return jav_view_rec_type_v_k0(ctx);
 }
@@ -2271,7 +2271,7 @@ static bool jav_view_rec_type_v_k8(bbq_view_ctx_t* ctx) {
 static bool jav_view_rec_type_v_k9(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_func_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "FuncType failed");
+    if (!jav_view_func_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "RecType.FuncType failed");
     BBQ_MUSTTAIL return jav_view_rec_type_v_k10(ctx);
 }
 static bool jav_view_rec_type_v_k10(bbq_view_ctx_t* ctx) {
@@ -2287,7 +2287,7 @@ static bool jav_view_rec_type_v_k7(bbq_view_ctx_t* ctx) {
 static bool jav_view_rec_type_v_k12(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_struct_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "StructType failed");
+    if (!jav_view_struct_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "RecType.StructType failed");
     BBQ_MUSTTAIL return jav_view_rec_type_v_k13(ctx);
 }
 static bool jav_view_rec_type_v_k13(bbq_view_ctx_t* ctx) {
@@ -2303,7 +2303,7 @@ static bool jav_view_rec_type_v_k6(bbq_view_ctx_t* ctx) {
 static bool jav_view_rec_type_v_k14(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_array_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "ArrayType failed");
+    if (!jav_view_array_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "RecType.ArrayType failed");
     BBQ_MUSTTAIL return jav_view_rec_type_v_k15(ctx);
 }
 static bool jav_view_rec_type_v_k15(bbq_view_ctx_t* ctx) {
@@ -2319,7 +2319,7 @@ static bool jav_view_rec_type_v_k5(bbq_view_ctx_t* ctx) {
 static bool jav_view_rec_type_v_k16(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_sub_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "SubType failed");
+    if (!jav_view_sub_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "RecType.SubType failed");
     BBQ_MUSTTAIL return jav_view_rec_type_v_k17(ctx);
 }
 static bool jav_view_rec_type_v_k17(bbq_view_ctx_t* ctx) {
@@ -2335,7 +2335,7 @@ static bool jav_view_rec_type_v_k4(bbq_view_ctx_t* ctx) {
 static bool jav_view_rec_type_v_k18(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_sub_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "SubType failed");
+    if (!jav_view_sub_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "RecType.SubType failed");
     BBQ_MUSTTAIL return jav_view_rec_type_v_k19(ctx);
 }
 static bool jav_view_rec_type_v_k19(bbq_view_ctx_t* ctx) {
@@ -2351,7 +2351,7 @@ static bool jav_view_rec_type_v_k3(bbq_view_ctx_t* ctx) {
 static bool jav_view_rec_type_v_k20(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_rec_group_v_entry(ctx)) return bbq_fail(&ctx->cur, "RecGroup failed");
+    if (!jav_view_rec_group_v_entry(ctx)) return bbq_fail(&ctx->cur, "RecType.RecGroup failed");
     BBQ_MUSTTAIL return jav_view_rec_type_v_k21(ctx);
 }
 static bool jav_view_rec_type_v_k21(bbq_view_ctx_t* ctx) {
@@ -2384,7 +2384,7 @@ static bool jav_view_type_section_v_k3(bbq_view_ctx_t* ctx) {
 static bool jav_view_type_section_v_k5(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_rec_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "RecType failed");
+    if (!jav_view_rec_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "TypeSection.RecType failed");
     BBQ_MUSTTAIL return jav_view_type_section_v_k6(ctx);
 }
 static bool jav_view_type_section_v_k6(bbq_view_ctx_t* ctx) {
@@ -2455,7 +2455,7 @@ static bool jav_view_i64_imm_v_k0(bbq_view_ctx_t* ctx) {
 static bool jav_view_f32_imm_v_k1(bbq_view_ctx_t* ctx) {
     (void)ctx;
     { size_t _s = ctx->cur.pos;
-      if (!bbq_advance(&ctx->cur, 4)) return bbq_fail(&ctx->cur, "v: read failed");
+      if (!bbq_advance(&ctx->cur, 4)) return bbq_fail(&ctx->cur, "F32Imm.v: read failed");
       bbq_cap_add_field(&ctx->builder, "v", _s, ctx->cur.pos, bbq_view_float_capture(ctx, 32, false, true), NULL); }
     BBQ_MUSTTAIL return jav_view_f32_imm_v_k0(ctx);
 }
@@ -2466,7 +2466,7 @@ static bool jav_view_f32_imm_v_k0(bbq_view_ctx_t* ctx) {
 static bool jav_view_f64_imm_v_k1(bbq_view_ctx_t* ctx) {
     (void)ctx;
     { size_t _s = ctx->cur.pos;
-      if (!bbq_advance(&ctx->cur, 8)) return bbq_fail(&ctx->cur, "v: read failed");
+      if (!bbq_advance(&ctx->cur, 8)) return bbq_fail(&ctx->cur, "F64Imm.v: read failed");
       bbq_cap_add_field(&ctx->builder, "v", _s, ctx->cur.pos, bbq_view_float_capture(ctx, 64, false, true), NULL); }
     BBQ_MUSTTAIL return jav_view_f64_imm_v_k0(ctx);
 }
@@ -2486,7 +2486,7 @@ static bool jav_view_heap_imm_v_k0(bbq_view_ctx_t* ctx) {
 static bool jav_view_lane_imm_v_k1(bbq_view_ctx_t* ctx) {
     (void)ctx;
     { size_t _s = ctx->cur.pos;
-      if (!bbq_advance(&ctx->cur, 1)) return bbq_fail(&ctx->cur, "lane: read failed");
+      if (!bbq_advance(&ctx->cur, 1)) return bbq_fail(&ctx->cur, "LaneImm.lane: read failed");
       bbq_cap_add_field(&ctx->builder, "lane", _s, ctx->cur.pos, bbq_view_int_capture(ctx, 8, false, false, true), NULL); }
     BBQ_MUSTTAIL return jav_view_lane_imm_v_k0(ctx);
 }
@@ -2497,7 +2497,7 @@ static bool jav_view_lane_imm_v_k0(bbq_view_ctx_t* ctx) {
 static bool jav_view_v128_imm_v_k1(bbq_view_ctx_t* ctx) {
     (void)ctx;
     { size_t _s = ctx->cur.pos;
-      if (!bbq_advance(&ctx->cur, (size_t)(16))) return bbq_fail(&ctx->cur, "bytes: read failed");
+      if (!bbq_advance(&ctx->cur, (size_t)(16))) return bbq_fail(&ctx->cur, "V128Imm.bytes: read failed");
       bbq_cap_add_field(&ctx->builder, "bytes", _s, ctx->cur.pos, BBQ_CT_Bytes, NULL); }
     BBQ_MUSTTAIL return jav_view_v128_imm_v_k0(ctx);
 }
@@ -2512,7 +2512,7 @@ static bool jav_view_mem_arg_v_k1(bbq_view_ctx_t* ctx) {
 }
 static bool jav_view_mem_arg_v_k0(bbq_view_ctx_t* ctx) {
     (void)ctx;
-    if (!((_Bool)(bbq_view_i64(ctx, "align") < 128))) return bbq_fail(&ctx->cur, "constraint failed");
+    if (!((_Bool)(bbq_view_i64(ctx, "align") < 128))) return bbq_fail(&ctx->cur, "MemArg.constraint failed");
     BBQ_MUSTTAIL return jav_view_mem_arg_v_k3(ctx);
 }
 static bool jav_view_mem_arg_v_k3(bbq_view_ctx_t* ctx) {
@@ -2539,7 +2539,7 @@ static bool jav_view_mem_lane_imm_v_k1(bbq_view_ctx_t* ctx) {
 static bool jav_view_mem_lane_imm_v_k0(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_mem_arg_v_entry(ctx)) return bbq_fail(&ctx->cur, "MemArg failed");
+    if (!jav_view_mem_arg_v_entry(ctx)) return bbq_fail(&ctx->cur, "MemLaneImm.MemArg failed");
     BBQ_MUSTTAIL return jav_view_mem_lane_imm_v_k2(ctx);
 }
 static bool jav_view_mem_lane_imm_v_k2(bbq_view_ctx_t* ctx) {
@@ -2550,7 +2550,7 @@ static bool jav_view_mem_lane_imm_v_k2(bbq_view_ctx_t* ctx) {
 static bool jav_view_mem_lane_imm_v_k3(bbq_view_ctx_t* ctx) {
     (void)ctx;
     { size_t _s = ctx->cur.pos;
-      if (!bbq_advance(&ctx->cur, 1)) return bbq_fail(&ctx->cur, "lane: read failed");
+      if (!bbq_advance(&ctx->cur, 1)) return bbq_fail(&ctx->cur, "MemLaneImm.lane: read failed");
       bbq_cap_add_field(&ctx->builder, "lane", _s, ctx->cur.pos, bbq_view_int_capture(ctx, 8, false, false, true), NULL); }
     BBQ_MUSTTAIL return jav_view_mem_lane_imm_v_k4(ctx);
 }
@@ -2617,7 +2617,7 @@ static bool jav_view_select_t_v_k3(bbq_view_ctx_t* ctx) {
 static bool jav_view_select_t_v_k5(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_val_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "ValType failed");
+    if (!jav_view_val_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "SelectT.ValType failed");
     BBQ_MUSTTAIL return jav_view_select_t_v_k6(ctx);
 }
 static bool jav_view_select_t_v_k6(bbq_view_ctx_t* ctx) {
@@ -2643,7 +2643,7 @@ static bool jav_view_select_t_v_k8(bbq_view_ctx_t* ctx) {
 static bool jav_view_br_on_cast_v_k1(bbq_view_ctx_t* ctx) {
     (void)ctx;
     { size_t _s = ctx->cur.pos;
-      if (!bbq_advance(&ctx->cur, 1)) return bbq_fail(&ctx->cur, "flags: read failed");
+      if (!bbq_advance(&ctx->cur, 1)) return bbq_fail(&ctx->cur, "BrOnCast.flags: read failed");
       bbq_cap_add_field(&ctx->builder, "flags", _s, ctx->cur.pos, bbq_view_int_capture(ctx, 8, false, false, true), NULL); }
     BBQ_MUSTTAIL return jav_view_br_on_cast_v_k0(ctx);
 }
@@ -2684,7 +2684,7 @@ static bool jav_view_block_type_v_k3(bbq_view_ctx_t* ctx) {
 static bool jav_view_block_type_v_k5(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_heap_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "HeapType failed");
+    if (!jav_view_heap_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "BlockType.HeapType failed");
     BBQ_MUSTTAIL return jav_view_block_type_v_k6(ctx);
 }
 static bool jav_view_block_type_v_k6(bbq_view_ctx_t* ctx) {
@@ -2704,7 +2704,7 @@ static bool jav_view_block_v_k1(bbq_view_ctx_t* ctx) {
 static bool jav_view_block_v_k0(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_block_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "BlockType failed");
+    if (!jav_view_block_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "Block.BlockType failed");
     BBQ_MUSTTAIL return jav_view_block_v_k2(ctx);
 }
 static bool jav_view_block_v_k2(bbq_view_ctx_t* ctx) {
@@ -2728,7 +2728,7 @@ static bool jav_view_block_v_k4(bbq_view_ctx_t* ctx) {
 static bool jav_view_block_v_k6(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_instr_v_entry(ctx)) return bbq_fail(&ctx->cur, "Instr failed");
+    if (!jav_view_instr_v_entry(ctx)) return bbq_fail(&ctx->cur, "Block.Instr failed");
     BBQ_MUSTTAIL return jav_view_block_v_k7(ctx);
 }
 static bool jav_view_block_v_k7(bbq_view_ctx_t* ctx) {
@@ -2751,13 +2751,13 @@ static bool jav_view_block_v_k5(bbq_view_ctx_t* ctx) {
 static bool jav_view_block_v_k9(bbq_view_ctx_t* ctx) {
     (void)ctx;
     { size_t _s = ctx->cur.pos;
-      if (!bbq_advance(&ctx->cur, 1)) return bbq_fail(&ctx->cur, "end: read failed");
+      if (!bbq_advance(&ctx->cur, 1)) return bbq_fail(&ctx->cur, "Block.end: read failed");
       bbq_cap_add_field(&ctx->builder, "end", _s, ctx->cur.pos, bbq_view_int_capture(ctx, 8, false, false, true), NULL); }
     BBQ_MUSTTAIL return jav_view_block_v_k10(ctx);
 }
 static bool jav_view_block_v_k10(bbq_view_ctx_t* ctx) {
     (void)ctx;
-    if (!((_Bool)(bbq_view_i64(ctx, "end") == 11))) return bbq_fail(&ctx->cur, "constraint failed");
+    if (!((_Bool)(bbq_view_i64(ctx, "end") == 11))) return bbq_fail(&ctx->cur, "Block.constraint failed");
     BBQ_MUSTTAIL return jav_view_block_v_k12(ctx);
 }
 static bool jav_view_block_v_k12(bbq_view_ctx_t* ctx) {
@@ -2767,13 +2767,13 @@ static bool jav_view_block_v_k12(bbq_view_ctx_t* ctx) {
 static bool jav_view_else_clause_v_k1(bbq_view_ctx_t* ctx) {
     (void)ctx;
     { size_t _s = ctx->cur.pos;
-      if (!bbq_advance(&ctx->cur, 1)) return bbq_fail(&ctx->cur, "marker: read failed");
+      if (!bbq_advance(&ctx->cur, 1)) return bbq_fail(&ctx->cur, "ElseClause.marker: read failed");
       bbq_cap_add_field(&ctx->builder, "marker", _s, ctx->cur.pos, bbq_view_int_capture(ctx, 8, false, false, true), NULL); }
     BBQ_MUSTTAIL return jav_view_else_clause_v_k0(ctx);
 }
 static bool jav_view_else_clause_v_k0(bbq_view_ctx_t* ctx) {
     (void)ctx;
-    if (!((_Bool)(bbq_view_i64(ctx, "marker") == 5))) return bbq_fail(&ctx->cur, "constraint failed");
+    if (!((_Bool)(bbq_view_i64(ctx, "marker") == 5))) return bbq_fail(&ctx->cur, "ElseClause.constraint failed");
     BBQ_MUSTTAIL return jav_view_else_clause_v_k3(ctx);
 }
 static bool jav_view_else_clause_v_k3(bbq_view_ctx_t* ctx) {
@@ -2792,7 +2792,7 @@ static bool jav_view_else_clause_v_k5(bbq_view_ctx_t* ctx) {
 static bool jav_view_else_clause_v_k7(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_instr_v_entry(ctx)) return bbq_fail(&ctx->cur, "Instr failed");
+    if (!jav_view_instr_v_entry(ctx)) return bbq_fail(&ctx->cur, "ElseClause.Instr failed");
     BBQ_MUSTTAIL return jav_view_else_clause_v_k8(ctx);
 }
 static bool jav_view_else_clause_v_k8(bbq_view_ctx_t* ctx) {
@@ -2824,7 +2824,7 @@ static bool jav_view_if_v_k1(bbq_view_ctx_t* ctx) {
 static bool jav_view_if_v_k0(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_block_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "BlockType failed");
+    if (!jav_view_block_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "If.BlockType failed");
     BBQ_MUSTTAIL return jav_view_if_v_k2(ctx);
 }
 static bool jav_view_if_v_k2(bbq_view_ctx_t* ctx) {
@@ -2848,7 +2848,7 @@ static bool jav_view_if_v_k4(bbq_view_ctx_t* ctx) {
 static bool jav_view_if_v_k6(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_instr_v_entry(ctx)) return bbq_fail(&ctx->cur, "Instr failed");
+    if (!jav_view_instr_v_entry(ctx)) return bbq_fail(&ctx->cur, "If.Instr failed");
     BBQ_MUSTTAIL return jav_view_if_v_k7(ctx);
 }
 static bool jav_view_if_v_k7(bbq_view_ctx_t* ctx) {
@@ -2881,7 +2881,7 @@ static bool jav_view_if_v_k10(bbq_view_ctx_t* ctx) {
 static bool jav_view_if_v_k12(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_else_clause_v_entry(ctx)) return bbq_fail(&ctx->cur, "ElseClause failed");
+    if (!jav_view_else_clause_v_entry(ctx)) return bbq_fail(&ctx->cur, "If.ElseClause failed");
     BBQ_MUSTTAIL return jav_view_if_v_k13(ctx);
 }
 static bool jav_view_if_v_k13(bbq_view_ctx_t* ctx) {
@@ -2892,13 +2892,13 @@ static bool jav_view_if_v_k13(bbq_view_ctx_t* ctx) {
 static bool jav_view_if_v_k11(bbq_view_ctx_t* ctx) {
     (void)ctx;
     { size_t _s = ctx->cur.pos;
-      if (!bbq_advance(&ctx->cur, 1)) return bbq_fail(&ctx->cur, "end: read failed");
+      if (!bbq_advance(&ctx->cur, 1)) return bbq_fail(&ctx->cur, "If.end: read failed");
       bbq_cap_add_field(&ctx->builder, "end", _s, ctx->cur.pos, bbq_view_int_capture(ctx, 8, false, false, true), NULL); }
     BBQ_MUSTTAIL return jav_view_if_v_k14(ctx);
 }
 static bool jav_view_if_v_k14(bbq_view_ctx_t* ctx) {
     (void)ctx;
-    if (!((_Bool)(bbq_view_i64(ctx, "end") == 11))) return bbq_fail(&ctx->cur, "constraint failed");
+    if (!((_Bool)(bbq_view_i64(ctx, "end") == 11))) return bbq_fail(&ctx->cur, "If.constraint failed");
     BBQ_MUSTTAIL return jav_view_if_v_k16(ctx);
 }
 static bool jav_view_if_v_k16(bbq_view_ctx_t* ctx) {
@@ -2908,7 +2908,7 @@ static bool jav_view_if_v_k16(bbq_view_ctx_t* ctx) {
 static bool jav_view_catch_v_k1(bbq_view_ctx_t* ctx) {
     (void)ctx;
     { size_t _s = ctx->cur.pos;
-      if (!bbq_advance(&ctx->cur, 1)) return bbq_fail(&ctx->cur, "kind: read failed");
+      if (!bbq_advance(&ctx->cur, 1)) return bbq_fail(&ctx->cur, "Catch.kind: read failed");
       bbq_cap_add_field(&ctx->builder, "kind", _s, ctx->cur.pos, bbq_view_int_capture(ctx, 8, false, false, true), NULL); }
     BBQ_MUSTTAIL return jav_view_catch_v_k0(ctx);
 }
@@ -2936,7 +2936,7 @@ static bool jav_view_try_table_v_k1(bbq_view_ctx_t* ctx) {
 static bool jav_view_try_table_v_k0(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_block_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "BlockType failed");
+    if (!jav_view_block_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "TryTable.BlockType failed");
     BBQ_MUSTTAIL return jav_view_try_table_v_k2(ctx);
 }
 static bool jav_view_try_table_v_k2(bbq_view_ctx_t* ctx) {
@@ -2965,7 +2965,7 @@ static bool jav_view_try_table_v_k6(bbq_view_ctx_t* ctx) {
 static bool jav_view_try_table_v_k8(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_catch_v_entry(ctx)) return bbq_fail(&ctx->cur, "Catch failed");
+    if (!jav_view_catch_v_entry(ctx)) return bbq_fail(&ctx->cur, "TryTable.Catch failed");
     BBQ_MUSTTAIL return jav_view_try_table_v_k9(ctx);
 }
 static bool jav_view_try_table_v_k9(bbq_view_ctx_t* ctx) {
@@ -3000,7 +3000,7 @@ static bool jav_view_try_table_v_k12(bbq_view_ctx_t* ctx) {
 static bool jav_view_try_table_v_k14(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_instr_v_entry(ctx)) return bbq_fail(&ctx->cur, "Instr failed");
+    if (!jav_view_instr_v_entry(ctx)) return bbq_fail(&ctx->cur, "TryTable.Instr failed");
     BBQ_MUSTTAIL return jav_view_try_table_v_k15(ctx);
 }
 static bool jav_view_try_table_v_k15(bbq_view_ctx_t* ctx) {
@@ -3023,13 +3023,13 @@ static bool jav_view_try_table_v_k13(bbq_view_ctx_t* ctx) {
 static bool jav_view_try_table_v_k17(bbq_view_ctx_t* ctx) {
     (void)ctx;
     { size_t _s = ctx->cur.pos;
-      if (!bbq_advance(&ctx->cur, 1)) return bbq_fail(&ctx->cur, "end: read failed");
+      if (!bbq_advance(&ctx->cur, 1)) return bbq_fail(&ctx->cur, "TryTable.end: read failed");
       bbq_cap_add_field(&ctx->builder, "end", _s, ctx->cur.pos, bbq_view_int_capture(ctx, 8, false, false, true), NULL); }
     BBQ_MUSTTAIL return jav_view_try_table_v_k18(ctx);
 }
 static bool jav_view_try_table_v_k18(bbq_view_ctx_t* ctx) {
     (void)ctx;
-    if (!((_Bool)(bbq_view_i64(ctx, "end") == 11))) return bbq_fail(&ctx->cur, "constraint failed");
+    if (!((_Bool)(bbq_view_i64(ctx, "end") == 11))) return bbq_fail(&ctx->cur, "TryTable.constraint failed");
     BBQ_MUSTTAIL return jav_view_try_table_v_k20(ctx);
 }
 static bool jav_view_try_table_v_k20(bbq_view_ctx_t* ctx) {
@@ -3092,7 +3092,7 @@ static bool jav_view_misc_instr_v_k11(bbq_view_ctx_t* ctx) {
 static bool jav_view_misc_instr_v_k12(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_idx_imm_v_entry(ctx)) return bbq_fail(&ctx->cur, "IdxImm failed");
+    if (!jav_view_idx_imm_v_entry(ctx)) return bbq_fail(&ctx->cur, "MiscInstr.IdxImm failed");
     BBQ_MUSTTAIL return jav_view_misc_instr_v_k13(ctx);
 }
 static bool jav_view_misc_instr_v_k13(bbq_view_ctx_t* ctx) {
@@ -3108,7 +3108,7 @@ static bool jav_view_misc_instr_v_k10(bbq_view_ctx_t* ctx) {
 static bool jav_view_misc_instr_v_k15(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_idx2_imm_v_entry(ctx)) return bbq_fail(&ctx->cur, "Idx2Imm failed");
+    if (!jav_view_idx2_imm_v_entry(ctx)) return bbq_fail(&ctx->cur, "MiscInstr.Idx2Imm failed");
     BBQ_MUSTTAIL return jav_view_misc_instr_v_k16(ctx);
 }
 static bool jav_view_misc_instr_v_k16(bbq_view_ctx_t* ctx) {
@@ -3124,7 +3124,7 @@ static bool jav_view_misc_instr_v_k9(bbq_view_ctx_t* ctx) {
 static bool jav_view_misc_instr_v_k17(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_idx_imm_v_entry(ctx)) return bbq_fail(&ctx->cur, "IdxImm failed");
+    if (!jav_view_idx_imm_v_entry(ctx)) return bbq_fail(&ctx->cur, "MiscInstr.IdxImm failed");
     BBQ_MUSTTAIL return jav_view_misc_instr_v_k18(ctx);
 }
 static bool jav_view_misc_instr_v_k18(bbq_view_ctx_t* ctx) {
@@ -3140,7 +3140,7 @@ static bool jav_view_misc_instr_v_k8(bbq_view_ctx_t* ctx) {
 static bool jav_view_misc_instr_v_k19(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_idx2_imm_v_entry(ctx)) return bbq_fail(&ctx->cur, "Idx2Imm failed");
+    if (!jav_view_idx2_imm_v_entry(ctx)) return bbq_fail(&ctx->cur, "MiscInstr.Idx2Imm failed");
     BBQ_MUSTTAIL return jav_view_misc_instr_v_k20(ctx);
 }
 static bool jav_view_misc_instr_v_k20(bbq_view_ctx_t* ctx) {
@@ -3156,7 +3156,7 @@ static bool jav_view_misc_instr_v_k7(bbq_view_ctx_t* ctx) {
 static bool jav_view_misc_instr_v_k21(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_idx_imm_v_entry(ctx)) return bbq_fail(&ctx->cur, "IdxImm failed");
+    if (!jav_view_idx_imm_v_entry(ctx)) return bbq_fail(&ctx->cur, "MiscInstr.IdxImm failed");
     BBQ_MUSTTAIL return jav_view_misc_instr_v_k22(ctx);
 }
 static bool jav_view_misc_instr_v_k22(bbq_view_ctx_t* ctx) {
@@ -3172,7 +3172,7 @@ static bool jav_view_misc_instr_v_k6(bbq_view_ctx_t* ctx) {
 static bool jav_view_misc_instr_v_k23(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_idx2_imm_v_entry(ctx)) return bbq_fail(&ctx->cur, "Idx2Imm failed");
+    if (!jav_view_idx2_imm_v_entry(ctx)) return bbq_fail(&ctx->cur, "MiscInstr.Idx2Imm failed");
     BBQ_MUSTTAIL return jav_view_misc_instr_v_k24(ctx);
 }
 static bool jav_view_misc_instr_v_k24(bbq_view_ctx_t* ctx) {
@@ -3188,7 +3188,7 @@ static bool jav_view_misc_instr_v_k5(bbq_view_ctx_t* ctx) {
 static bool jav_view_misc_instr_v_k25(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_idx_imm_v_entry(ctx)) return bbq_fail(&ctx->cur, "IdxImm failed");
+    if (!jav_view_idx_imm_v_entry(ctx)) return bbq_fail(&ctx->cur, "MiscInstr.IdxImm failed");
     BBQ_MUSTTAIL return jav_view_misc_instr_v_k26(ctx);
 }
 static bool jav_view_misc_instr_v_k26(bbq_view_ctx_t* ctx) {
@@ -3204,7 +3204,7 @@ static bool jav_view_misc_instr_v_k4(bbq_view_ctx_t* ctx) {
 static bool jav_view_misc_instr_v_k27(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_idx2_imm_v_entry(ctx)) return bbq_fail(&ctx->cur, "Idx2Imm failed");
+    if (!jav_view_idx2_imm_v_entry(ctx)) return bbq_fail(&ctx->cur, "MiscInstr.Idx2Imm failed");
     BBQ_MUSTTAIL return jav_view_misc_instr_v_k28(ctx);
 }
 static bool jav_view_misc_instr_v_k28(bbq_view_ctx_t* ctx) {
@@ -3220,7 +3220,7 @@ static bool jav_view_misc_instr_v_k3(bbq_view_ctx_t* ctx) {
 static bool jav_view_misc_instr_v_k29(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_empty_v_entry(ctx)) return bbq_fail(&ctx->cur, "Empty failed");
+    if (!jav_view_empty_v_entry(ctx)) return bbq_fail(&ctx->cur, "MiscInstr.Empty failed");
     BBQ_MUSTTAIL return jav_view_misc_instr_v_k30(ctx);
 }
 static bool jav_view_misc_instr_v_k30(bbq_view_ctx_t* ctx) {
@@ -3305,7 +3305,7 @@ static bool jav_view_gc_instr_v_k13(bbq_view_ctx_t* ctx) {
 static bool jav_view_gc_instr_v_k14(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_empty_v_entry(ctx)) return bbq_fail(&ctx->cur, "Empty failed");
+    if (!jav_view_empty_v_entry(ctx)) return bbq_fail(&ctx->cur, "GcInstr.Empty failed");
     BBQ_MUSTTAIL return jav_view_gc_instr_v_k15(ctx);
 }
 static bool jav_view_gc_instr_v_k15(bbq_view_ctx_t* ctx) {
@@ -3321,7 +3321,7 @@ static bool jav_view_gc_instr_v_k12(bbq_view_ctx_t* ctx) {
 static bool jav_view_gc_instr_v_k17(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_br_on_cast_v_entry(ctx)) return bbq_fail(&ctx->cur, "BrOnCast failed");
+    if (!jav_view_br_on_cast_v_entry(ctx)) return bbq_fail(&ctx->cur, "GcInstr.BrOnCast failed");
     BBQ_MUSTTAIL return jav_view_gc_instr_v_k18(ctx);
 }
 static bool jav_view_gc_instr_v_k18(bbq_view_ctx_t* ctx) {
@@ -3337,7 +3337,7 @@ static bool jav_view_gc_instr_v_k11(bbq_view_ctx_t* ctx) {
 static bool jav_view_gc_instr_v_k19(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_heap_imm_v_entry(ctx)) return bbq_fail(&ctx->cur, "HeapImm failed");
+    if (!jav_view_heap_imm_v_entry(ctx)) return bbq_fail(&ctx->cur, "GcInstr.HeapImm failed");
     BBQ_MUSTTAIL return jav_view_gc_instr_v_k20(ctx);
 }
 static bool jav_view_gc_instr_v_k20(bbq_view_ctx_t* ctx) {
@@ -3353,7 +3353,7 @@ static bool jav_view_gc_instr_v_k10(bbq_view_ctx_t* ctx) {
 static bool jav_view_gc_instr_v_k21(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_idx2_imm_v_entry(ctx)) return bbq_fail(&ctx->cur, "Idx2Imm failed");
+    if (!jav_view_idx2_imm_v_entry(ctx)) return bbq_fail(&ctx->cur, "GcInstr.Idx2Imm failed");
     BBQ_MUSTTAIL return jav_view_gc_instr_v_k22(ctx);
 }
 static bool jav_view_gc_instr_v_k22(bbq_view_ctx_t* ctx) {
@@ -3369,7 +3369,7 @@ static bool jav_view_gc_instr_v_k9(bbq_view_ctx_t* ctx) {
 static bool jav_view_gc_instr_v_k23(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_idx_imm_v_entry(ctx)) return bbq_fail(&ctx->cur, "IdxImm failed");
+    if (!jav_view_idx_imm_v_entry(ctx)) return bbq_fail(&ctx->cur, "GcInstr.IdxImm failed");
     BBQ_MUSTTAIL return jav_view_gc_instr_v_k24(ctx);
 }
 static bool jav_view_gc_instr_v_k24(bbq_view_ctx_t* ctx) {
@@ -3385,7 +3385,7 @@ static bool jav_view_gc_instr_v_k8(bbq_view_ctx_t* ctx) {
 static bool jav_view_gc_instr_v_k25(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_empty_v_entry(ctx)) return bbq_fail(&ctx->cur, "Empty failed");
+    if (!jav_view_empty_v_entry(ctx)) return bbq_fail(&ctx->cur, "GcInstr.Empty failed");
     BBQ_MUSTTAIL return jav_view_gc_instr_v_k26(ctx);
 }
 static bool jav_view_gc_instr_v_k26(bbq_view_ctx_t* ctx) {
@@ -3401,7 +3401,7 @@ static bool jav_view_gc_instr_v_k7(bbq_view_ctx_t* ctx) {
 static bool jav_view_gc_instr_v_k27(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_idx_imm_v_entry(ctx)) return bbq_fail(&ctx->cur, "IdxImm failed");
+    if (!jav_view_idx_imm_v_entry(ctx)) return bbq_fail(&ctx->cur, "GcInstr.IdxImm failed");
     BBQ_MUSTTAIL return jav_view_gc_instr_v_k28(ctx);
 }
 static bool jav_view_gc_instr_v_k28(bbq_view_ctx_t* ctx) {
@@ -3417,7 +3417,7 @@ static bool jav_view_gc_instr_v_k6(bbq_view_ctx_t* ctx) {
 static bool jav_view_gc_instr_v_k29(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_idx2_imm_v_entry(ctx)) return bbq_fail(&ctx->cur, "Idx2Imm failed");
+    if (!jav_view_idx2_imm_v_entry(ctx)) return bbq_fail(&ctx->cur, "GcInstr.Idx2Imm failed");
     BBQ_MUSTTAIL return jav_view_gc_instr_v_k30(ctx);
 }
 static bool jav_view_gc_instr_v_k30(bbq_view_ctx_t* ctx) {
@@ -3433,7 +3433,7 @@ static bool jav_view_gc_instr_v_k5(bbq_view_ctx_t* ctx) {
 static bool jav_view_gc_instr_v_k31(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_idx_imm_v_entry(ctx)) return bbq_fail(&ctx->cur, "IdxImm failed");
+    if (!jav_view_idx_imm_v_entry(ctx)) return bbq_fail(&ctx->cur, "GcInstr.IdxImm failed");
     BBQ_MUSTTAIL return jav_view_gc_instr_v_k32(ctx);
 }
 static bool jav_view_gc_instr_v_k32(bbq_view_ctx_t* ctx) {
@@ -3449,7 +3449,7 @@ static bool jav_view_gc_instr_v_k4(bbq_view_ctx_t* ctx) {
 static bool jav_view_gc_instr_v_k33(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_idx2_imm_v_entry(ctx)) return bbq_fail(&ctx->cur, "Idx2Imm failed");
+    if (!jav_view_idx2_imm_v_entry(ctx)) return bbq_fail(&ctx->cur, "GcInstr.Idx2Imm failed");
     BBQ_MUSTTAIL return jav_view_gc_instr_v_k34(ctx);
 }
 static bool jav_view_gc_instr_v_k34(bbq_view_ctx_t* ctx) {
@@ -3465,7 +3465,7 @@ static bool jav_view_gc_instr_v_k3(bbq_view_ctx_t* ctx) {
 static bool jav_view_gc_instr_v_k35(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_idx_imm_v_entry(ctx)) return bbq_fail(&ctx->cur, "IdxImm failed");
+    if (!jav_view_idx_imm_v_entry(ctx)) return bbq_fail(&ctx->cur, "GcInstr.IdxImm failed");
     BBQ_MUSTTAIL return jav_view_gc_instr_v_k36(ctx);
 }
 static bool jav_view_gc_instr_v_k36(bbq_view_ctx_t* ctx) {
@@ -3793,7 +3793,7 @@ static bool jav_view_simd_instr_v_k22(bbq_view_ctx_t* ctx) {
 static bool jav_view_simd_instr_v_k23(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_empty_v_entry(ctx)) return bbq_fail(&ctx->cur, "Empty failed");
+    if (!jav_view_empty_v_entry(ctx)) return bbq_fail(&ctx->cur, "SimdInstr.Empty failed");
     BBQ_MUSTTAIL return jav_view_simd_instr_v_k24(ctx);
 }
 static bool jav_view_simd_instr_v_k24(bbq_view_ctx_t* ctx) {
@@ -3809,7 +3809,7 @@ static bool jav_view_simd_instr_v_k21(bbq_view_ctx_t* ctx) {
 static bool jav_view_simd_instr_v_k26(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_empty_v_entry(ctx)) return bbq_fail(&ctx->cur, "Empty failed");
+    if (!jav_view_empty_v_entry(ctx)) return bbq_fail(&ctx->cur, "SimdInstr.Empty failed");
     BBQ_MUSTTAIL return jav_view_simd_instr_v_k27(ctx);
 }
 static bool jav_view_simd_instr_v_k27(bbq_view_ctx_t* ctx) {
@@ -3825,7 +3825,7 @@ static bool jav_view_simd_instr_v_k20(bbq_view_ctx_t* ctx) {
 static bool jav_view_simd_instr_v_k28(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_empty_v_entry(ctx)) return bbq_fail(&ctx->cur, "Empty failed");
+    if (!jav_view_empty_v_entry(ctx)) return bbq_fail(&ctx->cur, "SimdInstr.Empty failed");
     BBQ_MUSTTAIL return jav_view_simd_instr_v_k29(ctx);
 }
 static bool jav_view_simd_instr_v_k29(bbq_view_ctx_t* ctx) {
@@ -3841,7 +3841,7 @@ static bool jav_view_simd_instr_v_k19(bbq_view_ctx_t* ctx) {
 static bool jav_view_simd_instr_v_k30(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_empty_v_entry(ctx)) return bbq_fail(&ctx->cur, "Empty failed");
+    if (!jav_view_empty_v_entry(ctx)) return bbq_fail(&ctx->cur, "SimdInstr.Empty failed");
     BBQ_MUSTTAIL return jav_view_simd_instr_v_k31(ctx);
 }
 static bool jav_view_simd_instr_v_k31(bbq_view_ctx_t* ctx) {
@@ -3857,7 +3857,7 @@ static bool jav_view_simd_instr_v_k18(bbq_view_ctx_t* ctx) {
 static bool jav_view_simd_instr_v_k32(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_empty_v_entry(ctx)) return bbq_fail(&ctx->cur, "Empty failed");
+    if (!jav_view_empty_v_entry(ctx)) return bbq_fail(&ctx->cur, "SimdInstr.Empty failed");
     BBQ_MUSTTAIL return jav_view_simd_instr_v_k33(ctx);
 }
 static bool jav_view_simd_instr_v_k33(bbq_view_ctx_t* ctx) {
@@ -3873,7 +3873,7 @@ static bool jav_view_simd_instr_v_k17(bbq_view_ctx_t* ctx) {
 static bool jav_view_simd_instr_v_k34(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_empty_v_entry(ctx)) return bbq_fail(&ctx->cur, "Empty failed");
+    if (!jav_view_empty_v_entry(ctx)) return bbq_fail(&ctx->cur, "SimdInstr.Empty failed");
     BBQ_MUSTTAIL return jav_view_simd_instr_v_k35(ctx);
 }
 static bool jav_view_simd_instr_v_k35(bbq_view_ctx_t* ctx) {
@@ -3889,7 +3889,7 @@ static bool jav_view_simd_instr_v_k16(bbq_view_ctx_t* ctx) {
 static bool jav_view_simd_instr_v_k36(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_empty_v_entry(ctx)) return bbq_fail(&ctx->cur, "Empty failed");
+    if (!jav_view_empty_v_entry(ctx)) return bbq_fail(&ctx->cur, "SimdInstr.Empty failed");
     BBQ_MUSTTAIL return jav_view_simd_instr_v_k37(ctx);
 }
 static bool jav_view_simd_instr_v_k37(bbq_view_ctx_t* ctx) {
@@ -3905,7 +3905,7 @@ static bool jav_view_simd_instr_v_k15(bbq_view_ctx_t* ctx) {
 static bool jav_view_simd_instr_v_k38(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_empty_v_entry(ctx)) return bbq_fail(&ctx->cur, "Empty failed");
+    if (!jav_view_empty_v_entry(ctx)) return bbq_fail(&ctx->cur, "SimdInstr.Empty failed");
     BBQ_MUSTTAIL return jav_view_simd_instr_v_k39(ctx);
 }
 static bool jav_view_simd_instr_v_k39(bbq_view_ctx_t* ctx) {
@@ -3921,7 +3921,7 @@ static bool jav_view_simd_instr_v_k14(bbq_view_ctx_t* ctx) {
 static bool jav_view_simd_instr_v_k40(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_empty_v_entry(ctx)) return bbq_fail(&ctx->cur, "Empty failed");
+    if (!jav_view_empty_v_entry(ctx)) return bbq_fail(&ctx->cur, "SimdInstr.Empty failed");
     BBQ_MUSTTAIL return jav_view_simd_instr_v_k41(ctx);
 }
 static bool jav_view_simd_instr_v_k41(bbq_view_ctx_t* ctx) {
@@ -3937,7 +3937,7 @@ static bool jav_view_simd_instr_v_k13(bbq_view_ctx_t* ctx) {
 static bool jav_view_simd_instr_v_k42(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_empty_v_entry(ctx)) return bbq_fail(&ctx->cur, "Empty failed");
+    if (!jav_view_empty_v_entry(ctx)) return bbq_fail(&ctx->cur, "SimdInstr.Empty failed");
     BBQ_MUSTTAIL return jav_view_simd_instr_v_k43(ctx);
 }
 static bool jav_view_simd_instr_v_k43(bbq_view_ctx_t* ctx) {
@@ -3953,7 +3953,7 @@ static bool jav_view_simd_instr_v_k12(bbq_view_ctx_t* ctx) {
 static bool jav_view_simd_instr_v_k44(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_empty_v_entry(ctx)) return bbq_fail(&ctx->cur, "Empty failed");
+    if (!jav_view_empty_v_entry(ctx)) return bbq_fail(&ctx->cur, "SimdInstr.Empty failed");
     BBQ_MUSTTAIL return jav_view_simd_instr_v_k45(ctx);
 }
 static bool jav_view_simd_instr_v_k45(bbq_view_ctx_t* ctx) {
@@ -3969,7 +3969,7 @@ static bool jav_view_simd_instr_v_k11(bbq_view_ctx_t* ctx) {
 static bool jav_view_simd_instr_v_k46(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_empty_v_entry(ctx)) return bbq_fail(&ctx->cur, "Empty failed");
+    if (!jav_view_empty_v_entry(ctx)) return bbq_fail(&ctx->cur, "SimdInstr.Empty failed");
     BBQ_MUSTTAIL return jav_view_simd_instr_v_k47(ctx);
 }
 static bool jav_view_simd_instr_v_k47(bbq_view_ctx_t* ctx) {
@@ -3985,7 +3985,7 @@ static bool jav_view_simd_instr_v_k10(bbq_view_ctx_t* ctx) {
 static bool jav_view_simd_instr_v_k48(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_empty_v_entry(ctx)) return bbq_fail(&ctx->cur, "Empty failed");
+    if (!jav_view_empty_v_entry(ctx)) return bbq_fail(&ctx->cur, "SimdInstr.Empty failed");
     BBQ_MUSTTAIL return jav_view_simd_instr_v_k49(ctx);
 }
 static bool jav_view_simd_instr_v_k49(bbq_view_ctx_t* ctx) {
@@ -4001,7 +4001,7 @@ static bool jav_view_simd_instr_v_k9(bbq_view_ctx_t* ctx) {
 static bool jav_view_simd_instr_v_k50(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_mem_arg_v_entry(ctx)) return bbq_fail(&ctx->cur, "MemArg failed");
+    if (!jav_view_mem_arg_v_entry(ctx)) return bbq_fail(&ctx->cur, "SimdInstr.MemArg failed");
     BBQ_MUSTTAIL return jav_view_simd_instr_v_k51(ctx);
 }
 static bool jav_view_simd_instr_v_k51(bbq_view_ctx_t* ctx) {
@@ -4017,7 +4017,7 @@ static bool jav_view_simd_instr_v_k8(bbq_view_ctx_t* ctx) {
 static bool jav_view_simd_instr_v_k52(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_mem_lane_imm_v_entry(ctx)) return bbq_fail(&ctx->cur, "MemLaneImm failed");
+    if (!jav_view_mem_lane_imm_v_entry(ctx)) return bbq_fail(&ctx->cur, "SimdInstr.MemLaneImm failed");
     BBQ_MUSTTAIL return jav_view_simd_instr_v_k53(ctx);
 }
 static bool jav_view_simd_instr_v_k53(bbq_view_ctx_t* ctx) {
@@ -4033,7 +4033,7 @@ static bool jav_view_simd_instr_v_k7(bbq_view_ctx_t* ctx) {
 static bool jav_view_simd_instr_v_k54(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_empty_v_entry(ctx)) return bbq_fail(&ctx->cur, "Empty failed");
+    if (!jav_view_empty_v_entry(ctx)) return bbq_fail(&ctx->cur, "SimdInstr.Empty failed");
     BBQ_MUSTTAIL return jav_view_simd_instr_v_k55(ctx);
 }
 static bool jav_view_simd_instr_v_k55(bbq_view_ctx_t* ctx) {
@@ -4049,7 +4049,7 @@ static bool jav_view_simd_instr_v_k6(bbq_view_ctx_t* ctx) {
 static bool jav_view_simd_instr_v_k56(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_lane_imm_v_entry(ctx)) return bbq_fail(&ctx->cur, "LaneImm failed");
+    if (!jav_view_lane_imm_v_entry(ctx)) return bbq_fail(&ctx->cur, "SimdInstr.LaneImm failed");
     BBQ_MUSTTAIL return jav_view_simd_instr_v_k57(ctx);
 }
 static bool jav_view_simd_instr_v_k57(bbq_view_ctx_t* ctx) {
@@ -4065,7 +4065,7 @@ static bool jav_view_simd_instr_v_k5(bbq_view_ctx_t* ctx) {
 static bool jav_view_simd_instr_v_k58(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_empty_v_entry(ctx)) return bbq_fail(&ctx->cur, "Empty failed");
+    if (!jav_view_empty_v_entry(ctx)) return bbq_fail(&ctx->cur, "SimdInstr.Empty failed");
     BBQ_MUSTTAIL return jav_view_simd_instr_v_k59(ctx);
 }
 static bool jav_view_simd_instr_v_k59(bbq_view_ctx_t* ctx) {
@@ -4081,7 +4081,7 @@ static bool jav_view_simd_instr_v_k4(bbq_view_ctx_t* ctx) {
 static bool jav_view_simd_instr_v_k60(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_v128_imm_v_entry(ctx)) return bbq_fail(&ctx->cur, "V128Imm failed");
+    if (!jav_view_v128_imm_v_entry(ctx)) return bbq_fail(&ctx->cur, "SimdInstr.V128Imm failed");
     BBQ_MUSTTAIL return jav_view_simd_instr_v_k61(ctx);
 }
 static bool jav_view_simd_instr_v_k61(bbq_view_ctx_t* ctx) {
@@ -4097,7 +4097,7 @@ static bool jav_view_simd_instr_v_k3(bbq_view_ctx_t* ctx) {
 static bool jav_view_simd_instr_v_k62(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_mem_arg_v_entry(ctx)) return bbq_fail(&ctx->cur, "MemArg failed");
+    if (!jav_view_mem_arg_v_entry(ctx)) return bbq_fail(&ctx->cur, "SimdInstr.MemArg failed");
     BBQ_MUSTTAIL return jav_view_simd_instr_v_k63(ctx);
 }
 static bool jav_view_simd_instr_v_k63(bbq_view_ctx_t* ctx) {
@@ -4112,7 +4112,7 @@ static bool jav_view_simd_instr_v_k25(bbq_view_ctx_t* ctx) {
 static bool jav_view_instr_v_k1(bbq_view_ctx_t* ctx) {
     (void)ctx;
     { size_t _s = ctx->cur.pos;
-      if (!bbq_advance(&ctx->cur, 1)) return bbq_fail(&ctx->cur, "op: read failed");
+      if (!bbq_advance(&ctx->cur, 1)) return bbq_fail(&ctx->cur, "Instr.op: read failed");
       bbq_cap_add_field(&ctx->builder, "op", _s, ctx->cur.pos, bbq_view_int_capture(ctx, 8, false, false, true), NULL); }
     BBQ_MUSTTAIL return jav_view_instr_v_k0(ctx);
 }
@@ -4390,7 +4390,7 @@ static bool jav_view_instr_v_k34(bbq_view_ctx_t* ctx) {
 static bool jav_view_instr_v_k35(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_simd_instr_v_entry(ctx)) return bbq_fail(&ctx->cur, "SimdInstr failed");
+    if (!jav_view_simd_instr_v_entry(ctx)) return bbq_fail(&ctx->cur, "Instr.SimdInstr failed");
     BBQ_MUSTTAIL return jav_view_instr_v_k36(ctx);
 }
 static bool jav_view_instr_v_k36(bbq_view_ctx_t* ctx) {
@@ -4406,7 +4406,7 @@ static bool jav_view_instr_v_k33(bbq_view_ctx_t* ctx) {
 static bool jav_view_instr_v_k38(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_misc_instr_v_entry(ctx)) return bbq_fail(&ctx->cur, "MiscInstr failed");
+    if (!jav_view_misc_instr_v_entry(ctx)) return bbq_fail(&ctx->cur, "Instr.MiscInstr failed");
     BBQ_MUSTTAIL return jav_view_instr_v_k39(ctx);
 }
 static bool jav_view_instr_v_k39(bbq_view_ctx_t* ctx) {
@@ -4422,7 +4422,7 @@ static bool jav_view_instr_v_k32(bbq_view_ctx_t* ctx) {
 static bool jav_view_instr_v_k40(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_gc_instr_v_entry(ctx)) return bbq_fail(&ctx->cur, "GcInstr failed");
+    if (!jav_view_gc_instr_v_entry(ctx)) return bbq_fail(&ctx->cur, "Instr.GcInstr failed");
     BBQ_MUSTTAIL return jav_view_instr_v_k41(ctx);
 }
 static bool jav_view_instr_v_k41(bbq_view_ctx_t* ctx) {
@@ -4438,7 +4438,7 @@ static bool jav_view_instr_v_k31(bbq_view_ctx_t* ctx) {
 static bool jav_view_instr_v_k42(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_idx_imm_v_entry(ctx)) return bbq_fail(&ctx->cur, "IdxImm failed");
+    if (!jav_view_idx_imm_v_entry(ctx)) return bbq_fail(&ctx->cur, "Instr.IdxImm failed");
     BBQ_MUSTTAIL return jav_view_instr_v_k43(ctx);
 }
 static bool jav_view_instr_v_k43(bbq_view_ctx_t* ctx) {
@@ -4454,7 +4454,7 @@ static bool jav_view_instr_v_k30(bbq_view_ctx_t* ctx) {
 static bool jav_view_instr_v_k44(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_empty_v_entry(ctx)) return bbq_fail(&ctx->cur, "Empty failed");
+    if (!jav_view_empty_v_entry(ctx)) return bbq_fail(&ctx->cur, "Instr.Empty failed");
     BBQ_MUSTTAIL return jav_view_instr_v_k45(ctx);
 }
 static bool jav_view_instr_v_k45(bbq_view_ctx_t* ctx) {
@@ -4470,7 +4470,7 @@ static bool jav_view_instr_v_k29(bbq_view_ctx_t* ctx) {
 static bool jav_view_instr_v_k46(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_idx_imm_v_entry(ctx)) return bbq_fail(&ctx->cur, "IdxImm failed");
+    if (!jav_view_idx_imm_v_entry(ctx)) return bbq_fail(&ctx->cur, "Instr.IdxImm failed");
     BBQ_MUSTTAIL return jav_view_instr_v_k47(ctx);
 }
 static bool jav_view_instr_v_k47(bbq_view_ctx_t* ctx) {
@@ -4486,7 +4486,7 @@ static bool jav_view_instr_v_k28(bbq_view_ctx_t* ctx) {
 static bool jav_view_instr_v_k48(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_empty_v_entry(ctx)) return bbq_fail(&ctx->cur, "Empty failed");
+    if (!jav_view_empty_v_entry(ctx)) return bbq_fail(&ctx->cur, "Instr.Empty failed");
     BBQ_MUSTTAIL return jav_view_instr_v_k49(ctx);
 }
 static bool jav_view_instr_v_k49(bbq_view_ctx_t* ctx) {
@@ -4502,7 +4502,7 @@ static bool jav_view_instr_v_k27(bbq_view_ctx_t* ctx) {
 static bool jav_view_instr_v_k50(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_heap_imm_v_entry(ctx)) return bbq_fail(&ctx->cur, "HeapImm failed");
+    if (!jav_view_heap_imm_v_entry(ctx)) return bbq_fail(&ctx->cur, "Instr.HeapImm failed");
     BBQ_MUSTTAIL return jav_view_instr_v_k51(ctx);
 }
 static bool jav_view_instr_v_k51(bbq_view_ctx_t* ctx) {
@@ -4518,7 +4518,7 @@ static bool jav_view_instr_v_k26(bbq_view_ctx_t* ctx) {
 static bool jav_view_instr_v_k52(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_empty_v_entry(ctx)) return bbq_fail(&ctx->cur, "Empty failed");
+    if (!jav_view_empty_v_entry(ctx)) return bbq_fail(&ctx->cur, "Instr.Empty failed");
     BBQ_MUSTTAIL return jav_view_instr_v_k53(ctx);
 }
 static bool jav_view_instr_v_k53(bbq_view_ctx_t* ctx) {
@@ -4534,7 +4534,7 @@ static bool jav_view_instr_v_k25(bbq_view_ctx_t* ctx) {
 static bool jav_view_instr_v_k54(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_f64_imm_v_entry(ctx)) return bbq_fail(&ctx->cur, "F64Imm failed");
+    if (!jav_view_f64_imm_v_entry(ctx)) return bbq_fail(&ctx->cur, "Instr.F64Imm failed");
     BBQ_MUSTTAIL return jav_view_instr_v_k55(ctx);
 }
 static bool jav_view_instr_v_k55(bbq_view_ctx_t* ctx) {
@@ -4550,7 +4550,7 @@ static bool jav_view_instr_v_k24(bbq_view_ctx_t* ctx) {
 static bool jav_view_instr_v_k56(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_f32_imm_v_entry(ctx)) return bbq_fail(&ctx->cur, "F32Imm failed");
+    if (!jav_view_f32_imm_v_entry(ctx)) return bbq_fail(&ctx->cur, "Instr.F32Imm failed");
     BBQ_MUSTTAIL return jav_view_instr_v_k57(ctx);
 }
 static bool jav_view_instr_v_k57(bbq_view_ctx_t* ctx) {
@@ -4566,7 +4566,7 @@ static bool jav_view_instr_v_k23(bbq_view_ctx_t* ctx) {
 static bool jav_view_instr_v_k58(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_i64_imm_v_entry(ctx)) return bbq_fail(&ctx->cur, "I64Imm failed");
+    if (!jav_view_i64_imm_v_entry(ctx)) return bbq_fail(&ctx->cur, "Instr.I64Imm failed");
     BBQ_MUSTTAIL return jav_view_instr_v_k59(ctx);
 }
 static bool jav_view_instr_v_k59(bbq_view_ctx_t* ctx) {
@@ -4582,7 +4582,7 @@ static bool jav_view_instr_v_k22(bbq_view_ctx_t* ctx) {
 static bool jav_view_instr_v_k60(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_i32_imm_v_entry(ctx)) return bbq_fail(&ctx->cur, "I32Imm failed");
+    if (!jav_view_i32_imm_v_entry(ctx)) return bbq_fail(&ctx->cur, "Instr.I32Imm failed");
     BBQ_MUSTTAIL return jav_view_instr_v_k61(ctx);
 }
 static bool jav_view_instr_v_k61(bbq_view_ctx_t* ctx) {
@@ -4598,7 +4598,7 @@ static bool jav_view_instr_v_k21(bbq_view_ctx_t* ctx) {
 static bool jav_view_instr_v_k62(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_idx_imm_v_entry(ctx)) return bbq_fail(&ctx->cur, "IdxImm failed");
+    if (!jav_view_idx_imm_v_entry(ctx)) return bbq_fail(&ctx->cur, "Instr.IdxImm failed");
     BBQ_MUSTTAIL return jav_view_instr_v_k63(ctx);
 }
 static bool jav_view_instr_v_k63(bbq_view_ctx_t* ctx) {
@@ -4614,7 +4614,7 @@ static bool jav_view_instr_v_k20(bbq_view_ctx_t* ctx) {
 static bool jav_view_instr_v_k64(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_mem_arg_v_entry(ctx)) return bbq_fail(&ctx->cur, "MemArg failed");
+    if (!jav_view_mem_arg_v_entry(ctx)) return bbq_fail(&ctx->cur, "Instr.MemArg failed");
     BBQ_MUSTTAIL return jav_view_instr_v_k65(ctx);
 }
 static bool jav_view_instr_v_k65(bbq_view_ctx_t* ctx) {
@@ -4630,7 +4630,7 @@ static bool jav_view_instr_v_k19(bbq_view_ctx_t* ctx) {
 static bool jav_view_instr_v_k66(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_idx_imm_v_entry(ctx)) return bbq_fail(&ctx->cur, "IdxImm failed");
+    if (!jav_view_idx_imm_v_entry(ctx)) return bbq_fail(&ctx->cur, "Instr.IdxImm failed");
     BBQ_MUSTTAIL return jav_view_instr_v_k67(ctx);
 }
 static bool jav_view_instr_v_k67(bbq_view_ctx_t* ctx) {
@@ -4646,7 +4646,7 @@ static bool jav_view_instr_v_k18(bbq_view_ctx_t* ctx) {
 static bool jav_view_instr_v_k68(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_try_table_v_entry(ctx)) return bbq_fail(&ctx->cur, "TryTable failed");
+    if (!jav_view_try_table_v_entry(ctx)) return bbq_fail(&ctx->cur, "Instr.TryTable failed");
     BBQ_MUSTTAIL return jav_view_instr_v_k69(ctx);
 }
 static bool jav_view_instr_v_k69(bbq_view_ctx_t* ctx) {
@@ -4662,7 +4662,7 @@ static bool jav_view_instr_v_k17(bbq_view_ctx_t* ctx) {
 static bool jav_view_instr_v_k70(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_select_t_v_entry(ctx)) return bbq_fail(&ctx->cur, "SelectT failed");
+    if (!jav_view_select_t_v_entry(ctx)) return bbq_fail(&ctx->cur, "Instr.SelectT failed");
     BBQ_MUSTTAIL return jav_view_instr_v_k71(ctx);
 }
 static bool jav_view_instr_v_k71(bbq_view_ctx_t* ctx) {
@@ -4678,7 +4678,7 @@ static bool jav_view_instr_v_k16(bbq_view_ctx_t* ctx) {
 static bool jav_view_instr_v_k72(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_empty_v_entry(ctx)) return bbq_fail(&ctx->cur, "Empty failed");
+    if (!jav_view_empty_v_entry(ctx)) return bbq_fail(&ctx->cur, "Instr.Empty failed");
     BBQ_MUSTTAIL return jav_view_instr_v_k73(ctx);
 }
 static bool jav_view_instr_v_k73(bbq_view_ctx_t* ctx) {
@@ -4694,7 +4694,7 @@ static bool jav_view_instr_v_k15(bbq_view_ctx_t* ctx) {
 static bool jav_view_instr_v_k74(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_idx_imm_v_entry(ctx)) return bbq_fail(&ctx->cur, "IdxImm failed");
+    if (!jav_view_idx_imm_v_entry(ctx)) return bbq_fail(&ctx->cur, "Instr.IdxImm failed");
     BBQ_MUSTTAIL return jav_view_instr_v_k75(ctx);
 }
 static bool jav_view_instr_v_k75(bbq_view_ctx_t* ctx) {
@@ -4710,7 +4710,7 @@ static bool jav_view_instr_v_k14(bbq_view_ctx_t* ctx) {
 static bool jav_view_instr_v_k76(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_idx2_imm_v_entry(ctx)) return bbq_fail(&ctx->cur, "Idx2Imm failed");
+    if (!jav_view_idx2_imm_v_entry(ctx)) return bbq_fail(&ctx->cur, "Instr.Idx2Imm failed");
     BBQ_MUSTTAIL return jav_view_instr_v_k77(ctx);
 }
 static bool jav_view_instr_v_k77(bbq_view_ctx_t* ctx) {
@@ -4726,7 +4726,7 @@ static bool jav_view_instr_v_k13(bbq_view_ctx_t* ctx) {
 static bool jav_view_instr_v_k78(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_idx_imm_v_entry(ctx)) return bbq_fail(&ctx->cur, "IdxImm failed");
+    if (!jav_view_idx_imm_v_entry(ctx)) return bbq_fail(&ctx->cur, "Instr.IdxImm failed");
     BBQ_MUSTTAIL return jav_view_instr_v_k79(ctx);
 }
 static bool jav_view_instr_v_k79(bbq_view_ctx_t* ctx) {
@@ -4742,7 +4742,7 @@ static bool jav_view_instr_v_k12(bbq_view_ctx_t* ctx) {
 static bool jav_view_instr_v_k80(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_idx2_imm_v_entry(ctx)) return bbq_fail(&ctx->cur, "Idx2Imm failed");
+    if (!jav_view_idx2_imm_v_entry(ctx)) return bbq_fail(&ctx->cur, "Instr.Idx2Imm failed");
     BBQ_MUSTTAIL return jav_view_instr_v_k81(ctx);
 }
 static bool jav_view_instr_v_k81(bbq_view_ctx_t* ctx) {
@@ -4758,7 +4758,7 @@ static bool jav_view_instr_v_k11(bbq_view_ctx_t* ctx) {
 static bool jav_view_instr_v_k82(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_idx_imm_v_entry(ctx)) return bbq_fail(&ctx->cur, "IdxImm failed");
+    if (!jav_view_idx_imm_v_entry(ctx)) return bbq_fail(&ctx->cur, "Instr.IdxImm failed");
     BBQ_MUSTTAIL return jav_view_instr_v_k83(ctx);
 }
 static bool jav_view_instr_v_k83(bbq_view_ctx_t* ctx) {
@@ -4774,7 +4774,7 @@ static bool jav_view_instr_v_k10(bbq_view_ctx_t* ctx) {
 static bool jav_view_instr_v_k84(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_empty_v_entry(ctx)) return bbq_fail(&ctx->cur, "Empty failed");
+    if (!jav_view_empty_v_entry(ctx)) return bbq_fail(&ctx->cur, "Instr.Empty failed");
     BBQ_MUSTTAIL return jav_view_instr_v_k85(ctx);
 }
 static bool jav_view_instr_v_k85(bbq_view_ctx_t* ctx) {
@@ -4790,7 +4790,7 @@ static bool jav_view_instr_v_k9(bbq_view_ctx_t* ctx) {
 static bool jav_view_instr_v_k86(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_br_table_v_entry(ctx)) return bbq_fail(&ctx->cur, "BrTable failed");
+    if (!jav_view_br_table_v_entry(ctx)) return bbq_fail(&ctx->cur, "Instr.BrTable failed");
     BBQ_MUSTTAIL return jav_view_instr_v_k87(ctx);
 }
 static bool jav_view_instr_v_k87(bbq_view_ctx_t* ctx) {
@@ -4806,7 +4806,7 @@ static bool jav_view_instr_v_k8(bbq_view_ctx_t* ctx) {
 static bool jav_view_instr_v_k88(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_idx_imm_v_entry(ctx)) return bbq_fail(&ctx->cur, "IdxImm failed");
+    if (!jav_view_idx_imm_v_entry(ctx)) return bbq_fail(&ctx->cur, "Instr.IdxImm failed");
     BBQ_MUSTTAIL return jav_view_instr_v_k89(ctx);
 }
 static bool jav_view_instr_v_k89(bbq_view_ctx_t* ctx) {
@@ -4822,7 +4822,7 @@ static bool jav_view_instr_v_k7(bbq_view_ctx_t* ctx) {
 static bool jav_view_instr_v_k90(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_empty_v_entry(ctx)) return bbq_fail(&ctx->cur, "Empty failed");
+    if (!jav_view_empty_v_entry(ctx)) return bbq_fail(&ctx->cur, "Instr.Empty failed");
     BBQ_MUSTTAIL return jav_view_instr_v_k91(ctx);
 }
 static bool jav_view_instr_v_k91(bbq_view_ctx_t* ctx) {
@@ -4838,7 +4838,7 @@ static bool jav_view_instr_v_k6(bbq_view_ctx_t* ctx) {
 static bool jav_view_instr_v_k92(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_idx_imm_v_entry(ctx)) return bbq_fail(&ctx->cur, "IdxImm failed");
+    if (!jav_view_idx_imm_v_entry(ctx)) return bbq_fail(&ctx->cur, "Instr.IdxImm failed");
     BBQ_MUSTTAIL return jav_view_instr_v_k93(ctx);
 }
 static bool jav_view_instr_v_k93(bbq_view_ctx_t* ctx) {
@@ -4854,7 +4854,7 @@ static bool jav_view_instr_v_k5(bbq_view_ctx_t* ctx) {
 static bool jav_view_instr_v_k94(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_if_v_entry(ctx)) return bbq_fail(&ctx->cur, "If failed");
+    if (!jav_view_if_v_entry(ctx)) return bbq_fail(&ctx->cur, "Instr.If failed");
     BBQ_MUSTTAIL return jav_view_instr_v_k95(ctx);
 }
 static bool jav_view_instr_v_k95(bbq_view_ctx_t* ctx) {
@@ -4870,7 +4870,7 @@ static bool jav_view_instr_v_k4(bbq_view_ctx_t* ctx) {
 static bool jav_view_instr_v_k96(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_block_v_entry(ctx)) return bbq_fail(&ctx->cur, "Block failed");
+    if (!jav_view_block_v_entry(ctx)) return bbq_fail(&ctx->cur, "Instr.Block failed");
     BBQ_MUSTTAIL return jav_view_instr_v_k97(ctx);
 }
 static bool jav_view_instr_v_k97(bbq_view_ctx_t* ctx) {
@@ -4886,7 +4886,7 @@ static bool jav_view_instr_v_k3(bbq_view_ctx_t* ctx) {
 static bool jav_view_instr_v_k98(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_empty_v_entry(ctx)) return bbq_fail(&ctx->cur, "Empty failed");
+    if (!jav_view_empty_v_entry(ctx)) return bbq_fail(&ctx->cur, "Instr.Empty failed");
     BBQ_MUSTTAIL return jav_view_instr_v_k99(ctx);
 }
 static bool jav_view_instr_v_k99(bbq_view_ctx_t* ctx) {
@@ -4914,7 +4914,7 @@ static bool jav_view_expr_v_k0(bbq_view_ctx_t* ctx) {
 static bool jav_view_expr_v_k3(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_instr_v_entry(ctx)) return bbq_fail(&ctx->cur, "Instr failed");
+    if (!jav_view_instr_v_entry(ctx)) return bbq_fail(&ctx->cur, "Expr.Instr failed");
     BBQ_MUSTTAIL return jav_view_expr_v_k4(ctx);
 }
 static bool jav_view_expr_v_k4(bbq_view_ctx_t* ctx) {
@@ -4937,13 +4937,13 @@ static bool jav_view_expr_v_k1(bbq_view_ctx_t* ctx) {
 static bool jav_view_expr_v_k6(bbq_view_ctx_t* ctx) {
     (void)ctx;
     { size_t _s = ctx->cur.pos;
-      if (!bbq_advance(&ctx->cur, 1)) return bbq_fail(&ctx->cur, "end: read failed");
+      if (!bbq_advance(&ctx->cur, 1)) return bbq_fail(&ctx->cur, "Expr.end: read failed");
       bbq_cap_add_field(&ctx->builder, "end", _s, ctx->cur.pos, bbq_view_int_capture(ctx, 8, false, false, true), NULL); }
     BBQ_MUSTTAIL return jav_view_expr_v_k7(ctx);
 }
 static bool jav_view_expr_v_k7(bbq_view_ctx_t* ctx) {
     (void)ctx;
-    if (!((_Bool)(bbq_view_i64(ctx, "end") == 11))) return bbq_fail(&ctx->cur, "constraint failed");
+    if (!((_Bool)(bbq_view_i64(ctx, "end") == 11))) return bbq_fail(&ctx->cur, "Expr.constraint failed");
     BBQ_MUSTTAIL return jav_view_expr_v_k9(ctx);
 }
 static bool jav_view_expr_v_k9(bbq_view_ctx_t* ctx) {
@@ -4963,7 +4963,7 @@ static bool jav_view_locals_v_k0(bbq_view_ctx_t* ctx) {
 static bool jav_view_locals_v_k3(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_val_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "ValType failed");
+    if (!jav_view_val_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "Locals.ValType failed");
     BBQ_MUSTTAIL return jav_view_locals_v_k4(ctx);
 }
 static bool jav_view_locals_v_k4(bbq_view_ctx_t* ctx) {
@@ -4996,7 +4996,7 @@ static bool jav_view_func_body_v_k3(bbq_view_ctx_t* ctx) {
 static bool jav_view_func_body_v_k5(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_locals_v_entry(ctx)) return bbq_fail(&ctx->cur, "Locals failed");
+    if (!jav_view_locals_v_entry(ctx)) return bbq_fail(&ctx->cur, "FuncBody.Locals failed");
     BBQ_MUSTTAIL return jav_view_func_body_v_k6(ctx);
 }
 static bool jav_view_func_body_v_k6(bbq_view_ctx_t* ctx) {
@@ -5023,7 +5023,7 @@ static bool jav_view_func_body_v_k8(bbq_view_ctx_t* ctx) {
 static bool jav_view_func_body_v_k9(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_expr_v_entry(ctx)) return bbq_fail(&ctx->cur, "Expr failed");
+    if (!jav_view_expr_v_entry(ctx)) return bbq_fail(&ctx->cur, "FuncBody.Expr failed");
     BBQ_MUSTTAIL return jav_view_func_body_v_k10(ctx);
 }
 static bool jav_view_func_body_v_k10(bbq_view_ctx_t* ctx) {
@@ -5086,7 +5086,7 @@ static bool jav_view_code_entry_v_k3(bbq_view_ctx_t* ctx) {
 static bool jav_view_code_entry_v_k4(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_func_body_v_entry(ctx)) return bbq_fail(&ctx->cur, "FuncBody failed");
+    if (!jav_view_func_body_v_entry(ctx)) return bbq_fail(&ctx->cur, "CodeEntry.FuncBody failed");
     BBQ_MUSTTAIL return jav_view_code_entry_v_k5(ctx);
 }
 static bool jav_view_code_entry_v_k5(bbq_view_ctx_t* ctx) {
@@ -5124,7 +5124,7 @@ static bool jav_view_code_section_v_k3(bbq_view_ctx_t* ctx) {
 static bool jav_view_code_section_v_k5(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_code_entry_v_entry(ctx)) return bbq_fail(&ctx->cur, "CodeEntry failed");
+    if (!jav_view_code_entry_v_entry(ctx)) return bbq_fail(&ctx->cur, "CodeSection.CodeEntry failed");
     BBQ_MUSTTAIL return jav_view_code_section_v_k6(ctx);
 }
 static bool jav_view_code_section_v_k6(bbq_view_ctx_t* ctx) {
@@ -5150,13 +5150,13 @@ static bool jav_view_code_section_v_k8(bbq_view_ctx_t* ctx) {
 static bool jav_view_ref_type_v_k1(bbq_view_ctx_t* ctx) {
     (void)ctx;
     { size_t _s = ctx->cur.pos;
-      if (!bbq_advance(&ctx->cur, 1)) return bbq_fail(&ctx->cur, "head: read failed");
+      if (!bbq_advance(&ctx->cur, 1)) return bbq_fail(&ctx->cur, "RefType.head: read failed");
       bbq_cap_add_field(&ctx->builder, "head", _s, ctx->cur.pos, bbq_view_int_capture(ctx, 8, false, false, true), NULL); }
     BBQ_MUSTTAIL return jav_view_ref_type_v_k0(ctx);
 }
 static bool jav_view_ref_type_v_k0(bbq_view_ctx_t* ctx) {
     (void)ctx;
-    if (!((_Bool)((_Bool)((_Bool)(bbq_view_i64(ctx, "head") == 99) || (_Bool)(bbq_view_i64(ctx, "head") == 100)) || (_Bool)((_Bool)(bbq_view_i64(ctx, "head") >= 105) && (_Bool)(bbq_view_i64(ctx, "head") <= 116))))) return bbq_fail(&ctx->cur, "constraint failed");
+    if (!((_Bool)((_Bool)((_Bool)(bbq_view_i64(ctx, "head") == 99) || (_Bool)(bbq_view_i64(ctx, "head") == 100)) || (_Bool)((_Bool)(bbq_view_i64(ctx, "head") >= 105) && (_Bool)(bbq_view_i64(ctx, "head") <= 116))))) return bbq_fail(&ctx->cur, "RefType.constraint failed");
     BBQ_MUSTTAIL return jav_view_ref_type_v_k3(ctx);
 }
 static bool jav_view_ref_type_v_k3(bbq_view_ctx_t* ctx) {
@@ -5172,7 +5172,7 @@ static bool jav_view_ref_type_v_k5(bbq_view_ctx_t* ctx) {
 static bool jav_view_ref_type_v_k7(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_heap_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "HeapType failed");
+    if (!jav_view_heap_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "RefType.HeapType failed");
     BBQ_MUSTTAIL return jav_view_ref_type_v_k8(ctx);
 }
 static bool jav_view_ref_type_v_k8(bbq_view_ctx_t* ctx) {
@@ -5187,13 +5187,13 @@ static bool jav_view_ref_type_v_k6(bbq_view_ctx_t* ctx) {
 static bool jav_view_limits_v_k1(bbq_view_ctx_t* ctx) {
     (void)ctx;
     { size_t _s = ctx->cur.pos;
-      if (!bbq_advance(&ctx->cur, 1)) return bbq_fail(&ctx->cur, "flag: read failed");
+      if (!bbq_advance(&ctx->cur, 1)) return bbq_fail(&ctx->cur, "Limits.flag: read failed");
       bbq_cap_add_field(&ctx->builder, "flag", _s, ctx->cur.pos, bbq_view_int_capture(ctx, 8, false, false, true), NULL); }
     BBQ_MUSTTAIL return jav_view_limits_v_k0(ctx);
 }
 static bool jav_view_limits_v_k0(bbq_view_ctx_t* ctx) {
     (void)ctx;
-    if (!((_Bool)((bbq_view_i64(ctx, "flag") & 250) == 0))) return bbq_fail(&ctx->cur, "constraint failed");
+    if (!((_Bool)((bbq_view_i64(ctx, "flag") & 250) == 0))) return bbq_fail(&ctx->cur, "Limits.constraint failed");
     BBQ_MUSTTAIL return jav_view_limits_v_k3(ctx);
 }
 static bool jav_view_limits_v_k3(bbq_view_ctx_t* ctx) {
@@ -5220,7 +5220,7 @@ static bool jav_view_global_type_v_k1(bbq_view_ctx_t* ctx) {
 static bool jav_view_global_type_v_k0(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_val_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "ValType failed");
+    if (!jav_view_val_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "GlobalType.ValType failed");
     BBQ_MUSTTAIL return jav_view_global_type_v_k2(ctx);
 }
 static bool jav_view_global_type_v_k2(bbq_view_ctx_t* ctx) {
@@ -5231,13 +5231,13 @@ static bool jav_view_global_type_v_k2(bbq_view_ctx_t* ctx) {
 static bool jav_view_global_type_v_k3(bbq_view_ctx_t* ctx) {
     (void)ctx;
     { size_t _s = ctx->cur.pos;
-      if (!bbq_advance(&ctx->cur, 1)) return bbq_fail(&ctx->cur, "mut: read failed");
+      if (!bbq_advance(&ctx->cur, 1)) return bbq_fail(&ctx->cur, "GlobalType.mut: read failed");
       bbq_cap_add_field(&ctx->builder, "mut", _s, ctx->cur.pos, bbq_view_int_capture(ctx, 8, false, false, true), NULL); }
     BBQ_MUSTTAIL return jav_view_global_type_v_k4(ctx);
 }
 static bool jav_view_global_type_v_k4(bbq_view_ctx_t* ctx) {
     (void)ctx;
-    if (!((_Bool)(bbq_view_i64(ctx, "mut") <= 1))) return bbq_fail(&ctx->cur, "constraint failed");
+    if (!((_Bool)(bbq_view_i64(ctx, "mut") <= 1))) return bbq_fail(&ctx->cur, "GlobalType.constraint failed");
     BBQ_MUSTTAIL return jav_view_global_type_v_k6(ctx);
 }
 static bool jav_view_global_type_v_k6(bbq_view_ctx_t* ctx) {
@@ -5252,7 +5252,7 @@ static bool jav_view_table_type_v_k1(bbq_view_ctx_t* ctx) {
 static bool jav_view_table_type_v_k0(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_ref_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "RefType failed");
+    if (!jav_view_ref_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "TableType.RefType failed");
     BBQ_MUSTTAIL return jav_view_table_type_v_k2(ctx);
 }
 static bool jav_view_table_type_v_k2(bbq_view_ctx_t* ctx) {
@@ -5268,7 +5268,7 @@ static bool jav_view_table_type_v_k3(bbq_view_ctx_t* ctx) {
 static bool jav_view_table_type_v_k4(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_limits_v_entry(ctx)) return bbq_fail(&ctx->cur, "Limits failed");
+    if (!jav_view_limits_v_entry(ctx)) return bbq_fail(&ctx->cur, "TableType.Limits failed");
     BBQ_MUSTTAIL return jav_view_table_type_v_k5(ctx);
 }
 static bool jav_view_table_type_v_k5(bbq_view_ctx_t* ctx) {
@@ -5283,13 +5283,13 @@ static bool jav_view_table_type_v_k6(bbq_view_ctx_t* ctx) {
 static bool jav_view_tag_type_v_k1(bbq_view_ctx_t* ctx) {
     (void)ctx;
     { size_t _s = ctx->cur.pos;
-      if (!bbq_advance(&ctx->cur, 1)) return bbq_fail(&ctx->cur, "attr: read failed");
+      if (!bbq_advance(&ctx->cur, 1)) return bbq_fail(&ctx->cur, "TagType.attr: read failed");
       bbq_cap_add_field(&ctx->builder, "attr", _s, ctx->cur.pos, bbq_view_int_capture(ctx, 8, false, false, true), NULL); }
     BBQ_MUSTTAIL return jav_view_tag_type_v_k0(ctx);
 }
 static bool jav_view_tag_type_v_k0(bbq_view_ctx_t* ctx) {
     (void)ctx;
-    if (!((_Bool)(bbq_view_i64(ctx, "attr") == 0))) return bbq_fail(&ctx->cur, "constraint failed");
+    if (!((_Bool)(bbq_view_i64(ctx, "attr") == 0))) return bbq_fail(&ctx->cur, "TagType.constraint failed");
     BBQ_MUSTTAIL return jav_view_tag_type_v_k3(ctx);
 }
 static bool jav_view_tag_type_v_k3(bbq_view_ctx_t* ctx) {
@@ -5309,13 +5309,13 @@ static bool jav_view_name_v_k1(bbq_view_ctx_t* ctx) {
 static bool jav_view_name_v_k0(bbq_view_ctx_t* ctx) {
     (void)ctx;
     { size_t _s = ctx->cur.pos;
-      if (!bbq_advance(&ctx->cur, (size_t)(bbq_view_i64(ctx, "count")))) return bbq_fail(&ctx->cur, "bytes: read failed");
+      if (!bbq_advance(&ctx->cur, (size_t)(bbq_view_i64(ctx, "count")))) return bbq_fail(&ctx->cur, "Name.bytes: read failed");
       bbq_cap_add_field(&ctx->builder, "bytes", _s, ctx->cur.pos, BBQ_CT_Bytes, NULL); }
     BBQ_MUSTTAIL return jav_view_name_v_k3(ctx);
 }
 static bool jav_view_name_v_k3(bbq_view_ctx_t* ctx) {
     (void)ctx;
-    if (!(jav_name_utf8_ok(bbq_view_bytes(ctx, "bytes")))) return bbq_fail(&ctx->cur, "constraint failed");
+    if (!(jav_name_utf8_ok(bbq_view_bytes(ctx, "bytes")))) return bbq_fail(&ctx->cur, "Name.constraint failed");
     BBQ_MUSTTAIL return jav_view_name_v_k5(ctx);
 }
 static bool jav_view_name_v_k5(bbq_view_ctx_t* ctx) {
@@ -5330,7 +5330,7 @@ static bool jav_view_byte_vec_v_k1(bbq_view_ctx_t* ctx) {
 static bool jav_view_byte_vec_v_k0(bbq_view_ctx_t* ctx) {
     (void)ctx;
     { size_t _s = ctx->cur.pos;
-      if (!bbq_advance(&ctx->cur, (size_t)(bbq_view_i64(ctx, "count")))) return bbq_fail(&ctx->cur, "bytes: read failed");
+      if (!bbq_advance(&ctx->cur, (size_t)(bbq_view_i64(ctx, "count")))) return bbq_fail(&ctx->cur, "ByteVec.bytes: read failed");
       bbq_cap_add_field(&ctx->builder, "bytes", _s, ctx->cur.pos, BBQ_CT_Bytes, NULL); }
     BBQ_MUSTTAIL return jav_view_byte_vec_v_k3(ctx);
 }
@@ -5392,7 +5392,7 @@ static bool jav_view_expr_vec_v_k3(bbq_view_ctx_t* ctx) {
 static bool jav_view_expr_vec_v_k5(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_expr_v_entry(ctx)) return bbq_fail(&ctx->cur, "Expr failed");
+    if (!jav_view_expr_v_entry(ctx)) return bbq_fail(&ctx->cur, "ExprVec.Expr failed");
     BBQ_MUSTTAIL return jav_view_expr_vec_v_k6(ctx);
 }
 static bool jav_view_expr_vec_v_k6(bbq_view_ctx_t* ctx) {
@@ -5418,7 +5418,7 @@ static bool jav_view_expr_vec_v_k8(bbq_view_ctx_t* ctx) {
 static bool jav_view_extern_type_v_k1(bbq_view_ctx_t* ctx) {
     (void)ctx;
     { size_t _s = ctx->cur.pos;
-      if (!bbq_advance(&ctx->cur, 1)) return bbq_fail(&ctx->cur, "kind: read failed");
+      if (!bbq_advance(&ctx->cur, 1)) return bbq_fail(&ctx->cur, "ExternType.kind: read failed");
       bbq_cap_add_field(&ctx->builder, "kind", _s, ctx->cur.pos, bbq_view_int_capture(ctx, 8, false, false, true), NULL); }
     BBQ_MUSTTAIL return jav_view_extern_type_v_k0(ctx);
 }
@@ -5452,7 +5452,7 @@ static bool jav_view_extern_type_v_k7(bbq_view_ctx_t* ctx) {
 static bool jav_view_extern_type_v_k8(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_tag_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "TagType failed");
+    if (!jav_view_tag_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "ExternType.TagType failed");
     BBQ_MUSTTAIL return jav_view_extern_type_v_k9(ctx);
 }
 static bool jav_view_extern_type_v_k9(bbq_view_ctx_t* ctx) {
@@ -5468,7 +5468,7 @@ static bool jav_view_extern_type_v_k6(bbq_view_ctx_t* ctx) {
 static bool jav_view_extern_type_v_k11(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_global_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "GlobalType failed");
+    if (!jav_view_global_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "ExternType.GlobalType failed");
     BBQ_MUSTTAIL return jav_view_extern_type_v_k12(ctx);
 }
 static bool jav_view_extern_type_v_k12(bbq_view_ctx_t* ctx) {
@@ -5484,7 +5484,7 @@ static bool jav_view_extern_type_v_k5(bbq_view_ctx_t* ctx) {
 static bool jav_view_extern_type_v_k13(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_limits_v_entry(ctx)) return bbq_fail(&ctx->cur, "Limits failed");
+    if (!jav_view_limits_v_entry(ctx)) return bbq_fail(&ctx->cur, "ExternType.Limits failed");
     BBQ_MUSTTAIL return jav_view_extern_type_v_k14(ctx);
 }
 static bool jav_view_extern_type_v_k14(bbq_view_ctx_t* ctx) {
@@ -5500,7 +5500,7 @@ static bool jav_view_extern_type_v_k4(bbq_view_ctx_t* ctx) {
 static bool jav_view_extern_type_v_k15(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_table_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "TableType failed");
+    if (!jav_view_table_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "ExternType.TableType failed");
     BBQ_MUSTTAIL return jav_view_extern_type_v_k16(ctx);
 }
 static bool jav_view_extern_type_v_k16(bbq_view_ctx_t* ctx) {
@@ -5516,7 +5516,7 @@ static bool jav_view_extern_type_v_k3(bbq_view_ctx_t* ctx) {
 static bool jav_view_extern_type_v_k17(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_idx_imm_v_entry(ctx)) return bbq_fail(&ctx->cur, "IdxImm failed");
+    if (!jav_view_idx_imm_v_entry(ctx)) return bbq_fail(&ctx->cur, "ExternType.IdxImm failed");
     BBQ_MUSTTAIL return jav_view_extern_type_v_k18(ctx);
 }
 static bool jav_view_extern_type_v_k18(bbq_view_ctx_t* ctx) {
@@ -5536,7 +5536,7 @@ static bool jav_view_import_v_k1(bbq_view_ctx_t* ctx) {
 static bool jav_view_import_v_k0(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_name_v_entry(ctx)) return bbq_fail(&ctx->cur, "Name failed");
+    if (!jav_view_name_v_entry(ctx)) return bbq_fail(&ctx->cur, "Import.Name failed");
     BBQ_MUSTTAIL return jav_view_import_v_k2(ctx);
 }
 static bool jav_view_import_v_k2(bbq_view_ctx_t* ctx) {
@@ -5552,7 +5552,7 @@ static bool jav_view_import_v_k3(bbq_view_ctx_t* ctx) {
 static bool jav_view_import_v_k4(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_name_v_entry(ctx)) return bbq_fail(&ctx->cur, "Name failed");
+    if (!jav_view_name_v_entry(ctx)) return bbq_fail(&ctx->cur, "Import.Name failed");
     BBQ_MUSTTAIL return jav_view_import_v_k5(ctx);
 }
 static bool jav_view_import_v_k5(bbq_view_ctx_t* ctx) {
@@ -5568,7 +5568,7 @@ static bool jav_view_import_v_k6(bbq_view_ctx_t* ctx) {
 static bool jav_view_import_v_k7(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_extern_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "ExternType failed");
+    if (!jav_view_extern_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "Import.ExternType failed");
     BBQ_MUSTTAIL return jav_view_import_v_k8(ctx);
 }
 static bool jav_view_import_v_k8(bbq_view_ctx_t* ctx) {
@@ -5601,7 +5601,7 @@ static bool jav_view_import_section_v_k3(bbq_view_ctx_t* ctx) {
 static bool jav_view_import_section_v_k5(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_import_v_entry(ctx)) return bbq_fail(&ctx->cur, "Import failed");
+    if (!jav_view_import_v_entry(ctx)) return bbq_fail(&ctx->cur, "ImportSection.Import failed");
     BBQ_MUSTTAIL return jav_view_import_section_v_k6(ctx);
 }
 static bool jav_view_import_section_v_k6(bbq_view_ctx_t* ctx) {
@@ -5632,7 +5632,7 @@ static bool jav_view_table_plain_v_k1(bbq_view_ctx_t* ctx) {
 static bool jav_view_table_plain_v_k0(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_table_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "TableType failed");
+    if (!jav_view_table_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "TablePlain.TableType failed");
     BBQ_MUSTTAIL return jav_view_table_plain_v_k2(ctx);
 }
 static bool jav_view_table_plain_v_k2(bbq_view_ctx_t* ctx) {
@@ -5647,25 +5647,25 @@ static bool jav_view_table_plain_v_k3(bbq_view_ctx_t* ctx) {
 static bool jav_view_table_init_v_k1(bbq_view_ctx_t* ctx) {
     (void)ctx;
     { size_t _s = ctx->cur.pos;
-      if (!bbq_advance(&ctx->cur, 1)) return bbq_fail(&ctx->cur, "marker0: read failed");
+      if (!bbq_advance(&ctx->cur, 1)) return bbq_fail(&ctx->cur, "TableInit.marker0: read failed");
       bbq_cap_add_field(&ctx->builder, "marker0", _s, ctx->cur.pos, bbq_view_int_capture(ctx, 8, false, false, true), NULL); }
     BBQ_MUSTTAIL return jav_view_table_init_v_k0(ctx);
 }
 static bool jav_view_table_init_v_k0(bbq_view_ctx_t* ctx) {
     (void)ctx;
-    if (!((_Bool)(bbq_view_i64(ctx, "marker0") == 64))) return bbq_fail(&ctx->cur, "constraint failed");
+    if (!((_Bool)(bbq_view_i64(ctx, "marker0") == 64))) return bbq_fail(&ctx->cur, "TableInit.constraint failed");
     BBQ_MUSTTAIL return jav_view_table_init_v_k3(ctx);
 }
 static bool jav_view_table_init_v_k3(bbq_view_ctx_t* ctx) {
     (void)ctx;
     { size_t _s = ctx->cur.pos;
-      if (!bbq_advance(&ctx->cur, 1)) return bbq_fail(&ctx->cur, "marker1: read failed");
+      if (!bbq_advance(&ctx->cur, 1)) return bbq_fail(&ctx->cur, "TableInit.marker1: read failed");
       bbq_cap_add_field(&ctx->builder, "marker1", _s, ctx->cur.pos, bbq_view_int_capture(ctx, 8, false, false, true), NULL); }
     BBQ_MUSTTAIL return jav_view_table_init_v_k5(ctx);
 }
 static bool jav_view_table_init_v_k5(bbq_view_ctx_t* ctx) {
     (void)ctx;
-    if (!((_Bool)(bbq_view_i64(ctx, "marker1") == 0))) return bbq_fail(&ctx->cur, "constraint failed");
+    if (!((_Bool)(bbq_view_i64(ctx, "marker1") == 0))) return bbq_fail(&ctx->cur, "TableInit.constraint failed");
     BBQ_MUSTTAIL return jav_view_table_init_v_k7(ctx);
 }
 static bool jav_view_table_init_v_k7(bbq_view_ctx_t* ctx) {
@@ -5676,7 +5676,7 @@ static bool jav_view_table_init_v_k7(bbq_view_ctx_t* ctx) {
 static bool jav_view_table_init_v_k9(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_table_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "TableType failed");
+    if (!jav_view_table_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "TableInit.TableType failed");
     BBQ_MUSTTAIL return jav_view_table_init_v_k10(ctx);
 }
 static bool jav_view_table_init_v_k10(bbq_view_ctx_t* ctx) {
@@ -5692,7 +5692,7 @@ static bool jav_view_table_init_v_k11(bbq_view_ctx_t* ctx) {
 static bool jav_view_table_init_v_k12(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_expr_v_entry(ctx)) return bbq_fail(&ctx->cur, "Expr failed");
+    if (!jav_view_expr_v_entry(ctx)) return bbq_fail(&ctx->cur, "TableInit.Expr failed");
     BBQ_MUSTTAIL return jav_view_table_init_v_k13(ctx);
 }
 static bool jav_view_table_init_v_k13(bbq_view_ctx_t* ctx) {
@@ -5723,7 +5723,7 @@ static bool jav_view_table_v_k0(bbq_view_ctx_t* ctx) {
 static bool jav_view_table_v_k3(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_table_init_v_entry(ctx)) return bbq_fail(&ctx->cur, "TableInit failed");
+    if (!jav_view_table_init_v_entry(ctx)) return bbq_fail(&ctx->cur, "Table.TableInit failed");
     BBQ_MUSTTAIL return jav_view_table_v_k4(ctx);
 }
 static bool jav_view_table_v_k4(bbq_view_ctx_t* ctx) {
@@ -5739,7 +5739,7 @@ static bool jav_view_table_v_k1(bbq_view_ctx_t* ctx) {
 static bool jav_view_table_v_k6(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_table_plain_v_entry(ctx)) return bbq_fail(&ctx->cur, "TablePlain failed");
+    if (!jav_view_table_plain_v_entry(ctx)) return bbq_fail(&ctx->cur, "Table.TablePlain failed");
     BBQ_MUSTTAIL return jav_view_table_v_k7(ctx);
 }
 static bool jav_view_table_v_k7(bbq_view_ctx_t* ctx) {
@@ -5772,7 +5772,7 @@ static bool jav_view_table_section_v_k3(bbq_view_ctx_t* ctx) {
 static bool jav_view_table_section_v_k5(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_table_v_entry(ctx)) return bbq_fail(&ctx->cur, "Table failed");
+    if (!jav_view_table_v_entry(ctx)) return bbq_fail(&ctx->cur, "TableSection.Table failed");
     BBQ_MUSTTAIL return jav_view_table_section_v_k6(ctx);
 }
 static bool jav_view_table_section_v_k6(bbq_view_ctx_t* ctx) {
@@ -5803,7 +5803,7 @@ static bool jav_view_mem_entry_v_k1(bbq_view_ctx_t* ctx) {
 static bool jav_view_mem_entry_v_k0(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_limits_v_entry(ctx)) return bbq_fail(&ctx->cur, "Limits failed");
+    if (!jav_view_limits_v_entry(ctx)) return bbq_fail(&ctx->cur, "MemEntry.Limits failed");
     BBQ_MUSTTAIL return jav_view_mem_entry_v_k2(ctx);
 }
 static bool jav_view_mem_entry_v_k2(bbq_view_ctx_t* ctx) {
@@ -5836,7 +5836,7 @@ static bool jav_view_memory_section_v_k3(bbq_view_ctx_t* ctx) {
 static bool jav_view_memory_section_v_k5(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_mem_entry_v_entry(ctx)) return bbq_fail(&ctx->cur, "MemEntry failed");
+    if (!jav_view_mem_entry_v_entry(ctx)) return bbq_fail(&ctx->cur, "MemorySection.MemEntry failed");
     BBQ_MUSTTAIL return jav_view_memory_section_v_k6(ctx);
 }
 static bool jav_view_memory_section_v_k6(bbq_view_ctx_t* ctx) {
@@ -5867,7 +5867,7 @@ static bool jav_view_global_v_k1(bbq_view_ctx_t* ctx) {
 static bool jav_view_global_v_k0(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_global_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "GlobalType failed");
+    if (!jav_view_global_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "Global.GlobalType failed");
     BBQ_MUSTTAIL return jav_view_global_v_k2(ctx);
 }
 static bool jav_view_global_v_k2(bbq_view_ctx_t* ctx) {
@@ -5883,7 +5883,7 @@ static bool jav_view_global_v_k3(bbq_view_ctx_t* ctx) {
 static bool jav_view_global_v_k4(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_expr_v_entry(ctx)) return bbq_fail(&ctx->cur, "Expr failed");
+    if (!jav_view_expr_v_entry(ctx)) return bbq_fail(&ctx->cur, "Global.Expr failed");
     BBQ_MUSTTAIL return jav_view_global_v_k5(ctx);
 }
 static bool jav_view_global_v_k5(bbq_view_ctx_t* ctx) {
@@ -5916,7 +5916,7 @@ static bool jav_view_global_section_v_k3(bbq_view_ctx_t* ctx) {
 static bool jav_view_global_section_v_k5(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_global_v_entry(ctx)) return bbq_fail(&ctx->cur, "Global failed");
+    if (!jav_view_global_v_entry(ctx)) return bbq_fail(&ctx->cur, "GlobalSection.Global failed");
     BBQ_MUSTTAIL return jav_view_global_section_v_k6(ctx);
 }
 static bool jav_view_global_section_v_k6(bbq_view_ctx_t* ctx) {
@@ -5947,7 +5947,7 @@ static bool jav_view_export_v_k1(bbq_view_ctx_t* ctx) {
 static bool jav_view_export_v_k0(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_name_v_entry(ctx)) return bbq_fail(&ctx->cur, "Name failed");
+    if (!jav_view_name_v_entry(ctx)) return bbq_fail(&ctx->cur, "Export.Name failed");
     BBQ_MUSTTAIL return jav_view_export_v_k2(ctx);
 }
 static bool jav_view_export_v_k2(bbq_view_ctx_t* ctx) {
@@ -5958,13 +5958,13 @@ static bool jav_view_export_v_k2(bbq_view_ctx_t* ctx) {
 static bool jav_view_export_v_k3(bbq_view_ctx_t* ctx) {
     (void)ctx;
     { size_t _s = ctx->cur.pos;
-      if (!bbq_advance(&ctx->cur, 1)) return bbq_fail(&ctx->cur, "kind: read failed");
+      if (!bbq_advance(&ctx->cur, 1)) return bbq_fail(&ctx->cur, "Export.kind: read failed");
       bbq_cap_add_field(&ctx->builder, "kind", _s, ctx->cur.pos, bbq_view_int_capture(ctx, 8, false, false, true), NULL); }
     BBQ_MUSTTAIL return jav_view_export_v_k4(ctx);
 }
 static bool jav_view_export_v_k4(bbq_view_ctx_t* ctx) {
     (void)ctx;
-    if (!((_Bool)(bbq_view_i64(ctx, "kind") <= 4))) return bbq_fail(&ctx->cur, "constraint failed");
+    if (!((_Bool)(bbq_view_i64(ctx, "kind") <= 4))) return bbq_fail(&ctx->cur, "Export.constraint failed");
     BBQ_MUSTTAIL return jav_view_export_v_k6(ctx);
 }
 static bool jav_view_export_v_k6(bbq_view_ctx_t* ctx) {
@@ -5997,7 +5997,7 @@ static bool jav_view_export_section_v_k3(bbq_view_ctx_t* ctx) {
 static bool jav_view_export_section_v_k5(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_export_v_entry(ctx)) return bbq_fail(&ctx->cur, "Export failed");
+    if (!jav_view_export_v_entry(ctx)) return bbq_fail(&ctx->cur, "ExportSection.Export failed");
     BBQ_MUSTTAIL return jav_view_export_section_v_k6(ctx);
 }
 static bool jav_view_export_section_v_k6(bbq_view_ctx_t* ctx) {
@@ -6037,7 +6037,7 @@ static bool jav_view_elem0_v_k1(bbq_view_ctx_t* ctx) {
 static bool jav_view_elem0_v_k0(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_expr_v_entry(ctx)) return bbq_fail(&ctx->cur, "Expr failed");
+    if (!jav_view_expr_v_entry(ctx)) return bbq_fail(&ctx->cur, "Elem0.Expr failed");
     BBQ_MUSTTAIL return jav_view_elem0_v_k2(ctx);
 }
 static bool jav_view_elem0_v_k2(bbq_view_ctx_t* ctx) {
@@ -6053,7 +6053,7 @@ static bool jav_view_elem0_v_k3(bbq_view_ctx_t* ctx) {
 static bool jav_view_elem0_v_k4(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_idx_vec_v_entry(ctx)) return bbq_fail(&ctx->cur, "IdxVec failed");
+    if (!jav_view_idx_vec_v_entry(ctx)) return bbq_fail(&ctx->cur, "Elem0.IdxVec failed");
     BBQ_MUSTTAIL return jav_view_elem0_v_k5(ctx);
 }
 static bool jav_view_elem0_v_k5(bbq_view_ctx_t* ctx) {
@@ -6068,13 +6068,13 @@ static bool jav_view_elem0_v_k6(bbq_view_ctx_t* ctx) {
 static bool jav_view_elem1_v_k1(bbq_view_ctx_t* ctx) {
     (void)ctx;
     { size_t _s = ctx->cur.pos;
-      if (!bbq_advance(&ctx->cur, 1)) return bbq_fail(&ctx->cur, "elemkind: read failed");
+      if (!bbq_advance(&ctx->cur, 1)) return bbq_fail(&ctx->cur, "Elem1.elemkind: read failed");
       bbq_cap_add_field(&ctx->builder, "elemkind", _s, ctx->cur.pos, bbq_view_int_capture(ctx, 8, false, false, true), NULL); }
     BBQ_MUSTTAIL return jav_view_elem1_v_k0(ctx);
 }
 static bool jav_view_elem1_v_k0(bbq_view_ctx_t* ctx) {
     (void)ctx;
-    if (!((_Bool)(bbq_view_i64(ctx, "elemkind") == 0))) return bbq_fail(&ctx->cur, "constraint failed");
+    if (!((_Bool)(bbq_view_i64(ctx, "elemkind") == 0))) return bbq_fail(&ctx->cur, "Elem1.constraint failed");
     BBQ_MUSTTAIL return jav_view_elem1_v_k3(ctx);
 }
 static bool jav_view_elem1_v_k3(bbq_view_ctx_t* ctx) {
@@ -6085,7 +6085,7 @@ static bool jav_view_elem1_v_k3(bbq_view_ctx_t* ctx) {
 static bool jav_view_elem1_v_k5(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_idx_vec_v_entry(ctx)) return bbq_fail(&ctx->cur, "IdxVec failed");
+    if (!jav_view_idx_vec_v_entry(ctx)) return bbq_fail(&ctx->cur, "Elem1.IdxVec failed");
     BBQ_MUSTTAIL return jav_view_elem1_v_k6(ctx);
 }
 static bool jav_view_elem1_v_k6(bbq_view_ctx_t* ctx) {
@@ -6110,7 +6110,7 @@ static bool jav_view_elem2_v_k0(bbq_view_ctx_t* ctx) {
 static bool jav_view_elem2_v_k3(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_expr_v_entry(ctx)) return bbq_fail(&ctx->cur, "Expr failed");
+    if (!jav_view_expr_v_entry(ctx)) return bbq_fail(&ctx->cur, "Elem2.Expr failed");
     BBQ_MUSTTAIL return jav_view_elem2_v_k4(ctx);
 }
 static bool jav_view_elem2_v_k4(bbq_view_ctx_t* ctx) {
@@ -6121,13 +6121,13 @@ static bool jav_view_elem2_v_k4(bbq_view_ctx_t* ctx) {
 static bool jav_view_elem2_v_k5(bbq_view_ctx_t* ctx) {
     (void)ctx;
     { size_t _s = ctx->cur.pos;
-      if (!bbq_advance(&ctx->cur, 1)) return bbq_fail(&ctx->cur, "elemkind: read failed");
+      if (!bbq_advance(&ctx->cur, 1)) return bbq_fail(&ctx->cur, "Elem2.elemkind: read failed");
       bbq_cap_add_field(&ctx->builder, "elemkind", _s, ctx->cur.pos, bbq_view_int_capture(ctx, 8, false, false, true), NULL); }
     BBQ_MUSTTAIL return jav_view_elem2_v_k6(ctx);
 }
 static bool jav_view_elem2_v_k6(bbq_view_ctx_t* ctx) {
     (void)ctx;
-    if (!((_Bool)(bbq_view_i64(ctx, "elemkind") == 0))) return bbq_fail(&ctx->cur, "constraint failed");
+    if (!((_Bool)(bbq_view_i64(ctx, "elemkind") == 0))) return bbq_fail(&ctx->cur, "Elem2.constraint failed");
     BBQ_MUSTTAIL return jav_view_elem2_v_k8(ctx);
 }
 static bool jav_view_elem2_v_k8(bbq_view_ctx_t* ctx) {
@@ -6138,7 +6138,7 @@ static bool jav_view_elem2_v_k8(bbq_view_ctx_t* ctx) {
 static bool jav_view_elem2_v_k10(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_idx_vec_v_entry(ctx)) return bbq_fail(&ctx->cur, "IdxVec failed");
+    if (!jav_view_idx_vec_v_entry(ctx)) return bbq_fail(&ctx->cur, "Elem2.IdxVec failed");
     BBQ_MUSTTAIL return jav_view_elem2_v_k11(ctx);
 }
 static bool jav_view_elem2_v_k11(bbq_view_ctx_t* ctx) {
@@ -6153,13 +6153,13 @@ static bool jav_view_elem2_v_k12(bbq_view_ctx_t* ctx) {
 static bool jav_view_elem3_v_k1(bbq_view_ctx_t* ctx) {
     (void)ctx;
     { size_t _s = ctx->cur.pos;
-      if (!bbq_advance(&ctx->cur, 1)) return bbq_fail(&ctx->cur, "elemkind: read failed");
+      if (!bbq_advance(&ctx->cur, 1)) return bbq_fail(&ctx->cur, "Elem3.elemkind: read failed");
       bbq_cap_add_field(&ctx->builder, "elemkind", _s, ctx->cur.pos, bbq_view_int_capture(ctx, 8, false, false, true), NULL); }
     BBQ_MUSTTAIL return jav_view_elem3_v_k0(ctx);
 }
 static bool jav_view_elem3_v_k0(bbq_view_ctx_t* ctx) {
     (void)ctx;
-    if (!((_Bool)(bbq_view_i64(ctx, "elemkind") == 0))) return bbq_fail(&ctx->cur, "constraint failed");
+    if (!((_Bool)(bbq_view_i64(ctx, "elemkind") == 0))) return bbq_fail(&ctx->cur, "Elem3.constraint failed");
     BBQ_MUSTTAIL return jav_view_elem3_v_k3(ctx);
 }
 static bool jav_view_elem3_v_k3(bbq_view_ctx_t* ctx) {
@@ -6170,7 +6170,7 @@ static bool jav_view_elem3_v_k3(bbq_view_ctx_t* ctx) {
 static bool jav_view_elem3_v_k5(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_idx_vec_v_entry(ctx)) return bbq_fail(&ctx->cur, "IdxVec failed");
+    if (!jav_view_idx_vec_v_entry(ctx)) return bbq_fail(&ctx->cur, "Elem3.IdxVec failed");
     BBQ_MUSTTAIL return jav_view_elem3_v_k6(ctx);
 }
 static bool jav_view_elem3_v_k6(bbq_view_ctx_t* ctx) {
@@ -6190,7 +6190,7 @@ static bool jav_view_elem4_v_k1(bbq_view_ctx_t* ctx) {
 static bool jav_view_elem4_v_k0(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_expr_v_entry(ctx)) return bbq_fail(&ctx->cur, "Expr failed");
+    if (!jav_view_expr_v_entry(ctx)) return bbq_fail(&ctx->cur, "Elem4.Expr failed");
     BBQ_MUSTTAIL return jav_view_elem4_v_k2(ctx);
 }
 static bool jav_view_elem4_v_k2(bbq_view_ctx_t* ctx) {
@@ -6206,7 +6206,7 @@ static bool jav_view_elem4_v_k3(bbq_view_ctx_t* ctx) {
 static bool jav_view_elem4_v_k4(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_expr_vec_v_entry(ctx)) return bbq_fail(&ctx->cur, "ExprVec failed");
+    if (!jav_view_expr_vec_v_entry(ctx)) return bbq_fail(&ctx->cur, "Elem4.ExprVec failed");
     BBQ_MUSTTAIL return jav_view_elem4_v_k5(ctx);
 }
 static bool jav_view_elem4_v_k5(bbq_view_ctx_t* ctx) {
@@ -6226,7 +6226,7 @@ static bool jav_view_elem5_v_k1(bbq_view_ctx_t* ctx) {
 static bool jav_view_elem5_v_k0(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_ref_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "RefType failed");
+    if (!jav_view_ref_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "Elem5.RefType failed");
     BBQ_MUSTTAIL return jav_view_elem5_v_k2(ctx);
 }
 static bool jav_view_elem5_v_k2(bbq_view_ctx_t* ctx) {
@@ -6242,7 +6242,7 @@ static bool jav_view_elem5_v_k3(bbq_view_ctx_t* ctx) {
 static bool jav_view_elem5_v_k4(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_expr_vec_v_entry(ctx)) return bbq_fail(&ctx->cur, "ExprVec failed");
+    if (!jav_view_expr_vec_v_entry(ctx)) return bbq_fail(&ctx->cur, "Elem5.ExprVec failed");
     BBQ_MUSTTAIL return jav_view_elem5_v_k5(ctx);
 }
 static bool jav_view_elem5_v_k5(bbq_view_ctx_t* ctx) {
@@ -6267,7 +6267,7 @@ static bool jav_view_elem6_v_k0(bbq_view_ctx_t* ctx) {
 static bool jav_view_elem6_v_k3(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_expr_v_entry(ctx)) return bbq_fail(&ctx->cur, "Expr failed");
+    if (!jav_view_expr_v_entry(ctx)) return bbq_fail(&ctx->cur, "Elem6.Expr failed");
     BBQ_MUSTTAIL return jav_view_elem6_v_k4(ctx);
 }
 static bool jav_view_elem6_v_k4(bbq_view_ctx_t* ctx) {
@@ -6283,7 +6283,7 @@ static bool jav_view_elem6_v_k5(bbq_view_ctx_t* ctx) {
 static bool jav_view_elem6_v_k6(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_ref_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "RefType failed");
+    if (!jav_view_ref_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "Elem6.RefType failed");
     BBQ_MUSTTAIL return jav_view_elem6_v_k7(ctx);
 }
 static bool jav_view_elem6_v_k7(bbq_view_ctx_t* ctx) {
@@ -6299,7 +6299,7 @@ static bool jav_view_elem6_v_k8(bbq_view_ctx_t* ctx) {
 static bool jav_view_elem6_v_k9(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_expr_vec_v_entry(ctx)) return bbq_fail(&ctx->cur, "ExprVec failed");
+    if (!jav_view_expr_vec_v_entry(ctx)) return bbq_fail(&ctx->cur, "Elem6.ExprVec failed");
     BBQ_MUSTTAIL return jav_view_elem6_v_k10(ctx);
 }
 static bool jav_view_elem6_v_k10(bbq_view_ctx_t* ctx) {
@@ -6319,7 +6319,7 @@ static bool jav_view_elem7_v_k1(bbq_view_ctx_t* ctx) {
 static bool jav_view_elem7_v_k0(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_ref_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "RefType failed");
+    if (!jav_view_ref_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "Elem7.RefType failed");
     BBQ_MUSTTAIL return jav_view_elem7_v_k2(ctx);
 }
 static bool jav_view_elem7_v_k2(bbq_view_ctx_t* ctx) {
@@ -6335,7 +6335,7 @@ static bool jav_view_elem7_v_k3(bbq_view_ctx_t* ctx) {
 static bool jav_view_elem7_v_k4(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_expr_vec_v_entry(ctx)) return bbq_fail(&ctx->cur, "ExprVec failed");
+    if (!jav_view_expr_vec_v_entry(ctx)) return bbq_fail(&ctx->cur, "Elem7.ExprVec failed");
     BBQ_MUSTTAIL return jav_view_elem7_v_k5(ctx);
 }
 static bool jav_view_elem7_v_k5(bbq_view_ctx_t* ctx) {
@@ -6391,7 +6391,7 @@ static bool jav_view_elem_v_k10(bbq_view_ctx_t* ctx) {
 static bool jav_view_elem_v_k11(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_elem7_v_entry(ctx)) return bbq_fail(&ctx->cur, "Elem7 failed");
+    if (!jav_view_elem7_v_entry(ctx)) return bbq_fail(&ctx->cur, "Elem.Elem7 failed");
     BBQ_MUSTTAIL return jav_view_elem_v_k12(ctx);
 }
 static bool jav_view_elem_v_k12(bbq_view_ctx_t* ctx) {
@@ -6407,7 +6407,7 @@ static bool jav_view_elem_v_k9(bbq_view_ctx_t* ctx) {
 static bool jav_view_elem_v_k14(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_elem6_v_entry(ctx)) return bbq_fail(&ctx->cur, "Elem6 failed");
+    if (!jav_view_elem6_v_entry(ctx)) return bbq_fail(&ctx->cur, "Elem.Elem6 failed");
     BBQ_MUSTTAIL return jav_view_elem_v_k15(ctx);
 }
 static bool jav_view_elem_v_k15(bbq_view_ctx_t* ctx) {
@@ -6423,7 +6423,7 @@ static bool jav_view_elem_v_k8(bbq_view_ctx_t* ctx) {
 static bool jav_view_elem_v_k16(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_elem5_v_entry(ctx)) return bbq_fail(&ctx->cur, "Elem5 failed");
+    if (!jav_view_elem5_v_entry(ctx)) return bbq_fail(&ctx->cur, "Elem.Elem5 failed");
     BBQ_MUSTTAIL return jav_view_elem_v_k17(ctx);
 }
 static bool jav_view_elem_v_k17(bbq_view_ctx_t* ctx) {
@@ -6439,7 +6439,7 @@ static bool jav_view_elem_v_k7(bbq_view_ctx_t* ctx) {
 static bool jav_view_elem_v_k18(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_elem4_v_entry(ctx)) return bbq_fail(&ctx->cur, "Elem4 failed");
+    if (!jav_view_elem4_v_entry(ctx)) return bbq_fail(&ctx->cur, "Elem.Elem4 failed");
     BBQ_MUSTTAIL return jav_view_elem_v_k19(ctx);
 }
 static bool jav_view_elem_v_k19(bbq_view_ctx_t* ctx) {
@@ -6455,7 +6455,7 @@ static bool jav_view_elem_v_k6(bbq_view_ctx_t* ctx) {
 static bool jav_view_elem_v_k20(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_elem3_v_entry(ctx)) return bbq_fail(&ctx->cur, "Elem3 failed");
+    if (!jav_view_elem3_v_entry(ctx)) return bbq_fail(&ctx->cur, "Elem.Elem3 failed");
     BBQ_MUSTTAIL return jav_view_elem_v_k21(ctx);
 }
 static bool jav_view_elem_v_k21(bbq_view_ctx_t* ctx) {
@@ -6471,7 +6471,7 @@ static bool jav_view_elem_v_k5(bbq_view_ctx_t* ctx) {
 static bool jav_view_elem_v_k22(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_elem2_v_entry(ctx)) return bbq_fail(&ctx->cur, "Elem2 failed");
+    if (!jav_view_elem2_v_entry(ctx)) return bbq_fail(&ctx->cur, "Elem.Elem2 failed");
     BBQ_MUSTTAIL return jav_view_elem_v_k23(ctx);
 }
 static bool jav_view_elem_v_k23(bbq_view_ctx_t* ctx) {
@@ -6487,7 +6487,7 @@ static bool jav_view_elem_v_k4(bbq_view_ctx_t* ctx) {
 static bool jav_view_elem_v_k24(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_elem1_v_entry(ctx)) return bbq_fail(&ctx->cur, "Elem1 failed");
+    if (!jav_view_elem1_v_entry(ctx)) return bbq_fail(&ctx->cur, "Elem.Elem1 failed");
     BBQ_MUSTTAIL return jav_view_elem_v_k25(ctx);
 }
 static bool jav_view_elem_v_k25(bbq_view_ctx_t* ctx) {
@@ -6503,7 +6503,7 @@ static bool jav_view_elem_v_k3(bbq_view_ctx_t* ctx) {
 static bool jav_view_elem_v_k26(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_elem0_v_entry(ctx)) return bbq_fail(&ctx->cur, "Elem0 failed");
+    if (!jav_view_elem0_v_entry(ctx)) return bbq_fail(&ctx->cur, "Elem.Elem0 failed");
     BBQ_MUSTTAIL return jav_view_elem_v_k27(ctx);
 }
 static bool jav_view_elem_v_k27(bbq_view_ctx_t* ctx) {
@@ -6536,7 +6536,7 @@ static bool jav_view_element_section_v_k3(bbq_view_ctx_t* ctx) {
 static bool jav_view_element_section_v_k5(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_elem_v_entry(ctx)) return bbq_fail(&ctx->cur, "Elem failed");
+    if (!jav_view_elem_v_entry(ctx)) return bbq_fail(&ctx->cur, "ElementSection.Elem failed");
     BBQ_MUSTTAIL return jav_view_element_section_v_k6(ctx);
 }
 static bool jav_view_element_section_v_k6(bbq_view_ctx_t* ctx) {
@@ -6567,7 +6567,7 @@ static bool jav_view_data0_v_k1(bbq_view_ctx_t* ctx) {
 static bool jav_view_data0_v_k0(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_expr_v_entry(ctx)) return bbq_fail(&ctx->cur, "Expr failed");
+    if (!jav_view_expr_v_entry(ctx)) return bbq_fail(&ctx->cur, "Data0.Expr failed");
     BBQ_MUSTTAIL return jav_view_data0_v_k2(ctx);
 }
 static bool jav_view_data0_v_k2(bbq_view_ctx_t* ctx) {
@@ -6583,7 +6583,7 @@ static bool jav_view_data0_v_k3(bbq_view_ctx_t* ctx) {
 static bool jav_view_data0_v_k4(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_byte_vec_v_entry(ctx)) return bbq_fail(&ctx->cur, "ByteVec failed");
+    if (!jav_view_byte_vec_v_entry(ctx)) return bbq_fail(&ctx->cur, "Data0.ByteVec failed");
     BBQ_MUSTTAIL return jav_view_data0_v_k5(ctx);
 }
 static bool jav_view_data0_v_k5(bbq_view_ctx_t* ctx) {
@@ -6603,7 +6603,7 @@ static bool jav_view_data1_v_k1(bbq_view_ctx_t* ctx) {
 static bool jav_view_data1_v_k0(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_byte_vec_v_entry(ctx)) return bbq_fail(&ctx->cur, "ByteVec failed");
+    if (!jav_view_byte_vec_v_entry(ctx)) return bbq_fail(&ctx->cur, "Data1.ByteVec failed");
     BBQ_MUSTTAIL return jav_view_data1_v_k2(ctx);
 }
 static bool jav_view_data1_v_k2(bbq_view_ctx_t* ctx) {
@@ -6628,7 +6628,7 @@ static bool jav_view_data2_v_k0(bbq_view_ctx_t* ctx) {
 static bool jav_view_data2_v_k3(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_expr_v_entry(ctx)) return bbq_fail(&ctx->cur, "Expr failed");
+    if (!jav_view_expr_v_entry(ctx)) return bbq_fail(&ctx->cur, "Data2.Expr failed");
     BBQ_MUSTTAIL return jav_view_data2_v_k4(ctx);
 }
 static bool jav_view_data2_v_k4(bbq_view_ctx_t* ctx) {
@@ -6644,7 +6644,7 @@ static bool jav_view_data2_v_k5(bbq_view_ctx_t* ctx) {
 static bool jav_view_data2_v_k6(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_byte_vec_v_entry(ctx)) return bbq_fail(&ctx->cur, "ByteVec failed");
+    if (!jav_view_byte_vec_v_entry(ctx)) return bbq_fail(&ctx->cur, "Data2.ByteVec failed");
     BBQ_MUSTTAIL return jav_view_data2_v_k7(ctx);
 }
 static bool jav_view_data2_v_k7(bbq_view_ctx_t* ctx) {
@@ -6685,7 +6685,7 @@ static bool jav_view_data_v_k5(bbq_view_ctx_t* ctx) {
 static bool jav_view_data_v_k6(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_data2_v_entry(ctx)) return bbq_fail(&ctx->cur, "Data2 failed");
+    if (!jav_view_data2_v_entry(ctx)) return bbq_fail(&ctx->cur, "Data.Data2 failed");
     BBQ_MUSTTAIL return jav_view_data_v_k7(ctx);
 }
 static bool jav_view_data_v_k7(bbq_view_ctx_t* ctx) {
@@ -6701,7 +6701,7 @@ static bool jav_view_data_v_k4(bbq_view_ctx_t* ctx) {
 static bool jav_view_data_v_k9(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_data1_v_entry(ctx)) return bbq_fail(&ctx->cur, "Data1 failed");
+    if (!jav_view_data1_v_entry(ctx)) return bbq_fail(&ctx->cur, "Data.Data1 failed");
     BBQ_MUSTTAIL return jav_view_data_v_k10(ctx);
 }
 static bool jav_view_data_v_k10(bbq_view_ctx_t* ctx) {
@@ -6717,7 +6717,7 @@ static bool jav_view_data_v_k3(bbq_view_ctx_t* ctx) {
 static bool jav_view_data_v_k11(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_data0_v_entry(ctx)) return bbq_fail(&ctx->cur, "Data0 failed");
+    if (!jav_view_data0_v_entry(ctx)) return bbq_fail(&ctx->cur, "Data.Data0 failed");
     BBQ_MUSTTAIL return jav_view_data_v_k12(ctx);
 }
 static bool jav_view_data_v_k12(bbq_view_ctx_t* ctx) {
@@ -6750,7 +6750,7 @@ static bool jav_view_data_section_v_k3(bbq_view_ctx_t* ctx) {
 static bool jav_view_data_section_v_k5(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_data_v_entry(ctx)) return bbq_fail(&ctx->cur, "Data failed");
+    if (!jav_view_data_v_entry(ctx)) return bbq_fail(&ctx->cur, "DataSection.Data failed");
     BBQ_MUSTTAIL return jav_view_data_section_v_k6(ctx);
 }
 static bool jav_view_data_section_v_k6(bbq_view_ctx_t* ctx) {
@@ -6803,7 +6803,7 @@ static bool jav_view_tag_section_v_k3(bbq_view_ctx_t* ctx) {
 static bool jav_view_tag_section_v_k5(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_tag_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "TagType failed");
+    if (!jav_view_tag_type_v_entry(ctx)) return bbq_fail(&ctx->cur, "TagSection.TagType failed");
     BBQ_MUSTTAIL return jav_view_tag_section_v_k6(ctx);
 }
 static bool jav_view_tag_section_v_k6(bbq_view_ctx_t* ctx) {
@@ -6834,7 +6834,7 @@ static bool jav_view_custom_section_v_k1(bbq_view_ctx_t* ctx) {
 static bool jav_view_custom_section_v_k0(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_name_v_entry(ctx)) return bbq_fail(&ctx->cur, "Name failed");
+    if (!jav_view_name_v_entry(ctx)) return bbq_fail(&ctx->cur, "CustomSection.Name failed");
     BBQ_MUSTTAIL return jav_view_custom_section_v_k2(ctx);
 }
 static bool jav_view_custom_section_v_k2(bbq_view_ctx_t* ctx) {
@@ -6845,7 +6845,7 @@ static bool jav_view_custom_section_v_k2(bbq_view_ctx_t* ctx) {
 static bool jav_view_custom_section_v_k3(bbq_view_ctx_t* ctx) {
     (void)ctx;
     { size_t _s = ctx->cur.pos;
-      if (!bbq_advance(&ctx->cur, (size_t)(bbq_remaining(&ctx->cur)))) return bbq_fail(&ctx->cur, "data: read failed");
+      if (!bbq_advance(&ctx->cur, (size_t)(bbq_remaining(&ctx->cur)))) return bbq_fail(&ctx->cur, "CustomSection.data: read failed");
       bbq_cap_add_field(&ctx->builder, "data", _s, ctx->cur.pos, BBQ_CT_Bytes, NULL); }
     BBQ_MUSTTAIL return jav_view_custom_section_v_k4(ctx);
 }
@@ -6856,7 +6856,7 @@ static bool jav_view_custom_section_v_k4(bbq_view_ctx_t* ctx) {
 static bool jav_view_section_v_k1(bbq_view_ctx_t* ctx) {
     (void)ctx;
     { size_t _s = ctx->cur.pos;
-      if (!bbq_advance(&ctx->cur, 1)) return bbq_fail(&ctx->cur, "id: read failed");
+      if (!bbq_advance(&ctx->cur, 1)) return bbq_fail(&ctx->cur, "Section.id: read failed");
       bbq_cap_add_field(&ctx->builder, "id", _s, ctx->cur.pos, bbq_view_int_capture(ctx, 8, false, false, true), NULL); }
     BBQ_MUSTTAIL return jav_view_section_v_k0(ctx);
 }
@@ -6927,7 +6927,7 @@ static bool jav_view_section_v_k19(bbq_view_ctx_t* ctx) {
 static bool jav_view_section_v_k20(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_tag_section_v_entry(ctx)) return bbq_fail(&ctx->cur, "TagSection failed");
+    if (!jav_view_tag_section_v_entry(ctx)) return bbq_fail(&ctx->cur, "Section.TagSection failed");
     BBQ_MUSTTAIL return jav_view_section_v_k21(ctx);
 }
 static bool jav_view_section_v_k21(bbq_view_ctx_t* ctx) {
@@ -6943,7 +6943,7 @@ static bool jav_view_section_v_k18(bbq_view_ctx_t* ctx) {
 static bool jav_view_section_v_k23(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_data_count_section_v_entry(ctx)) return bbq_fail(&ctx->cur, "DataCountSection failed");
+    if (!jav_view_data_count_section_v_entry(ctx)) return bbq_fail(&ctx->cur, "Section.DataCountSection failed");
     BBQ_MUSTTAIL return jav_view_section_v_k24(ctx);
 }
 static bool jav_view_section_v_k24(bbq_view_ctx_t* ctx) {
@@ -6959,7 +6959,7 @@ static bool jav_view_section_v_k17(bbq_view_ctx_t* ctx) {
 static bool jav_view_section_v_k25(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_data_section_v_entry(ctx)) return bbq_fail(&ctx->cur, "DataSection failed");
+    if (!jav_view_data_section_v_entry(ctx)) return bbq_fail(&ctx->cur, "Section.DataSection failed");
     BBQ_MUSTTAIL return jav_view_section_v_k26(ctx);
 }
 static bool jav_view_section_v_k26(bbq_view_ctx_t* ctx) {
@@ -6975,7 +6975,7 @@ static bool jav_view_section_v_k16(bbq_view_ctx_t* ctx) {
 static bool jav_view_section_v_k27(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_code_section_v_entry(ctx)) return bbq_fail(&ctx->cur, "CodeSection failed");
+    if (!jav_view_code_section_v_entry(ctx)) return bbq_fail(&ctx->cur, "Section.CodeSection failed");
     BBQ_MUSTTAIL return jav_view_section_v_k28(ctx);
 }
 static bool jav_view_section_v_k28(bbq_view_ctx_t* ctx) {
@@ -6991,7 +6991,7 @@ static bool jav_view_section_v_k15(bbq_view_ctx_t* ctx) {
 static bool jav_view_section_v_k29(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_element_section_v_entry(ctx)) return bbq_fail(&ctx->cur, "ElementSection failed");
+    if (!jav_view_element_section_v_entry(ctx)) return bbq_fail(&ctx->cur, "Section.ElementSection failed");
     BBQ_MUSTTAIL return jav_view_section_v_k30(ctx);
 }
 static bool jav_view_section_v_k30(bbq_view_ctx_t* ctx) {
@@ -7007,7 +7007,7 @@ static bool jav_view_section_v_k14(bbq_view_ctx_t* ctx) {
 static bool jav_view_section_v_k31(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_start_section_v_entry(ctx)) return bbq_fail(&ctx->cur, "StartSection failed");
+    if (!jav_view_start_section_v_entry(ctx)) return bbq_fail(&ctx->cur, "Section.StartSection failed");
     BBQ_MUSTTAIL return jav_view_section_v_k32(ctx);
 }
 static bool jav_view_section_v_k32(bbq_view_ctx_t* ctx) {
@@ -7023,7 +7023,7 @@ static bool jav_view_section_v_k13(bbq_view_ctx_t* ctx) {
 static bool jav_view_section_v_k33(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_export_section_v_entry(ctx)) return bbq_fail(&ctx->cur, "ExportSection failed");
+    if (!jav_view_export_section_v_entry(ctx)) return bbq_fail(&ctx->cur, "Section.ExportSection failed");
     BBQ_MUSTTAIL return jav_view_section_v_k34(ctx);
 }
 static bool jav_view_section_v_k34(bbq_view_ctx_t* ctx) {
@@ -7039,7 +7039,7 @@ static bool jav_view_section_v_k12(bbq_view_ctx_t* ctx) {
 static bool jav_view_section_v_k35(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_global_section_v_entry(ctx)) return bbq_fail(&ctx->cur, "GlobalSection failed");
+    if (!jav_view_global_section_v_entry(ctx)) return bbq_fail(&ctx->cur, "Section.GlobalSection failed");
     BBQ_MUSTTAIL return jav_view_section_v_k36(ctx);
 }
 static bool jav_view_section_v_k36(bbq_view_ctx_t* ctx) {
@@ -7055,7 +7055,7 @@ static bool jav_view_section_v_k11(bbq_view_ctx_t* ctx) {
 static bool jav_view_section_v_k37(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_memory_section_v_entry(ctx)) return bbq_fail(&ctx->cur, "MemorySection failed");
+    if (!jav_view_memory_section_v_entry(ctx)) return bbq_fail(&ctx->cur, "Section.MemorySection failed");
     BBQ_MUSTTAIL return jav_view_section_v_k38(ctx);
 }
 static bool jav_view_section_v_k38(bbq_view_ctx_t* ctx) {
@@ -7071,7 +7071,7 @@ static bool jav_view_section_v_k10(bbq_view_ctx_t* ctx) {
 static bool jav_view_section_v_k39(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_table_section_v_entry(ctx)) return bbq_fail(&ctx->cur, "TableSection failed");
+    if (!jav_view_table_section_v_entry(ctx)) return bbq_fail(&ctx->cur, "Section.TableSection failed");
     BBQ_MUSTTAIL return jav_view_section_v_k40(ctx);
 }
 static bool jav_view_section_v_k40(bbq_view_ctx_t* ctx) {
@@ -7087,7 +7087,7 @@ static bool jav_view_section_v_k9(bbq_view_ctx_t* ctx) {
 static bool jav_view_section_v_k41(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_function_section_v_entry(ctx)) return bbq_fail(&ctx->cur, "FunctionSection failed");
+    if (!jav_view_function_section_v_entry(ctx)) return bbq_fail(&ctx->cur, "Section.FunctionSection failed");
     BBQ_MUSTTAIL return jav_view_section_v_k42(ctx);
 }
 static bool jav_view_section_v_k42(bbq_view_ctx_t* ctx) {
@@ -7103,7 +7103,7 @@ static bool jav_view_section_v_k8(bbq_view_ctx_t* ctx) {
 static bool jav_view_section_v_k43(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_import_section_v_entry(ctx)) return bbq_fail(&ctx->cur, "ImportSection failed");
+    if (!jav_view_import_section_v_entry(ctx)) return bbq_fail(&ctx->cur, "Section.ImportSection failed");
     BBQ_MUSTTAIL return jav_view_section_v_k44(ctx);
 }
 static bool jav_view_section_v_k44(bbq_view_ctx_t* ctx) {
@@ -7119,7 +7119,7 @@ static bool jav_view_section_v_k7(bbq_view_ctx_t* ctx) {
 static bool jav_view_section_v_k45(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_type_section_v_entry(ctx)) return bbq_fail(&ctx->cur, "TypeSection failed");
+    if (!jav_view_type_section_v_entry(ctx)) return bbq_fail(&ctx->cur, "Section.TypeSection failed");
     BBQ_MUSTTAIL return jav_view_section_v_k46(ctx);
 }
 static bool jav_view_section_v_k46(bbq_view_ctx_t* ctx) {
@@ -7135,7 +7135,7 @@ static bool jav_view_section_v_k6(bbq_view_ctx_t* ctx) {
 static bool jav_view_section_v_k47(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_custom_section_v_entry(ctx)) return bbq_fail(&ctx->cur, "CustomSection failed");
+    if (!jav_view_custom_section_v_entry(ctx)) return bbq_fail(&ctx->cur, "Section.CustomSection failed");
     BBQ_MUSTTAIL return jav_view_section_v_k48(ctx);
 }
 static bool jav_view_section_v_k48(bbq_view_ctx_t* ctx) {
@@ -7155,25 +7155,25 @@ static bool jav_view_section_v_k49(bbq_view_ctx_t* ctx) {
 static bool jav_view_module_v_k1(bbq_view_ctx_t* ctx) {
     (void)ctx;
     { size_t _s = ctx->cur.pos;
-      if (!bbq_advance(&ctx->cur, 4)) return bbq_fail(&ctx->cur, "magic: read failed");
+      if (!bbq_advance(&ctx->cur, 4)) return bbq_fail(&ctx->cur, "Module.magic: read failed");
       bbq_cap_add_field(&ctx->builder, "magic", _s, ctx->cur.pos, bbq_view_int_capture(ctx, 32, false, false, true), NULL); }
     BBQ_MUSTTAIL return jav_view_module_v_k0(ctx);
 }
 static bool jav_view_module_v_k0(bbq_view_ctx_t* ctx) {
     (void)ctx;
-    if (!((_Bool)(bbq_view_i64(ctx, "magic") == 1836278016))) return bbq_fail(&ctx->cur, "constraint failed");
+    if (!((_Bool)(bbq_view_i64(ctx, "magic") == 1836278016))) return bbq_fail(&ctx->cur, "Module.constraint failed");
     BBQ_MUSTTAIL return jav_view_module_v_k3(ctx);
 }
 static bool jav_view_module_v_k3(bbq_view_ctx_t* ctx) {
     (void)ctx;
     { size_t _s = ctx->cur.pos;
-      if (!bbq_advance(&ctx->cur, 4)) return bbq_fail(&ctx->cur, "version: read failed");
+      if (!bbq_advance(&ctx->cur, 4)) return bbq_fail(&ctx->cur, "Module.version: read failed");
       bbq_cap_add_field(&ctx->builder, "version", _s, ctx->cur.pos, bbq_view_int_capture(ctx, 32, false, false, true), NULL); }
     BBQ_MUSTTAIL return jav_view_module_v_k5(ctx);
 }
 static bool jav_view_module_v_k5(bbq_view_ctx_t* ctx) {
     (void)ctx;
-    if (!((_Bool)(bbq_view_i64(ctx, "version") == 1))) return bbq_fail(&ctx->cur, "constraint failed");
+    if (!((_Bool)(bbq_view_i64(ctx, "version") == 1))) return bbq_fail(&ctx->cur, "Module.constraint failed");
     BBQ_MUSTTAIL return jav_view_module_v_k7(ctx);
 }
 static bool jav_view_module_v_k7(bbq_view_ctx_t* ctx) {
@@ -7191,7 +7191,7 @@ static bool jav_view_module_v_k9(bbq_view_ctx_t* ctx) {
 static bool jav_view_module_v_k11(bbq_view_ctx_t* ctx) {
     (void)ctx;
     /* Build the sub-rule into the shared ctx (its begin_struct scope is already open). */
-    if (!jav_view_section_v_entry(ctx)) return bbq_fail(&ctx->cur, "Section failed");
+    if (!jav_view_section_v_entry(ctx)) return bbq_fail(&ctx->cur, "Module.Section failed");
     BBQ_MUSTTAIL return jav_view_module_v_k12(ctx);
 }
 static bool jav_view_module_v_k12(bbq_view_ctx_t* ctx) {

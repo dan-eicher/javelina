@@ -3676,16 +3676,12 @@ static bool jav_table_w2(bbq_write_ctx_t* ctx, const jav_table_t* in) {
 }
 static bool jav_table_w3(bbq_write_ctx_t* ctx, const jav_table_t* in) {
     (void)ctx; (void)in;
-    bbq_w_push_scope(ctx, in);
     if (!jav_table_init_write(ctx, &in->u.case_0)) return false;
-    bbq_w_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_table_w5(ctx, in);
 }
 static bool jav_table_w6(bbq_write_ctx_t* ctx, const jav_table_t* in) {
     (void)ctx; (void)in;
-    bbq_w_push_scope(ctx, in);
     if (!jav_table_plain_write(ctx, &in->u.default_val)) return false;
-    bbq_w_pop_scope(ctx);
     BBQ_MUSTTAIL return jav_table_w5(ctx, in);
 }
 static bool jav_table_w5(bbq_write_ctx_t* ctx, const jav_table_t* in) {
