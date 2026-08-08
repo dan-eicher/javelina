@@ -264,5 +264,55 @@ int main(void) {
         bbq_arena_free(&a);
     }
 
+    /* ── A nested loop keeps its own LOOP record however big the outer body is ──
+     *
+     * The structured emit frames a loop only when loop_scope_at finds a record for
+     * it; with no record the loop node is walked as ordinary spine, no `loop`
+     * opcode is emitted, and the body runs once and falls through. nbody's
+     * energy() hits exactly that: the inner pair loop runs one iteration per outer
+     * pass. It is triggered by the SIZE of the statement preceding the inner loop
+     * — six array-element reads in the outer body compile correctly, eight do
+     * not — so the record count is pinned against both. */
+    {
+        bbq_arena a; bbq_arena_init(&a, 1 << 20);
+        static const char* SMALL =
+          "class B { double x,y,z,vx,vy,vz,mass; }"
+          "class T { static double f(B[] a){ double e=0;"
+          "  for (int i=0;i<a.length;++i){"
+          "    e += 1.0;"
+          "    for (int j=i+1;j<a.length;++j) e -= a[j].mass; }"
+          "  return e; } }";
+        /* Deep enough to have overflowed the old fixed stack. Depth is driven by
+         * the bounds-check branch each array access contributes, not by source
+         * nesting, so the outer body carries enough of them to saturate — the
+         * shape nbody's energy() has, which ran its inner loop exactly once. */
+        static const char* BIG =
+          "class B { double x,y,z,vx,vy,vz,mass; }"
+          "class T { static double f(B[] a){ double dx,dy,dz,d; double e=0;"
+          "  for (int i=0;i<a.length;++i){"
+          "    e += 0.5*a[i].mass*( a[i].vx*a[i].vx + a[i].vy*a[i].vy"
+          "                       + a[i].vz*a[i].vz );"
+          "    for (int j=i+1;j<a.length;++j){"
+          "      dx=a[i].x-a[j].x; dy=a[i].y-a[j].y; dz=a[i].z-a[j].z;"
+          "      d=Math.sqrt(dx*dx+dy*dy+dz*dz);"
+          "      e -= (a[i].mass*a[j].mass)/d; } }"
+          "  return e; } }";
+        struct { const char* src; const char* what; } lc[] = {
+          { SMALL, "small outer statement" }, { BIG, "large outer statement" },
+        };
+        for (int k = 0; k < 2; k++) {
+            int n = 0;
+            const compiler_fact_t* rows = scopes_of(&a, lc[k].src, "f", &n);
+            int loops = 0;
+            for (int i = 0; i < n; i++)
+                if (rows && rows[i].a == COMPILER_SCOPE_LOOP) loops++;
+            char lbl[128];
+            snprintf(lbl, sizeof lbl,
+                     "%s: BOTH loops record a LOOP scope (got %d)", lc[k].what, loops);
+            CHECK(loops == 2, lbl);
+        }
+        bbq_arena_free(&a);
+    }
+
     return TEST_SUMMARY("test_scope_sidecar");
 }

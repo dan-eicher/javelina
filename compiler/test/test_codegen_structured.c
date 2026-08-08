@@ -35,7 +35,11 @@ static int emit_body(bbq_arena* a, const char* src, const char* name, const uint
         if (methods[i]->class_id < jtest_last_nlib) continue;   /* user snippet only */
         if (!methods[i]->name || strcmp(methods[i]->name, name)) continue;
         int nsc = 0; const compiler_fact_t* sc = compiler_get_facts(&cctx, i, &nsc);
-        static burg_ctx_t bc; bc = (burg_ctx_t){0}; burg_ctx_init(&bc);
+        /* Field layout, so a fixture may use objects and arrays and not just
+         * ints in locals — the control shapes worth pinning at depth are the
+         * ones whose operands carry bounds guards. */
+        static wasm_types_t wt; wasm_types_build(&wt, &sctx, NULL, 0);
+        static burg_ctx_t bc; bc = (burg_ctx_t){0}; burg_ctx_init(&bc); bc.types = &wt;
         codegen_method_structured(methods[i], sc, nsc, &bc);
         *out = bc.emit.code;
         return (int)bbq_vec_len(bc.emit.code);
@@ -204,7 +208,16 @@ int main(void) {
             0x41,0x02, 0x0F,                        /* then (b true): return 2      */
             0x05,                                   /* else                         */
             0x41,0x01, 0x0F,                        /* else (b false): return 1     */
-            0x0B, 0x0B };                           /* end if; end body             */
+            0x0B,                                   /* end if                       */
+            /* Both arms return, so the point after the `end` is unreachable in the
+             * SIR — but §7.6 resets reachability after every `end`, and the
+             * function declares a result, so the epilogue caps it. This byte was
+             * absent from the expectation only because emit_body used to leave
+             * burg_ctx_t.types NULL, and method_returns_value reads the result
+             * type through it: the harness could not see that `f` returns a
+             * value. The shipped pipeline always supplies types. */
+            0x00,
+            0x0B };                                 /* end body                     */
         check_bytes("!E if-else (swap arms, no eqz)", body, n, want, (int)sizeof want);
         bbq_arena_free(&a);
     }
@@ -215,7 +228,9 @@ int main(void) {
         const uint8_t want[] = {
             0x20,0x01, 0x04,0x40,                   /* local.get b; if              */
             0x41,0x01, 0x0F, 0x05, 0x41,0x02, 0x0F, /* return 1; else; return 2     */
-            0x0B, 0x0B };
+            0x0B,                                   /* end if                       */
+            0x00,                                   /* §7.6 epilogue cap — see above */
+            0x0B };                                 /* end body                     */
         check_bytes("!!E cancels to E (no eqz, no swap)", body, n, want, (int)sizeof want);
         bbq_arena_free(&a);
     }
@@ -521,6 +536,54 @@ int main(void) {
             printf("        tail marker emitted %d times (want 1: 8 = the 2^3 join loss)\n", seen);
         CHECK(seen == 1, "a spilled condition keeps its if-join: the tail is emitted ONCE");
         bbq_arena_free(&a);
+    }
+
+    /* ── A nested loop is framed however DEEP the scope stack gets ─────────────
+     *
+     * The scope stack used to be a fixed 64-entry C array. Past it, pushes were
+     * skipped silently: br_depth could no longer find the target, so control
+     * that should have become a `br` re-emitted the target region inline. For a
+     * loop that means the `loop` framing is never emitted and the back edge is
+     * gone — the body runs once and falls through. nbody's energy() did exactly
+     * that, summing only the first pair of each outer iteration.
+     *
+     * Depth is not driven by source nesting: every array access contributes a
+     * bounds-check branch whose merge label frames a block, so the trigger is
+     * how much work the outer body does. Both fixtures below are the same two
+     * loops; only the size of the statement ahead of the inner loop differs, and
+     * both must emit two `loop void` framings. */
+    {
+        static const uint8_t LOOP_VOID[] = { 0x03, 0x40 };
+        struct { const char* src; const char* what; } lf[] = {
+          { "class B { double x,y,z,vx,vy,vz,mass; }"
+            "class T { static double f(B[] a){ double e=0;"
+            "  for (int i=0;i<a.length;++i){ e += 1.0;"
+            "    for (int j=i+1;j<a.length;++j) e -= a[j].mass; }"
+            "  return e; } }", "shallow outer body" },
+          { "class B { double x,y,z,vx,vy,vz,mass; }"
+            "class T { static double f(B[] a){ double dx,dy,dz,d; double e=0;"
+            "  for (int i=0;i<a.length;++i){"
+            "    e += 0.5*a[i].mass*( a[i].vx*a[i].vx + a[i].vy*a[i].vy"
+            "                       + a[i].vz*a[i].vz );"
+            "    for (int j=i+1;j<a.length;++j){"
+            "      dx=a[i].x-a[j].x; dy=a[i].y-a[j].y; dz=a[i].z-a[j].z;"
+            "      d=Math.sqrt(dx*dx+dy*dy+dz*dz);"
+            "      e -= (a[i].mass*a[j].mass)/d; } }"
+            "  return e; } }", "deep outer body (energy()'s shape)" },
+        };
+        for (int k = 0; k < 2; k++) {
+            bbq_arena a; bbq_arena_init(&a, 1 << 18);
+            const uint8_t* body = NULL;
+            int n = emit_body(&a, lf[k].src, "f", &body);
+            int loops = 0;
+            for (int i = 0; body && i + 2 <= n; i++)
+                if (memcmp(body + i, LOOP_VOID, 2) == 0) loops++;
+            char lbl[128];
+            snprintf(lbl, sizeof lbl,
+                     "%s: both loops are framed (got %d `loop void`)", lf[k].what, loops);
+            CHECK(n > 0 && loops == 2, lbl);
+            bbq_arena_free(&a);
+        }
     }
 
     return TEST_SUMMARY("test_codegen_structured");

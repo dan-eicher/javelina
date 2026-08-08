@@ -21,6 +21,7 @@
 #include "bbq_vec.h"
 #include "bbq_htree.h"   /* the per-method scope index (scope_env_t) */
 #include <stdlib.h>      /* malloc/free — scope_env_t's chain array */
+#include <stdio.h>       /* the depth-bound invariant report */
 
 /* Empty (void) block type for block/loop/if (§5.3.6 / §5.4.1). */
 #define WBT_VOID 0x40
@@ -44,6 +45,15 @@ typedef struct {
     int                    n;
     bbq_htree*             head; /* ptr_key(fact.key) -> first row index + 1 */
     int*                   next; /* row -> next row with the same key hash, or -1 */
+    /* The scope stack itself — the enclosing block/loop labels, innermost last.
+     * It lives HERE rather than in a caller's array because it GROWS: a fixed
+     * bound silently stopped pushing once full, br_depth could then no longer
+     * find the target, and emit_spine re-emitted the target region inline
+     * instead of branching to it — a lost loop back edge, or an unbounded
+     * re-emission cycle. Holding it in the env that every frame already carries
+     * means a reallocation is visible to all of them; an array passed by value
+     * would leave outer frames pointing at freed memory. */
+    sir_node_t**           stack;
 } scope_env_t;
 
 static uint32_t se_ptr_key(const void* p) {
@@ -53,6 +63,7 @@ static uint32_t se_ptr_key(const void* p) {
 
 static void scope_env_build(scope_env_t* se, const compiler_fact_t* f, int n) {
     se->f = f; se->n = n;
+    se->stack = NULL;
     se->head = bbq_htree_create();
     se->next = n ? (int*)malloc((size_t)n * sizeof(int)) : NULL;
     for (int i = n - 1; i >= 0; i--) {      /* descending, so chains ascend */
@@ -65,6 +76,7 @@ static void scope_env_build(scope_env_t* se, const compiler_fact_t* f, int n) {
 
 static void scope_env_free(scope_env_t* se) {
     bbq_htree_destroy(se->head);
+    bbq_vec_free(se->stack);
     free(se->next);
 }
 
@@ -76,6 +88,14 @@ static const compiler_fact_t* scope_at(const scope_env_t* se,
                 && se->f[i].key == node)
             return &se->f[i];
     return NULL;
+}
+
+/* Make room for `k` more frames at depth `sd`. Always succeeds — the stack grows
+ * to whatever the method needs. There is no cap to exceed and so no case where
+ * framing is quietly skipped. */
+static void scope_room(scope_env_t* se, int sd, int k) {
+    while ((int)bbq_vec_len(se->stack) < sd + k)
+        bbq_vec_push(se->stack, (sir_node_t*)NULL);
 }
 
 /* Is `node` the merge anchor (Ljoin) of some recorded if-BLOCK scope? */
@@ -100,11 +120,14 @@ static const compiler_fact_t* switch_scope_at(const scope_env_t* se,
 /* WASM relative br-depth of `target` in the scope stack (innermost = depth 0),
  * or -1 if `target` is not an enclosing scope label. This is CGjump's "is the
  * continuation a label?" test. */
-#define MAXSCOPE 64
-static int br_depth(sir_node_t* const* stack, int sd, const sir_node_t* target) {
+/* Backstop for the forwarding-Nop walk below — a termination guard against a
+ * CYCLIC chain (which would be a ddcg defect), not a bound on program shape. The
+ * scope stack itself has no bound — it grows; see scope_room. */
+#define NOP_FORWARD_GUARD 4096
+static int br_depth(const scope_env_t* se, int sd, const sir_node_t* target) {
     /* direct: target IS an enclosing scope label. */
     for (int i = sd - 1; i >= 0; i--)
-        if (stack[i] == target) return sd - 1 - i;
+        if (se->stack[i] == target) return sd - 1 - i;
     /* CGjump inheritance (Dybvig et al. §3): if the target is a forwarding
      * landing-pad — a Nop that does nothing but redirect to its continuation —
      * thread THROUGH it to the ultimate enclosing scope, so a break inherits the
@@ -112,10 +135,10 @@ static int br_depth(sir_node_t* const* stack, int sd, const sir_node_t* target) 
      * jump. (Only fires when the target is NOT itself framed on the stack, so
      * framed scopes are unaffected.) */
     int hops = 0;
-    for (const sir_node_t* t = target; t && t->tag == SIR_NOP && hops < MAXSCOPE; hops++) {
+    for (const sir_node_t* t = target; t && t->tag == SIR_NOP && hops < NOP_FORWARD_GUARD; hops++) {
         t = sir_get_next(t);
         for (int i = sd - 1; i >= 0; i--)
-            if (stack[i] == t) return sd - 1 - i;
+            if (se->stack[i] == t) return sd - 1 - i;
     }
     return -1;
 }
@@ -181,9 +204,9 @@ static bool is_terminator(const sir_node_t* n) {
 /* CGjump for a plain continuation edge: if `cont` is an enclosing scope label,
  * emit `br <depth>` and return NULL (control transferred); otherwise fall through
  * (return `cont` to emit next). */
-static sir_node_t* transfer(sir_node_t* cont, sir_node_t* const* stack, int sd,
+static sir_node_t* transfer(sir_node_t* cont, const scope_env_t* se, int sd,
                             burg_ctx_t* ctx) {
-    int d = br_depth(stack, sd, cont);
+    int d = br_depth(se, sd, cont);
     if (d >= 0) { ew_emit(&ctx->emit, WOP_BR); ew_u32(&ctx->emit, (uint32_t)d); return NULL; }
     return cont;
 }
@@ -196,8 +219,8 @@ static sir_node_t* transfer(sir_node_t* cont, sir_node_t* const* stack, int sd,
  * without this guard it would carry an arm's join-Goto on PAST the merge to an
  * enclosing loop header, duplicating the back-edge into each arm. */
 static sir_node_t* advance(sir_node_t* cont, sir_node_t* stop,
-                           sir_node_t* const* stack, int sd, burg_ctx_t* ctx) {
-    return (cont == stop) ? stop : transfer(cont, stack, sd, ctx);
+                           const scope_env_t* se, int sd, burg_ctx_t* ctx) {
+    return (cont == stop) ? stop : transfer(cont, se, sd, ctx);
 }
 
 /* Read-only JLS §14.21 completion. From `node`, can `target` be reached by
@@ -231,18 +254,16 @@ static bool region_reaches(sir_node_t* node, const sir_node_t* target,
 /* Emit the source-order typed-catch `if`-chain for a try region (defined below;
  * mutually recursive with emit_spine via the catch handler bodies). */
 static void emit_typed_catches(sir_node_t* tr, int ex_tmp, sir_node_t* ljoin,
-                               sir_node_t** stack, int sd,
-                               const scope_env_t* se, burg_ctx_t* ctx);
+                               int sd, scope_env_t* se, burg_ctx_t* ctx);
 
-/* Emit the spine from `node` up to (not including) `stop`, with `stack[0..sd)`
+/* Emit the spine from `node` up to (not including) `stop`, with `se->stack[0..sd)`
  * the enclosing block/loop labels (innermost last). Returns true if emission
  * reached `stop` by FALL-THROUGH (control continues into stop), false if every
  * path branched away first (node became NULL — a back-edge / return / inherited
  * br). The loop framing needs this: a while exits its body by branching out (no
  * fall-through past `end`), but a do-while's tail test falls through on false. */
-static bool emit_spine(sir_node_t* node, sir_node_t* stop,
-                       sir_node_t** stack, int sd,
-                       const scope_env_t* se, burg_ctx_t* ctx,
+static bool emit_spine(sir_node_t* node, sir_node_t* stop, int sd,
+                       scope_env_t* se, burg_ctx_t* ctx,
                        bool* wasm_live) {
     /* `left`: did control leave this region (SIR sense — return/throw/br)? Drives
      * the fall-through return value callers read. `live`: is WASM control live
@@ -284,26 +305,30 @@ static bool emit_spine(sir_node_t* node, sir_node_t* stop,
         {
             const compiler_fact_t* mjs = block_scope_at(se, node);
             sir_node_t* mjoin = (mjs && mjs->aux && mjs->aux != stop &&
-                                 br_depth(stack, sd, mjs->aux) < 0) ? mjs->aux : NULL;
-            sir_node_t* mrg[MAXSCOPE]; int nm = 0;
+                                 br_depth(se, sd, mjs->aux) < 0) ? mjs->aux : NULL;
+            /* EVERY merge label keyed on this node — the count is a property of the
+             * method, not of a constant. Truncating here dropped a br target, and a
+             * dropped target is re-emitted inline rather than branched to. */
+            sir_node_t** mrg = NULL;
             /* The index chain ascends in sidecar order; the scan this replaces ran
              * BACKWARD (nsc-1 … 0), and that order is load-bearing — records are
              * inner-first, so backward = outer→inner, the framing order. Collect
              * ascending, then process in reverse. */
             {
-                int rows[MAXSCOPE]; int nr = 0;
+                int* rows = NULL;
                 void* h = bbq_htree_search(se->head, se_ptr_key(node));
-                for (int i = h ? (int)(intptr_t)h - 1 : -1;
-                     i >= 0 && nr < MAXSCOPE; i = se->next[i])
+                for (int i = h ? (int)(intptr_t)h - 1 : -1; i >= 0; i = se->next[i])
                     if (se->f[i].kind == COMPILER_FACT_SCOPE
                             && se->f[i].a == COMPILER_SCOPE_MERGE && se->f[i].key == node)
-                        rows[nr++] = i;
-                for (int r = nr - 1; r >= 0 && nm < MAXSCOPE; r--) {
+                        bbq_vec_push(rows, i);
+                for (int r = (int)bbq_vec_len(rows) - 1; r >= 0; r--) {
                     sir_node_t* X = se->f[rows[r]].aux;
-                    if (X && X != stop && X != mjoin && br_depth(stack, sd, X) < 0)
-                        mrg[nm++] = X;
+                    if (X && X != stop && X != mjoin && br_depth(se, sd, X) < 0)
+                        bbq_vec_push(mrg, X);
                 }
+                bbq_vec_free(rows);
             }
+            int nm = (int)bbq_vec_len(mrg);
             /* The if-join is framed only when it is an actual label — the fall-through
              * arm reaches it (over the else). If every arm terminates, nothing brs to
              * it: drop it (docs/ddcg-merge-labels.md §2.2; the merges `mrg` are the
@@ -311,25 +336,30 @@ static bool emit_spine(sir_node_t* node, sir_node_t* stop,
             if (mjoin && nm > 0 && !region_reaches(node, mjoin, mrg, nm, se, 1 << 20))
                 mjoin = NULL;
             if (nm > 0) {
-                sir_node_t* bounds[MAXSCOPE]; int nb = 0;
-                if (mjoin) bounds[nb++] = mjoin;                  /* outermost */
-                for (int i = 0; i < nm; i++) bounds[nb++] = mrg[i];  /* outer→inner */
-                if (sd + nb <= MAXSCOPE) {
+                sir_node_t** bounds = NULL;
+                if (mjoin) bbq_vec_push(bounds, mjoin);                  /* outermost */
+                for (int i = 0; i < nm; i++) bbq_vec_push(bounds, mrg[i]);  /* outer→inner */
+                int nb = (int)bbq_vec_len(bounds);
+                {
+                    scope_room(se, sd, nb);
                     int base = sd;
                     for (int i = 0; i < nb; i++) {
                         ew_emit(&ctx->emit, WOP_BLOCK); ew_byte(&ctx->emit, WBT_VOID);
-                        stack[sd++] = bounds[i];
+                        se->stack[sd++] = bounds[i];
                     }
-                    emit_spine(node, bounds[nb - 1], stack, sd, se, ctx, NULL);
+                    emit_spine(node, bounds[nb - 1],sd, se, ctx, NULL);
                     for (int i = nb - 1; i >= 1; i--) {           /* close inner→outer */
                         ew_byte(&ctx->emit, W_END); sd--;
-                        emit_spine(bounds[i], bounds[i - 1], stack, sd, se, ctx, NULL);
+                        emit_spine(bounds[i], bounds[i - 1],sd, se, ctx, NULL);
                     }
                     ew_byte(&ctx->emit, W_END); sd = base;        /* close outermost */
                     node = bounds[0];
+                    bbq_vec_free(bounds); bbq_vec_free(mrg);
                     continue;
                 }
+                bbq_vec_free(bounds);
             }
+            bbq_vec_free(mrg);
             /* Not framed here (no merge labels, or no room): remember the join so the Branch
              * ending this condition still finds it. `mjoin` is already NULL when the join sits
              * on the scope stack — there the branch resolves it by br_depth — or when it IS
@@ -337,7 +367,7 @@ static bool emit_spine(sir_node_t* node, sir_node_t* stop,
             if (mjoin) pending_join = mjoin;
         }
         const compiler_fact_t* loop = loop_scope_at(se, node);
-        if (loop && sd + 2 <= MAXSCOPE) {
+        if (loop && (scope_room(se, sd, 2), true)) {
             /* Dybvig Fig.5 while = loop(if T B break): block $break (loop $top …).
              * The loop body is node->next; the back-edge to `node` (Ltop) and
              * breaks to `exit` (Lbreak) become br off the scope stack. BUT if the
@@ -351,28 +381,28 @@ static bool emit_spine(sir_node_t* node, sir_node_t* stop,
                  * fall-through. It has no exit label, so there is nothing to frame a $break block
                  * around and nothing follows the loop. */
                 ew_emit(&ctx->emit, WOP_LOOP); ew_byte(&ctx->emit, WBT_VOID);
-                stack[sd] = node;           /* continue target (Ltop) → depth 0 */
-                emit_spine(sir_get_next(node), NULL, stack, sd + 1, se, ctx, NULL);
+                se->stack[sd] = node;           /* continue target (Ltop) → depth 0 */
+                emit_spine(sir_get_next(node), NULL,sd + 1, se, ctx, NULL);
                 ew_byte(&ctx->emit, W_END); /* loop end */
                 node = NULL; left = true;
-            } else if (br_depth(stack, sd, loop->aux) >= 0) {
+            } else if (br_depth(se, sd, loop->aux) >= 0) {
                 ew_emit(&ctx->emit, WOP_LOOP); ew_byte(&ctx->emit, WBT_VOID);
-                stack[sd] = node;           /* continue target (Ltop) → depth 0 */
-                bool ft = emit_spine(sir_get_next(node), loop->aux, stack, sd + 1, se, ctx, NULL);
+                se->stack[sd] = node;           /* continue target (Ltop) → depth 0 */
+                bool ft = emit_spine(sir_get_next(node), loop->aux,sd + 1, se, ctx, NULL);
                 ew_byte(&ctx->emit, W_END); /* loop end */
                 /* A while's exits branched out (ft=false → post-loop unreachable).
                  * A do-while's tail test falls through on false (ft=true): br that
                  * fall-through ONCE to the inherited enclosing scope here (loop->aux
                  * IS that scope — often an outer loop header, so handing it back as a
                  * node would re-frame the outer loop; transfer brs it instead). */
-                node = ft ? transfer(loop->aux, stack, sd, ctx) : NULL;
+                node = ft ? transfer(loop->aux, se, sd, ctx) : NULL;
                 if (!node) left = true;
             } else {
                 ew_emit(&ctx->emit, WOP_BLOCK); ew_byte(&ctx->emit, WBT_VOID);
                 ew_emit(&ctx->emit, WOP_LOOP);  ew_byte(&ctx->emit, WBT_VOID);
-                stack[sd]     = loop->aux;     /* break target → depth 1 from inside */
-                stack[sd + 1] = node;           /* continue target (Ltop) → depth 0   */
-                emit_spine(sir_get_next(node), loop->aux, stack, sd + 2, se, ctx, NULL);
+                se->stack[sd]     = loop->aux;     /* break target → depth 1 from inside */
+                se->stack[sd + 1] = node;           /* continue target (Ltop) → depth 0   */
+                emit_spine(sir_get_next(node), loop->aux,sd + 2, se, ctx, NULL);
                 ew_byte(&ctx->emit, W_END);     /* loop end  */
                 ew_byte(&ctx->emit, W_END);     /* block end */
                 node = loop->aux;
@@ -387,8 +417,8 @@ static bool emit_spine(sir_node_t* node, sir_node_t* stop,
             sir_node_t* cond = node->branch.cond;
             sir_node_t* on_t = node->branch.on_true;
             sir_node_t* on_f = node->branch.on_false;
-            int df = br_depth(stack, sd, on_f);
-            int dt = br_depth(stack, sd, on_t);
+            int df = br_depth(se, sd, on_f);
+            int dt = br_depth(se, sd, on_t);
             if (dt >= 0 && loop_scope_at(se, on_t)) {
                 /* back-edge test: on_true is an enclosing loop HEADER — the
                  * do-while TAIL test (Branch(test, Ltop, Lbreak)) or an
@@ -469,11 +499,11 @@ static bool emit_spine(sir_node_t* node, sir_node_t* stop,
                  * sd+1 so those br-depths are right. Nothing targets the if itself —
                  * the arms inherit ljoin, which sits at sd. */
                 int isd = sd;
-                if (sd < MAXSCOPE) { stack[sd] = node; isd = sd + 1; }
-                emit_spine(arm_t, ljoin, stack, isd, se, ctx, NULL);
+                scope_room(se, sd, 1); se->stack[sd] = node; isd = sd + 1;
+                emit_spine(arm_t, ljoin,isd, se, ctx, NULL);
                 if (arm_f != ljoin) {        /* if-no-else: the false path IS the join */
                     ew_byte(&ctx->emit, W_ELSE);
-                    emit_spine(arm_f, ljoin, stack, isd, se, ctx, NULL);
+                    emit_spine(arm_f, ljoin,isd, se, ctx, NULL);
                 }
                 ew_byte(&ctx->emit, W_END);
                 /* §14.19: the frontend built a join anchor iff the if statement can complete
@@ -486,7 +516,7 @@ static bool emit_spine(sir_node_t* node, sir_node_t* stop,
             }
         } else if (node->tag == SIR_SWITCH &&
                    switch_scope_at(se, node) &&
-                   sd + node->switch_.case_targets_count + 2 <= MAXSCOPE) {
+                   (scope_room(se, sd, node->switch_.case_targets_count + 2), true)) {
             /* Dybvig switch → WASM stacked-block br_table. Blocks (outer→inner):
              * $break, $default, $case[nc-1..0]. The br_table (innermost) sends a
              * 0-based selector value i → depth i (case i's body), and any gap or
@@ -512,13 +542,13 @@ static bool emit_spine(sir_node_t* node, sir_node_t* stop,
              * real landing, never lbreak). Nothing arrives at the exit, so there is no $break
              * block to frame and nothing follows the switch. */
             bool has_exit = lbreak != NULL;
-            bool inherit = has_exit && br_depth(stack, sd, lbreak) >= 0 && def != lbreak;
+            bool inherit = has_exit && br_depth(se, sd, lbreak) >= 0 && def != lbreak;
             int sd0 = sd;
-            if (has_exit && !inherit) { ew_emit(&ctx->emit, WOP_BLOCK); ew_byte(&ctx->emit, WBT_VOID); stack[sd++] = lbreak; }
-            ew_emit(&ctx->emit, WOP_BLOCK); ew_byte(&ctx->emit, WBT_VOID); stack[sd++] = def;
+            if (has_exit && !inherit) { ew_emit(&ctx->emit, WOP_BLOCK); ew_byte(&ctx->emit, WBT_VOID); se->stack[sd++] = lbreak; }
+            ew_emit(&ctx->emit, WOP_BLOCK); ew_byte(&ctx->emit, WBT_VOID); se->stack[sd++] = def;
             for (int i = nc - 1; i >= 0; i--) {
                 ew_emit(&ctx->emit, WOP_BLOCK); ew_byte(&ctx->emit, WBT_VOID);
-                stack[sd++] = node->switch_.case_targets[i];
+                se->stack[sd++] = node->switch_.case_targets[i];
             }
             emit_value(node->switch_.selector, ctx);
             /* case_values are sorted; pad the br_table over the whole [lo..hi]
@@ -544,10 +574,10 @@ static bool emit_spine(sir_node_t* node, sir_node_t* stop,
             for (int i = 0; i < nc; i++) {
                 ew_byte(&ctx->emit, W_END); sd--;       /* close $case[i] */
                 sir_node_t* stop = (i + 1 < nc) ? node->switch_.case_targets[i + 1] : def;
-                emit_spine(node->switch_.case_targets[i], stop, stack, sd, se, ctx, NULL);
+                emit_spine(node->switch_.case_targets[i], stop,sd, se, ctx, NULL);
             }
             ew_byte(&ctx->emit, W_END); sd--;           /* close $default */
-            emit_spine(def, lbreak, stack, sd, se, ctx, NULL);
+            emit_spine(def, lbreak,sd, se, ctx, NULL);
             if (has_exit && !inherit) ew_byte(&ctx->emit, W_END);   /* close $break */
             sd = sd0;
             /* Continue at the switch exit. For the inherited (no-$break) case
@@ -556,7 +586,7 @@ static bool emit_spine(sir_node_t* node, sir_node_t* stop,
              * enclosing scope — one back-edge, shared, not one per arm. */
             node = lbreak;
             if (!node) left = true;
-        } else if (node->tag == SIR_TRYREGION && sd + 3 <= MAXSCOPE) {
+        } else if (node->tag == SIR_TRYREGION && (scope_room(se, sd, 3), true)) {
             /* try/catch/finally → WASM try_table. Frame: block $after (the join),
              * block $handler; the try_table (catch $jexn → $handler, depth 0) wraps
              * the try body. Normal completion brs to $after; on a caught exception
@@ -583,9 +613,9 @@ static bool emit_spine(sir_node_t* node, sir_node_t* stop,
              * and the handler exit br straight there, no collect-and-forward
              * trampoline. (Not when ljoin is NULL: a finally catch-all whose
              * handler re-throws never reaches a join.) */
-            bool inherit = ljoin && br_depth(stack, sd, ljoin) >= 0;
+            bool inherit = ljoin && br_depth(se, sd, ljoin) >= 0;
             int sd0 = sd;
-            if (!inherit) { ew_emit(&ctx->emit, WOP_BLOCK); ew_byte(&ctx->emit, WBT_VOID); stack[sd++] = ljoin; }
+            if (!inherit) { ew_emit(&ctx->emit, WOP_BLOCK); ew_byte(&ctx->emit, WBT_VOID); se->stack[sd++] = ljoin; }
             /* $handler's block type has RESULT (ref null Throwable): a `catch tag $l`
              * branches to $l carrying the tag's params, so the catch target's result
              * type must equal the tag's param type. The exn lands as the block result
@@ -593,27 +623,27 @@ static bool emit_spine(sir_node_t* node, sir_node_t* stop,
             int32_t thrty = wasm_types_class_typeidx(ctx->types,
                 lat_handler_landing_class(ctx->types->sema,
                                           catchall->exception_entry.catch_class_id));
-            ew_emit(&ctx->emit, WOP_BLOCK); wasm_types_emit_ref(&ctx->emit, thrty); stack[sd++] = catchall;
+            ew_emit(&ctx->emit, WOP_BLOCK); wasm_types_emit_ref(&ctx->emit, thrty); se->stack[sd++] = catchall;
             ew_emit(&ctx->emit, WOP_TRY_TABLE); ew_byte(&ctx->emit, WBT_VOID);
             ew_u32(&ctx->emit, 1);            /* one catch clause          */
             ew_byte(&ctx->emit, 0x00);        /* kind: catch <tag> <label> */
             ew_u32(&ctx->emit, 0);            /* tag 0 = $jexn             */
             ew_u32(&ctx->emit, 0);            /* label 0 = $handler        */
-            stack[sd++] = node;               /* the try_table is itself a control level */
-            emit_spine(tbody, ljoin, stack, sd, se, ctx, NULL);
+            se->stack[sd++] = node;               /* the try_table is itself a control level */
+            emit_spine(tbody, ljoin,sd, se, ctx, NULL);
             sd--;                             /* pop the try_table level   */
             ew_byte(&ctx->emit, W_END);       /* try_table end             */
             /* normal completion → the join. Inherited: br straight to the
              * enclosing scope; framed: br to the $after block (over $handler). */
-            if (inherit) transfer(ljoin, stack, sd, ctx);
+            if (inherit) transfer(ljoin, se, sd, ctx);
             else { ew_emit(&ctx->emit, WOP_BR); ew_u32(&ctx->emit, 1); }
             ew_byte(&ctx->emit, W_END); sd--; /* $handler end ← caught exn on stack */
             /* Dispatch: store the caught Throwable into the landing slot, run the
              * source-order typed-catch if-chain, then the catch-all body — which
              * inlines finally and re-throws (the no-match fall-through). */
             emit_node_only(catchall, ctx);    /* local.set ex_tmp (landing store) */
-            emit_typed_catches(node->try_region.next, ex_tmp, ljoin, stack, sd, se, ctx);
-            (void)emit_spine(sir_get_next(catchall), ljoin, stack, sd, se, ctx, NULL);
+            emit_typed_catches(node->try_region.next, ex_tmp, ljoin,sd, se, ctx);
+            (void)emit_spine(sir_get_next(catchall), ljoin,sd, se, ctx, NULL);
             if (inherit) {
                 /* typed bodies branch to the enclosing join themselves; the catch-all
                  * body always terminates (Throw) — nothing falls through here. */
@@ -627,12 +657,12 @@ static bool emit_spine(sir_node_t* node, sir_node_t* stop,
             node = NULL; left = true; live = false;   /* return/throw: WASM dead after */
         } else if (node->tag == SIR_NOP) {
             sir_node_t* nx = sir_get_next(node);
-            node = advance(nx, stop, stack, sd, ctx);
+            node = advance(nx, stop, se, sd, ctx);
             if (!node && nx != stop) { left = true; live = false; }   /* br'd away */
         } else {
             emit_node_only(node, ctx);                            /* StoreLocal / ExprEffect / Inc */
             sir_node_t* nx = sir_get_next(node);
-            node = advance(nx, stop, stack, sd, ctx);
+            node = advance(nx, stop, se, sd, ctx);
             if (!node && nx != stop) { left = true; live = false; }   /* br'd away */
         }
     }
@@ -650,10 +680,9 @@ static bool emit_spine(sir_node_t* node, sir_node_t* stop,
  * past the last arm to the caller's catch-all (finally + rethrow). `tr` that is
  * not a TryRegion is the try body itself — the recursion's base case. */
 static void emit_typed_catches(sir_node_t* tr, int ex_tmp, sir_node_t* ljoin,
-                               sir_node_t** stack, int sd,
-                               const scope_env_t* se, burg_ctx_t* ctx) {
+                               int sd, scope_env_t* se, burg_ctx_t* ctx) {
     if (!tr || tr->tag != SIR_TRYREGION) return;          /* base case: the try body */
-    emit_typed_catches(tr->try_region.next, ex_tmp, ljoin, stack, sd, se, ctx);
+    emit_typed_catches(tr->try_region.next, ex_tmp, ljoin,sd, se, ctx);
     sir_node_t* H = tr->try_region.handler;               /* ExceptionEntry */
     int32_t cti = wasm_types_class_typeidx(ctx->types,
                     lat_value_class(ctx->types->sema, H->exception_entry.catch_class_id));
@@ -663,9 +692,9 @@ static void emit_typed_catches(sir_node_t* tr, int ex_tmp, sir_node_t* ljoin,
     ew_emit(&ctx->emit, WOP_LOCAL_GET); ew_u32(&ctx->emit, (uint32_t)ex_tmp);
     ew_emit(&ctx->emit, WOP_REF_CAST);  ew_i32(&ctx->emit, cti);
     emit_node_only(H, ctx);                               /* local.set <catch var slot> */
-    stack[sd] = H;                                        /* the `if` is one control level */
-    bool hft = emit_spine(sir_get_next(H), ljoin, stack, sd + 1, se, ctx, NULL);
-    if (hft) transfer(ljoin, stack, sd + 1, ctx);         /* body fell through → br to the join */
+    se->stack[sd] = H;                                        /* the `if` is one control level */
+    bool hft = emit_spine(sir_get_next(H), ljoin,sd + 1, se, ctx, NULL);
+    if (hft) transfer(ljoin, se, sd + 1, ctx);         /* body fell through → br to the join */
     ew_byte(&ctx->emit, W_END);                           /* close the `if` */
 }
 
@@ -690,9 +719,8 @@ void codegen_method_structured(sir_method_t* method, const compiler_fact_t* fact
         if (facts[i].kind == COMPILER_FACT_SCOPE) bbq_vec_push(sc, facts[i]);
     scope_env_t se;                       /* the by-key index over the filtered rows */
     scope_env_build(&se, sc, (int)bbq_vec_len(sc));
-    sir_node_t* stack[MAXSCOPE];
-    bool live = true;
-    emit_spine(method->entry, NULL, stack, 0, &se, ctx, &live);
+    bool live = true;                     /* se.stack grows to whatever depth is reached */
+    emit_spine(method->entry, NULL,0, &se, ctx, &live);
     /* A non-void method whose body leaves WASM control live at the function end
      * (a synthetic merge after an if/switch all of whose arms returned — §7.6
      * resets reachability after every `end`) would meet the terminating `end`
