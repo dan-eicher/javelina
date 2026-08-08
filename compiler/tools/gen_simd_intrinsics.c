@@ -41,7 +41,24 @@ typedef struct {
     int  align;         /* memarg/memlane rows: the toml align column; else 0 */
     char sig[128];      /* the finished Java parameter list */
     char ret[8];        /* Java return type */
+    /* One char per parameter — V=V128, I=int, J=long, F=float, D=double. The
+     * stamp that binds a stub to its opcode matches on THIS, not on the name:
+     * a name does not identify a method (§8.4.7), and the moment the API grows
+     * a convenience overload (an `add` taking a scalar beside one taking a
+     * vector) a name-keyed bind silently attaches the wrong opcode. */
+    char ptypes[32];
 } row_t;
+
+/* The ptypes char for a toml operand type. */
+static char pty(const char* t) {
+    if (!strcmp(t, "v128")) return 'V';
+    if (!strcmp(t, "i32"))  return 'I';
+    if (!strcmp(t, "i64"))  return 'J';
+    if (!strcmp(t, "f32"))  return 'F';
+    if (!strcmp(t, "f64"))  return 'D';
+    if (!strncmp(t, "at", 2)) return 'I';   /* memory32 address */
+    return '?';
+}
 
 /* Fixed class universe — a row landing outside it is a hard error. Memory-
  * surface rows (shape memarg/memlane + memory.size/grow/fill/copy) route to
@@ -288,17 +305,25 @@ int main(int argc, char** argv) {
         }
         snprintf(r->ret, sizeof r->ret, "%s", tout[0] ? jty(tout) : "void");
         /* Parameter list: stack operands a, b, c…, then the immediates. */
-        { int o = 0, argn = 0;
+        { int o = 0, argn = 0, p = 0;
           if (fam != F_CONST)
-              for (int k = 0; k < nin; k++)
+              for (int k = 0; k < nin; k++) {
                   o += snprintf(r->sig + o, sizeof r->sig - (size_t)o, "%s%s %c",
-                                k ? ", " : "", jty(tin[k]), 'a' + argn), argn++;
-          if (fam == F_CONST)
-              o += snprintf(r->sig + o, sizeof r->sig - (size_t)o, "long lo, long hi"), argn += 2;
-          else if (fam == F_SHUFFLE)
-              o += snprintf(r->sig + o, sizeof r->sig - (size_t)o, ", long maskLo, long maskHi"), argn += 2;
-          else if (needs_lane)
-              o += snprintf(r->sig + o, sizeof r->sig - (size_t)o, ", int lane"), argn++;
+                                k ? ", " : "", jty(tin[k]), 'a' + argn);
+                  r->ptypes[p++] = pty(tin[k]);
+                  argn++;
+              }
+          if (fam == F_CONST) {
+              o += snprintf(r->sig + o, sizeof r->sig - (size_t)o, "long lo, long hi");
+              r->ptypes[p++] = 'J'; r->ptypes[p++] = 'J'; argn += 2;
+          } else if (fam == F_SHUFFLE) {
+              o += snprintf(r->sig + o, sizeof r->sig - (size_t)o, ", long maskLo, long maskHi");
+              r->ptypes[p++] = 'J'; r->ptypes[p++] = 'J'; argn += 2;
+          } else if (needs_lane) {
+              o += snprintf(r->sig + o, sizeof r->sig - (size_t)o, ", int lane");
+              r->ptypes[p++] = 'I'; argn++;
+          }
+          r->ptypes[p] = '\0';
           r->nargs = argn; }
         fam_counts[fam]++; total++;
     }
@@ -330,7 +355,12 @@ int main(int argc, char** argv) {
 "#ifndef SIMD_INTRINSICS_H\n#define SIMD_INTRINSICS_H\n"
 "#include \"gen/wasm_ops.h\"\n"
 "typedef struct { const char* cls; const char* method; int family;\n"
-"                 int wop; int nargs; int lanes; int align; } simd_intrinsic_t;\n"
+"                 int wop; int nargs; int lanes; int align;\n"
+"                 const char* ptypes; } simd_intrinsic_t;\n"
+"/* ptypes: one char per parameter (V=V128 I=int J=long F=float D=double).\n"
+" * The bind from stub to opcode matches class + method + THIS, because a name\n"
+" * does not identify a method (JLS 8.4.7) and an overload would otherwise take\n"
+" * the first entry's opcode. */\n"
 "/* families: 1 Bin 2 Un 3 Shift 4 Tern 5 TestI 6-9 Splat(I/L/F/D)\n"
 " * 10-13 Extract(I/L/F/D) 14-17 Replace(I/L/F/D) 18 Const 19 Shuffle\n"
 " * 20 MemLoad 21 MemStore 22 MemLoadLane 23 MemStoreLane (v128 memory)\n"
@@ -342,9 +372,9 @@ int main(int argc, char** argv) {
     for (int c = 0; c < NCLASSES; c++)
         for (int r = 0; r < g_nrows[c]; r++) {
             const row_t* w = &g_rows[c][r];
-            fprintf(o, "    { \"%s\", \"%s\", %d, %s, %d, %d, %d },\n",
+            fprintf(o, "    { \"%s\", \"%s\", %d, %s, %d, %d, %d, \"%s\" },\n",
                     CLASSES[c].java, w->method, w->family, w->wop, w->nargs, w->lanes,
-                    w->align);
+                    w->align, w->ptypes);
             emitted++;
         }
     fprintf(o, "};\n#define SIMD_INTRINSIC_COUNT %d\n#endif /* SIMD_INTRINSICS_H */\n",
