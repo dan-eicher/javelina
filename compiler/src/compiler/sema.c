@@ -639,12 +639,22 @@ static bool is_widening_ref(const sema_ctx_t* ctx, java_type_t from, java_type_t
  * integral tags distinct and why these are two functions rather than one. */
 
 /* §5.2's first condition, exactly: "The expression is a constant expression of type int." */
+/* §5.2's constant-expression premise: "if the expression is a constant expression
+ * of type byte, short, char, or int". All four, not int alone — `byte b = 'A';`
+ * and `bytes[i] = '\n';` are assignment conversions of a CHAR constant, and the
+ * value is what the rule range-checks, not the tag. Restricting this to JT_INT
+ * rejected them as incompatible. (is_const_integral_expr below already accepts
+ * the four for §14.11 case labels; this is the same set for the same reason.) */
 static bool is_const_int_expr(const sema_ctx_t* ctx, const ast_expr_t* e, int32_t* out) {
     if (!e) return false;
     jls_const_t c = jls_const_eval(ctx, e);
-    if (c.tag != JT_INT) return false;
-    if (out) *out = c.v.i;
-    return true;
+    switch (c.tag) {
+    case JT_BYTE: case JT_SHORT: case JT_CHAR: case JT_INT:
+        if (out) *out = c.v.i;
+        return true;
+    default:
+        return false;
+    }
 }
 
 /* §14.11 case labels: a constant expression of any integral type, whose VALUE is then
@@ -668,11 +678,19 @@ static bool is_assignable(const sema_ctx_t* ctx, java_type_t target, java_type_t
     if (jt_eq(target, value)) return true;
     if (is_widening_prim(value, target)) return true;
     if (is_widening_ref(ctx, value, target)) return true;
-    /* JLS §5.2 constant narrowing: an int constant assignment-converts to byte,
-     * short, or CHAR if it fits the target's range (char is unsigned, 0..65535).
-     * (The array-initializer path is_array_init_narrowable already includes char;
-     * this scalar path had dropped it.) */
-    if (is_constant && value.tag == JT_INT &&
+    /* JLS §5.2 constant narrowing, both halves of it:
+     *
+     *   "if the expression is a constant expression of type byte, short, char,
+     *    or int: A narrowing primitive conversion may be used if the variable is
+     *    of type byte, short, or char, and the value of the constant expression
+     *    is representable in the type of the variable."
+     *
+     * SOURCE is any of the four — `byte b = 'A';` and `bytes[i] = '\n';` are
+     * char constants — and TARGET is byte, short or char (char being unsigned,
+     * 0..65535). Restricting the source to int rejected every char constant. */
+    if (is_constant &&
+        (value.tag == JT_BYTE || value.tag == JT_SHORT ||
+         value.tag == JT_CHAR || value.tag == JT_INT) &&
         (target.tag == JT_BYTE || target.tag == JT_SHORT || target.tag == JT_CHAR) &&
         const_value >= jtype_min[target.tag] &&
         const_value <= jtype_max[target.tag]) {
@@ -703,28 +721,33 @@ static const char* ternary_ref_name(const sema_ctx_t* ctx, java_type_t t) {
     return "a reference type";
 }
 
-/* Array initializer narrowing: {1, 2, 3} assigned to byte[]/short[]
- * succeeds if every element is a constant that fits (JLS §5.2). */
+/* JLS §10.6: an array initializer has no type of its own. Each element
+ * expression is ASSIGNMENT-CONVERTED to the array's component type, so the test
+ * is §5.2 per element — identity, widening, or a constant that fits — and
+ * is_assignable is where that lives.
+ *
+ * This used to demand every element be an int CONSTANT, which admitted
+ * `byte[] b = {1,2}` and rejected `int[] p = {aChar, aChar}`, `long[] r = {i}`
+ * and `int[] t = {aByte}` — every widening, and every non-constant element. The
+ * caller compares the initializer's inferred array type first, and that type is
+ * taken from the FIRST element, so `{c, c}` arrives here as char[] against
+ * int[]: array types do not widen, and only this path can accept it. */
 static bool is_array_init_narrowable(const sema_ctx_t* ctx, java_type_t target,
                                      const ast_expr_t* init) {
     if (!init || init->tag != AST_ARRAYINIT) return false;
     if (target.tag != JT_ARRAY || !target.element) return false;
-    java_type_tag_t et = target.element->tag;
+    java_type_t comp = *target.element;
     for (int i = 0; i < init->array_init.elems_count; i++) {
-        int32_t cv = 0;
-        if (!is_const_int_expr(ctx, init->array_init.elems[i], &cv)) return false;
-        /* JLS §10.6 → §5.2: each int-constant element assignment-converts to the
-         * element type — byte/short/char accept it iff it fits; int/long/float/
-         * double accept any int constant (identity or widening). */
-        switch (et) {
-        case JT_BYTE: case JT_SHORT: case JT_CHAR:
-            if (cv < jtype_min[et] || cv > jtype_max[et]) return false;
-            break;
-        case JT_INT: case JT_LONG: case JT_FLOAT: case JT_DOUBLE:
-            break;
-        default:
-            return false;
+        const ast_expr_t* el = init->array_init.elems[i];
+        /* A nested initializer is converted against the next component type
+         * down: {{1,2},{3}} against int[][]. */
+        if (el && el->tag == AST_ARRAYINIT) {
+            if (!is_array_init_narrowable(ctx, comp, el)) return false;
+            continue;
         }
+        int32_t cv = 0;
+        bool isc = is_const_int_expr(ctx, el, &cv);
+        if (!is_assignable(ctx, comp, sema_type_of(ctx, el), isc, cv)) return false;
     }
     return true;
 }

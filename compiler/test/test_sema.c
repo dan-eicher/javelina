@@ -443,6 +443,24 @@ int main(void) {
     CHECK(analyze("class T { void f() { char c = -1; } }", false) > 0,
           "negative constant to char rejected (JLS 5.2)");
 
+    // 9c. §5.2's premise is "a constant expression of type byte, short, CHAR, or
+    // int" — every case above has an int literal as the source, so the char half
+    // of the rule went untested and was in fact rejected. `bytes[i] = '\n';` is
+    // the ordinary way to write a newline into a byte buffer.
+    CHECK(analyze("class T { void f() { byte b = 'A'; } }", false) == 0,
+          "char constant assignable to byte (JLS 5.2, source is char)");
+    CHECK(analyze("class T { void f() { byte b = '\\n'; } }", false) == 0,
+          "char escape assignable to byte (JLS 5.2)");
+    CHECK(analyze("class T { void f() { short s = 'A'; } }", false) == 0,
+          "char constant assignable to short (JLS 5.2)");
+    CHECK(analyze("class T { void f() { byte[] x = new byte[2]; x[0] = '\\n'; } }", false) == 0,
+          "char constant assignable to a byte ARRAY ELEMENT (JLS 5.2)");
+    CHECK(analyze("class T { byte f() { return 'A'; } }", false) == 0,
+          "char constant assignable to a byte RETURN (JLS 5.2)");
+    // …and representability still decides: Ā is 256, which no byte holds.
+    CHECK(analyze("class T { void f() { byte b = '\\u0100'; } }", false) > 0,
+          "out-of-range char constant to byte rejected (JLS 5.2)");
+
     // 9c. JLS §15.18.1: `+` with a String operand is string concatenation → String;
     // the other operand (any non-void type) undergoes string conversion.
     CHECK(analyze("class T { void f() { String s = \"a\" + 1; } }", false) == 0,
