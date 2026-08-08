@@ -110,6 +110,57 @@ int main(void) {
               "setB: struct.set Obj field b (absolute idx 3)");
         sema_destroy(&s); bbq_arena_free(&a);
     }
+    /* Seven same-typed fields, read and written one method apiece.
+     *
+     * Every fixture above declares TWO fields, so the "absolute index" claim was
+     * only ever exercised at positions 0 and 1 — an index derived from, say, the
+     * declaration ORDER within its declarator list, or one that saturated past
+     * some small bound, would pass all of them. This is nbody's Body verbatim:
+     * seven doubles, where the interesting reads (y, z, vy, vz) sit at positions
+     * 1, 2, 4 and 5. A fixture whose later fields are zero cannot tell a wrong
+     * index from a right one, so each field here gets a distinct accessor. */
+    {
+        static const char* B7 =
+            "class Body { double x, y, z, vx, vy, vz, mass;"
+            "  double gx(){ return x; }   double gy(){ return y; }"
+            "  double gz(){ return z; }   double gvx(){ return vx; }"
+            "  double gvy(){ return vy; } double gvz(){ return vz; }"
+            "  double gm(){ return mass; }"
+            "  void svy(double v){ vy = v; }"
+            "  void svz(double v){ vz = v; } }";
+        struct { const char* m; int idx; } rd[] = {
+          { "gx", 2 }, { "gy", 3 }, { "gz", 4 }, { "gvx", 5 },
+          { "gvy", 6 }, { "gvz", 7 }, { "gm", 8 },
+        };
+        for (int i = 0; i < (int)(sizeof rd / sizeof rd[0]); i++) {
+            bbq_arena a; bbq_arena_init(&a, 1 << 16);
+            sema_ctx_t s; wasm_types_t wt; int n = 0;
+            const uint8_t* body = emit(&a, B7, rd[i].m, &s, &wt, &n);
+            int bid = find_class(&s, "Body");
+            char lbl[128];
+            snprintf(lbl, sizeof lbl, "Body.%s: struct.get field idx %d",
+                     rd[i].m, rd[i].idx);
+            CHECK(body && bid >= 0
+                  && has_structop(body, n, 0x02,
+                                  wasm_types_class_typeidx(&wt, bid), rd[i].idx), lbl);
+            sema_destroy(&s); bbq_arena_free(&a);
+        }
+        struct { const char* m; int idx; } wr[] = { { "svy", 6 }, { "svz", 7 } };
+        for (int i = 0; i < (int)(sizeof wr / sizeof wr[0]); i++) {
+            bbq_arena a; bbq_arena_init(&a, 1 << 16);
+            sema_ctx_t s; wasm_types_t wt; int n = 0;
+            const uint8_t* body = emit(&a, B7, wr[i].m, &s, &wt, &n);
+            int bid = find_class(&s, "Body");
+            char lbl[128];
+            snprintf(lbl, sizeof lbl, "Body.%s: struct.set field idx %d",
+                     wr[i].m, wr[i].idx);
+            CHECK(body && bid >= 0
+                  && has_structop(body, n, 0x05,
+                                  wasm_types_class_typeidx(&wt, bid), wr[i].idx), lbl);
+            sema_destroy(&s); bbq_arena_free(&a);
+        }
+    }
+
     /* allocation: new Obj → struct.new at Obj's (topo-remapped) typeidx, with
      * field 0 = the class's populated vtable global and the data fields defaulted
      * (struct.new, NOT struct.new_default — every object carries its vtable). The

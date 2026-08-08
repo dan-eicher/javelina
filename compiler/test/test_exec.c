@@ -389,6 +389,268 @@ int main(void) {
         }
     }
 
+    /* nbody's energy() shape, bisected. The Benchmarks Game port computes
+     * -0.115150379 under `javelinac -O0` where -O gives the correct
+     * -0.169075164 — so this one is broken with the optimizer OFF, which is the
+     * PLAIN leg here (JAVELINA_CLICK=1 is the other one). Ruled out already, by
+     * experiment: the engine (the answer tracks the program's level, not the
+     * jre's), the static-final constant chain, the constructor (all five bodies
+     * dump byte-identically), and method-scope-versus-inner-scope locals.
+     *
+     * The oracle is exact, so nothing here depends on float formatting: three
+     * bodies at x = 0, 3, 6 with masses 1, 2, 4 give pairwise distances 3, 6, 3,
+     * a potential of exactly -4 and a kinetic of exactly 22.5. Each case
+     * returns (int)(e * 2) so the expected value is an integer. */
+    {
+        static const char* BODY =
+            " class B { double x,y,z,vx,vy,vz,mass;"
+            "   static B of(double x,double vx,double m){ B b=new B();"
+            "     b.x=x; b.y=0; b.z=0; b.vx=vx; b.vy=0; b.vz=0; b.mass=m; return b; }"
+            "   static B at(double x,double y,double z,"
+            "               double vx,double vy,double vz,double m){ B b=new B();"
+            "     b.x=x; b.y=y; b.z=z; b.vx=vx; b.vy=vy; b.vz=vz; b.mass=m; return b; } }";
+        static const char* MAKE =
+            "  B[] a = new B[3];"
+            "  a[0]=B.of(0,1,1); a[1]=B.of(3,2,2); a[2]=B.of(6,3,4);";
+        struct { const char* src; int32_t want; const char* label; } nb[] = {
+          /* Kinetic alone: one accumulator, one loop. */
+          { "class T { static int f(int x){"
+            "  B[] a = new B[3];"
+            "  a[0]=B.of(0,1,1); a[1]=B.of(3,2,2); a[2]=B.of(6,3,4);"
+            "  double e=0;"
+            "  for (int i=0;i<a.length;++i)"
+            "    e += 0.5*a[i].mass*(a[i].vx*a[i].vx + a[i].vy*a[i].vy + a[i].vz*a[i].vz);"
+            "  return (int)(e*2); } }",
+            45, "nbody: kinetic term alone (2 * 22.5)" },
+          /* Potential alone: one accumulator, nested loops, method-scope temps. */
+          { "class T { static int f(int x){"
+            "  B[] a = new B[3];"
+            "  a[0]=B.of(0,1,1); a[1]=B.of(3,2,2); a[2]=B.of(6,3,4);"
+            "  double dx,dy,dz,d; double e=0;"
+            "  for (int i=0;i<a.length;++i)"
+            "    for (int j=i+1;j<a.length;++j){"
+            "      dx=a[i].x-a[j].x; dy=a[i].y-a[j].y; dz=a[i].z-a[j].z;"
+            "      d=Math.sqrt(dx*dx+dy*dy+dz*dz);"
+            "      e -= (a[i].mass*a[j].mass)/d; }"
+            "  return (int)(e*2); } }",
+            -8, "nbody: potential term alone (2 * -4)" },
+          /* Both into ONE accumulator, the outer body and the inner loop each
+           * writing it — the shape none of the reductions reproduced. */
+          { "class T { static int f(int x){"
+            "  B[] a = new B[3];"
+            "  a[0]=B.of(0,1,1); a[1]=B.of(3,2,2); a[2]=B.of(6,3,4);"
+            "  double dx,dy,dz,d; double e=0;"
+            "  for (int i=0;i<a.length;++i){"
+            "    e += 0.5*a[i].mass*(a[i].vx*a[i].vx + a[i].vy*a[i].vy + a[i].vz*a[i].vz);"
+            "    for (int j=i+1;j<a.length;++j){"
+            "      dx=a[i].x-a[j].x; dy=a[i].y-a[j].y; dz=a[i].z-a[j].z;"
+            "      d=Math.sqrt(dx*dx+dy*dy+dz*dz);"
+            "      e -= (a[i].mass*a[j].mass)/d; } }"
+            "  return (int)(e*2); } }",
+            37, "nbody: BOTH terms into one accumulator (2 * 18.5)" },
+
+          /* Every case above builds its bodies with B.of, which hard-zeros y, z,
+           * vy and vz — so a miscompile of the SECOND or THIRD component could
+           * not show up in any of them. nbody's real data has all three nonzero.
+           * These vary one component at a time, with B.at supplying all seven
+           * fields. Oracles are exact: a body of mass 2 at speed 3 on one axis
+           * has kinetic 9, and masses 2 and 3 exactly 3 apart have potential
+           * -2, so every expected value below is a dyadic rational. */
+          { "class T { static int f(int x){ B[] a = new B[1];"
+            "  a[0]=B.at(0,0,0, 3,0,0, 2); double e=0;"
+            "  for (int i=0;i<a.length;++i)"
+            "    e += 0.5*a[i].mass*(a[i].vx*a[i].vx + a[i].vy*a[i].vy + a[i].vz*a[i].vz);"
+            "  return (int)(e*2); } }",
+            18, "component: kinetic, vx only" },
+          { "class T { static int f(int x){ B[] a = new B[1];"
+            "  a[0]=B.at(0,0,0, 0,3,0, 2); double e=0;"
+            "  for (int i=0;i<a.length;++i)"
+            "    e += 0.5*a[i].mass*(a[i].vx*a[i].vx + a[i].vy*a[i].vy + a[i].vz*a[i].vz);"
+            "  return (int)(e*2); } }",
+            18, "component: kinetic, vy only" },
+          { "class T { static int f(int x){ B[] a = new B[1];"
+            "  a[0]=B.at(0,0,0, 0,0,3, 2); double e=0;"
+            "  for (int i=0;i<a.length;++i)"
+            "    e += 0.5*a[i].mass*(a[i].vx*a[i].vx + a[i].vy*a[i].vy + a[i].vz*a[i].vz);"
+            "  return (int)(e*2); } }",
+            18, "component: kinetic, vz only" },
+          { "class T { static int f(int x){ B[] a = new B[1];"
+            "  a[0]=B.at(0,0,0, 1,2,3, 2); double e=0;"
+            "  for (int i=0;i<a.length;++i)"
+            "    e += 0.5*a[i].mass*(a[i].vx*a[i].vx + a[i].vy*a[i].vy + a[i].vz*a[i].vz);"
+            "  return (int)(e*2); } }",
+            28, "component: kinetic, all three (2 * 14)" },
+          { "class T { static int f(int x){ B[] a = new B[2];"
+            "  a[0]=B.at(0,0,0, 0,0,0, 2); a[1]=B.at(3,0,0, 0,0,0, 3);"
+            "  double dx,dy,dz,d; double e=0;"
+            "  for (int i=0;i<a.length;++i)"
+            "    for (int j=i+1;j<a.length;++j){"
+            "      dx=a[i].x-a[j].x; dy=a[i].y-a[j].y; dz=a[i].z-a[j].z;"
+            "      d=Math.sqrt(dx*dx+dy*dy+dz*dz);"
+            "      e -= (a[i].mass*a[j].mass)/d; }"
+            "  return (int)(e*2); } }",
+            -4, "component: potential, x separation only" },
+          { "class T { static int f(int x){ B[] a = new B[2];"
+            "  a[0]=B.at(0,0,0, 0,0,0, 2); a[1]=B.at(0,3,0, 0,0,0, 3);"
+            "  double dx,dy,dz,d; double e=0;"
+            "  for (int i=0;i<a.length;++i)"
+            "    for (int j=i+1;j<a.length;++j){"
+            "      dx=a[i].x-a[j].x; dy=a[i].y-a[j].y; dz=a[i].z-a[j].z;"
+            "      d=Math.sqrt(dx*dx+dy*dy+dz*dz);"
+            "      e -= (a[i].mass*a[j].mass)/d; }"
+            "  return (int)(e*2); } }",
+            -4, "component: potential, y separation only" },
+          { "class T { static int f(int x){ B[] a = new B[2];"
+            "  a[0]=B.at(0,0,0, 0,0,0, 2); a[1]=B.at(0,0,3, 0,0,0, 3);"
+            "  double dx,dy,dz,d; double e=0;"
+            "  for (int i=0;i<a.length;++i)"
+            "    for (int j=i+1;j<a.length;++j){"
+            "      dx=a[i].x-a[j].x; dy=a[i].y-a[j].y; dz=a[i].z-a[j].z;"
+            "      d=Math.sqrt(dx*dx+dy*dy+dz*dz);"
+            "      e -= (a[i].mass*a[j].mass)/d; }"
+            "  return (int)(e*2); } }",
+            -4, "component: potential, z separation only" },
+          /* (1,2,2) is a Pythagorean quadruple: the distance is exactly 3. */
+          { "class T { static int f(int x){ B[] a = new B[2];"
+            "  a[0]=B.at(0,0,0, 0,0,0, 2); a[1]=B.at(1,2,2, 0,0,0, 3);"
+            "  double dx,dy,dz,d; double e=0;"
+            "  for (int i=0;i<a.length;++i)"
+            "    for (int j=i+1;j<a.length;++j){"
+            "      dx=a[i].x-a[j].x; dy=a[i].y-a[j].y; dz=a[i].z-a[j].z;"
+            "      d=Math.sqrt(dx*dx+dy*dy+dz*dz);"
+            "      e -= (a[i].mass*a[j].mass)/d; }"
+            "  return (int)(e*2); } }",
+            -4, "component: potential, all three separations" },
+          /* Both terms, every component nonzero: kinetic 18.5, potential -2. */
+          { "class T { static int f(int x){ B[] a = new B[2];"
+            "  a[0]=B.at(0,0,0, 1,2,3, 2); a[1]=B.at(1,2,2, 1,1,1, 3);"
+            "  double dx,dy,dz,d; double e=0;"
+            "  for (int i=0;i<a.length;++i){"
+            "    e += 0.5*a[i].mass*(a[i].vx*a[i].vx + a[i].vy*a[i].vy + a[i].vz*a[i].vz);"
+            "    for (int j=i+1;j<a.length;++j){"
+            "      dx=a[i].x-a[j].x; dy=a[i].y-a[j].y; dz=a[i].z-a[j].z;"
+            "      d=Math.sqrt(dx*dx+dy*dy+dz*dz);"
+            "      e -= (a[i].mass*a[j].mass)/d; } }"
+            "  return (int)(e*2); } }",
+            33, "component: both terms, all components nonzero (2 * 16.5)" },
+          /* The same, as an INSTANCE method reading an INSTANCE FIELD array —
+           * energy()'s actual form. Every case above is a static method over a
+           * local, which is the one structural difference left. */
+          { "class S { B[] a;"
+            "  S(){ a=new B[2]; a[0]=B.at(0,0,0, 1,2,3, 2); a[1]=B.at(1,2,2, 1,1,1, 3); }"
+            "  double energy(){ double dx,dy,dz,d; double e=0;"
+            "    for (int i=0;i<a.length;++i){"
+            "      e += 0.5*a[i].mass*(a[i].vx*a[i].vx + a[i].vy*a[i].vy + a[i].vz*a[i].vz);"
+            "      for (int j=i+1;j<a.length;++j){"
+            "        dx=a[i].x-a[j].x; dy=a[i].y-a[j].y; dz=a[i].z-a[j].z;"
+            "        d=Math.sqrt(dx*dx+dy*dy+dz*dz);"
+            "        e -= (a[i].mass*a[j].mass)/d; } }"
+            "    return e; } }"
+            "class T { static int f(int x){ return (int)(new S().energy()*2); } }",
+            33, "component: energy() verbatim — instance method, instance field" },
+          /* The same, with the values in double[] rather than object fields —
+           * separates 'interleaved accumulator' from 'field of an array element'. */
+          { "class T { static int f(int x){"
+            "  double[] px = new double[3]; double[] pv = new double[3]; double[] pm = new double[3];"
+            "  px[0]=0; px[1]=3; px[2]=6; pv[0]=1; pv[1]=2; pv[2]=3; pm[0]=1; pm[1]=2; pm[2]=4;"
+            "  double d; double e=0;"
+            "  for (int i=0;i<3;++i){"
+            "    e += 0.5*pm[i]*(pv[i]*pv[i]);"
+            "    for (int j=i+1;j<3;++j){"
+            "      d=Math.sqrt((px[i]-px[j])*(px[i]-px[j]));"
+            "      e -= (pm[i]*pm[j])/d; } }"
+            "  return (int)(e*2); } }",
+            37, "nbody: both terms, plain double[] instead of object fields" },
+
+          /* ── The ladder. Each rung adds exactly ONE thing to the rung above,
+           * so the first failure names the ingredient rather than a
+           * combination. Above: interleaved accumulator + object fields fails;
+           * the same control flow over double[] passes. These separate the
+           * arithmetic from the field read. ── */
+
+          /* L1: nested loop, ONE accumulator written only in the inner loop,
+           * reading an object field. No sqrt, no division. */
+          { "class T { static int f(int x){"
+            "  B[] a = new B[3];"
+            "  a[0]=B.of(0,1,1); a[1]=B.of(3,2,2); a[2]=B.of(6,3,4);"
+            "  double e=0;"
+            "  for (int i=0;i<3;++i) for (int j=i+1;j<3;++j) e += a[i].mass*a[j].mass;"
+            "  return (int)e; } }",
+            14, "L1 inner-only accumulator, object field, no sqrt/div (1*2+1*4+2*4)" },
+
+          /* L2: + the outer loop also writes the accumulator. Still no sqrt,
+           * no division. If this is the first failure, the trigger is the
+           * interleaved accumulator over a field read, with no arithmetic. */
+          { "class T { static int f(int x){"
+            "  B[] a = new B[3];"
+            "  a[0]=B.of(0,1,1); a[1]=B.of(3,2,2); a[2]=B.of(6,3,4);"
+            "  double e=0;"
+            "  for (int i=0;i<3;++i){ e += a[i].mass;"
+            "    for (int j=i+1;j<3;++j) e += a[i].mass*a[j].mass; }"
+            "  return (int)e; } }",
+            21, "L2 + outer loop writes it too (7 + 14)" },
+
+          /* L3: + a division in the inner term. */
+          { "class T { static int f(int x){"
+            "  B[] a = new B[3];"
+            "  a[0]=B.of(0,1,1); a[1]=B.of(3,2,2); a[2]=B.of(6,3,4);"
+            "  double e=0;"
+            "  for (int i=0;i<3;++i){ e += a[i].mass;"
+            "    for (int j=i+1;j<3;++j) e += (a[i].mass*a[j].mass)/2.0; }"
+            "  return (int)e; } }",
+            14, "L3 + division in the inner term (7 + 7)" },
+
+          /* L4: + Math.sqrt, still on a constant so the value stays exact. */
+          { "class T { static int f(int x){"
+            "  B[] a = new B[3];"
+            "  a[0]=B.of(0,1,1); a[1]=B.of(3,2,2); a[2]=B.of(6,3,4);"
+            "  double e=0;"
+            "  for (int i=0;i<3;++i){ e += a[i].mass;"
+            "    for (int j=i+1;j<3;++j) e += (a[i].mass*a[j].mass)/Math.sqrt(4.0); }"
+            "  return (int)e; } }",
+            14, "L4 + Math.sqrt of a constant divisor (7 + 7)" },
+
+          /* L5: + the divisor computed from fields, which is what makes
+           * nbody's inner term depend on the same objects the outer one reads. */
+          { "class T { static int f(int x){"
+            "  B[] a = new B[3];"
+            "  a[0]=B.of(0,1,1); a[1]=B.of(3,2,2); a[2]=B.of(6,3,4);"
+            "  double e=0;"
+            "  for (int i=0;i<3;++i){ e += a[i].mass;"
+            "    for (int j=i+1;j<3;++j){"
+            "      double d=Math.sqrt((a[j].x-a[i].x)*(a[j].x-a[i].x));"
+            "      e += (a[i].mass*a[j].mass)/d; } }"
+            "  return (int)e; } }",
+            11, "L5 + divisor from fields (7 + 2/3 + 4/6 + 8/3 = 7+4 = 11)" },
+
+          /* L6: + the outer term reads the SAME fields the inner one does, and
+           * accumulates by subtraction — the last two structural differences
+           * between L5 and nbody's energy(). */
+          { "class T { static int f(int x){"
+            "  B[] a = new B[3];"
+            "  a[0]=B.of(0,1,1); a[1]=B.of(3,2,2); a[2]=B.of(6,3,4);"
+            "  double e=0;"
+            "  for (int i=0;i<3;++i){ e += 0.5*a[i].mass*(a[i].vx*a[i].vx);"
+            "    for (int j=i+1;j<3;++j){"
+            "      double d=Math.sqrt((a[j].x-a[i].x)*(a[j].x-a[i].x));"
+            "      e -= (a[i].mass*a[j].mass)/d; } }"
+            "  return (int)(e*2); } }",
+            37, "L6 + outer reads vx/mass and inner SUBTRACTS (2 * (22.5-4))" },
+        };
+        (void)BODY; (void)MAKE;
+        for (int i = 0; i < (int)(sizeof nb / sizeof nb[0]); i++) {
+            bbq_arena a; bbq_arena_init(&a, 1 << 18); emit_wasm_ctx mod = {0};
+            char src[4096];
+            snprintf(src, sizeof src, "%s%s", nb[i].src, BODY);
+            bool pb = assemble_plugin(&a, src, &mod);
+            wasm_val_t arg = (wasm_val_t)WASM_I32_VAL(0);
+            wasm_val_t res[1] = { WASM_INIT_VAL };
+            exec_status st = pb ? exec_call_shared(mod.code, bbq_vec_len(mod.code), "T.f", &arg, 1, res, 1) : EXEC_INVALID;
+            CHECK(pb && st == EXEC_OK && res[0].of.i32 == nb[i].want, nb[i].label);
+            bbq_vec_free(mod.code); bbq_arena_free(&a);
+        }
+    }
+
     /* The same branch-refinement site, but for LONGS. It mints its range with
      * `.cwidth = CP_W_I32, .lo = INT32_MIN, .hi = INT32_MAX` hardcoded, onto
      * whatever value the comparison tested. On an i64 that is both a wrong

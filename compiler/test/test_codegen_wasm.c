@@ -169,6 +169,14 @@ int main(void) {
     TILE(RD(sir_div(a,SIR_DTDOUBLE,D0,D1)),"f64.div", 0x20,0,0x20,1,0xA3,0x0F);
     TILE(RD(sir_neg(a,SIR_DTDOUBLE,D0)),   "f64.neg", 0x20,0,0x9A,0x0F);
 
+    /* §20.11 Math.sqrt/floor/ceil/rint — the four direct-opcode intrinsics. The
+     * grammar gives each its own rule, so each needs its own byte pin: a rule
+     * naming WOP_F64_FLOOR where it meant WOP_F64_CEIL passes burgc --coverage. */
+    TILE(RD(sir_f64_sqrt(a,D0)),    "f64.sqrt",    0x20,0,0x9F,0x0F);
+    TILE(RD(sir_f64_floor(a,D0)),   "f64.floor",   0x20,0,0x9C,0x0F);
+    TILE(RD(sir_f64_ceil(a,D0)),    "f64.ceil",    0x20,0,0x9B,0x0F);
+    TILE(RD(sir_f64_nearest(a,D0)), "f64.nearest", 0x20,0,0x9E,0x0F);
+
     /* ── §5.1 conversions (operand reduced first, then the convert op) ──── */
     TILE(RL(sir_i2_l(a,I0)), "i2l i64.extend_i32_s", 0x20,0,0xAC,0x0F);
     TILE(RF(sir_i2_f(a,I0)), "i2f f32.convert_i32_s",0x20,0,0xB2,0x0F);
@@ -697,6 +705,19 @@ int main(void) {
      *     falls back to the raw class_id only for an out-of-range class, and
      *     wasm_types_field_index then dereferences wt->sema for the same class.
      *     Their bytes are pinned end-to-end in test_codegen_object.c instead.
+     *   - the LOCAL families (LoadLocal / StoreLocal / Inc), for the same reason
+     *     and previously missed: the slot is a ULEB, so the access is two bytes
+     *     up to slot 127 and three beyond it, and their declared costs are the
+     *     small-slot figure. nbody's energy() reaches slot 160 at -O0, so this is
+     *     an ordinary program's range, not a corner. Their exact bytes ARE pinned
+     *     — by the TILE fixtures above, at the slots those fixtures name.
+     *
+     * The point of the exclusions is that this oracle checks a narrow, real
+     * property: that a rule which always emits N bytes declares N. It is NOT a
+     * claim that the cost model measures code size. A BURS cost is an abstract
+     * weight, and this grammar's happen to be authored in byte units; retuning
+     * them to measured op costs would be a legitimate change that this oracle
+     * must not stand in the way of.
      *
      * The value-as-statement chains are ON the identity (cost 0 = the nothing
      * they emit) — the bare-value fixtures below exercise them, and they matter:
@@ -731,15 +752,9 @@ int main(void) {
     COST_IS_BYTES(RD(sir_load_double_const(a, 2.25)),   "f64.const");
     COST_IS_BYTES(sir_return(a, sir_load_null(a), SIR_DTREF), "ref.null none");
 
-    /* locals — one rule per valtype, all local.get/local.set. */
-    COST_IS_BYTES(RI(I0), "local.get i32");
-    COST_IS_BYTES(RL(L0), "local.get i64");
-    COST_IS_BYTES(RF(F0), "local.get f32");
-    COST_IS_BYTES(RD(D0), "local.get f64");
-    COST_IS_BYTES(sir_store_local(a, 2, SIR_DTINT,   NULL, I0, NULL), "local.set i32");
-    COST_IS_BYTES(sir_store_local(a, 2, SIR_DTLONG,  NULL, L0, NULL), "local.set i64");
-    COST_IS_BYTES(sir_store_local(a, 2, SIR_DTFLOAT, NULL, F0, NULL), "local.set f32");
-    COST_IS_BYTES(sir_store_local(a, 2, SIR_DTDOUBLE,NULL, D0, NULL), "local.set f64");
+    /* locals are EXCLUDED — see the exclusion list above. The slot is a ULEB, so
+     * these rules are not fixed-emission and the oracle's property does not apply
+     * to them. The TILE fixtures pin their exact bytes at the slots they name. */
 
     /* arithmetic / bitwise / shifts — one opcode each, and the two synthesized
      * negations (no i32/i64.neg in WASM: x * -1). */
