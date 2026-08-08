@@ -3047,6 +3047,30 @@ static void cp_escape_index(cp_engine_t* eng) {
     for (int k = 0; k < nd; k++)
         eng->esc_dep_list[eng->esc_dep_off[dep_vn[k]] + cnt[dep_vn[k]]++] = dep_row[k];
     bbq_vec_free(dep_vn); bbq_vec_free(dep_row);
+    /* The evaluation memo (sir_optimizer.h): stamps + per-entry records. */
+    eng->pts_stamp = (uint32_t*)bbq_arena_alloc(a, (size_t)(vc > 0 ? vc : 1) * sizeof(uint32_t));
+    memset(eng->pts_stamp, 0, (size_t)(vc > 0 ? vc : 1) * sizeof(uint32_t));
+    eng->pts_stamp_rows = vc;
+    int mcc = eng->mem_cell_count > 0 ? eng->mem_cell_count : 1;
+    eng->cell_stamp = (uint32_t*)bbq_arena_alloc(a, (size_t)mcc * sizeof(uint32_t));
+    memset(eng->cell_stamp, 0, (size_t)mcc * sizeof(uint32_t));
+    eng->memo_cell_gen = (uint32_t*)bbq_arena_alloc(a, (size_t)mcc * sizeof(uint32_t));
+    memset(eng->memo_cell_gen, 0, (size_t)mcc * sizeof(uint32_t));
+    eng->heap_stamp = 0;
+    eng->memo_eval_gen = 0;
+    eng->memo_slot = -1;
+    eng->memo_saw_bottom = false;
+    int tc1 = tc > 0 ? tc : 1;
+    eng->esc_call_count  = tc;
+    eng->esc_call_sig    = (uint64_t*)bbq_arena_alloc(a, (size_t)tc1 * sizeof(uint64_t));
+    eng->esc_call_heapst = (uint64_t*)bbq_arena_alloc(a, (size_t)tc1 * sizeof(uint64_t));
+    eng->esc_call_sig_ok = (bool*)bbq_arena_alloc(a, (size_t)tc1 * sizeof(bool));
+    memset(eng->esc_call_sig_ok, 0, (size_t)tc1 * sizeof(bool));
+    eng->esc_call_bottom = (bool*)bbq_arena_alloc(a, (size_t)tc1 * sizeof(bool));
+    eng->esc_call_ops    = (int**)bbq_arena_alloc(a, (size_t)tc1 * sizeof(int*));
+    memset(eng->esc_call_ops, 0, (size_t)tc1 * sizeof(int*));
+    eng->esc_call_cells  = (int**)bbq_arena_alloc(a, (size_t)tc1 * sizeof(int*));
+    memset(eng->esc_call_cells, 0, (size_t)tc1 * sizeof(int*));
     /* Seed: every source row is pending once — the first drain evaluates the whole set,
      * exactly the old first sweep; after that only events re-add. */
     for (int i = 0; i < sn; i++)
@@ -6151,6 +6175,12 @@ static bool cp_update_heap(cp_engine_t* eng, int vi) {
      * no-change majority. */
     if (memcmp(v->heap[0].bits, s[0].bits, bytes) == 0) return false;
     memcpy(v->heap[0].bits, s[0].bits, bytes);
+    eng->heap_stamp++;
+    if (eng->cell_stamp) {
+        int c = (vi < eng->mem_rows && eng->mem_cell[vi] >= 0) ? eng->mem_cell[vi]
+              : (is_cell_phi ? v->phi_cell : -1);
+        if (c >= 0 && c < eng->mem_cell_count) eng->cell_stamp[c]++;
+    }
     return true;
 }
 
@@ -6318,6 +6348,9 @@ static int cp_cell_lookup(cp_engine_t* eng, uint32_t key) {
  * un-clobbered row of it can no longer survive a call. inject_moved re-arms the kills (obj_bottom
  * is not a def-use input, exactly like escape and clobbered). */
 static void cp_mark_bottom(cp_engine_t* eng, sir_node_t* actual) {
+    /* The memo (sir_optimizer.h): this path's read set is heap REACHABILITY —
+     * every cell — so the evaluation's signature must carry the global stamp. */
+    eng->memo_saw_bottom = true;
     if (!eng->obj_bottom || !actual) return;
     int vi = cp_vnode_of(eng, actual);
     if (vi < 0 || vi >= eng->vnode_count) return;
@@ -6444,18 +6477,39 @@ static void cp_cell_rows_build(cp_engine_t* eng) {
 static void cp_follow_field(cp_engine_t* eng, int c, cp_pts_t from, cp_pts_t* out) {
     if (c < 0 || c >= eng->mem_cell_count || !from.bits) return;
     if (!eng->cell_row_off) cp_cell_rows_build(eng);
-    for (int ri = eng->cell_row_off[c]; ri < eng->cell_row_off[c] + eng->cell_row_cnt[c]; ri++) {
-        int v = eng->cell_row_list[ri];
-        const cp_pts_t* h = eng->vnodes[v]->heap;
-        if (!h) continue;
-        for (int w = 0; w < eng->obj_words; w++) {
-            uint64_t word = from.bits[w];
-            if (w == 0) word &= ~((uint64_t)1 << CP_OBJ_NULL);
-            while (word) {
-                int o = (w << 6) + __builtin_ctzll(word);
-                word &= word - 1;
-                cp_pts_union(eng, out, h[o]);
+    if (!eng->cell_u) {
+        int mcc = eng->mem_cell_count;
+        eng->cell_u = (cp_pts_t**)bbq_arena_alloc(eng->arena, (size_t)mcc * sizeof(cp_pts_t*));
+        memset(eng->cell_u, 0, (size_t)mcc * sizeof(cp_pts_t*));
+        eng->cell_u_stamp = (uint32_t**)bbq_arena_alloc(eng->arena, (size_t)mcc * sizeof(uint32_t*));
+        memset(eng->cell_u_stamp, 0, (size_t)mcc * sizeof(uint32_t*));
+    }
+    if (!eng->cell_u[c]) {
+        int oc = eng->obj_count > 0 ? eng->obj_count : 1;
+        eng->cell_u[c] = (cp_pts_t*)bbq_arena_alloc(eng->arena, (size_t)oc * sizeof(cp_pts_t));
+        for (int o = 0; o < oc; o++) eng->cell_u[c][o] = cp_pts_new(eng);
+        eng->cell_u_stamp[c] = (uint32_t*)bbq_arena_alloc(eng->arena, (size_t)oc * sizeof(uint32_t));
+        memset(eng->cell_u_stamp[c], 0, (size_t)oc * sizeof(uint32_t));
+    }
+    uint32_t fresh = (eng->cell_stamp ? eng->cell_stamp[c] : 0) + 1;
+    int words = eng->obj_words ? eng->obj_words : 1;
+    for (int w = 0; w < eng->obj_words; w++) {
+        uint64_t word = from.bits[w];
+        if (w == 0) word &= ~((uint64_t)1 << CP_OBJ_NULL);
+        while (word) {
+            int o = (w << 6) + __builtin_ctzll(word);
+            word &= word - 1;
+            cp_pts_t* u = &eng->cell_u[c][o];
+            if (eng->cell_u_stamp[c][o] != fresh) {
+                memset(u->bits, 0, (size_t)words * sizeof(uint64_t));
+                for (int ri = eng->cell_row_off[c];
+                         ri < eng->cell_row_off[c] + eng->cell_row_cnt[c]; ri++) {
+                    const cp_pts_t* h = eng->vnodes[eng->cell_row_list[ri]]->heap;
+                    if (h) cp_pts_union(eng, u, h[o]);
+                }
+                eng->cell_u_stamp[c][o] = fresh;
             }
+            cp_pts_union(eng, out, *u);
         }
     }
 }
@@ -6576,6 +6630,14 @@ static void cp_mapsto_graph(cp_engine_t* eng, compiler_ctx_t* ctx, int callee,
             }
         }
         for (int e = s->edge_off[k]; e < s->edge_off[k + 1]; e++) {
+            /* Record the followed cell on the evaluation's memo (dedup by
+             * generation — the loop revisits edges per worklist pop). */
+            int fc = tr[nw + e];
+            if (eng->memo_slot >= 0 && fc >= 0 && fc < eng->mem_cell_count
+                    && eng->memo_cell_gen[fc] != eng->memo_eval_gen) {
+                eng->memo_cell_gen[fc] = eng->memo_eval_gen;
+                bbq_vec_push(eng->esc_call_cells[eng->memo_slot], fc);
+            }
             memset(eng->mto_tgt.bits, 0, (size_t)words * sizeof(uint64_t));
             cp_follow_field(eng, tr[nw + e], eng->mto[k], &eng->mto_tgt);
             int d = s->edge_dst[e];
@@ -6749,6 +6811,53 @@ static void cp_escape_call_site(cp_engine_t* eng, sir_node_t* e) {
     }
 }
 
+/* ── The call-evaluation memo (sir_optimizer.h) ─────────────────────────────
+ *
+ * The drain re-adds CALL rows coarsely (their input set is dynamic), so the
+ * EVALUATION is where §8's O(inputs) obligation lands: everything one reads is
+ * pts — roots, and the target set, a pure function of receiver pts — plus the
+ * heap cells Fig-7's field-following visits (recorded per evaluation), plus,
+ * on a bottom path, heap REACHABILITY (every cell — the global stamp). All of
+ * its outputs are monotone, idempotent unions (escape min, clobber/inject/
+ * obj_bottom set-only, clobx a deduped relay), so re-running on unchanged
+ * inputs re-derives outputs already applied: a skip and a re-run are the same
+ * evaluation. Stamps only grow, so an equal sum means equal inputs. */
+static void cp_esc_call_ops_build(cp_engine_t* eng, int k) {
+    sir_node_t* e = eng->esc_call_list[k];
+    sir_node_t* recv = NULL; sir_node_t** args = NULL; int argc = 0;
+    switch (e->tag) {
+    case SIR_INVOKEVIRTUAL:
+        recv = e->invoke_virtual.obj;   args = e->invoke_virtual.args;
+        argc = e->invoke_virtual.args_count;   break;
+    case SIR_INVOKEINTERFACE:
+        recv = e->invoke_interface.obj; args = e->invoke_interface.args;
+        argc = e->invoke_interface.args_count; break;
+    case SIR_INVOKESPECIAL:
+        recv = e->invoke_special.obj;   args = e->invoke_special.args;
+        argc = e->invoke_special.args_count;   break;
+    case SIR_INVOKESTATIC:
+        args = e->invoke_static.args;   argc = e->invoke_static.args_count; break;
+    default: break;
+    }
+    int* ops = NULL;
+    int v = recv ? cp_vnode_of(eng, recv) : -1;
+    if (v >= 0) bbq_vec_push(ops, v);
+    for (int i = 0; i < argc; i++) {
+        v = (args && args[i]) ? cp_vnode_of(eng, args[i]) : -1;
+        if (v >= 0) bbq_vec_push(ops, v);
+    }
+    eng->esc_call_ops[k] = ops;
+}
+
+static uint64_t cp_esc_call_sig(cp_engine_t* eng, int k) {
+    uint64_t sig = 0;
+    int* ops = eng->esc_call_ops[k];
+    for (int i = 0; i < (int)bbq_vec_len(ops); i++) sig += eng->pts_stamp[ops[i]];
+    int* cs = eng->esc_call_cells[k];
+    for (int i = 0; i < (int)bbq_vec_len(cs); i++) sig += eng->cell_stamp[cs[i]];
+    return sig;
+}
+
 /* Is the exception thrown at spine node `i` CAUGHT in this method? §6's refinement.
  *
  * The structural half (which regions enclose this throw, and which of their handlers are
@@ -6837,9 +6946,31 @@ static void cp_escape_row(cp_engine_t* eng, int i) {
     }
     default: break;
     }
-    /* §7's bottom graph, on the RECORDED call sites (found once at construction). */
-    for (int k = eng->esc_call_off[i]; k < eng->esc_call_off[i + 1]; k++)
+    /* §7's bottom graph, on the RECORDED call sites (found once at construction).
+     * Memo-gated: an evaluation none of whose recorded inputs moved is a skip
+     * (the block comment above cp_esc_call_ops_build carries the argument). */
+    for (int k = eng->esc_call_off[i]; k < eng->esc_call_off[i + 1]; k++) {
+        if (eng->esc_call_sig && eng->esc_call_sig_ok[k]
+                && cp_esc_call_sig(eng, k) == eng->esc_call_sig[k]
+                && (!eng->esc_call_bottom[k]
+                    || eng->esc_call_heapst[k] == eng->heap_stamp))
+            continue;
+        if (eng->esc_call_sig) {
+            if (!eng->esc_call_ops[k]) cp_esc_call_ops_build(eng, k);
+            bbq_vec_clear(eng->esc_call_cells[k]);
+            eng->memo_eval_gen++;
+            eng->memo_slot = k;
+            eng->memo_saw_bottom = false;
+        }
         cp_escape_call_site(eng, eng->esc_call_list[k]);
+        if (eng->esc_call_sig) {
+            eng->memo_slot = -1;
+            eng->esc_call_bottom[k] = eng->memo_saw_bottom;
+            eng->esc_call_heapst[k] = eng->heap_stamp;
+            eng->esc_call_sig[k]    = cp_esc_call_sig(eng, k);
+            eng->esc_call_sig_ok[k] = true;
+        }
+    }
 }
 
 /* Lattice E's domain is the Obj set, which is SYNTACTIC — so it is fixed here, before
@@ -7397,7 +7528,10 @@ static void cp_compute_facts(cp_engine_t* eng) {
              * partition" true by construction rather than by luck. */
             cp_pts_t np = cp_node_pts(eng, xv);
             bool pts_changed = !cp_pts_eq(eng, np, eng->vnodes[xv]->pts);
-            if (pts_changed) eng->vnodes[xv]->pts = np;
+            if (pts_changed) {
+                eng->vnodes[xv]->pts = np;
+                if (eng->pts_stamp && xv < eng->pts_stamp_rows) eng->pts_stamp[xv]++;
+            }
             bool heap_changed = cp_update_heap(eng, xv);
             /* Escape-source re-arm (§6): a tag-source row reads this vnode's pts as an
              * OPERAND — a spine row, not a vnode, so no du edge carries the event; the
@@ -11398,6 +11532,12 @@ void cp_free(cp_engine_t* eng) {
     bbq_vec_free(eng->esc_pending);
     bbq_vec_free(eng->clobx_obj);
     bbq_vec_free(eng->clobx_key);
+    if (eng->esc_call_ops) {
+        for (int k = 0; k < eng->esc_call_count; k++) {
+            bbq_vec_free(eng->esc_call_ops[k]);
+            bbq_vec_free(eng->esc_call_cells[k]);
+        }
+    }
     type_pool_destroy(&eng->pool);
 }
 
@@ -13188,6 +13328,42 @@ static void cp_vinv_content_obligations(compiler_ctx_t* ctx, cp_engine_t* e) {
 static void cp_summarize(compiler_ctx_t* ctx, int method_idx,
                          const sir_method_t* method, cp_engine_t* e) {
     if (!ctx || !e || method_idx < 0 || method_idx >= ctx->method_count) return;
+    /* The class-touch record the close's sweeps read (compiler.h). Every site
+     * that can put anything to a pair, or read a verdict of one, decodes a
+     * GetField vnode or a PutField row of the pair's class, or is that class's
+     * own constructor — so those three shapes are the whole record. Shape
+     * facts: reachability and the solve don't enter, and the SIR is immutable
+     * until the rewrite, so once per method suffices. */
+    if (ctx->vinv_touch && !ctx->vinv_touch_done[method_idx]) {
+        uint64_t* row = ctx->vinv_touch
+                      + (size_t)method_idx * ctx->vinv_touch_words;
+        for (int vi = 0; vi < e->vnode_count; vi++) {
+            const cp_vnode_t* cv = e->vnodes[vi];
+            if (cv->kind != CP_VN_EXPR || !cv->expr
+                    || cv->expr->tag != SIR_GETFIELD) continue;
+            int c = cv->expr->get_field.class_id;
+            if (c >= 0 && (c >> 6) < ctx->vinv_touch_words)
+                row[c >> 6] |= (uint64_t)1 << (c & 63);
+        }
+        for (int si = 0; si < e->spine_count; si++) {
+            const sir_node_t* n = e->spine[si];
+            if (n->tag != SIR_PUTFIELD) continue;
+            int c = n->put_field.class_id;
+            if (c >= 0 && (c >> 6) < ctx->vinv_touch_words)
+                row[c >> 6] |= (uint64_t)1 << (c & 63);
+        }
+        if (e->sema && e->method && e->method->class_id >= 0) {
+            const sema_class_t* mcl = sema_get_class(e->sema, e->method->class_id);
+            if (mcl && e->method->method_id >= 0
+                    && e->method->method_id < (int)bbq_vec_len((void*)mcl->methods)
+                    && mcl->methods[e->method->method_id].is_constructor) {
+                int c = e->method->class_id;
+                if ((c >> 6) < ctx->vinv_touch_words)
+                    row[c >> 6] |= (uint64_t)1 << (c & 63);
+            }
+        }
+        ctx->vinv_touch_done[method_idx] = true;
+    }
     /* Only while the table is still being built. Once it is published it is
      * frozen: a verdict that could still fall is one a consumer may already
      * have folded a guard on. */
@@ -13840,6 +14016,18 @@ void compiler_summarize_to_convergence(compiler_ctx_t* ctx) {
     for (int oi = 0; oi < no; oi++)
         if (order[oi] >= 0 && order[oi] < mc) pos[order[oi]] = oi;
 
+    /* Arm the class-touch record (compiler.h) before round 1 so every method's
+     * first summarize fills its row; the close below reads it. */
+    int nclass = ctx->sema ? (int)bbq_vec_len((void*)ctx->sema->classes) : 0;
+    ctx->vinv_touch_words = (nclass + 63) >> 6;
+    if (ctx->vinv_touch_words > 0) {
+        size_t tw = (size_t)nm * ctx->vinv_touch_words * sizeof(uint64_t);
+        ctx->vinv_touch = (uint64_t*)bbq_arena_alloc(ctx->arena, tw);
+        memset(ctx->vinv_touch, 0, tw);
+        ctx->vinv_touch_done = (bool*)bbq_arena_alloc(ctx->arena, (size_t)nm * sizeof(bool));
+        memset(ctx->vinv_touch_done, 0, (size_t)nm * sizeof(bool));
+    }
+
     bool* need = (bool*)bbq_arena_alloc(ctx->arena, (size_t)nm * sizeof(bool));
     memset(need, 1, (size_t)nm * sizeof(bool));       /* round 1: everyone */
     ctx->sum_changed = (bool*)bbq_arena_alloc(ctx->arena, (size_t)nm * sizeof(bool));
@@ -13880,7 +14068,39 @@ void compiler_summarize_to_convergence(compiler_ctx_t* ctx) {
      * With no candidates the AND is over nothing and the sweep is skipped. */
     if (ctx->vinv_count > 0) {
         int seen = ctx->vinv_count;
-        for (int m = 0; m < mc; m++) sir_summarize(ctx, m);
+        /* Both sweeps' job is the candidate TABLE: (A) every writer puts its
+         * stores to pairs discovered mid-round, (B) every consumer re-publishes
+         * its facts with the frozen table readable. Either way a method
+         * participates only through a GetField/PutField of a candidate's class
+         * or by being one's constructor — the recorded touch rows — so the
+         * sweeps visit exactly those methods. The rest would recompute the
+         * summary the converged rounds already produced: the dead re-solve the
+         * round machinery above exists to avoid. Equivalence of the narrowing:
+         * a pair only an unswept method could discover stays undiscovered
+         * instead of entering killed — and every consumer gates on
+         * `vinv_holds`, so absent and killed are the same verdict. */
+        bool* insweep = (bool*)bbq_arena_alloc(ctx->arena, (size_t)nm * sizeof(bool));
+        if (ctx->vinv_touch) {
+            int tws = ctx->vinv_touch_words;
+            uint64_t* rel = (uint64_t*)bbq_arena_alloc(ctx->arena,
+                                                       (size_t)tws * sizeof(uint64_t));
+            memset(rel, 0, (size_t)tws * sizeof(uint64_t));
+            for (int p = 0; p < ctx->vinv_count; p++) {
+                int c = ctx->vinv_class[p];
+                if (c >= 0 && (c >> 6) < tws) rel[c >> 6] |= (uint64_t)1 << (c & 63);
+            }
+            for (int m = 0; m < mc; m++) {
+                const uint64_t* row = ctx->vinv_touch + (size_t)m * tws;
+                bool hit = false;
+                for (int w = 0; w < tws && !hit; w++) hit = (row[w] & rel[w]) != 0;
+                /* A row never recorded (a method the rounds never summarized —
+                 * no body, no entry) has nothing to contribute either way. */
+                insweep[m] = hit;
+            }
+        } else {
+            memset(insweep, 1, (size_t)nm * sizeof(bool));   /* no record: everyone */
+        }
+        for (int m = 0; m < mc; m++) if (insweep[m]) sir_summarize(ctx, m);
         /* A pair discovered DURING the sweep was never put to the methods the
          * sweep had already passed. An incomplete AND is not a proof. */
         for (int p = seen; p < ctx->vinv_count; p++) ctx->vinv_holds[p] = false;
@@ -13910,8 +14130,10 @@ void compiler_summarize_to_convergence(compiler_ctx_t* ctx) {
          * replays these facts rather than re-solving — so a verdict folds a
          * guard only if the analysis that publishes consulted it, and the
          * analysis may consult it only now that the AND is frozen. One more
-         * round, re-publishing every method's facts with the table readable. */
-        for (int m = 0; m < mc; m++) sir_summarize(ctx, m);
+         * round, re-publishing the consulting methods' facts with the table
+         * readable — every consumer decodes a GetField of a candidate's class,
+         * so the touch rows name them all. */
+        for (int m = 0; m < mc; m++) if (insweep[m]) sir_summarize(ctx, m);
     }
 }
 

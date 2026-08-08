@@ -501,6 +501,16 @@ typedef struct {
      * call graph — the identical fixpoint without the dead re-solves; a method
      * none of whose callees moved recomputes its identical summary). */
     bool* sum_changed;
+    /* Which classes' fields each method's SIR touches — the declaring class of
+     * every GetField vnode and PutField row, plus a constructor's own class.
+     * Shape facts (the SIR is immutable during the convergence phase), so they
+     * are recorded once per method, on its first summarize; the close's vinv
+     * sweeps read them to visit only methods that can put an obligation to — or
+     * read a verdict of — a candidate pair. [method × vinv_touch_words] class
+     * bitset, armed (non-NULL) only by the convergence driver. */
+    uint64_t* vinv_touch;
+    bool*     vinv_touch_done;
+    int       vinv_touch_words;
 } compiler_ctx_t;
 
 /* ── Public API ───────────────────────────────────────────── */

@@ -699,6 +699,49 @@ typedef struct {
     bool             esc_lowered;      /* any cp_escape_lower moved this drain */
     bool             esc_facts_moved;  /* pts/heap moved since the last escape drain */
 
+    /* The coarse re-add above makes a call row's EVALUATION the unit that must
+     * be O(inputs) (§8's membership test): everything a call-site evaluation
+     * reads is pts (roots, the target set — cp_virtual_target_set is a pure
+     * function of receiver pts) and heap cells (Fig-7's field-following), so a
+     * per-input STAMP makes "did anything this evaluation reads move" a sum
+     * compare, and an unchanged evaluation — whose outputs are all monotone,
+     * idempotent unions — is a skip, not a re-instantiation. `pts_stamp` bumps
+     * at the one pts commit point; `cell_stamp` at cp_update_heap's commit,
+     * per cell; `heap_stamp` on any heap commit (the bottom paths read heap
+     * REACHABILITY, whose input set is every cell). Per call-list entry:
+     * the operand vnodes (static, resolved once), the cells the last
+     * evaluation followed, and the stamp sum they had then. Stamps only grow,
+     * so equal sums mean equal inputs. */
+    uint32_t*        pts_stamp;        /* per CONSTRUCTION vnode — the solve mints
+                                        * Refines past this bound, but a call's
+                                        * operands are SIR nodes, always below it
+                                        * (the esc_dep_rows precedent) */
+    int              pts_stamp_rows;
+    uint32_t*        cell_stamp;       /* per cell */
+    uint64_t         heap_stamp;
+    int              esc_call_count;   /* esc_call_list entries (the rewrite grows
+                                        * spine_count past construction, so
+                                        * esc_call_off[spine_count] is not it) */
+    uint64_t*        esc_call_sig;     /* per esc_call_list entry: Σ stamps at eval */
+    uint64_t*        esc_call_heapst;  /* heap_stamp at eval (bottomish entries) */
+    bool*            esc_call_sig_ok;  /* entry has been evaluated */
+    bool*            esc_call_bottom;  /* eval took a bottom path (reads all heap) */
+    int**            esc_call_ops;     /* per entry: operand vnode ids (bbq_vec, built once) */
+    int**            esc_call_cells;   /* per entry: cells followed (bbq_vec, per eval) */
+    uint32_t*        memo_cell_gen;    /* per cell: dedup marker for the cells record */
+    uint32_t         memo_eval_gen;
+    int              memo_slot;        /* esc_call entry being evaluated; -1 idle */
+    bool             memo_saw_bottom;
+
+    /* cp_follow_field's per-(cell, object) union cache: U[c][o] = ∪ over the
+     * cell's versions of h_v[o], the exact value the per-query row walk
+     * computes — rebuilt per (c,o) when the cell's stamp says a version
+     * committed since, so a settled cell answers in O(words) instead of
+     * O(versions × words). Lazily allocated per queried cell; stamp+1 stored
+     * so 0 means never built. */
+    cp_pts_t**       cell_u;
+    uint32_t**       cell_u_stamp;
+
     /* Click §4.10 peer-PHI canonical slot. part_canon_phi[partition_id]
      * = vnode idx of the canonical PHI in the partition when ≥2 peer
      * PHIs at different slots sit together, otherwise -1. Populated
