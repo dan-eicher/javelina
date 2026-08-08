@@ -70,18 +70,19 @@ java_type_t desc_parse_method(bbq_arena* a, const char* desc,
      * always get the correct param count (important for method
      * overload resolution when descriptors reference not-yet-loaded
      * classes, e.g. Applet.process(APDU) parsed before APDU exists). */
-    java_type_t params[64]; /* max 64 params, more than enough */
-    int pc = 0;
-    while (desc[pos] && desc[pos] != ')' && pc < 64) {
-        params[pc] = desc_parse_type(a, desc, &pos, ctx);
-        if (jt_is_error(params[pc])) {
-            /* Skip past the unresolved type so parsing can continue.
-             * For primitives this is already handled in desc_parse_type.
-             * For 'L...;' types, we need to skip to the ';'. */
-        }
-        pc++;
+    /* One entry per parameter. The old sixty-four ("more than enough", sized to a
+     * Java Card RTL) stopped the loop early, so the `)` check below then failed
+     * and a perfectly legal descriptor was rejected as malformed. JVMS §4.3.3
+     * admits 255. */
+    java_type_t* params = NULL;
+    while (desc[pos] && desc[pos] != ')') {
+        java_type_t t = desc_parse_type(a, desc, &pos, ctx);
+        /* An unresolved class ref stays in the list: the param COUNT is what
+         * overload resolution needs, and the type resolves on a later pass. */
+        bbq_vec_push(params, t);
     }
-    if (desc[pos] != ')') return jt_error();
+    int pc = (int)bbq_vec_len(params);
+    if (desc[pos] != ')') { bbq_vec_free(params); return jt_error(); }
     pos++;
 
     /* Copy params to arena */
@@ -89,6 +90,7 @@ java_type_t desc_parse_method(bbq_arena* a, const char* desc,
         *out_params = (java_type_t*)bbq_arena_alloc(a, (size_t)pc * sizeof(java_type_t));
         memcpy(*out_params, params, (size_t)pc * sizeof(java_type_t));
     }
+    bbq_vec_free(params);
     *out_param_count = pc;
 
     /* Parse return type */

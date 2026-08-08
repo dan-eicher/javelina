@@ -5,6 +5,7 @@
 // grounded in the JLS check rules, not guesswork.
 #include "java_parser.h"
 #include "javelina/compiler/sema.h"
+#include "gen/simd_intrinsics.h"   /* SIMD_INTRINSIC_COUNT — every stub is stamped */
 #include "bbq_arena.h"
 #include "bbq_vec.h"
 #include <stdio.h>
@@ -933,6 +934,152 @@ int main(void) {
               "MIN-2: the import set is a record of USES — touching more of java.lang "
               "imports more (JLS 13.4.5)");
         bbq_arena_free(&a1); bbq_arena_free(&a2);
+    }
+
+    /* ── The well-known stamps land on the method they NAME ───────────────────
+     *
+     * resolve_wellknown_methods attaches lowering decisions to library methods:
+     * math_kind picks an f64 opcode, move_kind a raw bitcast, class_kind a call
+     * form. Every one of those stampers found its target by NAME and took the
+     * first hit — and §8.4.7 lets any number of methods share a name. In
+     * java.lang.Math alone, abs/min/max/round have twelve overloads between
+     * them, so "the name is unique" was a property of today's prelude, not an
+     * invariant, and the failure mode is an intrinsic bound to the wrong
+     * overload: `Math.abs(double)` lowering to an i32 op, silently.
+     *
+     * ret_nonnull already stamped every overload (its own comment cites
+     * String.valueOf's nine and StringBuffer.append's sixteen). Nothing pinned
+     * either behaviour, so this pins both: the kind stamps land on exactly one
+     * method and it is the one with the right signature, and the nonnull stamp
+     * covers a whole overload set rather than one member of it. */
+    {
+        bbq_arena a; bbq_arena_init(&a, 1 << 20);
+        sema_ctx_t s;
+        bool ok = analyze_into("class T { static int f(){ return 0; } }", &a, &s);
+        CHECK(ok, "well-known: the prelude analyzed");
+        if (ok) {
+            /* (kind, name, params, return) for each f64 math intrinsic. */
+            struct { int kind; const char* name; } mk[] = {
+              { 1, "sqrt" }, { 2, "floor" }, { 3, "ceil" }, { 4, "rint" },
+            };
+            int math_id = sema_find_class(&s, "java.lang.Math");
+            CHECK(math_id >= 0, "well-known: found java.lang.Math");
+            if (math_id >= 0) {
+                const sema_class_t* mc = sema_get_class(&s, math_id);
+                for (int k = 0; k < (int)(sizeof mk / sizeof mk[0]); k++) {
+                    int hits = 0, good = 0;
+                    for (int i = 0; i < (int)bbq_vec_len(mc->methods); i++) {
+                        const sema_method_t* m = &mc->methods[i];
+                        if (m->math_kind != mk[k].kind) continue;
+                        hits++;
+                        if (strcmp(m->name, mk[k].name) == 0 && m->param_count == 1
+                            && m->param_types[0].tag == JT_DOUBLE
+                            && m->return_type.tag == JT_DOUBLE) good++;
+                    }
+                    char lbl[128];
+                    snprintf(lbl, sizeof lbl,
+                             "Math.%s: exactly one method carries the intrinsic, "
+                             "and it is (double)->double", mk[k].name);
+                    CHECK(hits == 1 && good == 1, lbl);
+                }
+                /* The overloaded neighbours must carry NO intrinsic at all. */
+                int stray = 0;
+                for (int i = 0; i < (int)bbq_vec_len(mc->methods); i++) {
+                    const sema_method_t* m = &mc->methods[i];
+                    if (m->math_kind == 0) continue;
+                    if (strcmp(m->name, "sqrt") && strcmp(m->name, "floor")
+                        && strcmp(m->name, "ceil") && strcmp(m->name, "rint")) stray++;
+                }
+                CHECK(stray == 0,
+                      "Math: abs/min/max/round carry no f64 intrinsic (a name-keyed "
+                      "stamp would reach the first overload of one of them)");
+            }
+            /* move_kind: each bitcast is a distinct (param, return) pair. */
+            struct { const char* cls; const char* name; int kind;
+                     java_type_tag_t p, r; } mv[] = {
+              { "java.lang.Float",  "floatToRawIntBits",   1, JT_FLOAT,  JT_INT    },
+              { "java.lang.Float",  "intBitsToFloat",      2, JT_INT,    JT_FLOAT  },
+              { "java.lang.Double", "doubleToRawLongBits", 3, JT_DOUBLE, JT_LONG   },
+              { "java.lang.Double", "longBitsToDouble",    4, JT_LONG,   JT_DOUBLE },
+            };
+            for (int k = 0; k < (int)(sizeof mv / sizeof mv[0]); k++) {
+                int cid = sema_find_class(&s, mv[k].cls);
+                int hits = 0, good = 0;
+                if (cid >= 0) {
+                    const sema_class_t* c = sema_get_class(&s, cid);
+                    for (int i = 0; i < (int)bbq_vec_len(c->methods); i++) {
+                        const sema_method_t* m = &c->methods[i];
+                        if (m->move_kind != mv[k].kind) continue;
+                        hits++;
+                        if (strcmp(m->name, mv[k].name) == 0 && m->param_count == 1
+                            && m->param_types[0].tag == mv[k].p
+                            && m->return_type.tag == mv[k].r) good++;
+                    }
+                }
+                char lbl[128];
+                snprintf(lbl, sizeof lbl,
+                         "%s: the bitcast intrinsic is on the right signature", mv[k].name);
+                CHECK(cid >= 0 && hits == 1 && good == 1, lbl);
+            }
+            /* Every javelina.simd stub carries exactly one opcode, and it is the
+             * one whose generated descriptor matches its signature. The bind used
+             * to be name-only with first-match-wins, so the first convenience
+             * overload the API grows would have taken the wrong opcode. */
+            {
+                bbq_arena sa; bbq_arena_init(&sa, 1 << 20);
+                sema_ctx_t ss;
+                bool sok = analyze_into(
+                    SIMD "class T { static int f(V128 a){ return I32x4.bitmask(a); } }",
+                    &sa, &ss);
+                int stamped = 0, dup = 0;
+                /* Every id in the generated table must be claimed by exactly one
+                 * stub: `stamped` counts the binds, and a repeated id means two
+                 * stubs took the same opcode — the shape a name-keyed bind
+                 * produces the moment a name is overloaded. */
+                int* seen = (int*)calloc(SIMD_INTRINSIC_COUNT + 1, sizeof(int));
+                for (int c = 0; sok && c < (int)bbq_vec_len(ss.classes); c++) {
+                    const sema_class_t* sc = sema_get_class(&ss, c);
+                    for (int i = 0; i < (int)bbq_vec_len(sc->methods); i++) {
+                        int id = sc->methods[i].simd_id;
+                        if (id <= 0 || id > SIMD_INTRINSIC_COUNT) continue;
+                        stamped++;
+                        if (seen[id]++) dup++;
+                    }
+                }
+                free(seen);
+                char lbl[144];
+                snprintf(lbl, sizeof lbl,
+                         "javelina.simd: all %d table entries bound to a stub, one "
+                         "each (%d bound, %d collisions)", SIMD_INTRINSIC_COUNT, stamped, dup);
+                CHECK(sok && stamped == SIMD_INTRINSIC_COUNT && dup == 0, lbl);
+                sema_destroy(&ss); bbq_arena_free(&sa);
+            }
+            /* ret_nonnull is a WHOLE-overload-set contract, not one member. */
+            struct { const char* cls; const char* name; } nn[] = {
+              { "java.lang.StringBuffer", "append"    },
+              { "java.lang.StringBuffer", "insert"    },
+              { "java.lang.String",       "valueOf"   },
+              { "java.lang.String",       "substring" },
+            };
+            for (int k = 0; k < (int)(sizeof nn / sizeof nn[0]); k++) {
+                int cid = sema_find_class(&s, nn[k].cls);
+                int named = 0, stamped = 0;
+                if (cid >= 0) {
+                    const sema_class_t* c = sema_get_class(&s, cid);
+                    for (int i = 0; i < (int)bbq_vec_len(c->methods); i++)
+                        if (strcmp(c->methods[i].name, nn[k].name) == 0) {
+                            named++;
+                            if (c->methods[i].ret_nonnull) stamped++;
+                        }
+                }
+                char lbl[144];
+                snprintf(lbl, sizeof lbl,
+                         "%s.%s: all %d overloads carry ret_nonnull, not just the first",
+                         nn[k].cls, nn[k].name, named);
+                CHECK(cid >= 0 && named > 1 && stamped == named, lbl);
+            }
+        }
+        sema_destroy(&s); bbq_arena_free(&a);
     }
 
     return TEST_SUMMARY("test_sema");

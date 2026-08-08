@@ -926,7 +926,12 @@ static const sema_method_t* find_method(const sema_ctx_t* ctx, int class_id,
                                       const char* name, int arg_count,
                                       const java_type_t* arg_types) {
     const sema_method_t* arity_match = NULL;
-    const sema_method_t* cand[32]; int cand_cls[32]; int ncand = 0;
+    /* Every applicable declaration, however many there are. A fixed array here
+     * silently dropped candidates past its bound, and §15.11.2.2 picks the most
+     * specific of the applicable SET — drop one and the winner can change, or an
+     * ambiguity can go unreported. The old bound (32) was comfortable only
+     * because java.lang's largest overload set is StringBuffer.append's ten. */
+    const sema_method_t** cand = NULL; int* cand_cls = NULL;
     for (int walk = class_id; walk >= 0; walk = ctx->classes[walk].super_id) {
         const sema_class_t* c = &ctx->classes[walk];
         for (int i = 0; i < bbq_vec_len(c->methods); i++) {
@@ -934,14 +939,16 @@ static const sema_method_t* find_method(const sema_ctx_t* ctx, int class_id,
             if (m->is_constructor || strcmp(m->name, name) != 0) continue;
             if (m->param_count == arg_count) {
                 if (!arity_match) arity_match = m;
-                if (!arg_types) return m;
+                if (!arg_types) { bbq_vec_free(cand); bbq_vec_free(cand_cls); return m; }
             }
-            if (arg_types && sig_applicable(ctx, m, arg_count, arg_types) && ncand < 32)
-                { cand[ncand] = m; cand_cls[ncand] = walk; ncand++; }
+            if (arg_types && sig_applicable(ctx, m, arg_count, arg_types))
+                { bbq_vec_push(cand, m); bbq_vec_push(cand_cls, walk); }
         }
     }
-    if (!arg_types) return arity_match;
-    const sema_method_t* best = most_specific_sig(ctx, cand, cand_cls, ncand);
+    if (!arg_types) { bbq_vec_free(cand); bbq_vec_free(cand_cls); return arity_match; }
+    const sema_method_t* best = most_specific_sig(ctx, cand, cand_cls,
+                                                  (int)bbq_vec_len(cand));
+    bbq_vec_free(cand); bbq_vec_free(cand_cls);
     return best ? best : arity_match;          /* arity_match: none-applicable / ambiguous → caller reports */
 }
 
@@ -993,20 +1000,22 @@ static const sema_method_t* find_constructor(const sema_ctx_t* ctx, int class_id
     if (class_id < 0) return NULL;
     const sema_class_t* c = &ctx->classes[class_id];
     const sema_method_t* arity_match = NULL;
-    const sema_method_t* cand[32]; int cand_cls[32]; int ncand = 0;
+    const sema_method_t** cand = NULL; int* cand_cls = NULL;   /* every applicable ctor */
     for (int i = 0; i < bbq_vec_len(c->methods); i++) {
         const sema_method_t* m = &c->methods[i];
         if (!m->is_constructor) continue;
         *has_explicit = true;
         if (m->param_count == arg_count) {
             if (!arity_match) arity_match = m;
-            if (!arg_types) return m;
+            if (!arg_types) { bbq_vec_free(cand); bbq_vec_free(cand_cls); return m; }
         }
-        if (arg_types && sig_applicable(ctx, m, arg_count, arg_types) && ncand < 32)
-            { cand[ncand] = m; cand_cls[ncand] = class_id; ncand++; }
+        if (arg_types && sig_applicable(ctx, m, arg_count, arg_types))
+            { bbq_vec_push(cand, m); bbq_vec_push(cand_cls, class_id); }
     }
-    if (!arg_types) return arity_match;
-    const sema_method_t* best = most_specific_sig(ctx, cand, cand_cls, ncand);
+    if (!arg_types) { bbq_vec_free(cand); bbq_vec_free(cand_cls); return arity_match; }
+    const sema_method_t* best = most_specific_sig(ctx, cand, cand_cls,
+                                                  (int)bbq_vec_len(cand));
+    bbq_vec_free(cand); bbq_vec_free(cand_cls);
     return best ? best : arity_match;
 }
 
@@ -2391,27 +2400,38 @@ static void store_type(sema_ctx_t* ctx, const ast_expr_t* e, java_type_t t) {
  * (A single-ident base is left to analyze_expr, which already resolves a bare class name.) */
 static int qualified_type_base(sema_ctx_t* ctx, const ast_expr_t* e) {
     if (!e || e->tag != AST_FIELDACCESS) return -1;
-    const char* segs[16];
-    int n = 0;
+    /* §6.5 puts no bound on a qualified name's length. The old sixteen-segment
+     * array made a longer path return -1 — "not a type name" — and the 256-byte
+     * buffer truncated the path before it was probed, so both limits answered a
+     * different question than the one asked, silently. */
+    const char** segs = NULL;
     const ast_expr_t* cur = e;
-    while (cur && cur->tag == AST_FIELDACCESS && n < 16) {
-        segs[n++] = cur->field_access.field;
+    while (cur && cur->tag == AST_FIELDACCESS) {
+        bbq_vec_push(segs, cur->field_access.field);
         cur = cur->field_access.obj;
     }
-    if (!cur || cur->tag != AST_IDENT || n == 0 || n >= 16) return -1;
+    int n = (int)bbq_vec_len(segs);
+    if (!cur || cur->tag != AST_IDENT || n == 0) { bbq_vec_free(segs); return -1; }
     const char* head = cur->ident.name;
-    if (scope_lookup_var(ctx, head)) return -1;                         /* leftmost is a local/param */
-    if (find_field(ctx, ctx->current_class_id, head)) return -1;        /* leftmost is a field */
-    char buf[256];
-    int pos = snprintf(buf, sizeof buf, "%s", head);                    /* "head.segs[n-1]....segs[0]" */
-    for (int i = n - 1; i >= 0 && pos < (int)sizeof buf; i--)
-        pos += snprintf(buf + pos, sizeof buf - pos, ".%s", segs[i]);
+    if (scope_lookup_var(ctx, head)) { bbq_vec_free(segs); return -1; }      /* leftmost is a local/param */
+    if (find_field(ctx, ctx->current_class_id, head)) { bbq_vec_free(segs); return -1; }  /* leftmost is a field */
+    bbq_buf nb; bbq_buf_init(&nb);                                      /* "head.segs[n-1]....segs[0]" */
+    bbq_buf_append(&nb, head, strlen(head));
+    for (int i = n - 1; i >= 0; i--) {
+        bbq_buf_append(&nb, ".", 1);
+        bbq_buf_append(&nb, segs[i], strlen(segs[i]));
+    }
+    bbq_buf_append(&nb, "", 1);                                         /* NUL */
+    bbq_vec_free(segs);
+    const char* buf = (const char*)nb.data;
     /* §6.5.4.2 probe: the whole dotted path as a package-qualified type name.
      * (The old fallback that retried the LAST segment as a simple name would
      * accept `bogus.pkg.FileDescriptor` — Q must name the real package.)
      * Nested shapes (`pkg.Class.staticField.x`) resolve by recursion: this
      * probe misses, the caller descends, and the shorter base probes again. */
-    return sema_resolve_type(ctx, cur_unit(ctx), buf, e->loc, true);
+    int r = sema_resolve_type(ctx, cur_unit(ctx), buf, e->loc, true);
+    bbq_buf_free(&nb);
+    return r;
 }
 
 /* §15.27's String half. Is `e` a constant String expression, and if so, which code units does
@@ -2681,9 +2701,13 @@ static java_type_t analyze_expr(sema_ctx_t* ctx, ast_expr_t* e) {
 
         /* Analyze arguments and collect types for overload resolution */
         int ac = e->method_call.args_count;
-        java_type_t call_arg_types[32];
-        for (int i = 0; i < ac && i < 32; i++)
-            call_arg_types[i] = analyze_expr(ctx, e->method_call.args[i]);
+        /* One entry per argument. The fixed 32 clamped only the WRITE — the full
+         * `ac` still reached find_method, and sig_applicable reads arg_types[j]
+         * for every j < arg_count, so a call with more arguments than the bound
+         * decided overload resolution off uninitialised stack. §8.4.1 admits 255. */
+        java_type_t* call_arg_types = NULL;
+        for (int i = 0; i < ac; i++)
+            bbq_vec_push(call_arg_types, analyze_expr(ctx, e->method_call.args[i]));
 
         const sema_method_t* m = find_method(ctx, target_class,
                                            e->method_call.method, ac,
@@ -2778,6 +2802,7 @@ static java_type_t analyze_expr(sema_ctx_t* ctx, ast_expr_t* e) {
             bbq_htree_insert(ctx->target_classes, ptr_key(e),
                              (void*)(uintptr_t)(target_class + 1));
         }
+        bbq_vec_free(call_arg_types);
         break;
     }
 
@@ -2795,14 +2820,16 @@ static java_type_t analyze_expr(sema_ctx_t* ctx, ast_expr_t* e) {
             break;
         }
         int ac = e->new_.args_count;
-        java_type_t ctor_at[32];
-        for (int i = 0; i < ac; i++) {
-            java_type_t t = analyze_expr(ctx, e->new_.args[i]);
-            if (i < 32) ctor_at[i] = t;
-        }
+        /* One entry per argument. Past the old bound the types were dropped and
+         * NULL passed instead, which silently degrades §15.11.2 to an arity-only
+         * match — a wrong constructor rather than a diagnostic. */
+        java_type_t* ctor_at = NULL;
+        for (int i = 0; i < ac; i++)
+            bbq_vec_push(ctor_at, analyze_expr(ctx, e->new_.args[i]));
         bool has_explicit;
         const sema_method_t* ctor = find_constructor(ctx, cid, ac,
-                                        (ac > 0 && ac <= 32) ? ctor_at : NULL, &has_explicit);
+                                        ac > 0 ? ctor_at : NULL, &has_explicit);
+        bbq_vec_free(ctor_at);
         if (!ctor && (has_explicit || ac > 0)) {
             sema_error(ctx, e->loc, "no constructor with %d args for '%s'",
                        ac, ctx->classes[cid].name);
@@ -3225,9 +3252,9 @@ static java_type_t analyze_expr(sema_ctx_t* ctx, ast_expr_t* e) {
         int sid = ctx->current_class_id >= 0 ?
                   ctx->classes[ctx->current_class_id].super_id : -1;
         int ac = e->super_call.args_count;
-        java_type_t super_arg_types[32];
-        for (int i = 0; i < ac && i < 32; i++)
-            super_arg_types[i] = analyze_expr(ctx, e->super_call.args[i]);
+        java_type_t* super_arg_types = NULL;      /* one entry per argument */
+        for (int i = 0; i < ac; i++)
+            bbq_vec_push(super_arg_types, analyze_expr(ctx, e->super_call.args[i]));
         if (sid >= 0) {
             const sema_method_t* m = find_method(ctx, sid, e->super_call.method, ac,
                                                   ac > 0 ? super_arg_types : NULL);
@@ -3245,6 +3272,7 @@ static java_type_t analyze_expr(sema_ctx_t* ctx, ast_expr_t* e) {
                            e->super_call.method);
             }
         }
+        bbq_vec_free(super_arg_types);
         break;
     }
 
@@ -3254,15 +3282,13 @@ static java_type_t analyze_expr(sema_ctx_t* ctx, ast_expr_t* e) {
              ctx->classes[ctx->current_class_id].super_id : -1) :
             ctx->current_class_id;
         int ac = e->constructor_call.args_count;
-        java_type_t cc_at[32];
-        for (int i = 0; i < ac; i++) {
-            java_type_t t = analyze_expr(ctx, e->constructor_call.args[i]);
-            if (i < 32) cc_at[i] = t;
-        }
+        java_type_t* cc_at = NULL;                /* one entry per argument */
+        for (int i = 0; i < ac; i++)
+            bbq_vec_push(cc_at, analyze_expr(ctx, e->constructor_call.args[i]));
         if (target >= 0) {
             bool has_explicit;
             const sema_method_t* ctor = find_constructor(ctx, target, ac,
-                                            (ac > 0 && ac <= 32) ? cc_at : NULL, &has_explicit);
+                                            ac > 0 ? cc_at : NULL, &has_explicit);
             if (ctor) {
                 /* Phase B: record resolved ctor for DDCG */
                 bbq_htree_insert(ctx->resolved_ctors, ptr_key(e), encode_method_loc(ctx, ctor));
@@ -3274,6 +3300,7 @@ static java_type_t analyze_expr(sema_ctx_t* ctx, ast_expr_t* e) {
                                  (void*)(uintptr_t)(target + 1));
             }
         }
+        bbq_vec_free(cc_at);
         result = jt_prim(JT_VOID);
         break;
     }
@@ -4191,20 +4218,77 @@ static void resolve_wellknown(sema_ctx_t* ctx) {
  * only in Object's methods vec by then). */
 /* Stamp the first method named `name` in `class_id` with a Move* intrinsic kind (§20.9/§20.10
  * raw bit accessors). Done ONCE at well-known resolution; call sites read m->move_kind. */
-static void stamp_move_kind(sema_ctx_t* ctx, int class_id, const char* name, int kind) {
-    if (class_id < 0) return;
-    sema_class_t* c = &ctx->classes[class_id];
-    for (int i = 0; i < (int)bbq_vec_len(c->methods); i++)
-        if (strcmp(c->methods[i].name, name) == 0) { c->methods[i].move_kind = kind; return; }
+/* Does `m`'s parameter list match the generated intrinsic descriptor `ptypes`
+ * (one char per parameter — V=V128, I=int, J=long, F=float, D=double)?
+ *
+ * The bind from a javelina.simd stub to its wasm opcode has to name the METHOD,
+ * and a name does not (§8.4.7). Matching on the name alone worked only while the
+ * generated stubs held one method per name; a convenience overload — an `add`
+ * taking a scalar beside one taking a vector, which is what a usable API is made
+ * of — would take whichever entry came first and emit its opcode. */
+static bool simd_sig_matches(const sema_method_t* m, const char* ptypes) {
+    int n = ptypes ? (int)strlen(ptypes) : 0;
+    if (m->param_count != n) return false;
+    for (int i = 0; i < n; i++) {
+        java_type_tag_t t = m->param_types[i].tag;
+        switch (ptypes[i]) {
+            /* V128 is the v128 VALUE type — sema maps the class to the value
+             * width at every use site, so a parameter of it is JT_V128, never a
+             * reference. */
+            case 'V': if (t != JT_V128)   return false; break;
+            case 'I': if (t != JT_INT)    return false; break;
+            case 'J': if (t != JT_LONG)   return false; break;
+            case 'F': if (t != JT_FLOAT)  return false; break;
+            case 'D': if (t != JT_DOUBLE) return false; break;
+            default:  return false;      /* '?' — the generator could not type it */
+        }
+    }
+    return true;
 }
 
-/* Stamp the first method named `name` in `class_id` with a Math f64-op intrinsic kind (§20.11
- * sqrt/floor/ceil/rint — each a single wasm opcode). Same one-time-at-resolution model as move_kind. */
-static void stamp_math_kind(sema_ctx_t* ctx, int class_id, const char* name, int kind) {
-    if (class_id < 0) return;
+/* The index of the method in `class_id` named `name` taking exactly the one parameter type
+ * `param` and returning `ret`, or -1.
+ *
+ * A name does not identify a method — §8.4.7 lets any number of methods share one, and
+ * java.lang.Math alone has twelve overloads across abs/min/max/round. Every stamper below
+ * attaches a LOWERING decision (an opcode, a bitcast, a call form) to a method, so picking
+ * the wrong overload emits the wrong instruction for the right-looking source. Passing
+ * `JT_VOID` for `param` matches a no-argument method. */
+static int find_method_sig(sema_ctx_t* ctx, int class_id, const char* name,
+                           java_type_tag_t param, java_type_tag_t ret) {
+    if (class_id < 0) return -1;
     sema_class_t* c = &ctx->classes[class_id];
-    for (int i = 0; i < (int)bbq_vec_len(c->methods); i++)
-        if (strcmp(c->methods[i].name, name) == 0) { c->methods[i].math_kind = kind; return; }
+    int want_params = (param == JT_VOID) ? 0 : 1;
+    for (int i = 0; i < (int)bbq_vec_len(c->methods); i++) {
+        const sema_method_t* m = &c->methods[i];
+        if (strcmp(m->name, name) != 0) continue;
+        if (m->param_count != want_params) continue;
+        if (want_params && m->param_types[0].tag != param) continue;
+        if (m->return_type.tag != ret) continue;
+        return i;
+    }
+    return -1;
+}
+
+static void stamp_move_kind(sema_ctx_t* ctx, int class_id, const char* name, int kind,
+                            java_type_tag_t param, java_type_tag_t ret) {
+    int i = find_method_sig(ctx, class_id, name, param, ret);
+    if (i >= 0) ctx->classes[class_id].methods[i].move_kind = kind;
+}
+
+/* Stamp the method `double name(double)` in `class_id` with a Math f64-op intrinsic kind
+ * (§20.11 sqrt/floor/ceil/rint — each a single wasm opcode). Same one-time-at-resolution
+ * model as move_kind.
+ *
+ * The SIGNATURE is part of the key, not just the name. Each of these four is declared once
+ * in §20.11, so a name alone identifies them today — but they share a class with abs, min,
+ * max and round, which have twelve overloads between them, and a first-match-by-name stamp
+ * would attach the intrinsic to whichever overload the methods vector happens to list first.
+ * That is the same wrong-key defect as resolving an ident by name and taking what turns up:
+ * it would lower `abs(double)` to an i32 op the moment anyone stamped an overloaded name. */
+static void stamp_math_kind(sema_ctx_t* ctx, int class_id, const char* name, int kind) {
+    int i = find_method_sig(ctx, class_id, name, JT_DOUBLE, JT_DOUBLE);
+    if (i >= 0) ctx->classes[class_id].methods[i].math_kind = kind;
 }
 
 /* Stamp the first method named `name` in `class_id` as never returning null.
@@ -4227,11 +4311,10 @@ static void stamp_ret_nonnull(sema_ctx_t* ctx, int class_id, const char* name) {
 /* §20.3.6: stamp Class's two newInstance helper natives with their intrinsic kind, so each lowers
  * to a ClassInstantiable/ClassConstruct SIR node over the receiver Class (never a real call/import).
  * Same one-time-at-resolution model as move_kind/math_kind. */
-static void stamp_class_kind(sema_ctx_t* ctx, int class_id, const char* name, int kind) {
-    if (class_id < 0) return;
-    sema_class_t* c = &ctx->classes[class_id];
-    for (int i = 0; i < (int)bbq_vec_len(c->methods); i++)
-        if (strcmp(c->methods[i].name, name) == 0) { c->methods[i].class_kind = kind; return; }
+static void stamp_class_kind(sema_ctx_t* ctx, int class_id, const char* name, int kind,
+                             java_type_tag_t ret) {
+    int i = find_method_sig(ctx, class_id, name, JT_VOID, ret);
+    if (i >= 0) ctx->classes[class_id].methods[i].class_kind = kind;
 }
 
 static void resolve_wellknown_methods(sema_ctx_t* ctx) {
@@ -4267,10 +4350,10 @@ static void resolve_wellknown_methods(sema_ctx_t* ctx) {
      * here (soft: no-op if the class/method is absent); call sites read m->move_kind. */
     ctx->wk.float_id  = sema_find_class(ctx, "java.lang.Float");
     ctx->wk.double_id = sema_find_class(ctx, "java.lang.Double");
-    stamp_move_kind(ctx, ctx->wk.float_id,  "floatToRawIntBits",   1);
-    stamp_move_kind(ctx, ctx->wk.float_id,  "intBitsToFloat",      2);
-    stamp_move_kind(ctx, ctx->wk.double_id, "doubleToRawLongBits", 3);
-    stamp_move_kind(ctx, ctx->wk.double_id, "longBitsToDouble",    4);
+    stamp_move_kind(ctx, ctx->wk.float_id,  "floatToRawIntBits",   1, JT_FLOAT,  JT_INT);
+    stamp_move_kind(ctx, ctx->wk.float_id,  "intBitsToFloat",      2, JT_INT,    JT_FLOAT);
+    stamp_move_kind(ctx, ctx->wk.double_id, "doubleToRawLongBits", 3, JT_DOUBLE, JT_LONG);
+    stamp_move_kind(ctx, ctx->wk.double_id, "longBitsToDouble",    4, JT_LONG,   JT_DOUBLE);
     /* §20.11 Math f64 ops with a direct wasm opcode → inline intrinsics (never a host import). The
      * transcendentals with no opcode stay real methods (a Java fdlibm impl). */
     /* ── §20 library contracts: reference results that are never null ────────────────────
@@ -4340,7 +4423,9 @@ static void resolve_wellknown_methods(sema_ctx_t* ctx) {
             if (cid >= 0) {
                 sema_class_t* c = &ctx->classes[cid];
                 for (int i = 0; i < (int)bbq_vec_len(c->methods); i++)
-                    if (strcmp(c->methods[i].name, r->method) == 0) { m = &c->methods[i]; break; }
+                    if (strcmp(c->methods[i].name, r->method) == 0
+                            && simd_sig_matches(&c->methods[i], r->ptypes))
+                        { m = &c->methods[i]; break; }
             }
             if (!m) {
                 sema_error(ctx, (ast_srcloc){0},
@@ -4370,8 +4455,8 @@ static void resolve_wellknown_methods(sema_ctx_t* ctx) {
         }
     }
 
-    stamp_class_kind(ctx, ctx->wk.class_reflect_id, "instantiable", 1);   /* §20.3.6 */
-    stamp_class_kind(ctx, ctx->wk.class_reflect_id, "construct",    2);
+    stamp_class_kind(ctx, ctx->wk.class_reflect_id, "instantiable", 1, JT_BOOL); /* §20.3.6 */
+    stamp_class_kind(ctx, ctx->wk.class_reflect_id, "construct",    2, JT_CLASS);
 }
 
 /* Stamp every method/field with its (declaring class, class-local index) — the stable IDENTITY
