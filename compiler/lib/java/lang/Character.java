@@ -11,14 +11,20 @@ public final class Character {
     public static final int MAX_RADIX = 36;
     private char value;
     public Character(char value) { this.value = value; }
-    public native String toString();
+    // §20.5 — a String of length 1 holding this Character's value. NOT a native: nothing here is
+    // an environment edge, so declaring it native only produces an import the host contract does
+    // not cover, which traps at the call.
+    public String toString() { return String.valueOf(value); }
     public boolean equals(Object obj) {
         if (obj instanceof Character) {
             return value == ((Character)obj).charValue();
         }
         return false;
     }
-    public native int hashCode();
+    // §20.5 — the value itself, which is what makes equal Characters hash equal (§20.1.4's
+    // contract, given `equals` above compares values). Same reason as toString: not an
+    // environment edge, so not a native.
+    public int hashCode() { return (int)value; }
     public char charValue() { return value; }
     // §20.5 classification/case — delegated to the generated CharacterData (BMP Unicode range tables).
     public static boolean isLowerCase(char ch) { return CharacterData.isLowerCase(ch); }

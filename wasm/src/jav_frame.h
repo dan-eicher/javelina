@@ -262,6 +262,15 @@ struct vm_s {
                                          * Distinct from `engine_fault` below because the store stays USABLE:
                                          * running out of stack says nothing about the heap, so poisoning the
                                          * store would turn a recoverable condition into a dead vm. */
+    char host_trap[192];                /* The message carried by a trap a HOST callback returned, copied
+                                         * here before that trap is deleted. The C API's contract is that a
+                                         * callback's `wasm_trap_t*` reaches the caller; the bridge cannot
+                                         * hand the object itself to the engine, so it keeps the one part
+                                         * that names the cause. Without it an embedder's careful message —
+                                         * "unimplemented native 'x'" — became the bare "trap", which is the
+                                         * same nothing-named failure `exhausted` above was added to fix.
+                                         * A copy, not a pointer: the trap owns its string and dies here.
+                                         * Empty = no host trap. */
     const char* engine_fault;           /* An ENGINE defect, not a program one: the heap checker's named
                                          * invariant (a static string). It is not a trap_reason because that
                                          * vocabulary is the spec's, generated from instructions.toml, and no

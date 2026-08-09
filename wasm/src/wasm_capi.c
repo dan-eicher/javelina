@@ -868,6 +868,17 @@ static jav_status_t capi_host_invoke(vm_t* vm, heap_t* h, void* ctx) {
     free(abuf);
     if (trap) {
         for (uint16_t i = 0; i < nr; i++) wasm_val_delete(&rbuf[i]);
+        /* Keep the cause before the trap dies. The engine raises traps by reason code, so the
+         * object cannot travel; its message is the only part that names why the host refused. */
+        wasm_message_t hm = WASM_EMPTY_VEC;
+        wasm_trap_message(trap, &hm);          /* the accessor: the struct is defined below this */
+        if (hm.size && hm.data) {
+            size_t n = hm.size;
+            if (n >= sizeof vm->host_trap) n = sizeof vm->host_trap - 1;
+            memcpy(vm->host_trap, hm.data, n);
+            vm->host_trap[n] = '\0';
+        }
+        if (hm.size) wasm_byte_vec_delete(&hm);
         wasm_trap_delete(trap); free(rbuf);
         vm->trapped = 1; vm->frame.code.pos = vm->frame.code.length;
         return JAV_TRAP;
@@ -1210,9 +1221,14 @@ wasm_trap_t* wasm_func_call(const wasm_func_t* f, const wasm_val_vec_t* args, wa
         // Precedence: a broken engine outranks a resource limit outranks the §7.10 reason. The
         // middle one exists because the frame guards raise a trap the spec's generated
         // vocabulary cannot name, and without it they fell through to the bare "trap".
-        wasm_trap_t* t = trap_make(vm->engine_fault ? vm->engine_fault
-                                 : vm->exhausted    ? vm->exhausted
+        /* …and a HOST callback's own message, below the two engine-side overrides (a broken
+         * collector or an exhausted frame pool describes the run, not the embedder's refusal)
+         * but above the generated vocabulary, which has no reason for "the host said no". */
+        wasm_trap_t* t = trap_make(vm->engine_fault  ? vm->engine_fault
+                                 : vm->exhausted     ? vm->exhausted
+                                 : vm->host_trap[0]  ? vm->host_trap
                                  : jav_trap_reason_str((jav_trap_reason_t)vm->trap_reason));
+        vm->host_trap[0] = '\0';          /* consumed — the next trap names its own cause */
         t->inst = in;
         size_t n = (size_t)bbq_vec_len(vm->trap_trace);
         t->nframes = n; t->frames = n ? malloc(n * sizeof(uint32_t)) : NULL;

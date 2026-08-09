@@ -1,13 +1,22 @@
 package java.util;
 
-// java.util.BitSet (JLS 1.0 §21.6) — a growable set of bits. Represented as an array of
+// java.util.BitSet (JLS 1.0 §21.2) — a growable set of bits. Represented as an array of
 // 64-bit words (the internal layout is not spec-visible; only the bit behavior is).
+//
+// §21.2: "The bits of a BitSet are indexed by NONNEGATIVE integers", and every method is
+// specified over "nonnegative int index k". A negative index is therefore outside the class's
+// contract, and the spec does not say what happens — but silently doing the WRONG THING is not
+// one of the options. `bit / 64` is 0 for -1 and `1L << (bit % 64)` is a shift by -1, which Java
+// masks to 63: a negative index used to alias bit 63, reading and writing a valid bit with no
+// error at all. These checks make the out-of-contract call say so; the exception types are the
+// ones the reference implementation raises (a negative array length, a bad index).
 public class BitSet implements Cloneable {
     private long[] bits;
 
     public BitSet() { this(64); }
 
-    public BitSet(int nbits) {
+    public BitSet(int nbits) throws NegativeArraySizeException {
+        if (nbits < 0) throw new NegativeArraySizeException();
         int words = (nbits + 63) / 64;
         if (words < 1) words = 1;
         bits = new long[words];
@@ -21,18 +30,21 @@ public class BitSet implements Cloneable {
         }
     }
 
-    public void set(int bit) {
+    public void set(int bit) throws IndexOutOfBoundsException {
+        if (bit < 0) throw new IndexOutOfBoundsException();
         int w = bit / 64;
         ensure(w + 1);
         bits[w] = bits[w] | (1L << (bit % 64));
     }
 
-    public void clear(int bit) {
+    public void clear(int bit) throws IndexOutOfBoundsException {
+        if (bit < 0) throw new IndexOutOfBoundsException();
         int w = bit / 64;
         if (w < bits.length) bits[w] = bits[w] & (~(1L << (bit % 64)));
     }
 
-    public boolean get(int bit) {
+    public boolean get(int bit) throws IndexOutOfBoundsException {
+        if (bit < 0) throw new IndexOutOfBoundsException();
         int w = bit / 64;
         return (w < bits.length) && ((bits[w] & (1L << (bit % 64))) != 0);
     }
