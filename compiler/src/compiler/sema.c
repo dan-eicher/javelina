@@ -140,18 +140,18 @@ static void scope_pop(sema_ctx_t* ctx) {
 /* ρ-frame stack helpers — track the same scopes ddcg pushes ρ for,
  * so break/continue resolution can record the target depth at sema
  * time and codegen just walks the chain by integer count. */
-static void frame_push_loop(sema_ctx_t* ctx) {
-    sema_frame_t f = { SEMA_FRAME_LOOP, ctx->pending_frame_label };
+static void frame_push_loop(sema_ctx_t* ctx, const ast_stmt_t* s) {
+    sema_frame_t f = { SEMA_FRAME_LOOP, ctx->pending_frame_label, s };
     bbq_vec_push(ctx->frames, f);
     ctx->pending_frame_label = NULL;
 }
-static void frame_push_switch(sema_ctx_t* ctx) {
-    sema_frame_t f = { SEMA_FRAME_SWITCH, ctx->pending_frame_label };
+static void frame_push_switch(sema_ctx_t* ctx, const ast_stmt_t* s) {
+    sema_frame_t f = { SEMA_FRAME_SWITCH, ctx->pending_frame_label, s };
     bbq_vec_push(ctx->frames, f);
     ctx->pending_frame_label = NULL;
 }
 static void frame_push_labeled_block(sema_ctx_t* ctx, const char* label) {
-    sema_frame_t f = { SEMA_FRAME_LABELED_BLOCK, label };
+    sema_frame_t f = { SEMA_FRAME_LABELED_BLOCK, label, NULL };
     bbq_vec_push(ctx->frames, f);
 }
 static void frame_pop(sema_ctx_t* ctx) {
@@ -2678,8 +2678,18 @@ static java_type_t analyze_expr(sema_ctx_t* ctx, ast_expr_t* e) {
         java_type_t idx = analyze_expr(ctx, e->array_access.index);
         if (!jt_is_error(arr) && arr.tag != JT_ARRAY)
             sema_error(ctx, e->loc, "array access on non-array type");
-        if (!jt_is_error(idx) && !jt_is_numeric(idx))
-            sema_error(ctx, e->loc, "array index must be numeric");
+        /* §10.4 (p.195): "Arrays must be indexed by int values; short, byte, or char
+         * values may also be used as index values because they are subjected to
+         * unary numeric promotion (§5.6.1) and become int values. An attempt to
+         * access an array component with a long index value results in a
+         * compile-time error." The test is therefore "promotes to int", not "is
+         * numeric" — long, float and double promote to themselves. Accepting them
+         * let a long index reach the backend, which emitted an i64 where the array
+         * op wants an i32, and the module failed §7 validation: a compile-time error
+         * the spec names, surfacing as a codegen bug. */
+        if (!jt_is_error(idx) && !(idx.tag == JT_INT || idx.tag == JT_SHORT
+                                   || idx.tag == JT_BYTE || idx.tag == JT_CHAR))
+            sema_error(ctx, e->loc, "array index must be int (JLS 10.4)");
         if (arr.tag == JT_ARRAY && arr.element)
             result = *arr.element;
         break;
@@ -3455,7 +3465,7 @@ static void analyze_stmt(sema_ctx_t* ctx, ast_stmt_t* s) {
         if (!jt_is_error(cond) && cond.tag != JT_BOOL)
             sema_error(ctx, s->loc, "while condition must be boolean");
         ctx->loop_depth++;
-        frame_push_loop(ctx);
+        frame_push_loop(ctx, s);
         analyze_stmt(ctx, s->while_.body);
         frame_pop(ctx);
         ctx->loop_depth--;
@@ -3464,7 +3474,7 @@ static void analyze_stmt(sema_ctx_t* ctx, ast_stmt_t* s) {
 
     case AST_DOWHILE: {
         ctx->loop_depth++;
-        frame_push_loop(ctx);
+        frame_push_loop(ctx, s);
         analyze_stmt(ctx, s->do_while.body);
         frame_pop(ctx);
         ctx->loop_depth--;
@@ -3485,7 +3495,7 @@ static void analyze_stmt(sema_ctx_t* ctx, ast_stmt_t* s) {
         for (int i = 0; i < s->for_.update_count; i++)
             analyze_expr(ctx, s->for_.update[i]);
         ctx->loop_depth++;
-        frame_push_loop(ctx);
+        frame_push_loop(ctx, s);
         analyze_stmt(ctx, s->for_.body);
         frame_pop(ctx);
         ctx->loop_depth--;
@@ -3511,7 +3521,7 @@ static void analyze_stmt(sema_ctx_t* ctx, ast_stmt_t* s) {
         }
 
         ctx->loop_depth++; /* for break */
-        frame_push_switch(ctx);
+        frame_push_switch(ctx, s);
         /* JLS §14.11: at most one default; case values must be
          * compile-time constants and unique within the switch. */
         bool seen_default = false;
@@ -3776,6 +3786,12 @@ static void analyze_stmt(sema_ctx_t* ctx, ast_stmt_t* s) {
                 : ctx->continue_target_depths;
             bbq_htree_insert(tbl, (uint32_t)(uintptr_t)s,
                              (void*)(intptr_t)(depth + 1));
+            /* Mark the loop as one whose continue target is a real label —
+             * two transfers reach it, so the backend must frame it. */
+            if (s->tag == AST_CONTINUE && ctx->frames[target_idx].stmt)
+                bbq_htree_insert(ctx->loops_with_continue,
+                                 (uint32_t)(uintptr_t)ctx->frames[target_idx].stmt,
+                                 (void*)1);
         }
         break;
     }
@@ -4120,6 +4136,7 @@ void sema_init(sema_ctx_t* ctx, bbq_arena* arena) {
     ctx->switch_infos = bbq_htree_create();
     ctx->break_target_depths = bbq_htree_create();
     ctx->continue_target_depths = bbq_htree_create();
+    ctx->loops_with_continue = bbq_htree_create();
     ctx->type_class_ids = bbq_htree_create();
     ctx->units = NULL;   /* bbq_vec */
     ctx->labels = NULL;
@@ -5356,6 +5373,11 @@ int sema_continue_target_depth(const sema_ctx_t* ctx, const ast_stmt_t* stmt) {
     return v ? (int)(intptr_t)v - 1 : -1;
 }
 
+bool sema_loop_has_continue(const sema_ctx_t* ctx, const ast_stmt_t* stmt) {
+    return bbq_htree_search(ctx->loops_with_continue,
+                             (uint32_t)(uintptr_t)stmt) != NULL;
+}
+
 
 int sema_diag_format(const sema_diag_t* d, char* buf, int bufsize) {
     const char* level = (d->level == DIAG_ERROR) ? "error" : "warning";
@@ -5397,6 +5419,7 @@ void sema_destroy(sema_ctx_t* ctx) {
     bbq_htree_destroy(ctx->switch_infos);
     bbq_htree_destroy(ctx->break_target_depths);
     bbq_htree_destroy(ctx->continue_target_depths);
+    bbq_htree_destroy(ctx->loops_with_continue);
     bbq_htree_destroy(ctx->type_class_ids);
     for (int i = 0; i < (int)bbq_vec_len(ctx->units); i++) {
         bbq_vec_free(ctx->units[i].singles);

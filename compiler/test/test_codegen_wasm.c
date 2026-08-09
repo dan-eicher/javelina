@@ -324,6 +324,32 @@ int main(void) {
     GOAL_TILE(sir_eq(a, NUL, A0), cond_NT,  3, "cond(null == r) → commuted",     0x20,0, 0xD1);
     GOAL_TILE(sir_ne(a, A0, NUL), ncond_NT, 3, "ncond(r != null) → ref.is_null", 0x20,0, 0xD1);
     GOAL_TILE(sir_ne(a, NUL, A0), ncond_NT, 3, "ncond(null != r) → commuted",    0x20,0, 0xD1);
+
+    /* ── float comparisons as conditions ───────────────────────────────────────
+     * The i32/i64 zero cases above specialize to `eqz`; f64 has no f64.eqz, so a
+     * float compare against zero must go through f64.const + f64.eq like any other
+     * compare, and its INVERSE costs one more byte rather than being free. Both
+     * polarities are pinned because `emit_spine` prices cond against ncond to decide
+     * whether to exchange an if's arms, and an f64 condition that mis-costs would
+     * silently swap arms at every float test.
+     *
+     * These are `ASCIIToBinaryBuffer.doubleValue`'s own conditions (`dValue == 0.0`,
+     * `exp == 0`) — the method whose tail the backend emits twice, and which nothing
+     * in this file covered. */
+    GOAL_TILE(sir_eq(a, D0, D1), cond_NT,  5, "cond(d1 == d2) → f64.eq",
+              0x20,0, 0x20,1, 0x61);
+    GOAL_TILE(sir_eq(a, D0, D1), ncond_NT, 6, "ncond(d1 == d2) → f64.eq eqz",
+              0x20,0, 0x20,1, 0x61, 0x45);
+    GOAL_TILE(sir_ne(a, D0, D1), cond_NT,  5, "cond(d1 != d2) → f64.ne",
+              0x20,0, 0x20,1, 0x62);
+    GOAL_TILE(sir_ne(a, D0, D1), ncond_NT, 6, "ncond(d1 != d2) → f64.ne eqz",
+              0x20,0, 0x20,1, 0x62, 0x45);
+    GOAL_TILE(sir_eq(a, D0, sir_load_double_const(a, 0.0)), cond_NT, 12,
+              "cond(d == 0.0) → no f64.eqz exists, so const+eq",
+              0x20,0, 0x44,0,0,0,0,0,0,0,0, 0x61);
+    GOAL_TILE(sir_eq(a, D0, sir_load_double_const(a, 0.0)), ncond_NT, 13,
+              "ncond(d == 0.0) → const+eq+eqz",
+              0x20,0, 0x44,0,0,0,0,0,0,0,0, 0x61, 0x45);
     GOAL_TILE(sir_ne(a, A0, NUL), cond_NT,  4, "cond(r != null) → is_null eqz",  0x20,0, 0xD1,0x45);
     GOAL_TILE(sir_eq(a, A0, NUL), ncond_NT, 4, "ncond(r == null) → is_null eqz", 0x20,0, 0xD1,0x45);
     /* A relational compare has no zero to fold: it materialises, and its inverse

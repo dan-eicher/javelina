@@ -22,6 +22,12 @@
 #define build_program jtest_build_flat
 
 /* Compile `src`, structured-emit method `name`'s body into `out` (returns len). */
+/* The backend's own diagnostic from the last emit_body call, or NULL. The
+ * structurer enforces emit-once and no-inlined-label internally, so THIS is the
+ * direct oracle for duplication — a byte count is a proxy that a truncated body
+ * can still satisfy. Every fixture asserts it. */
+static const char* emit_body_error;
+
 static int emit_body(bbq_arena* a, const char* src, const char* name, const uint8_t** out) {
     ast_program_t* prog = build_program(src, a);
     /* The context is reused across calls, so the PREVIOUS one's 31 htrees are
@@ -41,10 +47,11 @@ static int emit_body(bbq_arena* a, const char* src, const char* name, const uint
         static wasm_types_t wt; wasm_types_build(&wt, &sctx, NULL, 0);
         static burg_ctx_t bc; bc = (burg_ctx_t){0}; burg_ctx_init(&bc); bc.types = &wt;
         codegen_method_structured(methods[i], sc, nsc, &bc);
+        emit_body_error = bc.burg_error_msg;
         *out = bc.emit.code;
         return (int)bbq_vec_len(bc.emit.code);
     }
-    *out = NULL; return -1;
+    *out = NULL; emit_body_error = NULL; return -1;
 }
 
 static void check_bytes(const char* m, const uint8_t* got, int n,
@@ -535,6 +542,510 @@ int main(void) {
         if (seen != 1)
             printf("        tail marker emitted %d times (want 1: 8 = the 2^3 join loss)\n", seen);
         CHECK(seen == 1, "a spilled condition keeps its if-join: the tail is emitted ONCE");
+        bbq_arena_free(&a);
+    }
+
+    /* ── every numeric conversion emits its opcode ─────────────────────────────
+     * `cg_promote` matches nine cast kinds and ends `_other => t` — returning the
+     * value UNCONVERTED. Sema can produce thirty (SEMA_CAST_KIND_*), so seventeen
+     * of them fall into that default, including D2L, F2L and D2F, for which the SIR
+     * has nodes (SIR_D2L / SIR_F2L / SIR_D2F) that would then never be built. A
+     * dropped conversion is a wrong value, not a crash, so nothing downstream
+     * necessarily complains.
+     *
+     * §5.1's conversions each have exactly one WASM opcode, so the pin is direct:
+     * do the cast, assert the opcode is in the bytes. Widenings included as
+     * controls — if those fail the fixture is wrong, not the compiler. */
+    {
+        /* float→integer narrowing SATURATES in Java (§5.1.3: NaN → 0, out of range
+         * → MIN/MAX), so the conformant opcode is the 0xFC-prefixed trunc_sat form;
+         * the one-byte i32.trunc_f64_s would TRAP on exactly those inputs. Values
+         * above 0xFF below are that two-byte sequence. */
+        static const struct { const char* name; const char* src; uint16_t op; } convs[] = {
+          { "L2I  i32.wrap_i64",        "class T { int f(long x){ return (int) x; } }",            0xA7 },
+          { "D2I  i32.trunc_sat_f64_s", "class T { int f(double x){ return (int) x; } }",        0xFC02 },
+          { "F2I  i32.trunc_sat_f32_s", "class T { int f(float x){ return (int) x; } }",         0xFC00 },
+          { "I2L  i64.extend_i32_s",    "class T { long f(int x){ return (long) x; } }",           0xAC },
+          { "D2L  i64.trunc_sat_f64_s", "class T { long f(double x){ return (long) x; } }",      0xFC06 },
+          { "F2L  i64.trunc_sat_f32_s", "class T { long f(float x){ return (long) x; } }",       0xFC04 },
+          { "I2F  f32.convert_i32_s",   "class T { float f(int x){ return (float) x; } }",         0xB2 },
+          { "L2F  f32.convert_i64_s",   "class T { float f(long x){ return (float) x; } }",        0xB4 },
+          { "D2F  f32.demote_f64",      "class T { float f(double x){ return (float) x; } }",      0xB6 },
+          { "I2D  f64.convert_i32_s",   "class T { double f(int x){ return (double) x; } }",       0xB7 },
+          { "L2D  f64.convert_i64_s",   "class T { double f(long x){ return (double) x; } }",      0xB9 },
+          { "F2D  f64.promote_f32",     "class T { double f(float x){ return (double) x; } }",     0xBB },
+        };
+        for (size_t k = 0; k < sizeof convs / sizeof convs[0]; k++) {
+            bbq_arena a; bbq_arena_init(&a, 1 << 16);
+            const uint8_t* body = NULL;
+            int n = emit_body(&a, convs[k].src, "f", &body);
+            int seen = 0, two = convs[k].op > 0xFF;
+            for (int i = 0; n > 0 && i + (two ? 1 : 0) < n; i++)
+                if (two ? (body[i] == (convs[k].op >> 8)
+                           && body[i + 1] == (convs[k].op & 0xFF))
+                        : (body[i] == convs[k].op)) seen++;
+            if (n <= 0 || !seen)
+                printf("        %-28s body=%d bytes, opcode %04X not emitted\n",
+                       convs[k].name, n, convs[k].op);
+            CHECK(n > 0 && seen >= 1, convs[k].name);
+            bbq_arena_free(&a);
+        }
+    }
+
+    /* ── every §1 site keeps its join: the tail is emitted ONCE ────────────────
+     * docs/ddcg-merge-labels.md §1 enumerates the places the ddcg hands ONE
+     * destination to two consumers. §2's rule is that such a node is a label whose
+     * code is emitted once. That is one property, so it gets one table rather than
+     * one hand-written case per construct — a construct absent from the table is a
+     * construct nothing pins, which is how `ASCIIToBinaryBuffer.doubleValue` came
+     * to duplicate in the shipped prelude with a full-green suite.
+     *
+     * Oracle: the tail's OWN emission count in this method (the §1 fixtures each
+     * repeat the construct 3×, so a lost join shows as 8, not 2). A module-size
+     * bound would read green through exactly the variants that broke here.
+     *
+     * Reference-typed constructs (ref cast, array cast, null guards) are NOT here:
+     * this harness runs with types=NULL, so anything that news an exception object
+     * cannot emit. They are pinned at the sidecar level instead. */
+    {
+        static const struct { const char* name; const char* src; } sites[] = {
+          { "value &&",
+            "class T { int f(int x, int y){ boolean p = x>0 && y>0; boolean q = x>1 && y>1;"
+            " boolean s = x>2 && y>2; if (p) x=x+1; if (q) x=x+2; if (s) x=x+4;"
+            " return x * 24680; } }" },
+          { "value ||",
+            "class T { int f(int x, int y){ boolean p = x>0 || y>0; boolean q = x>1 || y>1;"
+            " boolean s = x>2 || y>2; if (p) x=x+1; if (q) x=x+2; if (s) x=x+4;"
+            " return x * 24680; } }" },
+          { "guarded int div",
+            "class T { int f(int x, int y){ int a = x / y; int b = (x+1) / y; int c = (x+2) / y;"
+            " return (a+b+c) + x * 24680; } }" },
+          { "guarded int rem",
+            "class T { int f(int x, int y){ int a = x % y; int b = (x+1) % y; int c = (x+2) % y;"
+            " return (a+b+c) + x * 24680; } }" },
+          { "guarded long div",
+            "class T { int f(long x, long y){ long a = x / y; long b = (x+1) / y; long c = (x+2) / y;"
+            " return (int)(a+b+c) + (int)x * 24680; } }" },
+          { "ternary, simple cond",
+            "class T { int f(int x, boolean b){ x = x + (b ? 0-1 : 1); x = x + (b ? 0-2 : 2);"
+            " x = x + (b ? 0-3 : 3); return x * 24680; } }" },
+          { "ternary, spilled cond",
+            "class T { int f(int x, int y){ x = x + ((x+y)*3 != 1 ? 0-1 : 1);"
+            " x = x + ((x+y)*5 != 2 ? 0-2 : 2); x = x + ((x+y)*7 != 3 ? 0-3 : 3);"
+            " return x * 24680; } }" },
+          { "ternary, nested",
+            "class T { int f(int x, boolean b){ x = x + (b ? (x>0 ? 1 : 2) : 3);"
+            " x = x + (b ? (x>1 ? 4 : 5) : 6); x = x + (b ? (x>2 ? 7 : 8) : 9);"
+            " return x * 24680; } }" },
+          { "ternary in && cond",
+            "class T { int f(int x, int y, boolean b){ if ((b ? x : y) > 0 && x > 0) x=x+1;"
+            " if ((b ? x : y) > 1 && x > 1) x=x+2; if ((b ? x : y) > 2 && x > 2) x=x+4;"
+            " return x * 24680; } }" },
+          /* DECOMPOSITION — the failing fixtures below combine three things at once
+           * (a ternary, a comparison, and an if test), so on their own they cannot
+           * say which is required. These four vary one thing at a time. */
+          { "decomp: compare in if, no ternary",
+            "class T { int f(int x){ if (x > 0) x=x+1; if (x > 1) x=x+2;"
+            " if (x > 2) x=x+4; return x * 24680; } }" },
+          { "decomp: ternary in value ctx, no if",
+            "class T { int f(int x, int y, boolean b){ int r = b ? x : y;"
+            " int s = b ? y : x; int t = b ? x : y; return (r+s+t) + x * 24680; } }" },
+          { "decomp: ternary compared, no if",
+            "class T { int f(int x, int y, boolean b){ boolean c = (b ? x : y) > 0;"
+            " boolean d = (b ? y : x) > 1; return (c ? 1 : 0) + (d ? 2 : 0) + x * 24680; } }" },
+          { "decomp: ternary IS the if cond",
+            "class T { int f(int x, boolean p, boolean q, boolean b){ if (b ? p : q) x=x+1;"
+            " if (b ? q : p) x=x+2; return x * 24680; } }" },
+
+          /* LEFTMOST-ness is the prediction. The collision needs the ternary's head
+           * to BE the condition's head, which happens only when the ternary is the
+           * first thing evaluated. As the RHS of the compare, or to the right of a
+           * short-circuit, the condition's head belongs to something else and the
+           * two BLOCK rows land on different keys. If these fail too, "leftmost" is
+           * wrong and so is the diagnosis. */
+          { "decomp: ternary as RHS of compare in if",
+            "class T { int f(int x, int y, boolean b){ if (0 < (b ? x : y)) x=x+1;"
+            " if (1 < (b ? y : x)) x=x+2; return x * 24680; } }" },
+          /* `0 < (b?x:y)` reaches binary_arith_sc only because a LITERAL lhs is
+           * `is_constant_operand`. With a LOCAL on the left neither sc (needs a
+           * constant lhs) nor cs (needs a simple rhs) matches, so it falls to
+           * Figure 8 case 4 — binop_spilled, both operands spilled. That is a
+           * different path, and it is the ordinary Java shape. */
+          { "decomp: ternary as RHS, local LHS (case 4)",
+            "class T { int f(int x, int y, boolean b){ if (x > (b ? x : y)) x=x+1;"
+            " if (y > (b ? y : x)) x=x+2; return x * 24680; } }" },
+          { "decomp: ternary as LHS, local RHS (case 4)",
+            "class T { int f(int x, int y, boolean b){ if ((b ? x : y) > x) x=x+1;"
+            " if ((b ? y : x) > y) x=x+2; return x * 24680; } }" },
+          { "decomp: ternary right of && in if",
+            "class T { int f(int x, int y, boolean b){ if (x > 0 && (b ? x : y) > 0) x=x+1;"
+            " if (x > 1 && (b ? y : x) > 1) x=x+2; return x * 24680; } }" },
+
+          /* The ternary-in-condition family. `rule ternary` and `rule if_stmt` both
+           * record a BLOCK on their test head, so when the ternary is LEFTMOST in an
+           * enclosing condition the two joins collide on one key. Which enclosing
+           * condition it is should not matter — plain, &&, ||, or a ternary on both
+           * sides — so all four are pinned rather than the one shape that happened
+           * to reproduce. */
+          { "ternary in plain cond",
+            "class T { int f(int x, int y, boolean b){ if ((b ? x : y) > 0) x=x+1;"
+            " if ((b ? x : y) > 1) x=x+2; if ((b ? x : y) > 2) x=x+4;"
+            " return x * 24680; } }" },
+          { "ternary in || cond",
+            "class T { int f(int x, int y, boolean b){ if ((b ? x : y) > 0 || x > 0) x=x+1;"
+            " if ((b ? x : y) > 1 || x > 1) x=x+2; if ((b ? x : y) > 2 || x > 2) x=x+4;"
+            " return x * 24680; } }" },
+          { "ternary on both sides of &&",
+            "class T { int f(int x, int y, boolean b){"
+            " if ((b ? x : y) > 0 && (b ? y : x) > 0) x=x+1;"
+            " if ((b ? x : y) > 1 && (b ? y : x) > 1) x=x+2;"
+            " return x * 24680; } }" },
+          { "ternary, long operands",
+            "class T { int f(long x, boolean b){ x = x + (b ? 0-1L : 1L); x = x + (b ? 0-2L : 2L);"
+            " x = x + (b ? 0-3L : 3L); return (int)x * 24680; } }" },
+          /* A condition that is a bare FIELD read spills like any other complex
+           * condition, so its join is keyed on the spill StoreLocal and has to
+           * reach the Branch through the carry. Every spilled-condition fixture
+           * here and at line 498 uses an ARITHMETIC spill; a GETFIELD spill is a
+           * different key and was never covered. `ASCIIToBinaryBuffer.doubleValue`
+           * is full of them (`if (isNegative)`, `overvalue ? … : …`). */
+          { "if (field) x3",
+            "class T { boolean b;"
+            " int f(int x){ if (b) x=x+1; if (b) x=x+2; if (b) x=x+4;"
+            " return x * 24680; } }" },
+          { "ternary on field x3",
+            "class T { boolean b;"
+            " int f(int x){ x = x + (b ? 1 : 2); x = x + (b ? 3 : 4); x = x + (b ? 5 : 6);"
+            " return x * 24680; } }" },
+          /* `ASCIIToBinaryBuffer.doubleValue`'s actual shape: a LABELLED loop left by
+           * several `break label` sites buried in nested ifs, with a tail after the
+           * loop. The break target is the post-loop code; if a break cannot resolve
+           * it as a br-depth, `transfer()` falls through and re-emits that tail
+           * inline at the break site — once per break. The trace says the duplicated
+           * node there is first emitted at sd=10 (deep, inside the loop) and only
+           * then at sd=6 (its own level), which is exactly that inline re-emission.
+           * Every loop fixture in this file is a bare `while`/`for` with no labelled
+           * break, so this shape was never emitted here. */
+          { "labelled loop, 3 breaks + tail",
+            "class T { int f(int x, int y){ int r = 0;"
+            " outer: while (r < y) {"
+            "   if (x > 0) break outer;"
+            "   if (x > 1) { if (x > 2) break outer; r = r + 1; continue; }"
+            "   if (x > 3) break outer;"
+            "   r = r + 2; }"
+            " if (r > 0) r = r + 1;"
+            " return r * 24680; } }" },
+          /* The rows above are almost all `int`. Every §1 site is width-parametric,
+           * and the method this table exists for (ASCIIToBinaryBuffer.doubleValue)
+           * is float-heavy, so the same shapes are repeated at f32/f64/i64 — a
+           * shared path that only ever ran at one width is a path with one width's
+           * worth of evidence. */
+          { "value && on doubles",
+            "class T { int f(double a, double b, int x){"
+            " boolean p = a > 0.0 && b > 0.0; boolean q = a > 1.0 && b > 1.0;"
+            " boolean s = a > 2.0 && b > 2.0; if (p) x=x+1; if (q) x=x+2; if (s) x=x+4;"
+            " return x * 24680; } }" },
+          { "value || on floats",
+            "class T { int f(float a, float b, int x){"
+            " boolean p = a > 0.0f || b > 0.0f; boolean q = a > 1.0f || b > 1.0f;"
+            " boolean s = a > 2.0f || b > 2.0f; if (p) x=x+1; if (q) x=x+2; if (s) x=x+4;"
+            " return x * 24680; } }" },
+          { "if (float cmp) x3",
+            "class T { int f(float a, int x){ if (a > 0.0f) x=x+1; if (a > 1.0f) x=x+2;"
+            " if (a > 2.0f) x=x+4; return x * 24680; } }" },
+          { "ternary, float operands",
+            "class T { int f(float a, boolean b, int x){ a = a + (b ? 0-1.0f : 1.0f);"
+            " a = a + (b ? 0-2.0f : 2.0f); a = a + (b ? 0-3.0f : 3.0f);"
+            " return (a > 0.0f ? 1 : 0) + x * 24680; } }" },
+          /* The exact shape of the surviving duplication in
+           * ASCIIToBinaryBuffer.doubleValue:301 — a ONE-ARMED if whose body is a
+           * compound assignment to an INSTANCE FIELD. compound_field_instance
+           * spills three temps and delivers through cg_deliver_loaded, so the if's
+           * Ljoin is referenced twice: once as that delivery's continuation and
+           * once as the if's own false edge. Every field fixture above uses a plain
+           * assignment to a local, which has neither. */
+          { "one-armed if, compound field",
+            "class T { boolean neg; long bits;"
+            " int f(long x, int r){ bits = x; if (neg) { bits |= 1L; }"
+            " if (neg) { bits |= 2L; } if (neg) { bits |= 4L; }"
+            " return (int) bits + r * 24680; } }" },
+          { "one-armed if, compound array elem",
+            "class T { boolean neg;"
+            " int f(int[] v, int r){ if (neg) { v[0] |= 1; } if (neg) { v[1] |= 2; }"
+            " if (neg) { v[2] |= 4; } return v[0] + r * 24680; } }" },
+          { "guarded long rem",
+            "class T { int f(long x, long y){ long a = x % y; long b = (x+1) % y;"
+            " long c = (x+2) % y; return (int)(a+b+c) + (int)x * 24680; } }" },
+          { "ternary, double operands",
+            "class T { int f(double d, boolean b, int x){ d = d + (b ? 0-1.0 : 1.0);"
+            " d = d + (b ? 0-2.0 : 2.0); d = d + (b ? 0-3.0 : 3.0);"
+            " return (d > 0.0 ? 1 : 0) + x * 24680; } }" },
+
+          /* §14.10 SWITCH FALL-THROUGH. Of the four ways out of a case group only
+           * fall-through carries no jump: break/continue/return each become a `br`
+           * the backend resolves by scope depth, while falling out of one group into
+           * the next is pure layout adjacency on the chain the frontend built. So the
+           * groups have to be laid out in SOURCE order — the ascending-by-value order
+           * the br_table wants is a different question — and each group head has to be
+           * the SAME node the br_table names, or the fall-through edge points at the
+           * raw head while the table points at a label wrapping it, and the group is
+           * emitted twice. Every existing switch fixture breaks out of every group,
+           * which is exactly the shape that hides this. */
+          { "switch fall-through, ascending",
+            "class T { int f(int x){ int r = 0;"
+            " switch (x) { case 1: r = 1; case 2: r = r + 2; break; case 3: r = 3; }"
+            " return r + x * 24680; } }" },
+          { "switch fall-through, descending source order",
+            "class T { int f(int x){ int r = 0;"
+            " switch (x) { case 45: r = 1; case 43: r = r + 2; break; }"
+            " return r + x * 24680; } }" },
+          { "switch, default not last",
+            "class T { int f(int x){ int r = 0;"
+            " switch (x) { case 1: r = 1; break; default: r = 9; case 2: r = r + 2; break; }"
+            " return r + x * 24680; } }" },
+          { "switch fall-through into a group that also brs out",
+            "class T { int f(int x){ int r = 0;"
+            " switch (x) { case 1: r = 1; case 2: if (r > 0) break; r = 5; case 3: r = r + 8; }"
+            " return r + x * 24680; } }" },
+          /* …and the shape the fixtures above still cannot reach: a group whose ONLY statement
+           * is `break`. §14.10's four exits again — break carries a jump, so an empty group's
+           * jump is its whole body, and the frontend elides a Goto whose target is the next node
+           * on the chain. The case target is then the switch EXIT itself. An exit is not a group:
+           * laying one out gives it a block and emits the switch's continuation as if it were a
+           * case body, and the continuation is emitted a second time when the switch finishes.
+           * Needs a LATER group, because as the last group the exit and the fall-out coincide. */
+          { "switch, a case whose only statement is break, with a later group",
+            "class T { int f(int x){ int r = 0;"
+            " switch (x) { case 1: break; default: r = 9; }"
+            " return r + x * 24680; } }" },
+          { "switch, empty break case before a case group",
+            "class T { int f(int x){ int r = 0;"
+            " switch (x) { case 1: break; case 2: r = 2; break; default: r = 9; }"
+            " return r + x * 24680; } }" },
+          /* The rest of the (body × exit × position × default) cross-product for an EMPTY group,
+           * because the axis above was the one 16 fixtures never varied. `default: break;` gets
+           * its own cell: the default's own target is then the exit, so the br_table's default
+           * depth cannot be the default group's index — there is no such group. */
+          { "switch, default: break; with a real case group",
+            "class T { int f(int x){ int r = 0;"
+            " switch (x) { case 1: r = 1; break; default: break; }"
+            " return r + x * 24680; } }" },
+          { "switch, empty break case and NO default",
+            "class T { int f(int x){ int r = 0;"
+            " switch (x) { case 1: break; case 2: r = 2; }"
+            " return r + x * 24680; } }" },
+          { "switch, EMPTY group falling through to the next (two labels, one body)",
+            "class T { int f(int x){ int r = 0;"
+            " switch (x) { case 1: case 2: r = 2; break; default: r = 9; }"
+            " return r + x * 24680; } }" },
+          { "switch, empty group LAST (label with no body, falls out)",
+            "class T { int f(int x){ int r = 0;"
+            " switch (x) { default: r = 9; break; case 3: }"
+            " return r + x * 24680; } }" },
+          { "switch, group exits by RETURN not break",
+            "class T { int f(int x){"
+            " switch (x) { case 1: return 1; default: break; }"
+            " return x * 24680; } }" },
+          { "switch in a loop, group exits by CONTINUE",
+            "class T { int f(int x){ int r = 0;"
+            " for (int i = 0; i < 3; i++) { switch (i) { case 1: continue; default: r = r + i; } r = r + 10; }"
+            " return r + x * 24680; } }" },
+          /* The remaining jump targets an empty group can name: a labelled block's exit, a
+           * labelled loop's continue, and an inner switch's exit. Each is an ENCLOSING scope
+           * rather than this switch's own, which is the half `lbreak`-by-identity cannot see. */
+          { "switch, empty group exits by break to a LABELLED BLOCK",
+            "class T { int f(int x){ int r = 0;"
+            " L: { switch (x) { case 1: break L; default: r = 9; } r = r + 1; }"
+            " return r + x * 24680; } }" },
+          { "switch, empty group exits by LABELLED CONTINUE",
+            "class T { int f(int x){ int r = 0;"
+            " L: for (int i = 0; i < 3; i++) { switch (i) { case 1: continue L; default: r = r + i; } r = r + 10; }"
+            " return r + x * 24680; } }" },
+          { "NESTED switch, inner group is an empty break",
+            "class T { int f(int x){ int r = 0;"
+            " switch (x) { case 1: switch (x + 1) { case 2: break; default: r = 5; } r = r + 3; break;"
+            "              default: r = 9; }"
+            " return r + x * 24680; } }" },
+          { "switch, empty break group LAST with default before it",
+            "class T { int f(int x){ int r = 0;"
+            " switch (x) { default: r = 9; break; case 3: break; }"
+            " return r + x * 24680; } }" },
+          /* The no-`default:` landing is the one framing site with no already-a-scope guard: with
+           * no default label the switch's default target IS its exit, so when that exit is an
+           * INHERITED scope (the switch is the last statement of an enclosing region) the landing
+           * frames a node that is already framed, and a `break` resolves to the inner copy. Needs
+           * all three at once — no default, a break, and an inherited exit. */
+          { "switch with NO default, a break, and an INHERITED exit (last stmt of a loop body)",
+            "class T { int f(int x){ int r = 0;"
+            " for (int i = 0; i < 3; i++) { switch (i) { case 1: break; case 2: r = r + 2; } }"
+            " return r + x * 24680; } }" },
+          { "switch with NO default and an inherited exit, inside a labelled block",
+            "class T { int f(int x){ int r = 0;"
+            " L: { switch (x) { case 1: break; case 2: r = r + 2; } }"
+            " return r + x * 24680; } }" },
+
+          /* §14.7 a labelled BLOCK. The frontend's ρ frame tells `break L` which node
+           * to transfer to; the backend needs a scope record for the same label or it
+           * frames nothing, no br-depth resolves, and every break emits the exit's
+           * code inline. Two breaks, two copies of the method tail. */
+          { "labelled block, two breaks",
+            "class T { int f(int x){ int r = 0;"
+            " L: { if (x == 0) break L; r = 1; if (x == 1) break L; r = 2; }"
+            " return r + x * 24680; } }" },
+          { "labelled block round a try, break out",
+            "class T { int f(int x){ int r = 0;"
+            " L: try { if (x == 0) break L; r = 2; } catch (RuntimeException e) { }"
+            " return r + x * 24680; } }" },
+
+          /* §14.16 the CONTINUE target — a for's update, a do-while's tail test — is
+           * reached by the body's fall-through AND by every continue, so it is a label
+           * and must be framed. It is one only when a continue exists; without one it
+           * has a single reference and the paper emits no code for an unreferenced
+           * label, so a frame round every for-update would be pure loss. */
+          { "for with continue",
+            "class T { int f(int x){ int s = 0;"
+            " for (int i = 0; i < x; i++) { if (i == 2) continue; s = s + i; }"
+            " return s + x * 24680; } }" },
+          { "for with continue and break",
+            "class T { int f(int x){ int s = 0;"
+            " for (int i = 0; i < x; i++) { if (i == 2) continue; if (i == 4) break; s = s + i; }"
+            " return s + x * 24680; } }" },
+          { "do-while with continue",
+            "class T { int f(int x){ int s = 0, i = 0;"
+            " do { i++; if (i == 2) continue; s = s + i; } while (i < x);"
+            " return s + x * 24680; } }" },
+          { "nested for, continue in the inner",
+            "class T { int f(int x){ int s = 0;"
+            " for (int i = 0; i < x; i++) { for (int j = 0; j < x; j++) {"
+            "   if (j == 1) continue; s = s + j; } }"
+            " return s + x * 24680; } }" },
+
+          /* §15.25 in a BOOLEAN-CONTROL position: the conditional inherits γ = pair,
+           * so each arm ends in its own branch to the shared Lt/Lf. Those two shared
+           * destinations are labels like any other (Fig. 7's Lf/Lt) and get records. */
+          { "ternary IS the while condition",
+            "class T { int f(int x, boolean p, boolean q, boolean b){ int n = 0;"
+            " while (b ? p : q) { n = n + 1; if (n > 2) p = false; }"
+            " return n + x * 24680; } }" },
+          { "ternary under ! in an if condition",
+            "class T { int f(int x, boolean p, boolean q, boolean b){ int r = 0;"
+            " if (!(b ? p : q)) r = 1; return r + x * 24680; } }" },
+          { "ternary either side of ||",
+            "class T { int f(int x, boolean p, boolean q, boolean b){ int r = 0;"
+            " if ((b ? p : q) || (b ? q : p)) r = 1; return r + x * 24680; } }" },
+
+          /* Fig. 7's shared exit in a ONE-ARMED if: the `&&` chain's Lf IS the if's
+           * join, so one node carries a MERGE row and a BLOCK row naming it. Collapse
+           * them to one label and the head looks like it carries only the plain-if
+           * row — then the compound condition emits as a native `if` whose then-arm
+           * is the rest of the CONDITION. */
+          { "one-armed if (a && (b || c))",
+            "class T { int f(int x){ int r = 0;"
+            " if (x > 0 && (x > 5 || x < 3)) r = 1; if (r == 0) r = 9;"
+            " return r + x * 24680; } }" },
+          { "one-armed if (a || (b && c))",
+            "class T { int f(int x){ int r = 0;"
+            " if (x > 0 || (x > 5 && x < 3)) r = 1; if (r == 0) r = 9;"
+            " return r + x * 24680; } }" },
+
+          /* The breakable-block idiom the generated PEG parsers use. */
+          { "do-while(false) breakable block in for(;;)",
+            "class T { int f(int x){ int acc = 0, i = 0;"
+            " for (;;) { int m = i; boolean ok = false;"
+            "   do { if (i >= x) break; i++; if (i == 3) break; acc = acc + i; ok = true; }"
+            "   while (false);"
+            "   if (!ok) { i = m; break; } }"
+            " return acc + i + x * 24680; } }" },
+        };
+        uint8_t mark[8]; int ml = 0;                 /* i32.const 24680, real encoder */
+        { emit_wasm_ctx m = {0};
+          ew_emit(&m, WOP_I32_CONST); ew_i32(&m, 24680);
+          ml = (int)bbq_vec_len(m.code); memcpy(mark, m.code, (size_t)ml);
+          bbq_vec_free(m.code); }
+        for (size_t k = 0; k < sizeof sites / sizeof sites[0]; k++) {
+            bbq_arena a; bbq_arena_init(&a, 1 << 16);
+            const uint8_t* body = NULL;
+            int n = emit_body(&a, sites[k].src, "f", &body);
+            int seen = 0;
+            for (int i = 0; n > 0 && i + ml <= n; i++)
+                if (memcmp(body + i, mark, (size_t)ml) == 0) seen++;
+            if (n <= 0 || seen != 1 || emit_body_error)
+                printf("        %-24s body=%d bytes, tail marker ×%d (want ×1)%s%s\n",
+                       sites[k].name, n, seen,
+                       emit_body_error ? " — backend: " : "",
+                       emit_body_error ? emit_body_error : "");
+            CHECK(n > 0 && seen == 1 && !emit_body_error, sites[k].name);
+            bbq_arena_free(&a);
+        }
+    }
+
+    /* ── a VALUE-context ternary keeps its join: the tail is emitted ONCE ───────
+     * The paper has no ternary: a conditional delivering to a location is Figure 5's
+     * two-armed if with δ = that location (p.12's `E_bool ⇒ if E_bool (int 1)
+     * (int 0)`), and both arms are `CG_store O A L` (p.13) — same location, same L.
+     * L is a merge; the frontend records it (test_scope_sidecar pins 1 BLOCK for
+     * this shape). If the backend cannot find that record, `ljoin` falls back to the
+     * region end and each arm absorbs the tail — and at method top level the region
+     * end is the whole method, so k ternaries cost 2^k.
+     *
+     * Same oracle as the spilled-condition pin above: the tail's own emission count
+     * in this method, not a module size. `ASCIIToBinaryBuffer.doubleValue` is the
+     * real instance (`ieeeBits += overvalue ? -1 : 1;`), duplicating in the shipped
+     * prelude. */
+    {
+        bbq_arena a; bbq_arena_init(&a, 1 << 16);
+        const uint8_t* body = NULL;
+        int n = emit_body(&a,
+            "class T { int f(int x, boolean b){"
+            "  x = x + (b ? 0 - 1 : 1);"
+            "  x = x + (b ? 0 - 2 : 2);"
+            "  x = x + (b ? 0 - 3 : 3);"
+            "  return x * 54321; } }", "f", &body);
+        CHECK(n > 0, "value ternaries: emitted");
+        uint8_t mark[8]; int ml = 0;                 /* i32.const 54321, real encoder */
+        { emit_wasm_ctx m = {0};
+          ew_emit(&m, WOP_I32_CONST); ew_i32(&m, 54321);
+          ml = (int)bbq_vec_len(m.code); memcpy(mark, m.code, (size_t)ml);
+          bbq_vec_free(m.code); }
+        int seen = 0;
+        for (int i = 0; i + ml <= n; i++)
+            if (memcmp(body + i, mark, (size_t)ml) == 0) seen++;
+        if (seen != 1)
+            printf("        tail marker emitted %d times (want 1; 8 = the 2^3 join loss)\n", seen);
+        CHECK(seen == 1, "a value ternary keeps its join: the tail is emitted ONCE");
+        bbq_arena_free(&a);
+    }
+
+    /* ── a value ternary whose condition SPILLS ────────────────────────────────
+     * The two halves above pass on their own: a spilled condition keeps its join
+     * (07-27's carry), and a value ternary keeps its join. `doubleValue` is both at
+     * once — `ieeeBits += overvalue ? -1 : 1;` reads a FIELD, so the condition
+     * spills and the record is keyed on the spill StoreLocal, while the construct is
+     * a ternary rather than an if statement. The carry is cleared by the first
+     * Branch that arrives ("this branch ends the condition it belongs to"), which
+     * holds for an if and is what this fixture tests for a ternary. Same tail-count
+     * oracle. */
+    {
+        bbq_arena a; bbq_arena_init(&a, 1 << 16);
+        const uint8_t* body = NULL;
+        int n = emit_body(&a,
+            "class T { int f(int x, int y){"
+            "  x = x + ((x + y) * 3 != 1 ? 0 - 1 : 1);"
+            "  x = x + ((x + y) * 5 != 2 ? 0 - 2 : 2);"
+            "  x = x + ((x + y) * 7 != 3 ? 0 - 3 : 3);"
+            "  return x * 24680; } }", "f", &body);
+        CHECK(n > 0, "spilled-condition ternaries: emitted");
+        uint8_t mark[8]; int ml = 0;
+        { emit_wasm_ctx m = {0};
+          ew_emit(&m, WOP_I32_CONST); ew_i32(&m, 24680);
+          ml = (int)bbq_vec_len(m.code); memcpy(mark, m.code, (size_t)ml);
+          bbq_vec_free(m.code); }
+        int seen = 0;
+        for (int i = 0; i + ml <= n; i++)
+            if (memcmp(body + i, mark, (size_t)ml) == 0) seen++;
+        if (seen != 1)
+            printf("        tail marker emitted %d times (want 1; 8 = the 2^3 join loss)\n", seen);
+        CHECK(seen == 1, "a spilled-condition ternary keeps its join: the tail is emitted ONCE");
         bbq_arena_free(&a);
     }
 

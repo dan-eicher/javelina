@@ -1358,6 +1358,42 @@ int main(void) {
             1, 20, "switch: case 1=20" },
           { "class T { static int f(int x){ switch(x){ case 0: return 10; case 1: return 20; default: return 30; } } }",
             9, 30, "switch: default=30" },
+          /* §14.10, the EMPTY-group axis. A group whose only statement is a jump has that jump's
+           * target as its case target, so the group is not a body at all — the backend must not
+           * lay it out as one. Every case above has a statement in each group, which is exactly
+           * what let `case 1: break;` reach the conformance corpus as a miscompile. Expected
+           * values are derived from the JLS, not from a run. */
+          { "class T { static int f(int x){ int r=0; switch(x){ case 1: break; default: r=9; } return r; } }",
+            1, 0, "switch: a case whose only statement is break falls out with nothing" },
+          { "class T { static int f(int x){ int r=0; switch(x){ case 1: break; default: r=9; } return r; } }",
+            2, 9, "switch: …and the later default still runs for other values" },
+          { "class T { static int f(int x){ int r=0; switch(x){ case 1: r=1; break; default: break; } return r; } }",
+            2, 0, "switch: `default: break;` — the default's own target IS the exit" },
+          { "class T { static int f(int x){ int r=0; switch(x){ case 1: break; case 2: r=2; } return r; } }",
+            1, 0, "switch: empty break group with NO default label" },
+          { "class T { static int f(int x){ int r=0; switch(x){ case 1: case 2: r=2; break; default: r=9; } return r; } }",
+            1, 2, "switch: an empty group falls THROUGH to the next group's body (§14.10)" },
+          { "class T { static int f(int x){ int r=0; switch(x){ default: r=9; break; case 3: } return r; } }",
+            3, 0, "switch: an empty LAST group falls out of the switch" },
+          { "class T { static int f(int n){ int r=0; for(int i=0;i<n;i=i+1){ switch(i){ case 1: continue; default: r=r+i; } r=r+10; } return r; } }",
+            3, 22, "switch: a group whose only statement is CONTINUE targets the loop, not the "
+                   "switch exit — 0+10, skip, 2+10" },
+          { "class T { static int f(int x){ int r=0; L: { switch(x){ case 1: break L; default: r=9; } r=r+1; } return r; } }",
+            1, 0, "switch: empty group breaking to a LABELLED BLOCK skips the block's tail" },
+          { "class T { static int f(int x){ int r=0; L: { switch(x){ case 1: break L; default: r=9; } r=r+1; } return r; } }",
+            2, 10, "switch: …and the default path still runs the block's tail" },
+          { "class T { static int f(int n){ int r=0; L: for(int i=0;i<n;i=i+1){ switch(i){ case 1: continue L; default: r=r+i; } r=r+10; } return r; } }",
+            3, 22, "switch: empty group with a LABELLED continue targets the labelled loop" },
+          { "class T { static int f(int x){ int r=0; switch(x){ case 1: switch(x+1){ case 2: break; default: r=5; } r=r+3; break; default: r=9; } return r; } }",
+            1, 3, "switch: an inner switch's empty break leaves the INNER switch only" },
+          { "class T { static int f(int x){ int r=0; switch(x){ default: r=9; break; case 3: break; } return r; } }",
+            3, 0, "switch: an empty break group LAST, with the default before it" },
+          { "class T { static int f(int n){ int r=0; for(int i=0;i<n;i=i+1){ switch(i){ case 1: break; case 2: r=r+2; } } return r; } }",
+            3, 2, "switch: NO default + a break + an INHERITED exit — the break leaves the "
+                  "switch, not the loop iteration (i=2 still adds 2)" },
+          { "class T { static int f(int x){ int r=0; L: { switch(x){ case 1: break; case 2: r=r+2; } r=r+1; } return r; } }",
+            1, 1, "switch: NO default, break, inherited exit inside a labelled block — the "
+                  "break lands after the switch, so the block's tail still runs" },
           { "class T { static int f(int n){ int s=0; for(int i=0;i<100;i=i+1){ if(i==n) break; s=s+i; } return s; } }",
             3, 3, "break: sum 0..2=3" },
           { "class T { static int f(int n){ int s=0; for(int i=0;i<n;i=i+1){ if(i-(i/2)*2==1) continue; s=s+i; } return s; } }",
@@ -3233,6 +3269,164 @@ int main(void) {
             " outer: while (true) { inner: { if (x == 0) break inner; } i = 1; break outer; }"
             " return i; } }",
             0, 1, "§14.19 a break bound to a label INSIDE the loop does not make the loop's exit live" },
+
+          /* ── Control destinations that are LABELS: a node two transfers reach is emitted once
+           * and every other reference is a `br` (docs/ddcg-merge-labels.md §2). Each shape below
+           * has a destination with in-degree > 1; when the frontend did not record it, or the
+           * backend could not read the record where it is used, the destination was emitted
+           * inline per reference. These RUN, so a lost label shows up as a wrong ANSWER, not
+           * only as size — and they run under JAVELINA_CLICK=1 too, which is where a record the
+           * optimizer retired while its label stayed live shows up. ── */
+
+          /* §15.25 in a boolean-control position. `if (b ? p : q)` gens the conditional with
+           * γ = pair(Lthen, Lelse); its arms inherit γ and each ends in its own branch to the
+           * SHARED Lt/Lf. Treating pair as a value destination instead dropped the branch
+           * entirely — the arm never ran, and the `while` form spun forever. */
+          { "class T { static int f(int x){ boolean p = x > 0, q = x < 0, b = true;"
+            " int r = 0; if (b ? p : q) r = 1; return r; } }",
+            5, 1, "§15.25 conditional as an if condition: the then-arm runs" },
+          { "class T { static int f(int x){ boolean p = x > 0, q = x < 0, b = false;"
+            " int r = 0; if (b ? p : q) r = 1; return r; } }",
+            5, 0, "§15.25 conditional as an if condition: the else operand decides" },
+          { "class T { static int f(int x){ int n = 0; boolean p = true;"
+            " while (x > 0 ? p : false) { n = n + 1; if (n > 2) p = false; } return n; } }",
+            1, 3, "§15.25 conditional as a while condition terminates" },
+          { "class T { static int f(int x){ boolean t = true, f2 = false;"
+            " return ((t ? f2 : t) || (t ? t : f2)) ? 1 : 0; } }",
+            0, 1, "§15.25 conditional on both sides of ||" },
+          { "class T { static int f(int x){ boolean t = true, f2 = false;"
+            " return (!(t ? f2 : t)) ? 1 : 0; } }",
+            0, 1, "§15.25 conditional under ! — the ! swaps the pair it inherits" },
+
+          /* §15.25 delivering a VALUE inside a comparison inside a condition. The conditional's
+           * own join and the enclosing if's join are both keyed on the conditional's Branch —
+           * one node, two records — and both have to be resolvable. */
+          { "class T { static int f(int x){ int y = x - 1, r = 0;"
+            " if ((x > 0 ? x : y) > 0) r = r + 1; if ((x > 0 ? x : y) > 1) r = r + 2;"
+            " if ((x > 0 ? x : y) > 2) r = r + 4; return r; } }",
+            3, 7, "§15.25 compared conditional in three successive if conditions" },
+          { "class T { static int f(int x){ int y = x - 1, r = 0;"
+            " if ((x > 0 ? x : y) > 0 && x > 0) r = 1; return r; } }",
+            3, 1, "§15.25 compared conditional left of &&" },
+          { "class T { static int f(int x){ int y = x - 1, r = 0;"
+            " if (x > (x > 0 ? x : y)) r = 1; else r = 2; return r; } }",
+            3, 2, "§15.25 conditional as the RHS of a compare (both operands spill)" },
+
+          /* Fig. 7's shared exit. In a ONE-ARMED `if (a && b)` that exit IS the if's join, so the
+           * head carries a MERGE row and a BLOCK row naming one node; reading that as "just a
+           * plain if" emitted the compound condition as a native `if` whose then-arm was the
+           * rest of the condition. */
+          { "class T { static int f(int x){ int r = 0;"
+            " if (x > 0 && (x > 5 || x < 3)) r = 1; if (r == 0) r = 9; return r; } }",
+            2, 1, "Fig.7 one-armed if (a && (b || c)): the shared exit is also the join" },
+          { "class T { static int f(int x){ int r = 0;"
+            " if (x > 0 && (x > 5 || x < 3)) r = 1; if (r == 0) r = 9; return r; } }",
+            4, 9, "Fig.7 the same, condition false: the join is reached once" },
+          { "class T { static boolean p(int c){ return c > 1; } static boolean q(int c){ return c < 9; }"
+            " static int f(int x){ return (p(x) || q(x)) ? 1 : 0; } }",
+            5, 1, "Fig.7 || in RETURN position: both terms share Lt" },
+
+          /* §14.10 switch fall-through is the one exit from a case group that carries NO jump —
+           * break/continue/return all become a br the backend resolves by depth, but falling out
+           * of one group into the next is pure layout adjacency. Laying the groups out in
+           * ascending-value order (what the br_table wants) breaks exactly that edge. */
+          { "class T { static int f(int x){ int r = 0;"
+            " switch (x) { case 1: r = 1; case 2: r = r + 20; break; case 3: r = 3; } return r; } }",
+            1, 21, "§14.10 fall-through from case 1 into case 2" },
+          { "class T { static int f(int x){ int r = 0;"
+            " switch (x) { case 1: r = 1; case 2: r = r + 20; break; case 3: r = 3; } return r; } }",
+            2, 20, "§14.10 the fallen-into group is reached by br_table too — emitted once" },
+          { "class T { static int f(int x){ int r = 1;"
+            " switch (x) { case 45: r = -1; case 43: r = r + 100; } return r; } }",
+            45, 99, "§14.10 fall-through where source order is DESCENDING by case value" },
+          { "class T { static int f(int x){ int r = 1;"
+            " switch (x) { case 45: r = -1; case 43: r = r + 100; } return r; } }",
+            43, 101, "§14.10 the same switch entered at the lower-valued, later-in-source case" },
+          { "class T { static int f(int x){ int r = 0;"
+            " switch (x) { case 1: r = 1; break; default: r = 9; case 2: r = r + 20; break; } return r; } }",
+            7, 29, "§14.10 a `default:` that is not last falls through to the case after it" },
+          { "class T { static int f(int x){ int r = 0;"
+            " switch (x) { case 1: r = 1; break; default: r = 9; case 2: r = r + 20; break; } return r; } }",
+            2, 20, "§14.10 the group after a mid-position default is its own br_table target" },
+
+          /* §14.7 a labeled BLOCK. `loop_frame` tells `break L` which node to jump to; without a
+           * scope record the backend never framed it, so each break emitted the exit inline. */
+          { "class T { static int f(int x){ int r = 0;"
+            " L: { if (x == 0) break L; r = 1; if (x == 1) break L; r = 2; return r * 10; }"
+            " return r * 100; } }",
+            1, 100, "§14.7 labeled block, two breaks: the exit is emitted once" },
+          { "class T { static int f(int x){ int r = 0;"
+            " L: { if (x == 0) break L; r = 1; if (x == 1) break L; r = 2; return r * 10; }"
+            " return r * 100; } }",
+            5, 20, "§14.7 the same block completing normally through its own return" },
+          { "class T { static int g(int x){ return x; } static int f(int x){ int r = 0;"
+            " L: try { if (x == 0) break L; r = g(2); return r * 10; }"
+            "    catch (RuntimeException e) { } return r * 100; } }",
+            3, 20, "§14.7 a labeled TRY exited by `break L`" },
+
+          /* §14.16 a continue target — a `for`'s update, a do-while's tail test — is reached by
+           * the body's fall-through AND by every continue. It is a label only when a continue
+           * exists, which is a question only sema can answer. */
+          { "class T { static int f(int x){ int s = 0;"
+            " for (int i = 0; i < x; i++) { if (i == 2) continue; s = s + i; } return s; } }",
+            5, 8, "§14.16 for-update as a continue target" },
+          { "class T { static int f(int x){ int s = 0;"
+            " for (int i = 0; i < x; i++) { if (i == 2) continue; if (i == 4) break; s = s + i; } return s; } }",
+            6, 4, "§14.16 continue and break in one for body" },
+          { "class T { static int f(int x){ int s = 0, i = 0;"
+            " do { i++; if (i == 2) continue; s = s + i; } while (i < x); return s; } }",
+            4, 8, "§14.16 do-while tail test as a continue target" },
+          { "class T { static int f(int x){ int s = 0;"
+            " for (int i = 0; i < x; i++) { s = s + i; } return s; } }",
+            4, 6, "§14.16 a for with NO continue needs no frame round its update" },
+
+          /* The breakable-block idiom the generated PEG parsers are written in. Its back edge is
+           * never taken, so the optimizer removes the loop — but the REGION survives, still
+           * branched to by every break, and still has to be framed. */
+          { "class T { static int f(int x){ int acc = 0, i = 0;"
+            " for (;;) { int m = i; boolean ok = false;"
+            "   do { if (i >= x) break; i++; if (i == 3) break; acc = acc + i; ok = true; } while (false);"
+            "   if (!ok) { i = m; break; } }"
+            " return acc * 10 + i; } }",
+            5, 32, "do{…}while(false) as a breakable block inside for(;;)" },
+
+          /* A condition the optimizer folds away entirely. Every arm of the short-circuit
+           * disappears, so its value merge stops being a merge — a record that outlives the
+           * thing it describes frames a block bounded at a node no longer on the chain. */
+          { "class T { static int f(int x){"
+            " return (!((1 > 0) & (1 <= 1) & (1 == 1) & !(false) & (true && true) & (false || true)))"
+            "        ? 1 : 0; } }",
+            0, 0, "§15.28 a fully constant-folded &&/|| chain under !" },
+          { "class T { static int f(int x){ return ((1 > 0) & (true && true)) ? 1 : 0; } }",
+            0, 1, "§15.28 constant-folded && inside a non-short-circuit &" },
+
+          /* Click §4.8's 1-constant identity (x+0, x*1, x&-1, x|0) makes the node a
+           * FOLLOWER of its other operand. Which operand is "the constant" was read
+           * off the lattice — but "is KNOWN right now" can still rise, while
+           * becoming a Follower cannot. A loop-carried value whose INITIAL value
+           * equals the identity element is transiently KNOWN before the back edge
+           * raises it, so it got mistaken for the constant and the expression became
+           * a permanent follower of the LITERAL. These run the loop, so the wrong
+           * answer is the failure. One case per identity element, each with the
+           * accumulator seeded AT that element. */
+          { "class T { static int f(int x){ int g = 0;"
+            " for (int i = 0; i < x; i++) { g = g + 1; } return g + 0; } }",
+            3, 3, "§4.8 x+0 where x is loop-carried from 0 (0 is +'s identity)" },
+          { "class T { static int f(int x){ int g = 1;"
+            " for (int i = 0; i < x; i++) { g = g + 1; } return g * 1; } }",
+            3, 4, "§4.8 x*1 where x is loop-carried from 1 (1 is *'s identity)" },
+          { "class T { static int f(int x){ int g = 0;"
+            " for (int i = 0; i < x; i++) { g = g + 1; } return g | 0; } }",
+            3, 3, "§4.8 x|0 where x is loop-carried from 0" },
+          { "class T { static int f(int x){ int g = 0-1;"
+            " for (int i = 0; i < x; i++) { g = g + 1; } return g & (0-1); } }",
+            3, 2, "§4.8 x&-1 where x is loop-carried from -1" },
+          { "class T { static int f(int x){ int g = 0;"
+            " for (int i = 0; i < x; i++) { if (i == 1) continue; g = g + 1; } return g + 0; } }",
+            3, 2, "§4.8 the same with a continue in the body" },
+          { "class T { static int f(int x){ int g = 1;"
+            " for (int i = 0; i < x; i++) { g = g + 1; } return g + 0; } }",
+            3, 4, "§4.8 control: x+0 seeded away from the identity element" },
         };
         for (int i = 0; i < (int)(sizeof ccn / sizeof ccn[0]); i++) {
             bbq_arena a; bbq_arena_init(&a, 1 << 18);

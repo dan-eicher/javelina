@@ -384,6 +384,10 @@ int ddcg_sema_continue_target_depth(ddcg_ctx_t* ctx, ast_stmt_t* stmt) {
     return sema_continue_target_depth(ctx->sema, stmt);
 }
 
+bool ddcg_sema_loop_has_continue(ddcg_ctx_t* ctx, ast_stmt_t* stmt) {
+    return sema_loop_has_continue(ctx->sema, stmt);
+}
+
 /* ── Field / array access helpers ─────────────────────────── */
 
 /* JLS type tag → SIR datatype via the one type authority. */
@@ -1235,6 +1239,16 @@ int ddcg_record_scope(ddcg_ctx_t* ctx, sir_node_t* header,
                           COMPILER_FACT_SCOPE, kind, 0, 0, 0);
 }
 
+/* A guard diamond's shared continuation (b = 1; see the PAYLOAD TABLE). Same row
+ * as record_scope(…, MERGE) otherwise — the flag is what lets the optimizer retire
+ * this label WITH the guard it belongs to, while a short-circuit chain's shared
+ * exit survives its key collapsing. */
+int ddcg_record_guard_merge(ddcg_ctx_t* ctx, sir_node_t* header,
+                             sir_node_t* exit) {
+    return ddcg_fact_push(ctx, header, exit, COMPILER_FACT_SCOPE,
+                          COMPILER_SCOPE_MERGE, 1, 0, 0);
+}
+
 int ddcg_record_guard(ddcg_ctx_t* ctx, sir_node_t* branch, int kind,
                        int subject_slot, int aux_slot, int throw_on_true) {
     return ddcg_fact_push(ctx, branch, NULL, COMPILER_FACT_GUARD,
@@ -1277,10 +1291,16 @@ sir_datatype_t ddcg_sema_switch_selector_dt(ddcg_ctx_t* ctx, ast_stmt_t* stmt) {
 
 /* Construct the SIR_SWITCH node. body_heads is parallel to the AST
  * cases[] array (head[i] = compiled head of cases[i]'s body); sema
- * gives us sorted case_values + parallel case_ast_indices that map
- * each sorted slot back to its AST case. The default target lands
- * on the default body's head if there's a default case, else on
- * Lbreak. */
+ * gives us case_values sorted ASCENDING with a parallel
+ * case_ast_indices mapping each sorted slot back to its AST case.
+ *
+ * The node carries them back in SOURCE order. Sema's sort serves the
+ * br_table, whose target vector is indexed by value over [low..high];
+ * the layout is a different question, and §14.10 fall-through — the one
+ * exit from a case group that is not a jump — only works if adjacent
+ * groups are adjacent in the layout. `case_ast_indices` is what turns
+ * one order back into the other. default_index is the default label's
+ * place in that same source order. */
 sir_node_t* ddcg_build_switch_node(ddcg_ctx_t* ctx, ast_stmt_t* stmt,
                                     ddcg_list_sir_node_t_ptr_t body_heads,
                                     sir_node_t* Lbreak,
@@ -1295,15 +1315,24 @@ sir_node_t* ddcg_build_switch_node(ddcg_ctx_t* ctx, ast_stmt_t* stmt,
     int32_t* case_values = (n > 0)
         ? (int32_t*)bbq_arena_alloc(ctx->arena, (size_t)n * sizeof(int32_t))
         : NULL;
+    /* Slot k of sema's arrays is the k'th case BY VALUE; its source rank is the
+     * number of cases whose AST index is smaller. */
     for (int k = 0; k < n; k++) {
-        case_values[k]  = info->case_values[k];
-        int ast_idx     = info->case_ast_indices[k];
-        case_targets[k] = ddcg_ddcg_label(ctx, body_heads.data[ast_idx]);
+        int ast_idx = info->case_ast_indices[k];
+        int rank = 0;
+        for (int j = 0; j < n; j++)
+            if (info->case_ast_indices[j] < ast_idx) rank++;
+        case_values[rank]  = info->case_values[k];
+        case_targets[rank] = ddcg_ddcg_label(ctx, body_heads.data[ast_idx]);
     }
 
     sir_node_t* default_target;
+    int default_index = -1;
     if (info && info->default_idx >= 0) {
         default_target = ddcg_ddcg_label(ctx, body_heads.data[info->default_idx]);
+        default_index = 0;
+        for (int k = 0; k < n; k++)
+            if (info->case_ast_indices[k] < info->default_idx) default_index++;
     } else {
         default_target = ddcg_ddcg_label(ctx, Lbreak);
     }
@@ -1311,6 +1340,6 @@ sir_node_t* ddcg_build_switch_node(ddcg_ctx_t* ctx, ast_stmt_t* stmt,
     return sir_switch(ctx->arena, selector,
                        case_targets, n,
                        case_values, n,
-                       default_target, sel_dt);
+                       default_target, default_index, sel_dt);
 }
 

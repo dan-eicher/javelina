@@ -97,7 +97,22 @@ static ast_program_t* parse_src(const char* src, int len, const char* file, java
     }
     p.user_data = pc;
     ast_program_t* prog = java_parser_parse(&p) ? pc->result : NULL;
-    if (!prog) fprintf(stderr, "%s: parse error in '%s'\n", prog_name, file ? file : "<stdin>");
+    if (!prog) {
+        /* The parser records every failure it hits with a position; a PEG backtracks, so the
+         * FURTHEST one is the informative one — the others are alternatives it correctly gave
+         * up on earlier. Reporting only "parse error in <file>" throws all of that away and
+         * leaves the reader bisecting the file by hand. */
+        const peg_error* far = NULL;
+        for (int i = 0; i < p.error_count; i++) {
+            const peg_error* e = &p.errors[i];
+            if (!far || e->line > far->line || (e->line == far->line && e->col > far->col))
+                far = e;
+        }
+        if (far) fprintf(stderr, "%s:%d:%d: error: %s\n",
+                         file ? file : "<stdin>", far->line, far->col, far->message);
+        else     fprintf(stderr, "%s: parse error in '%s'\n",
+                         prog_name, file ? file : "<stdin>");
+    }
     free(tsrc);                       /* idents/literals are duplicated into the arena */
     bbq_vec_push(*ctxs, pc);
     return prog;

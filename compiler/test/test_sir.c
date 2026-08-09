@@ -4424,6 +4424,241 @@ int main(void) {
         sema_destroy(&sctx); bbq_arena_free(&a);
     }
     {
+        // §42n spec §7 / Choi Fig 7 "MapsTo" — A CALLEE-ALLOCATED OBJECT HAS NO CALLER NAME.
+        //      §42 above pins the case where the stored value arrives as an ACTUAL: `p.v = a`, so
+        //      `a` is a formal, MapsTo's base case gives it the caller's x, and the injected edge
+        //      is exact. This pins the case Fig 7's base case CANNOT reach — the callee allocates
+        //      the value itself:  store(C p){ p.v = new D(); }.
+        //
+        //      MapsTo seeds every summary object at ∅ and fills the non-roots by FOLLOWING the
+        //      caller's own field edge (cp_follow_field on the caller's cell). For a callee-
+        //      allocated object that edge holds the caller's PRE-CALL belief about `o.v` — which
+        //      for a fresh `new C()` is the §12.5 seed null, the very value the callee overwrites.
+        //      So the object maps to {null}, injection contributes null and nothing else, and no
+        //      existing guard fires: the receiver is not leaked, the write is DIRECT not
+        //      TRANSITIVE, and there is no Oext in the mapped value to raise inject_bad. The cell
+        //      lands on the singleton {null} and every consumer folds the load to LoadNull while
+        //      the object really holds the new D.
+        //
+        //      The lemma is NOT "o.v is exactly the new D" — the caller cannot name a callee
+        //      allocation, and Fig 7's answer is a caller-side phantom, not a site. It is the
+        //      weaker, load-bearing half: THE CALLER MUST NOT CONCLUDE NULL. Either a phantom or
+        //      the conservative catch-all satisfies it, so this does not over-specify the fix; it
+        //      only forbids the one answer that miscompiles. Asserting "not exactly {null}" alone
+        //      would pass on an EMPTY pts, which is BOTTOM, so the non-null MEMBER is what's
+        //      checked.
+        bbq_arena a; bbq_arena_init(&a, 1 << 16);
+        int nlib = 0;
+        ast_program_t* prog = build_program(
+            "class D {} class C { D v; }"
+            " class T {"
+            "   static void store(C p){ p.v = new D(); }"
+            "   static void run(){ C o = new C(); store(o);"
+            "                      D y = o.v; if (y == null) return; } }",
+            &a, &nlib);
+        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
+        sir_analyze(&sctx);
+        compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
+        int mc = 0;
+        sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
+        int t_id = sema_find_class(&sctx, "T");
+        int i_run = -1;
+        for (int k = 0; k < mc; k++)
+            if (ms[k]->class_id == t_id && ms[k]->name && !strcmp(ms[k]->name, "run")) i_run = k;
+        CHECK(i_run >= 0, "§42n: run resolves");
+        compiler_summarize_to_convergence(&cctx);
+        int nsc = 0;
+        const compiler_fact_t* sc = compiler_get_facts(&cctx, i_run, &nsc);
+        cp_engine_t* e = cp_build_ctx(&cctx, ms[i_run], sc, nsc);
+        const sir_node_t* getv = e ? find_tag(ms[i_run]->entry, SIR_GETFIELD, 400) : NULL;
+        CHECK(e && getv, "§42n: the o.v read is in run's graph");
+        if (e && getv) {
+            cp_pts_t gp = cp_pts_of_expr(e, getv);
+            int n_nonnull = cp_pts_count(e, gp) - (cp_pts_has(e, gp, CP_OBJ_NULL) ? 1 : 0);
+            CHECK(n_nonnull > 0,
+                  "§42n: after store(o), o.v may hold the callee's allocation — a callee object "
+                  "with no caller counterpart maps to a caller-side phantom (Fig 7), never to the "
+                  "cell's pre-call §12.5 null; a pts of exactly {null} folds the load to LoadNull "
+                  "while the object holds the new D");
+        }
+        if (e) cp_free(e);
+        sema_destroy(&sctx); bbq_arena_free(&a);
+    }
+    {
+        // §42f Choi Fig 7 STATEMENT 32, the created node — the FULL rule, of which §42n pins only
+        //      the soundness half. Verbatim (§4.4 "Updating Caller Nodes", p.10): "If there is no
+        //      MapsTo node in the caller CG, we create one with an escape state of NoEscape." And
+        //      Statement 32: "A caller object node, n̂ₒ, and its field nodes are created at
+        //      Statement 32 if no MapsTo caller object node exists."
+        //
+        //      So the answer is a NODE — one object, its own name, NOT escaping — and not the
+        //      conservative catch-all. The catch-all is sound and stops the null fold (§42n), but
+        //      it is ⊤: it says "o.v might be anything", which kills every downstream question the
+        //      node exists to answer. With the paper's node the caller knows o.v names ONE object
+        //      that nothing else reaches, so it stays a candidate for scalar replacement and for
+        //      the §44 load forwarding.
+        //
+        //      Two halves, both asserted, because either alone is passable by a weasel: EXACTLY
+        //      one non-null object (so it is a node, not ⊤ and not a union), and that object is
+        //      NoEscape (so it is Statement 32's node and not some incidental alias).
+        bbq_arena a; bbq_arena_init(&a, 1 << 16);
+        int nlib = 0;
+        ast_program_t* prog = build_program(
+            "class D {} class C { D v; }"
+            " class T {"
+            "   static void store(C p){ p.v = new D(); }"
+            "   static void run(){ C o = new C(); store(o);"
+            "                      D y = o.v; if (y == null) return; } }",
+            &a, &nlib);
+        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
+        sir_analyze(&sctx);
+        compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
+        int mc = 0;
+        sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
+        int t_id = sema_find_class(&sctx, "T");
+        int i_run = -1;
+        for (int k = 0; k < mc; k++)
+            if (ms[k]->class_id == t_id && ms[k]->name && !strcmp(ms[k]->name, "run")) i_run = k;
+        CHECK(i_run >= 0, "§42f: run resolves");
+        compiler_summarize_to_convergence(&cctx);
+        int nsc = 0;
+        const compiler_fact_t* sc = compiler_get_facts(&cctx, i_run, &nsc);
+        cp_engine_t* e = cp_build_ctx(&cctx, ms[i_run], sc, nsc);
+        const sir_node_t* getv = e ? find_tag(ms[i_run]->entry, SIR_GETFIELD, 400) : NULL;
+        CHECK(e && getv, "§42f: the o.v read is in run's graph");
+        if (e && getv) {
+            cp_pts_t gp = cp_pts_of_expr(e, getv);
+            int nn = cp_pts_count(e, gp) - (cp_pts_has(e, gp, CP_OBJ_NULL) ? 1 : 0);
+            CHECK(!cp_pts_has(e, gp, CP_OBJ_EXT),
+                  "§42f: the created node REPLACES the clobber's conservative unknown — o.v does "
+                  "not still carry the catch-all ⊤");
+            /* The created node is IN the answer, in the Fig 7 id range — Statement 32 landed. */
+            int created = -1;
+            for (int o2 = e->obj_first_fresh; o2 < e->obj_first_site; o2++)
+                if (cp_pts_has(e, gp, o2)) created = o2;
+            bool has_created = created >= 0;
+            CHECK(has_created,
+                  "§42f: o.v holds the node Statement 32 CREATED for the callee's allocation "
+                  "(an object in the created-node id range, not a site and not the catch-all)");
+
+            /* JLS §4.12.5/§12.5, not Choi: `o` is a `new C()`, so its fields hold their defaults
+             * and its cell rows seed {null} — never the CELL PHANTOM, which means "whatever some
+             * PRE-EXISTING object holds in cell v". A phantom here is ⊤ to every consumer, so it
+             * costs exactly what CP_OBJ_EXT does and wastes the node Statement 32 created. */
+            int extra = nn - (has_created ? 1 : 0);
+            CHECK(extra == 0,
+                  "§42f: …and NOTHING ELSE — a FRESH object's cell holds its §12.5 default until "
+                  "written, so o.v must not also acquire the CELL PHANTOM for `v` (what a "
+                  "PRE-EXISTING object holds there); it is a different defect from Statement 32 "
+                  "and it wastes the created node just as the catch-all did");
+            /* Choi §4.4 verbatim — "we create one with an escape state of NoEscape". Asked of the
+             * OBJECT: cp_escape_of_expr resolves an ALLOCATION SITE and fail-closes to
+             * GlobalEscape for anything else, so asking it about a GetField answers GLOBAL
+             * whatever the node's state is. */
+            CHECK(created >= 0 && (int)cp_escape_of(e, created) == (int)CP_ESC_NONE,
+                  "§42f: …and the created node's escape state is NoEscape (§4.4 verbatim), which "
+                  "is what keeps it scalar-replaceable in the caller");
+        }
+        if (e) cp_free(e);
+        sema_destroy(&sctx); bbq_arena_free(&a);
+    }
+    {
+        // §42t Choi Fig 7 STATEMENT 33 — TERMINATION. Verbatim (p.11): "Statement 33 is for
+        //      termination: it skips the body of the loop for n̂ₒ that is already in
+        //      MapsToObj(nₒ)." The paper's own example needs it: "The cycle in the NonLocalGraph
+        //      of T() results in also mapping S1 as a MapsTo node of S4. The cycle also results in
+        //      inserting edges from the next fields of S0 and S1 to both S0 and S1."
+        //
+        //      A callee whose formal-reachable sub-graph contains a FIELD CYCLE (`p.next = q;
+        //      q.next = p;`) makes MapsTo recursion re-enter forever without the already-in check.
+        //      This is a LIVENESS lemma, so the assertion is that the analysis produced an answer
+        //      at all AND that the answer is the cyclic one — a hang or a bailout to ⊤ both fail.
+        //      Pinned because our recursion is a worklist keyed on cp_pts_union_grew, a DIFFERENT
+        //      mechanism from the paper's set-membership test, and an equivalent must be shown to
+        //      be an equivalent rather than assumed.
+        bbq_arena a; bbq_arena_init(&a, 1 << 16);
+        int nlib = 0;
+        ast_program_t* prog = build_program(
+            "class N { N next; }"
+            " class T {"
+            "   static void link(N p, N q){ p.next = q; q.next = p; }"
+            "   static void run(){ N a = new N(); N b = new N(); link(a, b);"
+            "                      N y = a.next; if (y == null) return; } }",
+            &a, &nlib);
+        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
+        sir_analyze(&sctx);
+        compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
+        int mc = 0;
+        sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
+        int t_id = sema_find_class(&sctx, "T"), n_id = sema_find_class(&sctx, "N");
+        int i_run = -1;
+        for (int k = 0; k < mc; k++)
+            if (ms[k]->class_id == t_id && ms[k]->name && !strcmp(ms[k]->name, "run")) i_run = k;
+        CHECK(i_run >= 0, "§42t: run resolves");
+        compiler_summarize_to_convergence(&cctx);   /* terminates ⟹ Statement 33's equivalent holds */
+        int nsc = 0;
+        const compiler_fact_t* sc = compiler_get_facts(&cctx, i_run, &nsc);
+        cp_engine_t* e = cp_build_ctx(&cctx, ms[i_run], sc, nsc);
+        const sir_node_t* bnew = e ? find_new_of_class(ms[i_run]->entry, n_id) : NULL;
+        const sir_node_t* geta = e ? find_tag(ms[i_run]->entry, SIR_GETFIELD, 400) : NULL;
+        CHECK(e && bnew && geta, "§42t: the cyclic-link call site is in run's graph");
+        if (e && geta) {
+            cp_pts_t gp = cp_pts_of_expr(e, geta);
+            CHECK(cp_pts_count(e, gp) > 0,
+                  "§42t: MapsTo over a callee field CYCLE terminates with an answer — Statement "
+                  "33's already-in-MapsToObj check (our union_grew worklist) is what stops the "
+                  "recursion re-entering p→q→p forever");
+        }
+        if (e) cp_free(e);
+        sema_destroy(&sctx); bbq_arena_free(&a);
+    }
+    {
+        // §38r Choi Fig 6 LINE 21 — the ArgEscape sweep RAISES, it never demotes. Verbatim
+        //      (Figure 6, "Reachability analysis over connection graph to compute escape state of
+        //      objects"): the GlobalEscape sweep is lines 2–13 with the guard
+        //      `if (EscapeState[n] ≠ GlobalEscape)`, and the ArgEscape sweep is lines 15–26 with
+        //      the guard `if (EscapeState[n] > ArgEscape)`.
+        //
+        //      That `>` is the whole lemma: the second sweep may only move a node UP the escape
+        //      order (NoEscape → ArgEscape) and must leave a GlobalEscape node alone. Drop it and
+        //      an object that leaked to a static gets relabelled ArgEscape merely because it is
+        //      also reachable from a formal — which is a MISCOMPILE, not a precision loss: the
+        //      caller would treat a globally-escaped object as one it may scalar-replace.
+        //      An object that is BOTH (stored to a static AND passed as an argument) is the only
+        //      shape that distinguishes the two sweeps, so that is the fixture.
+        bbq_arena a; bbq_arena_init(&a, 1 << 16);
+        int nlib = 0;
+        ast_program_t* prog = build_program(
+            "class D {}"
+            " class G { static D s;"
+            "   static void take(D p){ if (p == null) return; }"
+            "   static void run(){ D x = new D(); s = x; take(x); } }",
+            &a, &nlib);
+        sema_ctx_t sctx; sema_init(&sctx, &a); sctx.num_library_classes = nlib; sctx.analyze_from = nlib;
+        sir_analyze(&sctx);
+        compiler_ctx_t cctx; compiler_init(&cctx, &a, &sctx);
+        int mc = 0;
+        sir_method_t** ms = compiler_compile(&cctx, prog, &mc);
+        int g_id = sema_find_class(&sctx, "G"), d_id = sema_find_class(&sctx, "D");
+        int i_run = -1;
+        for (int k = 0; k < mc; k++)
+            if (ms[k]->class_id == g_id && ms[k]->name && !strcmp(ms[k]->name, "run")) i_run = k;
+        CHECK(i_run >= 0, "§38r: run resolves");
+        compiler_summarize_to_convergence(&cctx);
+        int nsc = 0;
+        const compiler_fact_t* sc = compiler_get_facts(&cctx, i_run, &nsc);
+        cp_engine_t* e = cp_build_ctx(&cctx, ms[i_run], sc, nsc);
+        const sir_node_t* xnew = e ? find_new_of_class(ms[i_run]->entry, d_id) : NULL;
+        CHECK(e && xnew, "§38r: the new D() is in run's graph");
+        if (e && xnew)
+            CHECK((int)cp_escape_of_expr(e, xnew) == (int)CP_ESC_GLOBAL,
+                  "§38r: an object that is BOTH stored to a static AND passed as an argument stays "
+                  "GlobalEscape — Fig 6's `EscapeState[n] > ArgEscape` guard means the ArgEscape "
+                  "sweep raises NoEscape only and never demotes a global");
+        if (e) cp_free(e);
+        sema_destroy(&sctx); bbq_arena_free(&a);
+    }
+    {
         // §44 spec §7 / VFG ISMM'13 §4.1 (verbatim: "a STORE ∗p=x to object O can kill all
         //      previous values stored to O … a sparse data-flow analysis … whether a STORE can
         //      reach a LOAD … without being killed by another STORE"). A call is NOT a wide kill:

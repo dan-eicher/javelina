@@ -59,6 +59,17 @@
  *                             | merge: the shared label the transfers converge on
  *                               (emit-once; docs/ddcg-merge-labels.md)
  *                a   = compiler_scope_kind_t
+ *                b   = MERGE only: 1 iff this is a GUARD DIAMOND's shared
+ *                      continuation (the div/cast guards' arms converging), 0 for
+ *                      every other merge. The optimizer needs the distinction and
+ *                      cannot recover it: an eliminated guard's merge label must
+ *                      RETIRE with the guard, while a short-circuit chain's shared
+ *                      exit outlives a collapsed key and must FOLLOW. It cannot ask
+ *                      the GUARD rows either — a ref cast records its guard fact on
+ *                      the INNER instanceof branch and its merge on the OUTER
+ *                      null-check branch — and by the time the collapse decides, the
+ *                      key has been retagged to Nop so its arms are gone. The site
+ *                      that records both knows; it says so here.
  *                The DDCG builds while/for/if from structured source, so it knows
  *                every loop/merge as it constructs them. Recorded inside-out, so
  *                record order IS nesting order.
@@ -284,6 +295,17 @@ struct compiler_summary {
      * one keeps EXT. Per-object, NOT per-cell — a leaf's cell can carry imprecise Oext while its
      * receiver is clean. */
     bool*          obj_leaked;   /* [n_obj] */
+    /* Fig 7's MapsTo base case is PointsTo(actual), which reaches only objects the caller can
+     * already name. An object the callee ALLOCATED has no such name, so Statement 32 has the
+     * caller create a node for it (§4.4: "with an escape state of NoEscape"). Only the callee
+     * knows which of its summary objects those are. */
+    bool*          obj_fresh;    /* [n_obj]: object k was allocated by this callee */
+    /* Object k is this callee's ENTRY-VALUE phantom for a cell — "whatever a caller left there
+     * before the call". Its caller image is the caller's OWN cell, so an Oext in it is the
+     * caller's pre-call unknown, not a callee claim that its write is incomplete; the kill
+     * already unions that pre-call value, and inject_bad is monotone. Per cell key, because only
+     * this cell's own phantom carries that argument. */
+    unsigned int*  obj_entry_key; /* [n_obj]: CP_CELL_NONE unless k is that cell's entry phantom */
 };
 
 #define COMPILER_WCELL_MAYBE_NULL  1u   /* the written value may be null (a DIRECT write) */

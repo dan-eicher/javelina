@@ -403,6 +403,7 @@ typedef enum {
 typedef struct {
     sema_frame_kind_t kind;
     const char* label;         /* NULL if unlabeled */
+    const ast_stmt_t* stmt;    /* the loop/switch this frame is for */
 } sema_frame_t;
 
 /* ── Semantic analysis context ────────────────────────────── */
@@ -470,6 +471,13 @@ typedef struct {
     bbq_htree* switch_infos;      /* AST_SWITCH stmt → sema_switch_info_t* */
     bbq_htree* break_target_depths;    /* AST_BREAK*    → (int)(depth + 1) */
     bbq_htree* continue_target_depths; /* AST_CONTINUE* → (int)(depth + 1) */
+    /* Loops some `continue` resolves to. The continue target (a for's update, a
+     * while's header) is then reached by two transfers — the body's fall-through
+     * and the continue — which makes it an emit-once label the backend has to
+     * frame. Without a continue it has one reference and needs no frame, and the
+     * paper emits no code for an unreferenced label. Only sema, which resolves
+     * every continue to its loop, can tell the two apart. */
+    bbq_htree* loops_with_continue;    /* loop AST_stmt* → 1 */
     bbq_htree* type_class_ids;   /* ast_type_t* (CLASSTYPE) → (int)(class_id + 1) —
                                   * recorded by resolve_type, THE §6.5.4 resolution of
                                   * each spelled type node. Post-sema queries (catch
@@ -907,6 +915,8 @@ int sema_type_class_id(const sema_ctx_t* ctx, const ast_type_t* ty);
  * defensively). */
 int sema_break_target_depth(const sema_ctx_t* ctx, const ast_stmt_t* stmt);
 int sema_continue_target_depth(const sema_ctx_t* ctx, const ast_stmt_t* stmt);
+/* Does any `continue` in this loop's body resolve to this loop? */
+bool sema_loop_has_continue(const sema_ctx_t* ctx, const ast_stmt_t* stmt);
 
 /* ── Spec-facing predicates / translations ─────────────────────────
  * These live on sema because sema owns modifier semantics. Downstream

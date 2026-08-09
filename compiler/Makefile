@@ -234,6 +234,25 @@ javelinac: generate-parser generate-ddcg generate-codegen | $(B)
 	    $(VM)/src/jav_error.c $(VM)/src/gen/jav_view_reader.c $(RT)/bbq_lite.c \
 	    $(CRT)/bbq_arena.c -lm -o $(B)/javelinac
 
+# ── javelinac under AddressSanitizer, for chasing memory-safety and runaway-
+# allocation bugs. javelinac is a single compiler invocation over sources, so this
+# shares no object file with the normal build and cannot clobber it; only the
+# output name differs. Flags are javelinac's own plus the sanitizer, so a bug seen
+# here is a bug in the shipped build and not an artifact of different codegen.
+#
+# Cap it by RSS, not `ulimit -v`: ASAN reserves a very large shadow mapping up
+# front and a virtual-size limit kills it before the program under test misbehaves.
+#   ASAN_OPTIONS=hard_rss_limit_mb=4000:allocator_may_return_null=0 build/javelinac.asan ...
+.PHONY: javelinac-asan
+javelinac-asan: generate-parser generate-ddcg generate-codegen | $(B)
+	$(CC) $(CFLAGS) -fsanitize=address -fno-omit-frame-pointer \
+	    -Wno-parentheses-equality -Iinclude $(INCLUDES) $(VM_INCLUDES) \
+	    driver/javelinac.c $(EXEC_SRCS) $(VM_RW_SRCS) $(VM)/src/jav_utf8.c \
+	    $(VM)/src/jav_load.c $(VM)/src/jav_view_nav.c $(VM)/src/jav_module_index.c \
+	    $(VM)/src/jav_module_validate.c $(VM)/src/jav_subtype.c $(VM)/src/validate.c \
+	    $(VM)/src/jav_error.c $(VM)/src/gen/jav_view_reader.c $(RT)/bbq_lite.c \
+	    $(CRT)/bbq_arena.c -lm -o $(B)/javelinac.asan
+
 # ── The jre.wasm runtime artifact: the prelude compiled once in RUNTIME mode. ──
 .PHONY: jre
 jre: javelinac $(PEG_NODES) $(REGEX_PARSER)

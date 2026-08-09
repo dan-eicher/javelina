@@ -17,6 +17,7 @@
 #include "javelina/compiler/type_lattice.h"     /* lat_value_class */
 #include "javelina/compiler/codegen_method.h"   /* burg_ctx_t, codegen_method_structured */
 #include "javelina/compiler/sir_optimizer.h"    /* sir_optimize (cctx->optimize) */
+#include "javelina/compiler/sir_op_gamma.h"     /* sir_op_gamma — names a burg error's tag */
 #include "javelina/compiler/descriptor.h"        /* desc_from_method — overloaded-export disambiguation */
 #include "bbq_vec.h"
 #include "bbq_hmap.h"                            /* collect_slots' exact pointer seen-set */
@@ -157,6 +158,15 @@ static bool emit_locals_vec_pr(wasm_types_t* wt, const sir_method_t* method,
     }
     free(slots);
     return ok;
+}
+
+/* Every codegen `burg_set_error` passes the offending node's TAG as the arg, and a bare enum
+ * number in a diagnostic is one someone then decodes by hand. γ owns the tag→name mapping.
+ * An arg outside the table is a CALLER bug, not an input to report prettily — say so. */
+static const char* burg_error_arg_name(int arg) {
+    if (arg >= 0 && arg < SIR_TAG_COUNT && sir_op_gamma[arg].mnemonic)
+        return sir_op_gamma[arg].mnemonic;
+    return "<not a node tag — the burg_set_error call site passed something else>";
 }
 
 static bool emit_locals_vec(wasm_types_t* wt, const sir_method_t* method,
@@ -424,9 +434,10 @@ bool wasm_assemble_program(compiler_ctx_t* cctx, const sema_ctx_t* sctx,
         bc.facts = compiler_click_facts_of(cctx, ai);
         codegen_method_structured(methods[ai], sc, nsc, &bc);
         if (burg_has_error(&bc)) {
-            fprintf(stderr, "wasm_assemble: %s.%s (func %d) — %s (%d); body truncated, "
+            fprintf(stderr, "wasm_assemble: %s.%s (func %d) — %s (%s); body truncated, "
                             "refusing to ship it\n",
-                    cn, mn, fi, burg_get_error(&bc), burg_get_error_arg(&bc));
+                    cn, mn, fi, burg_get_error(&bc),
+                    burg_error_arg_name(burg_get_error_arg(&bc)));
             ok = false;                       /* fail-loud: never ship a half-emitted body */
         }
         emit_wasm_ctx fb = {0};
@@ -512,9 +523,10 @@ bool wasm_assemble_program(compiler_ctx_t* cctx, const sema_ctx_t* sctx,
             codegen_method_structured(cctx->clinit, cctx->clinit_facts,
                                       cctx->clinit_fact_count, &bc);
             if (burg_has_error(&bc)) {
-                fprintf(stderr, "wasm_assemble: <clinit> — %s (%d); body truncated, "
+                fprintf(stderr, "wasm_assemble: <clinit> — %s (%s); body truncated, "
                                 "refusing to ship it\n",
-                        burg_get_error(&bc), burg_get_error_arg(&bc));
+                        burg_get_error(&bc),
+                        burg_error_arg_name(burg_get_error_arg(&bc)));
                 ok = false;
             }
             if (!emit_locals_vec_pr(wt, cctx->clinit, 0, &fb)) ok = false;

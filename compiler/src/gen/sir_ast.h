@@ -581,6 +581,7 @@ struct sir_node_t {
             int32_t* case_values;
             int case_values_count;
             sir_node_t* default_target;
+            int32_t default_index;
             sir_datatype_t selector_type;
         } switch_;
         struct {
@@ -1686,7 +1687,7 @@ static inline sir_node_t* sir_branch(bbq_arena* _a, sir_node_t* cond, sir_node_t
     return _n;
 }
 
-static inline sir_node_t* sir_switch(bbq_arena* _a, sir_node_t* selector, sir_node_t** case_targets, int case_targets_count, int32_t* case_values, int case_values_count, sir_node_t* default_target, sir_datatype_t selector_type) {
+static inline sir_node_t* sir_switch(bbq_arena* _a, sir_node_t* selector, sir_node_t** case_targets, int case_targets_count, int32_t* case_values, int case_values_count, sir_node_t* default_target, int32_t default_index, sir_datatype_t selector_type) {
     sir_node_t* _n = (sir_node_t*)bbq_arena_alloc(_a, sizeof(sir_node_t));
     _n->loc = (sir_srcloc){0};   /* zero the common source location — arena_alloc doesn't; it's stamped later */
     _n->tag = SIR_SWITCH;
@@ -1696,6 +1697,7 @@ static inline sir_node_t* sir_switch(bbq_arena* _a, sir_node_t* selector, sir_no
     _n->switch_.case_values = case_values;
     _n->switch_.case_values_count = case_values_count;
     _n->switch_.default_target = default_target;
+    _n->switch_.default_index = default_index;
     _n->switch_.selector_type = selector_type;
     _n->exc = NULL;
     return _n;
@@ -2556,6 +2558,7 @@ static inline sir_node_t* sir_node_copy(bbq_arena* _a, sir_copy_memo* _memo, con
         for (int _i = 0; _i < _src->switch_.case_values_count; _i++)
             _n->switch_.case_values[_i] = _src->switch_.case_values[_i];
         _n->switch_.default_target = sir_node_copy(_a, _memo, _src->switch_.default_target);
+        _n->switch_.default_index = _src->switch_.default_index;
         _n->switch_.selector_type = _src->switch_.selector_type;
         break;
     case SIR_RETURN:

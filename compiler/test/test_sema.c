@@ -256,6 +256,55 @@ int main(void) {
     CHECK(analyze("class C { C() { throw new Exception(); } }", false) > 0,
           "ctor throwing a checked exception WITHOUT a throws clause is rejected");
 
+    // 1a2b. §14.15/§14.16 — a break or continue that cannot resolve its target is
+    // a COMPILE ERROR, not something a later stage has to cope with. This matters
+    // beyond sema: the ddcg's break rule reads `sema_break_target_depth(node)` and
+    // treats a negative answer as "fall through to the next statement"
+    // (`depth < 0 ? cg_jump(gamma, Lnext)`), and the backend's `transfer()` treats
+    // an unresolvable destination the same way — it emits the target's code inline
+    // instead of branching to it. Those fallbacks are only safe if an unresolvable
+    // target can never reach them, which is exactly what sema must guarantee and
+    // what nothing here asserted.
+    printf("== break/continue target resolution ==\n");
+    CHECK(analyze("class C { void f(){ while (true) { break foo; } } }", false) > 0,
+          "§14.15 break to an undeclared label is rejected");
+    CHECK(analyze("class C { void f(){ break; } }", false) > 0,
+          "§14.15 break with no enclosing breakable statement is rejected");
+    CHECK(analyze("class C { void f(){ continue; } }", false) > 0,
+          "§14.16 continue with no enclosing loop is rejected");
+    CHECK(analyze("class C { void f(){ lbl: { continue lbl; } } }", false) > 0,
+          "§14.16 continue to a label that is not a loop is rejected");
+    CHECK(analyze("class C { int f(int x){ lbl: while (true) { if (x > 0) break lbl; }"
+                  " return x; } }", false) == 0,
+          "a labelled break that DOES resolve still type-checks (control)");
+
+    /* §10.4 (p.195): "Arrays must be indexed by int values; short, byte, or char
+     * values may also be used as index values because they are subjected to unary
+     * numeric promotion (§5.6.1) and become int values. An attempt to access an
+     * array component with a long index value results in a compile-time error."
+     *
+     * So the index test is "promotes to int", NOT "is numeric" — long/float/double
+     * promote to themselves. Accepting them let a long index reach the backend,
+     * which emitted an i64 where the array op needs an i32 and the module failed §7
+     * validation: a compile-time error the spec names, reported as a codegen bug. */
+    printf("== §10.4 array index type ==\n");
+    CHECK(analyze("class C { int f(int[] a){ long i = 1; return a[i]; } }", false) > 0,
+          "§10.4 a long array index is a compile-time error");
+    CHECK(analyze("class C { int f(int[] a){ float i = 1.0f; return a[i]; } }", false) > 0,
+          "§10.4 a float array index is a compile-time error");
+    CHECK(analyze("class C { int f(int[] a){ double i = 1.0; return a[i]; } }", false) > 0,
+          "§10.4 a double array index is a compile-time error");
+    CHECK(analyze("class C { int f(int[] a){ return a[1L]; } }", false) > 0,
+          "§10.4 a long LITERAL index is a compile-time error");
+    CHECK(analyze("class C { int f(int[] a){ byte i = 1; return a[i]; } }", false) == 0,
+          "§10.4 a byte index promotes to int (control)");
+    CHECK(analyze("class C { int f(int[] a){ short i = 1; return a[i]; } }", false) == 0,
+          "§10.4 a short index promotes to int (control)");
+    CHECK(analyze("class C { int f(int[] a){ char i = 1; return a[i]; } }", false) == 0,
+          "§10.4 a char index promotes to int (control)");
+    CHECK(analyze("class C { int f(int[] a, int i){ return a[i]; } }", false) == 0,
+          "§10.4 an int index is the ordinary case (control)");
+
     // 1a3. Qualified name in expression position (JLS §6.5.2): a package-qualified static field access
     // (java.lang.Integer.MAX_VALUE) reclassifies its base as a type, not an "undefined 'java'" value.
     printf("== qualified static field access ==\n");

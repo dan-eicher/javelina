@@ -56,7 +56,20 @@ public final class String {
         return h;
     }
     public int length() { return value.length; }
-    public char charAt(int index) { return value[index]; }
+    // §20.12.12: "If the index argument is negative or not less than the length
+    // (§20.12.11) of this string, then an IndexOutOfBoundsException is thrown."
+    // The raw array read already throws one — ArrayIndexOutOfBoundsException — so
+    // the letter of §20.12.12 was met. But StringIndexOutOfBoundsException is the
+    // subclass a String index error carries, and it is what code catches: this
+    // library's own FloatingDecimal.readJavaFormatString wraps its charAt scan in
+    // `catch (StringIndexOutOfBoundsException)`, and against the array's exception
+    // that catch never fired — Double.valueOf("1e") escaped as
+    // ArrayIndexOutOfBoundsException instead of NumberFormatException.
+    public char charAt(int index) {
+        if (index < 0 || index >= value.length)
+            throw new StringIndexOutOfBoundsException(index);
+        return value[index];
+    }
     public void getBytes(int srcBegin, int srcEnd, byte dst[], int dstBegin) throws NullPointerException, IndexOutOfBoundsException {
         // §20.12.16 (deprecated): the low 8 bits of each char become a byte.
         if (srcBegin < 0) throw new StringIndexOutOfBoundsException(srcBegin);

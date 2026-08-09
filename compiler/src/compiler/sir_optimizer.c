@@ -3033,6 +3033,15 @@ static void cp_escape_index(cp_engine_t* eng) {
                              (size_t)(tc > 0 ? tc : 1) * sizeof(sir_node_t*));
     for (int k = 0; k < tc; k++) eng->esc_call_list[k] = calls[k];
     bbq_vec_free(calls);
+    /* The SPINE node each call belongs to, inverted from the CSR that was just built. Fig 7
+     * Statement 31 needs it to name the call whose per-cell KILL holds the reaching version;
+     * inverting a CSR we already have beats searching it per query. */
+    eng->esc_call_spine = (int*)bbq_arena_alloc(a, (size_t)(tc > 0 ? tc : 1) * sizeof(int));
+    for (int k = 0; k < tc; k++) eng->esc_call_spine[k] = -1;
+    for (int i = 0; i < sn; i++)
+        for (int k = eng->esc_call_off[i]; k < eng->esc_call_off[i + 1]; k++)
+            eng->esc_call_spine[k] = i;
+
     /* operand vnode → tag-source rows (CSR). */
     eng->esc_dep_rows = vc;
     int* cnt = (int*)bbq_arena_alloc(a, (size_t)(vc + 1) * sizeof(int));
@@ -5317,22 +5326,31 @@ static bool cp_obj_is_concrete(const cp_engine_t* eng, int o) {
  * A virtual/interface call names its STATIC target: an override returns an object we
  * cannot see into either, and one phantom for the whole family is exactly the
  * "bottom method" §1 is talking about. */
-static bool cp_callee_of(const sir_node_t* e, int* cls, int* mi) {
+/* The callee PAIR of any invoke, and whether it returns a ref — two questions the naming pass
+ * asks separately. `Oret` wants both (only a ref-returning call names a returned object); Fig 7
+ * Statement 32 wants only the pair, because a VOID call is exactly the shape that allocates and
+ * stores through a formal. One tag switch, so the two never drift. */
+static bool cp_invoke_target(const sir_node_t* e, int* cls, int* mi, bool* ref_ret) {
     switch (e->tag) {
         case SIR_INVOKEVIRTUAL:
             *cls = e->invoke_virtual.class_id;   *mi = e->invoke_virtual.method_idx;
-            return e->invoke_virtual.return_type == SIR_DTREF;
+            *ref_ret = e->invoke_virtual.return_type == SIR_DTREF;   return true;
         case SIR_INVOKESPECIAL:
             *cls = e->invoke_special.class_id;   *mi = e->invoke_special.method_idx;
-            return e->invoke_special.return_type == SIR_DTREF;
+            *ref_ret = e->invoke_special.return_type == SIR_DTREF;   return true;
         case SIR_INVOKESTATIC:
             *cls = e->invoke_static.class_id;    *mi = e->invoke_static.method_idx;
-            return e->invoke_static.return_type == SIR_DTREF;
+            *ref_ret = e->invoke_static.return_type == SIR_DTREF;    return true;
         case SIR_INVOKEINTERFACE:
             *cls = e->invoke_interface.class_id; *mi = e->invoke_interface.method_idx;
-            return e->invoke_interface.return_type == SIR_DTREF;
+            *ref_ret = e->invoke_interface.return_type == SIR_DTREF; return true;
         default: return false;
     }
+}
+
+static bool cp_callee_of(const sir_node_t* e, int* cls, int* mi) {
+    bool ref_ret = false;
+    return cp_invoke_target(e, cls, mi, &ref_ret) && ref_ret;
 }
 
 /* Packed like a cell key, and degrading the same way: past 14 bits of class two
@@ -5509,6 +5527,48 @@ static void cp_enumerate_objects(cp_engine_t* eng) {
         eng->obj_of_vnode[v] = o;
     }
 
+    eng->obj_first_fresh = next;
+
+    /* Choi Fig 7 Statement 32: "A caller object node, n̂ₒ, and its field nodes are created at
+     * Statement 32 if no MapsTo caller object node exists" — §4.4: "we create one with an escape
+     * state of NoEscape". MapsTo's base case reaches only objects the caller can already name
+     * (PointsTo of an actual); an object the CALLEE allocated has no such name, and following our
+     * own field edge to look for one answers with the cell's PRE-CALL content — the §12.5 null
+     * the call is about to overwrite. Hence a created node, minted HERE with the other phantoms
+     * so the naming pass stays the one authority on the id ranges.
+     *
+     * Below obj_first_site on purpose: the caller cannot remove an allocation it does not
+     * contain, so this is never a scalar-replacement candidate, and it is never concrete (one
+     * node stands for every call to that callee). */
+    if (eng->ctx && eng->ctx->method_count > 0) {
+        eng->fresh_of = (int**)bbq_arena_alloc(eng->arena,
+                            (size_t)eng->ctx->method_count * sizeof(int*));
+        memset(eng->fresh_of, 0, (size_t)eng->ctx->method_count * sizeof(int*));
+        for (int v = 0; v < n_at_enum; v++) {
+            cp_vnode_t* n = eng->vnodes[v];
+            if (n->kind != CP_VN_EXPR || !n->expr) continue;
+            int cls = 0, mi = 0; bool ref_ret = false;
+            if (!cp_invoke_target(n->expr, &cls, &mi, &ref_ret)) continue;
+            int gi = compiler_method_index(eng->ctx, cls, mi);
+            if (gi < 0 || gi >= eng->ctx->method_count || eng->fresh_of[gi]) continue;
+            const compiler_summary_t* s = compiler_method_summary(eng->ctx, gi);
+            if (!s || !s->computed || !s->obj_fresh || s->n_obj <= 0) continue;
+            /* Statement 30 scopes node creation to `nₒ ∈ PointTo(f_ee)` — objects a FIELD NODE
+             * points to. A callee allocation that is no edge's destination is not in that set:
+             * no caller field can reach it, so a node for it could never be a MapsTo target.
+             * Minting one anyway is not conservatism, it is a wider object domain for free —
+             * and the summary matrices are obj × cell × obj/64, so every extra object costs
+             * quadratically and widens every pts bitvector in the solve. */
+            int* row = (int*)bbq_arena_alloc(eng->arena, (size_t)s->n_obj * sizeof(int));
+            for (int k = 0; k < s->n_obj; k++) row[k] = -1;
+            for (int ei = 0; ei < s->n_edge; ei++) {
+                int d = s->edge_dst[ei];
+                if (d >= 0 && d < s->n_obj && s->obj_fresh[d] && row[d] < 0) row[d] = next++;
+            }
+            eng->fresh_of[gi] = row;      /* one node per (callee, field-reached allocation) */
+        }
+    }
+
     eng->obj_first_site = next;
 
     for (int v = 0; v < n_at_enum; v++) {
@@ -5545,6 +5605,7 @@ static cp_obj_kind_t cp_obj_kind(const cp_engine_t* eng, int o) {
     if (o == CP_OBJ_NULL)                  return CP_OBJK_NULL;
     if (o == CP_OBJ_EXT)                   return CP_OBJK_CATCHALL;
     if (o >= eng->obj_first_site)          return CP_OBJK_SITE;
+    if (o >= eng->obj_first_fresh)         return CP_OBJK_FRESH;
     if (o >= eng->obj_first_ret)           return CP_OBJK_RET;
     if (o >= eng->obj_first_cell)          return CP_OBJK_CELL;
     return CP_OBJK_PARAM;                  /* the slot phantoms and `this` */
@@ -6292,6 +6353,18 @@ static void cp_escape_seed(cp_engine_t* eng) {
             eng->escape[o] = CP_ESC_GLOBAL;
             break;
 
+        /* Choi §4.4 verbatim: "If there is no MapsTo node in the caller CG, we create one with
+         * an escape state of NoEscape." Unlike an `Oret`, this node is not a thing the callee
+         * handed back from parts unknown — it is an object the callee's OWN summary says it
+         * allocated, and that summary reports where it leaked. So NoEscape is the honest seed,
+         * and the MapsTo application lowers it to GlobalEscape wherever the callee's
+         * obj_escape[k] says so ("the escape state of the nodes in MapsToObj(n) is marked
+         * GlobalEscape if the escape state of n is GlobalEscape"). Seeding GLOBAL here instead
+         * would discard the whole point of creating the node. */
+        case CP_OBJK_FRESH:
+            eng->escape[o] = CP_ESC_NONE;
+            break;
+
         /* THE CATCH-ALL. It stands for ANY pre-existing object we have no better name for —
          * and an invoke's wide kill re-names every heap cell to exactly this (cp_node_heap's
          * CP_MEM_WIDE). So it subsumes the statics, and cannot be less escaped than the worst
@@ -6474,6 +6547,26 @@ static void cp_cell_rows_build(cp_engine_t* eng) {
     }
 }
 
+/* Fig 7 Statement 31: `n̂ₒ ∈ PointTo(f_er)` — the caller field node's points-to at ONE program
+ * point, `mv`. The union-over-versions form below answers the whole-method question instead
+ * ("what has this cell ever held"), which the summary's reachability wants and MapsTo does not:
+ * it includes versions from before a local allocation ran, whose row still holds the
+ * pre-existing-object seed. */
+static void cp_follow_field_at(cp_engine_t* eng, int mv, cp_pts_t from, cp_pts_t* out) {
+    if (mv < 0 || mv >= eng->vnode_count || !from.bits) return;
+    const cp_pts_t* h = eng->vnodes[mv]->heap;
+    if (!h) return;
+    for (int w = 0; w < eng->obj_words; w++) {
+        uint64_t word = from.bits[w];
+        if (w == 0) word &= ~((uint64_t)1 << CP_OBJ_NULL);
+        while (word) {
+            int o = (w << 6) + __builtin_ctzll(word);
+            word &= word - 1;
+            cp_pts_union(eng, out, h[o]);
+        }
+    }
+}
+
 static void cp_follow_field(cp_engine_t* eng, int c, cp_pts_t from, cp_pts_t* out) {
     if (c < 0 || c >= eng->mem_cell_count || !from.bits) return;
     if (!eng->cell_row_off) cp_cell_rows_build(eng);
@@ -6602,6 +6695,27 @@ static void cp_mapsto_graph(cp_engine_t* eng, compiler_ctx_t* ctx, int callee,
             eng->mto_inq[sid] = true; eng->mto_wl[wn++] = sid;
         }
     }
+    /* Statement 32: "A caller object node … is created … if no MapsTo caller object node
+     * exists." PointsTo(actual) cannot reach an object the CALLEE allocated, and following our
+     * own field edge would answer with the cell's pre-call content — the §12.5 null this call is
+     * about to overwrite. The naming pass minted the node; this is where it enters MapsTo. */
+    if (s->obj_fresh) {
+        const int* frow = (eng->fresh_of && callee >= 0 && callee < ctx->method_count)
+                          ? eng->fresh_of[callee] : NULL;
+        for (int k = 0; k < s->n_obj; k++) {
+            if (!s->obj_fresh[k]) continue;
+            /* No node means the callee's summary was not yet `computed` at naming time (an early
+             * convergence iteration). The catch-all, then: a direct write of a fresh object
+             * trips none of the completeness guards, so contributing nothing would leave the
+             * cell holding only its §12.5 default. */
+            int node = (frow && frow[k] >= 0) ? frow[k] : CP_OBJ_EXT;
+            memset(eng->mto_tgt.bits, 0, (size_t)words * sizeof(uint64_t));
+            cp_pts_add(eng, &eng->mto_tgt, node);
+            if (cp_pts_union_grew(eng, &eng->mto[k], eng->mto_tgt) && !eng->mto_inq[k]) {
+                eng->mto_inq[k] = true; eng->mto_wl[wn++] = k;
+            }
+        }
+    }
     /* recursion (Fig 7 Statements 30-40). */
     while (wn > 0) {
         int k = eng->mto_wl[--wn];
@@ -6638,9 +6752,31 @@ static void cp_mapsto_graph(cp_engine_t* eng, compiler_ctx_t* ctx, int callee,
                 eng->memo_cell_gen[fc] = eng->memo_eval_gen;
                 bbq_vec_push(eng->esc_call_cells[eng->memo_slot], fc);
             }
-            memset(eng->mto_tgt.bits, 0, (size_t)words * sizeof(uint64_t));
-            cp_follow_field(eng, tr[nw + e], eng->mto[k], &eng->mto_tgt);
             int d = s->edge_dst[e];
+            /* A CREATED node is the complete image of a callee allocation — Statement 32 creates
+             * it precisely because no MapsTo caller node exists, so there is nothing to find by
+             * following. Following anyway reads our own cell, whose content is the PRE-CALL value
+             * this call overwrites; mid-fixpoint that is the clobber's Oext, and `had_ext` latches
+             * inject_bad monotonically, so one transient unknown permanently pins the cell at ⊤. */
+            if (d >= 0 && d < s->n_obj && s->obj_fresh && s->obj_fresh[d]) continue;
+            memset(eng->mto_tgt.bits, 0, (size_t)words * sizeof(uint64_t));
+            /* Statement 31, read at the CALL SITE. `memo_slot` is this call's index, so the
+             * recorded spine node names the kill that holds cell c's reaching version. Only if
+             * that lookup is unavailable (a call not in the recorded set) does this fall back to
+             * the flow-insensitive union, which is sound but drags in versions from before a
+             * local allocation existed. */
+            /* Statement 31's `PointTo(f_er)`: cell c's version reaching THIS call, which
+             * cp_resolve recorded as `slot_in` and `esc_call_spine` indexes. With no such
+             * version the answer is the catch-all — an unknown stated as an unknown. */
+            int fc31 = tr[nw + e];
+            if (fc31 >= 0 && fc31 < eng->mem_cell_count) {
+                int sp31 = (eng->esc_call_spine && eng->memo_slot >= 0)
+                           ? eng->esc_call_spine[eng->memo_slot] : -1;
+                int mv31 = (sp31 >= 0 && sp31 < eng->slot_in_rows && eng->slot_in)
+                           ? eng->slot_in[sp31][eng->slot_count + fc31] : -1;
+                if (mv31 >= 0) cp_follow_field_at(eng, mv31, eng->mto[k], &eng->mto_tgt);
+                else cp_pts_add(eng, &eng->mto_tgt, CP_OBJ_EXT);
+            }
             if (d >= 0 && d < s->n_obj && cp_pts_union_grew(eng, &eng->mto[d], eng->mto_tgt)
                 && !eng->mto_inq[d]) { eng->mto_inq[d] = true; eng->mto_wl[wn++] = d; }
         }
@@ -6658,6 +6794,11 @@ static void cp_mapsto_graph(cp_engine_t* eng, compiler_ctx_t* ctx, int callee,
                 int c = tr[nw + ei];
                 int d = s->edge_dst[ei];
                 if (c < 0 || c >= mcc || d < 0 || d >= s->n_obj || !eng->mto[d].bits) continue;
+                /* An edge to THIS cell's own ENTRY phantom states "the cell may still hold what
+                 * it held before" — not something the callee established. The kill unions the
+                 * pre-call row itself, flow-sensitively, so injecting it here re-adds that value
+                 * through the caller's whole-method image of the cell. */
+                if (s->obj_entry_key && s->obj_entry_key[d] == s->edge_key[ei]) continue;
                 for (int w = 0; w < eng->obj_words; w++) {
                     uint64_t caller = eng->mto[k].bits[w];
                     if (w == 0) caller &= ~((uint64_t)1 << CP_OBJ_NULL);
@@ -6678,7 +6819,19 @@ static void cp_mapsto_graph(cp_engine_t* eng, compiler_ctx_t* ctx, int callee,
                         }
                         /* Oext in the mapped value = the callee's write is not fully captured
                          * (the entry value, or a bottom sub-call) — keep the conservative EXT. */
-                        if (had_ext && !eng->inject_bad[base]) {
+                        /* An ENTRY-VALUE phantom's Oext is the caller's own pre-call unknown,
+                         * found by following the caller's cell — not the callee reporting that
+                         * its write is incomplete. The kill already unions the pre-call value
+                         * (`ph[o]`), so honouring it here double-counts, and inject_bad is
+                         * MONOTONE: one transient Oext would pin the cell at ⊤ for the whole
+                         * fixpoint. Only a genuine callee-side unknown may raise it. */
+                        /* ONLY the entry phantom OF THIS CELL. A cell phantom for a DIFFERENT
+                         * cell carries a genuine callee-side unknown and must still raise the
+                         * flag — the "already unioned by the kill" argument below holds for this
+                         * cell's own pre-call value and nothing else. */
+                        bool entry_d = s->obj_entry_key && d >= 0 && d < s->n_obj
+                                       && s->obj_entry_key[d] == s->edge_key[ei];
+                        if (had_ext && !entry_d && !eng->inject_bad[base]) {
                             eng->inject_bad[base] = true; eng->inject_moved = true;
                         }
                     }
@@ -7691,6 +7844,23 @@ static bool cp_apply_identity_follower(cp_engine_t* eng, int v_idx) {
         if (const_idx < 0 || leader_idx < 0) continue;
         cp_const_t cc = eng->vnodes[const_idx]->constant;
         if (cc.state != CP_C_KNOWN) continue;
+        /* Exactly ONE side may be the constant. "Is KNOWN right now" is a fact
+         * that can still rise; becoming a Follower is a structural decision that
+         * cannot. When both sides are KNOWN, this loop picks side 0 — and if the
+         * VALUE operand is the one that happens to be KNOWN and equal to the
+         * identity element, the node is made a permanent follower of the literal:
+         *   int g = 0; for (…) g += 1; use(g + 0);
+         * g's φ is transiently KNOWN 0 before the back edge raises it, side 0
+         * reads g as "the constant 0", and `g + 0` follows the literal forever —
+         * printing 0 rather than 3. `g * 1` from g = 1 and `g | 0` from g = 0 are
+         * the same bug on their own identity elements.
+         *
+         * Nothing is lost by declining: with both sides KNOWN the ordinary binary
+         * fold already computes the result, and unlike this transition it is
+         * re-evaluated when either input rises. §4.8 is only ever NEEDED when the
+         * other operand is not constant — which is exactly when the side is
+         * unambiguous. */
+        if (eng->vnodes[leader_idx]->constant.state == CP_C_KNOWN) continue;
         /* Integer 1-constant identities (x+0, x*1, x&-1, x<<0, …) are exact at
          * both i32 and i64. Floats are excluded: x+0.0 is not the identity for
          * x = -0.0 (IEEE), so folding it would be wrong. Read the carrier that
@@ -7947,6 +8117,13 @@ static bool cp_revert_identity_follower(cp_engine_t* eng, int v_idx) {
     if (v->follower_kind != CP_FK_IDENT) return false;
     if (v->kind != CP_VN_EXPR || v->input_count != 2) return false;
     for (int side = 0; side < 2; side++) {
+        /* Judge the link this node ACTUALLY holds, not "is either side still an
+         * identity constant". The apply made v follow the OTHER input, and that is
+         * the premise to re-test: `x ⊙ k` follows x because k is the identity. Asking
+         * the looser question kept a Follower alive whenever any side was still the
+         * constant — including a link pointing the wrong way, which then never
+         * un-held because a literal's KNOWN never falls. */
+        if (v->inputs[1 - side] != v->leader) continue;
         int const_idx = v->inputs[side];
         if (const_idx < 0 || const_idx >= eng->vnode_count) continue;
         cp_const_t cc = eng->vnodes[const_idx]->constant;
@@ -9393,12 +9570,41 @@ static void cp_rewrite_compact_nops_gotos(cp_engine_t* eng) {
          * frame a block bounded at itself, and closing it pops the label off the emit
          * stack, re-arming the framing filter (`br_depth < 0`) to re-frame forever.
          *
-         * A MERGE row's key IS the construct — the guard node. A guard retagged to Nop
-         * is an ELIMINATED guard: no branch, no diamond, nothing to label. The row
-         * RETIRES; its continuation is plain fall-through (the region `stop` the
+         * A GUARD's MERGE row is keyed on the guard node itself, so a guard retagged
+         * to Nop is an ELIMINATED guard: no branch, no diamond, nothing to label. The
+         * row RETIRES; its continuation is plain fall-through (the region `stop` the
          * backend already threads). Following instead plants a dead guard's merge
-         * label on a live node — measured as broken catch dispatch (the CCE checks). */
-        if (row->a == COMPILER_SCOPE_BLOCK) {
+         * label on a live node — measured as broken catch dispatch (the CCE checks).
+         *
+         * That holds for the GUARD merges, not for MERGE rows as such. §2.1 lists
+         * five recording sites, and shortcircuit_pair / shortcircuit_value key theirs
+         * on the CHAIN HEAD — same role a BLOCK row's key plays, and dead for the
+         * same reason (a forwarding pad the collapse walked past) while the chain it
+         * labels is very much alive. Retiring those left `&&`/`||` with a live shared
+         * exit and no key to frame it from, so both terms re-emitted the exit inline.
+         *
+         * `b` is the recording site saying which it is. Asking the GUARD rows instead
+         * gets the CASTS wrong — a ref cast records its guard fact on the INNER
+         * instanceof branch and its merge on the OUTER null-check branch — and by
+         * here the key is a Nop, so its arms are no longer there to inspect. */
+        bool key_is_guard = (row->b == 1);
+        if (row->a == COMPILER_SCOPE_LOOP) {
+            /* A LOOP row's key is the loop HEADER, and a header is a merge by
+             * construction — loop entry plus the back edge. Reaching here means it
+             * is NOT one any more, so the back edge is gone and there is no loop
+             * left: `do { … } while (false)`, the breakable-block idiom, once the
+             * constant test folds. What survives is the EXIT, still branched to by
+             * every `break` in the region, and it still has to be framed or each
+             * break re-emits it inline. So the row stops being a loop and becomes
+             * what it now describes — a block from the surviving head to that exit.
+             * It cannot simply follow its key the way a BLOCK row does: the loop
+             * emit starts at `node->next`, treating the key as a header, and moving
+             * the key would skip the first statement of the body. */
+            sir_node_t* s = NEXT(k);
+            if (s == row->aux) { row->key = NULL; }
+            else { row->key = s; row->a = COMPILER_SCOPE_BLOCK; }
+        } else if (row->a == COMPILER_SCOPE_BLOCK
+                || (row->a == COMPILER_SCOPE_MERGE && !key_is_guard)) {
             sir_node_t* s = NEXT(k);
             row->key = (s == row->aux) ? NULL : s;
         } else {
@@ -9420,6 +9626,54 @@ static void cp_rewrite_compact_nops_gotos(cp_engine_t* eng) {
         int xi = cp_spine_index(eng, x);
         if (xi < 0 || xi >= eng->spine_count || is_merge[xi]) continue;  /* stays reachable */
         row->aux = NEXT(x);
+    }
+    /* Retire a row the two passes above have left describing nothing.
+     *
+     * The key pass retires a row whose key follows onto its own aux — the whole
+     * construct dissolved into its continuation. But it tests against the aux as
+     * it stood BEFORE the aux pass ran, so when the key AND the label both
+     * collapse the equality misses and the row survives, keyed somewhere past the
+     * construct it names. Re-asking once both sides have settled is what makes the
+     * test mean what it says. A key that has landed on a TERMINATOR is the same
+     * fact stated differently: a Return/Throw is not the head of any branch, so
+     * there is no construct left to frame — and framing one anyway wraps a block
+     * round a terminator and re-emits whatever the label points at. */
+    for (int f = 0; f < eng->fact_count; f++) {
+        if (eng->facts[f].kind != COMPILER_FACT_SCOPE) continue;
+        compiler_fact_t* row = &((compiler_fact_t*)eng->facts)[f];
+        sir_node_t* k = row->key;
+        if (!k) continue;
+        if (k == row->aux || k->tag == SIR_RETURN || k->tag == SIR_RETURNVOID
+                          || k->tag == SIR_THROW) {
+            row->key = NULL;
+            continue;
+        }
+        /* A BLOCK or MERGE row names a LABEL, and after the collapse it has to still
+         * be one. `is_merge` is that question already answered: pred_cnt >= 2 ||
+         * is_jump_target. Folding a constant condition takes labels away — a
+         * `!(a & (true && true))` loses both of shortcircuit_value's 1/0 arms, and a
+         * `plain: { …; if (got == 1) break plain; … }` whose test folds true loses
+         * the block's second arrival. Framing what is left bounds a block at a node
+         * no longer on the chain, so the region runs past it and the tail is emitted
+         * twice.
+         *
+         * Retiring is safe for the OTHER consumer of a BLOCK row — the plain-if
+         * path's `ljoin` — precisely because the aux is not a merge: at most one path
+         * reaches it, so the arms bounded at the enclosing region instead cannot
+         * duplicate anything. */
+        if ((row->a == COMPILER_SCOPE_MERGE || row->a == COMPILER_SCOPE_BLOCK)
+                && row->aux && k->tag != SIR_TRYREGION) {
+            /* A TRY's BLOCK row is exempt: it is not only a label. The try emit reads
+             * it to decide the SHAPE — whether to frame `$after` at all, and whether
+             * the join forwards to an enclosing scope — so it is needed even when
+             * nothing currently reaches the join. `try { 1/0 } catch { return }`
+             * folds to a body that throws and a handler that returns, so the join is
+             * unreachable and `is_merge` is false; retiring the row there dropped the
+             * `$after` frame while the br to it stayed, and the module failed §7
+             * validation with a type mismatch. */
+            int xi = cp_spine_index(eng, row->aux);
+            if (xi < 0 || xi >= eng->spine_count || !is_merge[xi]) row->key = NULL;
+        }
     }
     if (eng->method->entry)
         eng->method->entry = NEXT(eng->method->entry);
@@ -10933,11 +11187,8 @@ static void cp_index_recorded_merges(cp_engine_t* eng) {
 static cp_engine_t* cp_build_ctx_in(compiler_ctx_t* ctx, sir_method_t* method,
                                     const compiler_fact_t* facts, int fact_count,
                                     bbq_arena* eng_arena) {
-    cp_engine_t* eng = cp_build_no_solve(method, ctx ? ctx->sema : NULL,
-                                         eng_arena,
-                                         facts, fact_count);
+    cp_engine_t* eng = cp_build_no_solve_ctx(ctx, method, eng_arena, facts, fact_count);
     if (!eng) return NULL;
-    eng->ctx        = ctx;
     cp_index_recorded_merges(eng);
     cp_index_try_regions(eng);      /* needs the facts, so: after they attach */
     cp_index_concrete_objects(eng); /* needs the facts, so: after they attach */
@@ -10969,7 +11220,10 @@ cp_engine_t* cp_build(sir_method_t* method, const sema_ctx_t* sema,
 /* Test-only: build engine without running the outer solve. Lets unit
  * tests inspect the engine in its pre-init state (partitions assigned,
  * facts uninitialized). */
-cp_engine_t* cp_build_no_solve(sir_method_t* method, const sema_ctx_t* sema,
+/* The core. `sema` is a parameter ONLY because the hand-built harness has no ctx to read it
+ * from; with a ctx it is always ctx->sema, and no caller passes both. */
+static cp_engine_t* cp_build_core(compiler_ctx_t* ctx, sir_method_t* method,
+                                const sema_ctx_t* sema,
                                 bbq_arena* arena,
                                 const compiler_fact_t* facts, int fact_count) {
     if (!method || !method->entry) return NULL;
@@ -10979,6 +11233,9 @@ cp_engine_t* cp_build_no_solve(sir_method_t* method, const sema_ctx_t* sema,
     eng->out        = arena;   /* overridden when the engine's arena is a freed scratch */
     eng->method     = method;
     eng->sema       = sema;
+    /* Before naming, not after: Fig 7 Statement 32's created nodes are part of the object set,
+     * which is fixed there, so a callee summary is as much an input to naming as the vnodes. */
+    eng->ctx        = ctx;
     /* The facts attach HERE, not after the build: cp_resolve places the φs, and a
      * handler's φ exists only because the recorded EXCEPT_REGION rows make it a merge
      * (spec §1). Attaching them later would resolve the whole method against a CFG that
@@ -11012,6 +11269,23 @@ cp_engine_t* cp_build_no_solve(sir_method_t* method, const sema_ctx_t* sema,
     cp_build_defuse(eng);
     cp_partition_init(eng);
     return eng;
+}
+
+/* `arena` stays a parameter because it genuinely varies: a summarize-only build hands in a
+ * private scratch it frees immediately, a rewrite build hands in ctx->arena. `facts` are
+ * per-method. Everything else comes off the ctx. */
+cp_engine_t* cp_build_no_solve_ctx(compiler_ctx_t* ctx, sir_method_t* method,
+                                bbq_arena* arena,
+                                const compiler_fact_t* facts, int fact_count) {
+    return cp_build_core(ctx, method, ctx ? ctx->sema : NULL, arena, facts, fact_count);
+}
+
+/* The hand-built harness's entry: no compiler context, so no callee summaries and no Fig 7
+ * created nodes — every call is a bottom method, which is what those fixtures pin. */
+cp_engine_t* cp_build_no_solve(sir_method_t* method, const sema_ctx_t* sema,
+                                bbq_arena* arena,
+                                const compiler_fact_t* facts, int fact_count) {
+    return cp_build_core(NULL, method, sema, arena, facts, fact_count);
 }
 
 /* Click §4.2 + §4.4.2 one-time init. Sets every vnode's type to TOP
@@ -12176,6 +12450,9 @@ static bool cp_summary_differ(const compiler_summary_t* a, const compiler_summar
     if (cp_arr_differ(a->wcell_key, b->wcell_key, (size_t)a->n_wcell * sizeof(unsigned int))) return true;
     if (cp_arr_differ(a->wcell_flags, b->wcell_flags, (size_t)a->n_wcell)) return true;
     if (cp_arr_differ(a->obj_leaked, b->obj_leaked, (size_t)a->n_obj * sizeof(bool))) return true;
+    if (cp_arr_differ(a->obj_fresh, b->obj_fresh, (size_t)a->n_obj * sizeof(bool))) return true;
+    if (cp_arr_differ(a->obj_entry_key, b->obj_entry_key,
+                      (size_t)a->n_obj * sizeof(unsigned int))) return true;
     return false;
 }
 
@@ -13688,6 +13965,23 @@ static void cp_summarize(compiler_ctx_t* ctx, int method_idx,
         sm->obj_leaked = (bool*)bbq_arena_alloc(ctx->arena, (size_t)nobj * sizeof(bool));
         for (int si = 0; si < nobj; si++)
             sm->obj_leaked[si] = e->obj_bottom ? e->obj_bottom[eobj[si]] : false;
+        /* Fig 7 MapsTo: an object THIS method allocated reaches the caller only through a field
+         * edge, and the caller has no name for it. Flagged here so the caller seeds its phantom
+         * instead of following its own pre-call cell. */
+        sm->obj_fresh = (bool*)bbq_arena_alloc(ctx->arena, (size_t)nobj * sizeof(bool));
+        for (int si = 0; si < nobj; si++)
+            sm->obj_fresh[si] = cp_obj_is_local_alloc(e, eobj[si]);
+        /* …and the opposite end: the ENTRY-VALUE phantoms, whose caller image is the caller's own
+         * pre-call cell content. Flagged so an Oext found by following that cell is not mistaken
+         * for the callee reporting an incomplete write. */
+        sm->obj_entry_key = (unsigned int*)bbq_arena_alloc(ctx->arena,
+                                (size_t)nobj * sizeof(unsigned int));
+        for (int si = 0; si < nobj; si++) {
+            int ci = eobj[si] - e->obj_first_cell;
+            sm->obj_entry_key[si] = (cp_obj_kind(e, eobj[si]) == CP_OBJK_CELL
+                                     && ci >= 0 && ci < e->mem_cell_count)
+                                    ? e->mem_cell_keys[ci] : CP_CELL_NONE;
+        }
         int* gg = NULL; for (int si = 0; si < nobj; si++) bbq_vec_push(gg, 0);
         int* gwl = NULL;
         for (int si = 0; si < nobj; si++)                     /* the object is itself a container */
@@ -13874,10 +14168,8 @@ cp_engine_t* cp_build_ctx_loaded(compiler_ctx_t* ctx, sir_method_t* method,
                                  const compiler_fact_t* facts, int fact_count,
                                  const struct compiler_click_facts* pf,
                                  bbq_arena* scratch) {
-    cp_engine_t* eng = cp_build_no_solve(method, ctx ? ctx->sema : NULL,
-                                         scratch, facts, fact_count);
+    cp_engine_t* eng = cp_build_no_solve_ctx(ctx, method, scratch, facts, fact_count);
     if (!eng) return NULL;
-    eng->ctx = ctx;
     eng->out = ctx->arena;   /* THE METHOD LIFETIME: the engine lives in `scratch`, which the
                               * caller frees; only the SIR cp_rewrite mints outlives it. */
     cp_index_recorded_merges(eng);

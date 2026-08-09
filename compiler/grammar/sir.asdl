@@ -218,15 +218,27 @@ module sir {
 
         // Switch — tableswitch/lookupswitch family. selector is
         // the value being dispatched on; case_targets and case_values
-        // are parallel arrays (both length case_targets_count);
-        // default_target is the fall-back. selector_type picks the
-        // key width: short → stableswitch/slookupswitch, int →
+        // are parallel arrays (both length case_targets_count) in
+        // SOURCE order; default_target is the fall-back. selector_type
+        // picks the key width: short → stableswitch/slookupswitch, int →
         // itableswitch/ilookupswitch. BURS arity is 1 (only the
         // selector is a tree child — case targets + default are
         // spine successors, same model as Branch's on_true/on_false).
+        //
+        // Source order because JLS §14.10 fall-through is the ONLY exit
+        // from a group that carries no jump — break/continue/return all
+        // become an explicit br the backend resolves by scope depth, but
+        // falling out of one group into the next is pure layout
+        // adjacency. Laying the groups out in any other order (say the
+        // ascending-by-value order a br_table wants) leaves that edge
+        // dangling and its target gets emitted twice. default_index is
+        // where the `default:` label sits in that same source order —
+        // the number of case groups before it — or -1 when the switch
+        // has no default label and out-of-range values leave the switch.
         | Switch(node selector,
                  node *case_targets, int32 *case_values,
-                 node default_target, datatype selector_type)
+                 node default_target, int32 default_index,
+                 datatype selector_type)
 
         // Terminals
         | Return(node value, datatype data_type)

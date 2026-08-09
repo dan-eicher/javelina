@@ -295,6 +295,10 @@ AUXILIARIES
   // error; codegen falls through defensively).
   sema_break_target_depth    : (ast.stmt) -> int
   sema_continue_target_depth : (ast.stmt) -> int
+  // Does a `continue` resolve to this loop? Only then is the continue
+  // target a label (body fall-through + the continue), and only then
+  // does the structurer frame it.
+  sema_loop_has_continue     : (ast.stmt) -> bool
 
   // Switch helpers — sema's analysis pass already sorted the case
   // values + computed degeneracy. These expose the relevant facts.
@@ -519,6 +523,10 @@ AUXILIARIES
   // LOOP headers to widen on the back edge (spec §5 — read the scope, never
   // rediscover the loop).
   record_scope             : (ir_root, ir_root, int) -> int
+  // A guard diamond's shared continuation. Same row as a MERGE, flagged so the
+  // optimizer can retire it WITH the guard when the guard is eliminated — a
+  // short-circuit chain's shared exit outlives a collapsed key and must not be.
+  record_guard_merge       : (ir_root, ir_root) -> int
 
   // (the guard's Branch, kind, subject slot, aux slot, throw-on-true). The DDCG
   // emits a guard at every operation the JLS says can throw, naively and
@@ -1906,7 +1914,16 @@ fun chain_switch_cases(cases: list<ast.switch_case>, idx: int,
       ? []
       : { let rest = chain_switch_cases(cases, idx + 1, after_last, rho);
           let next_head = rest.count == 0 ? after_last : rest[0];
-          let here = chain_case_body(cases[idx].stmts, 0, next_head, rho);
+          // LABEL each group head here, not at build_switch_node. A group is a
+          // br_table target AND, under §14.10 fall-through, the continuation of
+          // the group above it — and those have to be the SAME node. Labelling
+          // later minted a fresh Nop for the br_table while the fall-through
+          // edge still pointed at the raw head, so the backend's region bound
+          // (the labelled Nop) never appeared on the chain and the group was
+          // emitted twice: once for its own br_table slot, once as the previous
+          // group's tail. ddcg_label is idempotent on a Nop, so the wrap at
+          // build_switch_node then returns this same node.
+          let here = ddcg_label(chain_case_body(cases[idx].stmts, 0, next_head, rho));
           [here] + rest; };
 }
 
@@ -2453,7 +2470,7 @@ fun emit_ref_cast(at: ir.atype, cp: int, op: ast.expr,
     // record it keyed on the guard so the structurer emits the cast's tail once,
     // not per diamond arm (two casts per branch × an if-else-if chain otherwise
     // compounds). ret/pair γ: no shared re-emittable tail (see the div guard).
-    let _ = match (gamma) { single(L) => record_scope(guard, L, 3) | _other => 0 };
+    let _ = match (gamma) { single(L) => record_guard_merge(guard, L) | _other => 0 };
     // The spill temp's REF type is the operand's own descriptor, EXCEPT a `null` literal has
     // none (expr_ref = nil, because the null type names no class) — then type it from the
     // cast's TARGET, which is what the CheckCast on both arms narrows to. Without this the
@@ -2603,7 +2620,7 @@ fun emit_array_cast(array_class: int, op: ast.expr,
         build ir.Branch(is_inst, ok_inst, throw_new_noarg(sema_class_cast_exc_id(), rho)));
     // Same diamond as emit_ref_cast: ok_null/ok_inst share the γ continuation —
     // record it as a MERGE label for single-label γ (§2.1).
-    let _ = match (gamma) { single(L) => record_scope(guard, L, 3) | _other => 0 };
+    let _ = match (gamma) { single(L) => record_guard_merge(guard, L) | _other => 0 };
     // Same null-literal rule as emit_ref_cast: the target here is the RefArray overlay both
     // arms narrow to. `(String[]) null` has no descriptor of its own either.
     let oref = expr_ref(op);
@@ -3086,7 +3103,7 @@ rule binary_intdiv_guarded : ast.Binary(op: op, lhs: l, rhs: r)
     // nothing; `pair` shares Lt/Lf, not the arm nodes. NEVER record a node synthesized
     // from cg_jump(γ) — that fabricates one on the ret/pair paths and miscompiles.
     let _ = match (gamma) {
-        single(L) => record_scope(guard, L, 3)
+        single(L) => record_guard_merge(guard, L)
       | _other    => 0
     };
     let rhs_chain = gen(r, rho, vloc(t_b, rhs_dt, expr_ref(r)), single(guard), guard);
@@ -4117,16 +4134,32 @@ rule super_access : ast.SuperAccess(field: f) {
 }
 
 // JLS §15.25 — conditional (?:). Same shape as if as statement, but
-// the value of the chosen arm is delivered to the parent (δ, γ). When
-// γ=ret, each arm terminates in its own Return — no join needed.
-// Otherwise arms inherit Lnext=Ljoin and their tail's .next falls
-// through to Ljoin via cg_jump's L==Lnext rule — no explicit Goto.
+// the value of the chosen arm is delivered to the parent (δ, γ). Both
+// arms inherit γ (Dybvig Fig.5); what that costs depends on which γ:
+//   ret          each arm terminates in its own Return — no join.
+//   pair(Lt,Lf)  a boolean in TEST position (`if (b ? p : q)`). Each arm
+//                is itself gen'd against the parent's pair, so each ends
+//                in its own Branch to the SAME Lt/Lf — no join either,
+//                and the two shared destinations are MERGE labels.
+//   single(L)    a value destination: the arms converge on Ljoin, whose
+//                continuation is L, and their tails fall through to it
+//                via cg_jump's L==Lnext rule — no explicit Goto.
+// pair is not a value destination, so it must NOT reach the single case:
+// `cg_jump(pair, …)` calls a pair a caller error and fails safe to Lnext,
+// which drops the branch and leaves the if's arms unreachable.
 rule ternary : ast.Ternary(test: t, then: th, else_: el) {
     match (gamma) {
         ret => { let rdt = current_return_dt();     // §15.25: arms promote to the return type
                  let Lthen = ddcg_label(cg_deliver_conv(th, rdt, rho, delta, gamma, Lnext));
                  let Lelse = ddcg_label(cg_deliver_conv(el, rdt, rho, delta, gamma, Lnext));
                  gen(t, rho, effect, pair(Lthen, Lelse), Lnext); }
+      | pair(Lt, Lf) => {
+                 let Lthen = ddcg_label(ternary_arm(th, rho, delta, gamma, Lnext));
+                 let Lelse = ddcg_label(ternary_arm(el, rho, delta, gamma, Lnext));
+                 let test = gen(t, rho, effect, pair(Lthen, Lelse), Lnext);
+                 let _ = record_scope(test, Lt, 3);   // both arms branch to this Lt …
+                 let _ = record_scope(test, Lf, 3);   // … and to this Lf (Fig.7's share)
+                 test; }
       | _other => { let join_cont = cg_jump(gamma, Lnext);
                     let Ljoin = build ir.Nop(join_cont);
                     let Lthen = ddcg_label(ternary_arm(th, rho, delta, single(Ljoin), Ljoin));
@@ -4330,9 +4363,21 @@ rule for_stmt : ast.For(init: i, test: t, update: u, body: b) {
     // Lupdate is the CONTINUE target: the body falls through to it, and every
     // `continue` jumps to it — so control converges there. That is a merge the
     // OPTIMIZER must know about (nothing may be lifted across it as if the step
-    // were forced). Kind 4 = CONTINUE, NOT 3 = MERGE: a MERGE is the structurer's
-    // emit-once label, and claiming one here makes emit_spine re-emit forever.
+    // were forced), keyed on Lupdate itself, kind 4.
     let _ = record_scope(Lupdate, Lupdate, 4);
+    // It is ALSO the structurer's emit-once label as soon as a `continue`
+    // reaches it — two transfers, one node, so the update must be emitted once
+    // and the continue must br to it. Keyed on the BODY head (§2.1: "the branch
+    // head the backend will encounter top-down"), which is what frames
+    //   block $Lupdate  <body>  end  <update>  br $top
+    // The kind-4 row above cannot serve: keyed on Lupdate itself, framing it
+    // would emit from Lupdate bounded at Lupdate and never advance. With no
+    // continue the update has ONE reference and is not a label — the paper
+    // emits no code for an unreferenced label, and framing it anyway would put
+    // a block round every for-loop in the program.
+    let _ = sema_loop_has_continue(node)
+              ? record_scope(body_spine, Lupdate, 3)
+              : 0;
     i == nil
       ? Ltop
       : gen(i, rho, effect, single(Ltop), nil);
@@ -4418,8 +4463,13 @@ rule do_while_stmt : ast.DoWhile(test: t, body: b) {
     // backend's Branch handler distinguishes via loop_scope_at(on_true).
     let _ = record_scope(Ltop, Lbreak, 1);
     // Lcont is the CONTINUE target — same rule as `for`'s Lupdate: a merge for
-    // the optimizer, kind 4, never the structurer's MERGE label.
+    // the optimizer (kind 4, keyed on itself), and once a `continue` reaches it
+    // also an emit-once label, keyed on the body head so the tail test is
+    // framed and the continue brs to it instead of inlining a second copy.
     let _ = record_scope(Lcont, Lcont, 4);
+    let _ = sema_loop_has_continue(node)
+              ? record_scope(body_spine, Lcont, 3)
+              : 0;
     Ltop;
 }
 
@@ -4539,5 +4589,13 @@ rule labeled_stmt : ast.Labeled(body: b) {
             | pair(Lt, Lf) => Lnext
           };
           let body_rho = loop_frame(Lbreak, nil, rho);
-          gen(b, body_rho, delta, gamma, Lnext); };
+          let head = gen(b, body_rho, delta, gamma, Lnext);
+          // `loop_frame` is the FRONTEND's break-target environment; it tells
+          // `break L` which node to transfer to. The backend needs the other half
+          // — a scope record — or Lbreak is never framed as a wasm block, no
+          // br_depth resolves it, and every `break L` emits the exit's code inline
+          // instead of branching to it. Two breaks, two copies of the rest of the
+          // method. (Loops and switches record theirs; a labelled block did not.)
+          let _ = record_scope(head, Lbreak, 0);
+          head; };
 }

@@ -168,6 +168,21 @@ int main(void) {
         for (int i=0;i<n;i++){ if(s[i].a==COMPILER_SCOPE_MERGE) mg=&s[i]; if(s[i].a==COMPILER_SCOPE_BLOCK) bl=&s[i]; }
         CHECK(mg && bl && mg->key == bl->key, "&&: MERGE and BLOCK keyed on the same test head");
         CHECK(mg && mg->aux && mg->aux != (bl?bl->aux:NULL), "&&: MERGE exit (shared else) != if-join");
+        /* `a && b` is TWO Branches. Both records above are keyed on the chain HEAD
+         * (the `a` test), so the `b` Branch carries nothing of its own. §2.2 intends
+         * the head's framing to put the shared labels on the scope stack so `b`
+         * resolves by br_depth — which holds only while the walk actually frames at
+         * the head. This counts the distinct Branch keys, the same question that
+         * caught the cast and div diamonds. */
+        const sir_node_t* ak[16]; int nak = 0;
+        for (int i = 0; i < n; i++)
+            if ((s[i].a == COMPILER_SCOPE_MERGE || s[i].a == COMPILER_SCOPE_BLOCK)
+                && s[i].key && s[i].key->tag == SIR_BRANCH) {
+                int dup = 0;
+                for (int j = 0; j < nak; j++) if (ak[j] == s[i].key) dup = 1;
+                if (!dup && nak < 16) ak[nak++] = s[i].key;
+            }
+        printf("        &&: %d distinct Branch keys recorded\n", nak);
         bbq_arena_free(&a);
     }
 
@@ -192,6 +207,79 @@ int main(void) {
         bbq_arena_free(&a);
     }
 
+    /* §15.25 in a BOOLEAN-CONTROL position. `if (b ? p : q)` gens the conditional
+     * with γ = pair(Lthen, Lelse); Fig. 5 hands that same γ to both arms, so each
+     * ends in its OWN branch to the SHARED Lt and Lf — two shared destinations, two
+     * MERGE records, and no value join (nothing converges to deliver a value). The
+     * `_other` arm that used to swallow `pair` built a value join instead, from a
+     * `cg_jump(pair, Lnext)` that calls a pair a caller error and returns Lnext —
+     * so the if's arms were never branched to at all. */
+    {
+        bbq_arena a; bbq_arena_init(&a, 1 << 16);
+        int n = 0;
+        const compiler_fact_t* s = scopes_of(&a,
+            "class T { void f(boolean p, boolean q, boolean b, int x){ if (b ? p : q) x=1; } }",
+            "f", &n);
+        CHECK(COUNT_KIND(s,n,COMPILER_SCOPE_MERGE) == 2,
+              "ternary in test position: both shared destinations recorded");
+        int paired = 0;
+        for (int i = 0; i < n; i++)
+            if (s[i].a == COMPILER_SCOPE_MERGE && s[i].key && s[i].key->tag == SIR_BRANCH)
+                paired++;
+        CHECK(paired == 2, "ternary in test position: both MERGEs keyed on the test Branch");
+        bbq_arena_free(&a);
+    }
+
+    /* §14.7 a labelled BLOCK. `loop_frame` is the FRONTEND's break-target
+     * environment; the backend needs the same label as a scope row or it frames
+     * nothing and each `break L` emits the exit inline. Keyed on the body head —
+     * "the branch head the backend will encounter top-down" (§2.1). */
+    {
+        bbq_arena a; bbq_arena_init(&a, 1 << 16);
+        int n = 0;
+        const compiler_fact_t* s = scopes_of(&a,
+            "class T { int f(int x){ int r = 0;"
+            " L: { if (x == 0) break L; r = 1; if (x == 1) break L; r = 2; }"
+            " return r; } }", "f", &n);
+        /* two inner ifs + the labelled block itself */
+        CHECK(COUNT_KIND(s,n,COMPILER_SCOPE_BLOCK) == 3,
+              "labelled block: its exit is recorded alongside the two if-joins");
+        bbq_arena_free(&a);
+    }
+
+    /* §14.16 the CONTINUE target. Two rows, two consumers: kind 4 keyed on the
+     * target itself is the OPTIMIZER's merge marker (nothing may be lifted across
+     * the step), and a MERGE keyed on the BODY head is the structurer's emit-once
+     * label. The second exists only when a `continue` actually reaches it — with no
+     * continue the update has one reference and the paper emits no code for an
+     * unreferenced label, so framing it would cost every for-loop a block. */
+    {
+        bbq_arena a; bbq_arena_init(&a, 1 << 16);
+        int n = 0;
+        const compiler_fact_t* s = scopes_of(&a,
+            "class T { int f(int x){ int s2 = 0;"
+            " for (int i = 0; i < x; i++) { if (i == 2) continue; s2 = s2 + i; } return s2; } }",
+            "f", &n);
+        int cont = 0, self = 0;
+        for (int i = 0; i < n; i++) if (s[i].a == 4) { cont++; if (s[i].key == s[i].aux) self++; }
+        CHECK(cont == 1 && self == 1, "for+continue: the kind-4 row is keyed on the target itself");
+        const compiler_fact_t* mg = NULL;
+        for (int i = 0; i < n; i++) if (s[i].a == COMPILER_SCOPE_MERGE) mg = &s[i];
+        CHECK(mg && mg->key != mg->aux,
+              "for+continue: the MERGE row is keyed on the body head, not on the label");
+        bbq_arena_free(&a);
+    }
+    {
+        bbq_arena a; bbq_arena_init(&a, 1 << 16);
+        int n = 0;
+        const compiler_fact_t* s = scopes_of(&a,
+            "class T { int f(int x){ int s2 = 0;"
+            " for (int i = 0; i < x; i++) { s2 = s2 + i; } return s2; } }", "f", &n);
+        CHECK(COUNT_KIND(s,n,COMPILER_SCOPE_MERGE) == 0,
+              "for with NO continue: the update is not a label, so no MERGE row");
+        bbq_arena_free(&a);
+    }
+
     /* guarded int div (single-label γ): the zero/-1 guard records a MERGE (its arms'
      * shared continuation), kind MERGE, keyed on the guard Branch. */
     {
@@ -213,6 +301,187 @@ int main(void) {
         const compiler_fact_t* s = scopes_of(&a,
             "class T { void f(Object a){ String b = (String) a; b.length(); } }", "f", &n);
         CHECK(COUNT_KIND(s,n,COMPILER_SCOPE_MERGE) >= 1, "ref cast: a MERGE record for the diamond tail");
+        bbq_arena_free(&a);
+    }
+
+    /* ── a ternary in VALUE context ───────────────────────────────────────────
+     * The paper has no ternary rule: a conditional whose data destination is a
+     * location is Figure 5's two-armed if with δ = that location, and p.12 states
+     * the normalization outright (`E_bool ⇒ if E_bool (int 1) (int 0)`). Its arms
+     * are therefore `CG_store O A L` (p.13) — both storing to the SAME location and
+     * both `CG_jump L` to the SAME L. That shared L is a merge by §2's rule, no
+     * different from the guarded div's arms pinned above.
+     *
+     * `ASCIIToBinaryBuffer.doubleValue` is built out of these
+     * (`ieeeBits += overvalue ? -1 : 1;`) and emits its tail twice. This pin asks
+     * the FIRST question — is the shared continuation recorded at all — so that a
+     * green here moves the search to the backend's lookup and a red keeps it in the
+     * frontend, instead of it being settled by reading code. */
+    {
+        bbq_arena a; bbq_arena_init(&a, 1 << 16);
+        int n = 0;
+        const compiler_fact_t* s = scopes_of(&a,
+            "class T { int f(int x, boolean b){ int r = x; r = r + (b ? 0 - 1 : 1); return r; } }", "f", &n);
+        int merges = COUNT_KIND(s,n,COMPILER_SCOPE_MERGE);
+        int blocks = COUNT_KIND(s,n,COMPILER_SCOPE_BLOCK);
+        printf("        value ternary: %d MERGE, %d BLOCK\n", merges, blocks);
+        CHECK(merges + blocks >= 1, "value ternary: the arms' shared continuation is recorded");
+        bbq_arena_free(&a);
+    }
+
+    /* ── the shape that actually duplicates in the shipped prelude ─────────────
+     * `ASCIIToBinaryBuffer.doubleValue` emits its tail twice, and the branches that
+     * lose their join are synthesized (no srcloc), `SIR_EQ` conditions with
+     * StoreLocal arms, five deep at method top level. The distinguishing ingredient
+     * over the fixtures above is that the condition is an instance FIELD, not a
+     * parameter: the read spills AND goes through `this`, so the recorded key is a
+     * different node again. This harness carries types, so it can ask. */
+    {
+        bbq_arena a; bbq_arena_init(&a, 1 << 16);
+        int n = 0;
+        const compiler_fact_t* s = scopes_of(&a,
+            "class T { boolean over; int bits;"
+            " int f(){ bits = bits + (over ? 0 - 1 : 1);"
+            "          bits = bits + (over ? 0 - 2 : 2);"
+            "          bits = bits + (over ? 0 - 3 : 3); return bits; } }", "f", &n);
+        int merges = COUNT_KIND(s,n,COMPILER_SCOPE_MERGE);
+        int blocks = COUNT_KIND(s,n,COMPILER_SCOPE_BLOCK);
+        printf("        field-cond ternary x3: %d MERGE, %d BLOCK\n", merges, blocks);
+        CHECK(merges + blocks >= 3,
+              "field-cond ternary: one join recorded per ternary");
+        bbq_arena_free(&a);
+    }
+
+    /* The same, with the field condition COMPARED — `SIR_EQ` with StoreLocal arms is
+     * what the debugger showed at the failing branch, and a bare boolean field read
+     * may not produce one. */
+    {
+        bbq_arena a; bbq_arena_init(&a, 1 << 16);
+        int n = 0;
+        const compiler_fact_t* s = scopes_of(&a,
+            "class T { int exp; double d;"
+            " int f(int x){ x = x + (exp == 0 ? 1 : 2);"
+            "               x = x + (d == 0.0 ? 3 : 4);"
+            "               x = x + (exp == 1 || d == 1.0 ? 5 : 6); return x; } }", "f", &n);
+        int merges = COUNT_KIND(s,n,COMPILER_SCOPE_MERGE);
+        int blocks = COUNT_KIND(s,n,COMPILER_SCOPE_BLOCK);
+        printf("        field-cmp ternary x3: %d MERGE, %d BLOCK\n", merges, blocks);
+        CHECK(merges + blocks >= 3,
+              "field-cmp ternary: one join recorded per ternary");
+        bbq_arena_free(&a);
+    }
+
+    /* ── a ternary INSIDE a short-circuit condition ────────────────────────────
+     * `if ((b ? x : y) > 0 && x > 0)` is the minimal shape that makes the backend
+     * emit a spine node twice (test_codegen_structured, "ternary in && cond"). Two
+     * join-bearing constructs are nested in one condition: the `&&` chain, whose
+     * MERGE is keyed on the chain HEAD, and the ternary beneath it, which mints its
+     * own Ljoin and records a BLOCK on its own test head.
+     *
+     * This asks the frontend half only — are both records present and keyed on
+     * distinct nodes? Green here puts the fault in the backend's lookup; red puts
+     * it in the recording. */
+    {
+        bbq_arena a; bbq_arena_init(&a, 1 << 16);
+        int n = 0;
+        const compiler_fact_t* s = scopes_of(&a,
+            "class T { int f(int x, int y, boolean b){"
+            " if ((b ? x : y) > 0 && x > 0) x = x + 1; return x; } }", "f", &n);
+        int merges = COUNT_KIND(s,n,COMPILER_SCOPE_MERGE);
+        int blocks = COUNT_KIND(s,n,COMPILER_SCOPE_BLOCK);
+        printf("        ternary in && cond: %d MERGE, %d BLOCK\n", merges, blocks);
+        CHECK(merges >= 1, "ternary in && cond: the chain's shared exit is recorded");
+        CHECK(blocks >= 2, "ternary in && cond: the if AND the ternary each record a join");
+        bbq_arena_free(&a);
+    }
+
+    /* ── LHS-ternary vs RHS-ternary: what differs in the RECORDS ───────────────
+     * `if ((b?x:y) > 0)` duplicates; `if (0 < (b?x:y))` does not. Both select a
+     * Figure-8 operand rule (binary_arith_cs / _sc) that is structurally identical
+     * — same temp, same `single(binop_head)` to the complex operand, and both
+     * RETURN that operand's head. So the two shapes should record the same thing.
+     * Printing both says whether they do; if they do, the difference is not in the
+     * recording and the search moves back to the backend. */
+    {
+        bbq_arena a; bbq_arena_init(&a, 1 << 16); int n = 0;
+        const compiler_fact_t* s = scopes_of(&a,
+            "class T { int f(int x, int y, boolean b){ if ((b ? x : y) > 0) x=x+1; return x; } }",
+            "f", &n);
+        const sir_node_t* k[8]; int nk = 0, rows = 0;
+        for (int i = 0; i < n; i++)
+            if (s[i].a == COMPILER_SCOPE_BLOCK) {
+                rows++; int dup = 0;
+                for (int j = 0; j < nk; j++) if (k[j] == s[i].key) dup = 1;
+                if (!dup && nk < 8) k[nk++] = s[i].key;
+            }
+        printf("        LHS ternary: %d BLOCK rows on %d distinct keys\n", rows, nk);
+        bbq_arena_free(&a);
+    }
+    {
+        bbq_arena a; bbq_arena_init(&a, 1 << 16); int n = 0;
+        const compiler_fact_t* s = scopes_of(&a,
+            "class T { int f(int x, int y, boolean b){ if (0 < (b ? x : y)) x=x+1; return x; } }",
+            "f", &n);
+        const sir_node_t* k[8]; int nk = 0, rows = 0;
+        for (int i = 0; i < n; i++)
+            if (s[i].a == COMPILER_SCOPE_BLOCK) {
+                rows++; int dup = 0;
+                for (int j = 0; j < nk; j++) if (k[j] == s[i].key) dup = 1;
+                if (!dup && nk < 8) k[nk++] = s[i].key;
+            }
+        printf("        RHS ternary: %d BLOCK rows on %d distinct keys\n", rows, nk);
+        bbq_arena_free(&a);
+    }
+
+    /* ── a guard whose arms CONVERGE needs a record ────────────────────────────
+     * §1 exempts the implicit-exception guards from a MERGE record on the grounds
+     * that they "share nothing" — their throw arm terminates, so the ok arm is the
+     * join's only reference. That premise is what the exemption rests on, and it is
+     * false wherever a guard's throw arm can complete normally: then both arms reach
+     * the continuation, the join has two references, and nothing recorded it.
+     *
+     * Measured in `ASCIIToBinaryBuffer.doubleValue`: five guard-shaped Branches
+     * (true arm `Store(SIR_NEW)` — the allocating throw path) where emit_spine
+     * reports the then-arm FELL THROUGH for all five. With no record and, at method
+     * top level, no enclosing region bound, `ljoin` becomes NULL and both arms
+     * absorb the method tail — 2^k for k such guards.
+     *
+     * The pin asks the frontend question: an array store needing a bounds guard,
+     * in a method with a tail to duplicate, must leave a recorded join for every
+     * Branch that can reach it from both sides. */
+    {
+        bbq_arena a; bbq_arena_init(&a, 1 << 16);
+        int n = 0;
+        const compiler_fact_t* s = scopes_of(&a,
+            "class T { int f(int[] v, int i){ v[i] = 1; v[i+1] = 2; return v.length; } }",
+            "f", &n);
+        int guards = 0, recorded = 0;
+        for (int i = 0; i < n; i++)
+            if (s[i].key && s[i].key->tag == SIR_BRANCH) {
+                guards++;
+                if (s[i].a == COMPILER_SCOPE_MERGE || s[i].a == COMPILER_SCOPE_BLOCK)
+                    recorded++;
+            }
+        printf("        guarded array stores: %d Branch-keyed rows, %d are join records\n",
+               guards, recorded);
+        bbq_arena_free(&a);
+    }
+
+    /* The SAME construct in TAIL position records NOTHING, and that is correct:
+     * with γ = `ret` each arm mints its own Return and terminates, so there is no
+     * shared node to label (§2.2's γ-cases; paper p.13, `CG_jump return ⇒ ret` —
+     * return is a Label but never a branch target). Pinned so that a later change
+     * which starts recording here — fabricating a join no arm points at — is a red
+     * rather than a silent miscompile; the spec records that exact mistake breaking
+     * 15 test_exec cases. */
+    {
+        bbq_arena a; bbq_arena_init(&a, 1 << 16);
+        int n = 0;
+        const compiler_fact_t* s = scopes_of(&a,
+            "class T { int f(int x, boolean b){ return b ? x : 0 - x; } }", "f", &n);
+        CHECK(COUNT_KIND(s,n,COMPILER_SCOPE_MERGE) == 0
+              && COUNT_KIND(s,n,COMPILER_SCOPE_BLOCK) == 0,
+              "return ternary (γ=ret): arms terminate, nothing recorded");
         bbq_arena_free(&a);
     }
 

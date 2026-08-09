@@ -1376,7 +1376,7 @@ static void test_cp_switch_prunes_default(void) {
     sir_node_t* sel  = sir_load_const(&a, 1, SIR_DTSHORT);
     sir_node_t* cases[1] = { st_c };
     int32_t     vals[1]  = { 1 };
-    sir_node_t* sw   = sir_switch(&a, sel, cases, 1, vals, 1, st_d,
+    sir_node_t* sw   = sir_switch(&a, sel, cases, 1, vals, 1, st_d, -1,
                                   SIR_DTSHORT);
     sir_method_t* m  = sir_method(&a, "f", 0, 0, 1, sw);
 
@@ -5012,7 +5012,7 @@ static void test_cp_rewrite_switch_fold_known_selector(void) {
     int32_t* vals = (int32_t*)bbq_arena_alloc(&a, 2 * sizeof(int32_t));
     vals[0] = 0; vals[1] = 1;
     sir_node_t* sel = sir_load_const(&a, 1, SIR_DTSHORT);
-    sir_node_t* sw  = sir_switch(&a, sel, cases, 2, vals, 2, retD,
+    sir_node_t* sw  = sir_switch(&a, sel, cases, 2, vals, 2, retD, -1,
                                  SIR_DTSHORT);
     sir_method_t* m = sir_method(&a, "f", 0, 0, 0, sw);
 
@@ -7793,7 +7793,7 @@ static void test_cp_reachability_top_switch_all_arms_live(void) {
     sir_node_t* sel   = sir_load_local(&a, 0, SIR_DTSHORT, NULL);   /* TOP */
     sir_node_t* cases[1] = { ret_c };
     int32_t     vals[1]  = { 5 };
-    sir_node_t* sw    = sir_switch(&a, sel, cases, 1, vals, 1, ret_d, SIR_DTSHORT);
+    sir_node_t* sw    = sir_switch(&a, sel, cases, 1, vals, 1, ret_d, -1, SIR_DTSHORT);
     sir_method_t* m   = sir_method(&a, "f", 0, 0, 1, sw);
 
     cp_engine_t* e = cp_build(m, NULL, &a, NULL, 0);

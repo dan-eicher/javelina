@@ -374,6 +374,10 @@ typedef enum {
     CP_OBJK_PARAM,     /* §1 `Oext@param`: a formal's phantom (and `this`) */
     CP_OBJK_CELL,      /* §1: the phantom for what a pre-existing object holds in a cell */
     CP_OBJK_RET,       /* §1 `Oret@callee` */
+    CP_OBJK_FRESH,     /* Choi Fig 7 Statement 32: the node a caller CREATES for an object the
+                        * CALLEE allocated, when no MapsTo caller node exists. NoEscape (§4.4),
+                        * and not a site — the caller cannot remove an allocation it does not
+                        * contain. */
     CP_OBJK_SITE,      /* an allocation site in THIS method — the only kind we may remove */
 } cp_obj_kind_t;
 
@@ -936,10 +940,30 @@ typedef struct {
      * The object id is on obj_of_vnode for each invoke vnode; this map is what shares
      * one id across every call to the same callee. */
     bbq_htree* callee_idx;
+    /* Choi Fig 7 Statement 32's created nodes, interned by (callee, callee-summary object) for
+     * the same reason `callee_idx` is interned by callee: the paper mints "at most one phantom
+     * node at a statement for each type", and keying on the callee rather than the call site
+     * merges two call sites of one method into one node — coarser, sound, and finite in a loop.
+     * A summary object has one type, so (callee, k) IS the paper's per-type key, shared. */
+    /* Choi Fig 7 Statement 32's created nodes: [method_count][callee's n_obj], the created node
+     * id for each callee-allocated summary object (-1 otherwise). Dense and per-callee, the same
+     * shape as `mapsto_tr` — a summary position translated to a LOCAL id, resolved once. Keyed on
+     * the callee rather than the call site for the same finiteness reason as `Oret`: the paper
+     * mints one node "at a statement for each type", and sharing across call sites is the coarser
+     * sound choice. */
+    int**      fresh_of;
+    /* (spine index of a call, cell) → that call's per-cell KILL vnode, so Fig 7 Statement 31 can
+     * read cell c's REACHING version at the call (`mem_prev[kv]`) instead of unioning every
+     * version in the method. Built in cp_resolve, where the kill vnode is already in hand. */
+    /* [tc]: the spine node each recorded call site belongs to — the esc_call_off CSR inverted
+     * once, so Fig 7 Statement 31 can index `slot_in` for the version reaching a call instead of
+     * searching the CSR per query. */
+    int*       esc_call_spine;
     /* The kind BOUNDARIES, recorded where the ids are assigned (cp_enumerate_objects hands
      * them out in kind order). cp_obj_kind reads these — nobody re-derives a kind. */
     int       obj_first_cell;
     int       obj_first_ret;
+    int       obj_first_fresh;
     int       obj_first_site;
 
     /* ── Escape (lattice E, spec §6) ──
@@ -1250,6 +1274,12 @@ cp_engine_t* cp_build(sir_method_t* method, const sema_ctx_t* sema,
  * PROPAGATE+CAUSE_SPLITS solve. Lets tests inspect the engine in its
  * pre-solve state (partitions assigned, but facts uninitialized).
  * Subsequently call cp_init_facts then cp_solve to complete. */
+/* As cp_build_no_solve, but with the compiler context attached BEFORE object naming, so the
+ * naming pass can mint Choi Fig 7 Statement 32's created nodes from the callee summaries. */
+cp_engine_t* cp_build_no_solve_ctx(compiler_ctx_t* ctx, sir_method_t* method,
+                                bbq_arena* arena,
+                                const compiler_fact_t* facts, int fact_count);
+
 cp_engine_t* cp_build_no_solve(sir_method_t* method, const sema_ctx_t* sema,
                                 bbq_arena* arena,
                                 const compiler_fact_t* facts, int fact_count);
