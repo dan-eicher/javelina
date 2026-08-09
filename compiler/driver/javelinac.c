@@ -85,6 +85,36 @@ static char* read_file(const char* path, int* out_len) {
  * arena owns the AST; the context is recorded in `*ctxs` for the caller to free
  * after compilation. Idents/literals are duplicated into the arena, so `src` need
  * not survive. */
+/* The grammar's `report_parse_error` hook is a deliberate no-op — a library must not write to
+ * stderr behind its caller — and its comment names the contract this fills: "consumers use
+ * p->furthest directly to render diagnostics their own way".
+ *
+ * Why `furthest` and not the cursor: a PEG rewinds on every alternative it gives up on, so at
+ * top-level failure the cursor sits at the start of the outermost construct that failed — for
+ * one class in one file, the `class` line, however deep the fault. `peg_advance` keeps
+ * `furthest`, the deepest position the parse ever reached, and nothing can get past the fault,
+ * so that IS the fault. The line and caret come from the buffer the parser actually read
+ * (`p->input`), not the original text: §3.3 `\u` translation changes lengths, and a column
+ * measured against the wrong buffer points at the wrong character. */
+static void render_parse_failure(const peg_state* p, const char* file) {
+    const char* name = file ? file : "<stdin>";
+    const char* at = p->furthest.pos;
+    fprintf(stderr, "%s:%d:%d: error: parse error — no rule matches here\n",
+            name, p->furthest.line, p->furthest.col);
+    if (!p->input || !at || at < p->input || at > p->end) return;
+
+    const char* bol = at;
+    while (bol > p->input && bol[-1] != '\n') bol--;
+    const char* eol = at;
+    while (eol < p->end && *eol != '\n') eol++;
+    if (eol - bol > 200) return;                  /* a minified or generated line helps nobody */
+
+    fprintf(stderr, "  %.*s\n", (int)(eol - bol), bol);
+    fputs("  ", stderr);
+    for (const char* c = bol; c < at; c++) fputc(*c == '\t' ? '\t' : ' ', stderr);
+    fputs("^\n", stderr);
+}
+
 static ast_program_t* parse_src(const char* src, int len, const char* file, java_parse_ctx_t*** ctxs) {
     java_parse_ctx_t* pc = (java_parse_ctx_t*)malloc(sizeof(*pc));
     bbq_arena_init(&pc->arena, 1 << 16); pc->result = NULL; pc->file = file;
@@ -97,22 +127,7 @@ static ast_program_t* parse_src(const char* src, int len, const char* file, java
     }
     p.user_data = pc;
     ast_program_t* prog = java_parser_parse(&p) ? pc->result : NULL;
-    if (!prog) {
-        /* The parser records every failure it hits with a position; a PEG backtracks, so the
-         * FURTHEST one is the informative one — the others are alternatives it correctly gave
-         * up on earlier. Reporting only "parse error in <file>" throws all of that away and
-         * leaves the reader bisecting the file by hand. */
-        const peg_error* far = NULL;
-        for (int i = 0; i < p.error_count; i++) {
-            const peg_error* e = &p.errors[i];
-            if (!far || e->line > far->line || (e->line == far->line && e->col > far->col))
-                far = e;
-        }
-        if (far) fprintf(stderr, "%s:%d:%d: error: %s\n",
-                         file ? file : "<stdin>", far->line, far->col, far->message);
-        else     fprintf(stderr, "%s: parse error in '%s'\n",
-                         prog_name, file ? file : "<stdin>");
-    }
+    if (!prog) render_parse_failure(&p, file);
     free(tsrc);                       /* idents/literals are duplicated into the arena */
     bbq_vec_push(*ctxs, pc);
     return prog;
