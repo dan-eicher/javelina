@@ -1,7 +1,13 @@
 package java.io;
 
 // java.io.BufferedInputStream (JLS 1.0 §22.6) — buffers reads from the wrapped stream.
-// A simple single-buffer model with mark/reset within the current buffer window.
+//
+// mark(readlimit) promises that reset() still works after up to `readlimit` more bytes are
+// read, so the buffer is not a fixed window: while a mark is live the marked region is first
+// SHIFTED down to reclaim the space before it, and only when the mark already sits at 0 does
+// the buffer GROW, capped at readlimit. The mark expires exactly when honouring it would
+// exceed that promise. Dropping the mark as soon as the initial buffer filled — the old
+// "single-buffer window" — silently broke every reader that marks more than 2048 bytes ahead.
 public class BufferedInputStream extends FilterInputStream {
     protected byte[] buf;
     protected int count;      // valid bytes in buf
@@ -13,9 +19,22 @@ public class BufferedInputStream extends FilterInputStream {
     public BufferedInputStream(InputStream in, int size) { super(in); buf = new byte[size]; }
 
     private void fill() throws IOException {
-        if (markpos < 0) pos = 0;                       // no mark: reuse from the start
-        else if (pos >= buf.length) {                   // buffer full past the mark: drop the mark
-            markpos = -1; pos = 0;
+        if (markpos < 0) {
+            pos = 0;                                    // no mark: reuse the whole buffer
+        } else if (pos >= buf.length) {                 // no room left, and a mark is live
+            if (markpos > 0) {                          // reclaim what precedes the mark
+                int kept = pos - markpos;
+                System.arraycopy(buf, markpos, buf, 0, kept);
+                pos = kept; markpos = 0;
+            } else if (buf.length >= marklimit) {
+                markpos = -1; pos = 0;                  // readlimit already spent: the mark expires
+            } else {
+                int grown = pos * 2;                    // grow, never past readlimit
+                if (grown < 0 || grown > marklimit) grown = marklimit;
+                byte[] nbuf = new byte[grown];
+                System.arraycopy(buf, 0, nbuf, 0, pos);
+                buf = nbuf;
+            }
         }
         count = pos;
         int n = in.read(buf, pos, buf.length - pos);
