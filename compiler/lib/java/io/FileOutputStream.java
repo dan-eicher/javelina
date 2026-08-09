@@ -2,7 +2,7 @@ package java.io;
 
 import javelina.simd.Mem;
 
-// java.io.FileOutputStream (JLS 1.0 §22.17) — writes bytes to a host file via the embedder's fd
+// java.io.FileOutputStream (JLS 1.0 §22.16) — writes bytes to a host file via the embedder's fd
 // surface. A byte[] crosses to the host by copying into the I/O staging linear memory (Mem.store8)
 // one 64 KiB page at a time, then a single fd_write over that region.
 public class FileOutputStream extends OutputStream {

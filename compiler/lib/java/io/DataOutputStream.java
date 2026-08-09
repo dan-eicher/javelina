@@ -1,6 +1,6 @@
 package java.io;
 
-// java.io.DataOutputStream (JLS 1.0 §22.6) — a FilterOutputStream that writes primitives in a
+// java.io.DataOutputStream (JLS 1.0 §22.21) — a FilterOutputStream that writes primitives in a
 // portable big-endian binary format (the DataOutput contract). `written` tracks the byte count.
 public class DataOutputStream extends FilterOutputStream implements DataOutput {
     protected int written;

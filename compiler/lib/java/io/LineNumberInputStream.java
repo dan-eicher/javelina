@@ -1,6 +1,6 @@
 package java.io;
 
-// java.io.LineNumberInputStream (JLS 1.0 §22.11) — a FilterInputStream that counts lines,
+// java.io.LineNumberInputStream (JLS 1.0 §22.12) — a FilterInputStream that counts lines,
 // normalising every line terminator ('\r', '\n', "\r\n") to a single '\n'. (Deprecated in 1.1.)
 public class LineNumberInputStream extends FilterInputStream {
     private int pushBack = -1;

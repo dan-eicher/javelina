@@ -2,7 +2,7 @@ package java.io;
 
 import javelina.simd.Mem;
 
-// java.io.RandomAccessFile (JLS 1.0 §22.4) — random-access reads/writes to a host file via the
+// java.io.RandomAccessFile (JLS 1.0 §22.23) — random-access reads/writes to a host file via the
 // embedder's fd surface + the byte[]↔linear-memory bounce (Mem). Implements DataInput/DataOutput
 // with the same portable big-endian composition as Data{Input,Output}Stream, over its own read()/
 // write(). The file pointer is tracked in the guest, kept in sync with the host fd position.

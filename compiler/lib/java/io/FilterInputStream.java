@@ -1,6 +1,6 @@
 package java.io;
 
-// java.io.FilterInputStream (JLS 1.0 §22.4) — wraps another InputStream, delegating every
+// java.io.FilterInputStream (JLS 1.0 §22.9) — wraps another InputStream, delegating every
 // operation. Subclasses (Buffered/Data/Pushback/...) override to transform the stream.
 public class FilterInputStream extends InputStream {
     protected InputStream in;

@@ -1,6 +1,6 @@
 package java.io;
 
-// java.io.ByteArrayOutputStream (JLS 1.0 §22.20) — an OutputStream that accumulates bytes
+// java.io.ByteArrayOutputStream (JLS 1.0 §22.18) — an OutputStream that accumulates bytes
 // into a growable in-memory buffer. Ported minus `synchronized`.
 public class ByteArrayOutputStream extends OutputStream {
     protected byte[] buf;

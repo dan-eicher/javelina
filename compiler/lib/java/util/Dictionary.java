@@ -1,6 +1,6 @@
 package java.util;
 
-// java.util.Dictionary (JLS 1.0 §21.2) — the abstract superclass of Hashtable: a
+// java.util.Dictionary (JLS 1.0 §21.4) — the abstract superclass of Hashtable: a
 // mapping from keys to values.
 public abstract class Dictionary {
     public Dictionary() { }

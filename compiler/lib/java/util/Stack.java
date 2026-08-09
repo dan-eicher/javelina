@@ -1,6 +1,6 @@
 package java.util;
 
-// java.util.Stack (JLS 1.0 §21.4) — a last-in-first-out stack of objects, extending Vector.
+// java.util.Stack (JLS 1.0 §21.12) — a last-in-first-out stack of objects, extending Vector.
 public class Stack extends Vector {
     public Object push(Object item) {
         addElement(item);

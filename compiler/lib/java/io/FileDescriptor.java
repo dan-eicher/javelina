@@ -1,6 +1,6 @@
 package java.io;
 
-// java.io.FileDescriptor (JLS 1.0 §22.16) — an opaque handle to an open host file or stream. It wraps
+// java.io.FileDescriptor (JLS 1.0 §22.26) — an opaque handle to an open host file or stream. It wraps
 // the embedder's integer fd (from the host I/O surface). in/out/err are the three standard streams.
 public final class FileDescriptor {
     int fd;   // package-private: the embedder's fd (-1 if invalid)

@@ -1,6 +1,6 @@
 package java.util;
 
-// java.util.Random (JLS 1.0 §21.3) — the 48-bit linear congruential PRNG. Ported minus
+// java.util.Random (JLS 1.0 §21.9) — the 48-bit linear congruential PRNG. Ported minus
 // `synchronized`. Constants and update are the spec's exactly, so the sequence is the
 // canonical one (e.g. new Random(0).nextLong() == -4962768465676381896L).
 public class Random {

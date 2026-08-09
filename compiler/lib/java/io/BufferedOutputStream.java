@@ -1,6 +1,6 @@
 package java.io;
 
-// java.io.BufferedOutputStream (JLS 1.0 §22.18) — buffers writes, flushing in blocks.
+// java.io.BufferedOutputStream (JLS 1.0 §22.20) — buffers writes, flushing in blocks.
 public class BufferedOutputStream extends FilterOutputStream {
     protected byte[] buf;
     protected int count;

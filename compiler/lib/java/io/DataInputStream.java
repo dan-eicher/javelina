@@ -1,6 +1,6 @@
 package java.io;
 
-// java.io.DataInputStream (JLS 1.0 §22.5) — a FilterInputStream that reads primitives in the
+// java.io.DataInputStream (JLS 1.0 §22.11) — a FilterInputStream that reads primitives in the
 // portable big-endian binary format written by DataOutputStream (the DataInput contract).
 // End-of-stream in the middle of a multi-byte value throws EOFException.
 public class DataInputStream extends FilterInputStream implements DataInput {

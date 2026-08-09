@@ -1,6 +1,6 @@
 package java.io;
 
-// java.io.ByteArrayInputStream (JLS 1.0 §22.9) — an InputStream backed by a byte array.
+// java.io.ByteArrayInputStream (JLS 1.0 §22.6) — an InputStream backed by a byte array.
 public class ByteArrayInputStream extends InputStream {
     protected byte[] buf;
     protected int pos;

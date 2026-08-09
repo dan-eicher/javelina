@@ -1,6 +1,6 @@
 package java.io;
 
-// java.io.PushbackInputStream (JLS 1.0 §22.10) — a FilterInputStream with a one-byte pushback
+// java.io.PushbackInputStream (JLS 1.0 §22.13) — a FilterInputStream with a one-byte pushback
 // buffer, so a look-ahead byte can be returned to the stream (unread) and re-read.
 public class PushbackInputStream extends FilterInputStream {
     protected int pushBack = -1;      // the pushed-back byte, or -1 when empty

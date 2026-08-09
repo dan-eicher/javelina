@@ -1,6 +1,6 @@
 package java.util;
 
-// java.util.Date (JLS 1.0 §21.2) — a point in time, millisecond precision. With no timezone
+// java.util.Date (JLS 1.0 §21.3) — a point in time, millisecond precision. With no timezone
 // native, the local zone IS UTC (getTimezoneOffset() == 0), the embedder's default floor;
 // System.currentTimeMillis() likewise reports UTC. Ported minus `synchronized`.
 public class Date {

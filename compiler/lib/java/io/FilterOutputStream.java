@@ -1,6 +1,6 @@
 package java.io;
 
-// java.io.FilterOutputStream (JLS 1.0 §22.16) — wraps another OutputStream, delegating.
+// java.io.FilterOutputStream (JLS 1.0 §22.19) — wraps another OutputStream, delegating.
 public class FilterOutputStream extends OutputStream {
     protected OutputStream out;
     public FilterOutputStream(OutputStream out) { this.out = out; }

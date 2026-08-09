@@ -1,6 +1,6 @@
 package java.util;
 
-// java.util.Vector (JLS 1.0 §21.1) — a growable array of objects. Ported minus the
+// java.util.Vector (JLS 1.0 §21.11) — a growable array of objects. Ported minus the
 // `synchronized` modifiers (javelina targets Java 1.0 − synchronized).
 public class Vector implements Cloneable {
     protected Object[] elementData;

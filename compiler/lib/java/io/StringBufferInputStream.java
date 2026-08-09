@@ -1,6 +1,6 @@
 package java.io;
 
-// java.io.StringBufferInputStream (JLS 1.0 §22.13) — deprecated: an InputStream backed by a
+// java.io.StringBufferInputStream (JLS 1.0 §22.7) — deprecated: an InputStream backed by a
 // String, reading only the low 8 bits of each char. (Superseded by StringReader, JDK 1.1.)
 public class StringBufferInputStream extends InputStream {
     protected String buffer;

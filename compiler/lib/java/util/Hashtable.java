@@ -1,6 +1,6 @@
 package java.util;
 
-// java.util.Hashtable (JLS 1.0 §21.3) — a hash table mapping keys to values via
+// java.util.Hashtable (JLS 1.0 §21.5) — a hash table mapping keys to values via
 // separate chaining. Ported minus `synchronized` (javelina targets Java 1.0 − synchronized).
 public class Hashtable extends Dictionary implements Cloneable {
     private HashtableEntry[] table;

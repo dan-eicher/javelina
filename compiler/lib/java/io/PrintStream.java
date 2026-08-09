@@ -1,6 +1,6 @@
 package java.io;
 
-// java.io.PrintStream (JLS 1.0 §22.14) — a FilterOutputStream that prints textual representations
+// java.io.PrintStream (JLS 1.0 §22.22) — a FilterOutputStream that prints textual representations
 // of values. It never throws IOException; a failure sets an internal flag (checkError()). An
 // optional autoflush flushes after each byte-array write and after a '\n'.
 public class PrintStream extends FilterOutputStream {

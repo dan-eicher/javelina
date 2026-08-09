@@ -2,7 +2,7 @@ package java.io;
 
 import javelina.simd.Mem;
 
-// java.io.File (JLS 1.0 §22.4) — an abstract, system-independent pathname, plus the operations that
+// java.io.File (JLS 1.0 §22.24) — an abstract, system-independent pathname, plus the operations that
 // query or mutate the underlying host file. Path bytes are staged into the I/O linear memory (Mem) and
 // the embedder's stat/action host ops (HostIO) operate on the real file (the host touches only linear
 // memory). The floor is Unix-shaped, so the separator is '/'.

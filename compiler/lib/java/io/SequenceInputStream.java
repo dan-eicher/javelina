@@ -3,7 +3,7 @@ package java.io;
 import java.util.Enumeration;
 import java.util.Vector;
 
-// java.io.SequenceInputStream (JLS 1.0 §22.12) — the logical concatenation of a series of input
+// java.io.SequenceInputStream (JLS 1.0 §22.8) — the logical concatenation of a series of input
 // streams: reads exhaust each stream in turn (closing it), then advance to the next.
 public class SequenceInputStream extends InputStream {
     private Enumeration e;

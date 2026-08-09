@@ -1,6 +1,6 @@
 package java.io;
 
-// java.io.BufferedInputStream (JLS 1.0 §22.6) — buffers reads from the wrapped stream.
+// java.io.BufferedInputStream (JLS 1.0 §22.10) — buffers reads from the wrapped stream.
 //
 // mark(readlimit) promises that reset() still works after up to `readlimit` more bytes are
 // read, so the buffer is not a fixed window: while a mark is live the marked region is first
