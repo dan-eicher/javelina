@@ -107,58 +107,153 @@ public class Date {
              + two(getHours()) + ":" + two(getMinutes()) + ":" + two(getSeconds()) + " GMT";
     }
 
-    // ── parse — a token scanner over the interoperable formats Date produces (and RFC 822):
-    // day-of-week and "GMT"/"UTC" are ignored, a NAME picks the month, a "h:m[:s]" run is the
-    // time, a 4-digit or >31 number is the year, else the first small number is the day. §21.2.
-    private static int monthOf(String s, int start, int end) {
-        for (int k = 0; k < 12; k++) {
-            boolean hit = (end - start) >= 3;
-            for (int j = 0; hit && j < 3; j++) {
-                char a = s.charAt(start + j), b = mtb[k].charAt(j);
-                if (a >= 'A' && a <= 'Z') a = (char) (a + 32);
-                if (b >= 'A' && b <= 'Z') b = (char) (b + 32);
-                if (a != b) hit = false;
-            }
-            if (hit) return k;
-        }
-        return -1;
+    // ── parse (§21.3.31) ────────────────────────────────────────────────────────────────────
+    // Transcribed from the spec's rules rather than guessed from shape. The old scanner
+    // classified a number by how it LOOKED ("a 4-digit or >31 number is the year") and threw
+    // away '/' as a separator; §21.3.31 classifies each number by WHAT FOLLOWS IT, and a number
+    // followed by a slash IS the month — so `2003/9/6` could not be read at all.
+    private static final String[] MONTHS = {
+        "january", "february", "march", "april", "may", "june",
+        "july", "august", "september", "october", "november", "december"
+    };
+    private static final String[] DAYS = {
+        "sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"
+    };
+    // EST/CST/MST/PST are 5/6/7/8 hours west; EDT/CDT/MDT/PDT are the same zones in daylight
+    // saving time, i.e. one hour less west. Minutes west of Greenwich, parallel to ZONES.
+    private static final String[] ZONES  = { "est","edt","cst","cdt","mst","mdt","pst","pdt" };
+    private static final int[]    ZONEW  = {  300, 240,  360, 300,  420, 360,  480, 420  };
+
+    private static char lc(char c) { return (c >= 'A' && c <= 'Z') ? (char) (c + 32) : c; }
+
+    /** s[a,b) equals w, ignoring case. */
+    private static boolean wordEq(String s, int a, int b, String w) {
+        if (b - a != w.length()) return false;
+        for (int k = 0; k < w.length(); k++) if (lc(s.charAt(a + k)) != w.charAt(k)) return false;
+        return true;
+    }
+    /** s[a,b) is a non-empty prefix of w, ignoring case. */
+    private static boolean wordPrefixOf(String s, int a, int b, String w) {
+        if (b <= a || b - a > w.length()) return false;
+        for (int k = 0; k < b - a; k++) if (lc(s.charAt(a + k)) != w.charAt(k)) return false;
+        return true;
     }
 
-    public static long parse(String s) {
-        int year = -1, mon = -1, mday = -1, hour = 0, min = 0, sec = 0;
-        int i = 0, n = s.length();
+    public static long parse(String s) throws IllegalArgumentException {
+        int year = -1, mon = -1, mday = -1, hour = -1, min = -1, sec = -1;
+        int zoneWestMin = 0; boolean haveZone = false;
+        int i = 0, n = s.length(), paren = 0;
+
         while (i < n) {
             char c = s.charAt(i);
-            if (c <= ' ' || c == ',' || c == '-' || c == '/') { i = i + 1; continue; }
-            if (c >= '0' && c <= '9') {
-                int num = 0, digits = 0;
-                while (i < n && (c = s.charAt(i)) >= '0' && c <= '9') { num = num * 10 + (c - '0'); i = i + 1; digits = digits + 1; }
-                if (i < n && s.charAt(i) == ':') {                 // a "h:m[:s]" time run
-                    hour = num; i = i + 1;
-                    int m2 = 0; while (i < n && (c = s.charAt(i)) >= '0' && c <= '9') { m2 = m2 * 10 + (c - '0'); i = i + 1; }
-                    min = m2;
-                    if (i < n && s.charAt(i) == ':') {
-                        i = i + 1; int s2 = 0;
-                        while (i < n && (c = s.charAt(i)) >= '0' && c <= '9') { s2 = s2 * 10 + (c - '0'); i = i + 1; }
-                        sec = s2;
-                    }
-                } else if (digits >= 4 || num > 31) {
-                    year = num;
-                } else if (mday < 0) {
-                    mday = num;
-                } else {
-                    year = num;
-                }
-            } else if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')) {
-                int start = i;
-                while (i < n && ((c = s.charAt(i)) >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z')) i = i + 1;
-                int mm = monthOf(s, start, i);
-                if (mm >= 0) mon = mm;                             // else a day-of-week / GMT / UTC → ignore
-            } else {
-                i = i + 1;
+            // "Any material in s that is within the ASCII parentheses ( and ) is ignored.
+            //  Parentheses may be nested."
+            if (c == '(') { paren = paren + 1; i = i + 1; continue; }
+            if (c == ')') { if (paren > 0) paren = paren - 1; i = i + 1; continue; }
+            if (paren > 0) { i = i + 1; continue; }
+
+            // A sign is only meaningful in front of a time-zone offset; elsewhere '-' separates.
+            int sign = 0;
+            if ((c == '+' || c == '-') && i + 1 < n
+                    && s.charAt(i + 1) >= '0' && s.charAt(i + 1) <= '9' && year >= 0) {
+                sign = (c == '+') ? 1 : -1; i = i + 1; c = s.charAt(i);
             }
+
+            if (c >= '0' && c <= '9') {
+                int num = 0;
+                while (i < n && (c = s.charAt(i)) >= '0' && c <= '9') { num = num * 10 + (c - '0'); i = i + 1; }
+                char next = (i < n) ? s.charAt(i) : '\0';
+
+                if (sign != 0) {
+                    // "If a number is preceded by + or - and a year has already been recognized,
+                    //  then the number is a time-zone offset. If it is less than 24, it is an
+                    //  offset measured in hours. Otherwise ... in minutes, expressed in 24-hour
+                    //  time format without punctuation. A preceding + means an eastward offset."
+                    int west = (num < 24) ? num * 60 : (num / 100) * 60 + (num % 100);
+                    zoneWestMin = (sign > 0) ? -west : west;
+                    haveZone = true;
+                } else if (num > 70) {
+                    // "If a number is greater than 70, it is regarded as a year number. It must
+                    //  be followed by a space, comma, slash, or end of string. If it is greater
+                    //  than 1900, then 1900 is subtracted from it."
+                    if (!(next == '\0' || next == ' ' || next == ',' || next == '/'
+                          || Character.isSpace(next)))
+                        throw new IllegalArgumentException();
+                    year = (num > 1900) ? num - 1900 : num;
+                } else if (next == ':') {
+                    // "followed by a colon ... an hour, unless an hour has already been
+                    //  recognized, in which case ... a minute."
+                    if (hour < 0) hour = num; else min = num;
+                    i = i + 1;
+                } else if (next == '/') {
+                    // "followed by a slash ... a month (decreased by 1 to produce 0 to 11),
+                    //  unless a month has already been recognized, in which case ... a day."
+                    if (mon < 0) mon = num - 1; else mday = num;
+                    i = i + 1;
+                } else if (next == '\0' || next == ',' || next == '-' || Character.isSpace(next)) {
+                    // "if an hour has been recognized but not a minute, it is regarded as a
+                    //  minute; otherwise, if a minute has been recognized but not a second, it is
+                    //  regarded as a second; otherwise, it is regarded as a day of the month."
+                    if (hour >= 0 && min < 0)      min = num;
+                    else if (min >= 0 && sec < 0)  sec = num;
+                    else if (mon >= 0 && mday >= 0 && year < 0) {
+                        // §21.3.31 STOPS SHORT HERE, and its last clause ("otherwise, it is
+                        // regarded as a day of the month") would overwrite the day already read
+                        // and leave `2/28/08` with no year at all. The reference implementation
+                        // takes the third component of m/d/yy as the year, with the two-digit
+                        // window 00..68 => 20xx and 69..99 => 19xx. Filling the gap, not carving
+                        // one out: without it a format this common cannot be parsed.
+                        year = (num > 1900) ? num - 1900 : (num < 69 ? num + 100 : num);
+                    }
+                    else                           mday = num;
+                } else {
+                    throw new IllegalArgumentException();
+                }
+                continue;
+            }
+
+            if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')) {
+                int a = i;
+                while (i < n && ((c = s.charAt(i)) >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z')) i = i + 1;
+
+                if (wordEq(s, a, i, "am")) {
+                    // "ignored (but the parse fails if an hour has not been recognized or is
+                    //  less than 1 or greater than 12)". 12am is midnight, hour 0.
+                    if (hour < 1 || hour > 12) throw new IllegalArgumentException();
+                    if (hour == 12) hour = 0;
+                } else if (wordEq(s, a, i, "pm")) {
+                    if (hour < 1 || hour > 12) throw new IllegalArgumentException();
+                    if (hour != 12) hour = hour + 12;
+                } else if (wordEq(s, a, i, "gmt") || wordEq(s, a, i, "ut") || wordEq(s, a, i, "utc")) {
+                    zoneWestMin = 0; haveZone = true;
+                } else {
+                    int k = 0; boolean done = false;
+                    for (k = 0; !done && k < DAYS.length; k++)                 // ignored
+                        if (wordPrefixOf(s, a, i, DAYS[k])) done = true;
+                    // "considering them in the order given here" — so "Ma" is MARCH, not MAY.
+                    for (k = 0; !done && k < MONTHS.length; k++)
+                        if (wordPrefixOf(s, a, i, MONTHS[k])) { mon = k; done = true; }
+                    for (k = 0; !done && k < ZONES.length; k++)
+                        if (wordEq(s, a, i, ZONES[k])) { zoneWestMin = ZONEW[k]; haveZone = true; done = true; }
+                    if (!done) throw new IllegalArgumentException();
+                }
+                continue;
+            }
+
+            if (c == ',' || c == '-' || c == '/' || c == ':' || Character.isSpace(c)) { i = i + 1; continue; }
+            throw new IllegalArgumentException();                  // outside the permitted set
         }
-        if (year >= 1900) year = year - 1900;                      // 4-digit year → year-1900
-        return UTC(year, mon, mday, hour, min, sec);
+
+        if (year < 0 || mon < 0 || mday < 0) throw new IllegalArgumentException();
+        if (hour < 0) hour = 0;
+        if (min  < 0) min  = 0;
+        if (sec  < 0) sec  = 0;
+        // "If a time zone or time-zone offset has been recognized, then the year, month, day of
+        //  month, hour, minute, and second are interpreted in UTC and then the time-zone offset
+        //  is applied. Otherwise ... in the local time zone." This runtime has no zone database
+        //  and no host native for one, so local IS UTC and the two branches differ only by the
+        //  offset — which is zero when none was recognized.
+        long t = UTC(year, mon, mday, hour, min, sec);
+        return haveZone ? t + (long) zoneWestMin * 60000L : t;
     }
 }

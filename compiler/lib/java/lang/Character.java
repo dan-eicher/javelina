@@ -40,13 +40,19 @@ public final class Character {
     public static boolean isDefined(char ch) { return CharacterData.isDefined(ch); }
     public static boolean isTitleCase(char ch) { return CharacterData.isTitleCase(ch); }
     public static char toTitleCase(char ch) { return (char) CharacterData.toTitleCase(ch); }
+    // §20.5.9 — the ASCII forms are the alphanumeric ones (a letter stands for 10..35, which is
+    // why only ASCII letters qualify), but a DECIMAL digit is a decimal digit in every script:
+    // Tamil '௧' is 1 and Tibetan '༧' is 7, and both are legal in any radix above their
+    // value. The generated table carries the UCD's decimal value, guarded by isDigit because the
+    // map tree answers `cp` for a code point it does not cover.
     public static int digit(char ch, int radix) {
         if (radix < MIN_RADIX || radix > MAX_RADIX) return -1;
         int val = -1;
         if (ch >= '0' && ch <= '9')      val = ch - '0';
         else if (ch >= 'a' && ch <= 'z') val = ch - 'a' + 10;
         else if (ch >= 'A' && ch <= 'Z') val = ch - 'A' + 10;
-        return (val < radix) ? val : -1;
+        else if (CharacterData.isDigit(ch)) val = CharacterData.digitValue(ch);
+        return (val >= 0 && val < radix) ? val : -1;
     }
     public static char forDigit(int digit, int radix) {
         if (radix < MIN_RADIX || radix > MAX_RADIX || digit < 0 || digit >= radix) return (char)0;

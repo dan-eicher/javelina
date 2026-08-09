@@ -23,6 +23,12 @@
 
 static int is_letter[BMP], is_digit[BMP], is_upper[BMP], is_lower[BMP], is_title[BMP], is_defined[BMP];
 static int up_map[BMP], lo_map[BMP], ti_map[BMP];   /* mapping target, or -1 */
+/* UCD field 6, the DECIMAL DIGIT VALUE, for category-Nd code points; -1 elsewhere. `is_digit`
+ * alone says a character is a digit but not WHICH one, and §20.5.9's `digit` has to answer that
+ * for every script, not just ASCII — Tamil '௧' is 1 and Tibetan '༧' is 7. Reuses the
+ * case-map emitter unchanged: an Nd block runs 0..9 from its start S, so value - cp is the
+ * constant -S over the block and coalesce_map folds each script's digits into ONE range. */
+static int dig_val[BMP];
 
 /* GENERAL categories that count as a Java letter (§20.5): Lu Ll Lt Lm Lo. */
 static int cat_is_letter(const char* c){
@@ -109,7 +115,7 @@ static void emit_map_method(FILE* o, const char* name, const int* map){
 int main(int argc, char** argv){
     if (argc < 2){ fprintf(stderr, "usage: %s UnicodeData.txt [-c]\n", argv[0]); return 2; }
     int c_mode = (argc >= 3 && strcmp(argv[2], "-c") == 0);   /* -c: the lexer's C header */
-    for (int i = 0; i < BMP; i++){ up_map[i] = -1; lo_map[i] = -1; ti_map[i] = -1; }
+    for (int i = 0; i < BMP; i++){ up_map[i] = -1; lo_map[i] = -1; ti_map[i] = -1; dig_val[i] = -1; }
     FILE* f = fopen(argv[1], "r");
     if (!f){ perror("UnicodeData.txt"); return 2; }
     char line[1024];
@@ -136,6 +142,9 @@ int main(int argc, char** argv){
         }
         if (cp < 0 || cp >= BMP) continue;   /* BMP only */
         is_letter[cp] = L; is_digit[cp] = D; is_upper[cp] = U; is_lower[cp] = Lc; is_title[cp] = T; is_defined[cp] = 1;
+        /* Only for Nd: field 6 is also present on No/Nl code points (Roman numerals, fractions),
+         * which are NOT digits for §20.5.9 and must not answer `digit`. */
+        if (D && fld[6][0]) dig_val[cp] = (int)strtol(fld[6], NULL, 10);
         if (up >= 0 && up < BMP) up_map[cp] = up;   /* char->char only */
         if (lw >= 0 && lw < BMP) lo_map[cp] = lw;
         if (ti >= 0 && ti < BMP) ti_map[cp] = ti;
@@ -202,6 +211,9 @@ int main(int argc, char** argv){
     emit_map_method(o, "toUpperCase", up_map);
     emit_map_method(o, "toLowerCase", lo_map);
     emit_map_method(o, "toTitleCase", ti_map);
+    /* Guarded by isDigit at the call site: the map tree returns `cp` for an unmapped code point
+     * (the identity a CASE map wants), which is not a digit value. */
+    emit_map_method(o, "digitValue", dig_val);
     fputs("}\n", o);
     return 0;
 }

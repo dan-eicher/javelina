@@ -24023,4 +24023,229 @@ class CharacterData {
                 }
         }
     }
+    static int digitValue(int cp) {
+        if (cp < 4240) {
+                if (cp < 2918) {
+                        if (cp < 1984) {
+                                if (cp < 1632) {
+                                        if (cp < 48) {
+                                                return cp;
+                                        } else if (cp <= 57) {
+                                                return cp + (-48);
+                                        } else {
+                                                return cp;
+                                        }
+                                } else if (cp <= 1641) {
+                                        return cp + (-1632);
+                                } else {
+                                        if (cp < 1776) {
+                                                return cp;
+                                        } else if (cp <= 1785) {
+                                                return cp + (-1776);
+                                        } else {
+                                                return cp;
+                                        }
+                                }
+                        } else if (cp <= 1993) {
+                                return cp + (-1984);
+                        } else {
+                                if (cp < 2534) {
+                                        if (cp < 2406) {
+                                                return cp;
+                                        } else if (cp <= 2415) {
+                                                return cp + (-2406);
+                                        } else {
+                                                return cp;
+                                        }
+                                } else if (cp <= 2543) {
+                                        return cp + (-2534);
+                                } else {
+                                        if (cp < 2662) {
+                                                return cp;
+                                        } else if (cp <= 2671) {
+                                                return cp + (-2662);
+                                        } else {
+                                                if (cp < 2790) {
+                                                        return cp;
+                                                } else if (cp <= 2799) {
+                                                        return cp + (-2790);
+                                                } else {
+                                                        return cp;
+                                                }
+                                        }
+                                }
+                        }
+                } else if (cp <= 2927) {
+                        return cp + (-2918);
+                } else {
+                        if (cp < 3558) {
+                                if (cp < 3174) {
+                                        if (cp < 3046) {
+                                                return cp;
+                                        } else if (cp <= 3055) {
+                                                return cp + (-3046);
+                                        } else {
+                                                return cp;
+                                        }
+                                } else if (cp <= 3183) {
+                                        return cp + (-3174);
+                                } else {
+                                        if (cp < 3302) {
+                                                return cp;
+                                        } else if (cp <= 3311) {
+                                                return cp + (-3302);
+                                        } else {
+                                                if (cp < 3430) {
+                                                        return cp;
+                                                } else if (cp <= 3439) {
+                                                        return cp + (-3430);
+                                                } else {
+                                                        return cp;
+                                                }
+                                        }
+                                }
+                        } else if (cp <= 3567) {
+                                return cp + (-3558);
+                        } else {
+                                if (cp < 3792) {
+                                        if (cp < 3664) {
+                                                return cp;
+                                        } else if (cp <= 3673) {
+                                                return cp + (-3664);
+                                        } else {
+                                                return cp;
+                                        }
+                                } else if (cp <= 3801) {
+                                        return cp + (-3792);
+                                } else {
+                                        if (cp < 3872) {
+                                                return cp;
+                                        } else if (cp <= 3881) {
+                                                return cp + (-3872);
+                                        } else {
+                                                if (cp < 4160) {
+                                                        return cp;
+                                                } else if (cp <= 4169) {
+                                                        return cp + (-4160);
+                                                } else {
+                                                        return cp;
+                                                }
+                                        }
+                                }
+                        }
+                }
+        } else if (cp <= 4249) {
+                return cp + (-4240);
+        } else {
+                if (cp < 7232) {
+                        if (cp < 6608) {
+                                if (cp < 6160) {
+                                        if (cp < 6112) {
+                                                return cp;
+                                        } else if (cp <= 6121) {
+                                                return cp + (-6112);
+                                        } else {
+                                                return cp;
+                                        }
+                                } else if (cp <= 6169) {
+                                        return cp + (-6160);
+                                } else {
+                                        if (cp < 6470) {
+                                                return cp;
+                                        } else if (cp <= 6479) {
+                                                return cp + (-6470);
+                                        } else {
+                                                return cp;
+                                        }
+                                }
+                        } else if (cp <= 6617) {
+                                return cp + (-6608);
+                        } else {
+                                if (cp < 6800) {
+                                        if (cp < 6784) {
+                                                return cp;
+                                        } else if (cp <= 6793) {
+                                                return cp + (-6784);
+                                        } else {
+                                                return cp;
+                                        }
+                                } else if (cp <= 6809) {
+                                        return cp + (-6800);
+                                } else {
+                                        if (cp < 6992) {
+                                                return cp;
+                                        } else if (cp <= 7001) {
+                                                return cp + (-6992);
+                                        } else {
+                                                if (cp < 7088) {
+                                                        return cp;
+                                                } else if (cp <= 7097) {
+                                                        return cp + (-7088);
+                                                } else {
+                                                        return cp;
+                                                }
+                                        }
+                                }
+                        }
+                } else if (cp <= 7241) {
+                        return cp + (-7232);
+                } else {
+                        if (cp < 43472) {
+                                if (cp < 42528) {
+                                        if (cp < 7248) {
+                                                return cp;
+                                        } else if (cp <= 7257) {
+                                                return cp + (-7248);
+                                        } else {
+                                                return cp;
+                                        }
+                                } else if (cp <= 42537) {
+                                        return cp + (-42528);
+                                } else {
+                                        if (cp < 43216) {
+                                                return cp;
+                                        } else if (cp <= 43225) {
+                                                return cp + (-43216);
+                                        } else {
+                                                if (cp < 43264) {
+                                                        return cp;
+                                                } else if (cp <= 43273) {
+                                                        return cp + (-43264);
+                                                } else {
+                                                        return cp;
+                                                }
+                                        }
+                                }
+                        } else if (cp <= 43481) {
+                                return cp + (-43472);
+                        } else {
+                                if (cp < 43600) {
+                                        if (cp < 43504) {
+                                                return cp;
+                                        } else if (cp <= 43513) {
+                                                return cp + (-43504);
+                                        } else {
+                                                return cp;
+                                        }
+                                } else if (cp <= 43609) {
+                                        return cp + (-43600);
+                                } else {
+                                        if (cp < 44016) {
+                                                return cp;
+                                        } else if (cp <= 44025) {
+                                                return cp + (-44016);
+                                        } else {
+                                                if (cp < 65296) {
+                                                        return cp;
+                                                } else if (cp <= 65305) {
+                                                        return cp + (-65296);
+                                                } else {
+                                                        return cp;
+                                                }
+                                        }
+                                }
+                        }
+                }
+        }
+    }
 }

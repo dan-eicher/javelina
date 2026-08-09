@@ -1,6 +1,6 @@
 package java.util;
 
-// java.util.StringTokenizer (JLS 1.0 §21.5) — breaks a String into tokens on a set of
+// java.util.StringTokenizer (JLS 1.0 §21.10) — breaks a String into tokens on a set of
 // delimiter characters. Ported minus `synchronized`.
 public class StringTokenizer implements Enumeration {
     private int currentPosition;
@@ -17,7 +17,12 @@ public class StringTokenizer implements Enumeration {
         retTokens = returnTokens;
     }
     public StringTokenizer(String str, String delim) { this(str, delim, false); }
-    public StringTokenizer(String str) { this(str, " \t\n\r", false); }
+    // §21.10.3: "All WHITESPACE CHARACTERS (§20.5.19) will be considered delimiters" — the set is
+    // Character.isSpace's, not a literal of this class's choosing. Spelling a subset here dropped
+    // '\f', so "five\fsix" tokenized as one word.
+    public StringTokenizer(String str) { this(str, WHITESPACE, false); }
+
+    private static final String WHITESPACE = " \t\n\f\r";   /* §20.5.19, in isSpace's own order */
 
     private void skipDelimiters() {
         while (!retTokens && (currentPosition < maxPosition) &&
