@@ -2337,7 +2337,7 @@ static void gen_op_ref_i31(vm_t* vm) {
     frame_t* f = &vm->frame; (void)f;
     GPOP_INT(a);
     ref_t result;
-    result = (ref_t)(((((s8)(a & 2147483647)) << (1 & 31)) | 1));
+    result = (ref_t)(((((s8)(a & 2147483647)) << (1 & 63)) | 1));
     GPUSH_REF(result);
     TAIL return jav_next(vm);
 }

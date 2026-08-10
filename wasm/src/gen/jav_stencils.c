@@ -2663,7 +2663,7 @@ void STENCIL gen_st_ref_i31(vm_t* vm) {
     STENCIL_TRAP_PC(_HOLE_pc);   /* per-stencil source byte offset: the default discards it (no trap-frame); a backend that records a trap site (e.g. §7.1.8) #defines STENCIL_TRAP_PC to bake _HOLE_pc into its frame */
     GPOP_INT(a);
     ref_t result;
-    result = (ref_t)(((((s8)(a & 2147483647)) << (1 & 31)) | 1));
+    result = (ref_t)(((((s8)(a & 2147483647)) << (1 & 63)) | 1));
     GPUSH_REF(result);
     TAIL return _HOLE_cont(vm);
 }
