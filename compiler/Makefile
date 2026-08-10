@@ -4,7 +4,22 @@
 # this tree is independent.
 
 CC      := clang
-CFLAGS  := -g -O0 -std=c11 -Wall -Wextra -Werror -MMD -MP
+
+# javelinac is itself a compiler, so every suite that compiles Java pays twice
+# for how fast it runs. The jre takes 85s built -O0 and 42s built -O2, the same
+# bytes out either way, and the engine beside this has always built -O2.
+# `make OPT=-O0` for a build that steps cleanly under a debugger.
+OPT     ?= -O2
+CFLAGS  := -g $(OPT) -std=c11 -Wall -Wextra -Werror -MMD -MP
+
+# The JAVELINA_* census/dump hooks are debug-only; `make DEBUG=1` puts them
+# back. This is not a speed measure — compiling all seventeen out moved the jre
+# compile by nothing measurable, because nearly every one sits behind a
+# short-circuit that is false in the common case. It keeps diagnostic code out
+# of a shipped binary, which is the whole of the claim.
+ifdef DEBUG
+CFLAGS  += -DDEBUG
+endif
 
 # ── BBQ toolchain (the same build the engine uses) ──────────────────────────
 # BBQ ships as a submodule at the repo root. Point BBQ elsewhere to build

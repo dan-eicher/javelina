@@ -289,7 +289,11 @@ bool wasm_assemble_program(compiler_ctx_t* cctx, const sema_ctx_t* sctx,
         int* order = (int*)bbq_arena_alloc(cctx->arena,
                                            (size_t)(mc > 0 ? mc : 1) * sizeof(int));
         int no = compiler_analysis_order(cctx, order);
+#ifdef DEBUG
         const char* only = getenv("JAVELINA_CLICK_ONLY");   /* the bisection hook, preserved */
+#else
+        const char* only = NULL;
+#endif
         for (int oi = 0; oi < no; oi++) {
             int m = order[oi];
             bool match = !only;
@@ -383,6 +387,7 @@ bool wasm_assemble_program(compiler_ctx_t* cctx, const sema_ctx_t* sctx,
          * the DDCG emitted — the baseline the optimizer's guard elimination is
          * measured against. Free, because the DDCG records each guard as it
          * emits it (it is the stage that knows). */
+#ifdef DEBUG
         if (getenv("JAVELINA_GUARD_CENSUS")) {
             static int total = 0, gone = 0;
             int nf = 0;
@@ -426,6 +431,7 @@ bool wasm_assemble_program(compiler_ctx_t* cctx, const sema_ctx_t* sctx,
                     cctx->scalar_total);
             fprintf(stderr, "\n");
         }
+#endif
 
         /* code: locals vec (concrete valtypes) + burg/structurer body bytes;
          * decode via the shared reader into a jav_func_body (the grammar gate). */

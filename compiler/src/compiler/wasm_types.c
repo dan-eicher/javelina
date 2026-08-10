@@ -362,6 +362,7 @@ int32_t wasm_import_index(const wasm_types_t* wt, int class_id, int method_idx) 
      * "unknown function — refusing to write", which names nothing. Say WHICH method was asked
      * for: this is the consumer side of the import-set seam, and it is the only place that
      * knows the request. JAVELINA_IMPORT_MISS=1 to see them. */
+#ifdef DEBUG
     if (getenv("JAVELINA_IMPORT_MISS")) {
         const sema_class_t* c = sema_get_class(wt->sema, class_id);
         fprintf(stderr, "  import-miss: %s.%s (class %d, method %d)\n",
@@ -369,6 +370,7 @@ int32_t wasm_import_index(const wasm_types_t* wt, int class_id, int method_idx) 
                                    ? c->methods[method_idx].name : "?",
                 class_id, method_idx);
     }
+#endif
     return -1;
 }
 
@@ -383,6 +385,7 @@ int32_t wasm_func_index(const wasm_types_t* wt, int decl_class, int method_idx) 
     /* THE FATAL path, as distinct from a probe. wasm_import_index is also called speculatively
      * (wasm_functype_idx scans same-signature virtuals and falls back on a miss), so a miss
      * there is usually harmless. A miss HERE becomes an emitted funcidx of -1. */
+#ifdef DEBUG
     if (im < 0 && getenv("JAVELINA_IMPORT_MISS")) {
         const sema_class_t* c = sema_get_class(wt->sema, decl_class);
         fprintf(stderr, "  FATAL import-miss: %s.%s (class %d, method %d) — emitted as a funcidx\n",
@@ -391,6 +394,7 @@ int32_t wasm_func_index(const wasm_types_t* wt, int decl_class, int method_idx) 
                     ? c->methods[method_idx].name : "?",
                 decl_class, method_idx);
     }
+#endif
     return im;
 }
 

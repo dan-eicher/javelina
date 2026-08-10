@@ -9835,10 +9835,12 @@ typedef enum {
     CP_SR_POS_COUNT
 } cp_sr_pos_t;
 
+#ifdef DEBUG
 static const char* const cp_sr_pos_name[CP_SR_POS_COUNT] = {
     "def", "get", "put", "hdr", "ctor", "copy",
     "MULTI", "CALL", "TYPECHK", "CMP", "ARRAY", "STOREHEAP", "EXIT", "OTHER"
 };
+#endif
 
 /* The parent decides. `exact` = the occurrence's pts is exactly {O}; `is_alloc` = the
  * occurrence IS O's allocation node. Fail-closed default. */
@@ -10247,6 +10249,7 @@ static int cp_scalar_qualify(cp_engine_t* eng, bool* cand, int* pos, bool* disq)
     return qualified;
 }
 
+#ifdef DEBUG
 static void cp_scalar_probe(cp_engine_t* eng,
                             const bool* cand, const int* pos, const bool* disq) {
     const sir_method_t* method = eng->method;
@@ -10270,6 +10273,7 @@ static void cp_scalar_probe(cp_engine_t* eng,
         fprintf(stderr, "\n");
     }
 }
+#endif
 
 /* ── §6's CONSUMER — scalar replacement: THE REWRITE ────────────────────────
  *
@@ -10589,6 +10593,7 @@ static void cp_pea(cp_engine_t* eng, const bool* sr_cand) {
             pcs[k].fatal = true;
         else live++;
     }
+#ifdef DEBUG
     if (getenv("JAVELINA_SCALAR_CENSUS"))
         for (int k = 0; k < np; k++)
             fprintf(stderr, "pea-probe: %s obj%d %s def=%d rt=%d nesc=%d fpos=%d ftag=%d\n",
@@ -10597,6 +10602,7 @@ static void cp_pea(cp_engine_t* eng, const bool* sr_cand) {
                     pcs[k].def_row,
                     (pcs[k].def_store && pcs[k].def_store->store_local.ref_type) ? 1 : 0,
                     pcs[k].nesc, pcs[k].fatal_pos, pcs[k].fatal_tag);
+#endif
     if (live == 0) { bbq_vec_free(pcs); return; }
 
     /* ── Rows: forward sweeps to the fixpoint. Two coupled states per (row, cand):
@@ -10792,12 +10798,14 @@ static void cp_pea(cp_engine_t* eng, const bool* sr_cand) {
                 int p = p_list[p_off[i] + pi];
                 unsigned char pst; CP_PEA_OUT(p, k, pst, scratch);
                 if (pst == CP_PEA_UNSEEN) continue;
+#ifdef DEBUG
                 if (getenv("JAVELINA_SCALAR_CENSUS"))
                     fprintf(stderr, "pea-mat: %s obj%d USE row=%d(tag %d) pred=%d eslot=%d al0=%llx\n",
                             eng->method->name ? eng->method->name : "?", pcs[k].obj, i,
                             (int)eng->spine[i]->tag, p,
                             pcs[k].def_store->store_local.slot,
                             (unsigned long long)al[i][(size_t)k * aw]);
+#endif
                 sir_node_t* chain = cp_pea_materialize(eng, &pcs[k], pcs[k].carrier,
                                                        rows, nrows,
                                                        &al[i][(size_t)k * aw], aw, n);
@@ -10905,6 +10913,7 @@ static void cp_pea(cp_engine_t* eng, const bool* sr_cand) {
             for (int k2 = eng->obj_first_site; vi >= 0 && k2 < oc; k2++)
                 if (pea_ok[k2] && eng->vnode_of_obj[k2] == vi) { o = k2; break; }
             if (o >= 0) {
+#ifdef DEBUG
                 if (getenv("JAVELINA_SCALAR_CENSUS")) {
                     const sema_class_t* mc = eng->method->class_id >= 0
                         ? sema_get_class(eng->sema, eng->method->class_id) : NULL;
@@ -10914,6 +10923,7 @@ static void cp_pea(cp_engine_t* eng, const bool* sr_cand) {
                             o, n->store_local.slot, (void*)n,
                             (void*)(pea_of_obj[o] >= 0 ? pcs[pea_of_obj[o]].def_store : NULL));
                 }
+#endif
                 /* The def: §4.12.5 default-init chain onto the field slots, and the
                  * object slot itself goes null until (unless) materialization. */
                 sir_node_t* next = n->store_local.next;
@@ -10977,8 +10987,10 @@ static void cp_scalar_replace(cp_engine_t* eng) {
 
     eng->scalar_count = cp_scalar_qualify(eng, cand, pos, disq);
 
+#ifdef DEBUG
     if (getenv("JAVELINA_SCALAR_CENSUS"))
         cp_scalar_probe(eng, cand, pos, disq);
+#endif
 
     /* §6.1 — ONE consumer authority (Stadler): cp_pea IS the struct pass; the
      * whole-method NoEscape site is its nesc == 0 case, the escaping-branch site
@@ -11477,6 +11489,7 @@ static bool cp_facts_eq(const cp_facts_t* a, const cp_facts_t* b) {
 }
 
 /* The families that differ, as a printable list — the lead this check exists to produce. */
+#ifdef DEBUG
 static void cp_facts_diff(const cp_facts_t* a, const cp_facts_t* b, char* out, size_t n) {
     out[0] = 0;
     #define ADD(field, label) do { if (a->field != b->field) { \
@@ -11491,6 +11504,7 @@ static void cp_facts_diff(const cp_facts_t* a, const cp_facts_t* b, char* out, s
     #undef ADD
     if (!out[0]) strncat(out, "none", n - 1);
 }
+#endif
 
 /* The owning class, for a message that can be acted on — `class.trim` names no file. */
 static const char* cp_owner_class(const cp_engine_t* eng) {
@@ -11508,6 +11522,7 @@ typedef struct {
     int64_t  value, lvalue, lo, hi;
 } cp_vsnap_t;
 
+#ifdef DEBUG
 static cp_vsnap_t* cp_vsnap_take(const cp_engine_t* eng) {
     cp_vsnap_t* s = (cp_vsnap_t*)calloc((size_t)(eng->vnode_count > 0 ? eng->vnode_count : 1),
                                         sizeof *s);
@@ -11554,6 +11569,7 @@ static void cp_vsnap_report(const cp_engine_t* eng, const cp_vsnap_t* s) {
     }
     free(rep);
 }
+#endif
 
 /* Arm every node the fixpoint can hold. ONE definition, shared by both checks below, so a pin
  * cannot pass against a weaker arming than the one that reports. */
@@ -11631,12 +11647,14 @@ static bool cp_worklist_invariant_holds(const cp_engine_t* eng, const char** why
  * sequence converged" (what cp_solve's exit claims), and its iteration below can tell a slow
  * descent from an oscillation. It CANNOT see a fact that is only correct because one of those
  * passes re-runs it — that is what the drain-only check in cp_at_fixpoint is for. */
+#ifdef DEBUG
 static void cp_forced_round(cp_engine_t* eng) {
     cp_force_arm(eng);
     cp_compute_facts(eng);      /* edge marking, SPLIT/SPLIT_BY AND applies ride the drain */
     cp_refine(eng);
     cp_escape_update(eng);
 }
+#endif
 
 /* Iterate the forced round until the facts stop moving, and CLASSIFY the outcome. Two rounds
  * cannot: "round two moved too" is consistent with a slow descent AND with an oscillation,
@@ -11698,6 +11716,9 @@ bool cp_at_fixpoint(cp_engine_t* eng) {
 }
 
 static void cp_verify_fixpoint(cp_engine_t* eng) {
+#ifndef DEBUG
+    (void)eng; return;   /* debug-only pass: the whole body is the verifier */
+#else
     if (!getenv("JAVELINA_VERIFY_FIXPOINT")) return;
     cp_vsnap_t* snap = cp_vsnap_take(eng);
     const char* cls = cp_owner_class(eng);
@@ -11785,6 +11806,7 @@ static void cp_verify_fixpoint(cp_engine_t* eng) {
     cp_vsnap_report(eng, snap);
     eng->verify_failed = true;
     free(snap);
+#endif
 }
 
 void cp_free(cp_engine_t* eng) {
@@ -12199,6 +12221,9 @@ void cp_pack(sir_method_t* method, const sema_ctx_t* sema,
  * its own (post-rewrite) spine, so there's no stale-spine hazard.
  */
 static void cp_debug_dump_spine(sir_method_t* method, const char* cls, const char* phase) {
+#ifndef DEBUG
+    (void)method; (void)cls; (void)phase; return;   /* debug-only dump */
+#else
     const char* dump = getenv("JAVELINA_DUMP_SPINE");
     if (!dump || !method->name || !strstr(method->name, dump)) return;
     fprintf(stderr, "[spine-%s] == %s.%s ==\n", phase, cls ? cls : "?", method->name);
@@ -12256,6 +12281,7 @@ static void cp_debug_dump_spine(sir_method_t* method, const char* cls, const cha
     }
     bbq_vec_free(stack);
     cp_pmap_free(&seen);
+#endif
 }
 
 /* §7's per-method escape SUMMARY, produced as a pure READOUT of the solved escape
@@ -14763,6 +14789,7 @@ void sir_optimize(compiler_ctx_t* ctx, int method_idx) {
      * phi dump beside this one prints only `constant.value` — the i32 carrier —
      * so a float fact reads as 0 there whatever it actually holds, which makes
      * a wrong float constant indistinguishable from no constant at all. */
+#ifdef DEBUG
     if (e && getenv("JAVELINA_DUMP_VALUES") && method->name
           && strstr(method->name, getenv("JAVELINA_DUMP_VALUES"))) {
         static const char* wn[] = { "unset", "i32", "i64", "f32", "f64" };
@@ -14857,6 +14884,7 @@ void sir_optimize(compiler_ctx_t* ctx, int method_idx) {
                     (int)vn->constant.state, vn->constant.value);
         }
     }
+#endif
     if (e) {
         /* Choi §4.2: the summary is computed from the connection graph at method exit, "after
          * completing intraprocedural escape analysis" — a function of the ANALYSIS. Both it
@@ -14909,16 +14937,22 @@ void sir_optimize(compiler_ctx_t* ctx, int method_idx) {
      * census, so the yield stays re-measurable. */
     {
         int nm = cp_collapse_bounds_pairs(facts, fact_count, arena);
+        (void)nm;
+#ifdef DEBUG
         if (nm > 0 && getenv("JAVELINA_GUARD_CENSUS"))
             fprintf(stderr, "geu-merge: %s merged=%d\n",
                     method->name ? method->name : "?", nm);
+#endif
     }
     /* …and the overflow arms whose dividend cannot be MIN. */
     {
         int nd = cp_collapse_divmin(ctx, method_idx, facts, fact_count);
+        (void)nd;
+#ifdef DEBUG
         if (nd > 0 && getenv("JAVELINA_GUARD_CENSUS"))
             fprintf(stderr, "divmin-fold: %s folded=%d\n",
                     method->name ? method->name : "?", nd);
+#endif
     }
 
     cp_debug_dump_spine(method, dump_cn, "mid");   /* post-rewrite, PRE-pack slot numbers */
@@ -14927,9 +14961,12 @@ void sir_optimize(compiler_ctx_t* ctx, int method_idx) {
      * waiting to rot. */
     {
         int nh = cp_licm(method, facts, fact_count, arena);
+        (void)nh;
+#ifdef DEBUG
         if (nh > 0 && getenv("JAVELINA_GUARD_CENSUS"))
             fprintf(stderr, "licm: %s hoisted=%d\n",
                     method->name ? method->name : "?", nh);
+#endif
     }
     cp_pack(method, sema, arena, initial_max_locals);
 
