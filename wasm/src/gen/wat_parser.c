@@ -1292,6 +1292,16 @@ static bool wat_parse_wat(peg_state* p) {
              s.body.u.case_5.count = (uint32_t)s.body.u.case_5.mems.count;
              bbq_vec_push(AS_SECS, s);
          } else bbq_vec_free(AS_MEMS);
+         /* §5.5.17 puts the tag section BETWEEN memory and global — the prescribed
+          * order is not id order, and this is the id that moves. Emitting it in id
+          * order (last) produced a malformed module for every .wat carrying a tag;
+          * nothing caught it because the loader did not check section order. */
+         if (bbq_vec_len(AS_TAGS)) {                         /* tag section (id 13) */
+             memset(&s, 0, sizeof s); s.id = 13; s.body.tag = 13;
+             WAT_FREEZE(AS_TAGS, s.body.u.case_13.tags);
+             s.body.u.case_13.count = (uint32_t)s.body.u.case_13.tags.count;
+             bbq_vec_push(AS_SECS, s);
+         } else bbq_vec_free(AS_TAGS);
          if (bbq_vec_len(AS_GLOBALS)) {                      /* global section (id 6) */
              memset(&s, 0, sizeof s); s.id = 6; s.body.tag = 6;
              WAT_FREEZE(AS_GLOBALS, s.body.u.case_6.globals);
@@ -1318,6 +1328,21 @@ static bool wat_parse_wat(peg_state* p) {
              s.body.u.case_9.count = (uint32_t)s.body.u.case_9.elems.count;
              bbq_vec_push(AS_SECS, s);
          } else bbq_vec_free(AS_ELEMS);
+         /* §5.5.17 puts the data count section (id 12) BEFORE the code section, and
+          * §5.5.17's `n? != eps \/ dataidx(func*) = eps` makes it mandatory as soon as a
+          * body carries a data index — §5.5.15's note explains why: the code section is
+          * validated before the data section is reached, so the count is what bounds a
+          * data index. Emitting it whenever there are segments is always legal (§5.5.15
+          * only requires it to MATCH) and is the only way an assembled module carrying
+          * memory.init / data.drop / array.*_data is well-formed at all. Emitted on the
+          * data-INDEX condition, not on "are there segments": a module with segments and
+          * no data index does not need one (and must not grow bytes it does not need),
+          * while memory.init against an empty data section does. */
+         if (CTX->uses_dataidx) {                            /* data count section (id 12) */
+             memset(&s, 0, sizeof s); s.id = 12; s.body.tag = 12;
+             s.body.u.case_12.count = (uint32_t)bbq_vec_len(AS_DATAS);
+             bbq_vec_push(AS_SECS, s);
+         }
          if (bbq_vec_len(AS_ENTRIES)) {                      /* code section (id 10) */
              memset(&s, 0, sizeof s); s.id = 10; s.body.tag = 10;
              WAT_FREEZE(AS_ENTRIES, s.body.u.case_10.entries);
@@ -1330,12 +1355,6 @@ static bool wat_parse_wat(peg_state* p) {
              s.body.u.case_11.count = (uint32_t)s.body.u.case_11.datas.count;
              bbq_vec_push(AS_SECS, s);
          } else bbq_vec_free(AS_DATAS);
-         if (bbq_vec_len(AS_TAGS)) {                         /* tag section (id 13) */
-             memset(&s, 0, sizeof s); s.id = 13; s.body.tag = 13;
-             WAT_FREEZE(AS_TAGS, s.body.u.case_13.tags);
-             s.body.u.case_13.count = (uint32_t)s.body.u.case_13.tags.count;
-             bbq_vec_push(AS_SECS, s);
-         } else bbq_vec_free(AS_TAGS);
          WAT_FREEZE(AS_SECS, m->sections);
          peg_skip(p);
          if (!peg_at_end(p)) { report_parse_error(p); return false; }
@@ -1628,6 +1647,12 @@ static bool wat_parse_linear_instr(peg_state* p, bbq_write_ctx_t* w) {
            if (prefix) { bbq_write_u8(w, prefix); bbq_write_uleb128_u32(w, op); }
            else        { bbq_write_u8(w, (uint8_t)op); }
          }
+         /* The four instructions whose immediates include a dataidx, per the operand
+          * column of spec/instructions.toml: memory.init (FC 8), data.drop (FC 9),
+          * array.new_data (FB 9), array.init_data (FB 18). Emitting any of them obliges
+          * the module to carry a data count section (§5.5.17). */
+         if ((prefix == 0xFC && (op == 8 || op == 9)) ||
+             (prefix == 0xFB && (op == 9 || op == 18))) CTX->uses_dataidx = 1;
     {
         peg_mark _m2 = peg_save(p);
         {

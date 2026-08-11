@@ -182,7 +182,10 @@ static int g_val_msgbad;   // rejected correctly, but for the WRONG reason (jav_
 // execution side so the two reason gates cannot drift apart.
 #define err_matches(actual, expected_tok) wast_msg_matches((actual), (expected_tok))
 static void run_module_validate(const Node *m, int kind) {
-    if (kind == 2) return;
+    // assert_malformed is scored here too. It used to be skipped as "the decoder's job,
+    // covered by run_module" — but run_module drives the OWNING reader plus jav_module_wf,
+    // and the engine loads through the c-lite index, which never saw a malformed image.
+    // The §5.5 conditions are the loader's to enforce whichever tree it parses into.
     int si = binary_strs_at(m);
     if (si < 0) return;                                  // binary modules only (text needs the .wat path)
     static uint8_t vbuf[1<<20]; int n = 0;
@@ -460,8 +463,9 @@ int main(int argc, char **argv) {
     fprintf(sum, "wast §7 reject-reason (jav_err_str vs .wast string): %d rejected for the WRONG reason\n", g_val_msgbad);
     fprintf(sum, "wast text-module (.wat reader) conformance: %d ok, %d mismatched, %d excluded (non-core-3.0)\n",
             g_wat_ok, g_wat_bad, g_wat_excl);
+    int eok = 0, ebad = 0, eexcl = 0;
     if (g_store_ready) {
-        int eok, ebad, eexcl; const char *ereason;
+        const char *ereason;
         wast_exec_counts(&eok, &ebad, &eexcl, &ereason);
         fprintf(sum, "wast execution conformance: %d ok, %d mismatched, %d excluded\n",
                 eok, ebad, eexcl);
@@ -469,5 +473,12 @@ int main(int argc, char **argv) {
                 wast_exec_trap_msgbad());
         if (getenv("WAST_EXCL")) wast_exec_print_breakdown(sum);
     }
-    return (g_bad || g_wat_bad || g_val_bad) ? 1 : 0;   // §7 gate enforced (binary subset at 0)
+    // EVERY meter this runner prints is gated. It used to gate three of six, so the text
+    // validation gate, the reject-reason meter, the execution gate and the trap-reason
+    // meter could all move without the suite failing — a regression that took text
+    // validation from 5135/0 to 4928/74 still printed PASS. A number worth printing is a
+    // number worth failing on; if one is expected to be non-zero it belongs in
+    // docs/test-baseline.md as a committed figure, not silently ungated here.
+    return (g_bad || g_wat_bad || g_val_bad || g_tval_bad || g_val_msgbad
+            || ebad || wast_exec_trap_msgbad()) ? 1 : 0;
 }

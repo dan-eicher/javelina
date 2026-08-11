@@ -37,6 +37,8 @@ $(B)/bbq_lite.o:            $(RT)/bbq_lite.c | $(B)
 	$(CC) $(CFLAGS) -Wno-unused-function -c $< -o $@
 $(B)/jav_load.o:            src/jav_load.c | $(B)
 	$(CC) $(CFLAGS) -Wno-unused-function -c $< -o $@
+$(B)/jav_module_struct.o:   src/jav_module_struct.c | $(B)
+	$(CC) $(CFLAGS) -Wno-unused-function -c $< -o $@
 $(B)/jav_validate_module.o: src/jav_validate_module.c | $(B)
 	$(CC) $(CFLAGS) -Wno-unused-function -c $< -o $@
 $(B)/wasm_capi.o:           src/wasm_capi.c | $(B)
@@ -51,7 +53,7 @@ $(B)/bbq_htree_capi.o:      $(CRT)/bbq_htree.c | $(B)
 # The c-lite load path as objects. jav_utf8.o is shared with the owning group;
 # ENGINE_OBJS deliberately excludes it, so nothing is linked twice.
 CLITE_OBJS := $(B)/jav_view_nav.o $(B)/jav_module_index.o $(B)/jav_module_validate.o \
-              $(B)/jav_instance.o $(B)/jav_extern.o $(B)/jav_error.o \
+              $(B)/jav_module_struct.o $(B)/jav_instance.o $(B)/jav_extern.o $(B)/jav_error.o \
               $(B)/jav_view_reader.o $(B)/bbq_lite.o $(B)/jav_utf8.o
 WAT_OBJS   := $(B)/wat_driver.o $(B)/wat_parser.o
 CAPI_OBJS  := $(B)/wasm_capi.o $(WAT_OBJS) $(B)/jav_reader.o $(B)/jav_writer.o \
@@ -89,6 +91,10 @@ CLITE_TESTS := test_skeleton test_div test_instantiate test_module_index \
 $(CLITE_TESTS:%=$(B)/%): $(B)/%: test/%.c $(CLITE_OBJS) $(ENGINE_OBJS) | $(B)
 	$(CC) $(CFLAGS) -Wno-unused-function $(LINK) -lm -o $@
 
+# The §5.5 structure gate, driven through the loader entry the engine uses.
+$(B)/test_module_struct: test/test_module_struct.c $(B)/jav_load.o $(CLITE_OBJS) $(ENGINE_OBJS) | $(B)
+	$(CC) $(CFLAGS) -Wno-unused-function -I../testkit $(LINK) -lm -o $@
+
 # test_align is the c-lite group plus the toml table.
 $(B)/test_align: test/test_align.c $(CLITE_OBJS) $(ENGINE_OBJS) $(TOML_OBJS) | $(B)
 	$(CC) $(CFLAGS) -Wno-unused-function -Iinclude $(LINK) -lm -o $@
@@ -109,7 +115,8 @@ $(B)/test_water: test/test_water.c $(WAT_OBJS) $(B)/jav_reader.o $(B)/jav_writer
 $(B)/test_wast: test/test_wast.c test/wast_exec.c $(B)/wasm_capi.o $(WAT_OBJS) \
                 $(B)/jav_validate_module.o $(B)/jav_reader.o $(B)/jav_writer.o $(B)/jav_utf8.o \
                 $(TOML_OBJS) $(B)/bbq_arena.o $(B)/jav_load.o $(B)/jav_view_nav.o \
-                $(B)/jav_module_index.o $(B)/jav_module_validate.o $(B)/jav_instance.o \
+                $(B)/jav_module_index.o $(B)/jav_module_validate.o $(B)/jav_module_struct.o \
+                $(B)/jav_instance.o \
                 $(B)/jav_extern.o $(B)/jav_error.o $(B)/bbq_htree_capi.o $(B)/jav_view_reader.o \
                 $(B)/bbq_lite.o $(B)/validate.o $(B)/jav_subtype.o $(B)/interp.o \
                 $(B)/jav_runtime.o $(B)/gen_interp.o $(B)/jit_driver.o $(GC_OBJS) | $(B)
@@ -137,7 +144,7 @@ $(B)/embed: examples/embed.c $(B)/libjavelina.a | $(B)
 	$(CC) $(CFLAGS) -Wno-unused-function -Iinclude examples/embed.c $(B)/libjavelina.a -lm -o $@
 
 # Everything that is a plain "build it, run it in test/, expect exit 0" gate.
-PLAIN_TESTS := $(IMMIX_TESTS) $(TESTS) $(CLITE_TESTS) test_align $(OWNING_TESTS) \
+PLAIN_TESTS := $(IMMIX_TESTS) $(TESTS) $(CLITE_TESTS) test_align test_module_struct $(OWNING_TESTS) \
                test_instr test_wat test_water $(CAPI_TESTS)
 # ...minus the few that take an argument, handled by name below.
 ARGV_add_wasm := test_skeleton test_load test_roundtrip test_func

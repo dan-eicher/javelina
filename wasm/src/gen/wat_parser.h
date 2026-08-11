@@ -93,6 +93,12 @@ typedef struct {
     jav_data_t* as_datas;
     jav_tag_type_t* as_tags;
     jav_section_t* as_secs;
+    /* §5.5.17 `n? != eps \/ dataidx(func*) = eps`: set when a body emits an instruction
+     * carrying a dataidx, which is what makes the data count section MANDATORY. The
+     * producer is the one place that knows without re-reading its own output — and the
+     * condition is "a data index occurred", not "there are segments": memory.init with
+     * no data section still needs the count (so the index is out of range against 0). */
+    int uses_dataidx;
 } wat_ctx_t;
 
 #define CTX ((wat_ctx_t*)p->user_data)

@@ -88,7 +88,9 @@ typedef struct {
     uint32_t        nelems;
     jav_valtype_t*  elem_reftype;     // [nelems] each element segment's reference type (table.init rt2<:rt1)
     uint32_t*       elem_tidx;        // [nelems] concrete typeidx of a (ref $t) elem reftype (else 0)
-    uint32_t        ndatas;
+    uint32_t        ndatas;          // §5.5.14 the data SECTION's segment count (instantiation)
+    uint32_t        datacnt;         // §5.5.15 the data COUNT section's value (validation reads this)
+    uint8_t         have_datacount;  // §5.5.17 was a data count section present at all
 
     // the §3.3 lattice over the flattened type space (borrows kinds/supers above).
     jav_subtype_ctx_t lattice;

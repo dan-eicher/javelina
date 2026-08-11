@@ -70,7 +70,14 @@ typedef struct {
     const uint8_t* mem_is64;                               /* parallel: 1 if memory i is 64-bit (addr type i64), else i32; NULL ⇒ all i32 */
     const jav_structtype_t* structtypes; unsigned nstructtypes;  /* struct.new/get/set, by typeidx */
     const jav_arraytype_t*  arraytypes;  unsigned narraytypes;   /* array.new/get/set, by typeidx */
-    unsigned ndatas;                                       /* data-segment count (array.new_data/init_data bound) */
+    /* §5.5.15's note: "The data count section occurs before the code section, so a
+     * single-pass validator can use this count instead of deferring validation." So a
+     * body's data indices are bounded by the DATA COUNT section, not by the data
+     * section — which is also what makes §5.5.17's `n? != eps \/ dataidx(func*) = eps`
+     * fall out: with no data count section this is 0 and every data index is out of
+     * range. `have_datacount` only distinguishes the two reasons. */
+    unsigned ndatas;                                       /* §5.5.15 data COUNT (0 when the section is absent) */
+    uint8_t  have_datacount;                               /* §5.5.17 was a data count section present at all */
     unsigned nelems;                                       /* element-segment count (array.new_elem/init_elem bound) */
     const jav_valtype_t* elem_reftype;                     /* parallel: reftype per element segment (table.init rt2<:rt1); NULL ⇒ all funcref */
     const uint32_t*       elem_tidx;                        /* parallel: concrete typeidx of a (ref $t) elem reftype (else 0) */

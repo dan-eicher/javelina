@@ -38,6 +38,11 @@ const char* jav_err_str(jav_err_t e) {
     case JAV_E_ARRAY_NOT_NUMERIC:             return "array type is not numeric or vector";
     case JAV_E_INVALID_RESULT_ARITY:          return "invalid result arity";
     case JAV_E_NONEMPTY_TAG_RESULT:           return "non-empty tag result type";
+    case JAV_E_SECTION_ORDER:                 return "unexpected content after last section";
+    case JAV_E_FUNC_CODE_LENGTHS:             return "function and code section have inconsistent lengths";
+    case JAV_E_DATA_COUNT_LENGTHS:            return "data count and data section have inconsistent lengths";
+    case JAV_E_TOO_MANY_LOCALS:               return "too many locals";
+    case JAV_E_DATA_COUNT_REQUIRED:           return "data count section required";
     }
     return "";
 }

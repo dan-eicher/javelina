@@ -51,6 +51,14 @@ typedef enum {
     JAV_E_ARRAY_NOT_NUMERIC,              // §3.4.8 array.new_data/init_data element is not a numeric/vector type
     JAV_E_INVALID_RESULT_ARITY,           // §3.4.2 typed select result type sequence is not length 1
     JAV_E_NONEMPTY_TAG_RESULT,            // §3.2.10 a tag's type must have an empty result sequence
+    // §5.5 MALFORMED — the module's structure, decided before the bytecode is typed.
+    // These are the conditions §5.5 states over already-decoded section values; the
+    // shape of the bytes themselves is the grammar's (spec/wasm.bbq) job.
+    JAV_E_SECTION_ORDER,                  // §5.5.17 a non-custom section is repeated or out of the prescribed order
+    JAV_E_FUNC_CODE_LENGTHS,              // §5.5.17 function and code section list lengths must match up
+    JAV_E_DATA_COUNT_LENGTHS,             // §5.5.15 data count must match the length of the data segment list
+    JAV_E_TOO_MANY_LOCALS,                // §5.5.13 |(+) loc**| < 2^32
+    JAV_E_DATA_COUNT_REQUIRED,            // §5.5.17 a data index occurs with no data count section
 } jav_err_t;
 
 // The official testsuite text for a reason ("" for JAV_E_NONE). The one source of truth.

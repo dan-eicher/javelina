@@ -1460,12 +1460,18 @@ static bool jav_struct_type_k1(bbq_ctx_t* ctx, jav_struct_type_t* out, size_t _s
 }
 static bool jav_struct_type_k0(bbq_ctx_t* ctx, jav_struct_type_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
+    // Counted array: the count bounds the loop, it does not size the store. The
+    // backing grows per element exactly as the uncounted path does, so a declared
+    // count the input cannot justify costs nothing until the element that runs off
+    // the interval — which is where IPG puts the failure (Fig 8 A-Seq/A-Fail; the
+    // count appears in no allocation anywhere in the semantics).
     { size_t _n = (size_t)(out->field_count);
-      out->fields.count = _n;
-      out->fields.items = calloc(_n ? _n : 1, sizeof(*out->fields.items));
-      if (!out->fields.items) return bbq_fail(ctx, "StructType.fields: alloc failed");
+      out->fields.count = 0; out->fields.items = NULL;
       if (_n == 0) { BBQ_MUSTTAIL return jav_struct_type_k8(ctx, out, _struct_start); }
       bbq_push_loop_n(ctx, (int64_t)_n); }
+    out->fields.items = bbq_array_grow(ctx, out->fields.items, sizeof(*out->fields.items));
+    if (!out->fields.items) return bbq_fail(ctx, "StructType.fields: alloc failed");
+    out->fields.count = 1;
     BBQ_MUSTTAIL return jav_struct_type_k5(ctx, out, _struct_start);
 }
 static bool jav_struct_type_k5(bbq_ctx_t* ctx, jav_struct_type_t* out, size_t _struct_start) {
@@ -1477,7 +1483,12 @@ static bool jav_struct_type_k5(bbq_ctx_t* ctx, jav_struct_type_t* out, size_t _s
 }
 static bool jav_struct_type_k7(bbq_ctx_t* ctx, jav_struct_type_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (bbq_loop_next(ctx)) { BBQ_MUSTTAIL return jav_struct_type_k5(ctx, out, _struct_start); }
+    if (bbq_loop_next(ctx)) {
+        out->fields.items = bbq_array_grow(ctx, out->fields.items, sizeof(*out->fields.items));
+        if (!out->fields.items) return bbq_fail(ctx, "StructType.fields: array: grow failed");
+        out->fields.count = (size_t)(bbq_loop_index(ctx) + 1);
+        BBQ_MUSTTAIL return jav_struct_type_k5(ctx, out, _struct_start);
+    }
     bbq_pop_loop(ctx);
     BBQ_MUSTTAIL return jav_struct_type_k8(ctx, out, _struct_start);
 }
@@ -1492,12 +1503,18 @@ static bool jav_func_type_k1(bbq_ctx_t* ctx, jav_func_type_t* out, size_t _struc
 }
 static bool jav_func_type_k0(bbq_ctx_t* ctx, jav_func_type_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
+    // Counted array: the count bounds the loop, it does not size the store. The
+    // backing grows per element exactly as the uncounted path does, so a declared
+    // count the input cannot justify costs nothing until the element that runs off
+    // the interval — which is where IPG puts the failure (Fig 8 A-Seq/A-Fail; the
+    // count appears in no allocation anywhere in the semantics).
     { size_t _n = (size_t)(out->param_count);
-      out->params.count = _n;
-      out->params.items = calloc(_n ? _n : 1, sizeof(*out->params.items));
-      if (!out->params.items) return bbq_fail(ctx, "FuncType.params: alloc failed");
+      out->params.count = 0; out->params.items = NULL;
       if (_n == 0) { BBQ_MUSTTAIL return jav_func_type_k8(ctx, out, _struct_start); }
       bbq_push_loop_n(ctx, (int64_t)_n); }
+    out->params.items = bbq_array_grow(ctx, out->params.items, sizeof(*out->params.items));
+    if (!out->params.items) return bbq_fail(ctx, "FuncType.params: alloc failed");
+    out->params.count = 1;
     BBQ_MUSTTAIL return jav_func_type_k5(ctx, out, _struct_start);
 }
 static bool jav_func_type_k5(bbq_ctx_t* ctx, jav_func_type_t* out, size_t _struct_start) {
@@ -1509,7 +1526,12 @@ static bool jav_func_type_k5(bbq_ctx_t* ctx, jav_func_type_t* out, size_t _struc
 }
 static bool jav_func_type_k7(bbq_ctx_t* ctx, jav_func_type_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (bbq_loop_next(ctx)) { BBQ_MUSTTAIL return jav_func_type_k5(ctx, out, _struct_start); }
+    if (bbq_loop_next(ctx)) {
+        out->params.items = bbq_array_grow(ctx, out->params.items, sizeof(*out->params.items));
+        if (!out->params.items) return bbq_fail(ctx, "FuncType.params: array: grow failed");
+        out->params.count = (size_t)(bbq_loop_index(ctx) + 1);
+        BBQ_MUSTTAIL return jav_func_type_k5(ctx, out, _struct_start);
+    }
     bbq_pop_loop(ctx);
     BBQ_MUSTTAIL return jav_func_type_k8(ctx, out, _struct_start);
 }
@@ -1520,12 +1542,18 @@ static bool jav_func_type_k8(bbq_ctx_t* ctx, jav_func_type_t* out, size_t _struc
 }
 static bool jav_func_type_k9(bbq_ctx_t* ctx, jav_func_type_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
+    // Counted array: the count bounds the loop, it does not size the store. The
+    // backing grows per element exactly as the uncounted path does, so a declared
+    // count the input cannot justify costs nothing until the element that runs off
+    // the interval — which is where IPG puts the failure (Fig 8 A-Seq/A-Fail; the
+    // count appears in no allocation anywhere in the semantics).
     { size_t _n = (size_t)(out->result_count);
-      out->results.count = _n;
-      out->results.items = calloc(_n ? _n : 1, sizeof(*out->results.items));
-      if (!out->results.items) return bbq_fail(ctx, "FuncType.results: alloc failed");
+      out->results.count = 0; out->results.items = NULL;
       if (_n == 0) { BBQ_MUSTTAIL return jav_func_type_k16(ctx, out, _struct_start); }
       bbq_push_loop_n(ctx, (int64_t)_n); }
+    out->results.items = bbq_array_grow(ctx, out->results.items, sizeof(*out->results.items));
+    if (!out->results.items) return bbq_fail(ctx, "FuncType.results: alloc failed");
+    out->results.count = 1;
     BBQ_MUSTTAIL return jav_func_type_k13(ctx, out, _struct_start);
 }
 static bool jav_func_type_k13(bbq_ctx_t* ctx, jav_func_type_t* out, size_t _struct_start) {
@@ -1537,7 +1565,12 @@ static bool jav_func_type_k13(bbq_ctx_t* ctx, jav_func_type_t* out, size_t _stru
 }
 static bool jav_func_type_k15(bbq_ctx_t* ctx, jav_func_type_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (bbq_loop_next(ctx)) { BBQ_MUSTTAIL return jav_func_type_k13(ctx, out, _struct_start); }
+    if (bbq_loop_next(ctx)) {
+        out->results.items = bbq_array_grow(ctx, out->results.items, sizeof(*out->results.items));
+        if (!out->results.items) return bbq_fail(ctx, "FuncType.results: array: grow failed");
+        out->results.count = (size_t)(bbq_loop_index(ctx) + 1);
+        BBQ_MUSTTAIL return jav_func_type_k13(ctx, out, _struct_start);
+    }
     bbq_pop_loop(ctx);
     BBQ_MUSTTAIL return jav_func_type_k16(ctx, out, _struct_start);
 }
@@ -1595,12 +1628,18 @@ static bool jav_sub_type_k1(bbq_ctx_t* ctx, jav_sub_type_t* out, size_t _struct_
 }
 static bool jav_sub_type_k0(bbq_ctx_t* ctx, jav_sub_type_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
+    // Counted array: the count bounds the loop, it does not size the store. The
+    // backing grows per element exactly as the uncounted path does, so a declared
+    // count the input cannot justify costs nothing until the element that runs off
+    // the interval — which is where IPG puts the failure (Fig 8 A-Seq/A-Fail; the
+    // count appears in no allocation anywhere in the semantics).
     { size_t _n = (size_t)(out->super_count);
-      out->supers.count = _n;
-      out->supers.items = calloc(_n ? _n : 1, sizeof(*out->supers.items));
-      if (!out->supers.items) return bbq_fail(ctx, "SubType.supers: alloc failed");
+      out->supers.count = 0; out->supers.items = NULL;
       if (_n == 0) { BBQ_MUSTTAIL return jav_sub_type_k8(ctx, out, _struct_start); }
       bbq_push_loop_n(ctx, (int64_t)_n); }
+    out->supers.items = bbq_array_grow(ctx, out->supers.items, sizeof(*out->supers.items));
+    if (!out->supers.items) return bbq_fail(ctx, "SubType.supers: alloc failed");
+    out->supers.count = 1;
     BBQ_MUSTTAIL return jav_sub_type_k3(ctx, out, _struct_start);
 }
 static bool jav_sub_type_k3(bbq_ctx_t* ctx, jav_sub_type_t* out, size_t _struct_start) {
@@ -1610,7 +1649,12 @@ static bool jav_sub_type_k3(bbq_ctx_t* ctx, jav_sub_type_t* out, size_t _struct_
 }
 static bool jav_sub_type_k5(bbq_ctx_t* ctx, jav_sub_type_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (bbq_loop_next(ctx)) { BBQ_MUSTTAIL return jav_sub_type_k3(ctx, out, _struct_start); }
+    if (bbq_loop_next(ctx)) {
+        out->supers.items = bbq_array_grow(ctx, out->supers.items, sizeof(*out->supers.items));
+        if (!out->supers.items) return bbq_fail(ctx, "SubType.supers: array: grow failed");
+        out->supers.count = (size_t)(bbq_loop_index(ctx) + 1);
+        BBQ_MUSTTAIL return jav_sub_type_k3(ctx, out, _struct_start);
+    }
     bbq_pop_loop(ctx);
     BBQ_MUSTTAIL return jav_sub_type_k8(ctx, out, _struct_start);
 }
@@ -1693,12 +1737,18 @@ static bool jav_rec_group_k1(bbq_ctx_t* ctx, jav_rec_group_t* out, size_t _struc
 }
 static bool jav_rec_group_k0(bbq_ctx_t* ctx, jav_rec_group_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
+    // Counted array: the count bounds the loop, it does not size the store. The
+    // backing grows per element exactly as the uncounted path does, so a declared
+    // count the input cannot justify costs nothing until the element that runs off
+    // the interval — which is where IPG puts the failure (Fig 8 A-Seq/A-Fail; the
+    // count appears in no allocation anywhere in the semantics).
     { size_t _n = (size_t)(out->count);
-      out->members.count = _n;
-      out->members.items = calloc(_n ? _n : 1, sizeof(*out->members.items));
-      if (!out->members.items) return bbq_fail(ctx, "RecGroup.members: alloc failed");
+      out->members.count = 0; out->members.items = NULL;
       if (_n == 0) { BBQ_MUSTTAIL return jav_rec_group_k8(ctx, out, _struct_start); }
       bbq_push_loop_n(ctx, (int64_t)_n); }
+    out->members.items = bbq_array_grow(ctx, out->members.items, sizeof(*out->members.items));
+    if (!out->members.items) return bbq_fail(ctx, "RecGroup.members: alloc failed");
+    out->members.count = 1;
     BBQ_MUSTTAIL return jav_rec_group_k5(ctx, out, _struct_start);
 }
 static bool jav_rec_group_k5(bbq_ctx_t* ctx, jav_rec_group_t* out, size_t _struct_start) {
@@ -1710,7 +1760,12 @@ static bool jav_rec_group_k5(bbq_ctx_t* ctx, jav_rec_group_t* out, size_t _struc
 }
 static bool jav_rec_group_k7(bbq_ctx_t* ctx, jav_rec_group_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (bbq_loop_next(ctx)) { BBQ_MUSTTAIL return jav_rec_group_k5(ctx, out, _struct_start); }
+    if (bbq_loop_next(ctx)) {
+        out->members.items = bbq_array_grow(ctx, out->members.items, sizeof(*out->members.items));
+        if (!out->members.items) return bbq_fail(ctx, "RecGroup.members: array: grow failed");
+        out->members.count = (size_t)(bbq_loop_index(ctx) + 1);
+        BBQ_MUSTTAIL return jav_rec_group_k5(ctx, out, _struct_start);
+    }
     bbq_pop_loop(ctx);
     BBQ_MUSTTAIL return jav_rec_group_k8(ctx, out, _struct_start);
 }
@@ -1795,12 +1850,18 @@ static bool jav_type_section_k1(bbq_ctx_t* ctx, jav_type_section_t* out, size_t 
 }
 static bool jav_type_section_k0(bbq_ctx_t* ctx, jav_type_section_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
+    // Counted array: the count bounds the loop, it does not size the store. The
+    // backing grows per element exactly as the uncounted path does, so a declared
+    // count the input cannot justify costs nothing until the element that runs off
+    // the interval — which is where IPG puts the failure (Fig 8 A-Seq/A-Fail; the
+    // count appears in no allocation anywhere in the semantics).
     { size_t _n = (size_t)(out->count);
-      out->types.count = _n;
-      out->types.items = calloc(_n ? _n : 1, sizeof(*out->types.items));
-      if (!out->types.items) return bbq_fail(ctx, "TypeSection.types: alloc failed");
+      out->types.count = 0; out->types.items = NULL;
       if (_n == 0) { BBQ_MUSTTAIL return jav_type_section_k8(ctx, out, _struct_start); }
       bbq_push_loop_n(ctx, (int64_t)_n); }
+    out->types.items = bbq_array_grow(ctx, out->types.items, sizeof(*out->types.items));
+    if (!out->types.items) return bbq_fail(ctx, "TypeSection.types: alloc failed");
+    out->types.count = 1;
     BBQ_MUSTTAIL return jav_type_section_k5(ctx, out, _struct_start);
 }
 static bool jav_type_section_k5(bbq_ctx_t* ctx, jav_type_section_t* out, size_t _struct_start) {
@@ -1812,7 +1873,12 @@ static bool jav_type_section_k5(bbq_ctx_t* ctx, jav_type_section_t* out, size_t 
 }
 static bool jav_type_section_k7(bbq_ctx_t* ctx, jav_type_section_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (bbq_loop_next(ctx)) { BBQ_MUSTTAIL return jav_type_section_k5(ctx, out, _struct_start); }
+    if (bbq_loop_next(ctx)) {
+        out->types.items = bbq_array_grow(ctx, out->types.items, sizeof(*out->types.items));
+        if (!out->types.items) return bbq_fail(ctx, "TypeSection.types: array: grow failed");
+        out->types.count = (size_t)(bbq_loop_index(ctx) + 1);
+        BBQ_MUSTTAIL return jav_type_section_k5(ctx, out, _struct_start);
+    }
     bbq_pop_loop(ctx);
     BBQ_MUSTTAIL return jav_type_section_k8(ctx, out, _struct_start);
 }
@@ -1960,12 +2026,18 @@ static bool jav_br_table_k1(bbq_ctx_t* ctx, jav_br_table_t* out, size_t _struct_
 }
 static bool jav_br_table_k0(bbq_ctx_t* ctx, jav_br_table_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
+    // Counted array: the count bounds the loop, it does not size the store. The
+    // backing grows per element exactly as the uncounted path does, so a declared
+    // count the input cannot justify costs nothing until the element that runs off
+    // the interval — which is where IPG puts the failure (Fig 8 A-Seq/A-Fail; the
+    // count appears in no allocation anywhere in the semantics).
     { size_t _n = (size_t)(out->count);
-      out->targets.count = _n;
-      out->targets.items = calloc(_n ? _n : 1, sizeof(*out->targets.items));
-      if (!out->targets.items) return bbq_fail(ctx, "BrTable.targets: alloc failed");
+      out->targets.count = 0; out->targets.items = NULL;
       if (_n == 0) { BBQ_MUSTTAIL return jav_br_table_k7(ctx, out, _struct_start); }
       bbq_push_loop_n(ctx, (int64_t)_n); }
+    out->targets.items = bbq_array_grow(ctx, out->targets.items, sizeof(*out->targets.items));
+    if (!out->targets.items) return bbq_fail(ctx, "BrTable.targets: alloc failed");
+    out->targets.count = 1;
     BBQ_MUSTTAIL return jav_br_table_k3(ctx, out, _struct_start);
 }
 static bool jav_br_table_k3(bbq_ctx_t* ctx, jav_br_table_t* out, size_t _struct_start) {
@@ -1975,7 +2047,12 @@ static bool jav_br_table_k3(bbq_ctx_t* ctx, jav_br_table_t* out, size_t _struct_
 }
 static bool jav_br_table_k5(bbq_ctx_t* ctx, jav_br_table_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (bbq_loop_next(ctx)) { BBQ_MUSTTAIL return jav_br_table_k3(ctx, out, _struct_start); }
+    if (bbq_loop_next(ctx)) {
+        out->targets.items = bbq_array_grow(ctx, out->targets.items, sizeof(*out->targets.items));
+        if (!out->targets.items) return bbq_fail(ctx, "BrTable.targets: array: grow failed");
+        out->targets.count = (size_t)(bbq_loop_index(ctx) + 1);
+        BBQ_MUSTTAIL return jav_br_table_k3(ctx, out, _struct_start);
+    }
     bbq_pop_loop(ctx);
     BBQ_MUSTTAIL return jav_br_table_k7(ctx, out, _struct_start);
 }
@@ -1995,12 +2072,18 @@ static bool jav_select_t_k1(bbq_ctx_t* ctx, jav_select_t_t* out, size_t _struct_
 }
 static bool jav_select_t_k0(bbq_ctx_t* ctx, jav_select_t_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
+    // Counted array: the count bounds the loop, it does not size the store. The
+    // backing grows per element exactly as the uncounted path does, so a declared
+    // count the input cannot justify costs nothing until the element that runs off
+    // the interval — which is where IPG puts the failure (Fig 8 A-Seq/A-Fail; the
+    // count appears in no allocation anywhere in the semantics).
     { size_t _n = (size_t)(out->count);
-      out->types.count = _n;
-      out->types.items = calloc(_n ? _n : 1, sizeof(*out->types.items));
-      if (!out->types.items) return bbq_fail(ctx, "SelectT.types: alloc failed");
+      out->types.count = 0; out->types.items = NULL;
       if (_n == 0) { BBQ_MUSTTAIL return jav_select_t_k8(ctx, out, _struct_start); }
       bbq_push_loop_n(ctx, (int64_t)_n); }
+    out->types.items = bbq_array_grow(ctx, out->types.items, sizeof(*out->types.items));
+    if (!out->types.items) return bbq_fail(ctx, "SelectT.types: alloc failed");
+    out->types.count = 1;
     BBQ_MUSTTAIL return jav_select_t_k5(ctx, out, _struct_start);
 }
 static bool jav_select_t_k5(bbq_ctx_t* ctx, jav_select_t_t* out, size_t _struct_start) {
@@ -2012,7 +2095,12 @@ static bool jav_select_t_k5(bbq_ctx_t* ctx, jav_select_t_t* out, size_t _struct_
 }
 static bool jav_select_t_k7(bbq_ctx_t* ctx, jav_select_t_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (bbq_loop_next(ctx)) { BBQ_MUSTTAIL return jav_select_t_k5(ctx, out, _struct_start); }
+    if (bbq_loop_next(ctx)) {
+        out->types.items = bbq_array_grow(ctx, out->types.items, sizeof(*out->types.items));
+        if (!out->types.items) return bbq_fail(ctx, "SelectT.types: array: grow failed");
+        out->types.count = (size_t)(bbq_loop_index(ctx) + 1);
+        BBQ_MUSTTAIL return jav_select_t_k5(ctx, out, _struct_start);
+    }
     bbq_pop_loop(ctx);
     BBQ_MUSTTAIL return jav_select_t_k8(ctx, out, _struct_start);
 }
@@ -2267,12 +2355,18 @@ static bool jav_try_table_k3(bbq_ctx_t* ctx, jav_try_table_t* out, size_t _struc
 }
 static bool jav_try_table_k4(bbq_ctx_t* ctx, jav_try_table_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
+    // Counted array: the count bounds the loop, it does not size the store. The
+    // backing grows per element exactly as the uncounted path does, so a declared
+    // count the input cannot justify costs nothing until the element that runs off
+    // the interval — which is where IPG puts the failure (Fig 8 A-Seq/A-Fail; the
+    // count appears in no allocation anywhere in the semantics).
     { size_t _n = (size_t)(out->count);
-      out->catches.count = _n;
-      out->catches.items = calloc(_n ? _n : 1, sizeof(*out->catches.items));
-      if (!out->catches.items) return bbq_fail(ctx, "TryTable.catches: alloc failed");
+      out->catches.count = 0; out->catches.items = NULL;
       if (_n == 0) { BBQ_MUSTTAIL return jav_try_table_k11(ctx, out, _struct_start); }
       bbq_push_loop_n(ctx, (int64_t)_n); }
+    out->catches.items = bbq_array_grow(ctx, out->catches.items, sizeof(*out->catches.items));
+    if (!out->catches.items) return bbq_fail(ctx, "TryTable.catches: alloc failed");
+    out->catches.count = 1;
     BBQ_MUSTTAIL return jav_try_table_k8(ctx, out, _struct_start);
 }
 static bool jav_try_table_k8(bbq_ctx_t* ctx, jav_try_table_t* out, size_t _struct_start) {
@@ -2284,7 +2378,12 @@ static bool jav_try_table_k8(bbq_ctx_t* ctx, jav_try_table_t* out, size_t _struc
 }
 static bool jav_try_table_k10(bbq_ctx_t* ctx, jav_try_table_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (bbq_loop_next(ctx)) { BBQ_MUSTTAIL return jav_try_table_k8(ctx, out, _struct_start); }
+    if (bbq_loop_next(ctx)) {
+        out->catches.items = bbq_array_grow(ctx, out->catches.items, sizeof(*out->catches.items));
+        if (!out->catches.items) return bbq_fail(ctx, "TryTable.catches: array: grow failed");
+        out->catches.count = (size_t)(bbq_loop_index(ctx) + 1);
+        BBQ_MUSTTAIL return jav_try_table_k8(ctx, out, _struct_start);
+    }
     bbq_pop_loop(ctx);
     BBQ_MUSTTAIL return jav_try_table_k11(ctx, out, _struct_start);
 }
@@ -3543,12 +3642,18 @@ static bool jav_func_body_k1(bbq_ctx_t* ctx, jav_func_body_t* out, size_t _struc
 }
 static bool jav_func_body_k0(bbq_ctx_t* ctx, jav_func_body_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
+    // Counted array: the count bounds the loop, it does not size the store. The
+    // backing grows per element exactly as the uncounted path does, so a declared
+    // count the input cannot justify costs nothing until the element that runs off
+    // the interval — which is where IPG puts the failure (Fig 8 A-Seq/A-Fail; the
+    // count appears in no allocation anywhere in the semantics).
     { size_t _n = (size_t)(out->local_count);
-      out->locals.count = _n;
-      out->locals.items = calloc(_n ? _n : 1, sizeof(*out->locals.items));
-      if (!out->locals.items) return bbq_fail(ctx, "FuncBody.locals: alloc failed");
+      out->locals.count = 0; out->locals.items = NULL;
       if (_n == 0) { BBQ_MUSTTAIL return jav_func_body_k9(ctx, out, _struct_start); }
       bbq_push_loop_n(ctx, (int64_t)_n); }
+    out->locals.items = bbq_array_grow(ctx, out->locals.items, sizeof(*out->locals.items));
+    if (!out->locals.items) return bbq_fail(ctx, "FuncBody.locals: alloc failed");
+    out->locals.count = 1;
     BBQ_MUSTTAIL return jav_func_body_k5(ctx, out, _struct_start);
 }
 static bool jav_func_body_k5(bbq_ctx_t* ctx, jav_func_body_t* out, size_t _struct_start) {
@@ -3560,7 +3665,12 @@ static bool jav_func_body_k5(bbq_ctx_t* ctx, jav_func_body_t* out, size_t _struc
 }
 static bool jav_func_body_k7(bbq_ctx_t* ctx, jav_func_body_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (bbq_loop_next(ctx)) { BBQ_MUSTTAIL return jav_func_body_k5(ctx, out, _struct_start); }
+    if (bbq_loop_next(ctx)) {
+        out->locals.items = bbq_array_grow(ctx, out->locals.items, sizeof(*out->locals.items));
+        if (!out->locals.items) return bbq_fail(ctx, "FuncBody.locals: array: grow failed");
+        out->locals.count = (size_t)(bbq_loop_index(ctx) + 1);
+        BBQ_MUSTTAIL return jav_func_body_k5(ctx, out, _struct_start);
+    }
     bbq_pop_loop(ctx);
     BBQ_MUSTTAIL return jav_func_body_k9(ctx, out, _struct_start);
 }
@@ -3582,12 +3692,18 @@ static bool jav_function_section_k1(bbq_ctx_t* ctx, jav_function_section_t* out,
 }
 static bool jav_function_section_k0(bbq_ctx_t* ctx, jav_function_section_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
+    // Counted array: the count bounds the loop, it does not size the store. The
+    // backing grows per element exactly as the uncounted path does, so a declared
+    // count the input cannot justify costs nothing until the element that runs off
+    // the interval — which is where IPG puts the failure (Fig 8 A-Seq/A-Fail; the
+    // count appears in no allocation anywhere in the semantics).
     { size_t _n = (size_t)(out->count);
-      out->type_indices.count = _n;
-      out->type_indices.items = calloc(_n ? _n : 1, sizeof(*out->type_indices.items));
-      if (!out->type_indices.items) return bbq_fail(ctx, "FunctionSection.type_indices: alloc failed");
+      out->type_indices.count = 0; out->type_indices.items = NULL;
       if (_n == 0) { BBQ_MUSTTAIL return jav_function_section_k7(ctx, out, _struct_start); }
       bbq_push_loop_n(ctx, (int64_t)_n); }
+    out->type_indices.items = bbq_array_grow(ctx, out->type_indices.items, sizeof(*out->type_indices.items));
+    if (!out->type_indices.items) return bbq_fail(ctx, "FunctionSection.type_indices: alloc failed");
+    out->type_indices.count = 1;
     BBQ_MUSTTAIL return jav_function_section_k3(ctx, out, _struct_start);
 }
 static bool jav_function_section_k3(bbq_ctx_t* ctx, jav_function_section_t* out, size_t _struct_start) {
@@ -3597,7 +3713,12 @@ static bool jav_function_section_k3(bbq_ctx_t* ctx, jav_function_section_t* out,
 }
 static bool jav_function_section_k5(bbq_ctx_t* ctx, jav_function_section_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (bbq_loop_next(ctx)) { BBQ_MUSTTAIL return jav_function_section_k3(ctx, out, _struct_start); }
+    if (bbq_loop_next(ctx)) {
+        out->type_indices.items = bbq_array_grow(ctx, out->type_indices.items, sizeof(*out->type_indices.items));
+        if (!out->type_indices.items) return bbq_fail(ctx, "FunctionSection.type_indices: array: grow failed");
+        out->type_indices.count = (size_t)(bbq_loop_index(ctx) + 1);
+        BBQ_MUSTTAIL return jav_function_section_k3(ctx, out, _struct_start);
+    }
     bbq_pop_loop(ctx);
     BBQ_MUSTTAIL return jav_function_section_k7(ctx, out, _struct_start);
 }
@@ -3638,12 +3759,18 @@ static bool jav_code_section_k1(bbq_ctx_t* ctx, jav_code_section_t* out, size_t 
 }
 static bool jav_code_section_k0(bbq_ctx_t* ctx, jav_code_section_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
+    // Counted array: the count bounds the loop, it does not size the store. The
+    // backing grows per element exactly as the uncounted path does, so a declared
+    // count the input cannot justify costs nothing until the element that runs off
+    // the interval — which is where IPG puts the failure (Fig 8 A-Seq/A-Fail; the
+    // count appears in no allocation anywhere in the semantics).
     { size_t _n = (size_t)(out->count);
-      out->entries.count = _n;
-      out->entries.items = calloc(_n ? _n : 1, sizeof(*out->entries.items));
-      if (!out->entries.items) return bbq_fail(ctx, "CodeSection.entries: alloc failed");
+      out->entries.count = 0; out->entries.items = NULL;
       if (_n == 0) { BBQ_MUSTTAIL return jav_code_section_k8(ctx, out, _struct_start); }
       bbq_push_loop_n(ctx, (int64_t)_n); }
+    out->entries.items = bbq_array_grow(ctx, out->entries.items, sizeof(*out->entries.items));
+    if (!out->entries.items) return bbq_fail(ctx, "CodeSection.entries: alloc failed");
+    out->entries.count = 1;
     BBQ_MUSTTAIL return jav_code_section_k5(ctx, out, _struct_start);
 }
 static bool jav_code_section_k5(bbq_ctx_t* ctx, jav_code_section_t* out, size_t _struct_start) {
@@ -3655,7 +3782,12 @@ static bool jav_code_section_k5(bbq_ctx_t* ctx, jav_code_section_t* out, size_t 
 }
 static bool jav_code_section_k7(bbq_ctx_t* ctx, jav_code_section_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (bbq_loop_next(ctx)) { BBQ_MUSTTAIL return jav_code_section_k5(ctx, out, _struct_start); }
+    if (bbq_loop_next(ctx)) {
+        out->entries.items = bbq_array_grow(ctx, out->entries.items, sizeof(*out->entries.items));
+        if (!out->entries.items) return bbq_fail(ctx, "CodeSection.entries: array: grow failed");
+        out->entries.count = (size_t)(bbq_loop_index(ctx) + 1);
+        BBQ_MUSTTAIL return jav_code_section_k5(ctx, out, _struct_start);
+    }
     bbq_pop_loop(ctx);
     BBQ_MUSTTAIL return jav_code_section_k8(ctx, out, _struct_start);
 }
@@ -3815,12 +3947,18 @@ static bool jav_idx_vec_k1(bbq_ctx_t* ctx, jav_idx_vec_t* out, size_t _struct_st
 }
 static bool jav_idx_vec_k0(bbq_ctx_t* ctx, jav_idx_vec_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
+    // Counted array: the count bounds the loop, it does not size the store. The
+    // backing grows per element exactly as the uncounted path does, so a declared
+    // count the input cannot justify costs nothing until the element that runs off
+    // the interval — which is where IPG puts the failure (Fig 8 A-Seq/A-Fail; the
+    // count appears in no allocation anywhere in the semantics).
     { size_t _n = (size_t)(out->count);
-      out->idxs.count = _n;
-      out->idxs.items = calloc(_n ? _n : 1, sizeof(*out->idxs.items));
-      if (!out->idxs.items) return bbq_fail(ctx, "IdxVec.idxs: alloc failed");
+      out->idxs.count = 0; out->idxs.items = NULL;
       if (_n == 0) { BBQ_MUSTTAIL return jav_idx_vec_k7(ctx, out, _struct_start); }
       bbq_push_loop_n(ctx, (int64_t)_n); }
+    out->idxs.items = bbq_array_grow(ctx, out->idxs.items, sizeof(*out->idxs.items));
+    if (!out->idxs.items) return bbq_fail(ctx, "IdxVec.idxs: alloc failed");
+    out->idxs.count = 1;
     BBQ_MUSTTAIL return jav_idx_vec_k3(ctx, out, _struct_start);
 }
 static bool jav_idx_vec_k3(bbq_ctx_t* ctx, jav_idx_vec_t* out, size_t _struct_start) {
@@ -3830,7 +3968,12 @@ static bool jav_idx_vec_k3(bbq_ctx_t* ctx, jav_idx_vec_t* out, size_t _struct_st
 }
 static bool jav_idx_vec_k5(bbq_ctx_t* ctx, jav_idx_vec_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (bbq_loop_next(ctx)) { BBQ_MUSTTAIL return jav_idx_vec_k3(ctx, out, _struct_start); }
+    if (bbq_loop_next(ctx)) {
+        out->idxs.items = bbq_array_grow(ctx, out->idxs.items, sizeof(*out->idxs.items));
+        if (!out->idxs.items) return bbq_fail(ctx, "IdxVec.idxs: array: grow failed");
+        out->idxs.count = (size_t)(bbq_loop_index(ctx) + 1);
+        BBQ_MUSTTAIL return jav_idx_vec_k3(ctx, out, _struct_start);
+    }
     bbq_pop_loop(ctx);
     BBQ_MUSTTAIL return jav_idx_vec_k7(ctx, out, _struct_start);
 }
@@ -3845,12 +3988,18 @@ static bool jav_expr_vec_k1(bbq_ctx_t* ctx, jav_expr_vec_t* out, size_t _struct_
 }
 static bool jav_expr_vec_k0(bbq_ctx_t* ctx, jav_expr_vec_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
+    // Counted array: the count bounds the loop, it does not size the store. The
+    // backing grows per element exactly as the uncounted path does, so a declared
+    // count the input cannot justify costs nothing until the element that runs off
+    // the interval — which is where IPG puts the failure (Fig 8 A-Seq/A-Fail; the
+    // count appears in no allocation anywhere in the semantics).
     { size_t _n = (size_t)(out->count);
-      out->exprs.count = _n;
-      out->exprs.items = calloc(_n ? _n : 1, sizeof(*out->exprs.items));
-      if (!out->exprs.items) return bbq_fail(ctx, "ExprVec.exprs: alloc failed");
+      out->exprs.count = 0; out->exprs.items = NULL;
       if (_n == 0) { BBQ_MUSTTAIL return jav_expr_vec_k8(ctx, out, _struct_start); }
       bbq_push_loop_n(ctx, (int64_t)_n); }
+    out->exprs.items = bbq_array_grow(ctx, out->exprs.items, sizeof(*out->exprs.items));
+    if (!out->exprs.items) return bbq_fail(ctx, "ExprVec.exprs: alloc failed");
+    out->exprs.count = 1;
     BBQ_MUSTTAIL return jav_expr_vec_k5(ctx, out, _struct_start);
 }
 static bool jav_expr_vec_k5(bbq_ctx_t* ctx, jav_expr_vec_t* out, size_t _struct_start) {
@@ -3862,7 +4011,12 @@ static bool jav_expr_vec_k5(bbq_ctx_t* ctx, jav_expr_vec_t* out, size_t _struct_
 }
 static bool jav_expr_vec_k7(bbq_ctx_t* ctx, jav_expr_vec_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (bbq_loop_next(ctx)) { BBQ_MUSTTAIL return jav_expr_vec_k5(ctx, out, _struct_start); }
+    if (bbq_loop_next(ctx)) {
+        out->exprs.items = bbq_array_grow(ctx, out->exprs.items, sizeof(*out->exprs.items));
+        if (!out->exprs.items) return bbq_fail(ctx, "ExprVec.exprs: array: grow failed");
+        out->exprs.count = (size_t)(bbq_loop_index(ctx) + 1);
+        BBQ_MUSTTAIL return jav_expr_vec_k5(ctx, out, _struct_start);
+    }
     bbq_pop_loop(ctx);
     BBQ_MUSTTAIL return jav_expr_vec_k8(ctx, out, _struct_start);
 }
@@ -3963,12 +4117,18 @@ static bool jav_import_section_k1(bbq_ctx_t* ctx, jav_import_section_t* out, siz
 }
 static bool jav_import_section_k0(bbq_ctx_t* ctx, jav_import_section_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
+    // Counted array: the count bounds the loop, it does not size the store. The
+    // backing grows per element exactly as the uncounted path does, so a declared
+    // count the input cannot justify costs nothing until the element that runs off
+    // the interval — which is where IPG puts the failure (Fig 8 A-Seq/A-Fail; the
+    // count appears in no allocation anywhere in the semantics).
     { size_t _n = (size_t)(out->count);
-      out->imports.count = _n;
-      out->imports.items = calloc(_n ? _n : 1, sizeof(*out->imports.items));
-      if (!out->imports.items) return bbq_fail(ctx, "ImportSection.imports: alloc failed");
+      out->imports.count = 0; out->imports.items = NULL;
       if (_n == 0) { BBQ_MUSTTAIL return jav_import_section_k8(ctx, out, _struct_start); }
       bbq_push_loop_n(ctx, (int64_t)_n); }
+    out->imports.items = bbq_array_grow(ctx, out->imports.items, sizeof(*out->imports.items));
+    if (!out->imports.items) return bbq_fail(ctx, "ImportSection.imports: alloc failed");
+    out->imports.count = 1;
     BBQ_MUSTTAIL return jav_import_section_k5(ctx, out, _struct_start);
 }
 static bool jav_import_section_k5(bbq_ctx_t* ctx, jav_import_section_t* out, size_t _struct_start) {
@@ -3980,7 +4140,12 @@ static bool jav_import_section_k5(bbq_ctx_t* ctx, jav_import_section_t* out, siz
 }
 static bool jav_import_section_k7(bbq_ctx_t* ctx, jav_import_section_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (bbq_loop_next(ctx)) { BBQ_MUSTTAIL return jav_import_section_k5(ctx, out, _struct_start); }
+    if (bbq_loop_next(ctx)) {
+        out->imports.items = bbq_array_grow(ctx, out->imports.items, sizeof(*out->imports.items));
+        if (!out->imports.items) return bbq_fail(ctx, "ImportSection.imports: array: grow failed");
+        out->imports.count = (size_t)(bbq_loop_index(ctx) + 1);
+        BBQ_MUSTTAIL return jav_import_section_k5(ctx, out, _struct_start);
+    }
     bbq_pop_loop(ctx);
     BBQ_MUSTTAIL return jav_import_section_k8(ctx, out, _struct_start);
 }
@@ -4067,12 +4232,18 @@ static bool jav_table_section_k1(bbq_ctx_t* ctx, jav_table_section_t* out, size_
 }
 static bool jav_table_section_k0(bbq_ctx_t* ctx, jav_table_section_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
+    // Counted array: the count bounds the loop, it does not size the store. The
+    // backing grows per element exactly as the uncounted path does, so a declared
+    // count the input cannot justify costs nothing until the element that runs off
+    // the interval — which is where IPG puts the failure (Fig 8 A-Seq/A-Fail; the
+    // count appears in no allocation anywhere in the semantics).
     { size_t _n = (size_t)(out->count);
-      out->tables.count = _n;
-      out->tables.items = calloc(_n ? _n : 1, sizeof(*out->tables.items));
-      if (!out->tables.items) return bbq_fail(ctx, "TableSection.tables: alloc failed");
+      out->tables.count = 0; out->tables.items = NULL;
       if (_n == 0) { BBQ_MUSTTAIL return jav_table_section_k8(ctx, out, _struct_start); }
       bbq_push_loop_n(ctx, (int64_t)_n); }
+    out->tables.items = bbq_array_grow(ctx, out->tables.items, sizeof(*out->tables.items));
+    if (!out->tables.items) return bbq_fail(ctx, "TableSection.tables: alloc failed");
+    out->tables.count = 1;
     BBQ_MUSTTAIL return jav_table_section_k5(ctx, out, _struct_start);
 }
 static bool jav_table_section_k5(bbq_ctx_t* ctx, jav_table_section_t* out, size_t _struct_start) {
@@ -4084,7 +4255,12 @@ static bool jav_table_section_k5(bbq_ctx_t* ctx, jav_table_section_t* out, size_
 }
 static bool jav_table_section_k7(bbq_ctx_t* ctx, jav_table_section_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (bbq_loop_next(ctx)) { BBQ_MUSTTAIL return jav_table_section_k5(ctx, out, _struct_start); }
+    if (bbq_loop_next(ctx)) {
+        out->tables.items = bbq_array_grow(ctx, out->tables.items, sizeof(*out->tables.items));
+        if (!out->tables.items) return bbq_fail(ctx, "TableSection.tables: array: grow failed");
+        out->tables.count = (size_t)(bbq_loop_index(ctx) + 1);
+        BBQ_MUSTTAIL return jav_table_section_k5(ctx, out, _struct_start);
+    }
     bbq_pop_loop(ctx);
     BBQ_MUSTTAIL return jav_table_section_k8(ctx, out, _struct_start);
 }
@@ -4110,12 +4286,18 @@ static bool jav_memory_section_k1(bbq_ctx_t* ctx, jav_memory_section_t* out, siz
 }
 static bool jav_memory_section_k0(bbq_ctx_t* ctx, jav_memory_section_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
+    // Counted array: the count bounds the loop, it does not size the store. The
+    // backing grows per element exactly as the uncounted path does, so a declared
+    // count the input cannot justify costs nothing until the element that runs off
+    // the interval — which is where IPG puts the failure (Fig 8 A-Seq/A-Fail; the
+    // count appears in no allocation anywhere in the semantics).
     { size_t _n = (size_t)(out->count);
-      out->mems.count = _n;
-      out->mems.items = calloc(_n ? _n : 1, sizeof(*out->mems.items));
-      if (!out->mems.items) return bbq_fail(ctx, "MemorySection.mems: alloc failed");
+      out->mems.count = 0; out->mems.items = NULL;
       if (_n == 0) { BBQ_MUSTTAIL return jav_memory_section_k8(ctx, out, _struct_start); }
       bbq_push_loop_n(ctx, (int64_t)_n); }
+    out->mems.items = bbq_array_grow(ctx, out->mems.items, sizeof(*out->mems.items));
+    if (!out->mems.items) return bbq_fail(ctx, "MemorySection.mems: alloc failed");
+    out->mems.count = 1;
     BBQ_MUSTTAIL return jav_memory_section_k5(ctx, out, _struct_start);
 }
 static bool jav_memory_section_k5(bbq_ctx_t* ctx, jav_memory_section_t* out, size_t _struct_start) {
@@ -4127,7 +4309,12 @@ static bool jav_memory_section_k5(bbq_ctx_t* ctx, jav_memory_section_t* out, siz
 }
 static bool jav_memory_section_k7(bbq_ctx_t* ctx, jav_memory_section_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (bbq_loop_next(ctx)) { BBQ_MUSTTAIL return jav_memory_section_k5(ctx, out, _struct_start); }
+    if (bbq_loop_next(ctx)) {
+        out->mems.items = bbq_array_grow(ctx, out->mems.items, sizeof(*out->mems.items));
+        if (!out->mems.items) return bbq_fail(ctx, "MemorySection.mems: array: grow failed");
+        out->mems.count = (size_t)(bbq_loop_index(ctx) + 1);
+        BBQ_MUSTTAIL return jav_memory_section_k5(ctx, out, _struct_start);
+    }
     bbq_pop_loop(ctx);
     BBQ_MUSTTAIL return jav_memory_section_k8(ctx, out, _struct_start);
 }
@@ -4160,12 +4347,18 @@ static bool jav_global_section_k1(bbq_ctx_t* ctx, jav_global_section_t* out, siz
 }
 static bool jav_global_section_k0(bbq_ctx_t* ctx, jav_global_section_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
+    // Counted array: the count bounds the loop, it does not size the store. The
+    // backing grows per element exactly as the uncounted path does, so a declared
+    // count the input cannot justify costs nothing until the element that runs off
+    // the interval — which is where IPG puts the failure (Fig 8 A-Seq/A-Fail; the
+    // count appears in no allocation anywhere in the semantics).
     { size_t _n = (size_t)(out->count);
-      out->globals.count = _n;
-      out->globals.items = calloc(_n ? _n : 1, sizeof(*out->globals.items));
-      if (!out->globals.items) return bbq_fail(ctx, "GlobalSection.globals: alloc failed");
+      out->globals.count = 0; out->globals.items = NULL;
       if (_n == 0) { BBQ_MUSTTAIL return jav_global_section_k8(ctx, out, _struct_start); }
       bbq_push_loop_n(ctx, (int64_t)_n); }
+    out->globals.items = bbq_array_grow(ctx, out->globals.items, sizeof(*out->globals.items));
+    if (!out->globals.items) return bbq_fail(ctx, "GlobalSection.globals: alloc failed");
+    out->globals.count = 1;
     BBQ_MUSTTAIL return jav_global_section_k5(ctx, out, _struct_start);
 }
 static bool jav_global_section_k5(bbq_ctx_t* ctx, jav_global_section_t* out, size_t _struct_start) {
@@ -4177,7 +4370,12 @@ static bool jav_global_section_k5(bbq_ctx_t* ctx, jav_global_section_t* out, siz
 }
 static bool jav_global_section_k7(bbq_ctx_t* ctx, jav_global_section_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (bbq_loop_next(ctx)) { BBQ_MUSTTAIL return jav_global_section_k5(ctx, out, _struct_start); }
+    if (bbq_loop_next(ctx)) {
+        out->globals.items = bbq_array_grow(ctx, out->globals.items, sizeof(*out->globals.items));
+        if (!out->globals.items) return bbq_fail(ctx, "GlobalSection.globals: array: grow failed");
+        out->globals.count = (size_t)(bbq_loop_index(ctx) + 1);
+        BBQ_MUSTTAIL return jav_global_section_k5(ctx, out, _struct_start);
+    }
     bbq_pop_loop(ctx);
     BBQ_MUSTTAIL return jav_global_section_k8(ctx, out, _struct_start);
 }
@@ -4218,12 +4416,18 @@ static bool jav_export_section_k1(bbq_ctx_t* ctx, jav_export_section_t* out, siz
 }
 static bool jav_export_section_k0(bbq_ctx_t* ctx, jav_export_section_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
+    // Counted array: the count bounds the loop, it does not size the store. The
+    // backing grows per element exactly as the uncounted path does, so a declared
+    // count the input cannot justify costs nothing until the element that runs off
+    // the interval — which is where IPG puts the failure (Fig 8 A-Seq/A-Fail; the
+    // count appears in no allocation anywhere in the semantics).
     { size_t _n = (size_t)(out->count);
-      out->exports.count = _n;
-      out->exports.items = calloc(_n ? _n : 1, sizeof(*out->exports.items));
-      if (!out->exports.items) return bbq_fail(ctx, "ExportSection.exports: alloc failed");
+      out->exports.count = 0; out->exports.items = NULL;
       if (_n == 0) { BBQ_MUSTTAIL return jav_export_section_k8(ctx, out, _struct_start); }
       bbq_push_loop_n(ctx, (int64_t)_n); }
+    out->exports.items = bbq_array_grow(ctx, out->exports.items, sizeof(*out->exports.items));
+    if (!out->exports.items) return bbq_fail(ctx, "ExportSection.exports: alloc failed");
+    out->exports.count = 1;
     BBQ_MUSTTAIL return jav_export_section_k5(ctx, out, _struct_start);
 }
 static bool jav_export_section_k5(bbq_ctx_t* ctx, jav_export_section_t* out, size_t _struct_start) {
@@ -4235,7 +4439,12 @@ static bool jav_export_section_k5(bbq_ctx_t* ctx, jav_export_section_t* out, siz
 }
 static bool jav_export_section_k7(bbq_ctx_t* ctx, jav_export_section_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (bbq_loop_next(ctx)) { BBQ_MUSTTAIL return jav_export_section_k5(ctx, out, _struct_start); }
+    if (bbq_loop_next(ctx)) {
+        out->exports.items = bbq_array_grow(ctx, out->exports.items, sizeof(*out->exports.items));
+        if (!out->exports.items) return bbq_fail(ctx, "ExportSection.exports: array: grow failed");
+        out->exports.count = (size_t)(bbq_loop_index(ctx) + 1);
+        BBQ_MUSTTAIL return jav_export_section_k5(ctx, out, _struct_start);
+    }
     bbq_pop_loop(ctx);
     BBQ_MUSTTAIL return jav_export_section_k8(ctx, out, _struct_start);
 }
@@ -4524,12 +4733,18 @@ static bool jav_element_section_k1(bbq_ctx_t* ctx, jav_element_section_t* out, s
 }
 static bool jav_element_section_k0(bbq_ctx_t* ctx, jav_element_section_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
+    // Counted array: the count bounds the loop, it does not size the store. The
+    // backing grows per element exactly as the uncounted path does, so a declared
+    // count the input cannot justify costs nothing until the element that runs off
+    // the interval — which is where IPG puts the failure (Fig 8 A-Seq/A-Fail; the
+    // count appears in no allocation anywhere in the semantics).
     { size_t _n = (size_t)(out->count);
-      out->elems.count = _n;
-      out->elems.items = calloc(_n ? _n : 1, sizeof(*out->elems.items));
-      if (!out->elems.items) return bbq_fail(ctx, "ElementSection.elems: alloc failed");
+      out->elems.count = 0; out->elems.items = NULL;
       if (_n == 0) { BBQ_MUSTTAIL return jav_element_section_k8(ctx, out, _struct_start); }
       bbq_push_loop_n(ctx, (int64_t)_n); }
+    out->elems.items = bbq_array_grow(ctx, out->elems.items, sizeof(*out->elems.items));
+    if (!out->elems.items) return bbq_fail(ctx, "ElementSection.elems: alloc failed");
+    out->elems.count = 1;
     BBQ_MUSTTAIL return jav_element_section_k5(ctx, out, _struct_start);
 }
 static bool jav_element_section_k5(bbq_ctx_t* ctx, jav_element_section_t* out, size_t _struct_start) {
@@ -4541,7 +4756,12 @@ static bool jav_element_section_k5(bbq_ctx_t* ctx, jav_element_section_t* out, s
 }
 static bool jav_element_section_k7(bbq_ctx_t* ctx, jav_element_section_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (bbq_loop_next(ctx)) { BBQ_MUSTTAIL return jav_element_section_k5(ctx, out, _struct_start); }
+    if (bbq_loop_next(ctx)) {
+        out->elems.items = bbq_array_grow(ctx, out->elems.items, sizeof(*out->elems.items));
+        if (!out->elems.items) return bbq_fail(ctx, "ElementSection.elems: array: grow failed");
+        out->elems.count = (size_t)(bbq_loop_index(ctx) + 1);
+        BBQ_MUSTTAIL return jav_element_section_k5(ctx, out, _struct_start);
+    }
     bbq_pop_loop(ctx);
     BBQ_MUSTTAIL return jav_element_section_k8(ctx, out, _struct_start);
 }
@@ -4651,12 +4871,18 @@ static bool jav_data_section_k1(bbq_ctx_t* ctx, jav_data_section_t* out, size_t 
 }
 static bool jav_data_section_k0(bbq_ctx_t* ctx, jav_data_section_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
+    // Counted array: the count bounds the loop, it does not size the store. The
+    // backing grows per element exactly as the uncounted path does, so a declared
+    // count the input cannot justify costs nothing until the element that runs off
+    // the interval — which is where IPG puts the failure (Fig 8 A-Seq/A-Fail; the
+    // count appears in no allocation anywhere in the semantics).
     { size_t _n = (size_t)(out->count);
-      out->datas.count = _n;
-      out->datas.items = calloc(_n ? _n : 1, sizeof(*out->datas.items));
-      if (!out->datas.items) return bbq_fail(ctx, "DataSection.datas: alloc failed");
+      out->datas.count = 0; out->datas.items = NULL;
       if (_n == 0) { BBQ_MUSTTAIL return jav_data_section_k8(ctx, out, _struct_start); }
       bbq_push_loop_n(ctx, (int64_t)_n); }
+    out->datas.items = bbq_array_grow(ctx, out->datas.items, sizeof(*out->datas.items));
+    if (!out->datas.items) return bbq_fail(ctx, "DataSection.datas: alloc failed");
+    out->datas.count = 1;
     BBQ_MUSTTAIL return jav_data_section_k5(ctx, out, _struct_start);
 }
 static bool jav_data_section_k5(bbq_ctx_t* ctx, jav_data_section_t* out, size_t _struct_start) {
@@ -4668,7 +4894,12 @@ static bool jav_data_section_k5(bbq_ctx_t* ctx, jav_data_section_t* out, size_t 
 }
 static bool jav_data_section_k7(bbq_ctx_t* ctx, jav_data_section_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (bbq_loop_next(ctx)) { BBQ_MUSTTAIL return jav_data_section_k5(ctx, out, _struct_start); }
+    if (bbq_loop_next(ctx)) {
+        out->datas.items = bbq_array_grow(ctx, out->datas.items, sizeof(*out->datas.items));
+        if (!out->datas.items) return bbq_fail(ctx, "DataSection.datas: array: grow failed");
+        out->datas.count = (size_t)(bbq_loop_index(ctx) + 1);
+        BBQ_MUSTTAIL return jav_data_section_k5(ctx, out, _struct_start);
+    }
     bbq_pop_loop(ctx);
     BBQ_MUSTTAIL return jav_data_section_k8(ctx, out, _struct_start);
 }
@@ -4692,12 +4923,18 @@ static bool jav_tag_section_k1(bbq_ctx_t* ctx, jav_tag_section_t* out, size_t _s
 }
 static bool jav_tag_section_k0(bbq_ctx_t* ctx, jav_tag_section_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
+    // Counted array: the count bounds the loop, it does not size the store. The
+    // backing grows per element exactly as the uncounted path does, so a declared
+    // count the input cannot justify costs nothing until the element that runs off
+    // the interval — which is where IPG puts the failure (Fig 8 A-Seq/A-Fail; the
+    // count appears in no allocation anywhere in the semantics).
     { size_t _n = (size_t)(out->count);
-      out->tags.count = _n;
-      out->tags.items = calloc(_n ? _n : 1, sizeof(*out->tags.items));
-      if (!out->tags.items) return bbq_fail(ctx, "TagSection.tags: alloc failed");
+      out->tags.count = 0; out->tags.items = NULL;
       if (_n == 0) { BBQ_MUSTTAIL return jav_tag_section_k8(ctx, out, _struct_start); }
       bbq_push_loop_n(ctx, (int64_t)_n); }
+    out->tags.items = bbq_array_grow(ctx, out->tags.items, sizeof(*out->tags.items));
+    if (!out->tags.items) return bbq_fail(ctx, "TagSection.tags: alloc failed");
+    out->tags.count = 1;
     BBQ_MUSTTAIL return jav_tag_section_k5(ctx, out, _struct_start);
 }
 static bool jav_tag_section_k5(bbq_ctx_t* ctx, jav_tag_section_t* out, size_t _struct_start) {
@@ -4709,7 +4946,12 @@ static bool jav_tag_section_k5(bbq_ctx_t* ctx, jav_tag_section_t* out, size_t _s
 }
 static bool jav_tag_section_k7(bbq_ctx_t* ctx, jav_tag_section_t* out, size_t _struct_start) {
     (void)_struct_start; (void)ctx; (void)out;
-    if (bbq_loop_next(ctx)) { BBQ_MUSTTAIL return jav_tag_section_k5(ctx, out, _struct_start); }
+    if (bbq_loop_next(ctx)) {
+        out->tags.items = bbq_array_grow(ctx, out->tags.items, sizeof(*out->tags.items));
+        if (!out->tags.items) return bbq_fail(ctx, "TagSection.tags: array: grow failed");
+        out->tags.count = (size_t)(bbq_loop_index(ctx) + 1);
+        BBQ_MUSTTAIL return jav_tag_section_k5(ctx, out, _struct_start);
+    }
     bbq_pop_loop(ctx);
     BBQ_MUSTTAIL return jav_tag_section_k8(ctx, out, _struct_start);
 }

@@ -439,7 +439,11 @@ jav_vctx_t jav_module_cx(const jav_modidx_t* mod) {
     cx.table_tidx = mod->table_tidx; cx.table_is64 = mod->table_is64;
     cx.nmemories = mod->nmems; cx.mem_is64 = mod->mem_is64;
     cx.tags = mod->tags; cx.ntags = mod->ntags;
-    cx.ndatas = mod->ndatas; cx.nelems = mod->nelems;
+    // §5.5.15: a body's data indices are bounded by the data COUNT section, which is the
+    // whole reason that section exists. Absent ⇒ 0, so §5.5.17's "must be present if any
+    // data index occurs in the code section" needs no separate check.
+    cx.ndatas = mod->datacnt; cx.have_datacount = mod->have_datacount;
+    cx.nelems = mod->nelems;
     cx.elem_reftype = mod->elem_reftype; cx.elem_tidx = mod->elem_tidx;
     cx.structtypes = mod->structtypes; cx.nstructtypes = mod->ntypes;
     cx.arraytypes = mod->arraytypes;   cx.narraytypes = mod->ntypes;
@@ -716,6 +720,12 @@ int jav_module_index(const bbq_field_capture* root, const uint8_t* base,
         }
     }
     out->ndatas = jav_view_nchild(jav_view_section_array(root, 11, "datas", base));
+    // §5.5.15 the data COUNT section, kept apart from the data section's own length:
+    // instantiation wants the segments, validation wants the count, and §5.5.17 makes
+    // the count's mere ABSENCE meaningful — so "absent" cannot be spelled as 0.
+    const bbq_field_capture* dcs = jav_view_find_section(root, 12, base);
+    out->have_datacount = dcs != NULL;
+    out->datacnt = dcs ? (uint32_t)bbq_node_int(jav_view_field(jav_view_field(dcs, "body"), "count"), base) : 0;
     out->lattice = (jav_subtype_ctx_t){ out->kinds, out->supers, nt, out->canon };
     return 1;
 }

@@ -314,6 +314,14 @@ static void tc_pop1(tcst* s, jav_valtype_t w, uint32_t tx) {
 }
 static void tc_push1(tcst* s, jav_valtype_t w, uint32_t tx) { tc_push_vt(s, vt_from(w, tx)); }
 
+/* Which §5 reason an out-of-range data index carries. cx->ndatas is the data COUNT
+ * section's value (§5.5.15), so with no such section it is 0 and EVERY data index is
+ * already out of range — §5.5.17's `n? != eps \/ dataidx(func*) = eps` is enforced by
+ * the ordinary bound check, and this only says which of the two conditions failed. */
+static jav_err_t data_err(const jav_vctx_t* cx) {
+    return cx->have_datacount ? JAV_E_UNKNOWN_DATA : JAV_E_DATA_COUNT_REQUIRED;
+}
+
 /* §3.4.5 memory-instruction validation (the security boundary): decode the memidx
  * (default 0, or bit 6 of the memarg align-flags), bound it against nmemories, check
  * the memarg (2^align ≤ N/8, and offset < 2^|at|), bound the lane immediate, and type
@@ -404,7 +412,7 @@ static int tc_mem(tcst* s, const jav_vctx_t* cx, uint8_t op, int sub, bbq_ctx_t*
     }
     /* INIT */
     uint32_t seg = 0, memidx = 0; bbq_read_uleb128_u32(c, &seg); bbq_read_uleb128_u32(c, &memidx);
-    if (seg >= cx->ndatas || memidx >= cx->nmemories) { s->err = (memidx >= cx->nmemories) ? JAV_E_UNKNOWN_MEMORY : JAV_E_UNKNOWN_DATA; s->ok = 0; return 1; }
+    if (seg >= cx->ndatas || memidx >= cx->nmemories) { s->err = (memidx >= cx->nmemories) ? JAV_E_UNKNOWN_MEMORY : data_err(cx); s->ok = 0; return 1; }
     jav_valtype_t at = AT64(memidx) ? WVT_I64 : WVT_I32;
     tc_pop_e(s, WVT_I32); tc_pop_e(s, WVT_I32); tc_pop_e(s, at);    /* n, src, addr */
     #undef AT64
@@ -949,7 +957,7 @@ int jav_typecheck_ex(const uint8_t* code, size_t len, const jav_vctx_t* cx,
                         for (uint32_t i = 0; i < n; i++) tc_pop1(&s, et, etx);
                     } else if (sub == 9) {                               /* array.new_data seg : element must be num/vec */
                         uint32_t seg = 0; bbq_read_uleb128_u32(&c, &seg);
-                        if (seg >= cx->ndatas || !vt_is_numvec(et)) { s.err = (seg >= cx->ndatas) ? JAV_E_UNKNOWN_DATA : JAV_E_ARRAY_NOT_NUMERIC; s.ok = 0; break; }
+                        if (seg >= cx->ndatas || !vt_is_numvec(et)) { s.err = (seg >= cx->ndatas) ? data_err(cx) : JAV_E_ARRAY_NOT_NUMERIC; s.ok = 0; break; }
                         tc_pop_e(&s, WVT_I32); tc_pop_e(&s, WVT_I32);
                     } else {                                             /* array.new_elem seg : element a ref ⊒ the segment's reftype */
                         uint32_t seg = 0; bbq_read_uleb128_u32(&c, &seg);
@@ -1009,7 +1017,7 @@ int jav_typecheck_ex(const uint8_t* code, size_t len, const jav_vctx_t* cx,
                     }
                     jav_valtype_t et = cx->arraytypes[t].elem; uint32_t etx = cx->arraytypes[t].elem_tidx;
                     if (sub == 18) {                                     /* init_data : element num/vec, segment in range */
-                        if (seg >= cx->ndatas || !vt_is_numvec(et)) { s.err = (seg >= cx->ndatas) ? JAV_E_UNKNOWN_DATA : JAV_E_ARRAY_NOT_NUMERIC; s.ok = 0; break; }
+                        if (seg >= cx->ndatas || !vt_is_numvec(et)) { s.err = (seg >= cx->ndatas) ? data_err(cx) : JAV_E_ARRAY_NOT_NUMERIC; s.ok = 0; break; }
                     } else {                                             /* init_elem : element a ref ⊒ the segment's reftype */
                         if (seg >= cx->nelems || (et != WVT_REF && et != WVT_REF_NN)) { s.err = (seg >= cx->nelems) ? JAV_E_UNKNOWN_ELEM : JAV_E_TYPE_MISMATCH; s.ok = 0; break; }
                         jav_valtype_t sw = cx->elem_reftype ? cx->elem_reftype[seg] : WVT_REF;
@@ -1023,7 +1031,7 @@ int jav_typecheck_ex(const uint8_t* code, size_t len, const jav_vctx_t* cx,
                     handled = 1;
                 } else if (op == 0xfc && sub == 9) {      /* data.drop seg : [] -> [] */
                     uint32_t y = 0; bbq_read_uleb128_u32(&c, &y);
-                    if (y >= cx->ndatas) { s.err = JAV_E_UNKNOWN_DATA; s.ok = 0; break; }
+                    if (y >= cx->ndatas) { s.err = data_err(cx); s.ok = 0; break; }
                     handled = 1;
                 } else if (op == 0xfc && sub == 12) {     /* table.init x y (§3.4.4): at i32 i32 -> ε, elem rt2 <: rt1 */
                     uint32_t y = 0, x = 0; bbq_read_uleb128_u32(&c, &y); bbq_read_uleb128_u32(&c, &x);   /* elemseg, table */
