@@ -26,6 +26,11 @@ extern void        jav_capi_set_probe(wasm_store_t*, void (*)(void*, uint8_t), v
 extern void        jav_config_set_jit(wasm_config_t*, int);
 extern void        jav_config_set_verify_heap(wasm_config_t*, int);
 extern uint32_t    jav_capi_jit_count(const wasm_store_t*);
+extern uint32_t    jav_capi_jit_declined(const wasm_store_t*);
+extern int         jav_jit_cache_slots(void);
+extern void        jav_jit_cache_stats(uint64_t*, uint64_t*, uint64_t*, uint64_t*,
+                                        uint64_t*, uint64_t*, uint64_t*);
+extern void        jav_jit_cache_stats_reset(void);
 
 /* Where `make install` puts the runtime. Overridden by the build (-DJAVELINA_JRE_PATH=...). */
 #ifndef JAVELINA_JRE_PATH
@@ -47,8 +52,14 @@ static int usage(FILE* f, int code) {
         "  --call NAME[:a,b] call the export NAME directly with i32 args, print its i32\n"
         "                    result — a development hook, bypasses main()\n"
         "  --root DIR        filesystem root guest paths resolve under (default: cwd)\n"
-        "  -nojit            run the interpreter tier (default)\n"
-        "  -jit              run the copy-and-patch JIT tier\n"
+        "  --tier N          how guest code EXECUTES; the answer is identical at every\n"
+        "                    level, traps included, so this is a speed/compile-time knob\n"
+        "                      0  interpret\n"
+        "                      1  copy-and-patch JIT (default)\n"
+        "                      2  copy-and-patch JIT with operand-stack caching\n"
+        "  --jit-stats       after the run, report to stderr what the JIT compiled and\n"
+        "                    what the operand cache did (functions, cached uses,\n"
+        "                    uses above the first slot, spills and fills)\n"
         "  --verify-heap     check the collector's invariants after every collection and\n"
         "                    abort naming the one that failed (slow; walks the live graph)\n"
         "  --version         print the version and exit\n"
@@ -77,10 +88,10 @@ static struct {
     wasm_exporttype_vec_t expt; wasm_extern_vec_t exp;
 } jre;
 
-static bool jre_init(const uint8_t* bytes, size_t len, int jit, int verify_heap) {
-    if (jit || verify_heap) {
+static bool jre_init(const uint8_t* bytes, size_t len, int tier, int verify_heap) {
+    if (tier || verify_heap) {
         wasm_config_t* cfg = wasm_config_new();
-        if (jit) jav_config_set_jit(cfg, 1);
+        if (tier) jav_config_set_jit(cfg, tier);
         if (verify_heap) jav_config_set_verify_heap(cfg, 1);
         jre.engine = wasm_engine_new_with_config(cfg);   /* consumes cfg */
     } else {
@@ -91,9 +102,16 @@ static bool jre_init(const uint8_t* bytes, size_t len, int jit, int verify_heap)
      * `last op` in a trap report is meaningful exactly when it can be. */
     jav_capi_set_probe(jre.store, probe_cb, NULL);
     wasm_byte_vec_new_uninitialized(&jre.bin, len); memcpy(jre.bin.data, bytes, len);
-    if (!wasm_module_validate(jre.store, &jre.bin)) {
-        fprintf(stderr, "%s: jre.wasm rejected: %s\n", prog_name, jav_err_str(jav_capi_last_error(jre.store))); return false; }
-    jre.mod = wasm_module_new(jre.store, &jre.bin); if (!jre.mod) return false;
+    /* wasm_module_new validates — a caller is allowed to call it alone, so the c-api makes
+     * it decode and check and return NULL on an invalid module, recording the reason on the
+     * store. Asking wasm_module_validate first therefore ran the whole §5/§7 pass, threw the
+     * verdict away, and had wasm_module_new run it again over the same bytes. The reason it
+     * printed is the one already on the store at the NULL. */
+    jre.mod = wasm_module_new(jre.store, &jre.bin);
+    if (!jre.mod) {
+        fprintf(stderr, "%s: jre.wasm rejected: %s\n", prog_name, jav_err_str(jav_capi_last_error(jre.store)));
+        return false;
+    }
     wasm_module_imports(jre.mod, &jre.impt);
     wasm_extern_vec_new_uninitialized(&jre.imp, jre.impt.size);
     for (size_t i = 0; i < jre.impt.size; i++) {
@@ -145,9 +163,11 @@ typedef struct { wasm_module_t* mod; wasm_instance_t* inst;
 static bool plugin_link(plugin_t* p, const uint8_t* bytes, size_t len) {
     memset(p, 0, sizeof *p);
     wasm_byte_vec_new_uninitialized(&p->bin, len); memcpy(p->bin.data, bytes, len);
-    if (!wasm_module_validate(jre.store, &p->bin)) {
-        fprintf(stderr, "%s: module rejected: %s\n", prog_name, jav_err_str(jav_capi_last_error(jre.store))); return false; }
-    p->mod = wasm_module_new(jre.store, &p->bin); if (!p->mod) return false;
+    p->mod = wasm_module_new(jre.store, &p->bin);          /* validates; see jre_init */
+    if (!p->mod) {
+        fprintf(stderr, "%s: module rejected: %s\n", prog_name, jav_err_str(jav_capi_last_error(jre.store)));
+        return false;
+    }
     wasm_module_imports(p->mod, &p->impt);
     wasm_extern_vec_new_uninitialized(&p->imp, p->impt.size);
     for (size_t i = 0; i < p->impt.size; i++) {
@@ -238,7 +258,7 @@ int main(int argc, char** argv) {
     const char* root      = ".";
     const char* prog_path = NULL;
     int prog_argc = 0; char** prog_argv = NULL;
-    int want_jit = 0, want_verify = 0;
+    int want_tier = 1, want_verify = 0, want_stats = 0;
 
     int i = 1;
     for (; i < argc; i++) {
@@ -248,8 +268,20 @@ int main(int argc, char** argv) {
         else if (!strcmp(a, "--jre"))  { if (++i >= argc) return usage(stderr, 2); jre_path = argv[i]; }
         else if (!strcmp(a, "--call")) { if (++i >= argc) return usage(stderr, 2); call_spec = argv[i]; }
         else if (!strcmp(a, "--root")) { if (++i >= argc) return usage(stderr, 2); root = argv[i]; }
-        else if (!strcmp(a, "-jit")  || !strcmp(a, "--jit"))   want_jit = 1;
-        else if (!strcmp(a, "-nojit")|| !strcmp(a, "--nojit")) want_jit = 0;
+        /* The execution TIER: each level keeps the semantics and spends more
+         * compile time for faster code. Not `-O`, which belongs to javelinac and
+         * means something else — the optimizer runs over the program and changes
+         * what code exists, while this only changes how the same code is run. */
+        else if (!strcmp(a, "--tier")) {
+            if (++i >= argc) return usage(stderr, 2);
+            char* end = NULL; long t = strtol(argv[i], &end, 10);
+            if (!end || *end || t < 0 || t > 2) {
+                fprintf(stderr, "%s: --tier wants 0, 1 or 2\n", prog_name);
+                return usage(stderr, 2);
+            }
+            want_tier = (int)t;
+        }
+        else if (!strcmp(a, "--jit-stats")) want_stats = 1;
         else if (!strcmp(a, "--verify-heap")) want_verify = 1;
         else if (a[0] == '-' && a[1]) { fprintf(stderr, "%s: unknown option '%s'\n", prog_name, a); return usage(stderr, 2); }
         else { prog_path = a; prog_argv = &argv[i + 1]; prog_argc = argc - i - 1; break; }
@@ -286,7 +318,7 @@ int main(int argc, char** argv) {
     g_io_props  = runner_props;
 
     int rc = 1;
-    if (!jre_init(jbytes, jlen, want_jit, want_verify)) goto out;
+    if (!jre_init(jbytes, jlen, want_tier, want_verify)) goto out;
 
     plugin_t p;
     if (!plugin_link(&p, pbytes, plen)) goto out;
@@ -335,6 +367,57 @@ int main(int argc, char** argv) {
     rc = mres[0].of.i32;
 
 out:
+    /* What the tier actually did, over REAL COMPILED CODE. The conformance corpus
+     * answers "is it correct"; it cannot answer "is a cache of this size worth
+     * having", because its instruction mix is a coverage policy rather than a
+     * workload. These counters over a compiled program are the population that
+     * question needs, and the ratio discriminates where a wall-clock benchmark
+     * does not — between-process variance swamps the deltas, the ratio does not. */
+    if (want_stats && jre.store) {
+        uint64_t cached = 0, deep = 0, occ = 0, trans = 0, spill = 0, fill = 0, mem = 0;
+        jav_jit_cache_stats(&cached, &deep, &occ, &trans, &spill, &fill, &mem);
+        /* `mem` is the measured quantity: operand-stack slots the compiled code
+         * still moves between a register and memory. It is what stack caching
+         * removes, so it is the figure to compare cache sizes on, and it is
+         * reported rather than derived.
+         *
+         * What was printed here was `occupancy * 2 - transitions`, called "net
+         * stack accesses avoided". It was wrong twice. Occupancy sums each
+         * instruction's ENTRY STATE, so a value idle in a register for five
+         * instructions counted five while being read at most once — it is not a
+         * count of anything avoided. And a transition relocates the access it
+         * performs (the GPUSH inside a spill is the one the all-memory form does
+         * inline), so subtracting it charged the same access a second time.
+         *
+         * STATIC, and the heading says so: these count instructions COMPILED, not
+         * executed, because the JIT compiles every defined function eagerly at
+         * instantiation. An op in a hot loop counts once and so does one in dead
+         * code. That makes this a measure of what a MODULE contains, useful for
+         * comparing cache sizes over the same code, and useless for comparing
+         * workloads — two programs linking the same runtime report identical
+         * figures by construction, which is what four attempts at a SIMD
+         * comparison kept discovering.
+         *
+         * Ertl measured the other way (§2.6): he instrumented a RUNNING Forth and
+         * reported executed instructions in the millions with per-instruction
+         * load rates. The dynamic equivalent here needs the §3.3.3 probe to carry
+         * an IP so per-site execution counts can weight the per-site decisions
+         * the tile map already holds by byte offset. */
+        fprintf(stderr,
+                "javelina: --tier %d, cache %d slot(s)\n"
+                "  jit:   %u function(s) compiled, %u declined\n"
+                "  cache: %llu instruction(s) ran with an operand in a register, "
+                "%llu of them above slot 0\n"
+                "         %llu register-slot(s) held, summed over instructions\n"
+                "  cost:  %llu transition(s) stamped (%llu spill, %llu fill)\n"
+                "  traffic: %llu operand-stack slot(s) still moved to or from memory\n",
+                want_tier, jav_jit_cache_slots(),
+                jav_capi_jit_count(jre.store), jav_capi_jit_declined(jre.store),
+                (unsigned long long)cached, (unsigned long long)deep,
+                (unsigned long long)occ,
+                (unsigned long long)trans, (unsigned long long)spill,
+                (unsigned long long)fill, (unsigned long long)mem);
+    }
     free(jbytes); free(pbytes);
     return rc;
 }

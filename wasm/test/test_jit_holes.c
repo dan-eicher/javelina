@@ -47,25 +47,48 @@ static int g_nsupplied[STENCIL_COUNT];
 
 static int g_overflow;   // a silent cap would weaken this gate into a false alarm
 
+// Every hole one meta supplies, recorded against one stencil id.
+static void note_one(const jav_jit_meta_t *m, int s) {
+    for (int k = 0; k < m->operand_count; k++) {
+        if (g_nsupplied[s] >= MAX_PER_STENCIL) {   // never truncate quietly
+            printf("  stencil %d supplies more than %d holes — raise MAX_PER_STENCIL\n",
+                   s, MAX_PER_STENCIL);
+            g_overflow = 1; return;
+        }
+        g_supplied[s][g_nsupplied[s]++] = m->operands[k].hole;
+        // A memarg carries a second, IMPLICIT value: with multi-memory the align
+        // flag's 0x40 bit says a memidx follows. jit_driver patches it by literal
+        // name (`_HOLE_memidx`) off the JOP_MEMARG operand rather than from a meta
+        // entry, so mirror that rule here or every memory stencil reads as broken.
+        if (m->operands[k].kind == JOP_MEMARG) {
+            if (g_nsupplied[s] >= MAX_PER_STENCIL) { g_overflow = 1; return; }
+            g_supplied[s][g_nsupplied[s]++] = "_HOLE_memidx";
+        }
+    }
+}
+
+// An opcode's meta supplies the holes for EVERY form of that opcode, because the
+// driver picks the form from the cache state and then patches it from this same
+// operand list — find_hole(&stencil_table[chosen], m.operands[k].hole). Walking
+// only the base id leaves every cache variant looking like a stencil nothing
+// patches: a few hundred false alarms at n=1, and no statement at all about the
+// forms the tier actually stamps.
 static void note_meta(const jav_jit_meta_t *m, int n) {
     for (int i = 0; i < n; i++) {
-        int s = m[i].stencil;
-        if (s < 0 || s >= STENCIL_COUNT || !m[i].operands) continue;
-        for (int k = 0; k < m[i].operand_count; k++) {
-            if (g_nsupplied[s] >= MAX_PER_STENCIL) {   // never truncate quietly
-                printf("  stencil %d supplies more than %d holes — raise MAX_PER_STENCIL\n",
-                       s, MAX_PER_STENCIL);
-                g_overflow = 1; break;
-            }
-            g_supplied[s][g_nsupplied[s]++] = m[i].operands[k].hole;
-            // A memarg carries a second, IMPLICIT value: with multi-memory the align
-            // flag's 0x40 bit says a memidx follows. jit_driver patches it by literal
-            // name (`_HOLE_memidx`) off the JOP_MEMARG operand rather than from a meta
-            // entry, so mirror that rule here or every memory stencil reads as broken.
-            if (m[i].operands[k].kind == JOP_MEMARG) {
-                if (g_nsupplied[s] >= MAX_PER_STENCIL) { g_overflow = 1; break; }
-                g_supplied[s][g_nsupplied[s]++] = "_HOLE_memidx";
-            }
+        int base = m[i].stencil;
+        if (base < 0 || base >= STENCIL_COUNT || !m[i].operands) continue;
+        note_one(&m[i], base);
+        for (int st = 0; st <= JAV_TIER2_N; st++) {
+            int v = jav_variant[base][st];
+            if (v >= 0 && v != base) note_one(&m[i], v);
+            /* …and D7s' memory-result form, which is a stencil of its own and is
+             * chosen by the same driver from the same operand list
+             * (jit_driver.c: jav_variant_m[m.stencil][entry]). Walking only
+             * jav_variant left every `__sKm` looking unpatched. It read as clean
+             * while no SIMD opcode had a cached form to have a memory-result
+             * counterpart of — a green that was counting the wrong forms. */
+            int vm = jav_variant_m[base][st];
+            if (vm >= 0 && vm != base) note_one(&m[i], vm);
         }
     }
 }

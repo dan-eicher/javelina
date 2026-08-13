@@ -802,9 +802,12 @@ call 0x10 [uleb32 func] ( [jav_func_nparams(func)] any args -- )
     flag: pops_first
 (.  jav_invoke_ref(jav_funcaddr(func));  .)
 
-# drop discards the top operand (value-polymorphic — every slot is one cell, so the
-# pop is type-agnostic; the validator accepts any type).
-drop 0x1a ( i32 a -- )
+# drop discards the top operand (§3.4.1 `drop : t -> eps`, value-polymorphic — every
+# slot is one cell, so the pop is type-agnostic; the validator accepts any type).
+# `word` for the same reason select below uses it: the slot is whatever the operand
+# was. Declared i32 it read as an i32-only signature, which is a claim about the
+# operand no rule of §3.4.1 makes.
+drop 0x1a ( word a -- )
 (.  .)
 
 # select (§4.6.1): pop the i32 condition c, then keep the first operand v1 if c is non-zero,
@@ -881,8 +884,19 @@ ref_as_non_null 0xd4 ( funcref a -- funcref result )
 # Branch on a ref's null-ness (conditional, like br_if): br_on_null branches when
 # the ref IS null (dropping it; the non-null ref survives on fall-through);
 # br_on_non_null branches when it is NOT null (the ref rides along to the label).
-br_on_null 0xd5 [uleb32 label] ( any r -- )
-(.  if (jav_is_null(r)) transfer(); else { push(r); stp = stp + 1; }  .)
+# The fall-through result is DECLARED, not pushed by hand. §8.4.6 types this
+# `[t* (ref null ht)] -> [t* (ref ht)]`: not branching leaves the operand behind
+# with its null stripped. A hand-written `push(r)` inside the body is invisible to
+# every consumer of the signature — the tier-2 tree builder, the tiling grammar,
+# the storage-class vocabulary — so they all read this as consuming a ref and
+# producing nothing, and a body that USES the result (`(drop (br_on_null …))`,
+# `(call_ref $t (br_on_null …))`) found an empty abstract stack and declined.
+# `transfer()` is an `inline native status`, so the branch-taken path tail-returns
+# before the declared result is pushed; only the fall-through reaches it, which is
+# exactly the typing above. Compare br_on_non_null below, whose push is on the
+# TAKEN path and whose empty result is therefore right.
+br_on_null 0xd5 [uleb32 label] ( any r -- any result = "r" )
+(.  if (jav_is_null(r)) transfer(); else stp = stp + 1;  .)
 br_on_non_null 0xd6 [uleb32 label] ( any r -- )
 (.  if (!jav_is_null(r)) { push(r); transfer(); } else stp = stp + 1;  .)
 

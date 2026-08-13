@@ -7076,10 +7076,10 @@ void burg_rewrite(BURG_NODE_TYPE root, burg_ctx_t* ctx) {
 
     if (BURG_NODE_SUCC_COUNT(root) == 0) {
         burg_state_t* state = burg_label_tree(root, ctx);
-        if (state->rule[1])
-            burg_reduce(root, state, 1, ctx);
-        else
+        if (!state->rule[1])
             burg_set_error("burg: start nonterminal has no rule at root", (int)BURG_NODE_OP(root), ctx);
+        else
+            burg_reduce(root, state, 1, ctx);
         return;
     }
 
@@ -7125,15 +7125,15 @@ void burg_rewrite(BURG_NODE_TYPE root, burg_ctx_t* ctx) {
             burg_label(rpo[_i], ctx);
     }
 
-    /* Reduce every node with the start nonterminal */
+    /* Cover every node with the start nonterminal */
     {
         int _i, _n = bbq_vec_len(rpo);
         for (_i = 0; _i < _n; _i++) {
             burg_state_t* s = burg_cache_lookup((uint32_t)(uintptr_t)BURG_NODE_ID(rpo[_i]), ctx);
-            if (s && s->rule[1])
-                burg_reduce(rpo[_i], s, 1, ctx);
-            else
+            if (!s || !s->rule[1])
                 burg_set_error("burg: start nonterminal does not cover graph node", (int)BURG_NODE_OP(rpo[_i]), ctx);
+            else
+                burg_reduce(rpo[_i], s, 1, ctx);
         }
     }
     bbq_vec_free(rpo);

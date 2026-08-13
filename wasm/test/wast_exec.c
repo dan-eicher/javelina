@@ -399,8 +399,40 @@ static void register_mod(const uint8_t *name, size_t nlen, EMod *m) {
 }
 
 // ── public API ──
-int wast_exec_store_init(void) {
-    g_engine = wasm_engine_new();
+const char* wast_tier_name(wast_tier_t t) {
+    switch (t) {
+    case WAST_TIER_1: return "tier-1";
+    case WAST_TIER_2: return "tier-2";
+    default:          return "interp";
+    }
+}
+
+int wast_exec_cache_slots(void) { return jav_jit_cache_slots(); }
+
+wast_tier_t wast_exec_jit_tier(void) {
+    // The tiling tier at any cache size: what a sweep is after is the TREE, and
+    // the tree builder does not know how many registers there are.
+    return WAST_TIER_2;
+}
+
+int wast_exec_store_init(wast_tier_t tier) {
+    // Both compiled tiers live in the same binary: the plain stencil is the
+    // uncached form at every cache size, and tier-1 is simply jit_compile with no
+    // tiling context. So the tier is a runtime choice and all three can be run
+    // over one corpus and compared.
+    //
+    // Tier-2 is meaningful at EVERY cache size, including zero: the tree builds,
+    // the cover runs, and with no variants to choose the stamped code is tier-1's.
+    // That is not a mislabel now that the stitch meters are printed — they say
+    // "0 cached states" plainly — and it is what lets the tree builder and the
+    // tiling be swept on a build with the cache turned off.
+    if (tier == WAST_TIER_INTERP) {
+        g_engine = wasm_engine_new();
+    } else {
+        wasm_config_t *c = wasm_config_new();
+        jav_config_set_jit(c, (int)tier);   // 1 = compiled, no cache; 2 = compiled + tiled
+        g_engine = wasm_engine_new_with_config(c);   // consumes c
+    }
     if (!g_engine) return 0;
     struct sigaction sa; memset(&sa, 0, sizeof sa);     // persistent + re-entrant (SA_NODEFER)
     sa.sa_handler = fault_handler; sigemptyset(&sa.sa_mask); sa.sa_flags = SA_NODEFER;
@@ -410,7 +442,14 @@ int wast_exec_store_init(void) {
 void wast_exec_spectest(uint8_t *bytes, size_t len) {
     g_spec_bytes = bytes; g_spec_len = len;   // retained; re-instantiated into each file's store
 }
+static uint32_t g_jit_declined;
+uint32_t wast_exec_jit_declined(void) { return g_jit_declined; }
+
 void wast_exec_file_reset(void) {
+    // The store is about to be replaced, so bank its declines first — the counter
+    // lives on the store, and a per-file corpus would otherwise report only the
+    // last file's.
+    if (g_store) g_jit_declined += jav_capi_jit_declined(g_store);
     file_scope_free();
     g_store = wasm_store_new(g_engine);
     if (g_spec_bytes) {                                   // re-instantiate + register spectest into the new store

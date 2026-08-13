@@ -126,15 +126,19 @@ fi
 # ── the matrix ──────────────────────────────────────────────────────────────
 if [ "$MODE" = quick ]; then ARG=quick; else ARG=full; fi
 
-for cfg in O0-interp O0-jit O-interp O-jit; do
+# -O0/-O is the COMPILER's level — which javelinac built this pair. t0/t1/t2 is the
+# RUNTIME's engine, and that is --tier N; the spelling matches clbg.sh's. It was
+# -nojit/-jit, two configs, when the runtime had two engines. Tier-2 is the third, and
+# it belongs in this matrix rather than only in the .wast corpus: what the star-diff
+# below judges is a real Java program's allocation, collection and class layout, which
+# the wast assertions do not exercise at all. A tier that runs only where the corpus
+# looks is a tier that drifts.
+for cfg in O0-t0 O0-t1 O0-t2 O-t0 O-t1 O-t2; do
     case $cfg in
         O0-*) jre=conf-jre-O0.wasm; plug=conf-gct-O0.wasm ;;
         O-*)  jre=conf-jre-O.wasm;  plug=conf-gct-O.wasm  ;;
     esac
-    case $cfg in
-        *-interp) tier=-nojit ;;
-        *-jit)    tier=-jit   ;;
-    esac
+    tier="--tier ${cfg#*-t}"
     if $B/javelina --jre $B/$jre $tier $B/$plug "$ARG" "$SEED" > $B/conf-$cfg.out 2> $B/conf-$cfg.err; then
         echo "  ....  gc-torture $cfg"
     else
@@ -154,7 +158,7 @@ fi
 # The whole RESULT line is compared, not a projection of it: unlike the bench
 # harness these lines carry no timings, so there is nothing on them that is
 # allowed to differ between configs.
-awk '/^RESULT/' $B/conf-O0-interp.out > $B/conf-ref.chk
+awk '/^RESULT/' $B/conf-O0-t0.out > $B/conf-ref.chk
 
 n=$(wc -l < $B/conf-ref.chk | tr -d ' ')
 if [ "$n" -ne "$EXPECT_KERNELS" ]; then
@@ -164,10 +168,10 @@ if [ "$n" -ne "$EXPECT_KERNELS" ]; then
     exit 1
 fi
 
-for cfg in O0-jit O-interp O-jit; do
+for cfg in O0-t1 O0-t2 O-t0 O-t1 O-t2; do
     awk '/^RESULT/' $B/conf-$cfg.out > $B/conf-$cfg.chk
     if ! diff $B/conf-ref.chk $B/conf-$cfg.chk > /dev/null; then
-        echo "  FAIL  gc-torture: O0-interp and $cfg disagree — that config is WRONG, not slow"
+        echo "  FAIL  gc-torture: O0-t0 and $cfg disagree — that config is WRONG, not slow"
         echo "        replay: sh conformance/run.sh --$MODE --seed $SEED"
         diff $B/conf-ref.chk $B/conf-$cfg.chk | sed 's/^/        | /' || true
         echo "java e2e conformance: 0 passed, 1 failed"
@@ -183,36 +187,44 @@ done
 # breaking gc_mark1's forwarding update changed no checksum anywhere in this
 # corpus back when evacuation never ran.
 #
-# So one config runs again with the collector checking its own invariants after
-# every collection (--verify-heap). A violation stops the vm and surfaces as a trap
-# naming the invariant, at the end of the cycle that broke it — the only point where
-# the cause is still attributable. -O -jit is the config chosen: the most optimizer
-# transformation and the tier whose stencils write heap references directly, i.e.
-# the one where a wrongly-dropped ArrayStore check or a bad memory-DSE would land.
+# So the compiled configs run again with the collector checking its own invariants
+# after every collection (--verify-heap). A violation stops the vm and surfaces as a
+# trap naming the invariant, at the end of the cycle that broke it — the only point
+# where the cause is still attributable. -O is the level: the most optimizer
+# transformation, so a wrongly-dropped ArrayStore check or a bad memory-DSE lands here.
 #
-# Its RESULT lines join the star-diff, so this leg cannot pass by not running.
-if $B/javelina --jre $B/conf-jre-O.wasm -jit --verify-heap $B/conf-gct-O.wasm \
-               "$ARG" "$SEED" > $B/conf-verify.out 2> $B/conf-verify.err; then
-    awk '/^RESULT/' $B/conf-verify.out > $B/conf-verify.chk
-    if diff $B/conf-ref.chk $B/conf-verify.chk > /dev/null; then
-        echo "  ....  gc-torture O-jit under --verify-heap"
+# BOTH JIT tiers run it. opgen's `sclass_cacheable` excludes references from the cache
+# deliberately — a reference has to stay on the operand stack "where the collector
+# looks for roots and, because it evacuates, where it rewrites them" — so the argument
+# says t2 is no more exposed than t1. That argument is a comment, and a comment is not
+# a run: this leg is cheap to point at t2 and is the only thing that would notice if a
+# cached slot ever did hold a reference the collector could not find or rewrite.
+#
+# Their RESULT lines join the star-diff, so neither leg can pass by not running.
+for vt in 1 2; do
+    if $B/javelina --jre $B/conf-jre-O.wasm --tier $vt --verify-heap $B/conf-gct-O.wasm \
+                   "$ARG" "$SEED" > $B/conf-verify-t$vt.out 2> $B/conf-verify-t$vt.err; then
+        awk '/^RESULT/' $B/conf-verify-t$vt.out > $B/conf-verify-t$vt.chk
+        if diff $B/conf-ref.chk $B/conf-verify-t$vt.chk > /dev/null; then
+            echo "  ....  gc-torture O-t$vt under --verify-heap"
+        else
+            echo "  FAIL  gc-torture --verify-heap O-t$vt: results differ from O0-t0"
+            diff $B/conf-ref.chk $B/conf-verify-t$vt.chk | sed 's/^/        | /' || true
+            echo "java e2e conformance: 0 passed, 1 failed"
+            exit 1
+        fi
     else
-        echo "  FAIL  gc-torture --verify-heap: results differ from O0-interp"
-        diff $B/conf-ref.chk $B/conf-verify.chk | sed 's/^/        | /' || true
+        echo "  FAIL  gc-torture --verify-heap O-t$vt (exit $?, seed $SEED) — a heap invariant broke"
+        sed 's/^/        | /' $B/conf-verify-t$vt.out
+        sed 's/^/        | /' $B/conf-verify-t$vt.err
+        echo "        replay: $B/javelina --jre $B/conf-jre-O.wasm --tier $vt --verify-heap \\"
+        echo "                $B/conf-gct-O.wasm $ARG $SEED"
         echo "java e2e conformance: 0 passed, 1 failed"
         exit 1
     fi
-else
-    echo "  FAIL  gc-torture --verify-heap (exit $?, seed $SEED) — a heap invariant broke"
-    sed 's/^/        | /' $B/conf-verify.out
-    sed 's/^/        | /' $B/conf-verify.err
-    echo "        replay: $B/javelina --jre $B/conf-jre-O.wasm -jit --verify-heap \\"
-    echo "                $B/conf-gct-O.wasm $ARG $SEED"
-    echo "java e2e conformance: 0 passed, 1 failed"
-    exit 1
-fi
+done
 
-echo "  PASS  gc-torture ($EXPECT_KERNELS kernels × 4 configs agree, seed $SEED, $MODE)"
+echo "  PASS  gc-torture ($EXPECT_KERNELS kernels × 6 configs agree, seed $SEED, $MODE)"
 
 # ── the JLS suite ───────────────────────────────────────────────────────────
 # gc-torture is a differential oracle: it proves the four configs AGREE, which is a strong
@@ -222,15 +234,12 @@ echo "  PASS  gc-torture ($EXPECT_KERNELS kernels × 4 configs agree, seed $SEED
 #
 # Run on all four configs for the same reason: a §5.1.3 narrowing that the interpreter gets
 # right and the JIT gets wrong is a config being WRONG, and the count makes it visible.
-for cfg in O0-interp O0-jit O-interp O-jit; do
+for cfg in O0-t0 O0-t1 O0-t2 O-t0 O-t1 O-t2; do
     case $cfg in
         O0-*) jre=conf-jre-O0.wasm; plug=conf-jls-O0.wasm ;;
         O-*)  jre=conf-jre-O.wasm;  plug=conf-jls-O.wasm  ;;
     esac
-    case $cfg in
-        *-interp) tier=-nojit ;;
-        *-jit)    tier=-jit   ;;
-    esac
+    tier="--tier ${cfg#*-t}"                        # see the gc-torture matrix
     if ! $B/javelina --jre $B/$jre $tier $B/$plug > $B/jls-$cfg.out 2> $B/jls-$cfg.err; then
         echo "  FAIL  jls $cfg — a cited JLS rule does not hold (or the program died)"
         sed 's/^/        | /' $B/jls-$cfg.out
@@ -250,7 +259,7 @@ for cfg in O0-interp O0-jit O-interp O-jit; do
     fi
     echo "  ....  jls $cfg ($got checks)"
 done
-echo "  PASS  jls ($EXPECT_JLS_CHECKS cited-section checks × 4 configs)"
+echo "  PASS  jls ($EXPECT_JLS_CHECKS cited-section checks × 6 configs)"
 
 # ── the STITCHED corpus (P4) ────────────────────────────────────────────────
 # The plan's deliverable gate: "every stitched program's actual stdout/exit code == its

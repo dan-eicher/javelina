@@ -66,6 +66,15 @@ $(B)/test_subtype: test/test_subtype.c src/jav_subtype.c | $(B)
 	$(CC) -O2 -std=c11 -Wall -Werror -Isrc $(LINK) -o $@
 $(B)/test_storage: test/test_storage.c | $(B)
 	$(CC) -O2 -std=c11 -Wall -Werror -Isrc -Isrc/gen -Isrc/immix -I$(RT) -I$(CRT) $< -o $@
+# The tier-2 signature vocabulary, checked against its two sibling artifacts.
+# Reads them as text from src/gen, so it runs from the tree root like the rest
+# of this group.
+$(B)/test_sigtab: test/test_sigtab.c $(GEN)/jav_sigtab.h | $(B)
+	$(CC) -O2 -std=c11 -Wall -Werror -Isrc/gen $< -o $@
+# The tree builder, linked with the crt arena and nothing else — no engine, no
+# validator: the trees are the only variable.
+$(B)/test_ttree: test/test_ttree.c $(B)/jav_ttree.o $(B)/bbq_arena.o | $(B)
+	$(CC) $(CFLAGS) $(LINK) -o $@
 $(B)/test_leb: test/test_leb.c | $(B)
 	$(CC) -O2 -std=c11 -Wall -Werror -I$(RT) -I$(CRT) $< -o $@
 # jav_module_wf's §5.5 rules, one hand-built violation each. Links only the
@@ -74,7 +83,7 @@ $(B)/test_leb: test/test_leb.c | $(B)
 $(B)/test_module_wf: test/test_module_wf.c src/jav_validate_module.c | $(B)
 	$(CC) $(CFLAGS) -I../testkit $(LINK) -lm -o $@
 
-ROOT_TESTS := test_subtype test_storage test_leb test_module_wf
+ROOT_TESTS := test_subtype test_storage test_leb test_module_wf test_sigtab test_ttree
 
 # Immix: the GC compiled standalone — pure C + bbq_vec, no generated runtime.
 $(IMMIX_TESTS:%=$(B)/%): $(B)/%: test/%.c $(IMMIX_SRC) | $(B)
@@ -119,7 +128,8 @@ $(B)/test_wast: test/test_wast.c test/wast_exec.c $(B)/wasm_capi.o $(WAT_OBJS) \
                 $(B)/jav_instance.o \
                 $(B)/jav_extern.o $(B)/jav_error.o $(B)/bbq_htree_capi.o $(B)/jav_view_reader.o \
                 $(B)/bbq_lite.o $(B)/validate.o $(B)/jav_subtype.o $(B)/interp.o \
-                $(B)/jav_runtime.o $(B)/gen_interp.o $(B)/jit_driver.o $(GC_OBJS) | $(B)
+                $(B)/jav_runtime.o $(B)/gen_interp.o $(B)/jit_driver.o $(B)/jav_ttree.o \
+                $(B)/jav_tile.o $(B)/bbq_hmap.o $(GC_OBJS) | $(B)
 	$(CC) $(CFLAGS) -Wno-unused-function -Iinclude -I$(PEGRT) $(LINK) -lm -o $@
 
 # The public wasm.h surface.
@@ -181,6 +191,16 @@ test: $(ALL_TESTS:%=$(B)/%) $(B)/test_wast $(B)/embed water
 	  grep -E "conformance:|gate|reason" $(LOGS)/conformance.log; \
 	  echo "  PASS  conformance"; pass=$$((pass+1)); \
 	else echo "  FAIL  conformance"; fail=$$((fail+1)); failed="$$failed conformance"; fi; \
+	for jt in $(JIT_TIERS); do \
+	  if ( cd test && ../$(B)/test_wast --tier=$$jt ../../testsuite/*.wast regress_*.wast ) > $(LOGS)/conformance_t$$jt.log 2>&1; then \
+	    grep -E "conformance \[|trap-reason" $(LOGS)/conformance_t$$jt.log; \
+	    echo "  PASS  conformance (tier-$$jt)"; pass=$$((pass+1)); \
+	  else echo "  FAIL  conformance (tier-$$jt)"; fail=$$((fail+1)); failed="$$failed conformance_t$$jt"; fi; \
+	done; \
+	if ( cd test && ../$(B)/test_wast --sweep ../../testsuite/*.wast regress_*.wast ) > $(LOGS)/ttree_sweep.log 2>&1; then \
+	  grep -E "tree sweep|tier-2 tiling|declines by|uncovered at" $(LOGS)/ttree_sweep.log; \
+	  echo "  PASS  tier-2 tree sweep"; pass=$$((pass+1)); \
+	else echo "  FAIL  tier-2 tree sweep"; fail=$$((fail+1)); failed="$$failed ttree_sweep"; fi; \
 	if ( cd test && printf '(module (func (export "id") (param i32) (result i32) local.get 0))' \
 	       | ../$(B)/water - > ../$(B)/.water_smoke.wasm 2>/dev/null \
 	       && ../$(B)/test_roundtrip ../$(B)/.water_smoke.wasm ) > $(LOGS)/water.log 2>&1; then \

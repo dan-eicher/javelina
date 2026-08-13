@@ -14,6 +14,8 @@ OPGEN      := $(BBQ)/build/opgen/opgen
 JITTERATOR := $(BBQ)/build/jitterator/jitterator
 BBQC       := $(BBQ)/build/bbqc
 PEGC       := $(BBQ)/build/pegc/pegc
+ASDL       := $(BBQ)/build/asdl/asdl
+BURGC      := $(BBQ)/build/burgc/burgc
 PEG_FRAMES := spec/peg_frames   # javelina's OWN copy of the pegc C frames; WAT-specific frame
                                 # tweaks (the §6.2.5 annotation skip) live here, NOT the shared template
 RT         := $(BBQ)/backends/c/runtime
@@ -51,7 +53,11 @@ CC      := clang
 # say, bbq_read.h rebuilds the objects that include it. No more manual cleans to pick up
 # upstream header edits. The .d files are pulled in via the -include at the bottom.
 # -Iinclude: jav_limits.h — the per-frame caps the engine enforces and javelinac must respect.
-CFLAGS  := -O2 -std=c11 -Wall -Werror -MMD -MP -Isrc -Isrc/gen -Isrc/immix -Iinclude -I$(RT) -I$(JITRT) -I$(CRT)
+# -g at -O2 changes no code, and without it a profile cannot attribute anything
+# inside this engine: callgrind collapses the static functions of a TU onto
+# whichever symbol is nearest, so `jit_compile` appears to call functions its
+# source never mentions. The compiler's own TUs already build this way.
+CFLAGS  := -g -O2 -std=c11 -Wall -Werror -MMD -MP -Isrc -Isrc/gen -Isrc/immix -Iinclude -I$(RT) -I$(JITRT) -I$(CRT)
 # -fno-vectorize/-fno-slp-vectorize: a copy-and-patch stencil must be position-independent
 # and relocation-free, but clang's auto-vectorizer emits .rodata vector constants (mask
 # tables) the JIT can't relocate (jitterator rejects them). Keeping the SIMD lane loops
@@ -67,7 +73,8 @@ GC_OBJS := $(B)/immix_line_map.o $(B)/immix_block.o $(B)/immix_block_allocator.o
 # zero-copy reader, never the owning tree. The owning reader/writer are a separate group
 # (water + the owning-reader tests link them; the c-lite load path test_load does not).
 ENGINE_OBJS := $(B)/interp.o $(B)/jav_runtime.o $(B)/gen_interp.o $(B)/validate.o \
-               $(B)/jav_subtype.o $(B)/jit_driver.o $(B)/bbq_arena.o $(B)/bbq_htree.o \
+               $(B)/jav_subtype.o $(B)/jit_driver.o $(B)/jav_ttree.o $(B)/jav_tile.o \
+               $(B)/bbq_arena.o $(B)/bbq_hmap.o $(B)/bbq_htree.o \
                $(GC_OBJS)
 OWNING_OBJS := $(B)/jav_reader.o $(B)/jav_writer.o $(B)/jav_utf8.o
 OBJS    := $(ENGINE_OBJS) $(OWNING_OBJS)
@@ -81,7 +88,7 @@ CLITE_SRCS := src/jav_view_nav.c src/jav_module_index.c src/jav_module_validate.
 TESTS   := test_ops test_locals test_control test_brtable test_globals_mem test_probe \
            test_call test_host test_tiers test_trap_reason test_jit_holes \
            test_jit_numeric test_jit_native test_jit_libm test_jit_sweep \
-           test_jit_control test_jit_brtable test_jit_trap test_jit_trunc \
+           test_jit_control test_jit_brtable test_jit_trap test_jit_trunc test_jit_tier2 \
            test_jit_trunc_sat test_const_expr test_multivalue test_typecheck \
            test_call_indirect test_reftypes test_table_ops test_br_on test_i31 test_gc_roots \
            test_struct test_struct_gc test_array test_array_gc test_refcast test_br_on_cast test_gc_ctors test_gc_packed test_gc_segments test_refmore test_bulk_mem test_subword_memops test_select test_call_ref test_simd_loadext test_simd_compute test_typemodel test_exceptions test_depth test_tailcall test_simd test_multimem test_memory64 test_carrier_addr_tag
@@ -97,7 +104,7 @@ all: $(OBJS) water
 # generator. No prerequisites: this fires only when a binary is ABSENT, so a
 # built toolchain is never rebuilt behind your back. `make bbq` at the root is
 # the explicit rebuild after editing BBQ itself.
-$(OPGEN) $(JITTERATOR) $(BBQC) $(PEGC) &:
+$(OPGEN) $(JITTERATOR) $(BBQC) $(PEGC) $(ASDL) $(BURGC) &:
 	cmake -S $(BBQ) -B $(BBQ)/build
 	cmake --build $(BBQ)/build -j$$(nproc)
 
@@ -110,8 +117,84 @@ gen: $(GEN)/gen_interp.c $(GEN)/jav_reader.c $(GEN)/jav_trap_reason.h
 # wasm.def edit weren't tracked → stale stencil table + objects (the bug this fixes).
 $(GEN)/gen_interp.c $(GEN)/gen_interp.h $(GEN)/jav_stencils.c $(GEN)/opcodes.h \
 $(GEN)/opcode_tables.c $(GEN)/runtime_api.h $(GEN)/jav_jit_meta.h $(GEN)/jav_valtype.h \
-$(GEN)/jav_type_meta.h $(GEN)/jav_jit_symbols.h &: spec/wasm.def $(OPGEN)
-	$(OPGEN) -i spec/wasm.def -prefix jav -o $(GEN)
+$(GEN)/jav_type_meta.h $(GEN)/jav_jit_symbols.h $(GEN)/jav_sigtab.h \
+$(GEN)/jav_ttree.asdl &: spec/wasm.def $(OPGEN) $(B)/tier2_n.stamp
+	$(OPGEN) -i spec/wasm.def -prefix jav -tier2 $(TIER2_N) -o $(GEN)
+
+# The tiling grammar. NOT an opgen output: a rule's cost is the size of the code
+# it stamps, and that size does not exist until the stencils are compiled and
+# jitterator has measured them — downstream of opgen. Generating it from the
+# measurement is also what makes §2.5's omission rule automatic: a (signature,
+# state) pair the variant family does not provide simply has no rule.
+# TIER2_N is Ertl's cache size — ONE number for the whole tier: opgen emits the
+# variant family for it, and the grammar is generated against the table that
+# produces. They cannot differ, or the tiling picks a state whose stencil was
+# never generated.
+#
+# The default is the SHIPPING cache size, and the checked-in generated files are
+# its output — so a plain `make`/`make test` reproduces the tree it was built from
+# and gates the engine that ships. It defaulted to 0 (tier-1 only), which meant an
+# ordinary `make test` regenerated the whole variant family at 0, printed the same
+# "conformance [tier-2]: ... 0 mismatched" it prints at any n, and left the working
+# tree rewritten — a green measuring an engine nobody ships, for anyone who did not
+# know to pass the flag. Override it to sweep sizes (`make TIER2_N=3 test`); 0 is
+# tier-1 only.
+TIER2_N ?= 8
+
+# The JIT tiers the corpus runs on — EVERY one of them, beside the interpreter leg.
+# This named a single tier and was set to 2, which left tier-1 — the DEFAULT tier, the
+# one that ships — as the only engine the 60,113 execution assertions never executed.
+# G1's gate is tier-1 against tier-2, and neither is checked by not being run.
+#
+# Tier-2 runs at every cache size: the tree builds and the cover runs regardless of how
+# many registers there are, and at TIER2_N=0 the stitch meters report the zeroes rather
+# than the run reporting a tier it did not exercise.
+JIT_TIERS := 1 2
+
+# ...and it has to be a DEPENDENCY, not just a variable. `make TIER2_N=1` on a
+# tree built at 0 rebuilt nothing, so the tier appeared to pass the whole
+# conformance corpus while the artifacts under test were still tier-1's. A
+# generated file that does not depend on the number that generated it is a green
+# measuring the wrong build.
+# The phony driver is what makes this work: a stamp with no prerequisites is
+# "up to date" the moment it exists, so its recipe would run exactly once and
+# never notice the value changing again. This re-checks every run and rewrites
+# the file ONLY when the number differs, so the mtime moves when — and only
+# when — the generated outputs are genuinely stale.
+.PHONY: tier2-stamp
+tier2-stamp: | $(B)
+	@[ "$$(cat $(B)/tier2_n.stamp 2>/dev/null)" = "$(TIER2_N)" ] \
+	  || echo "$(TIER2_N)" > $(B)/tier2_n.stamp
+$(B)/tier2_n.stamp: tier2-stamp ;
+# jav_ttree.h is a real prerequisite, not an incidental include: it defines the
+# packing the ACTION writes and the stitcher reads. Leave it out and the two ends
+# disagree silently — the generator emits one width, the reader unpacks another,
+# and every slot decodes as some other class.
+$(B)/gen_tile_burg: tools/gen_tile_burg.c src/jav_ttree.h $(GEN)/jav_sigtab.h $(GEN)/jav_stencil_table.h | $(B)
+	$(CC) -O2 -std=c11 -Wall -Werror -Isrc -Isrc/gen -I$(RT) -I$(CRT) $< -o $@
+$(GEN)/jav_tile.burg: $(B)/gen_tile_burg $(B)/tier2_n.stamp
+	$(B)/gen_tile_burg -n $(TIER2_N) -o $@
+
+# The matcher itself: burgc's C backend over the grammar. Aho-Ganapathi-Tjiang
+# labelling picks the minimum-cost cover, and the costs are the measured stencil
+# sizes, so "cheapest cover" means "fewest bytes stamped".
+$(GEN)/jav_tile.c $(GEN)/jav_tile.h &: $(GEN)/jav_tile.burg $(BURGC)
+	$(BURGC) -i $(GEN)/jav_tile.burg -lang c -frames $(BBQ)/burgc/frames -o $(GEN)/jav_tile.h
+
+# The tier-2 tiling grammar's coverage claim. burgc's shape enumeration is only a
+# real claim when the IR schema is AST-shaped — each ASDL constructor's node
+# fields matching the burg pattern's children — otherwise burgc detects the arity
+# mismatch and falls back to a heuristic filter that checks nothing. Both come out
+# of the same opgen walk, which is what makes the match hold.
+$(GEN)/jav_ttree.json: $(GEN)/jav_ttree.asdl $(ASDL)
+	$(ASDL) -i $< --json $@
+.PHONY: tile-coverage
+# --asdl-strict because both files come out of ONE opgen walk: a terminal whose
+# constructor arity disagrees with its pattern is a generator bug, not a
+# slot-based IR, and without the flag burgc quietly demotes it to the heuristic
+# filter and passes.
+tile-coverage: $(GEN)/jav_tile.burg $(GEN)/jav_ttree.json $(BURGC)
+	$(BURGC) -i $(GEN)/jav_tile.burg -asdl $(GEN)/jav_ttree.json --coverage --strict --asdl-strict
 
 # Note: spec/instructions.toml (the §5.4 opcode table consumed by test_instr) is
 # a committed artifact, generated once from the spec reference decoder via the
@@ -128,14 +211,19 @@ $(B)/gen_trap_reasons: tools/gen_trap_reasons.c $(B)/toml_parser.o $(B)/toml_doc
 $(GEN)/jav_trap_reason.h: spec/instructions.toml spec/wasm.def $(B)/gen_trap_reasons
 	$(B)/gen_trap_reasons spec/instructions.toml spec/wasm.def $(GEN)/jav_trap_reason.h
 
+# The inja templates bbqc renders through are as much an input as the grammar and the
+# binary: editing one changes the emitted C. Listing them keeps a template edit from
+# leaving a stale reader in $(GEN) that builds and passes.
+BBQ_TEMPLATE_SRCS := $(wildcard $(BBQ_TEMPLATES)/*.inja)
+
 # bbqc: the module container grammar -> reader + writer + types (one source: wasm.bbq).
-$(GEN)/jav_reader.c $(GEN)/jav_reader.h $(GEN)/jav_writer.c $(GEN)/jav_writer.h $(GEN)/jav_types.h: spec/wasm.bbq $(BBQC)
+$(GEN)/jav_reader.c $(GEN)/jav_reader.h $(GEN)/jav_writer.c $(GEN)/jav_writer.h $(GEN)/jav_types.h: spec/wasm.bbq $(BBQC) $(BBQ_TEMPLATE_SRCS)
 	$(BBQC) spec/wasm.bbq -backend c -prefix jav -templates $(BBQ_TEMPLATES) -o $(GEN)/
 
 # bbqc c-lite: the zero-copy span-index reader — the VM's module-load read path
 # (mmap + decode-on-access, no owning tree). A distinct -prefix so it coexists
 # with the owning reader above; the runtime is $(RT)/bbq_lite.c.
-$(GEN)/jav_view_reader.c $(GEN)/jav_view_reader.h: spec/wasm.bbq $(BBQC)
+$(GEN)/jav_view_reader.c $(GEN)/jav_view_reader.h: spec/wasm.bbq $(BBQC) $(BBQ_TEMPLATE_SRCS)
 	$(BBQC) spec/wasm.bbq -backend c-lite -prefix jav_view -templates $(BBQ_TEMPLATES) -o $(GEN)/
 
 # The .wat reader's mnemonic table, generated from the SAME instructions.toml the
@@ -180,7 +268,9 @@ $(B)/toml_doc.o:     src/toml/toml_doc.c | $(B)
 	$(CC) -O2 -std=c11 -Wall -Werror -MMD -MP $(TOML_INC) -c $< -o $@
 $(B)/bbq_arena.o:    $(CRT)/bbq_arena.c | $(B)
 	$(CC) -O2 -std=c11 -Wall -Werror $(TOML_INC) -c $< -o $@
-$(B)/bbq_htree.o:    $(CRT)/bbq_htree.c | $(B)   # jit_driver's footer-pool dedup cache
+$(B)/bbq_hmap.o:     $(CRT)/bbq_hmap.c | $(B)   # jit_driver's footer-pool dedup map
+	$(CC) -O2 -std=c11 -Wall -Werror $(TOML_INC) -c $< -o $@
+$(B)/bbq_htree.o:    $(CRT)/bbq_htree.c | $(B)   # burgc's matcher state cache (jav_tile.c)
 	$(CC) -O2 -std=c11 -Wall -Werror $(TOML_INC) -c $< -o $@
 $(B)/jav_reader.o:  $(GEN)/jav_reader.c | $(B)
 	$(CC) $(CFLAGS) -c $< -o $@
@@ -190,6 +280,14 @@ $(B)/jav_utf8.o:    src/jav_utf8.c src/jav_utf8.h | $(B)   # §5.2.4 name valida
 	$(CC) $(CFLAGS) -c $< -o $@
 $(B)/jav_subtype.o: src/jav_subtype.c src/jav_subtype.h | $(B)
 	$(CC) $(CFLAGS) -c $< -o $@
+# The tier-2 tree builder. Its include set is the point: the generated tables and
+# the crt, and NOT validate.h — the two walks share a generator, not a header.
+$(B)/jav_ttree.o:   src/jav_ttree.c src/jav_ttree.h $(GEN)/jav_sigtab.h | $(B)
+	$(CC) $(CFLAGS) -c $< -o $@
+# burgc's generated matcher. -Wno-unused-function: the labeller emits a helper
+# per nonterminal and a grammar this wide does not reach all of them.
+$(B)/jav_tile.o:    $(GEN)/jav_tile.c $(GEN)/jav_tile.h src/jav_ttree.h | $(B)
+	$(CC) $(CFLAGS) -Wno-unused-function -c $< -o $@
 $(B)/jit_driver.o:   src/jit_driver.c $(GEN)/jav_stencil_table.h $(GEN)/gen_interp.c | $(B)
 	$(CC) $(CFLAGS) -c $< -o $@
 $(GC_OBJS): $(B)/%.o: src/immix/%.c | $(B)

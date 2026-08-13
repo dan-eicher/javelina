@@ -62,5 +62,38 @@ typedef struct wasm_config_t wasm_config_t;
 void     jav_config_set_jit(wasm_config_t* c, int jit);
 void     jav_config_set_verify_heap(wasm_config_t* c, int on);
 uint32_t jav_capi_jit_count(const wasm_store_t* s);
+// Functions the JIT DECLINED, which stayed on the interpreter. The complement of
+// jit_count and the more interesting half: falling back is correct, so it is
+// silent, and a tier that compiled nothing answers every question exactly like
+// one that worked. Read both to tell those apart.
+uint32_t jav_capi_jit_declined(const wasm_store_t* s);
+// How many operand-stack slots this build's JIT keeps in registers (Ertl's cache
+// size). Fixed when the stencil table was generated, so a binary has exactly ONE
+// of the two JIT tiers and cannot be asked for the other — which is why a test
+// that names a tier has to be able to check rather than assume.
+int      jav_jit_cache_slots(void);
+// What the tier-2 stitcher did while compiling. Every out-param is optional.
+//   cached_ops  instructions that ran with an operand in a register
+//   deep        how many of those used a slot above the first
+//   occupancy   each instruction's entry state, SUMMED — register-slots held per
+//               instruction, not slots read; a value idle in a register across
+//               five instructions adds five
+//   transitions spills and fills stamped between them, and their split
+//   mem_slots   operand-stack slots the compiled code still moves to or from
+//               memory — the quantity stack caching removes, and so the one to
+//               compare cache sizes on
+// The RATIO is the direct evidence for where Ertl's curve turns over (§2.6), and
+// it discriminates where a wall-clock benchmark cannot — so an embedder measuring
+// a cache size reads these rather than timing two builds and hoping nothing else
+// moved. mem_slots was absent here, which is how a caller came to derive an
+// accesses-avoided figure from occupancy instead of reporting a measured one.
+void     jav_jit_cache_stats(uint64_t* cached_ops, uint64_t* deep, uint64_t* occupancy,
+                             uint64_t* transitions, uint64_t* spills, uint64_t* fills,
+                             uint64_t* mem_slots);
+// Zero them. The counters are process-global and every module compiled adds to
+// them, so a runtime that loads a large shared runtime before the program under
+// measurement must reset between the two or the program's own figures are lost
+// in the runtime's — 24 functions against 1289 resolve to nothing.
+void     jav_jit_cache_stats_reset(void);
 
 #endif // JAV_EXTERN_H

@@ -1705,12 +1705,14 @@ static bool jav_view_val_type_v_k1(bbq_view_ctx_t* ctx) {
 }
 static bool jav_view_val_type_v_k0(bbq_view_ctx_t* ctx) {
     (void)ctx;
-    if (!((_Bool)((_Bool)((_Bool)((_Bool)((_Bool)(bbq_view_i64(ctx, "head") >= 123) && (_Bool)(bbq_view_i64(ctx, "head") <= 127)) || (_Bool)(bbq_view_i64(ctx, "head") == 99)) || (_Bool)(bbq_view_i64(ctx, "head") == 100)) || (_Bool)((_Bool)(bbq_view_i64(ctx, "head") >= 105) && (_Bool)(bbq_view_i64(ctx, "head") <= 116))))) return bbq_fail(&ctx->cur, "ValType.constraint failed");
+    const int64_t _fr_head = bbq_view_i64(ctx, "head");
+    if (!((_Bool)((_Bool)((_Bool)((_Bool)((_Bool)(_fr_head >= 123) && (_Bool)(_fr_head <= 127)) || (_Bool)(_fr_head == 99)) || (_Bool)(_fr_head == 100)) || (_Bool)((_Bool)(_fr_head >= 105) && (_Bool)(_fr_head <= 116))))) return bbq_fail(&ctx->cur, "ValType.constraint failed");
     BBQ_MUSTTAIL return jav_view_val_type_v_k3(ctx);
 }
 static bool jav_view_val_type_v_k3(bbq_view_ctx_t* ctx) {
     (void)ctx;
-    if ((_Bool)((_Bool)(bbq_view_i64(ctx, "head") == 99) || (_Bool)(bbq_view_i64(ctx, "head") == 100))) { BBQ_MUSTTAIL return jav_view_val_type_v_k5(ctx); }
+    const int64_t _fr_head = bbq_view_i64(ctx, "head");
+    if ((_Bool)((_Bool)(_fr_head == 99) || (_Bool)(_fr_head == 100))) { BBQ_MUSTTAIL return jav_view_val_type_v_k5(ctx); }
     BBQ_MUSTTAIL return jav_view_val_type_v_k6(ctx);
 }
 static bool jav_view_val_type_v_k5(bbq_view_ctx_t* ctx) {
@@ -1742,12 +1744,14 @@ static bool jav_view_storage_type_v_k1(bbq_view_ctx_t* ctx) {
 }
 static bool jav_view_storage_type_v_k0(bbq_view_ctx_t* ctx) {
     (void)ctx;
-    if (!((_Bool)((_Bool)((_Bool)((_Bool)((_Bool)((_Bool)((_Bool)(bbq_view_i64(ctx, "head") >= 123) && (_Bool)(bbq_view_i64(ctx, "head") <= 127)) || (_Bool)(bbq_view_i64(ctx, "head") == 99)) || (_Bool)(bbq_view_i64(ctx, "head") == 100)) || (_Bool)((_Bool)(bbq_view_i64(ctx, "head") >= 105) && (_Bool)(bbq_view_i64(ctx, "head") <= 116))) || (_Bool)(bbq_view_i64(ctx, "head") == 119)) || (_Bool)(bbq_view_i64(ctx, "head") == 120)))) return bbq_fail(&ctx->cur, "StorageType.constraint failed");
+    const int64_t _fr_head = bbq_view_i64(ctx, "head");
+    if (!((_Bool)((_Bool)((_Bool)((_Bool)((_Bool)((_Bool)((_Bool)(_fr_head >= 123) && (_Bool)(_fr_head <= 127)) || (_Bool)(_fr_head == 99)) || (_Bool)(_fr_head == 100)) || (_Bool)((_Bool)(_fr_head >= 105) && (_Bool)(_fr_head <= 116))) || (_Bool)(_fr_head == 119)) || (_Bool)(_fr_head == 120)))) return bbq_fail(&ctx->cur, "StorageType.constraint failed");
     BBQ_MUSTTAIL return jav_view_storage_type_v_k3(ctx);
 }
 static bool jav_view_storage_type_v_k3(bbq_view_ctx_t* ctx) {
     (void)ctx;
-    if ((_Bool)((_Bool)(bbq_view_i64(ctx, "head") == 99) || (_Bool)(bbq_view_i64(ctx, "head") == 100))) { BBQ_MUSTTAIL return jav_view_storage_type_v_k5(ctx); }
+    const int64_t _fr_head = bbq_view_i64(ctx, "head");
+    if ((_Bool)((_Bool)(_fr_head == 99) || (_Bool)(_fr_head == 100))) { BBQ_MUSTTAIL return jav_view_storage_type_v_k5(ctx); }
     BBQ_MUSTTAIL return jav_view_storage_type_v_k6(ctx);
 }
 static bool jav_view_storage_type_v_k5(bbq_view_ctx_t* ctx) {
@@ -2673,7 +2677,8 @@ static bool jav_view_block_type_v_k1(bbq_view_ctx_t* ctx) {
 }
 static bool jav_view_block_type_v_k0(bbq_view_ctx_t* ctx) {
     (void)ctx;
-    if ((_Bool)((_Bool)(bbq_view_i64(ctx, "bt") == (-29)) || (_Bool)(bbq_view_i64(ctx, "bt") == (-28)))) { BBQ_MUSTTAIL return jav_view_block_type_v_k3(ctx); }
+    const int64_t _fr_bt = bbq_view_i64(ctx, "bt");
+    if ((_Bool)((_Bool)(_fr_bt == (-29)) || (_Bool)(_fr_bt == (-28)))) { BBQ_MUSTTAIL return jav_view_block_type_v_k3(ctx); }
     BBQ_MUSTTAIL return jav_view_block_type_v_k4(ctx);
 }
 static bool jav_view_block_type_v_k3(bbq_view_ctx_t* ctx) {
@@ -2914,7 +2919,8 @@ static bool jav_view_catch_v_k1(bbq_view_ctx_t* ctx) {
 }
 static bool jav_view_catch_v_k0(bbq_view_ctx_t* ctx) {
     (void)ctx;
-    if ((_Bool)((_Bool)(bbq_view_i64(ctx, "kind") == 0) || (_Bool)(bbq_view_i64(ctx, "kind") == 1))) {
+    const int64_t _fr_kind = bbq_view_i64(ctx, "kind");
+    if ((_Bool)((_Bool)(_fr_kind == 0) || (_Bool)(_fr_kind == 1))) {
         if (!bbq_view_uleb_capture(ctx, "tag", 32)) return false;
     }
     BBQ_MUSTTAIL return jav_view_catch_v_k3(ctx);
@@ -5156,12 +5162,14 @@ static bool jav_view_ref_type_v_k1(bbq_view_ctx_t* ctx) {
 }
 static bool jav_view_ref_type_v_k0(bbq_view_ctx_t* ctx) {
     (void)ctx;
-    if (!((_Bool)((_Bool)((_Bool)(bbq_view_i64(ctx, "head") == 99) || (_Bool)(bbq_view_i64(ctx, "head") == 100)) || (_Bool)((_Bool)(bbq_view_i64(ctx, "head") >= 105) && (_Bool)(bbq_view_i64(ctx, "head") <= 116))))) return bbq_fail(&ctx->cur, "RefType.constraint failed");
+    const int64_t _fr_head = bbq_view_i64(ctx, "head");
+    if (!((_Bool)((_Bool)((_Bool)(_fr_head == 99) || (_Bool)(_fr_head == 100)) || (_Bool)((_Bool)(_fr_head >= 105) && (_Bool)(_fr_head <= 116))))) return bbq_fail(&ctx->cur, "RefType.constraint failed");
     BBQ_MUSTTAIL return jav_view_ref_type_v_k3(ctx);
 }
 static bool jav_view_ref_type_v_k3(bbq_view_ctx_t* ctx) {
     (void)ctx;
-    if ((_Bool)((_Bool)(bbq_view_i64(ctx, "head") == 99) || (_Bool)(bbq_view_i64(ctx, "head") == 100))) { BBQ_MUSTTAIL return jav_view_ref_type_v_k5(ctx); }
+    const int64_t _fr_head = bbq_view_i64(ctx, "head");
+    if ((_Bool)((_Bool)(_fr_head == 99) || (_Bool)(_fr_head == 100))) { BBQ_MUSTTAIL return jav_view_ref_type_v_k5(ctx); }
     BBQ_MUSTTAIL return jav_view_ref_type_v_k6(ctx);
 }
 static bool jav_view_ref_type_v_k5(bbq_view_ctx_t* ctx) {

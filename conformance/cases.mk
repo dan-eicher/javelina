@@ -29,9 +29,12 @@ JRE       ?= $(B)/conf-jre-O0.wasm
 
 CASES := $(wildcard $(OUT)/Case*.java)
 WASMS := $(CASES:.java=.wasm)
-# Both tiers: a case that agrees with its expectation under the interpreter and not under the
-# JIT names a config that is WRONG, which is why gc-torture runs four ways too.
-OUTS  := $(CASES:.java=.nojit.out) $(CASES:.java=.jit.out)
+# Every tier: a case that agrees with its expectation under the interpreter and not under a
+# JIT names a config that is WRONG, which is why gc-torture runs six ways too. t2 is here for
+# the same reason t1 is — a tier that runs only where the .wast corpus looks is a tier that
+# drifts, and this corpus reaches Java allocation, class layout and collection, which that
+# corpus does not.
+OUTS  := $(CASES:.java=.t0.out) $(CASES:.java=.t1.out) $(CASES:.java=.t2.out)
 
 .PHONY: all
 all: $(OUTS)
@@ -61,10 +64,14 @@ $(OUT)/%.wasm: $(OUT)/%.java $(JAVELINAC)
 
 # javelina exits nonzero on a trap, so a case that dies at run time fails its own rule and
 # make reports THAT case — rather than a flag checked after every other case has run.
-$(OUT)/%.nojit.out: $(OUT)/%.wasm $(JAVELINA) $(JRE)
-	@$(JAVELINA) --jre $(JRE) -nojit $< > $@ 2>&1 \
-	  || { echo "  FAIL  $* died at run time (-nojit)"; sed 's/^/        | /' $@; exit 1; }
+$(OUT)/%.t0.out: $(OUT)/%.wasm $(JAVELINA) $(JRE)
+	@$(JAVELINA) --jre $(JRE) --tier 0 $< > $@ 2>&1 \
+	  || { echo "  FAIL  $* died at run time (--tier 0)"; sed 's/^/        | /' $@; exit 1; }
 
-$(OUT)/%.jit.out: $(OUT)/%.wasm $(JAVELINA) $(JRE)
-	@$(JAVELINA) --jre $(JRE) -jit $< > $@ 2>&1 \
-	  || { echo "  FAIL  $* died at run time (-jit)"; sed 's/^/        | /' $@; exit 1; }
+$(OUT)/%.t1.out: $(OUT)/%.wasm $(JAVELINA) $(JRE)
+	@$(JAVELINA) --jre $(JRE) --tier 1 $< > $@ 2>&1 \
+	  || { echo "  FAIL  $* died at run time (--tier 1)"; sed 's/^/        | /' $@; exit 1; }
+
+$(OUT)/%.t2.out: $(OUT)/%.wasm $(JAVELINA) $(JRE)
+	@$(JAVELINA) --jre $(JRE) --tier 2 $< > $@ 2>&1 \
+	  || { echo "  FAIL  $* died at run time (--tier 2)"; sed 's/^/        | /' $@; exit 1; }

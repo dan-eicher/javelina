@@ -37,6 +37,16 @@ static jav_err_t limits_err(const jav_modidx_t* mod) {
     return JAV_E_NONE;
 }
 
+// A §5.5.5 name is a byte SPAN, not a C string — it may contain a NUL and is never
+// terminated by one, so the length is part of the key. djb2, as the compiler's symbol
+// tables use; the hash only chooses a bucket, so its quality costs comparisons and never
+// correctness. bbq_htree reserves key 0.
+static uint32_t name_key(const uint8_t* p, size_t len) {
+    uint32_t h = 5381;
+    for (size_t i = 0; i < len; i++) h = h * 33 + p[i];
+    return h ? h : 1;
+}
+
 // ── §3.5.10 exports: names distinct, indices in range for the kind ──
 static jav_err_t exports_err(const bbq_field_capture* root, const uint8_t* base, const jav_modidx_t* mod) {
     const bbq_field_capture* ex = jav_view_section_array(root, 7, "exports", base);
@@ -44,21 +54,40 @@ static jav_err_t exports_err(const bbq_field_capture* root, const uint8_t* base,
     uint32_t bound[5] = { mod->nfuncs, mod->ntables, mod->nmems, mod->nglobals, mod->ntags };
     jav_err_t unk[5] = { JAV_E_UNKNOWN_FUNCTION, JAV_E_UNKNOWN_TABLE, JAV_E_UNKNOWN_MEMORY,
                          JAV_E_UNKNOWN_GLOBAL, JAV_E_UNKNOWN_TAG };
-    for (uint32_t i = 0; i < n; i++) {
+    // "Names are distinct" is a set-membership question, asked n times. Comparing each export
+    // against every earlier one answers it by pairing instead, which is n(n−1)/2 comparisons —
+    // 2,120,770 of them for a 2060-export module — and resolved the earlier name's span out of
+    // the capture tree inside that loop, so the by-name search ran once per PAIR.
+    //
+    // Each name is hashed into a bucket once. A bucket hit is only a CANDIDATE: the bytes
+    // decide, and every export that hashed to a bucket stays reachable through `prev`, so a
+    // hash collision between two distinct names costs one memcmp and can never hide a later
+    // duplicate of either. Worst case (every name colliding) is the pairing we started with;
+    // expected case is one memcmp per export.
+    struct name_span { size_t off, len; }* name = NULL;   // name[i] — resolved once, per export
+    int32_t* prev = NULL;              // prev[i] — the previous export in i's bucket, or −1
+    bbq_htree* seen = bbq_htree_create();                 // name hash → 1 + newest index
+    bbq_vec_reserve(name, n); bbq_vec_reserve(prev, n);
+    jav_err_t err = JAV_E_NONE;
+    for (uint32_t i = 0; i < n && err == JAV_E_NONE; i++) {
         const bbq_field_capture* e = &ex->children[i];
         uint8_t k = (uint8_t)bbq_node_int(jav_view_field(e, "kind"), base);
-        if (k > 4) return JAV_E_UNKNOWN_FUNCTION;
-        if ((uint32_t)bbq_node_int(jav_view_field(e, "idx"), base) >= bound[k]) return unk[k];
+        if (k > 4) { err = JAV_E_UNKNOWN_FUNCTION; break; }
+        if ((uint32_t)bbq_node_int(jav_view_field(e, "idx"), base) >= bound[k]) { err = unk[k]; break; }
         const bbq_field_capture* bi = jav_view_field(jav_view_field(e, "name"), "bytes");
-        size_t a0 = bi->start_offset, alen = bi->end_offset - bi->start_offset;
-        for (uint32_t j = 0; j < i; j++) {
-            const bbq_field_capture* bj = jav_view_field(jav_view_field(&ex->children[j], "name"), "bytes");
-            size_t blen = bj->end_offset - bj->start_offset;
-            if (alen == blen && memcmp(base + a0, base + bj->start_offset, alen) == 0)
-                return JAV_E_DUPLICATE_EXPORT_NAME;
-        }
+        struct name_span s = { bi->start_offset, bi->end_offset - bi->start_offset };
+        uint32_t key = name_key(base + s.off, s.len);
+        int32_t head = (int32_t)(intptr_t)bbq_htree_search(seen, key) - 1;   // absent → NULL → −1
+        for (int32_t j = head; j >= 0; j = prev[j])
+            if (name[j].len == s.len && memcmp(base + s.off, base + name[j].off, s.len) == 0) {
+                err = JAV_E_DUPLICATE_EXPORT_NAME; break;
+            }
+        bbq_vec_push(name, s); bbq_vec_push(prev, head);
+        bbq_htree_insert(seen, key, (void*)(uintptr_t)(i + 1));
     }
-    return JAV_E_NONE;
+    bbq_htree_destroy(seen);
+    bbq_vec_free(prev); bbq_vec_free(name);
+    return err;
 }
 
 // ── §3.5.12 start: funcidx exists and its type is [] -> [] ──
@@ -76,7 +105,8 @@ int jav_body_typecheck(const jav_modidx_t* mod, const uint8_t* base,
                        const bbq_field_capture* entry, const jav_functype_t* sig,
                        const uint8_t* func_ref_declared,
                        uint32_t* out_ndecl, jav_st_entry_t** st, unsigned* nst,
-                       jav_try_t** tr, unsigned* ntr, jav_err_t* out_err) {
+                       jav_try_t** tr, unsigned* ntr, jav_err_t* out_err,
+                       jav_valtype_t** out_locals) {
     if (out_err) *out_err = JAV_E_NONE;
     const bbq_field_capture* fb = jav_view_field(entry, "body");
     const bbq_field_capture* groups = jav_view_field(fb, "locals");
@@ -111,21 +141,30 @@ int jav_body_typecheck(const jav_modidx_t* mod, const uint8_t* base,
         ok = jav_typecheck_ex(base + expr->start_offset, expr->end_offset - expr->start_offset,
                               &cx, st, nst, tr, ntr, out_err);
     }
-    bbq_vec_free(loc); bbq_vec_free(lox);
+    if (out_locals) *out_locals = loc; else bbq_vec_free(loc);
+    bbq_vec_free(lox);
     return ok;
 }
 
-// ── §7.6 every defined function body type-checks (the gate frees the side-table) ──
-static jav_err_t bodies_err(const bbq_field_capture* root, const uint8_t* base, const jav_modidx_t* mod,
+// ── §7.6 every defined function body type-checks, and its tables go to the module ──
+// The side-table, try-table and flat locals a body's check produces are what running
+// it needs, and they depend only on the bytes — so the module holds them and every
+// instance reads the same ones.
+static jav_err_t bodies_err(const bbq_field_capture* root, const uint8_t* base, jav_modidx_t* mod,
                             const uint8_t* declared) {
     uint32_t ndef = mod->nfuncs - mod->nimport_funcs;
     const bbq_field_capture* entries = jav_view_section_array(root, 10, "entries", base);
     if (jav_view_nchild(entries) != ndef) return JAV_E_TYPE_MISMATCH;        // count disagreement
     for (uint32_t d = 0; d < ndef; d++) {
         jav_st_entry_t* st; unsigned nst; jav_try_t* tr; unsigned ntr; jav_err_t err = JAV_E_TYPE_MISMATCH;
+        uint32_t ndecl = 0; jav_valtype_t* loc = NULL;
         int ok = jav_body_typecheck(mod, base, &entries->children[d],
-                                    &mod->func_sigs[mod->nimport_funcs + d], declared, NULL, &st, &nst, &tr, &ntr, &err);
-        bbq_vec_free(st); bbq_vec_free(tr);
+                                    &mod->func_sigs[mod->nimport_funcs + d], declared, &ndecl,
+                                    &st, &nst, &tr, &ntr, &err, &loc);
+        if (mod->nbodies) {
+            mod->body_st[d] = st; mod->body_tr[d] = tr;
+            mod->body_locals[d] = loc; mod->body_ndecl[d] = ndecl;
+        } else { bbq_vec_free(st); bbq_vec_free(tr); bbq_vec_free(loc); }
         if (!ok) return err;                                       // the specific §7.6 reject reason
     }
     return JAV_E_NONE;
@@ -475,7 +514,7 @@ static jav_err_t tags_err(const jav_modidx_t* mod) {
 }
 
 jav_status_t jav_module_validate(const bbq_field_capture* root, const uint8_t* base,
-                                 const jav_modidx_t* mod, jav_err_t* err) {
+                                 jav_modidx_t* mod, jav_err_t* err) {
     jav_err_t e = types_err(mod);                        // §3.2.11 sub types valid before anything uses them
     if (!e) e = tags_err(mod);                           // §3.2.13 tag types: empty result
     if (!e) e = limits_err(mod);

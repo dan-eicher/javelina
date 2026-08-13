@@ -333,9 +333,17 @@ struct vm_s {
      * tier — jit_compile once at allocation, `invoke` swapped to jit_invoke. Callers stay oblivious
      * (the ONE invoke seam). A function whose body the JIT declines (a `flag:no_jit` opcode) keeps
      * its NULL invoke and runs interpreted, so a mixed module still runs. `jit_compiled` counts the
-     * funcinsts actually placed on the tier — the embedder's readout that the choice took effect. */
+     * funcinsts actually placed on the tier — the embedder's readout that the choice took effect.
+     *
+     * `jit_declined` is its complement, and it exists because falling back is CORRECT and therefore
+     * silent: the module runs, every answer agrees, and a tier that quietly compiled nothing is
+     * indistinguishable from one that worked. Counting it is how an embedder — or a suite — can tell
+     * "the JIT is on" from "the JIT is on and did something". It is a COUNTER, not a diagnostic: a
+     * library that writes to stderr has decided the host's logging policy for it, the same way one
+     * that aborts has decided its error policy (§1.1.3 places both with the embedder). */
     u1      jit_enabled;
     u4      jit_compiled;
+    u4      jit_declined;
 };
 _Static_assert(offsetof(vm_t, frame) == 0, "frame must be at offset 0 (copy-and-patch JIT ABI)");
 

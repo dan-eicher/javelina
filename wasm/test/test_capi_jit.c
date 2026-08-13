@@ -37,13 +37,35 @@ static void assemble(const char* wat, wasm_byte_vec_t* out) {
     bbq_write_ctx_free(&w); jav_module_free(mod); free(mod);
 }
 
-// A run of one exported (i32)->(i32) function on a fresh engine/store at the requested tier.
-typedef struct { int32_t result; int trapped; uint32_t jit_count; unsigned probe_ops; } run_t;
+// A run of one exported function on a fresh engine/store at the requested tier.
+// The argument and result are wasm_val_t rather than int32_t: every case here
+// used to be (i32)->(i32), which meant no i64/f32/f64 shape could be expressed
+// at all — and an operand whose class differs from its neighbour's is exactly
+// where the tier-2 cache and the instruction part company.
+typedef struct { wasm_val_t result; int trapped; uint32_t jit_count; unsigned probe_ops; } run_t;
+
+// WASM_*_VAL are brace initializers, not expressions, so they cannot be passed
+// as an argument directly. These are the expression forms.
+static wasm_val_t i32v(int32_t x) { wasm_val_t v = WASM_I32_VAL(x); return v; }
+static wasm_val_t i64v(int64_t x) { wasm_val_t v = WASM_I64_VAL(x); return v; }
+static wasm_val_t f32v(float x)   { wasm_val_t v = WASM_F32_VAL(x); return v; }
+static wasm_val_t f64v(double x)  { wasm_val_t v = WASM_F64_VAL(x); return v; }
+
+// The scalar behind whichever kind came back, so a case can compare one number.
+static int64_t rnum(const run_t* r) {
+    switch (r->result.kind) {
+    case WASM_I32: return r->result.of.i32;
+    case WASM_I64: return r->result.of.i64;
+    case WASM_F32: return (int64_t)r->result.of.f32;
+    case WASM_F64: return (int64_t)r->result.of.f64;
+    default:       return 0;
+    }
+}
 
 static unsigned g_probe_ops;
 static void probe_cb(void* ctx, uint8_t op) { (void)ctx; (void)op; g_probe_ops++; }
 
-static run_t run_at_tier(const wasm_byte_vec_t* bin, int jit, const char* export_name, int32_t arg) {
+static run_t run_at_tier(const wasm_byte_vec_t* bin, int jit, const char* export_name, wasm_val_t arg) {
     run_t r; memset(&r, 0, sizeof r);
 
     wasm_engine_t* engine;
@@ -82,11 +104,15 @@ static run_t run_at_tier(const wasm_byte_vec_t* bin, int jit, const char* export
     }
     CK(fn != NULL);
     if (fn) {
-        wasm_val_t args[1] = { WASM_I32_VAL(arg) };
+        /* The function's OWN arity, not a fixed one. Every case here used to take
+         * exactly one i32, so a zero-parameter export could not be called at all
+         * — it came back as an arity trap that reads like an engine defect. */
+        wasm_val_t args[1] = { arg };
         wasm_val_t res[1]  = { WASM_INIT_VAL };
-        wasm_val_vec_t av = { 1, args }, rv = { 1, res };
+        size_t np = wasm_func_param_arity(fn), nr = wasm_func_result_arity(fn);
+        wasm_val_vec_t av = { np, np ? args : NULL }, rv = { nr, nr ? res : NULL };
         wasm_trap_t* t = wasm_func_call(fn, &av, &rv);
-        if (t) { r.trapped = 1; wasm_trap_delete(t); } else r.result = res[0].of.i32;
+        if (t) { r.trapped = 1; wasm_trap_delete(t); } else if (nr) r.result = res[0];
     }
     r.probe_ops = g_probe_ops;
 
@@ -114,6 +140,69 @@ static const char* WAT_LOOP =
     "        local.get $i i32.const 1 i32.add local.set $i"
     "        br $lp))"
     "    local.get $acc))";
+
+// A branch that CARRIES A VALUE out of a block — br_table.wast's `as-block-value`.
+// This lives here rather than beside the stitcher's own fixtures because those
+// hand-build a jav_tctx_t and enter the compiled handle directly, while this goes
+// through the instantiate seam: jav_module_tctx, the per-function class arrays,
+// the function table, and the call. A body the stitcher gets right in isolation
+// and wrong here isolates the defect BETWEEN those two, which is the level that
+// was missing — the corpus was doing this job and could only say "something".
+static const char* WAT_BR_VALUE =
+    "(module"
+    "  (func $dummy)"
+    "  (func (export \"as-block-value\") (result i32)"
+    "    (block (result i32)"
+    "      (nop) (call $dummy) (br_table 0 0 0 (i32.const 2) (i32.const 0)))))";
+
+// Stores whose two operands are DIFFERENT storage classes. `i32.store` takes
+// (i32 addr, i32 value) — one class — and passes on both tiers; every store that
+// mismatches under tier-2 takes (i32 addr, T value) for some T that is not i32.
+// In state k the top k operands are cached, so a mixed pair is precisely where
+// the slot's class and the instruction's class part company, and no fixture had
+// one. `i32_store` is here as the CONTROL: if it ever fails alongside the
+// others, the discriminator is not the class pair after all.
+static const char* WAT_STORE_MIX =
+    "(module (memory 1)"
+    "  (func (export \"i32_store\") (param i32) (result i32)"
+    "    (i32.store (i32.const 0) (local.get 0)) (i32.load (i32.const 0)))"
+    "  (func (export \"i64_store\") (param i64) (result i64)"
+    "    (i64.store (i32.const 0) (local.get 0)) (i64.load (i32.const 0)))"
+    "  (func (export \"i64_store16\") (param i64) (result i64)"
+    "    (i64.store16 (i32.const 0) (local.get 0)) (i64.load16_u (i32.const 0)))"
+    "  (func (export \"i64_store32\") (param i64) (result i64)"
+    "    (i64.store32 (i32.const 0) (local.get 0)) (i64.load32_u (i32.const 0)))"
+    "  (func (export \"f32_store\") (param f32) (result f32)"
+    "    (f32.store (i32.const 0) (local.get 0)) (f32.load (i32.const 0)))"
+    "  (func (export \"f64_store\") (param f64) (result f64)"
+    "    (f64.store (i32.const 0) (local.get 0)) (f64.load (i32.const 0))))";
+
+// A value arriving from a CALL, per result class. Grouping the conformance
+// residue by what actually differs points here and not at the stores it was
+// hiding behind: `i32_store` returns `(call $i32_load_little …)` and passes,
+// while `i64_store` returns `(call $i64_load_little …)` and fails — same shape,
+// different result class. The conversion cases (`f32.reinterpret_i32 (call …)`,
+// `i64.extend_i32_s (call_indirect …)`) are the same thing with the class change
+// spelled out. `call_i32` is the CONTROL: it must keep passing, or the
+// discriminator is the call rather than the class.
+static const char* WAT_CALL_CLASS =
+    "(module"
+    "  (type $ri32 (func (result i32)))"
+    "  (func $ret_i32 (result i32) (i32.const 42))"
+    "  (func $ret_i64 (result i64) (i64.const 42))"
+    "  (func $ret_f32 (result f32) (f32.const 42))"
+    "  (func $ret_f64 (result f64) (f64.const 42))"
+    "  (table 1 1 funcref) (elem (i32.const 0) $ret_i32)"
+    "  (func (export \"call_i32\") (result i32) (call $ret_i32))"
+    "  (func (export \"call_i64\") (result i64) (call $ret_i64))"
+    "  (func (export \"call_f32\") (result f32) (call $ret_f32))"
+    "  (func (export \"call_f64\") (result f64) (call $ret_f64))"
+    "  (func (export \"extend_call\") (result i64)"
+    "    (i64.extend_i32_u (call $ret_i32)))"
+    "  (func (export \"reinterpret_call\") (result f32)"
+    "    (f32.reinterpret_i32 (call $ret_i32)))"
+    "  (func (export \"extend_call_indirect\") (result i64)"
+    "    (i64.extend_i32_u (call_indirect (type $ri32) (i32.const 0)))))";
 
 // A guaranteed trap (i32.div_s by zero) — the tiers must agree that it traps.
 static const char* WAT_TRAP =
@@ -144,26 +233,82 @@ int main(void) {
     // 1. loop + call: results agree, and the JIT tier actually compiled BOTH defined funcs.
     {
         wasm_byte_vec_t bin; assemble(WAT_LOOP, &bin);
-        run_t i = run_at_tier(&bin, 0, "sum", 10);
-        run_t j = run_at_tier(&bin, 1, "sum", 10);
+        run_t i = run_at_tier(&bin, 0, "sum", i32v(10));
+        run_t j = run_at_tier(&bin, 1, "sum", i32v(10));
         CK(!i.trapped && !j.trapped);
-        CK(i.result == 90);              // 10*9
-        CK(j.result == i.result);        // tier choice is semantics-free
+        CK(rnum(&i) == 90);              // 10*9
+        CK(rnum(&j) == rnum(&i));        // tier choice is semantics-free
         CK(i.jit_count == 0);            // default engine: pure interp
         CK(j.jit_count == 2);            // $dbl + $sum both on the JIT tier
         CK(i.probe_ops > 0);             // the interp fired the debug probe …
         CK(j.probe_ops == 0);            // … and a JIT'd function does not
-        printf("  loop+call         interp=%d jit=%d  jit_count=%u  probe interp=%u jit=%u [%s]\n",
-               i.result, j.result, j.jit_count, i.probe_ops, j.probe_ops,
-               (i.result == j.result && j.jit_count == 2 && j.probe_ops == 0) ? "PASS" : "FAIL");
+        printf("  loop+call         interp=%lld jit=%lld  jit_count=%u  probe interp=%u jit=%u [%s]\n",
+               (long long)rnum(&i), (long long)rnum(&j), j.jit_count, i.probe_ops, j.probe_ops,
+               (rnum(&i) == rnum(&j) && j.jit_count == 2 && j.probe_ops == 0) ? "PASS" : "FAIL");
+        wasm_byte_vec_delete(&bin);
+    }
+
+    // 1b. a value carried out of a block by a branch — the tiers must agree.
+    {
+        wasm_byte_vec_t bin; assemble(WAT_BR_VALUE, &bin);
+        run_t i = run_at_tier(&bin, 0, "as-block-value", i32v(0));
+        run_t j = run_at_tier(&bin, 1, "as-block-value", i32v(0));
+        CK(!i.trapped && !j.trapped);
+        CK(rnum(&i) == 2);
+        CK(rnum(&j) == rnum(&i));
+        printf("  br carries value  interp=%lld jit=%lld [%s]\n",
+               (long long)rnum(&i), (long long)rnum(&j),
+               (rnum(&i) == rnum(&j) && rnum(&i) == 2) ? "PASS" : "FAIL");
+        wasm_byte_vec_delete(&bin);
+    }
+
+    // 1c. stores with a mixed operand-class pair — round-trip through memory.
+    {
+        wasm_byte_vec_t bin; assemble(WAT_STORE_MIX, &bin);
+        struct { const char* ex; wasm_val_t arg; int64_t want; } cases[] = {
+            { "i32_store",   WASM_I32_VAL(0x0DEDCAFE),        0x0DEDCAFE },
+            { "i64_store",   WASM_I64_VAL(0x0123456789ABCDLL), 0x0123456789ABCDLL },
+            { "i64_store16", WASM_I64_VAL(0xCAFE),            0xCAFE },
+            { "i64_store32", WASM_I64_VAL(0x0DEDCAFE),        0x0DEDCAFE },
+            { "f32_store",   WASM_F32_VAL(42.0f),             42 },
+            { "f64_store",   WASM_F64_VAL(42.0),              42 },
+        };
+        for (size_t k = 0; k < sizeof cases / sizeof cases[0]; k++) {
+            run_t i = run_at_tier(&bin, 0, cases[k].ex, cases[k].arg);
+            run_t j = run_at_tier(&bin, 1, cases[k].ex, cases[k].arg);
+            int ok = !i.trapped && !j.trapped
+                  && rnum(&i) == cases[k].want && rnum(&j) == rnum(&i);
+            CK(ok);
+            printf("  %-12s      interp=%lld jit=%lld [%s]\n", cases[k].ex,
+                   (long long)rnum(&i), (long long)rnum(&j), ok ? "PASS" : "FAIL");
+        }
+        wasm_byte_vec_delete(&bin);
+    }
+
+    // 1d. a value arriving from a call, per result class.
+    {
+        wasm_byte_vec_t bin; assemble(WAT_CALL_CLASS, &bin);
+        static const char* ex[] = { "call_i32", "call_i64", "call_f32", "call_f64",
+                                    "extend_call", "reinterpret_call",
+                                    "extend_call_indirect" };
+        for (size_t k = 0; k < sizeof ex / sizeof ex[0]; k++) {
+            run_t i = run_at_tier(&bin, 0, ex[k], i32v(0));
+            run_t j = run_at_tier(&bin, 1, ex[k], i32v(0));
+            /* reinterpret_call's bits are not 42 as a float — the interpreter is
+             * the oracle, so only AGREEMENT is asserted, not a literal. */
+            int ok = !i.trapped && !j.trapped && rnum(&j) == rnum(&i);
+            CK(ok);
+            printf("  %-20s interp=%lld jit=%lld [%s]\n", ex[k],
+                   (long long)rnum(&i), (long long)rnum(&j), ok ? "PASS" : "FAIL");
+        }
         wasm_byte_vec_delete(&bin);
     }
 
     // 2. traps agree across tiers.
     {
         wasm_byte_vec_t bin; assemble(WAT_TRAP, &bin);
-        run_t i = run_at_tier(&bin, 0, "boom", 7);
-        run_t j = run_at_tier(&bin, 1, "boom", 7);
+        run_t i = run_at_tier(&bin, 0, "boom", i32v(7));
+        run_t j = run_at_tier(&bin, 1, "boom", i32v(7));
         CK(i.trapped && j.trapped);
         CK(j.jit_count == 1);
         printf("  div_s/0 trap      interp=%s jit=%s [%s]\n",
@@ -175,14 +320,15 @@ int main(void) {
     // 3. GC allocation + exception throw/catch on the JIT tier.
     {
         wasm_byte_vec_t bin; assemble(WAT_GC_EH, &bin);
-        run_t i = run_at_tier(&bin, 0, "go", 21);
-        run_t j = run_at_tier(&bin, 1, "go", 21);
+        run_t i = run_at_tier(&bin, 0, "go", i32v(21));
+        run_t j = run_at_tier(&bin, 1, "go", i32v(21));
         CK(!i.trapped && !j.trapped);
-        CK(i.result == 42);              // caught payload 21 + field 21
-        CK(j.result == i.result);
+        CK(rnum(&i) == 42);              // caught payload 21 + field 21
+        CK(rnum(&j) == rnum(&i));
         CK(j.jit_count == 2);
-        printf("  gc + try/throw    interp=%d jit=%d [%s]\n", i.result, j.result,
-               (!i.trapped && !j.trapped && i.result == 42 && j.result == 42) ? "PASS" : "FAIL");
+        printf("  gc + try/throw    interp=%lld jit=%lld [%s]\n",
+               (long long)rnum(&i), (long long)rnum(&j),
+               (!i.trapped && !j.trapped && rnum(&i) == 42 && rnum(&j) == 42) ? "PASS" : "FAIL");
         wasm_byte_vec_delete(&bin);
     }
 

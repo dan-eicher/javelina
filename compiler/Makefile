@@ -74,6 +74,7 @@ JITRT          := $(BBQ)/jitterator/runtime
 VM_INCLUDES    := -I$(VM)/include -I$(VM)/src -I$(VM)/src/gen -I$(VM)/src/immix -I$(JITRT)
 VM_ENGINE_OBJS := $(VM)/build/interp.o $(VM)/build/jav_runtime.o $(VM)/build/gen_interp.o \
                   $(VM)/build/validate.o $(VM)/build/jav_subtype.o $(VM)/build/jit_driver.o \
+                  $(VM)/build/jav_ttree.o $(VM)/build/jav_tile.o \
                   $(VM)/build/bbq_arena.o $(VM)/build/immix_line_map.o $(VM)/build/immix_block.o \
                   $(VM)/build/immix_block_allocator.o $(VM)/build/immix_space.o $(VM)/build/jav_gc.o
 # The shared owning reader+writer (what `water` uses): the compiler assembles a
@@ -84,6 +85,7 @@ VM_RW_SRCS     := $(VM)/src/gen/jav_reader.c $(VM)/src/gen/jav_writer.c \
 # c-api sources (compiled here) = wasm_capi + the c-lite load path (mirrors CLITE_SRCS).
 VM_CAPI_SRCS   := $(VM)/src/wasm_capi.c $(VM)/src/jav_load.c \
                   $(VM)/src/jav_view_nav.c $(VM)/src/jav_module_index.c \
+                  $(VM)/src/jav_module_struct.c \
                   $(VM)/src/jav_module_validate.c $(VM)/src/jav_instance.c \
                   $(VM)/src/jav_extern.c $(VM)/src/jav_error.c $(VM)/src/jav_utf8.c \
                   $(VM)/src/gen/jav_view_reader.c $(RT)/bbq_lite.c
@@ -245,6 +247,7 @@ javelinac: generate-parser generate-ddcg generate-codegen | $(B)
 	$(CC) $(CFLAGS) -Wno-parentheses-equality -Iinclude $(INCLUDES) $(VM_INCLUDES) \
 	    driver/javelinac.c $(EXEC_SRCS) $(VM_RW_SRCS) $(VM)/src/jav_utf8.c \
 	    $(VM)/src/jav_load.c $(VM)/src/jav_view_nav.c $(VM)/src/jav_module_index.c \
+	    $(VM)/src/jav_module_struct.c \
 	    $(VM)/src/jav_module_validate.c $(VM)/src/jav_subtype.c $(VM)/src/validate.c \
 	    $(VM)/src/jav_error.c $(VM)/src/gen/jav_view_reader.c $(RT)/bbq_lite.c \
 	    $(CRT)/bbq_arena.c -lm -o $(B)/javelinac
@@ -264,6 +267,7 @@ javelinac-asan: generate-parser generate-ddcg generate-codegen | $(B)
 	    -Wno-parentheses-equality -Iinclude $(INCLUDES) $(VM_INCLUDES) \
 	    driver/javelinac.c $(EXEC_SRCS) $(VM_RW_SRCS) $(VM)/src/jav_utf8.c \
 	    $(VM)/src/jav_load.c $(VM)/src/jav_view_nav.c $(VM)/src/jav_module_index.c \
+	    $(VM)/src/jav_module_struct.c \
 	    $(VM)/src/jav_module_validate.c $(VM)/src/jav_subtype.c $(VM)/src/validate.c \
 	    $(VM)/src/jav_error.c $(VM)/src/gen/jav_view_reader.c $(RT)/bbq_lite.c \
 	    $(CRT)/bbq_arena.c -lm -o $(B)/javelinac.asan

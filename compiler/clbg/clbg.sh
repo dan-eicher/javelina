@@ -3,9 +3,12 @@
 #
 #   sh clbg/clbg.sh            verify: every program at its VERIFICATION N,
 #                              output diffed against the published reference
-#                              file, in all four compiler/engine configs
+#                              file, in both engine configs
 #   sh clbg/clbg.sh --time     measure: every program at the game's own N,
 #                              min of 3, printed beside the published columns
+#   sh clbg/clbg.sh --time jit
+#                              measure only the named configs (space- or
+#                              comma-separated); the default is both
 #
 # WHY BOTH. The verify pass is the correctness gate and is cheap; it is what
 # says our port computes the task. The time pass is minutes-to-hours per
@@ -37,7 +40,44 @@ mkdir -p $OUT
 MODE=verify
 [ "$1" = "--time" ] && MODE=time
 
+# WHICH CONFIGS RUN. The execution TIER: t0 interprets, t1 is the copy-and-patch
+# JIT, t2 adds Ertl's stack cache on top of it. That axis is the engine, which is
+# what this yardstick is for. It is `javelina --tier N`, not `-O` — the optimizer
+# is javelinac's and changes what code exists; a tier only changes how the same
+# code is run.
+#
+# The cost of naming a subset is stated, not hidden. The tier ratio (t0 / t2) is
+# the one figure comparable with the published table WITHOUT the calibration
+# constant, and it needs both ends; drop t0 and every remaining cross-machine
+# number goes through CAL and carries CAL's error bar.
+#
+# t2's CACHE SIZE is a build parameter, not a flag — the stencil table and the
+# tiling grammar are generated for one n — so sweeping it means rebuilding the
+# engine per level. clbg/sweep-n.sh does that and calls this script per build.
+CONFIGS=$(echo "${2:-t0 t1 t2}" | tr ',' ' ')
+for cfg in $CONFIGS; do
+    case "$cfg" in
+        t0|t1|t2) ;;
+        nojit) echo "clbg: 'nojit' is now t0"; exit 1 ;;
+        jit)   echo "clbg: 'jit' is now t1 (JIT) or t2 (JIT + stack cache)"; exit 1 ;;
+        *) echo "clbg: unknown config '$cfg'"
+           echo "      want one or more of: t0 t1 t2"
+           exit 1 ;;
+    esac
+done
+
 # name:verify-N:measure-N   (measure-N is the game's own argument)
+# An optional third argument narrows the set — `sh clbg/clbg.sh --time O2
+# "mandelbrot mandelbrot_simd"`. The whole list at the game's own N is hours,
+# which is right for a yardstick run and wrong for a sweep that repeats it once
+# per cache size, so the sweep names the compute-bound subset instead.
+ONLY=$(echo "${3:-}" | tr ',' ' ')
+want_prog() {
+    [ -z "$ONLY" ] && return 0
+    for _w in $ONLY; do [ "$_w" = "$1" ] && return 0; done
+    return 1
+}
+
 PROGRAMS="
 binarytrees:10:21
 fannkuchredux:7:12
@@ -86,10 +126,12 @@ reads_stdin() {
 }
 
 # The subject for a given fasta N, generated once and reused across configs.
+# fasta's output is byte-identical across both configs, which is exactly what the
+# verify pass pins, so the subject does not depend on which one produced it.
 subject_for() {
     _n=$1
     if [ ! -f "$OUT/subject-$_n.txt" ]; then
-        $B/javelina --jre $OUT/jre-O.wasm -nojit $OUT/fasta-O.wasm "$_n" \
+        $B/javelina --jre $OUT/jre.wasm --tier 0 $OUT/fasta.wasm "$_n" \
             > "$OUT/subject-$_n.txt" 2>/dev/null
     fi
     echo "$OUT/subject-$_n.txt"
@@ -97,37 +139,47 @@ subject_for() {
 
 fail=0
 
-echo "== compiling (both optimization levels) =="
-$B/javelinac --mode jre --libdir lib/java -O0 -o $OUT/jre-O0.wasm > /dev/null
-$B/javelinac --mode jre --libdir lib/java -O  -o $OUT/jre-O.wasm  > /dev/null
+# ONE compile: javelinac optimizes by DEFAULT (driver/javelinac.c — `optimize`
+# starts true), so there is no flag to pass for the configuration we ship, and
+# both engine configs run the same module.
+# CLBG_REUSE_WASM=1 skips this. The modules do not depend on the ENGINE, so a
+# sweep that rebuilds the engine per cache size would otherwise recompile
+# identical bytecode once per level — and compiling is the larger half of a run.
+# Off by default: reusing stale modules silently measures the wrong program, so
+# it is something a caller asks for, having just built them.
+if [ -n "$CLBG_REUSE_WASM" ] && [ -f $OUT/jre.wasm ]; then
+    echo "== compiling == (reusing $OUT/*.wasm)"
+else
+echo "== compiling =="
+$B/javelinac --mode jre --libdir lib/java -o $OUT/jre.wasm > /dev/null
 for entry in $PROGRAMS; do
     name=${entry%%:*}
-    for lvl in O0 O; do
-        if ! $B/javelinac -$lvl --libdir lib/java $JAVA/$name.java \
-                -o $OUT/$name-$lvl.wasm > $OUT/$name-$lvl.compile 2>&1; then
-            sed 's/^/    /' $OUT/$name-$lvl.compile
-            echo "clbg: $name failed to compile at -$lvl"
-            exit 1
-        fi
-    done
+    want_prog "$name" || continue
+    if ! $B/javelinac --libdir lib/java $JAVA/$name.java \
+            -o $OUT/$name.wasm > $OUT/$name.compile 2>&1; then
+        sed 's/^/    /' $OUT/$name.compile
+        echo "clbg: $name failed to compile"
+        exit 1
+    fi
 done
+fi
 
 if [ "$MODE" = verify ]; then
     echo "== verifying against the published reference output =="
     for entry in $PROGRAMS; do
         name=${entry%%:*}
+        want_prog "$name" || continue
         rest=${entry#*:}
         n=${rest%%:*}
         ref=$REF/$(refname $name)-output.txt
         agree=yes
-        for cfg in O0-nojit O0-jit O-nojit O-jit; do
-            lvl=${cfg%%-*}
-            tier=-${cfg#*-}
+        for cfg in t0 t1 t2; do
+            tier="--tier ${cfg#t}"
             if reads_stdin "$name"; then
-                $B/javelina --jre $OUT/jre-$lvl.wasm $tier $OUT/$name-$lvl.wasm \
+                $B/javelina --jre $OUT/jre.wasm $tier $OUT/$name.wasm \
                     < "$(subject_for $n)" > $OUT/$name-$cfg.out 2>/dev/null
             else
-                $B/javelina --jre $OUT/jre-$lvl.wasm $tier $OUT/$name-$lvl.wasm $n \
+                $B/javelina --jre $OUT/jre.wasm $tier $OUT/$name.wasm $n \
                     > $OUT/$name-$cfg.out 2>/dev/null
             fi
             if ! cmp -s "$ref" $OUT/$name-$cfg.out; then
@@ -137,7 +189,7 @@ if [ "$MODE" = verify ]; then
                 fail=1
             fi
         done
-        [ $agree = yes ] && printf '  ok    %-18s N=%-6s all four configs byte-identical\n' "$name" "$n"
+        [ $agree = yes ] && printf '  ok    %-18s N=%-6s both configs byte-identical\n' "$name" "$n"
     done
     [ $fail -ne 0 ] && exit 1
     echo "clbg: every program matches its published reference in every config"
@@ -202,24 +254,25 @@ bestc() { awk -F, -v b="$1" \
 echo ""
 echo "== measuring at the game's own N (min of 3) =="
 echo "   ours in ms on THIS box; scaled = ours / calibration, i.e. estimated on the game's box"
-printf '  %-18s %10s %10s %10s %10s %10s %9s %9s %9s\n' \
-       program O0-nojit O0-jit O-nojit O-jit 'O-jit~i5' bestC javavm javaxint
+printf '  %-18s' program
+for cfg in $CONFIGS; do printf ' %11s' "$cfg"; done
+printf ' %10s %9s %9s %9s\n' 'jit~i5' bestC javavm javaxint
 for entry in $PROGRAMS; do
     name=${entry%%:*}
+    want_prog "$name" || continue
     n=${entry##*:}
     printf '  %-18s' "$name"
     ojit=
-    for cfg in O0-nojit O0-jit O-nojit O-jit; do
-        lvl=${cfg%%-*}
-        tier=-${cfg#*-}
+    for cfg in $CONFIGS; do
+        tier="--tier ${cfg#t}"
         best=
         for rep in 1 2 3; do
             t0=$(date +%s%N)
             if reads_stdin "$name"; then
-                $B/javelina --jre $OUT/jre-$lvl.wasm $tier $OUT/$name-$lvl.wasm \
+                $B/javelina --jre $OUT/jre.wasm $tier $OUT/$name.wasm \
                     < "$(subject_for $n)" > /dev/null 2>&1
             else
-                $B/javelina --jre $OUT/jre-$lvl.wasm $tier $OUT/$name-$lvl.wasm $n > /dev/null 2>&1
+                $B/javelina --jre $OUT/jre.wasm $tier $OUT/$name.wasm $n > /dev/null 2>&1
             fi
             t1=$(date +%s%N)
             ms=$(( (t1 - t0) / 1000000 ))
@@ -227,15 +280,22 @@ for entry in $PROGRAMS; do
             [ "$ms" -lt "$best" ] && best=$ms
         done
         printf ' %9sms' "$best"
-        [ "$cfg" = O-jit ] && ojit=$best
+        [ "$cfg" = jit ] && ojit=$best
     done
     task=$(refname "$name")
-    printf ' %9ss %9s %9s %9s\n' \
-        "$(awk -v o="$ojit" -v c="$CAL" 'BEGIN { printf "%.2f", (o/1000.0)/c }')" \
+    # The scaled column is the jit row on the game's box. A run that did not
+    # measure jit has nothing to scale, and a dash says so rather than a zero
+    # that would read as a time.
+    if [ -n "$ojit" ]; then
+        scaled=$(awk -v o="$ojit" -v c="$CAL" 'BEGIN { printf "%.2fs", (o/1000.0)/c }')
+    else
+        scaled=-
+    fi
+    printf ' %10s %9s %9s %9s\n' "$scaled" \
         "$(bestc "$task")" "$(pub "$task" javavm)" "$(pub "$task" javaxint)"
 done
 echo ""
 echo "published single-threaded reference times: clbg/published.csv (cpu seconds)"
-echo "O-jit~i5 is our -O/-jit wall time divided by the C calibration ratio, so it is"
+echo "jit~i5 is our -jit wall time divided by the C calibration ratio, so it is"
 echo "comparable with the bestC/javavm/javaxint columns; the calibration is two"
 echo "programs, and their spread is the error bar."

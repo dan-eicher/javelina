@@ -23,7 +23,35 @@ static inline int wast_msg_matches(const char *actual, const char *expected_tok)
     return strstr(actual, exp) != NULL || strstr(exp, actual) != NULL;
 }
 
-int  wast_exec_store_init(void);                              // build the shared store; 1 on success
+// Which execution tier the store runs the corpus on. A number this runner prints
+// is a claim about ONE of these, so the tier is chosen rather than assumed —
+// running the same corpus on each is how the three are held to each other.
+//
+// WAST_TIER_2 is declared before it can run. The alternative is to leave it out
+// and have a three-way differential quietly compare tier-1 with itself, which
+// would agree perfectly and mean nothing; naming it makes the store refuse until
+// the stitcher exists.
+typedef enum {
+    WAST_TIER_INTERP = 0,   // the threaded interpreter — the canonical tier
+    WAST_TIER_1      = 1,   // copy-and-patch, one stencil per opcode
+    WAST_TIER_2      = 2,   // tiled: the tree builder + the burg cover
+} wast_tier_t;
+const char* wast_tier_name(wast_tier_t t);
+// Which of the two JIT tiers THIS build has. The cache size was fixed when the
+// stencil table was generated, so it is a property of the binary, not a choice —
+// a caller that just wants "the compiling tier" has to ask rather than pick.
+wast_tier_t wast_exec_jit_tier(void);
+// Functions the JIT declined over this run, summed across the per-file stores.
+// A fallback is correct and therefore silent, so the count is what separates
+// "the tier ran" from "the tier was on and did nothing".
+uint32_t    wast_exec_jit_declined(void);
+// Operand-stack slots this build's JIT can use. Zero means tier-2 still builds
+// the tree and covers it but has no variant to choose, so "nothing was cached" is
+// the right answer rather than a missing gate.
+int         wast_exec_cache_slots(void);
+
+// Build the shared store on `tier`; 1 on success, 0 if that tier cannot run.
+int  wast_exec_store_init(wast_tier_t tier);
 void wast_exec_spectest(uint8_t *bytes, size_t len);          // instantiate + keep spectest (owns bytes)
 void wast_exec_file_reset(void);                              // fresh per-file scope; re-registers spectest
 // ONE module channel: instantiate (owns bytes), compare the verdict to `expect` (a jav_status_t

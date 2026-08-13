@@ -14,6 +14,7 @@
 #include "bbq_arena.h"    // bbq_arena (table storage)
 #include "validate.h"     // jav_functype_t / jav_valtype_t (the validator's view)
 #include "jav_subtype.h"  // WST_* kinds (the §3.3 lattice context)
+#include "jav_ttree.h"    // jav_tctx_t — the tier-2 walk's view of the same index
 
 typedef struct {
     // Flattened composite-type space: one entry per typeidx, in module order across
@@ -94,7 +95,25 @@ typedef struct {
 
     // the §3.3 lattice over the flattened type space (borrows kinds/supers above).
     jav_subtype_ctx_t lattice;
+
+    // §7.6's output, kept. Validating a body produces its side-table, try-table
+    // and flat locals; all three are a function of the BYTES, so they belong to
+    // the module and every instance of it reads the same ones.
+    //
+    // Indexed by DEFINED function (0 .. nfuncs-nimport_funcs), not by funcidx.
+    // These are crt bbq_vecs — malloc'd — so unlike everything above they do NOT
+    // ride the arena, and jav_modidx_free_bodies is what releases them. NULL
+    // entries are normal: validation stops at the first body that fails.
+    jav_st_entry_t** body_st;         // [nbodies] side-table
+    jav_try_t**      body_tr;         // [nbodies] try-table
+    jav_valtype_t**  body_locals;     // [nbodies] flat locals (params then declared)
+    uint32_t*        body_ndecl;      // [nbodies] declared-local count
+    uint32_t         nbodies;         // 0 ⇒ nothing kept; producers free on the spot
 } jav_modidx_t;
+
+// Release the §7.6 by-products above. Idempotent, and safe on a partially filled
+// index: the arena owns the four arrays, this owns what they point at.
+void jav_modidx_free_bodies(jav_modidx_t* mod);
 
 // Flatten the c-lite index rooted at `root` over image `base` into `*out`. Returns 1
 // on success, 0 on a structural inconsistency OR a construct whose representation is
@@ -145,5 +164,11 @@ int jav_index_decode_valtype(const bbq_field_capture* vt, const uint8_t* base,
 // lattice). The validator and instantiator both build a body's cx from this, then fill in
 // the per-function locals/results. Shared so the projection lives in one place.
 jav_vctx_t jav_module_cx(const jav_modidx_t* mod);
+
+// The tier-2 tree builder's context, projected from the same index — everything it
+// resolves is a storage class, so this is jav_module_cx's counterpart for the other
+// walk. Class arrays are allocated from `arena`. `local_class`/`result_class` are
+// per-FUNCTION and left for the caller to fill.
+jav_tctx_t jav_module_tctx(const jav_modidx_t* mod, bbq_arena* arena);
 
 #endif // JAV_MODULE_INDEX_H

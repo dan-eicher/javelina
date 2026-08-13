@@ -95,7 +95,10 @@ typedef struct {
  * dead code after unreachable/br/return). Returns 1 if the body is well-typed and
  * well-structured, 0 otherwise (type mismatch, stack underflow, unknown opcode,
  * out-of-range index, unbalanced control, peak depth over MAX_STACK). On success,
- * *out_st / *out_n give the malloc'd side-table (caller frees). */
+ * *out_st / *out_n give the side-table, which the caller frees with
+ * BBQ_VEC_FREE — it is a bbq_vec, so its header sits BEFORE the pointer returned
+ * and plain free() on it is an interior pointer. A body with no branches leaves
+ * it NULL, which is why calling free() here can look fine for a long time. */
 int jav_typecheck(const uint8_t* code, size_t len, const jav_vctx_t* cx,
                    jav_st_entry_t** out_st, unsigned* out_n);
 

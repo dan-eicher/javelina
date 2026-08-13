@@ -3,7 +3,7 @@
 #
 #   test/peg/Fixture.peg  --pegc -lang java-->  FixtureParser.java
 #   FixtureParser.java + PegSmoke.java  --javelinac-->  peg-smoke.wasm
-#   peg-smoke.wasm  --javelina -nojit / -jit-->  identical output, zero failures
+#   peg-smoke.wasm  --javelina --tier 0/1/2-->  identical output, zero failures
 #
 # This is the level the pegc-side text pins cannot reach: that the emitted
 # save/restore pairs actually implement ordered choice, that a labeled break
@@ -59,21 +59,23 @@ if [ -n "$leak" ]; then
 fi
 
 fail=0
-for tier in -nojit -jit; do
-    $B/javelina --jre $B/jre.wasm $tier $GEN/peg-smoke.wasm > $GEN/out$tier.txt
+for tier in 0 1 2; do
+    $B/javelina --jre $B/jre.wasm --tier $tier $GEN/peg-smoke.wasm > $GEN/out$tier.txt
     if ! grep -q '^PEG-RESULT failures=0$' $GEN/out$tier.txt; then
-        echo "test_peg: FAILURES under $tier:"
+        echo "test_peg: FAILURES under tier $tier:"
         grep '^FAIL' $GEN/out$tier.txt | sed 's/^/  /'
         fail=1
     fi
 done
 
-# A parser that agrees with itself is the whole point of having two tiers.
-if ! diff -q $GEN/out-nojit.txt $GEN/out-jit.txt > /dev/null; then
-    echo "test_peg: interpreter and JIT disagree — that is a miscompile, not a slowdown:"
-    diff $GEN/out-nojit.txt $GEN/out-jit.txt | sed 's/^/  /'
-    fail=1
-fi
+# A parser that agrees with itself is the whole point of having three tiers.
+for tier in 1 2; do
+    if ! diff -q $GEN/out0.txt $GEN/out$tier.txt > /dev/null; then
+        echo "test_peg: tier 0 and tier $tier disagree — that is a miscompile, not a slowdown:"
+        diff $GEN/out0.txt $GEN/out$tier.txt | sed 's/^/  /'
+        fail=1
+    fi
+done
 
 if [ "$fail" -ne 0 ]; then exit 1; fi
-echo "test_peg: $(grep -c '^ok' $GEN/out-nojit.txt) cases, both tiers agree"
+echo "test_peg: $(grep -c '^ok' $GEN/out0.txt) cases, all three tiers agree"

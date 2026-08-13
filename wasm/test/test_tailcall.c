@@ -59,7 +59,7 @@ static int run(const uint8_t* rec, size_t rlen, variant_t v, int jit, jav_status
 
     // The recursive callee is JIT-compiled (so the return_call stencil runs) when jit.
     bbq_ctx_t rc; bbq_ctx_init(&rc, rec, rlen);
-    jit_func_t* h = jit ? jit_compile(rc) : NULL;
+    jit_func_t* h = jit ? jit_compile(rc, NULL) : NULL;
 
     jav_func_t f[2]; memset(f, 0, sizeof f);
     f[0].code = entry; f[0].code_len = sizeof entry; f[0].num_results = 1; f[0].sidetable = se;

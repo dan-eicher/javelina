@@ -2312,9 +2312,9 @@ static void gen_op_br_on_null(vm_t* vm) {
     transfer(NATIVE_ARGS);
     TAIL return jav_next(vm);
     } else {
-    GPUSH_ANY(r);
     OPGEN_ST_PTR(f) = (u4)((OPGEN_ST_PTR(f) + 1));
     }
+    GPUSH_ANY(r);
     TAIL return jav_next(vm);
 }
 

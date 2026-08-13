@@ -37,6 +37,8 @@ int main(void) {
         { "bad_lim.wasm",    JAV_INVALID, JAV_E_SIZE_MIN_GT_MAX },           // §3.2.15 min(5) > max(2)
         { "bad_body.wasm",   JAV_INVALID, JAV_E_TYPE_MISMATCH },            // §7.6 i64 where i32
         { "bad_dupexp.wasm", JAV_INVALID, JAV_E_DUPLICATE_EXPORT_NAME },    // §3.5.10 dup "a"
+        { "bad_dupexp2.wasm",JAV_INVALID, JAV_E_DUPLICATE_EXPORT_NAME },    // §3.5.10 dup "a" at (0,3), not adjacent
+        { "bad_dupexp3.wasm",JAV_INVALID, JAV_E_DUPLICATE_EXPORT_NAME },    // §3.5.10 dup "ad" behind a hash-colliding "bC"
         { "bad_start.wasm",  JAV_INVALID, JAV_E_START_FUNCTION },           // §3.5.12 start not [] -> []
         { "bad_gtype.wasm",  JAV_INVALID, JAV_E_TYPE_MISMATCH },            // §3.5.3 init i64 != i32
         { "bad_gmut.wasm",   JAV_INVALID, JAV_E_CONST_EXPR_REQUIRED },      // §3.3.10 global.get MUTABLE

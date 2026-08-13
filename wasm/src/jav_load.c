@@ -24,8 +24,10 @@ jav_status_t jav_validate_bytes(const uint8_t* bytes, size_t len, jav_err_t* err
         jav_modidx_t mod;
         if (!jav_module_index(m.root, bytes, &a, &mod))
             r = JAV_INVALID;                        // §7: index could not be built (out-of-range / unsupported)
-        else
+        else {
             r = jav_module_validate(m.root, bytes, &mod, err);
+            jav_modidx_free_bodies(&mod);   /* this path answers valid/invalid and keeps nothing */
+        }
     }
     bbq_arena_free(&a);
     return r;

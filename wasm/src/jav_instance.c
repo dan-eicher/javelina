@@ -250,12 +250,22 @@ jav_status_t jav_instantiate(vm_t* vm, const bbq_field_capture* root, const uint
     // jav_body_typecheck (module already §7-valid). Imports occupy the low slots
     // [0, nimport_funcs); host wiring is a later pin.
     const bbq_field_capture* entries = jav_view_section_array(root, 10, "entries", base);
+    // The tier-2 walk's module-level view, built once for the module. Its arena is
+    // this instantiation's — the classes are read during jit_compile and never
+    // after, so nothing outlives the loop.
+    bbq_arena tarena; bbq_arena_init(&tarena, 8 * 1024);
+    jav_tctx_t tcx = jav_module_tctx(mod, &tarena);
     for (uint32_t d = 0; d < ndef; d++) {
         uint32_t fi = mod->nimport_funcs + d;
         const jav_functype_t* sig = &mod->func_sigs[fi];
         const bbq_field_capture* entry = &entries->children[d];
-        uint32_t ndecl; jav_st_entry_t* st; unsigned nst; jav_try_t* tr; unsigned ntr;
-        jav_body_typecheck(mod, base, entry, sig, NULL, &ndecl, &st, &nst, &tr, &ntr, NULL);   // re-derive (already validated)
+        // §7.6's tables, built when the module was validated. BORROWED from the
+        // module, exactly as func_sigs above is, so the instance must not free
+        // them and must not outlive it.
+        uint32_t ndecl = mod->body_ndecl[d];
+        jav_st_entry_t* st = mod->body_st[d];
+        jav_try_t* tr = mod->body_tr[d];
+        jav_valtype_t* locals = mod->body_locals[d];
         out->sidetabs[d] = st; out->trytabs[d] = tr;
         const bbq_field_capture* expr = jav_view_field(jav_view_field(entry, "body"), "body");
 
@@ -264,7 +274,7 @@ jav_status_t jav_instantiate(vm_t* vm, const bbq_field_capture* root, const uint
         f->num_params = sig->nparams; f->num_locals = ndecl; f->num_results = sig->nresults;
         f->type_index = mod->func_type_idx[fi];
         f->sig = sig;                                         // §4.5.2 every funcinst carries its functype (uniform with host funcs)
-        f->sidetable = st; f->trytable = tr; f->ntry = ntr;
+        f->sidetable = st; f->trytable = tr; f->ntry = (unsigned)bbq_vec_len(tr);
         f->invoke = NULL; f->invoke_ctx = NULL;               // interp tier (JIT is a pointer-swap)
         f->inst_ctx = &out->ctx;                              // §4.2.6 this func's defining instance (contents filled below)
 
@@ -272,11 +282,28 @@ jav_status_t jav_instantiate(vm_t* vm, const bbq_field_capture* root, const uint
         // `invoke` — every caller still dispatches through the same seam. A body the JIT declines
         // (jit_compile → NULL) simply stays interpreted.
         if (vm->jit_enabled) {
+            // The per-FUNCTION half of the tier-2 context: the locals jav_body_typecheck
+            // just decoded, and this function's own results (§7.6's outermost frame).
+            uint32_t nloc = (uint32_t)bbq_vec_len(locals);
+            uint8_t* lcls = nloc ? (uint8_t*)bbq_arena_alloc(&tarena, nloc) : NULL;
+            for (uint32_t i = 0; i < nloc; i++) lcls[i] = jav_sclass_of_valtype(locals[i]);
+            uint8_t* rcls = sig->nresults ? (uint8_t*)bbq_arena_alloc(&tarena, sig->nresults) : NULL;
+            for (uint32_t i = 0; i < sig->nresults; i++) rcls[i] = jav_sclass_of_valtype(sig->results[i]);
+            tcx.local_class = lcls; tcx.nlocals = nloc;
+            tcx.result_class = rcls; tcx.nresults = sig->nresults;
+
+            /* Tier 1 compiles WITHOUT the tiling context, which is the whole of
+             * the difference: no context, no tree, no cover, so the walk stamps
+             * the plain stencils. Tier 2 hands it the context. Both live in this
+             * binary, so the two can be run against each other and against the
+             * interpreter without rebuilding anything. */
             bbq_ctx_t code; bbq_ctx_init(&code, f->code, f->code_len);
-            jit_func_t* h = jit_compile(code);
+            jit_func_t* h = jit_compile(code, vm->jit_enabled >= 2 ? &tcx : NULL);
             if (h) { f->invoke = jit_invoke; f->invoke_ctx = h; bbq_vec_push(out->jitfns, h); vm->jit_compiled++; }
+            else   { vm->jit_declined++; }   // interpreted, correctly and silently — so it is counted
         }
-    }
+    }   /* nothing to free: every table in this loop is the module's */
+    bbq_arena_free(&tarena);
 
     // ── (c) evaluate defined-global inits in order (§4.5.4): each init is a const-expr run
     // on the interp, with imports + EARLIER globals already in scope so later global.get sees
@@ -515,8 +542,9 @@ int32_t jav_instance_export(const jav_instance_t* inst, const char* name, uint8_
 }
 
 void jav_instance_free(jav_instance_t* inst) {
-    for (size_t d = 0, n = bbq_vec_len(inst->sidetabs); d < n; d++) bbq_vec_free(inst->sidetabs[d]);
-    for (size_t d = 0, n = bbq_vec_len(inst->trytabs); d < n; d++) bbq_vec_free(inst->trytabs[d]);
+    /* The tables themselves are the MODULE's — validation built them and every
+     * instance of that module borrows the same ones, like func_sigs. Only the
+     * arrays of pointers are this instance's. */
     bbq_vec_free(inst->sidetabs); bbq_vec_free(inst->trytabs);
     bbq_vec_free(inst->funcs); bbq_vec_free(inst->exports);
     bbq_vec_free(inst->globals); bbq_vec_free(inst->global_store); bbq_vec_free(inst->global_types);

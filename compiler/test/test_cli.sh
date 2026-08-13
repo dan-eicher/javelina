@@ -7,6 +7,8 @@
 # Run from compiler/ with the binaries + jre.wasm built (the Makefile `test-cli` target does).
 set -u
 JC=build/javelinac
+# No tier flag: this is the DEFAULT invocation, which is -O1. The E7.1 block below
+# names all three tiers explicitly and pins that they agree.
 JV="build/javelina --jre build/jre.wasm"
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
@@ -110,6 +112,15 @@ compile "$TMP/Throw.java" "$TMP/Throw.wasm"
 $JV "$TMP/Throw.wasm" >"$TMP/o" 2>"$TMP/e"; rc=$?
 [ $rc -eq 1 ] && grep -q "boom" "$TMP/e" && ok "uncaught exception -> exit 1 + trace on stderr" || no "uncaught" "rc=$rc err=$(cat "$TMP/e")"
 
+# a §7-invalid module -> exit 1 + the official reason on stderr. javelinac cannot emit one, so
+# this reads the VM's own §3.5.10 fixture. The reason comes off wasm_module_new's NULL: it is
+# the c-api's job to validate there, and asking wasm_module_validate first only ran the whole
+# pass twice. A rejected module must still say WHY, which is the half of that easy to lose.
+$JV ../wasm/test/bad_dupexp3.wasm >"$TMP/o" 2>"$TMP/e"; rc=$?
+[ $rc -eq 1 ] && grep -q "duplicate export name" "$TMP/e" \
+  && ok "invalid module -> exit 1 + official reason on stderr" \
+  || no "invalid-module" "rc=$rc err=$(cat "$TMP/e")"
+
 # ── JLS §14.19 — "It is a compile-time error if a statement cannot be executed because it is
 # unreachable." The condition is a §15.27 constant expression, not just a literal. `if (false)` is
 # the one shape the spec declares REACHABLE (the conditional-compilation idiom), so it must compile.
@@ -174,16 +185,23 @@ cacc 'public class F { static void t(){ try { int x=1; } catch (Exception e) {} 
 cacc 'public class F { static void t(){ try { int x=1; } catch (Throwable e) {} } }'                          'catch(Throwable)'
 cacc 'public class F { static void g() throws InterruptedException {} static void t(){ try { g(); } catch (InterruptedException e) {} } }' 'checked catch the try can throw'
 
-# ── E7.1 — the tier flag: -jit runs the copy-and-patch tier, and the tier is semantics-free.
-# (Breadth across both tiers is the E7.4 corpus's job; these pin that the flag reaches the engine
+# ── E7.1 — the tier flag: --tier 1/2 select the compiled tiers, and the tier is semantics-free.
+# (Breadth across the tiers is the E7.4 corpus's job; these pin that the flag reaches the engine
 # and that a JIT'd frame can still reach the →HOST natives.)
-JIT="build/javelina --jre build/jre.wasm -jit"
-out_i=$($JV "$TMP/Echo.wasm" alpha beta 2>/dev/null)
-out_j=$($JIT "$TMP/Echo.wasm" alpha beta 2>/dev/null); rc=$?
-[ $rc -eq 0 ] && [ "$out_i" = "$out_j" ] && ok "-jit agrees with -nojit (stdout + argv)" || no "jit-echo" "interp=$out_i jit=$out_j rc=$rc"
+# -O0/-O1/-O2 named these on the runtime once. An -O level is the COMPILER's question — how hard
+# javelinac works on the bytes — and the runtime's is which engine executes them, which is why it
+# is a tier and why the two are now spelled apart. javelina rejects the old spelling outright
+# (exit 2), so these cases fail loudly rather than silently measuring the default.
+INTERP="build/javelina --jre build/jre.wasm --tier 0"
+out_i=$($INTERP "$TMP/Echo.wasm" alpha beta 2>/dev/null)
+for t in 1 2; do
+    JIT="build/javelina --jre build/jre.wasm --tier $t"
+    out_j=$($JIT "$TMP/Echo.wasm" alpha beta 2>/dev/null); rc=$?
+    [ $rc -eq 0 ] && [ "$out_i" = "$out_j" ] && ok "tier $t agrees with tier 0 (stdout + argv)" || no "jit-echo-tier$t" "interp=$out_i jit=$out_j rc=$rc"
 
-out=$($JIT "$TMP/ExitN.wasm" 2>/dev/null); rc=$?
-[ $rc -eq 5 ] && [ "$out" = "before" ] && ok "-jit: System.exit(5) host native from a JIT'd frame" || no "jit-exit" "rc=$rc out=$out"
+    out=$($JIT "$TMP/ExitN.wasm" 2>/dev/null); rc=$?
+    [ $rc -eq 5 ] && [ "$out" = "before" ] && ok "tier $t: System.exit(5) host native from a JIT'd frame" || no "jit-exit-tier$t" "rc=$rc out=$out"
+done
 
 echo "cli tests: $pass passed, $fail failed"
 [ $fail -eq 0 ]

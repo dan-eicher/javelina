@@ -35,10 +35,10 @@ int main(void){
     jav_typecheck(tripler,sizeof tripler,&ct,&st,&n);
     jav_typecheck(main_code,sizeof main_code,&cm,&sm,&n);
     bbq_ctx_t dc; bbq_ctx_init(&dc, doubler, sizeof doubler);
-    jit_func_t* h1 = jit_compile(dc);   // compile the doubler ONCE; re-entered each call
+    jit_func_t* h1 = jit_compile(dc, NULL);   // compile the doubler ONCE; re-entered each call
     int i=run(0,h1,sd,st,sm), j=run(1,h1,sd,st,sm); int ok=(i==j && i==30);
     printf("  main->dbl(JIT)->trpl(interp)->host  interp=%d jit=%d [%s]\n", i,j, ok?"PASS":"FAIL");
-    jit_free(h1); free(sd); bbq_vec_free(st); free(sm);
+    jit_free(h1); bbq_vec_free(sd); bbq_vec_free(st); bbq_vec_free(sm);
     printf("\nmixed-tier coexistence (interp == JIT): %s\n", ok?"ALL PASS":"FAIL");
     return ok?0:1;
 }

@@ -54,14 +54,19 @@ for f in jre-O0 jre-O bench-O0 bench-O; do
 done
 
 echo "== running the matrix =="
-for cfg in O0-interp O0-jit O-interp O-jit; do
+# Two axes: javelinac's optimizer off/on, and javelina's execution tier. The tier
+# axis has three levels — interpret, copy-and-patch, copy-and-patch with
+# operand-stack caching — so the matrix is 2 x 3.
+CFGS="O0-t0 O0-t1 O0-t2 O-t0 O-t1 O-t2"
+for cfg in $CFGS; do
     case $cfg in
         O0-*) jre=jre-O0.wasm; plug=bench-O0.wasm ;;
         O-*)  jre=jre-O.wasm;  plug=bench-O.wasm  ;;
     esac
     case $cfg in
-        *-interp) tier=-nojit ;;
-        *-jit)    tier=-jit   ;;
+        *-t0) tier="--tier 0" ;;
+        *-t1) tier="--tier 1" ;;
+        *-t2) tier="--tier 2" ;;
     esac
     echo "  -- $cfg"
     $B/javelina --jre $B/$jre $tier $B/$plug $QUICK > $B/bench-$cfg.out
@@ -69,30 +74,38 @@ for cfg in O0-interp O0-jit O-interp O-jit; do
 done
 
 echo "== checksum agreement across configs (the correctness gate) =="
-awk '/^RESULT/{print $2, $3}' $B/bench-O0-interp.out > $B/bench-ref.chk
-for cfg in O0-jit O-interp O-jit; do
+awk '/^RESULT/{print $2, $3}' $B/bench-O0-t0.out > $B/bench-ref.chk
+for cfg in $CFGS; do
+    [ "$cfg" = O0-t0 ] && continue
     awk '/^RESULT/{print $2, $3}' $B/bench-$cfg.out > $B/bench-$cfg.chk
     if ! diff $B/bench-ref.chk $B/bench-$cfg.chk >/dev/null; then
-        echo "CHECKSUM MISMATCH between O0-interp and $cfg — that config is WRONG, not slow:"
+        echo "CHECKSUM MISMATCH between O0-t0 and $cfg — that config is WRONG, not slow:"
         diff $B/bench-ref.chk $B/bench-$cfg.chk || true
         exit 1
     fi
 done
-echo "  all four configs agree on every checksum"
+echo "  all six configs agree on every checksum"
 
 [ -n "$QUICK" ] && exit 0
 
 echo ""
-echo "== comparison (min_ms; ratios vs O0-interp) =="
-paste $B/bench-O0-interp.out $B/bench-O0-jit.out $B/bench-O-interp.out $B/bench-O-jit.out | \
+echo "== comparison (min_ms; ratios vs O0-t0) =="
+# RESULT lines are 5 fields wide, so config k's min= is field 5k+4.
+paste $B/bench-O0-t0.out $B/bench-O0-t1.out $B/bench-O0-t2.out \
+      $B/bench-O-t0.out  $B/bench-O-t1.out  $B/bench-O-t2.out | \
 awk '/^RESULT/ {
-    name=$2; split($4,a,"="); split($9,b,"="); split($14,c,"="); split($19,d,"=");
-    m0=a[2]; m1=b[2]; m2=c[2]; m3=d[2];
-    if (NR==1 || !hdr) { printf "  %-7s %10s %10s %10s %10s   %7s %7s %7s\n",
-        "bench","O0-int","O0-jit","O-int","O-jit","jit×","opt×","both×"; hdr=1 }
-    printf "  %-7s %8dms %8dms %8dms %8dms   %6.2fx %6.2fx %6.2fx\n",
-        name, m0, m1, m2, m3,
-        (m1>0 ? m0/m1 : 0), (m2>0 ? m0/m2 : 0), (m3>0 ? m0/m3 : 0)
+    name=$2;
+    split($4,a,"="); split($9,b,"="); split($14,c,"=");
+    split($19,d,"="); split($24,e,"="); split($29,f,"=");
+    m0=a[2]; m1=b[2]; m2=c[2]; m3=d[2]; m4=e[2]; m5=f[2];
+    if (!hdr) { printf "  %-7s %9s %9s %9s %9s %9s %9s   %7s %7s %7s\n",
+        "bench","O0-t0","O0-t1","O0-t2","O-t0","O-t1","O-t2",
+        "t1x","t2x","t2/t1"; hdr=1 }
+    printf "  %-7s %7dms %7dms %7dms %7dms %7dms %7dms   %6.2fx %6.2fx %6.2fx\n",
+        name, m0, m1, m2, m3, m4, m5,
+        (m4>0 ? m3/m4 : 0),          # what the JIT buys over the interpreter, at -O
+        (m5>0 ? m3/m5 : 0),          # what the CACHING JIT buys over the interpreter
+        (m5>0 ? m4/m5 : 0)           # …and over the plain JIT, which is the tier-2 question
 }'
 echo ""
 echo "raw per-config outputs: $B/bench-<config>.out (stable RESULT lines — diff them across compiler changes)"

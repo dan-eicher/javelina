@@ -16,10 +16,10 @@
 // the VM real work instead of costing awk none.
 //
 // Each Case<N>.expected is the expectation the GENERATOR composed from its snippets' `expects`,
-// never observed by running anything. Comparing it against Case<N>.nojit.out and
-// Case<N>.jit.out therefore checks the compiler and both execution tiers against an
-// independent answer, and a disagreement between the two tiers alone names a config that is
-// WRONG rather than slow.
+// never observed by running anything. Comparing it against Case<N>.t0.out, .t1.out and
+// .t2.out therefore checks the compiler and every execution tier against an independent
+// answer, and a disagreement between two tiers alone names a config that is WRONG rather
+// than slow.
 public class JudgeMain {
 
     public static void main(String[] args) {
@@ -51,8 +51,9 @@ public class JudgeMain {
                 fails++;
                 continue;
             }
-            if (!check(dir, stem, "nojit", want)) fails++;
-            if (!check(dir, stem, "jit",   want)) fails++;
+            if (!check(dir, stem, "t0", want)) fails++;
+            if (!check(dir, stem, "t1", want)) fails++;
+            if (!check(dir, stem, "t2", want)) fails++;
         }
 
         if (cases == 0) {
@@ -67,7 +68,7 @@ public class JudgeMain {
             return;
         }
         System.out.println("  ....  stitched corpus: " + cases
-                         + " cases match their composed expectation on both tiers");
+                         + " cases match their composed expectation on all three tiers");
     }
 
     /** One tier of one case. Reports the FIRST differing line rather than the whole file: a

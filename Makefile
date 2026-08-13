@@ -27,7 +27,7 @@ help:
 	@echo "  make test-vm           the engine's gates (interp == JIT, GC, c-api, conformance)"
 	@echo "  make test-compiler     the compiler's suites"
 	@echo "  make lib               build/libjavelina.a — the embeddable engine archive"
-	@echo "  make conformance       the official WebAssembly testsuite, executed both tiers"
+	@echo "  make conformance       the official WebAssembly testsuite, executed at every tier"
 	@echo "  make test-java-conformance  the Java e2e corpus (E7.4 — not built yet)"
 	@echo "  make test-cli          the shipped javelinac/javelina binaries, end to end"
 	@echo "  make test-bench        the benchmark checksum gate"
@@ -73,7 +73,7 @@ test:
 	@$(MAKE) --no-print-directory test-java-conformance
 
 # The e2e layer: real .java programs with expected stdout and exit code, driven
-# through the SHIPPED javelinac + javelina binaries, both tiers. E7.4 builds it;
+# through the SHIPPED javelinac + javelina binaries, every tier. E7.4 builds it;
 # the slot is reserved here so it is part of the default gate the day it lands.
 #
 # Until then this REPORTS its absence and does not fail. It must never pass
@@ -102,11 +102,11 @@ test-compiler:
 	@$(MAKE) --no-print-directory -C compiler test
 
 # The conformance story, surfaced: run the official testsuite (the pinned
-# submodule) both tiers and print the per-gate summary lines — the numbers the
+# submodule) at every tier and print the per-gate summary lines — the numbers the
 # README quotes. `test-conformance` stays as an alias.
 conformance test-conformance:
 	@$(MAKE) --no-print-directory -C wasm test-one T=test_wast || true
-	@echo "── WebAssembly conformance (testsuite $$(git -C testsuite rev-parse --short HEAD), both tiers) ──"
+	@echo "── WebAssembly conformance (testsuite $$(git -C testsuite rev-parse --short HEAD), every tier) ──"
 	@cd wasm/test && ../build/test_wast ../../testsuite/*.wast regress_*.wast
 
 test-cli:

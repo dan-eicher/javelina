@@ -27,6 +27,7 @@
 #include "heap.h"                // heap_t / jav_heap_free_mems / jav_heap_gc_init
 #include "jav_hostref.h"         // host externref boxing (jav_host_box_new/_get)
 #include "interp.h"              // vm_t / jav_vm_init / jav_vm_free
+#include "jav_ttree.h"           // jav_ttree_stats — what the stitcher did, for the readout
 #include "runtime_api.h"         // slot_t, T_*, jav_status_t, jav_call
 #include "bbq_arena.h"
 #include "bbq_vec.h"
@@ -547,7 +548,16 @@ static void exn_unroot(wasm_store_t* s, wasm_exception_t* e) {
 
 wasm_config_t* wasm_config_new(void) { return calloc(1, sizeof(wasm_config_t)); }
 void wasm_config_delete(wasm_config_t* c) { free(c); }
-void jav_config_set_jit(wasm_config_t* c, int jit) { if (c) c->jit = jit ? 1 : 0; }
+/* A LEVEL, not a switch: 0 interprets, 1 compiles without caching operands in
+ * registers, 2 compiles with the tier-2 tiling. Both compiled forms are present
+ * in the same binary — the plain stencil is the uncached form at every cache
+ * size and the __sN variants sit beside it — so which one a store uses is a
+ * runtime choice and only the cache SIZE is a build-time one. That is what lets
+ * one binary run the same corpus three ways and compare, instead of comparing
+ * two builds and hoping nothing else moved between them. */
+void jav_config_set_jit(wasm_config_t* c, int jit) {
+    if (c) c->jit = (uint8_t)(jit < 0 ? 0 : jit > 2 ? 2 : jit);
+}
 void jav_config_set_verify_heap(wasm_config_t* c, int on) { if (c) c->verify_heap = on ? 1 : 0; }
 
 wasm_engine_t* wasm_engine_new(void) { return calloc(1, sizeof(wasm_engine_t)); }
@@ -560,6 +570,26 @@ wasm_engine_t* wasm_engine_new_with_config(wasm_config_t* c) {   // consumes c (
 void wasm_engine_delete(wasm_engine_t* e) { free(e); }
 
 uint32_t jav_capi_jit_count(const wasm_store_t* s) { return s->vm.jit_compiled; }
+uint32_t jav_capi_jit_declined(const wasm_store_t* s) { return s->vm.jit_declined; }
+
+void jav_jit_cache_stats_reset(void) { jav_ttree_stats_reset(); }
+
+/* The stitch meters an embedder can read. mem_slots is the one that prices the
+ * mechanism — the operand-stack accesses the cache removed — and it was the one
+ * this readout did not carry, which is how the caller came to derive a figure
+ * from the others instead of reporting a measured one. */
+void jav_jit_cache_stats(uint64_t* cached_ops, uint64_t* deep, uint64_t* occupancy,
+                         uint64_t* transitions, uint64_t* spills, uint64_t* fills,
+                         uint64_t* mem_slots) {
+    const jav_ttree_stats_t* t = jav_ttree_stats();
+    if (cached_ops)  *cached_ops  = t->states_cached;
+    if (deep)        *deep        = t->states_deep;
+    if (occupancy)   *occupancy   = t->slots_cached;
+    if (transitions) *transitions = t->transitions;
+    if (spills)      *spills      = t->trans_spill;
+    if (fills)       *fills       = t->trans_fill;
+    if (mem_slots)   *mem_slots   = t->mem_slots;
+}
 
 wasm_store_t* wasm_store_new(wasm_engine_t* engine) {
     wasm_store_t* s = calloc(1, sizeof *s);
@@ -650,15 +680,23 @@ bool wasm_module_validate(wasm_store_t* store, const wasm_byte_vec_t* binary) {
     // Validate-only: run the SAME decode+validate path (so last_status is set identically to
     // module_new), then discard the built index.
     bbq_arena a; bbq_arena_init(&a, 0);
-    jav_modidx_t mod; const bbq_field_capture* root = NULL;
+    /* Zeroed: a module that fails to decode never reaches the index, and the free
+     * below still has to be able to read it. */
+    jav_modidx_t mod = {0}; const bbq_field_capture* root = NULL;
     jav_status_t st = module_decode_validate(store,
         binary->data ? (const uint8_t*)binary->data : (const uint8_t*)"", binary->size, &a, &mod, &root);
+    jav_modidx_free_bodies(&mod);   /* validate-only: nothing will instantiate these */
     bbq_arena_free(&a);
     return st == JAV_OK;
 }
 
 void wasm_module_delete(wasm_module_t* m) {
-    RUN_HOST_FIN(m); bbq_arena_free(&m->arena); free(m->bytes); free(m);
+    /* The §7.6 tables validation kept are malloc'd, so they do not ride the arena
+     * the rest of the index does. Every instance of this module BORROWS them, so
+     * deleting the module while an instance lives is the same use-after-free that
+     * deleting it out from under `mod.func_sigs` already is. */
+    RUN_HOST_FIN(m); jav_modidx_free_bodies(&m->mod);
+    bbq_arena_free(&m->arena); free(m->bytes); free(m);
 }
 
 // Reflectors (§7.1.6) — walk the export (id 7) / import (id 2) sections of the c-lite

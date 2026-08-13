@@ -3,58 +3,70 @@
 #define JAV_JIT_SYMBOLS_H
 #include "runtime_api.h"   /* the native prototypes */
 #include <math.h>           /* the libm intrinsic prototypes */
+#include <string.h>         /* strcmp, for the search below */
 
 typedef struct { const char* name; void* addr; } jav_jit_sym_t;
 
 static const jav_jit_sym_t jav_jit_symbols[] = {
-    { "_HOLE_jav_type_nparams", (void*)jav_type_nparams },
-    { "_HOLE_jav_funcref_typematch", (void*)jav_funcref_typematch },
-    { "_HOLE_jav_invoke_ref", (void*)jav_invoke_ref },
-    { "_HOLE_jav_tail_invoke_ref", (void*)jav_tail_invoke_ref },
-    { "_HOLE_jav_table_grow", (void*)jav_table_grow },
-    { "_HOLE_jav_table_init", (void*)jav_table_init },
-    { "_HOLE_jav_elem_drop", (void*)jav_elem_drop },
-    { "_HOLE_jav_struct_alloc", (void*)jav_struct_alloc },
-    { "_HOLE_jav_struct_nfields", (void*)jav_struct_nfields },
-    { "_HOLE_jav_ref_test", (void*)jav_ref_test },
-    { "_HOLE_jav_top_ref_matches", (void*)jav_top_ref_matches },
-    { "_HOLE_jav_struct_new_default", (void*)jav_struct_new_default },
-    { "_HOLE_jav_array_new_default", (void*)jav_array_new_default },
+    { "_HOLE_ceil", (void*)ceil },
+    { "_HOLE_ceilf", (void*)ceilf },
+    { "_HOLE_convert_u64_f64", (void*)convert_u64_f64 },
+    { "_HOLE_copysign", (void*)copysign },
+    { "_HOLE_copysignf", (void*)copysignf },
+    { "_HOLE_fabs", (void*)fabs },
+    { "_HOLE_fabsf", (void*)fabsf },
+    { "_HOLE_floor", (void*)floor },
+    { "_HOLE_floorf", (void*)floorf },
     { "_HOLE_jav_array_alloc", (void*)jav_array_alloc },
-    { "_HOLE_jav_array_new_data", (void*)jav_array_new_data },
-    { "_HOLE_jav_array_new_elem", (void*)jav_array_new_elem },
     { "_HOLE_jav_array_init_data", (void*)jav_array_init_data },
     { "_HOLE_jav_array_init_elem", (void*)jav_array_init_elem },
-    { "_HOLE_jav_v128_demote_f64x2", (void*)jav_v128_demote_f64x2 },
-    { "_HOLE_mem_grow", (void*)mem_grow },
-    { "_HOLE_jav_memory_fill", (void*)jav_memory_fill },
-    { "_HOLE_jav_memory_copy", (void*)jav_memory_copy },
-    { "_HOLE_jav_memory_init", (void*)jav_memory_init },
+    { "_HOLE_jav_array_new_data", (void*)jav_array_new_data },
+    { "_HOLE_jav_array_new_default", (void*)jav_array_new_default },
+    { "_HOLE_jav_array_new_elem", (void*)jav_array_new_elem },
     { "_HOLE_jav_data_drop", (void*)jav_data_drop },
+    { "_HOLE_jav_elem_drop", (void*)jav_elem_drop },
     { "_HOLE_jav_exn_alloc_for_throw", (void*)jav_exn_alloc_for_throw },
+    { "_HOLE_jav_funcref_typematch", (void*)jav_funcref_typematch },
+    { "_HOLE_jav_invoke_ref", (void*)jav_invoke_ref },
+    { "_HOLE_jav_memory_copy", (void*)jav_memory_copy },
+    { "_HOLE_jav_memory_fill", (void*)jav_memory_fill },
+    { "_HOLE_jav_memory_init", (void*)jav_memory_init },
+    { "_HOLE_jav_ref_test", (void*)jav_ref_test },
+    { "_HOLE_jav_struct_alloc", (void*)jav_struct_alloc },
+    { "_HOLE_jav_struct_new_default", (void*)jav_struct_new_default },
+    { "_HOLE_jav_struct_nfields", (void*)jav_struct_nfields },
+    { "_HOLE_jav_table_grow", (void*)jav_table_grow },
+    { "_HOLE_jav_table_init", (void*)jav_table_init },
     { "_HOLE_jav_tag_nparams", (void*)jav_tag_nparams },
+    { "_HOLE_jav_tail_invoke_ref", (void*)jav_tail_invoke_ref },
     { "_HOLE_jav_throw_exn", (void*)jav_throw_exn },
     { "_HOLE_jav_throw_ref", (void*)jav_throw_ref },
+    { "_HOLE_jav_top_ref_matches", (void*)jav_top_ref_matches },
     { "_HOLE_jav_try_table", (void*)jav_try_table },
-    { "_HOLE_convert_u64_f64", (void*)convert_u64_f64 },
+    { "_HOLE_jav_type_nparams", (void*)jav_type_nparams },
+    { "_HOLE_jav_v128_demote_f64x2", (void*)jav_v128_demote_f64x2 },
+    { "_HOLE_mem_grow", (void*)mem_grow },
+    { "_HOLE_rint", (void*)rint },
+    { "_HOLE_rintf", (void*)rintf },
+    { "_HOLE_sqrt", (void*)sqrt },
+    { "_HOLE_sqrtf", (void*)sqrtf },
+    { "_HOLE_trunc", (void*)trunc },
     { "_HOLE_trunc_u64_f32", (void*)trunc_u64_f32 },
     { "_HOLE_trunc_u64_f64", (void*)trunc_u64_f64 },
-    { "_HOLE_sqrtf", (void*)sqrtf },
-    { "_HOLE_sqrt", (void*)sqrt },
-    { "_HOLE_fabsf", (void*)fabsf },
-    { "_HOLE_fabs", (void*)fabs },
-    { "_HOLE_ceilf", (void*)ceilf },
-    { "_HOLE_ceil", (void*)ceil },
-    { "_HOLE_floorf", (void*)floorf },
-    { "_HOLE_floor", (void*)floor },
     { "_HOLE_truncf", (void*)truncf },
-    { "_HOLE_trunc", (void*)trunc },
-    { "_HOLE_rintf", (void*)rintf },
-    { "_HOLE_rint", (void*)rint },
-    { "_HOLE_copysignf", (void*)copysignf },
-    { "_HOLE_copysign", (void*)copysign },
 };
 static const int jav_jit_symbols_count =
     (int)(sizeof(jav_jit_symbols) / sizeof(jav_jit_symbols[0]));
+
+static inline void* jav_jit_sym(const char* name) {
+    int lo = 0, hi = jav_jit_symbols_count - 1;
+    while (lo <= hi) {
+        int mid = lo + (hi - lo) / 2;
+        int c = strcmp(jav_jit_symbols[mid].name, name);
+        if (c == 0) return jav_jit_symbols[mid].addr;
+        if (c < 0) lo = mid + 1; else hi = mid - 1;
+    }
+    return 0;
+}
 
 #endif /* JAV_JIT_SYMBOLS_H */

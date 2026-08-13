@@ -452,6 +452,66 @@ jav_vctx_t jav_module_cx(const jav_modidx_t* mod) {
     return cx;
 }
 
+// The tier-2 tree builder's context, projected from the same index, for the same
+// reason jav_module_cx exists: the projection lives in one place. Everything the
+// builder resolves is a STORAGE CLASS, so each valtype array becomes a class array
+// through the one generated mapping (jav_sclass_of_valtype) — the builder never
+// sees the validator's type model, which is what keeps the two walks independent.
+//
+// Per-function facts (the locals and this function's results) are the caller's to
+// fill: they are not module-level.
+jav_tctx_t jav_module_tctx(const jav_modidx_t* mod, bbq_arena* arena) {
+    jav_tctx_t t;
+    memset(&t, 0, sizeof t);
+    t.global_class = NULL;
+    t.mem_is64 = mod->mem_is64;     t.nmems   = mod->nmems;
+    t.table_is64 = mod->table_is64; t.ntables = mod->ntables;
+    t.func_type_idx = mod->func_type_idx; t.nfuncs = mod->nfuncs;
+    t.tag_type_idx  = mod->tag_typeidx;   t.ntags  = mod->ntags;
+    t.ntypes = mod->ntypes;
+
+    uint8_t* gl = mod->nglobals ? bbq_arena_alloc(arena, mod->nglobals) : NULL;
+    for (uint32_t g = 0; g < mod->nglobals; g++)
+        gl[g] = jav_sclass_of_valtype(mod->global_types[g]);
+    t.global_class = gl; t.nglobals = mod->nglobals;
+
+    uint32_t n = mod->ntypes;
+    if (!n) return t;
+    const uint8_t** fields = bbq_arena_alloc(arena, n * sizeof *fields);
+    uint32_t*       nflds  = bbq_arena_alloc(arena, n * sizeof *nflds);
+    uint8_t*        elems  = bbq_arena_alloc(arena, n);
+    const uint8_t** tparam = bbq_arena_alloc(arena, n * sizeof *tparam);
+    uint32_t*       tnp    = bbq_arena_alloc(arena, n * sizeof *tnp);
+    const uint8_t** tres   = bbq_arena_alloc(arena, n * sizeof *tres);
+    uint32_t*       tnr    = bbq_arena_alloc(arena, n * sizeof *tnr);
+    if (!fields || !nflds || !elems || !tparam || !tnp || !tres || !tnr) { t.ntypes = 0; return t; }
+
+    for (uint32_t i = 0; i < n; i++) {
+        fields[i] = NULL; nflds[i] = 0; elems[i] = JSC_COUNT;
+        tparam[i] = NULL; tnp[i] = 0; tres[i] = NULL; tnr[i] = 0;
+        if (mod->kinds[i] == WST_STRUCT) {
+            const jav_structtype_t* s = &mod->structtypes[i];
+            uint8_t* f = s->nfields ? bbq_arena_alloc(arena, s->nfields) : NULL;
+            for (unsigned k = 0; k < s->nfields; k++) f[k] = jav_sclass_of_valtype(s->fields[k]);
+            fields[i] = f; nflds[i] = s->nfields;
+        } else if (mod->kinds[i] == WST_ARRAY) {
+            elems[i] = jav_sclass_of_valtype(mod->arraytypes[i].elem);
+        } else if (mod->kinds[i] == WST_FUNC) {
+            const jav_functype_t* ft = &mod->functypes[i];
+            uint8_t* p = ft->nparams  ? bbq_arena_alloc(arena, ft->nparams)  : NULL;
+            uint8_t* r = ft->nresults ? bbq_arena_alloc(arena, ft->nresults) : NULL;
+            for (unsigned k = 0; k < ft->nparams;  k++) p[k] = jav_sclass_of_valtype(ft->params[k]);
+            for (unsigned k = 0; k < ft->nresults; k++) r[k] = jav_sclass_of_valtype(ft->results[k]);
+            tparam[i] = p; tnp[i] = ft->nparams;
+            tres[i]   = r; tnr[i] = ft->nresults;
+        }
+    }
+    t.field_class = fields; t.nfields = nflds; t.elem_class = elems;
+    t.type_param_class = tparam; t.type_nparams = tnp;
+    t.type_result_class = tres;  t.type_nresults = tnr;
+    return t;
+}
+
 // §4.5.3 lower the (validated) composite types into the collector's per-typeidx rtt: a struct's
 // ref-field byte offsets + size, an array's element shape (elem_is_ref, 8-byte slot stride). The
 // generic GC consumes these for tracing/sizing; func typeidx ⇒ NULL. Arena-owned (module arena).
@@ -727,5 +787,38 @@ int jav_module_index(const bbq_field_capture* root, const uint8_t* base,
     out->have_datacount = dcs != NULL;
     out->datacnt = dcs ? (uint32_t)bbq_node_int(jav_view_field(jav_view_field(dcs, "body"), "count"), base) : 0;
     out->lattice = (jav_subtype_ctx_t){ out->kinds, out->supers, nt, out->canon };
+    // Room for §7.6's tables, which validation fills. Allocated here because this
+    // owns the arena and knows the defined-function count; zeroed, so an index
+    // never validated — or rejected partway — still frees cleanly. nbodies stays
+    // 0 if the allocation fails, and a producer that sees 0 frees each table as
+    // it goes: slower, and correct.
+    {
+        uint32_t ndef = out->nfuncs - out->nimport_funcs;
+        out->body_st = NULL; out->body_tr = NULL;
+        out->body_locals = NULL; out->body_ndecl = NULL; out->nbodies = 0;
+        if (ndef) {
+            out->body_st     = bbq_arena_alloc(arena, (size_t)ndef * sizeof *out->body_st);
+            out->body_tr     = bbq_arena_alloc(arena, (size_t)ndef * sizeof *out->body_tr);
+            out->body_locals = bbq_arena_alloc(arena, (size_t)ndef * sizeof *out->body_locals);
+            out->body_ndecl  = bbq_arena_alloc(arena, (size_t)ndef * sizeof *out->body_ndecl);
+            if (out->body_st && out->body_tr && out->body_locals && out->body_ndecl) {
+                memset(out->body_st,     0, (size_t)ndef * sizeof *out->body_st);
+                memset(out->body_tr,     0, (size_t)ndef * sizeof *out->body_tr);
+                memset(out->body_locals, 0, (size_t)ndef * sizeof *out->body_locals);
+                memset(out->body_ndecl,  0, (size_t)ndef * sizeof *out->body_ndecl);
+                out->nbodies = ndef;
+            }
+        }
+    }
     return 1;
+}
+
+void jav_modidx_free_bodies(jav_modidx_t* mod) {
+    if (!mod || !mod->nbodies) return;
+    for (uint32_t d = 0; d < mod->nbodies; d++) {
+        bbq_vec_free(mod->body_st[d]);     mod->body_st[d] = NULL;
+        bbq_vec_free(mod->body_tr[d]);     mod->body_tr[d] = NULL;
+        bbq_vec_free(mod->body_locals[d]); mod->body_locals[d] = NULL;
+    }
+    mod->nbodies = 0;   /* idempotent — a second call has nothing to walk */
 }

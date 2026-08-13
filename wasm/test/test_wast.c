@@ -19,6 +19,7 @@
 #include "bbq_arena.h"
 #include "wast_sexpr.h"          // the shared .wast S-expr reader (Node + helpers)
 #include "wast_exec.h"           // the c-lite execution runner (separate TU: type-world split)
+#include "jav_ttree.h"           // PIN B-4: the tier-2 sweep's counters
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -417,12 +418,29 @@ static void exec_dispatch(const Node *cmd) {
 
 int main(int argc, char **argv) {
     int files = 0;
-    if (wast_exec_store_init()) {                    // build the spectest host once, register it
+    // --tier=<interp|1|2> picks which engine the corpus RUNS on; every conformance
+    // number below is that tier's claim, not a tier-independent one. Default is the
+    // interpreter, which is what the committed figures are measured against.
+    //
+    // --sweep instantiates every module and runs no assertions: the tier-2 tree
+    // builder is built during jit_compile, so putting a whole corpus of real bodies
+    // through it needs a compiling store but not a single invoke. In that mode this
+    // runner makes exactly ONE claim and prints exactly one meter.
+    wast_tier_t tier = WAST_TIER_INTERP;
+    int sweep = 0;
+    for (int a = 1; a < argc; a++) {
+        if (strcmp(argv[a], "--tier=interp") == 0) tier = WAST_TIER_INTERP;
+        else if (strcmp(argv[a], "--tier=1") == 0) tier = WAST_TIER_1;
+        else if (strcmp(argv[a], "--tier=2") == 0) tier = WAST_TIER_2;
+        else if (strcmp(argv[a], "--sweep") == 0) { sweep = 1; tier = wast_exec_jit_tier(); }
+    }
+    if (wast_exec_store_init(tier)) {                // build the spectest host once, register it
         uint8_t *sb; size_t sl;
         if (wat_string_to_bytes(SPECTEST_WAT, &sb, &sl)) { wast_exec_spectest(sb, sl); g_store_ready = 1; }
     }
     if (!g_store_ready) fprintf(stderr, "warning: spectest store init failed — execution skipped\n");
     for (int a = 1; a < argc; a++) {
+        if (strncmp(argv[a], "--", 2) == 0) continue;
         FILE *f = fopen(argv[a], "rb"); if (!f) continue;
         fseek(f,0,SEEK_END); long sz=ftell(f); fseek(f,0,SEEK_SET);
         char *b = malloc(sz+1); if (fread(b,1,sz,f)!=(size_t)sz){fclose(f);free(b);continue;} b[sz]=0; fclose(f);
@@ -449,7 +467,9 @@ int main(int argc, char **argv) {
                 run_module_validate(m, kind);    // binary modules → §7 validation gate (Phase 1)
                 run_module_validate_text(m, kind); // text modules → assemble → §7 validation gate
             }
-            if (g_store_ready) exec_dispatch(cmd);    // §execution: instantiate / invoke / assert_*
+            // In sweep mode only the module channel runs: instantiation is what
+            // reaches jit_compile, and no assertion is being claimed.
+            if (g_store_ready && (!sweep || m)) exec_dispatch(cmd);
             free_node(cmd);
         }
         free(b);
@@ -464,14 +484,103 @@ int main(int argc, char **argv) {
     fprintf(sum, "wast text-module (.wat reader) conformance: %d ok, %d mismatched, %d excluded (non-core-3.0)\n",
             g_wat_ok, g_wat_bad, g_wat_excl);
     int eok = 0, ebad = 0, eexcl = 0;
-    if (g_store_ready) {
+    if (g_store_ready && !sweep) {
         const char *ereason;
         wast_exec_counts(&eok, &ebad, &eexcl, &ereason);
-        fprintf(sum, "wast execution conformance: %d ok, %d mismatched, %d excluded\n",
+        // Named with its tier: these are that engine's numbers, and the committed
+        // figures are the interpreter's. The name comes from the tier that RAN —
+        // spelling one in the format string is how a tier-2 run printed a tier-1
+        // heading, which is the one thing this line exists to be exact about.
+        fprintf(sum, "wast execution conformance%s%s%s: %d ok, %d mismatched, %d excluded\n",
+                tier == WAST_TIER_INTERP ? "" : " [",
+                tier == WAST_TIER_INTERP ? "" : wast_tier_name(tier),
+                tier == WAST_TIER_INTERP ? "" : "]",
                 eok, ebad, eexcl);
         fprintf(sum, "wast trap-reason (jav_trap_reason_str vs .wast string): %d trapped for the WRONG reason\n",
                 wast_exec_trap_msgbad());
         if (getenv("WAST_EXCL")) wast_exec_print_breakdown(sum);
+    }
+    // PIN B-4. The arity claim alone would be green over zero nodes, so the sweep
+    // reports what it built: a body it declined is one the tier-2 walk is short a
+    // fact for, and the first one names the instruction it stopped on.
+    const jav_ttree_stats_t *ts = jav_ttree_stats();
+    if (tier != WAST_TIER_INTERP) {
+        fprintf(sum, "wast tier-2 tree sweep: %llu bodies, %llu nodes, "
+                     "%llu arity mismatches, %llu order breaks, %llu declined\n",
+                (unsigned long long)ts->bodies_built, (unsigned long long)ts->nodes,
+                (unsigned long long)ts->arity_mismatches,
+                (unsigned long long)ts->order_breaks,
+                (unsigned long long)ts->bodies_declined);
+        /* Unpicked must be EXACTLY the carried leaves: those stand for a value
+         * already in memory and have no instruction to stamp, so no rule fires
+         * for them. Any other unpicked node is an instruction the cover accepted
+         * and then said nothing about — silently correct, silently unoptimized. */
+        fprintf(sum, "wast tier-2 tiling: %llu covered, %llu uncovered, "
+                     "%llu nodes picked, %llu unpicked (%llu carried)\n",
+                (unsigned long long)ts->bodies_covered,
+                (unsigned long long)ts->bodies_uncovered,
+                (unsigned long long)ts->nodes_picked,
+                (unsigned long long)ts->nodes_unpicked,
+                (unsigned long long)ts->nodes_carried);
+        /* What the CACHE did, which none of the lines above can say. A corpus can
+         * be green with every body covered and still never put a value in a
+         * register — the stitcher would stamp nothing and the answers would be
+         * identical, because tier-2 is an optimization on top of a tier that
+         * already works. So the meter that says whether this ran AS TIER-2 is
+         * the count of instructions that executed with an operand in a register,
+         * and the transitions between them; `dropped` is bodies where a gap could
+         * not be bridged and the walk re-stamped them at tier-1, which is legal
+         * (D8) and exactly the "green by bailing out" this line exists to expose. */
+        fprintf(sum, "wast tier-2 stitch: %llu cached state(s) (%llu above slot 0), "
+                     "%llu transition(s) [%llu spill, %llu fill, %llu at a region "
+                     "boundary], %llu body(ies) dropped to tier-1\n",
+                (unsigned long long)ts->states_cached,
+                (unsigned long long)ts->states_deep,
+                (unsigned long long)ts->transitions,
+                (unsigned long long)ts->trans_spill,
+                (unsigned long long)ts->trans_fill,
+                (unsigned long long)ts->trans_boundary,
+                (unsigned long long)ts->bridge_fails);
+        /* …and the one that says whether any of it was worth doing. */
+        fprintf(sum, "wast tier-2 memory: %llu operand-stack slot(s) touched\n",
+                (unsigned long long)ts->mem_slots);
+    }
+    /* Bodies the JIT declined OUTRIGHT, which stay on the interpreter. Distinct
+     * from every meter above: those describe tier-2's decisions inside a body the
+     * JIT took, while this is the JIT not taking it at all. It is the quietest
+     * failure the engine has — the module runs and every answer agrees — so it is
+     * printed and gated rather than left for someone to notice. */
+    if (tier != WAST_TIER_INTERP && !sweep) {
+        uint32_t dec = wast_exec_jit_declined();
+        fprintf(sum, "wast jit coverage: %u function(s) declined by the JIT\n", dec);
+    }
+    if (tier != WAST_TIER_INTERP) {
+        if (ts->have_unbridged)
+            fprintf(sum, "  first unbridged: op 0x%02x @%u, state %d -> %d, class %d\n",
+                    ts->first_unbridged_op, ts->first_unbridged_off,
+                    ts->first_unbridged_from, ts->first_unbridged_to,
+                    ts->first_unbridged_cls);
+        if (ts->code_bodies)
+            fprintf(sum, "wast tier-2 code: %llu bytes over %llu bodies (%llu mean)\n",
+                    (unsigned long long)ts->code_bytes,
+                    (unsigned long long)ts->code_bodies,
+                    (unsigned long long)(ts->code_bytes / ts->code_bodies));
+        if (ts->have_uncovered)
+            fprintf(sum, "  first uncovered at signature %d\n", ts->first_uncovered_sig);
+        if (ts->bodies_declined) {          // the work list, busiest instruction first
+            uint32_t left[256];
+            memcpy(left, ts->decline_op, sizeof left);
+            fprintf(sum, "  declines by instruction:");
+            for (int shown = 0; shown < 6; shown++) {
+                int best = -1;
+                for (int k = 0; k < 256; k++)
+                    if (left[k] && (best < 0 || left[k] > left[best])) best = k;
+                if (best < 0) break;
+                fprintf(sum, " 0x%02x=%u", best, left[best]);
+                left[best] = 0;
+            }
+            fputc('\n', sum);
+        }
     }
     // EVERY meter this runner prints is gated. It used to gate three of six, so the text
     // validation gate, the reject-reason meter, the execution gate and the trap-reason
@@ -480,5 +589,39 @@ int main(int argc, char **argv) {
     // number worth failing on; if one is expected to be non-zero it belongs in
     // docs/test-baseline.md as a committed figure, not silently ungated here.
     return (g_bad || g_wat_bad || g_val_bad || g_tval_bad || g_val_msgbad
-            || ebad || wast_exec_trap_msgbad()) ? 1 : 0;
+            || ebad || (!sweep && wast_exec_trap_msgbad())
+            /* The tree and tiling meters belong to TIER-2: tier-1 compiles with no
+             * tiling context, so no tree is built and there is nothing for them to
+             * be about. Gating them on "any JIT tier" made a correct tier-1 run
+             * fail for having built zero trees. */
+            || (tier == WAST_TIER_2
+                && (ts->arity_mismatches || ts->order_breaks || ts->bodies_built == 0
+                    || ts->bodies_uncovered
+                    || ts->nodes_unpicked != ts->nodes_carried))
+            /* …and the stitch meters, on the tier that HAS a cache. A body that
+             * dropped back to tier-1 is a body this run did not test, so a green
+             * over a corpus full of them is a green for the tier below; and zero
+             * cached states means the corpus never exercised the mechanism at
+             * all, which is the same green for a different reason. */
+            || (tier == WAST_TIER_2 && ts->bridge_fails)
+            /* …and "the cache was actually used" only where there IS one. At
+             * TIER2_N=0 tier-2 builds the tree and covers it, but every rule is a
+             * state-0 rule and nothing is ever cached — correctly, and the meter
+             * says so. */
+            /* `states_cached` alone. `transitions == 0` was here as a second
+             * vacuity check and it was WRONG in the same way it was wrong in
+             * test_jit_tier2.c: a transition is the mechanism FAILING to be
+             * invisible — the access it would have done inline, plus a jump — so
+             * none of them over a corpus is the best result available, not an
+             * unexercised one. It started failing the moment the grammar stopped
+             * offering rules the variant family does not provide, which is when
+             * n=1 went from 10,545 transitions to none. */
+            || (tier == WAST_TIER_2 && wast_exec_cache_slots() > 0
+                && ts->states_cached == 0)
+            /* …and no function silently off the tier. 0 is the committed figure
+             * for this corpus on both JIT tiers; an opcode that legitimately
+             * cannot be compiled (`flag:no_jit` — there are none today) would
+             * move it, and moving it is a decision to record here, not a number
+             * to let drift. */
+            || (tier != WAST_TIER_INTERP && !sweep && wast_exec_jit_declined())) ? 1 : 0;
 }
