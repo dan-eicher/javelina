@@ -6,13 +6,20 @@
  *   src/gen/jav_stencil_table.h every stencil's MEASURED code_size, as jitterator
  *                               extracted it from the compiled object.
  *
- * The grammar cannot come out of opgen, which is where the terminals do: a rule's
- * cost is the size of the code it stamps, and that size does not exist until the
- * stencils have been compiled and measured — which happens downstream of opgen.
- * So the grammar is emitted here, from the measurement, and a rule exists exactly
+ * The grammar cannot come out of opgen, which is where the terminals do: which
+ * (signature, state) pairs the variant family actually PROVIDES is not known until
+ * the stencils have been compiled and jitterator has read the table — downstream of
+ * opgen. So the grammar is emitted here, and a rule exists exactly
  * when the stencil it would stamp exists. That is also §2.5's omission rule for
  * free: a (signature, state) pair the variant family does not provide has no
  * rule, and the tiler reaches it through a transition instead of guessing.
+ *
+ * A rule's COST is a separate question, and it is not the stencil's size. Bytes
+ * cannot see a dispatch, so a cover priced in them prices the wrong thing; the
+ * scale is Ertl's own (§2.6, printed 36) and it is derived from the SIGNATURE —
+ * how many words move, and whether a dispatch happens that otherwise would not.
+ * See rule_cost(). The measured code_size is still read, for the omission rule
+ * above and for the size figures the plan's G3 records; it no longer prices.
  *
  * Nothing here parses anything. Both inputs are C data this program includes.
  */
