@@ -188,7 +188,19 @@ static int mean_size(int t, int state, int want_fs, uint32_t* out, int* nops) {
                 /* No variant at this state is not a disagreement: that opcode is
                  * not offering this form, and D5s already says the tiler reaches
                  * such a state by transition. What cannot stand is two opcodes
-                 * that BOTH answer and answer differently. */
+                 * that BOTH answer and answer differently.
+                 *
+                 * B3 tried to PRICE the transition here — the worst member's
+                 * descend deficit added to the rule — and the corpus refuted it:
+                 * one exotic non-provider (struct.new's variadic form has no
+                 * variant at any state) taxed every rule its terminal shares,
+                 * the DP fled to memory forms, and the traffic the price exists
+                 * to minimize DOUBLED (mem slots 21100 -> 39816, code +18%) to
+                 * avoid 24 unpriced slots. A per-signature cost cannot carry
+                 * per-member truth; the descend stays a METERED residue
+                 * (jav_ttree_stats.descends, baselined), and the recorded next
+                 * move if a corpus ever shows descends at scale is per-opcode
+                 * terminals for the disagreeing family, not a shared-rule tax. */
                 if (sid < 0) continue;
                 /* Existing is not enough — it has to land the result WHERE THIS
                  * RULE SAYS. Opcodes sharing a signature need not agree, and the

@@ -197,10 +197,28 @@ typedef struct {
     uint8_t  first_fallback_op;
     uint32_t first_fallback_bpos;
     int      first_fallback_entry, first_fallback_why;
+    /* Stamps whose OPCODE provided no form at the rule's state, so the stitcher
+     * descended to the nearest one it does provide (the C5 contract) and the
+     * bridge spilled the difference — slots the cover never priced.
+     * `descend_slots` is that summed deficit, the exact unpriced quantity; the
+     * first one is named because a count is a total, not a work list. A descend
+     * is LEGAL, so the gate on these is the meter's own identity
+     * (descend_slots >= descends, both zero together) and a recorded baseline,
+     * never a zero. */
+    uint64_t descends;
+    uint64_t descend_slots;
+    int      have_descend;
+    uint8_t  first_descend_op;
+    uint32_t first_descend_sub;      /* sub-opcode when op is a prefix (0xfb/0xfc/0xfd), else 0 */
+    int      first_descend_from, first_descend_to;
 } jav_ttree_stats_t;
 
 const jav_ttree_stats_t* jav_ttree_stats(void);
 void                     jav_ttree_stats_reset(void);
+/* One stamp descended from the rule's state `from` to the nearest state its
+ * opcode provides, `to` — the bridge spills the difference (see the stats
+ * fields above). `sub` is the sub-opcode when `op` is a prefix byte, else 0. */
+void jav_ttree_note_descend(uint8_t op, uint32_t sub, int from, int to);
 /* Point the EMISSION notes (stitch/transition/mem/wide/region-entry) at a
  * per-compile accumulator, or back at the globals (NULL). An emission can be
  * abandoned — a walk that fails mid-body re-stamps through the other one — and

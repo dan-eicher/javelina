@@ -255,8 +255,9 @@ static void stamp_instr(bbq_ctx_t* cur, int entry_req,
         g_e.status = JAV_TRAP; return;
     }
     jav_jit_meta_t m;
+    uint32_t sub = 0;
     if (jav_jit_meta_sub[op]) {
-        uint32_t sub = 0; bbq_read_uleb128_u32(cur, &sub);
+        bbq_read_uleb128_u32(cur, &sub);
         m = jav_jit_meta_sub[op][sub];
     } else m = jav_jit_meta[op];
     if (m.stencil < 0) {
@@ -297,6 +298,9 @@ static void stamp_instr(bbq_ctx_t* cur, int entry_req,
             if (ok) break;
             entry--;
         }
+        /* Below the rule's ask (a lift only ever raises), so the bridge is about
+         * to spill slots the cover never priced — B3's metered quantity. */
+        if (entry < entry_req) jav_ttree_note_descend(op, sub, entry_req, entry);
         /* The bridge. A cache state is a property of a program point: where the
          * previous instruction left the cache and where this one expects it are
          * two facts about the same point, and the difference IS the transition. */

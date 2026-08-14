@@ -117,6 +117,14 @@ void jav_ttree_stats_commit(const jav_ttree_stats_t* d) {
     for (int i = 0; i < 9; i++) g_stats.entry_state[i] += d->entry_state[i];
     g_stats.wide_cached    += d->wide_cached;
     g_stats.regions_hot    += d->regions_hot;
+    g_stats.descends       += d->descends;
+    g_stats.descend_slots  += d->descend_slots;
+    if (d->have_descend && !g_stats.have_descend) {
+        g_stats.have_descend = 1;
+        g_stats.first_descend_op   = d->first_descend_op;
+        g_stats.first_descend_from = d->first_descend_from;
+        g_stats.first_descend_to   = d->first_descend_to;
+    }
 }
 
 void jav_ttree_note_stitch(int entry, int transitions, int bridge_failed) {
@@ -144,6 +152,17 @@ void jav_ttree_note_fallback(uint8_t op, uint32_t bpos, int entry, int why) {
 
 void jav_ttree_note_region_entry(int live_state) {
     if (live_state > 0) g_sink->regions_hot++;
+}
+
+void jav_ttree_note_descend(uint8_t op, uint32_t sub, int from, int to) {
+    g_sink->descends++;
+    g_sink->descend_slots += (uint64_t)(from - to);
+    if (g_sink->have_descend) return;
+    g_sink->have_descend = 1;
+    g_sink->first_descend_op = op;
+    g_sink->first_descend_sub = sub;
+    g_sink->first_descend_from = from;
+    g_sink->first_descend_to = to;
 }
 
 void jav_ttree_note_mem(int slots) {

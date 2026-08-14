@@ -787,6 +787,19 @@ int main(int argc, char **argv) {
         /* …and the one that says whether any of it was worth doing. */
         fprintf(sum, "wast tier-2 memory: %llu operand-stack slot(s) touched\n",
                 (unsigned long long)ts->mem_slots);
+        /* B3's quantity: stamps whose opcode lacked the rule's state, so the
+         * stitcher descended and the bridge spilled slots the cover never
+         * priced. Legal, so the exit-code gate is the meter's own identity;
+         * the VALUE is a recorded baseline (docs/test-baseline.md law). */
+        fprintf(sum, "wast tier-2 descend: %llu stamp(s) below the rule's state, "
+                     "%llu unpriced slot(s)%s",
+                (unsigned long long)ts->descends,
+                (unsigned long long)ts->descend_slots,
+                ts->have_descend ? "" : "\n");
+        if (ts->have_descend)
+            fprintf(sum, "; first: op 0x%02x sub %u state %d -> %d\n",
+                    ts->first_descend_op, ts->first_descend_sub,
+                    ts->first_descend_from, ts->first_descend_to);
     }
     /* Bodies the JIT declined OUTRIGHT, which stay on the interpreter. Distinct
      * from every meter above: those describe tier-2's decisions inside a body the
@@ -883,6 +896,13 @@ int main(int argc, char **argv) {
              * cached states means the corpus never exercised the mechanism at
              * all, which is the same green for a different reason. */
             || (tier == WAST_TIER_2 && ts->bridge_fails)
+            /* The descend meter's own identity: each descend is at least one
+             * slot, and a named first implies a count (and the reverse). The
+             * magnitude is a baseline, not a gate — a descend is the grammar's
+             * C5 contract working, so zero would be the wrong assertion. */
+            || (tier == WAST_TIER_2
+                && (ts->descend_slots < ts->descends
+                    || (ts->descends != 0) != (ts->have_descend != 0)))
             /* …and "the cache was actually used" only where there IS one. At
              * TIER2_N=0 tier-2 builds the tree and covers it, but every rule is a
              * state-0 rule and nothing is ever cached — correctly, and the meter
