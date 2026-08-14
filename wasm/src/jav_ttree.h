@@ -23,35 +23,21 @@
 #include "bbq_lite.h"     /* bbq_ctx_t — the same cursor the interpreter reads with */
 #include "jav_sigtab.h"
 
-/* §3.1 A node. `sig` is the resolved storage-class signature, which IS the burg
- * terminal; `pc` points at the instruction's first byte, which is the stitcher's
- * payload and which burg never reads — the opcode selects the stencil family by
- * direct index, the tiling selects the variant within it. */
-typedef struct jav_tnode {
-    uint16_t          sig;
-    uint8_t           nkids;
-    /* Cache slots this subtree needs to evaluate: the peak of the operand stack
-     * between its first instruction and its result. A rule states shape and
-     * cannot state a quantity, so a guard reads this instead — the same division
-     * of labour yoctojc's grammar uses for its interval facts. What it decides is
-     * whether an operand can WAIT in a register while a later operand's subtree
-     * runs: the tree says which value each child is, and this says how much room
-     * evaluating it takes. */
-    uint8_t           need;
-    /* This instruction's ORDINAL in the body's §5 sequence — the position the walk
-     * was at when it built the node, counted as it decodes. `pc` says WHERE in the
-     * bytes; a consumer that holds the instructions in some other form (already
-     * decoded, say) cannot use a byte offset but can use this, because every walk
-     * over one body meets the same instructions in the same order. UINT32_MAX for a
-     * carried leaf, which stands for a stack slot and no instruction at all.
-     *
-     * It costs nothing: sig+nkids+need is 4 bytes and the pointers that follow are
-     * 8-aligned, so this lands in padding the node already had. */
-    uint32_t          seq;
-    struct jav_tnode* kids[JAV_SIG_MAX_KIDS];
-    const uint8_t*    pc;
-} jav_tnode_t;
-#define JAV_TNODE_NO_SEQ  UINT32_MAX
+/* §3.1 The node — GENERATED from the schema (src/gen/jav_tnode.h, by asdl over
+ * src/gen/jav_ttree.asdl through spec/templates/jav_tnode.inja), so the IR the
+ * builder allocates and the schema burgc checks the tiling grammar's coverage
+ * against are ONE artifact reaching C twice. PIN B-6 (test_ttree) compares the
+ * two ends name-for-name at every id; sigemit numbers the finals in the schema's
+ * own declaration order, so `sig` is simultaneously the jav_sigtab index, the
+ * burg TERM and the generated tag value.
+ *
+ * What rides on the node beyond its tree shape is declared as the schema's
+ * `attributes(...)`: `need` (cache slots this subtree needs to evaluate — a rule
+ * states shape and cannot state a quantity, so a guard reads this), `seq` (the
+ * instruction's flat §5 ordinal, JAV_TNODE_NO_SEQ for a carried leaf), and `pc`
+ * (the instruction's first byte — the stitcher's payload, which burg never
+ * reads). */
+#include "jav_tnode.h"
 
 /* §3.3 A region: the run between two cuts. Its roots are the nodes nothing
  * inside the region consumed — the effectful ones, and whatever the region left

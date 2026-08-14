@@ -239,7 +239,44 @@ static void walk_must_consume_the_whole_body(void) {
     bbq_arena_free(&a);
 }
 
+/* PIN B-6 — TheNodeIsTheSchema
+ *
+ * The node the builder allocates is GENERATED from jav_ttree.asdl — the same
+ * schema burgc checks the tiling grammar's coverage against — so the IR and the
+ * schema cannot drift. This is the pin that says the construction WORKS: the two
+ * ends reach C through different pipelines (jav_sigtab through sigemit's own
+ * printf; the tag tables through asdl → JSON → the inja template), and they must
+ * agree name-for-name, arity-for-arity, at every id. sigemit renumbers the
+ * finals into the schema's declaration order to make that true; build opgen
+ * without the renumbering and every name row here goes red at once.
+ *
+ * The layout claim is the one thing the behavioral net cannot see: A-5's edge
+ * differential, the exact-tree pins and 60113 executed assertions all pass
+ * whatever the node's size is. 56 bytes — the scalars packing into one
+ * pointer-sized word, then pc and the five kids — is the allocation density the
+ * tier was measured at, so it is pinned as arithmetic, not remembered as a
+ * number. */
+static void the_node_is_the_schema(void) {
+    printf("TheNodeIsTheSchema: jav_tnode.h (asdl) == jav_sigtab.h (sigemit)\n");
+    CK("one tag per final signature", JAV_TT_TAG_COUNT, JAV_SIG_TERMINALS);
+    long name_bad = 0, arity_bad = 0, nonfinal = 0;
+    int max_arity = 0;
+    for (int i = 0; i < JAV_TT_TAG_COUNT; i++) {
+        if (strcmp(jav_tt_tag_name[i], jav_sigtab[i].name) != 0) name_bad++;
+        if (jav_tt_tag_arity[i] != jav_sigtab[i].nkids) arity_bad++;
+        if (!jav_sigtab[i].final) nonfinal++;
+        if (jav_tt_tag_arity[i] > max_arity) max_arity = jav_tt_tag_arity[i];
+    }
+    CK("tags whose name differs from the sigtab's", name_bad, 0);
+    CK("tags whose arity differs from the sigtab's", arity_bad, 0);
+    CK("tags naming a non-final signature", nonfinal, 0);
+    CK("the widest constructor is the arity ceiling", max_arity, JAV_SIG_MAX_KIDS);
+    CK("sizeof(jav_tnode_t)", (long)sizeof(jav_tnode_t),
+       8 + (long)sizeof(void*) * (JAV_SIG_MAX_KIDS + 1));
+}
+
 int main(void) {
+    the_node_is_the_schema();
     add_folds_to_one_tree();
     live_across_cut_becomes_root();
     dead_code_builds_nothing();

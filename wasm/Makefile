@@ -170,7 +170,7 @@ $(B)/tier2_n.stamp: tier2-stamp ;
 # packing the ACTION writes and the stitcher reads. Leave it out and the two ends
 # disagree silently — the generator emits one width, the reader unpacks another,
 # and every slot decodes as some other class.
-$(B)/gen_tile_burg: tools/gen_tile_burg.c src/jav_ttree.h $(GEN)/jav_sigtab.h $(GEN)/jav_stencil_table.h | $(B)
+$(B)/gen_tile_burg: tools/gen_tile_burg.c src/jav_ttree.h $(GEN)/jav_tnode.h $(GEN)/jav_sigtab.h $(GEN)/jav_stencil_table.h | $(B)
 	$(CC) -O2 -std=c11 -Wall -Werror -Isrc -Isrc/gen -I$(RT) -I$(CRT) $< -o $@
 $(GEN)/jav_tile.burg: $(B)/gen_tile_burg $(B)/tier2_n.stamp
 	$(B)/gen_tile_burg -n $(TIER2_N) -o $@
@@ -188,6 +188,14 @@ $(GEN)/jav_tile.c $(GEN)/jav_tile.h &: $(GEN)/jav_tile.burg $(BURGC)
 # of the same opgen walk, which is what makes the match hold.
 $(GEN)/jav_ttree.json: $(GEN)/jav_ttree.asdl $(ASDL)
 	$(ASDL) -i $< --json $@
+# The tree node the tier-2 builder allocates, generated from the SAME schema the
+# tiling grammar's coverage is checked against — one artifact reaching C twice,
+# instead of a hand-written struct the schema merely resembled. The local inja
+# template (the compiler's SIR precedent) holds the representation choice: one
+# uniform node over the schema's seven typed sums, tag values == sigtab indices
+# because sigemit renumbers the ids into the schema's own declaration order.
+$(GEN)/jav_tnode.h: $(GEN)/jav_ttree.asdl spec/templates/jav_tnode.inja $(ASDL)
+	$(ASDL) -i $(GEN)/jav_ttree.asdl -t spec/templates/jav_tnode.inja -o $@ -l c
 .PHONY: tile-coverage
 # --asdl-strict because both files come out of ONE opgen walk: a terminal whose
 # constructor arity disagrees with its pattern is a generator bug, not a
@@ -282,11 +290,11 @@ $(B)/jav_subtype.o: src/jav_subtype.c src/jav_subtype.h | $(B)
 	$(CC) $(CFLAGS) -c $< -o $@
 # The tier-2 tree builder. Its include set is the point: the generated tables and
 # the crt, and NOT validate.h — the two walks share a generator, not a header.
-$(B)/jav_ttree.o:   src/jav_ttree.c src/jav_ttree.h $(GEN)/jav_sigtab.h | $(B)
+$(B)/jav_ttree.o:   src/jav_ttree.c src/jav_ttree.h $(GEN)/jav_tnode.h $(GEN)/jav_sigtab.h | $(B)
 	$(CC) $(CFLAGS) -c $< -o $@
 # burgc's generated matcher. -Wno-unused-function: the labeller emits a helper
 # per nonterminal and a grammar this wide does not reach all of them.
-$(B)/jav_tile.o:    $(GEN)/jav_tile.c $(GEN)/jav_tile.h src/jav_ttree.h | $(B)
+$(B)/jav_tile.o:    $(GEN)/jav_tile.c $(GEN)/jav_tile.h src/jav_ttree.h $(GEN)/jav_tnode.h | $(B)
 	$(CC) $(CFLAGS) -Wno-unused-function -c $< -o $@
 $(B)/jit_driver.o:   src/jit_driver.c $(GEN)/jav_stencil_table.h $(GEN)/gen_interp.c | $(B)
 	$(CC) $(CFLAGS) -c $< -o $@

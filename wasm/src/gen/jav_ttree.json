@@ -1,5 +1,9 @@
 {
-  "aliases": {},
+  "aliases": {
+    "bytep": "const uint8_t*",
+    "u32": "uint32_t",
+    "u8": "uint8_t"
+  },
   "bases": [
     "I32",
     "I64",
@@ -11,7 +15,23 @@
   ],
   "definitions": [
     {
-      "attributes": [],
+      "attributes": [
+        {
+          "flag": "none",
+          "name": "need",
+          "type": "u8"
+        },
+        {
+          "flag": "none",
+          "name": "seq",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "pc",
+          "type": "bytep"
+        }
+      ],
       "is_enum": false,
       "name": "i32",
       "type": "sum",
@@ -133,7 +153,7 @@
               "type": "i32"
             }
           ],
-          "name": "Sig_v128_i32_to_i32"
+          "name": "Sig_v128_i32_to_i32_pw"
         },
         {
           "base": "I32",
@@ -241,7 +261,7 @@
               "type": "i64"
             }
           ],
-          "name": "Sig_v128_i64_to_i32"
+          "name": "Sig_v128_i64_to_i32_pw"
         },
         {
           "base": "I32",
@@ -390,6 +410,18 @@
               "type": "v128"
             }
           ],
+          "name": "Sig_v128_to_i32_pw"
+        },
+        {
+          "base": "I32",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "v128"
+            }
+          ],
           "name": "Sig_v128_to_i32"
         },
         {
@@ -400,7 +432,23 @@
       ]
     },
     {
-      "attributes": [],
+      "attributes": [
+        {
+          "flag": "none",
+          "name": "need",
+          "type": "u8"
+        },
+        {
+          "flag": "none",
+          "name": "seq",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "pc",
+          "type": "bytep"
+        }
+      ],
       "is_enum": false,
       "name": "i64",
       "type": "sum",
@@ -522,7 +570,7 @@
               "type": "i32"
             }
           ],
-          "name": "Sig_v128_i32_to_i64"
+          "name": "Sig_v128_i32_to_i64_pw"
         },
         {
           "base": "I64",
@@ -630,7 +678,7 @@
               "type": "i64"
             }
           ],
-          "name": "Sig_v128_i64_to_i64"
+          "name": "Sig_v128_i64_to_i64_pw"
         },
         {
           "base": "I64",
@@ -735,7 +783,23 @@
       ]
     },
     {
-      "attributes": [],
+      "attributes": [
+        {
+          "flag": "none",
+          "name": "need",
+          "type": "u8"
+        },
+        {
+          "flag": "none",
+          "name": "seq",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "pc",
+          "type": "bytep"
+        }
+      ],
       "is_enum": false,
       "name": "f32",
       "type": "sum",
@@ -869,7 +933,7 @@
               "type": "i32"
             }
           ],
-          "name": "Sig_v128_i32_to_f32"
+          "name": "Sig_v128_i32_to_f32_pw"
         },
         {
           "base": "F32",
@@ -977,7 +1041,7 @@
               "type": "i64"
             }
           ],
-          "name": "Sig_v128_i64_to_f32"
+          "name": "Sig_v128_i64_to_f32_pw"
         },
         {
           "base": "F32",
@@ -1088,7 +1152,23 @@
       ]
     },
     {
-      "attributes": [],
+      "attributes": [
+        {
+          "flag": "none",
+          "name": "need",
+          "type": "u8"
+        },
+        {
+          "flag": "none",
+          "name": "seq",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "pc",
+          "type": "bytep"
+        }
+      ],
       "is_enum": false,
       "name": "f64",
       "type": "sum",
@@ -1222,7 +1302,7 @@
               "type": "i32"
             }
           ],
-          "name": "Sig_v128_i32_to_f64"
+          "name": "Sig_v128_i32_to_f64_pw"
         },
         {
           "base": "F64",
@@ -1330,7 +1410,7 @@
               "type": "i64"
             }
           ],
-          "name": "Sig_v128_i64_to_f64"
+          "name": "Sig_v128_i64_to_f64_pw"
         },
         {
           "base": "F64",
@@ -1441,7 +1521,23 @@
       ]
     },
     {
-      "attributes": [],
+      "attributes": [
+        {
+          "flag": "none",
+          "name": "need",
+          "type": "u8"
+        },
+        {
+          "flag": "none",
+          "name": "seq",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "pc",
+          "type": "bytep"
+        }
+      ],
       "is_enum": false,
       "name": "v128",
       "type": "sum",
@@ -1449,7 +1545,7 @@
         {
           "base": "V128",
           "fields": [],
-          "name": "Sig_to_v128"
+          "name": "Sig_to_v128_pw"
         },
         {
           "base": "V128",
@@ -1461,7 +1557,288 @@
               "type": "v128"
             }
           ],
-          "name": "Sig_v128_to_v128"
+          "name": "Sig_v128_to_v128_pw"
+        },
+        {
+          "base": "V128",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "i32"
+            }
+          ],
+          "name": "Sig_i32_to_v128_pw"
+        },
+        {
+          "base": "V128",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "i64"
+            }
+          ],
+          "name": "Sig_i64_to_v128_pw"
+        },
+        {
+          "base": "V128",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "i32"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a1",
+              "type": "i32"
+            }
+          ],
+          "name": "Sig_i32_i32_to_v128_pw"
+        },
+        {
+          "base": "V128",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "i64"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a1",
+              "type": "i32"
+            }
+          ],
+          "name": "Sig_i64_i32_to_v128_pw"
+        },
+        {
+          "base": "V128",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "f32"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a1",
+              "type": "i32"
+            }
+          ],
+          "name": "Sig_f32_i32_to_v128_pw"
+        },
+        {
+          "base": "V128",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "f64"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a1",
+              "type": "i32"
+            }
+          ],
+          "name": "Sig_f64_i32_to_v128_pw"
+        },
+        {
+          "base": "V128",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "v128"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a1",
+              "type": "i32"
+            }
+          ],
+          "name": "Sig_v128_i32_to_v128_pw"
+        },
+        {
+          "base": "V128",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "ref"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a1",
+              "type": "i32"
+            }
+          ],
+          "name": "Sig_ref_i32_to_v128_pw"
+        },
+        {
+          "base": "V128",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "i32"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a1",
+              "type": "i64"
+            }
+          ],
+          "name": "Sig_i32_i64_to_v128_pw"
+        },
+        {
+          "base": "V128",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "i64"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a1",
+              "type": "i64"
+            }
+          ],
+          "name": "Sig_i64_i64_to_v128_pw"
+        },
+        {
+          "base": "V128",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "f32"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a1",
+              "type": "i64"
+            }
+          ],
+          "name": "Sig_f32_i64_to_v128_pw"
+        },
+        {
+          "base": "V128",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "f64"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a1",
+              "type": "i64"
+            }
+          ],
+          "name": "Sig_f64_i64_to_v128_pw"
+        },
+        {
+          "base": "V128",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "v128"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a1",
+              "type": "i64"
+            }
+          ],
+          "name": "Sig_v128_i64_to_v128_pw"
+        },
+        {
+          "base": "V128",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "ref"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a1",
+              "type": "i64"
+            }
+          ],
+          "name": "Sig_ref_i64_to_v128_pw"
+        },
+        {
+          "base": "V128",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "v128"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a1",
+              "type": "v128"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a2",
+              "type": "i32"
+            }
+          ],
+          "name": "Sig_v128_v128_i32_to_v128_pw"
+        },
+        {
+          "base": "V128",
+          "fields": [],
+          "name": "Sig_stk_to_v128_pw"
+        },
+        {
+          "base": "V128",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "ref"
+            }
+          ],
+          "name": "Sig_ref_to_v128_pw"
         },
         {
           "base": "V128",
@@ -1489,260 +1866,8 @@
         },
         {
           "base": "V128",
-          "fields": [
-            {
-              "flag": "none",
-              "is_schema": true,
-              "name": "a0",
-              "type": "i32"
-            },
-            {
-              "flag": "none",
-              "is_schema": true,
-              "name": "a1",
-              "type": "i32"
-            }
-          ],
-          "name": "Sig_i32_i32_to_v128"
-        },
-        {
-          "base": "V128",
-          "fields": [
-            {
-              "flag": "none",
-              "is_schema": true,
-              "name": "a0",
-              "type": "i64"
-            },
-            {
-              "flag": "none",
-              "is_schema": true,
-              "name": "a1",
-              "type": "i32"
-            }
-          ],
-          "name": "Sig_i64_i32_to_v128"
-        },
-        {
-          "base": "V128",
-          "fields": [
-            {
-              "flag": "none",
-              "is_schema": true,
-              "name": "a0",
-              "type": "f32"
-            },
-            {
-              "flag": "none",
-              "is_schema": true,
-              "name": "a1",
-              "type": "i32"
-            }
-          ],
-          "name": "Sig_f32_i32_to_v128"
-        },
-        {
-          "base": "V128",
-          "fields": [
-            {
-              "flag": "none",
-              "is_schema": true,
-              "name": "a0",
-              "type": "f64"
-            },
-            {
-              "flag": "none",
-              "is_schema": true,
-              "name": "a1",
-              "type": "i32"
-            }
-          ],
-          "name": "Sig_f64_i32_to_v128"
-        },
-        {
-          "base": "V128",
-          "fields": [
-            {
-              "flag": "none",
-              "is_schema": true,
-              "name": "a0",
-              "type": "v128"
-            },
-            {
-              "flag": "none",
-              "is_schema": true,
-              "name": "a1",
-              "type": "i32"
-            }
-          ],
-          "name": "Sig_v128_i32_to_v128"
-        },
-        {
-          "base": "V128",
-          "fields": [
-            {
-              "flag": "none",
-              "is_schema": true,
-              "name": "a0",
-              "type": "ref"
-            },
-            {
-              "flag": "none",
-              "is_schema": true,
-              "name": "a1",
-              "type": "i32"
-            }
-          ],
-          "name": "Sig_ref_i32_to_v128"
-        },
-        {
-          "base": "V128",
-          "fields": [
-            {
-              "flag": "none",
-              "is_schema": true,
-              "name": "a0",
-              "type": "i32"
-            },
-            {
-              "flag": "none",
-              "is_schema": true,
-              "name": "a1",
-              "type": "i64"
-            }
-          ],
-          "name": "Sig_i32_i64_to_v128"
-        },
-        {
-          "base": "V128",
-          "fields": [
-            {
-              "flag": "none",
-              "is_schema": true,
-              "name": "a0",
-              "type": "i64"
-            },
-            {
-              "flag": "none",
-              "is_schema": true,
-              "name": "a1",
-              "type": "i64"
-            }
-          ],
-          "name": "Sig_i64_i64_to_v128"
-        },
-        {
-          "base": "V128",
-          "fields": [
-            {
-              "flag": "none",
-              "is_schema": true,
-              "name": "a0",
-              "type": "f32"
-            },
-            {
-              "flag": "none",
-              "is_schema": true,
-              "name": "a1",
-              "type": "i64"
-            }
-          ],
-          "name": "Sig_f32_i64_to_v128"
-        },
-        {
-          "base": "V128",
-          "fields": [
-            {
-              "flag": "none",
-              "is_schema": true,
-              "name": "a0",
-              "type": "f64"
-            },
-            {
-              "flag": "none",
-              "is_schema": true,
-              "name": "a1",
-              "type": "i64"
-            }
-          ],
-          "name": "Sig_f64_i64_to_v128"
-        },
-        {
-          "base": "V128",
-          "fields": [
-            {
-              "flag": "none",
-              "is_schema": true,
-              "name": "a0",
-              "type": "v128"
-            },
-            {
-              "flag": "none",
-              "is_schema": true,
-              "name": "a1",
-              "type": "i64"
-            }
-          ],
-          "name": "Sig_v128_i64_to_v128"
-        },
-        {
-          "base": "V128",
-          "fields": [
-            {
-              "flag": "none",
-              "is_schema": true,
-              "name": "a0",
-              "type": "ref"
-            },
-            {
-              "flag": "none",
-              "is_schema": true,
-              "name": "a1",
-              "type": "i64"
-            }
-          ],
-          "name": "Sig_ref_i64_to_v128"
-        },
-        {
-          "base": "V128",
-          "fields": [
-            {
-              "flag": "none",
-              "is_schema": true,
-              "name": "a0",
-              "type": "v128"
-            },
-            {
-              "flag": "none",
-              "is_schema": true,
-              "name": "a1",
-              "type": "v128"
-            },
-            {
-              "flag": "none",
-              "is_schema": true,
-              "name": "a2",
-              "type": "i32"
-            }
-          ],
-          "name": "Sig_v128_v128_i32_to_v128"
-        },
-        {
-          "base": "V128",
           "fields": [],
-          "name": "Sig_stk_to_v128"
-        },
-        {
-          "base": "V128",
-          "fields": [
-            {
-              "flag": "none",
-              "is_schema": true,
-              "name": "a0",
-              "type": "ref"
-            }
-          ],
-          "name": "Sig_ref_to_v128"
+          "name": "Sig_to_v128"
         },
         {
           "base": "V128",
@@ -1830,6 +1955,54 @@
               "is_schema": true,
               "name": "a0",
               "type": "v128"
+            }
+          ],
+          "name": "Sig_v128_to_v128"
+        },
+        {
+          "base": "V128",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "v128"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a1",
+              "type": "i32"
+            }
+          ],
+          "name": "Sig_v128_i32_to_v128"
+        },
+        {
+          "base": "V128",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "v128"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a1",
+              "type": "i64"
+            }
+          ],
+          "name": "Sig_v128_i64_to_v128"
+        },
+        {
+          "base": "V128",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "v128"
             },
             {
               "flag": "none",
@@ -1890,7 +2063,23 @@
       ]
     },
     {
-      "attributes": [],
+      "attributes": [
+        {
+          "flag": "none",
+          "name": "need",
+          "type": "u8"
+        },
+        {
+          "flag": "none",
+          "name": "seq",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "pc",
+          "type": "bytep"
+        }
+      ],
       "is_enum": false,
       "name": "ref",
       "type": "sum",
@@ -2024,7 +2213,7 @@
               "type": "i32"
             }
           ],
-          "name": "Sig_v128_i32_to_ref"
+          "name": "Sig_v128_i32_to_ref_pw"
         },
         {
           "base": "Ref",
@@ -2132,7 +2321,7 @@
               "type": "i64"
             }
           ],
-          "name": "Sig_v128_i64_to_ref"
+          "name": "Sig_v128_i64_to_ref_pw"
         },
         {
           "base": "Ref",
@@ -2189,7 +2378,23 @@
       ]
     },
     {
-      "attributes": [],
+      "attributes": [
+        {
+          "flag": "none",
+          "name": "need",
+          "type": "u8"
+        },
+        {
+          "flag": "none",
+          "name": "seq",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "pc",
+          "type": "bytep"
+        }
+      ],
       "is_enum": false,
       "name": "eff",
       "type": "sum",
@@ -2252,7 +2457,7 @@
               "type": "v128"
             }
           ],
-          "name": "Sig_v128_to_void"
+          "name": "Sig_v128_to_void_pw"
         },
         {
           "base": "Eff",
@@ -2605,7 +2810,7 @@
               "type": "i32"
             }
           ],
-          "name": "Sig_i32_v128_i32_to_void"
+          "name": "Sig_i32_v128_i32_to_void_pw"
         },
         {
           "base": "Eff",
@@ -2701,7 +2906,7 @@
               "type": "i64"
             }
           ],
-          "name": "Sig_i64_v128_i64_to_void"
+          "name": "Sig_i64_v128_i64_to_void_pw"
         },
         {
           "base": "Eff",
@@ -2790,7 +2995,7 @@
               "type": "v128"
             }
           ],
-          "name": "Sig_stk_v128_to_void"
+          "name": "Sig_stk_v128_to_void_pw"
         },
         {
           "base": "Eff",
@@ -2892,7 +3097,7 @@
               "type": "v128"
             }
           ],
-          "name": "Sig_ref_v128_to_void"
+          "name": "Sig_ref_v128_to_void_pw"
         },
         {
           "base": "Eff",
@@ -3030,7 +3235,7 @@
               "type": "v128"
             }
           ],
-          "name": "Sig_ref_i32_v128_to_void"
+          "name": "Sig_ref_i32_v128_to_void_pw"
         },
         {
           "base": "Eff",
@@ -3204,7 +3409,7 @@
               "type": "i32"
             }
           ],
-          "name": "Sig_ref_i32_v128_i32_to_void"
+          "name": "Sig_ref_i32_v128_i32_to_void_pw"
         },
         {
           "base": "Eff",
@@ -3288,7 +3493,7 @@
               "type": "v128"
             }
           ],
-          "name": "Sig_i32_v128_to_void"
+          "name": "Sig_i32_v128_to_void_pw"
         },
         {
           "base": "Eff",
@@ -3324,7 +3529,7 @@
               "type": "v128"
             }
           ],
-          "name": "Sig_i64_v128_to_void"
+          "name": "Sig_i64_v128_to_void_pw"
         },
         {
           "base": "Eff",
@@ -3343,6 +3548,42 @@
             }
           ],
           "name": "Sig_i64_ref_to_void"
+        },
+        {
+          "base": "Eff",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "i32"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a1",
+              "type": "v128"
+            }
+          ],
+          "name": "Sig_i32_v128_to_void"
+        },
+        {
+          "base": "Eff",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "i64"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a1",
+              "type": "v128"
+            }
+          ],
+          "name": "Sig_i64_v128_to_void"
         }
       ]
     }
