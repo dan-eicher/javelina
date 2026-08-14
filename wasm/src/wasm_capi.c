@@ -549,14 +549,16 @@ static void exn_unroot(wasm_store_t* s, wasm_exception_t* e) {
 wasm_config_t* wasm_config_new(void) { return calloc(1, sizeof(wasm_config_t)); }
 void wasm_config_delete(wasm_config_t* c) { free(c); }
 /* A LEVEL, not a switch: 0 interprets, 1 compiles without caching operands in
- * registers, 2 compiles with the tier-2 tiling. Both compiled forms are present
- * in the same binary — the plain stencil is the uncached form at every cache
- * size and the __sN variants sit beside it — so which one a store uses is a
- * runtime choice and only the cache SIZE is a build-time one. That is what lets
- * one binary run the same corpus three ways and compare, instead of comparing
- * two builds and hoping nothing else moved between them. */
+ * registers, 2 compiles with the tier-2 tiling, 3 runs the eq-sat rewrite in
+ * front of the same tiling (tier-3 IS tier-2 with saturation between build
+ * and reduce; zero rules make them byte-identical). Every compiled form is
+ * present in the same binary — the plain stencil is the uncached form at every
+ * cache size and the __sN variants sit beside it — so which one a store uses
+ * is a runtime choice and only the cache SIZE is a build-time one. That is
+ * what lets one binary run the same corpus four ways and compare, instead of
+ * comparing builds and hoping nothing else moved between them. */
 void jav_config_set_jit(wasm_config_t* c, int jit) {
-    if (c) c->jit = (uint8_t)(jit < 0 ? 0 : jit > 2 ? 2 : jit);
+    if (c) c->jit = (uint8_t)(jit < 0 ? 0 : jit > 3 ? 3 : jit);
 }
 void jav_config_set_verify_heap(wasm_config_t* c, int on) { if (c) c->verify_heap = on ? 1 : 0; }
 

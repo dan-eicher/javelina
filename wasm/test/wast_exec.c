@@ -403,6 +403,7 @@ const char* wast_tier_name(wast_tier_t t) {
     switch (t) {
     case WAST_TIER_1: return "tier-1";
     case WAST_TIER_2: return "tier-2";
+    case WAST_TIER_3: return "tier-3";
     default:          return "interp";
     }
 }

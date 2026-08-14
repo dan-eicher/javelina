@@ -35,6 +35,7 @@ typedef enum {
     WAST_TIER_INTERP = 0,   // the threaded interpreter — the canonical tier
     WAST_TIER_1      = 1,   // copy-and-patch, one stencil per opcode
     WAST_TIER_2      = 2,   // tiled: the tree builder + the burg cover
+    WAST_TIER_3      = 3,   // tier-2 with the eq-sat rewrite between build and reduce
 } wast_tier_t;
 const char* wast_tier_name(wast_tier_t t);
 // Which of the two JIT tiers THIS build has. The cache size was fixed when the

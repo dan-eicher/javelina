@@ -74,6 +74,7 @@ GC_OBJS := $(B)/immix_line_map.o $(B)/immix_block.o $(B)/immix_block_allocator.o
 # (water + the owning-reader tests link them; the c-lite load path test_load does not).
 ENGINE_OBJS := $(B)/interp.o $(B)/jav_runtime.o $(B)/gen_interp.o $(B)/validate.o \
                $(B)/jav_subtype.o $(B)/jit_driver.o $(B)/jav_ttree.o $(B)/jav_tile.o \
+               $(B)/jav_eqsat.o $(B)/egraph.o \
                $(B)/bbq_arena.o $(B)/bbq_hmap.o $(B)/bbq_htree.o \
                $(GC_OBJS)
 OWNING_OBJS := $(B)/jav_reader.o $(B)/jav_writer.o $(B)/jav_utf8.o
@@ -89,6 +90,7 @@ TESTS   := test_ops test_locals test_control test_brtable test_globals_mem test_
            test_call test_host test_tiers test_trap_reason test_jit_holes \
            test_jit_numeric test_jit_native test_jit_libm test_jit_sweep \
            test_jit_control test_jit_brtable test_jit_trap test_jit_trunc test_jit_tier2 \
+           test_eqsat \
            test_jit_trunc_sat test_const_expr test_multivalue test_typecheck \
            test_call_indirect test_reftypes test_table_ops test_br_on test_i31 test_gc_roots \
            test_struct test_struct_gc test_array test_array_gc test_refcast test_br_on_cast test_gc_ctors test_gc_packed test_gc_segments test_refmore test_bulk_mem test_subword_memops test_select test_call_ref test_simd_loadext test_simd_compute test_typemodel test_exceptions test_depth test_tailcall test_simd test_multimem test_memory64 test_carrier_addr_tag
@@ -149,7 +151,11 @@ TIER2_N ?= 8
 # Tier-2 runs at every cache size: the tree builds and the cover runs regardless of how
 # many registers there are, and at TIER2_N=0 the stitch meters report the zeroes rather
 # than the run reporting a tier it did not exercise.
-JIT_TIERS := 1 2
+#
+# Tier-3 is tier-2 with the eq-sat rewrite between build and reduce; with the
+# rule set empty its code must be tier-2's byte for byte, and test.mk compares
+# the two runs' code lines as PIN B-1's other half.
+JIT_TIERS := 1 2 3
 
 # ...and it has to be a DEPENDENCY, not just a variable. `make TIER2_N=1` on a
 # tree built at 0 rebuilt nothing, so the tier appeared to pass the whole
@@ -218,6 +224,29 @@ $(B)/gen_trap_reasons: tools/gen_trap_reasons.c $(B)/toml_parser.o $(B)/toml_doc
 	  tools/gen_trap_reasons.c $(B)/toml_parser.o $(B)/toml_doc.o $(B)/bbq_arena.o -o $@
 $(GEN)/jav_trap_reason.h: spec/instructions.toml spec/wasm.def $(B)/gen_trap_reasons
 	$(B)/gen_trap_reasons spec/instructions.toml spec/wasm.def $(GEN)/jav_trap_reason.h
+
+# ── tier-3: the eq-sat pass's generated artifacts ─────────────────────────
+# The e-node admission fence, from the same spec table (D2 of the tier-3 plan:
+# one authority, never a hand list in jav_eqsat.c).
+$(B)/gen_eqsat_ops: tools/gen_eqsat_ops.c $(B)/toml_parser.o $(B)/toml_doc.o $(B)/bbq_arena.o | $(B)
+	$(CC) -O2 -std=c11 -Wall -Werror $(TOML_INC) -Isrc/gen \
+	  tools/gen_eqsat_ops.c $(B)/toml_parser.o $(B)/toml_doc.o $(B)/bbq_arena.o -o $@
+$(GEN)/jav_eqsat_ops.h: spec/instructions.toml $(B)/gen_eqsat_ops
+	$(B)/gen_eqsat_ops spec/instructions.toml $@
+# The saturating pass over the axiom file: one matcher per rule plus
+# jav_eqsat_rewrite_region(egraph*, eg_caps). A separate burgc INVOCATION from
+# the tiler's — the two grammars share nothing but the terminal vocabulary,
+# and the emitted header defines its functions, so exactly one translation
+# unit (jav_eqsat.c) includes it.
+$(GEN)/jav_rewrite.h: spec/jav_axioms.burg $(BURGC)
+	$(BURGC) -i spec/jav_axioms.burg --rewrite -name jav_eqsat -lang c -o $@
+# The e-graph runtime, straight from BBQ (C11, bbq_vec) — linked like any crt
+# object, per the tool boundary: generated output and runtime files only.
+$(B)/egraph.o: $(BBQ)/burgc/runtime/egraph.c $(BBQ)/burgc/runtime/egraph.h | $(B)
+	$(CC) $(CFLAGS) -I$(BBQ)/burgc/runtime -c $< -o $@
+$(B)/jav_eqsat.o: src/jav_eqsat.c src/jav_eqsat.h src/jav_ttree.h $(GEN)/jav_rewrite.h \
+                  $(GEN)/jav_eqsat_ops.h $(GEN)/jav_tnode.h $(GEN)/opcodes.h | $(B)
+	$(CC) $(CFLAGS) -I$(BBQ)/burgc/runtime -c $< -o $@
 
 # The inja templates bbqc renders through are as much an input as the grammar and the
 # binary: editing one changes the emitted C. Listing them keeps a template edit from

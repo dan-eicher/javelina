@@ -148,7 +148,8 @@ $(B)/test_wast: test/test_wast.c test/wast_exec.c $(B)/wasm_capi.o $(WAT_OBJS) \
                 $(B)/jav_extern.o $(B)/jav_error.o $(B)/bbq_htree_capi.o $(B)/jav_view_reader.o \
                 $(B)/bbq_lite.o $(B)/validate.o $(B)/jav_subtype.o $(B)/interp.o \
                 $(B)/jav_runtime.o $(B)/gen_interp.o $(B)/jit_driver.o $(B)/jav_ttree.o \
-                $(B)/jav_tile.o $(B)/bbq_hmap.o $(B)/wat_check.o $(GC_OBJS) | $(B)
+                $(B)/jav_tile.o $(B)/jav_eqsat.o $(B)/egraph.o \
+                $(B)/bbq_hmap.o $(B)/wat_check.o $(GC_OBJS) | $(B)
 	$(CC) $(CFLAGS) -Wno-unused-function -Iinclude -I$(PEGRT) $(LINK) -lm -o $@
 
 # The public wasm.h surface.
@@ -212,10 +213,19 @@ test: $(ALL_TESTS:%=$(B)/%) $(B)/test_wast $(B)/embed water
 	else echo "  FAIL  conformance"; fail=$$((fail+1)); failed="$$failed conformance"; fi; \
 	for jt in $(JIT_TIERS); do \
 	  if ( cd test && ../$(B)/test_wast --tier=$$jt ../../testsuite/*.wast regress_*.wast ) > $(LOGS)/conformance_t$$jt.log 2>&1; then \
-	    grep -E "conformance \[|trap-reason" $(LOGS)/conformance_t$$jt.log; \
+	    grep -E "conformance \[|trap-reason|tier-3 eqsat" $(LOGS)/conformance_t$$jt.log; \
 	    echo "  PASS  conformance (tier-$$jt)"; pass=$$((pass+1)); \
 	  else echo "  FAIL  conformance (tier-$$jt)"; fail=$$((fail+1)); failed="$$failed conformance_t$$jt"; fi; \
 	done; \
+	if [ -f $(LOGS)/conformance_t2.log ] && [ -f $(LOGS)/conformance_t3.log ]; then \
+	  c2=$$(grep "wast tier-2 code:" $(LOGS)/conformance_t2.log); \
+	  c3=$$(grep "wast tier-2 code:" $(LOGS)/conformance_t3.log); \
+	  if [ -n "$$c2" ] && [ "$$c2" = "$$c3" ]; then \
+	    echo "  PASS  tier-3 == tier-2 code identity (PIN B-1: $${c2#wast tier-2 code: })"; pass=$$((pass+1)); \
+	  else \
+	    echo "  FAIL  tier-3 == tier-2 code identity"; echo "      | t2: $$c2"; echo "      | t3: $$c3"; \
+	    fail=$$((fail+1)); failed="$$failed t3_code_identity"; fi; \
+	fi; \
 	if ( cd test && ../$(B)/test_wast --sweep ../../testsuite/*.wast regress_*.wast ) > $(LOGS)/ttree_sweep.log 2>&1; then \
 	  grep -E "tree sweep|tier-2 tiling|declines by|uncovered at" $(LOGS)/ttree_sweep.log; \
 	  echo "  PASS  tier-2 tree sweep"; pass=$$((pass+1)); \

@@ -20,6 +20,7 @@
 #include "wast_sexpr.h"          // the shared .wast S-expr reader (Node + helpers)
 #include "wast_exec.h"           // the c-lite execution runner (separate TU: type-world split)
 #include "jav_ttree.h"           // PIN B-4: the tier-2 sweep's counters
+#include "jav_eqsat.h"           // PIN B-1 (tier-3): the eqsat pass's counters
 #include "wat_check.h"           // PIN A-4: water's own §7.6, against the engine's
 #include "jav_view_nav.h"        // PIN A-5: the span index that aligns the two walks
 #include "jav_module_index.h"    // PIN A-5: jav_module_index / jav_module_tctx
@@ -653,6 +654,7 @@ int main(int argc, char **argv) {
         if (strcmp(argv[a], "--tier=interp") == 0) tier = WAST_TIER_INTERP;
         else if (strcmp(argv[a], "--tier=1") == 0) tier = WAST_TIER_1;
         else if (strcmp(argv[a], "--tier=2") == 0) tier = WAST_TIER_2;
+        else if (strcmp(argv[a], "--tier=3") == 0) tier = WAST_TIER_3;
         else if (strcmp(argv[a], "--sweep") == 0) { sweep = 1; tier = wast_exec_jit_tier(); }
     }
     if (wast_exec_store_init(tier)) {                // build the spectest host once, register it
@@ -747,6 +749,9 @@ int main(int argc, char **argv) {
     jit_only.nodes           -= g_a5_delta.nodes;
     jit_only.nodes_carried   -= g_a5_delta.nodes_carried;
     const jav_ttree_stats_t *ts = &jit_only;
+    /* Tier-3 runs the WHOLE tier-2 machinery (the rewrite sits between build
+     * and reduce), so every tier-2 meter and gate applies there verbatim. */
+    int t2plus = tier == WAST_TIER_2 || tier == WAST_TIER_3;
     if (tier != WAST_TIER_INTERP) {
         fprintf(sum, "wast tier-2 tree sweep: %llu bodies, %llu nodes, "
                      "%llu arity mismatches, %llu order breaks, %llu declined\n",
@@ -801,6 +806,21 @@ int main(int argc, char **argv) {
                     ts->first_descend_op, ts->first_descend_sub,
                     ts->first_descend_from, ts->first_descend_to);
     }
+    /* Tier-3's own meters (PIN B-1). `rewritten` is the identity while the
+     * rule set is empty: zero rules ⇒ every extraction equals its original ⇒
+     * the reduce consumes the identical tree and the code is tier-2's, byte
+     * for byte (the make-level compare of the two runs' code lines is the
+     * other half of the pin). `identity_fails` must be zero at ANY rule set —
+     * it is the pass disagreeing with itself. Refusals are legal, counted,
+     * and expected 0 on this corpus (a cap that binds is a fact to record). */
+    const jav_eqsat_stats_t* es = jav_eqsat_stats();
+    if (tier == WAST_TIER_3)
+        fprintf(sum, "wast tier-3 eqsat: %llu bodies, %llu regions, %llu roots, "
+                     "%llu rewritten, %llu cap refusal(s), %llu identity failure(s)\n",
+                (unsigned long long)es->bodies, (unsigned long long)es->regions,
+                (unsigned long long)es->roots, (unsigned long long)es->rewritten,
+                (unsigned long long)es->cap_refusals,
+                (unsigned long long)es->identity_fails);
     /* Bodies the JIT declined OUTRIGHT, which stay on the interpreter. Distinct
      * from every meter above: those describe tier-2's decisions inside a body the
      * JIT took, while this is the JIT not taking it at all. It is the quietest
@@ -820,7 +840,7 @@ int main(int argc, char **argv) {
      * It is not a constant: the corpus decides how many functions there are, and this
      * says the builder saw all of them in the same run that counted them. */
     uint32_t jit_offered = 0;
-    if (tier == WAST_TIER_2) {
+    if (t2plus) {
         jit_offered = wast_exec_jit_compiled() + wast_exec_jit_declined();
         fprintf(sum, "wast tier-2 body coverage: %llu built + %llu declined, "
                      "of %u function(s) the JIT was offered\n",
@@ -884,7 +904,7 @@ int main(int argc, char **argv) {
              * grow silently. It is the meter every check INSIDE the builder reports
              * through (arity, emission order, a walk that did not consume the body),
              * which makes an ungated one a check that cannot fail. 0 for this corpus. */
-            || (tier == WAST_TIER_2
+            || (t2plus
                 && (ts->arity_mismatches || ts->order_breaks || ts->bodies_built == 0
                     || ts->bodies_declined || ts->bodies_uncovered
                     || ts->tree_fallbacks
@@ -895,12 +915,12 @@ int main(int argc, char **argv) {
              * over a corpus full of them is a green for the tier below; and zero
              * cached states means the corpus never exercised the mechanism at
              * all, which is the same green for a different reason. */
-            || (tier == WAST_TIER_2 && ts->bridge_fails)
+            || (t2plus && ts->bridge_fails)
             /* The descend meter's own identity: each descend is at least one
              * slot, and a named first implies a count (and the reverse). The
              * magnitude is a baseline, not a gate — a descend is the grammar's
              * C5 contract working, so zero would be the wrong assertion. */
-            || (tier == WAST_TIER_2
+            || (t2plus
                 && (ts->descend_slots < ts->descends
                     || (ts->descends != 0) != (ts->have_descend != 0)))
             /* …and "the cache was actually used" only where there IS one. At
@@ -915,8 +935,17 @@ int main(int argc, char **argv) {
              * unexercised one. It started failing the moment the grammar stopped
              * offering rules the variant family does not provide, which is when
              * n=1 went from 10,545 transitions to none. */
-            || (tier == WAST_TIER_2 && wast_exec_cache_slots() > 0
+            || (t2plus && wast_exec_cache_slots() > 0
                 && ts->states_cached == 0)
+            /* Tier-3: the pass RAN (bodies == the tier-2 built count — every
+             * tree the builder produced went through the rewrite), nothing was
+             * rewritten (the zero-rule identity; Part C amends this to a
+             * recorded baseline WITH the axioms), nothing refused, and the
+             * pass never disagreed with itself. */
+            || (tier == WAST_TIER_3
+                && (es->bodies != ts->bodies_built
+                    || es->rewritten || es->cap_refusals || es->identity_fails
+                    || (es->bodies && !es->roots)))
             /* …and no function silently off the tier. 0 is the committed figure
              * for this corpus on both JIT tiers; an opcode that legitimately
              * cannot be compiled (`flag:no_jit` — there are none today) would

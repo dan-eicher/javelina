@@ -81,6 +81,11 @@ typedef struct {
     uint32_t              ntypes;
     const uint32_t*       func_type_idx;  uint32_t nfuncs;
     const uint32_t*       tag_type_idx;   uint32_t ntags;
+    /* The JIT tier this compile serves (the embedder's jit_enabled, clamped
+     * [0,3]). The builder ignores it; jit_compile reads it to run the tier-3
+     * rewrite (jav_eqsat_body) between build and reduce. 0/2 mean tier-2
+     * machinery alone — a zeroed context stays exactly what it was. */
+    uint8_t               tier;
 } jav_tctx_t;
 
 /* Build the regions of the body at `code` (positioned at the first instruction,

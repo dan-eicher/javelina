@@ -255,6 +255,7 @@ jav_status_t jav_instantiate(vm_t* vm, const bbq_field_capture* root, const uint
     // after, so nothing outlives the loop.
     bbq_arena tarena; bbq_arena_init(&tarena, 8 * 1024);
     jav_tctx_t tcx = jav_module_tctx(mod, &tarena);
+    tcx.tier = vm->jit_enabled;   /* [0,3]; >=3 runs the eq-sat pass in jit_compile */
     for (uint32_t d = 0; d < ndef; d++) {
         uint32_t fi = mod->nimport_funcs + d;
         const jav_functype_t* sig = &mod->func_sigs[fi];

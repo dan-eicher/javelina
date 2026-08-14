@@ -18,6 +18,7 @@
 #include "jav_jit_meta.h"        /* jav_jit_meta[256], jit_operand_kind_t */
 #include "jav_jit_symbols.h"     /* jav_jit_symbols[]: _HOLE_<native> -> address */
 #include "jav_tile.h"            /* burgc's matcher over the tier-2 tiling grammar */
+#include "jav_eqsat.h"           /* tier-3: saturation between build and reduce */
 #include "jit_codebuf.h"          /* jitterator's C executable code buffer */
 #include "bbq_hmap.h"             /* crt flat map — footer-pool value dedup */
 #include <stdint.h>
@@ -605,6 +606,12 @@ jit_func_t* jit_compile(bbq_ctx_t code, const jav_tctx_t* tcx) {
         bbq_arena ta; bbq_arena_init(&ta, 16 * 1024);
         jav_ttree_t tree;
         if (jav_ttree_build(code, tcx, &ta, &tree)) {
+            /* Tier-3 = this same pipeline with the saturation pass between
+             * build and reduce (D1). Zero rules leave every subtree the
+             * original pointer, so the reduce below consumes the identical
+             * tree — the structural identity PIN B-1 gates. Any refusal
+             * inside keeps originals and is counted in its own meters. */
+            if (tcx->tier >= 3) jav_eqsat_body(&tree, tcx, &ta);
             jav_tile_burg_ctx_t bc;
             jav_tile_burg_ctx_init(&bc);
             g_e.tiled = 1;

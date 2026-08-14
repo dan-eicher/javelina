@@ -75,6 +75,7 @@ VM_INCLUDES    := -I$(VM)/include -I$(VM)/src -I$(VM)/src/gen -I$(VM)/src/immix 
 VM_ENGINE_OBJS := $(VM)/build/interp.o $(VM)/build/jav_runtime.o $(VM)/build/gen_interp.o \
                   $(VM)/build/validate.o $(VM)/build/jav_subtype.o $(VM)/build/jit_driver.o \
                   $(VM)/build/jav_ttree.o $(VM)/build/jav_tile.o \
+                  $(VM)/build/jav_eqsat.o $(VM)/build/egraph.o \
                   $(VM)/build/bbq_arena.o $(VM)/build/immix_line_map.o $(VM)/build/immix_block.o \
                   $(VM)/build/immix_block_allocator.o $(VM)/build/immix_space.o $(VM)/build/jav_gc.o
 # The shared owning reader+writer (what `water` uses): the compiler assembles a
