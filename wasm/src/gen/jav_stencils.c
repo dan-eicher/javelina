@@ -28,6 +28,7 @@ typedef void* cache_slot_t;
 #define CACHE_PUT_FLOAT(x)  (__extension__({ union { uintptr_t p; f4 v; } _u; _u.p = 0; _u.v = (x); (cache_slot_t)_u.p; }))
 #define CACHE_GET_DOUBLE(sl) (__extension__({ union { uintptr_t p; f8 v; } _u; _u.p = (uintptr_t)(sl); _u.v; }))
 #define CACHE_PUT_DOUBLE(x)  (__extension__({ union { uintptr_t p; f8 v; } _u; _u.p = 0; _u.v = (x); (cache_slot_t)_u.p; }))
+#define CACHE_GET_ADDR(name, sl, is64) u8 name; do { if (is64) name = (u8)(uintptr_t)(sl); else name = (u8)(u4)(uintptr_t)(sl); } while (0)
 #define CACHE_GET_WORD(sl) (__extension__({ slot_t _s; _s.l = (s8)(uintptr_t)(sl); _s; }))
 #define CACHE_PUT_WORD(x)  ((cache_slot_t)(uintptr_t)(x).l)
 #define CACHE_PUT_ANY(x)   ((cache_slot_t)(uintptr_t)(x).bits)
@@ -545,6 +546,132 @@ void STENCIL gen_st_i32_load__s0(CACHE_ARGS) {
     TAIL return _HOLE_cont(CACHE_PASS);
 }
 
+void STENCIL gen_st_i32_load__s1(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s4 result;
+    result = (s4)((mem_load_i32(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_INT(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i32_load__s1m(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s4 result;
+    result = (s4)((mem_load_i32(NATIVE_ARGS, memidx, (addr + offset))));
+    GPUSH_INT(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i32_load__s2(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s4 result;
+    result = (s4)((mem_load_i32(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_INT(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i32_load__s3(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s4 result;
+    result = (s4)((mem_load_i32(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_INT(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i32_load__s4(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s4 result;
+    result = (s4)((mem_load_i32(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_INT(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i32_load__s5(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s4 result;
+    result = (s4)((mem_load_i32(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_INT(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i32_load__s6(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s4 result;
+    result = (s4)((mem_load_i32(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_INT(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i32_load__s7(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s4 result;
+    result = (s4)((mem_load_i32(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_INT(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i32_load__s8(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s4 result;
+    result = (s4)((mem_load_i32(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_INT(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
 void STENCIL gen_st_i64_load(CACHE_ARGS) {
     frame_t* f = &vm->frame; (void)f;
     STENCIL_TRAP_PC(_HOLE_pc);   /* per-stencil source byte offset: the default discards it (no trap-frame); a backend that records a trap site (e.g. §7.1.8) #defines STENCIL_TRAP_PC to bake _HOLE_pc into its frame */
@@ -565,6 +692,132 @@ void STENCIL gen_st_i64_load__s0(CACHE_ARGS) {
     u4 memidx = (u4)_HOLE_memidx;
     u8 offset = (u8)_HOLE_offset;
     GPOP_ADDR(addr, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s8 result;
+    result = (s8)((mem_load_i64(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_LONG(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_load__s1(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s8 result;
+    result = (s8)((mem_load_i64(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_LONG(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_load__s1m(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s8 result;
+    result = (s8)((mem_load_i64(NATIVE_ARGS, memidx, (addr + offset))));
+    GPUSH_LONG(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_load__s2(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s8 result;
+    result = (s8)((mem_load_i64(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_LONG(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_load__s3(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s8 result;
+    result = (s8)((mem_load_i64(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_LONG(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_load__s4(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s8 result;
+    result = (s8)((mem_load_i64(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_LONG(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_load__s5(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s8 result;
+    result = (s8)((mem_load_i64(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_LONG(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_load__s6(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s8 result;
+    result = (s8)((mem_load_i64(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_LONG(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_load__s7(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s8 result;
+    result = (s8)((mem_load_i64(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_LONG(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_load__s8(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
     if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
     s8 result;
     result = (s8)((mem_load_i64(NATIVE_ARGS, memidx, (addr + offset))));
@@ -601,6 +854,132 @@ void STENCIL gen_st_f32_load__s0(CACHE_ARGS) {
     TAIL return _HOLE_cont(CACHE_PASS);
 }
 
+void STENCIL gen_st_f32_load__s1(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    f4 result;
+    result = (f4)((mem_load_f32(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_FLOAT(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_f32_load__s1m(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    f4 result;
+    result = (f4)((mem_load_f32(NATIVE_ARGS, memidx, (addr + offset))));
+    GPUSH_FLOAT(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_f32_load__s2(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    f4 result;
+    result = (f4)((mem_load_f32(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_FLOAT(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_f32_load__s3(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    f4 result;
+    result = (f4)((mem_load_f32(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_FLOAT(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_f32_load__s4(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    f4 result;
+    result = (f4)((mem_load_f32(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_FLOAT(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_f32_load__s5(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    f4 result;
+    result = (f4)((mem_load_f32(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_FLOAT(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_f32_load__s6(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    f4 result;
+    result = (f4)((mem_load_f32(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_FLOAT(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_f32_load__s7(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    f4 result;
+    result = (f4)((mem_load_f32(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_FLOAT(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_f32_load__s8(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    f4 result;
+    result = (f4)((mem_load_f32(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_FLOAT(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
 void STENCIL gen_st_f64_load(CACHE_ARGS) {
     frame_t* f = &vm->frame; (void)f;
     STENCIL_TRAP_PC(_HOLE_pc);   /* per-stencil source byte offset: the default discards it (no trap-frame); a backend that records a trap site (e.g. §7.1.8) #defines STENCIL_TRAP_PC to bake _HOLE_pc into its frame */
@@ -621,6 +1000,132 @@ void STENCIL gen_st_f64_load__s0(CACHE_ARGS) {
     u4 memidx = (u4)_HOLE_memidx;
     u8 offset = (u8)_HOLE_offset;
     GPOP_ADDR(addr, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    f8 result;
+    result = (f8)((mem_load_f64(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_DOUBLE(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_f64_load__s1(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    f8 result;
+    result = (f8)((mem_load_f64(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_DOUBLE(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_f64_load__s1m(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    f8 result;
+    result = (f8)((mem_load_f64(NATIVE_ARGS, memidx, (addr + offset))));
+    GPUSH_DOUBLE(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_f64_load__s2(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    f8 result;
+    result = (f8)((mem_load_f64(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_DOUBLE(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_f64_load__s3(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    f8 result;
+    result = (f8)((mem_load_f64(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_DOUBLE(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_f64_load__s4(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    f8 result;
+    result = (f8)((mem_load_f64(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_DOUBLE(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_f64_load__s5(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    f8 result;
+    result = (f8)((mem_load_f64(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_DOUBLE(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_f64_load__s6(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    f8 result;
+    result = (f8)((mem_load_f64(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_DOUBLE(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_f64_load__s7(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    f8 result;
+    result = (f8)((mem_load_f64(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_DOUBLE(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_f64_load__s8(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
     if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
     f8 result;
     result = (f8)((mem_load_f64(NATIVE_ARGS, memidx, (addr + offset))));
@@ -657,6 +1162,132 @@ void STENCIL gen_st_i32_load8_s__s0(CACHE_ARGS) {
     TAIL return _HOLE_cont(CACHE_PASS);
 }
 
+void STENCIL gen_st_i32_load8_s__s1(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s4 result;
+    result = (s4)((mem_load_i8(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_INT(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i32_load8_s__s1m(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s4 result;
+    result = (s4)((mem_load_i8(NATIVE_ARGS, memidx, (addr + offset))));
+    GPUSH_INT(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i32_load8_s__s2(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s4 result;
+    result = (s4)((mem_load_i8(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_INT(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i32_load8_s__s3(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s4 result;
+    result = (s4)((mem_load_i8(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_INT(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i32_load8_s__s4(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s4 result;
+    result = (s4)((mem_load_i8(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_INT(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i32_load8_s__s5(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s4 result;
+    result = (s4)((mem_load_i8(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_INT(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i32_load8_s__s6(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s4 result;
+    result = (s4)((mem_load_i8(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_INT(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i32_load8_s__s7(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s4 result;
+    result = (s4)((mem_load_i8(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_INT(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i32_load8_s__s8(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s4 result;
+    result = (s4)((mem_load_i8(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_INT(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
 void STENCIL gen_st_i32_load8_u(CACHE_ARGS) {
     frame_t* f = &vm->frame; (void)f;
     STENCIL_TRAP_PC(_HOLE_pc);   /* per-stencil source byte offset: the default discards it (no trap-frame); a backend that records a trap site (e.g. §7.1.8) #defines STENCIL_TRAP_PC to bake _HOLE_pc into its frame */
@@ -677,6 +1308,132 @@ void STENCIL gen_st_i32_load8_u__s0(CACHE_ARGS) {
     u4 memidx = (u4)_HOLE_memidx;
     u8 offset = (u8)_HOLE_offset;
     GPOP_ADDR(addr, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s4 result;
+    result = (s4)((mem_load_i32_8u(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_INT(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i32_load8_u__s1(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s4 result;
+    result = (s4)((mem_load_i32_8u(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_INT(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i32_load8_u__s1m(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s4 result;
+    result = (s4)((mem_load_i32_8u(NATIVE_ARGS, memidx, (addr + offset))));
+    GPUSH_INT(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i32_load8_u__s2(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s4 result;
+    result = (s4)((mem_load_i32_8u(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_INT(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i32_load8_u__s3(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s4 result;
+    result = (s4)((mem_load_i32_8u(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_INT(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i32_load8_u__s4(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s4 result;
+    result = (s4)((mem_load_i32_8u(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_INT(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i32_load8_u__s5(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s4 result;
+    result = (s4)((mem_load_i32_8u(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_INT(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i32_load8_u__s6(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s4 result;
+    result = (s4)((mem_load_i32_8u(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_INT(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i32_load8_u__s7(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s4 result;
+    result = (s4)((mem_load_i32_8u(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_INT(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i32_load8_u__s8(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
     if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
     s4 result;
     result = (s4)((mem_load_i32_8u(NATIVE_ARGS, memidx, (addr + offset))));
@@ -713,6 +1470,132 @@ void STENCIL gen_st_i32_load16_s__s0(CACHE_ARGS) {
     TAIL return _HOLE_cont(CACHE_PASS);
 }
 
+void STENCIL gen_st_i32_load16_s__s1(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s4 result;
+    result = (s4)((mem_load_i16(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_INT(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i32_load16_s__s1m(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s4 result;
+    result = (s4)((mem_load_i16(NATIVE_ARGS, memidx, (addr + offset))));
+    GPUSH_INT(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i32_load16_s__s2(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s4 result;
+    result = (s4)((mem_load_i16(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_INT(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i32_load16_s__s3(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s4 result;
+    result = (s4)((mem_load_i16(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_INT(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i32_load16_s__s4(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s4 result;
+    result = (s4)((mem_load_i16(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_INT(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i32_load16_s__s5(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s4 result;
+    result = (s4)((mem_load_i16(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_INT(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i32_load16_s__s6(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s4 result;
+    result = (s4)((mem_load_i16(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_INT(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i32_load16_s__s7(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s4 result;
+    result = (s4)((mem_load_i16(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_INT(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i32_load16_s__s8(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s4 result;
+    result = (s4)((mem_load_i16(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_INT(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
 void STENCIL gen_st_i32_load16_u(CACHE_ARGS) {
     frame_t* f = &vm->frame; (void)f;
     STENCIL_TRAP_PC(_HOLE_pc);   /* per-stencil source byte offset: the default discards it (no trap-frame); a backend that records a trap site (e.g. §7.1.8) #defines STENCIL_TRAP_PC to bake _HOLE_pc into its frame */
@@ -733,6 +1616,132 @@ void STENCIL gen_st_i32_load16_u__s0(CACHE_ARGS) {
     u4 memidx = (u4)_HOLE_memidx;
     u8 offset = (u8)_HOLE_offset;
     GPOP_ADDR(addr, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s4 result;
+    result = (s4)((mem_load_i32_16u(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_INT(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i32_load16_u__s1(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s4 result;
+    result = (s4)((mem_load_i32_16u(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_INT(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i32_load16_u__s1m(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s4 result;
+    result = (s4)((mem_load_i32_16u(NATIVE_ARGS, memidx, (addr + offset))));
+    GPUSH_INT(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i32_load16_u__s2(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s4 result;
+    result = (s4)((mem_load_i32_16u(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_INT(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i32_load16_u__s3(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s4 result;
+    result = (s4)((mem_load_i32_16u(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_INT(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i32_load16_u__s4(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s4 result;
+    result = (s4)((mem_load_i32_16u(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_INT(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i32_load16_u__s5(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s4 result;
+    result = (s4)((mem_load_i32_16u(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_INT(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i32_load16_u__s6(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s4 result;
+    result = (s4)((mem_load_i32_16u(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_INT(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i32_load16_u__s7(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s4 result;
+    result = (s4)((mem_load_i32_16u(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_INT(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i32_load16_u__s8(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
     if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
     s4 result;
     result = (s4)((mem_load_i32_16u(NATIVE_ARGS, memidx, (addr + offset))));
@@ -769,6 +1778,132 @@ void STENCIL gen_st_i64_load8_s__s0(CACHE_ARGS) {
     TAIL return _HOLE_cont(CACHE_PASS);
 }
 
+void STENCIL gen_st_i64_load8_s__s1(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s8 result;
+    result = (s8)((mem_load_i64_8s(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_LONG(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_load8_s__s1m(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s8 result;
+    result = (s8)((mem_load_i64_8s(NATIVE_ARGS, memidx, (addr + offset))));
+    GPUSH_LONG(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_load8_s__s2(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s8 result;
+    result = (s8)((mem_load_i64_8s(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_LONG(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_load8_s__s3(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s8 result;
+    result = (s8)((mem_load_i64_8s(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_LONG(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_load8_s__s4(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s8 result;
+    result = (s8)((mem_load_i64_8s(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_LONG(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_load8_s__s5(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s8 result;
+    result = (s8)((mem_load_i64_8s(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_LONG(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_load8_s__s6(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s8 result;
+    result = (s8)((mem_load_i64_8s(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_LONG(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_load8_s__s7(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s8 result;
+    result = (s8)((mem_load_i64_8s(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_LONG(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_load8_s__s8(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s8 result;
+    result = (s8)((mem_load_i64_8s(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_LONG(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
 void STENCIL gen_st_i64_load8_u(CACHE_ARGS) {
     frame_t* f = &vm->frame; (void)f;
     STENCIL_TRAP_PC(_HOLE_pc);   /* per-stencil source byte offset: the default discards it (no trap-frame); a backend that records a trap site (e.g. §7.1.8) #defines STENCIL_TRAP_PC to bake _HOLE_pc into its frame */
@@ -789,6 +1924,132 @@ void STENCIL gen_st_i64_load8_u__s0(CACHE_ARGS) {
     u4 memidx = (u4)_HOLE_memidx;
     u8 offset = (u8)_HOLE_offset;
     GPOP_ADDR(addr, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s8 result;
+    result = (s8)((mem_load_i64_8u(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_LONG(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_load8_u__s1(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s8 result;
+    result = (s8)((mem_load_i64_8u(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_LONG(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_load8_u__s1m(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s8 result;
+    result = (s8)((mem_load_i64_8u(NATIVE_ARGS, memidx, (addr + offset))));
+    GPUSH_LONG(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_load8_u__s2(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s8 result;
+    result = (s8)((mem_load_i64_8u(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_LONG(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_load8_u__s3(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s8 result;
+    result = (s8)((mem_load_i64_8u(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_LONG(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_load8_u__s4(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s8 result;
+    result = (s8)((mem_load_i64_8u(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_LONG(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_load8_u__s5(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s8 result;
+    result = (s8)((mem_load_i64_8u(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_LONG(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_load8_u__s6(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s8 result;
+    result = (s8)((mem_load_i64_8u(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_LONG(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_load8_u__s7(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s8 result;
+    result = (s8)((mem_load_i64_8u(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_LONG(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_load8_u__s8(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
     if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
     s8 result;
     result = (s8)((mem_load_i64_8u(NATIVE_ARGS, memidx, (addr + offset))));
@@ -825,6 +2086,132 @@ void STENCIL gen_st_i64_load16_s__s0(CACHE_ARGS) {
     TAIL return _HOLE_cont(CACHE_PASS);
 }
 
+void STENCIL gen_st_i64_load16_s__s1(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s8 result;
+    result = (s8)((mem_load_i64_16s(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_LONG(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_load16_s__s1m(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s8 result;
+    result = (s8)((mem_load_i64_16s(NATIVE_ARGS, memidx, (addr + offset))));
+    GPUSH_LONG(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_load16_s__s2(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s8 result;
+    result = (s8)((mem_load_i64_16s(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_LONG(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_load16_s__s3(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s8 result;
+    result = (s8)((mem_load_i64_16s(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_LONG(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_load16_s__s4(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s8 result;
+    result = (s8)((mem_load_i64_16s(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_LONG(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_load16_s__s5(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s8 result;
+    result = (s8)((mem_load_i64_16s(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_LONG(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_load16_s__s6(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s8 result;
+    result = (s8)((mem_load_i64_16s(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_LONG(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_load16_s__s7(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s8 result;
+    result = (s8)((mem_load_i64_16s(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_LONG(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_load16_s__s8(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s8 result;
+    result = (s8)((mem_load_i64_16s(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_LONG(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
 void STENCIL gen_st_i64_load16_u(CACHE_ARGS) {
     frame_t* f = &vm->frame; (void)f;
     STENCIL_TRAP_PC(_HOLE_pc);   /* per-stencil source byte offset: the default discards it (no trap-frame); a backend that records a trap site (e.g. §7.1.8) #defines STENCIL_TRAP_PC to bake _HOLE_pc into its frame */
@@ -845,6 +2232,132 @@ void STENCIL gen_st_i64_load16_u__s0(CACHE_ARGS) {
     u4 memidx = (u4)_HOLE_memidx;
     u8 offset = (u8)_HOLE_offset;
     GPOP_ADDR(addr, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s8 result;
+    result = (s8)((mem_load_i64_16u(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_LONG(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_load16_u__s1(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s8 result;
+    result = (s8)((mem_load_i64_16u(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_LONG(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_load16_u__s1m(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s8 result;
+    result = (s8)((mem_load_i64_16u(NATIVE_ARGS, memidx, (addr + offset))));
+    GPUSH_LONG(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_load16_u__s2(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s8 result;
+    result = (s8)((mem_load_i64_16u(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_LONG(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_load16_u__s3(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s8 result;
+    result = (s8)((mem_load_i64_16u(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_LONG(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_load16_u__s4(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s8 result;
+    result = (s8)((mem_load_i64_16u(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_LONG(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_load16_u__s5(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s8 result;
+    result = (s8)((mem_load_i64_16u(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_LONG(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_load16_u__s6(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s8 result;
+    result = (s8)((mem_load_i64_16u(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_LONG(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_load16_u__s7(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s8 result;
+    result = (s8)((mem_load_i64_16u(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_LONG(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_load16_u__s8(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
     if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
     s8 result;
     result = (s8)((mem_load_i64_16u(NATIVE_ARGS, memidx, (addr + offset))));
@@ -881,6 +2394,132 @@ void STENCIL gen_st_i64_load32_s__s0(CACHE_ARGS) {
     TAIL return _HOLE_cont(CACHE_PASS);
 }
 
+void STENCIL gen_st_i64_load32_s__s1(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s8 result;
+    result = (s8)((mem_load_i64_32s(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_LONG(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_load32_s__s1m(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s8 result;
+    result = (s8)((mem_load_i64_32s(NATIVE_ARGS, memidx, (addr + offset))));
+    GPUSH_LONG(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_load32_s__s2(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s8 result;
+    result = (s8)((mem_load_i64_32s(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_LONG(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_load32_s__s3(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s8 result;
+    result = (s8)((mem_load_i64_32s(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_LONG(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_load32_s__s4(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s8 result;
+    result = (s8)((mem_load_i64_32s(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_LONG(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_load32_s__s5(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s8 result;
+    result = (s8)((mem_load_i64_32s(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_LONG(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_load32_s__s6(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s8 result;
+    result = (s8)((mem_load_i64_32s(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_LONG(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_load32_s__s7(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s8 result;
+    result = (s8)((mem_load_i64_32s(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_LONG(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_load32_s__s8(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s8 result;
+    result = (s8)((mem_load_i64_32s(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_LONG(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
 void STENCIL gen_st_i64_load32_u(CACHE_ARGS) {
     frame_t* f = &vm->frame; (void)f;
     STENCIL_TRAP_PC(_HOLE_pc);   /* per-stencil source byte offset: the default discards it (no trap-frame); a backend that records a trap site (e.g. §7.1.8) #defines STENCIL_TRAP_PC to bake _HOLE_pc into its frame */
@@ -901,6 +2540,132 @@ void STENCIL gen_st_i64_load32_u__s0(CACHE_ARGS) {
     u4 memidx = (u4)_HOLE_memidx;
     u8 offset = (u8)_HOLE_offset;
     GPOP_ADDR(addr, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s8 result;
+    result = (s8)((mem_load_i64_32u(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_LONG(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_load32_u__s1(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s8 result;
+    result = (s8)((mem_load_i64_32u(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_LONG(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_load32_u__s1m(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s8 result;
+    result = (s8)((mem_load_i64_32u(NATIVE_ARGS, memidx, (addr + offset))));
+    GPUSH_LONG(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_load32_u__s2(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s8 result;
+    result = (s8)((mem_load_i64_32u(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_LONG(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_load32_u__s3(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s8 result;
+    result = (s8)((mem_load_i64_32u(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_LONG(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_load32_u__s4(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s8 result;
+    result = (s8)((mem_load_i64_32u(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_LONG(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_load32_u__s5(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s8 result;
+    result = (s8)((mem_load_i64_32u(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_LONG(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_load32_u__s6(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s8 result;
+    result = (s8)((mem_load_i64_32u(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_LONG(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_load32_u__s7(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    s8 result;
+    result = (s8)((mem_load_i64_32u(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_LONG(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_load32_u__s8(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
     if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
     s8 result;
     result = (s8)((mem_load_i64_32u(NATIVE_ARGS, memidx, (addr + offset))));
@@ -948,6 +2713,118 @@ void STENCIL gen_st_i32_store__s1(CACHE_ARGS) {
     TAIL return _HOLE_cont(CACHE_PASS);
 }
 
+void STENCIL gen_st_i32_store__s2(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    s4 val = CACHE_GET_INT(CACHE_R0);
+    CACHE_GET_ADDR(addr, CACHE_R1, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i32(NATIVE_ARGS, memidx, (addr + offset), val);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i32_store__s3(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    s4 val = CACHE_GET_INT(CACHE_R0);
+    CACHE_GET_ADDR(addr, CACHE_R1, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i32(NATIVE_ARGS, memidx, (addr + offset), val);
+    CACHE_R0 = CACHE_R2;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i32_store__s4(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    s4 val = CACHE_GET_INT(CACHE_R0);
+    CACHE_GET_ADDR(addr, CACHE_R1, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i32(NATIVE_ARGS, memidx, (addr + offset), val);
+    CACHE_R0 = CACHE_R2;
+    CACHE_R1 = CACHE_R3;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i32_store__s5(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    s4 val = CACHE_GET_INT(CACHE_R0);
+    CACHE_GET_ADDR(addr, CACHE_R1, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i32(NATIVE_ARGS, memidx, (addr + offset), val);
+    CACHE_R0 = CACHE_R2;
+    CACHE_R1 = CACHE_R3;
+    CACHE_R2 = CACHE_R4;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i32_store__s6(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    s4 val = CACHE_GET_INT(CACHE_R0);
+    CACHE_GET_ADDR(addr, CACHE_R1, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i32(NATIVE_ARGS, memidx, (addr + offset), val);
+    CACHE_R0 = CACHE_R2;
+    CACHE_R1 = CACHE_R3;
+    CACHE_R2 = CACHE_R4;
+    CACHE_R3 = CACHE_R5;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i32_store__s7(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    s4 val = CACHE_GET_INT(CACHE_R0);
+    CACHE_GET_ADDR(addr, CACHE_R1, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i32(NATIVE_ARGS, memidx, (addr + offset), val);
+    CACHE_R0 = CACHE_R2;
+    CACHE_R1 = CACHE_R3;
+    CACHE_R2 = CACHE_R4;
+    CACHE_R3 = CACHE_R5;
+    CACHE_R4 = CACHE_R6;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i32_store__s8(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    s4 val = CACHE_GET_INT(CACHE_R0);
+    CACHE_GET_ADDR(addr, CACHE_R1, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i32(NATIVE_ARGS, memidx, (addr + offset), val);
+    CACHE_R0 = CACHE_R2;
+    CACHE_R1 = CACHE_R3;
+    CACHE_R2 = CACHE_R4;
+    CACHE_R3 = CACHE_R5;
+    CACHE_R4 = CACHE_R6;
+    CACHE_R5 = CACHE_R7;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
 void STENCIL gen_st_i64_store(CACHE_ARGS) {
     frame_t* f = &vm->frame; (void)f;
     STENCIL_TRAP_PC(_HOLE_pc);   /* per-stencil source byte offset: the default discards it (no trap-frame); a backend that records a trap site (e.g. §7.1.8) #defines STENCIL_TRAP_PC to bake _HOLE_pc into its frame */
@@ -983,6 +2860,118 @@ void STENCIL gen_st_i64_store__s1(CACHE_ARGS) {
     GPOP_ADDR(addr, (mem_is64(NATIVE_ARGS, memidx)));
     if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
     mem_store_i64(NATIVE_ARGS, memidx, (addr + offset), val);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_store__s2(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    s8 val = CACHE_GET_LONG(CACHE_R0);
+    CACHE_GET_ADDR(addr, CACHE_R1, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i64(NATIVE_ARGS, memidx, (addr + offset), val);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_store__s3(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    s8 val = CACHE_GET_LONG(CACHE_R0);
+    CACHE_GET_ADDR(addr, CACHE_R1, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i64(NATIVE_ARGS, memidx, (addr + offset), val);
+    CACHE_R0 = CACHE_R2;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_store__s4(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    s8 val = CACHE_GET_LONG(CACHE_R0);
+    CACHE_GET_ADDR(addr, CACHE_R1, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i64(NATIVE_ARGS, memidx, (addr + offset), val);
+    CACHE_R0 = CACHE_R2;
+    CACHE_R1 = CACHE_R3;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_store__s5(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    s8 val = CACHE_GET_LONG(CACHE_R0);
+    CACHE_GET_ADDR(addr, CACHE_R1, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i64(NATIVE_ARGS, memidx, (addr + offset), val);
+    CACHE_R0 = CACHE_R2;
+    CACHE_R1 = CACHE_R3;
+    CACHE_R2 = CACHE_R4;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_store__s6(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    s8 val = CACHE_GET_LONG(CACHE_R0);
+    CACHE_GET_ADDR(addr, CACHE_R1, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i64(NATIVE_ARGS, memidx, (addr + offset), val);
+    CACHE_R0 = CACHE_R2;
+    CACHE_R1 = CACHE_R3;
+    CACHE_R2 = CACHE_R4;
+    CACHE_R3 = CACHE_R5;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_store__s7(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    s8 val = CACHE_GET_LONG(CACHE_R0);
+    CACHE_GET_ADDR(addr, CACHE_R1, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i64(NATIVE_ARGS, memidx, (addr + offset), val);
+    CACHE_R0 = CACHE_R2;
+    CACHE_R1 = CACHE_R3;
+    CACHE_R2 = CACHE_R4;
+    CACHE_R3 = CACHE_R5;
+    CACHE_R4 = CACHE_R6;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_store__s8(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    s8 val = CACHE_GET_LONG(CACHE_R0);
+    CACHE_GET_ADDR(addr, CACHE_R1, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i64(NATIVE_ARGS, memidx, (addr + offset), val);
+    CACHE_R0 = CACHE_R2;
+    CACHE_R1 = CACHE_R3;
+    CACHE_R2 = CACHE_R4;
+    CACHE_R3 = CACHE_R5;
+    CACHE_R4 = CACHE_R6;
+    CACHE_R5 = CACHE_R7;
     if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
     TAIL return _HOLE_cont(CACHE_PASS);
 }
@@ -1026,6 +3015,118 @@ void STENCIL gen_st_f32_store__s1(CACHE_ARGS) {
     TAIL return _HOLE_cont(CACHE_PASS);
 }
 
+void STENCIL gen_st_f32_store__s2(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    f4 val = CACHE_GET_FLOAT(CACHE_R0);
+    CACHE_GET_ADDR(addr, CACHE_R1, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_f32(NATIVE_ARGS, memidx, (addr + offset), val);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_f32_store__s3(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    f4 val = CACHE_GET_FLOAT(CACHE_R0);
+    CACHE_GET_ADDR(addr, CACHE_R1, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_f32(NATIVE_ARGS, memidx, (addr + offset), val);
+    CACHE_R0 = CACHE_R2;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_f32_store__s4(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    f4 val = CACHE_GET_FLOAT(CACHE_R0);
+    CACHE_GET_ADDR(addr, CACHE_R1, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_f32(NATIVE_ARGS, memidx, (addr + offset), val);
+    CACHE_R0 = CACHE_R2;
+    CACHE_R1 = CACHE_R3;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_f32_store__s5(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    f4 val = CACHE_GET_FLOAT(CACHE_R0);
+    CACHE_GET_ADDR(addr, CACHE_R1, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_f32(NATIVE_ARGS, memidx, (addr + offset), val);
+    CACHE_R0 = CACHE_R2;
+    CACHE_R1 = CACHE_R3;
+    CACHE_R2 = CACHE_R4;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_f32_store__s6(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    f4 val = CACHE_GET_FLOAT(CACHE_R0);
+    CACHE_GET_ADDR(addr, CACHE_R1, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_f32(NATIVE_ARGS, memidx, (addr + offset), val);
+    CACHE_R0 = CACHE_R2;
+    CACHE_R1 = CACHE_R3;
+    CACHE_R2 = CACHE_R4;
+    CACHE_R3 = CACHE_R5;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_f32_store__s7(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    f4 val = CACHE_GET_FLOAT(CACHE_R0);
+    CACHE_GET_ADDR(addr, CACHE_R1, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_f32(NATIVE_ARGS, memidx, (addr + offset), val);
+    CACHE_R0 = CACHE_R2;
+    CACHE_R1 = CACHE_R3;
+    CACHE_R2 = CACHE_R4;
+    CACHE_R3 = CACHE_R5;
+    CACHE_R4 = CACHE_R6;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_f32_store__s8(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    f4 val = CACHE_GET_FLOAT(CACHE_R0);
+    CACHE_GET_ADDR(addr, CACHE_R1, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_f32(NATIVE_ARGS, memidx, (addr + offset), val);
+    CACHE_R0 = CACHE_R2;
+    CACHE_R1 = CACHE_R3;
+    CACHE_R2 = CACHE_R4;
+    CACHE_R3 = CACHE_R5;
+    CACHE_R4 = CACHE_R6;
+    CACHE_R5 = CACHE_R7;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
 void STENCIL gen_st_f64_store(CACHE_ARGS) {
     frame_t* f = &vm->frame; (void)f;
     STENCIL_TRAP_PC(_HOLE_pc);   /* per-stencil source byte offset: the default discards it (no trap-frame); a backend that records a trap site (e.g. §7.1.8) #defines STENCIL_TRAP_PC to bake _HOLE_pc into its frame */
@@ -1061,6 +3162,118 @@ void STENCIL gen_st_f64_store__s1(CACHE_ARGS) {
     GPOP_ADDR(addr, (mem_is64(NATIVE_ARGS, memidx)));
     if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
     mem_store_f64(NATIVE_ARGS, memidx, (addr + offset), val);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_f64_store__s2(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    f8 val = CACHE_GET_DOUBLE(CACHE_R0);
+    CACHE_GET_ADDR(addr, CACHE_R1, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_f64(NATIVE_ARGS, memidx, (addr + offset), val);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_f64_store__s3(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    f8 val = CACHE_GET_DOUBLE(CACHE_R0);
+    CACHE_GET_ADDR(addr, CACHE_R1, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_f64(NATIVE_ARGS, memidx, (addr + offset), val);
+    CACHE_R0 = CACHE_R2;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_f64_store__s4(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    f8 val = CACHE_GET_DOUBLE(CACHE_R0);
+    CACHE_GET_ADDR(addr, CACHE_R1, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_f64(NATIVE_ARGS, memidx, (addr + offset), val);
+    CACHE_R0 = CACHE_R2;
+    CACHE_R1 = CACHE_R3;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_f64_store__s5(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    f8 val = CACHE_GET_DOUBLE(CACHE_R0);
+    CACHE_GET_ADDR(addr, CACHE_R1, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_f64(NATIVE_ARGS, memidx, (addr + offset), val);
+    CACHE_R0 = CACHE_R2;
+    CACHE_R1 = CACHE_R3;
+    CACHE_R2 = CACHE_R4;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_f64_store__s6(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    f8 val = CACHE_GET_DOUBLE(CACHE_R0);
+    CACHE_GET_ADDR(addr, CACHE_R1, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_f64(NATIVE_ARGS, memidx, (addr + offset), val);
+    CACHE_R0 = CACHE_R2;
+    CACHE_R1 = CACHE_R3;
+    CACHE_R2 = CACHE_R4;
+    CACHE_R3 = CACHE_R5;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_f64_store__s7(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    f8 val = CACHE_GET_DOUBLE(CACHE_R0);
+    CACHE_GET_ADDR(addr, CACHE_R1, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_f64(NATIVE_ARGS, memidx, (addr + offset), val);
+    CACHE_R0 = CACHE_R2;
+    CACHE_R1 = CACHE_R3;
+    CACHE_R2 = CACHE_R4;
+    CACHE_R3 = CACHE_R5;
+    CACHE_R4 = CACHE_R6;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_f64_store__s8(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    f8 val = CACHE_GET_DOUBLE(CACHE_R0);
+    CACHE_GET_ADDR(addr, CACHE_R1, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_f64(NATIVE_ARGS, memidx, (addr + offset), val);
+    CACHE_R0 = CACHE_R2;
+    CACHE_R1 = CACHE_R3;
+    CACHE_R2 = CACHE_R4;
+    CACHE_R3 = CACHE_R5;
+    CACHE_R4 = CACHE_R6;
+    CACHE_R5 = CACHE_R7;
     if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
     TAIL return _HOLE_cont(CACHE_PASS);
 }
@@ -1104,6 +3317,118 @@ void STENCIL gen_st_i32_store8__s1(CACHE_ARGS) {
     TAIL return _HOLE_cont(CACHE_PASS);
 }
 
+void STENCIL gen_st_i32_store8__s2(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    s4 val = CACHE_GET_INT(CACHE_R0);
+    CACHE_GET_ADDR(addr, CACHE_R1, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i8(NATIVE_ARGS, memidx, (addr + offset), val);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i32_store8__s3(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    s4 val = CACHE_GET_INT(CACHE_R0);
+    CACHE_GET_ADDR(addr, CACHE_R1, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i8(NATIVE_ARGS, memidx, (addr + offset), val);
+    CACHE_R0 = CACHE_R2;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i32_store8__s4(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    s4 val = CACHE_GET_INT(CACHE_R0);
+    CACHE_GET_ADDR(addr, CACHE_R1, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i8(NATIVE_ARGS, memidx, (addr + offset), val);
+    CACHE_R0 = CACHE_R2;
+    CACHE_R1 = CACHE_R3;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i32_store8__s5(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    s4 val = CACHE_GET_INT(CACHE_R0);
+    CACHE_GET_ADDR(addr, CACHE_R1, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i8(NATIVE_ARGS, memidx, (addr + offset), val);
+    CACHE_R0 = CACHE_R2;
+    CACHE_R1 = CACHE_R3;
+    CACHE_R2 = CACHE_R4;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i32_store8__s6(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    s4 val = CACHE_GET_INT(CACHE_R0);
+    CACHE_GET_ADDR(addr, CACHE_R1, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i8(NATIVE_ARGS, memidx, (addr + offset), val);
+    CACHE_R0 = CACHE_R2;
+    CACHE_R1 = CACHE_R3;
+    CACHE_R2 = CACHE_R4;
+    CACHE_R3 = CACHE_R5;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i32_store8__s7(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    s4 val = CACHE_GET_INT(CACHE_R0);
+    CACHE_GET_ADDR(addr, CACHE_R1, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i8(NATIVE_ARGS, memidx, (addr + offset), val);
+    CACHE_R0 = CACHE_R2;
+    CACHE_R1 = CACHE_R3;
+    CACHE_R2 = CACHE_R4;
+    CACHE_R3 = CACHE_R5;
+    CACHE_R4 = CACHE_R6;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i32_store8__s8(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    s4 val = CACHE_GET_INT(CACHE_R0);
+    CACHE_GET_ADDR(addr, CACHE_R1, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i8(NATIVE_ARGS, memidx, (addr + offset), val);
+    CACHE_R0 = CACHE_R2;
+    CACHE_R1 = CACHE_R3;
+    CACHE_R2 = CACHE_R4;
+    CACHE_R3 = CACHE_R5;
+    CACHE_R4 = CACHE_R6;
+    CACHE_R5 = CACHE_R7;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
 void STENCIL gen_st_i32_store16(CACHE_ARGS) {
     frame_t* f = &vm->frame; (void)f;
     STENCIL_TRAP_PC(_HOLE_pc);   /* per-stencil source byte offset: the default discards it (no trap-frame); a backend that records a trap site (e.g. §7.1.8) #defines STENCIL_TRAP_PC to bake _HOLE_pc into its frame */
@@ -1139,6 +3464,118 @@ void STENCIL gen_st_i32_store16__s1(CACHE_ARGS) {
     GPOP_ADDR(addr, (mem_is64(NATIVE_ARGS, memidx)));
     if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
     mem_store_i16(NATIVE_ARGS, memidx, (addr + offset), val);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i32_store16__s2(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    s4 val = CACHE_GET_INT(CACHE_R0);
+    CACHE_GET_ADDR(addr, CACHE_R1, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i16(NATIVE_ARGS, memidx, (addr + offset), val);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i32_store16__s3(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    s4 val = CACHE_GET_INT(CACHE_R0);
+    CACHE_GET_ADDR(addr, CACHE_R1, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i16(NATIVE_ARGS, memidx, (addr + offset), val);
+    CACHE_R0 = CACHE_R2;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i32_store16__s4(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    s4 val = CACHE_GET_INT(CACHE_R0);
+    CACHE_GET_ADDR(addr, CACHE_R1, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i16(NATIVE_ARGS, memidx, (addr + offset), val);
+    CACHE_R0 = CACHE_R2;
+    CACHE_R1 = CACHE_R3;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i32_store16__s5(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    s4 val = CACHE_GET_INT(CACHE_R0);
+    CACHE_GET_ADDR(addr, CACHE_R1, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i16(NATIVE_ARGS, memidx, (addr + offset), val);
+    CACHE_R0 = CACHE_R2;
+    CACHE_R1 = CACHE_R3;
+    CACHE_R2 = CACHE_R4;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i32_store16__s6(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    s4 val = CACHE_GET_INT(CACHE_R0);
+    CACHE_GET_ADDR(addr, CACHE_R1, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i16(NATIVE_ARGS, memidx, (addr + offset), val);
+    CACHE_R0 = CACHE_R2;
+    CACHE_R1 = CACHE_R3;
+    CACHE_R2 = CACHE_R4;
+    CACHE_R3 = CACHE_R5;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i32_store16__s7(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    s4 val = CACHE_GET_INT(CACHE_R0);
+    CACHE_GET_ADDR(addr, CACHE_R1, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i16(NATIVE_ARGS, memidx, (addr + offset), val);
+    CACHE_R0 = CACHE_R2;
+    CACHE_R1 = CACHE_R3;
+    CACHE_R2 = CACHE_R4;
+    CACHE_R3 = CACHE_R5;
+    CACHE_R4 = CACHE_R6;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i32_store16__s8(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    s4 val = CACHE_GET_INT(CACHE_R0);
+    CACHE_GET_ADDR(addr, CACHE_R1, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i16(NATIVE_ARGS, memidx, (addr + offset), val);
+    CACHE_R0 = CACHE_R2;
+    CACHE_R1 = CACHE_R3;
+    CACHE_R2 = CACHE_R4;
+    CACHE_R3 = CACHE_R5;
+    CACHE_R4 = CACHE_R6;
+    CACHE_R5 = CACHE_R7;
     if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
     TAIL return _HOLE_cont(CACHE_PASS);
 }
@@ -1182,6 +3619,118 @@ void STENCIL gen_st_i64_store8__s1(CACHE_ARGS) {
     TAIL return _HOLE_cont(CACHE_PASS);
 }
 
+void STENCIL gen_st_i64_store8__s2(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    s8 val = CACHE_GET_LONG(CACHE_R0);
+    CACHE_GET_ADDR(addr, CACHE_R1, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i64_8(NATIVE_ARGS, memidx, (addr + offset), val);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_store8__s3(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    s8 val = CACHE_GET_LONG(CACHE_R0);
+    CACHE_GET_ADDR(addr, CACHE_R1, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i64_8(NATIVE_ARGS, memidx, (addr + offset), val);
+    CACHE_R0 = CACHE_R2;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_store8__s4(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    s8 val = CACHE_GET_LONG(CACHE_R0);
+    CACHE_GET_ADDR(addr, CACHE_R1, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i64_8(NATIVE_ARGS, memidx, (addr + offset), val);
+    CACHE_R0 = CACHE_R2;
+    CACHE_R1 = CACHE_R3;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_store8__s5(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    s8 val = CACHE_GET_LONG(CACHE_R0);
+    CACHE_GET_ADDR(addr, CACHE_R1, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i64_8(NATIVE_ARGS, memidx, (addr + offset), val);
+    CACHE_R0 = CACHE_R2;
+    CACHE_R1 = CACHE_R3;
+    CACHE_R2 = CACHE_R4;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_store8__s6(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    s8 val = CACHE_GET_LONG(CACHE_R0);
+    CACHE_GET_ADDR(addr, CACHE_R1, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i64_8(NATIVE_ARGS, memidx, (addr + offset), val);
+    CACHE_R0 = CACHE_R2;
+    CACHE_R1 = CACHE_R3;
+    CACHE_R2 = CACHE_R4;
+    CACHE_R3 = CACHE_R5;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_store8__s7(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    s8 val = CACHE_GET_LONG(CACHE_R0);
+    CACHE_GET_ADDR(addr, CACHE_R1, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i64_8(NATIVE_ARGS, memidx, (addr + offset), val);
+    CACHE_R0 = CACHE_R2;
+    CACHE_R1 = CACHE_R3;
+    CACHE_R2 = CACHE_R4;
+    CACHE_R3 = CACHE_R5;
+    CACHE_R4 = CACHE_R6;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_store8__s8(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    s8 val = CACHE_GET_LONG(CACHE_R0);
+    CACHE_GET_ADDR(addr, CACHE_R1, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i64_8(NATIVE_ARGS, memidx, (addr + offset), val);
+    CACHE_R0 = CACHE_R2;
+    CACHE_R1 = CACHE_R3;
+    CACHE_R2 = CACHE_R4;
+    CACHE_R3 = CACHE_R5;
+    CACHE_R4 = CACHE_R6;
+    CACHE_R5 = CACHE_R7;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
 void STENCIL gen_st_i64_store16(CACHE_ARGS) {
     frame_t* f = &vm->frame; (void)f;
     STENCIL_TRAP_PC(_HOLE_pc);   /* per-stencil source byte offset: the default discards it (no trap-frame); a backend that records a trap site (e.g. §7.1.8) #defines STENCIL_TRAP_PC to bake _HOLE_pc into its frame */
@@ -1221,6 +3770,118 @@ void STENCIL gen_st_i64_store16__s1(CACHE_ARGS) {
     TAIL return _HOLE_cont(CACHE_PASS);
 }
 
+void STENCIL gen_st_i64_store16__s2(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    s8 val = CACHE_GET_LONG(CACHE_R0);
+    CACHE_GET_ADDR(addr, CACHE_R1, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i64_16(NATIVE_ARGS, memidx, (addr + offset), val);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_store16__s3(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    s8 val = CACHE_GET_LONG(CACHE_R0);
+    CACHE_GET_ADDR(addr, CACHE_R1, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i64_16(NATIVE_ARGS, memidx, (addr + offset), val);
+    CACHE_R0 = CACHE_R2;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_store16__s4(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    s8 val = CACHE_GET_LONG(CACHE_R0);
+    CACHE_GET_ADDR(addr, CACHE_R1, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i64_16(NATIVE_ARGS, memidx, (addr + offset), val);
+    CACHE_R0 = CACHE_R2;
+    CACHE_R1 = CACHE_R3;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_store16__s5(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    s8 val = CACHE_GET_LONG(CACHE_R0);
+    CACHE_GET_ADDR(addr, CACHE_R1, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i64_16(NATIVE_ARGS, memidx, (addr + offset), val);
+    CACHE_R0 = CACHE_R2;
+    CACHE_R1 = CACHE_R3;
+    CACHE_R2 = CACHE_R4;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_store16__s6(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    s8 val = CACHE_GET_LONG(CACHE_R0);
+    CACHE_GET_ADDR(addr, CACHE_R1, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i64_16(NATIVE_ARGS, memidx, (addr + offset), val);
+    CACHE_R0 = CACHE_R2;
+    CACHE_R1 = CACHE_R3;
+    CACHE_R2 = CACHE_R4;
+    CACHE_R3 = CACHE_R5;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_store16__s7(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    s8 val = CACHE_GET_LONG(CACHE_R0);
+    CACHE_GET_ADDR(addr, CACHE_R1, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i64_16(NATIVE_ARGS, memidx, (addr + offset), val);
+    CACHE_R0 = CACHE_R2;
+    CACHE_R1 = CACHE_R3;
+    CACHE_R2 = CACHE_R4;
+    CACHE_R3 = CACHE_R5;
+    CACHE_R4 = CACHE_R6;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_store16__s8(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    s8 val = CACHE_GET_LONG(CACHE_R0);
+    CACHE_GET_ADDR(addr, CACHE_R1, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i64_16(NATIVE_ARGS, memidx, (addr + offset), val);
+    CACHE_R0 = CACHE_R2;
+    CACHE_R1 = CACHE_R3;
+    CACHE_R2 = CACHE_R4;
+    CACHE_R3 = CACHE_R5;
+    CACHE_R4 = CACHE_R6;
+    CACHE_R5 = CACHE_R7;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
 void STENCIL gen_st_i64_store32(CACHE_ARGS) {
     frame_t* f = &vm->frame; (void)f;
     STENCIL_TRAP_PC(_HOLE_pc);   /* per-stencil source byte offset: the default discards it (no trap-frame); a backend that records a trap site (e.g. §7.1.8) #defines STENCIL_TRAP_PC to bake _HOLE_pc into its frame */
@@ -1256,6 +3917,118 @@ void STENCIL gen_st_i64_store32__s1(CACHE_ARGS) {
     GPOP_ADDR(addr, (mem_is64(NATIVE_ARGS, memidx)));
     if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
     mem_store_i64_32(NATIVE_ARGS, memidx, (addr + offset), val);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_store32__s2(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    s8 val = CACHE_GET_LONG(CACHE_R0);
+    CACHE_GET_ADDR(addr, CACHE_R1, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i64_32(NATIVE_ARGS, memidx, (addr + offset), val);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_store32__s3(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    s8 val = CACHE_GET_LONG(CACHE_R0);
+    CACHE_GET_ADDR(addr, CACHE_R1, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i64_32(NATIVE_ARGS, memidx, (addr + offset), val);
+    CACHE_R0 = CACHE_R2;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_store32__s4(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    s8 val = CACHE_GET_LONG(CACHE_R0);
+    CACHE_GET_ADDR(addr, CACHE_R1, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i64_32(NATIVE_ARGS, memidx, (addr + offset), val);
+    CACHE_R0 = CACHE_R2;
+    CACHE_R1 = CACHE_R3;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_store32__s5(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    s8 val = CACHE_GET_LONG(CACHE_R0);
+    CACHE_GET_ADDR(addr, CACHE_R1, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i64_32(NATIVE_ARGS, memidx, (addr + offset), val);
+    CACHE_R0 = CACHE_R2;
+    CACHE_R1 = CACHE_R3;
+    CACHE_R2 = CACHE_R4;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_store32__s6(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    s8 val = CACHE_GET_LONG(CACHE_R0);
+    CACHE_GET_ADDR(addr, CACHE_R1, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i64_32(NATIVE_ARGS, memidx, (addr + offset), val);
+    CACHE_R0 = CACHE_R2;
+    CACHE_R1 = CACHE_R3;
+    CACHE_R2 = CACHE_R4;
+    CACHE_R3 = CACHE_R5;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_store32__s7(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    s8 val = CACHE_GET_LONG(CACHE_R0);
+    CACHE_GET_ADDR(addr, CACHE_R1, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i64_32(NATIVE_ARGS, memidx, (addr + offset), val);
+    CACHE_R0 = CACHE_R2;
+    CACHE_R1 = CACHE_R3;
+    CACHE_R2 = CACHE_R4;
+    CACHE_R3 = CACHE_R5;
+    CACHE_R4 = CACHE_R6;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_i64_store32__s8(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    s8 val = CACHE_GET_LONG(CACHE_R0);
+    CACHE_GET_ADDR(addr, CACHE_R1, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i64_32(NATIVE_ARGS, memidx, (addr + offset), val);
+    CACHE_R0 = CACHE_R2;
+    CACHE_R1 = CACHE_R3;
+    CACHE_R2 = CACHE_R4;
+    CACHE_R3 = CACHE_R5;
+    CACHE_R4 = CACHE_R6;
+    CACHE_R5 = CACHE_R7;
     if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
     TAIL return _HOLE_cont(CACHE_PASS);
 }
@@ -1431,6 +4204,131 @@ void STENCIL gen_st_memory_grow__s0(CACHE_ARGS) {
     TAIL return _HOLE_cont(CACHE_PASS);
 }
 
+void STENCIL gen_st_memory_grow__s1(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    CACHE_GET_ADDR(delta, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    slot_t result; u1 result_wt;
+    (void)result_wt;
+    result.l = (s8)((((s8(*)(vm_t*, heap_t*, s4, s8))(uintptr_t)_HOLE_mem_grow)(NATIVE_ARGS, memidx, delta)));
+    result_wt = (s4)(((mem_is64(NATIVE_ARGS, memidx)) ? T_LONG : T_INT));
+    CACHE_R0 = CACHE_PUT_WORD(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_memory_grow__s1m(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    CACHE_GET_ADDR(delta, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    slot_t result; u1 result_wt;
+    result.l = (s8)((((s8(*)(vm_t*, heap_t*, s4, s8))(uintptr_t)_HOLE_mem_grow)(NATIVE_ARGS, memidx, delta)));
+    result_wt = (s4)(((mem_is64(NATIVE_ARGS, memidx)) ? T_LONG : T_INT));
+    GPUSH_WORD(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_memory_grow__s2(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    CACHE_GET_ADDR(delta, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    slot_t result; u1 result_wt;
+    (void)result_wt;
+    result.l = (s8)((((s8(*)(vm_t*, heap_t*, s4, s8))(uintptr_t)_HOLE_mem_grow)(NATIVE_ARGS, memidx, delta)));
+    result_wt = (s4)(((mem_is64(NATIVE_ARGS, memidx)) ? T_LONG : T_INT));
+    CACHE_R0 = CACHE_PUT_WORD(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_memory_grow__s3(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    CACHE_GET_ADDR(delta, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    slot_t result; u1 result_wt;
+    (void)result_wt;
+    result.l = (s8)((((s8(*)(vm_t*, heap_t*, s4, s8))(uintptr_t)_HOLE_mem_grow)(NATIVE_ARGS, memidx, delta)));
+    result_wt = (s4)(((mem_is64(NATIVE_ARGS, memidx)) ? T_LONG : T_INT));
+    CACHE_R0 = CACHE_PUT_WORD(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_memory_grow__s4(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    CACHE_GET_ADDR(delta, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    slot_t result; u1 result_wt;
+    (void)result_wt;
+    result.l = (s8)((((s8(*)(vm_t*, heap_t*, s4, s8))(uintptr_t)_HOLE_mem_grow)(NATIVE_ARGS, memidx, delta)));
+    result_wt = (s4)(((mem_is64(NATIVE_ARGS, memidx)) ? T_LONG : T_INT));
+    CACHE_R0 = CACHE_PUT_WORD(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_memory_grow__s5(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    CACHE_GET_ADDR(delta, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    slot_t result; u1 result_wt;
+    (void)result_wt;
+    result.l = (s8)((((s8(*)(vm_t*, heap_t*, s4, s8))(uintptr_t)_HOLE_mem_grow)(NATIVE_ARGS, memidx, delta)));
+    result_wt = (s4)(((mem_is64(NATIVE_ARGS, memidx)) ? T_LONG : T_INT));
+    CACHE_R0 = CACHE_PUT_WORD(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_memory_grow__s6(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    CACHE_GET_ADDR(delta, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    slot_t result; u1 result_wt;
+    (void)result_wt;
+    result.l = (s8)((((s8(*)(vm_t*, heap_t*, s4, s8))(uintptr_t)_HOLE_mem_grow)(NATIVE_ARGS, memidx, delta)));
+    result_wt = (s4)(((mem_is64(NATIVE_ARGS, memidx)) ? T_LONG : T_INT));
+    CACHE_R0 = CACHE_PUT_WORD(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_memory_grow__s7(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    CACHE_GET_ADDR(delta, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    slot_t result; u1 result_wt;
+    (void)result_wt;
+    result.l = (s8)((((s8(*)(vm_t*, heap_t*, s4, s8))(uintptr_t)_HOLE_mem_grow)(NATIVE_ARGS, memidx, delta)));
+    result_wt = (s4)(((mem_is64(NATIVE_ARGS, memidx)) ? T_LONG : T_INT));
+    CACHE_R0 = CACHE_PUT_WORD(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_memory_grow__s8(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    CACHE_GET_ADDR(delta, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    slot_t result; u1 result_wt;
+    (void)result_wt;
+    result.l = (s8)((((s8(*)(vm_t*, heap_t*, s4, s8))(uintptr_t)_HOLE_mem_grow)(NATIVE_ARGS, memidx, delta)));
+    result_wt = (s4)(((mem_is64(NATIVE_ARGS, memidx)) ? T_LONG : T_INT));
+    CACHE_R0 = CACHE_PUT_WORD(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
 void STENCIL gen_st_memory_fill(CACHE_ARGS) {
     frame_t* f = &vm->frame; (void)f;
     STENCIL_TRAP_PC(_HOLE_pc);   /* per-stencil source byte offset: the default discards it (no trap-frame); a backend that records a trap site (e.g. §7.1.8) #defines STENCIL_TRAP_PC to bake _HOLE_pc into its frame */
@@ -1453,6 +4351,125 @@ void STENCIL gen_st_memory_fill__s0(CACHE_ARGS) {
     GPOP_ADDR(d, (mem_is64(NATIVE_ARGS, memidx)));
     if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, d, n)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
     (((void(*)(vm_t*, heap_t*, s4, s8, s4, s8))(uintptr_t)_HOLE_jav_memory_fill)(NATIVE_ARGS, memidx, d, v, n));
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_memory_fill__s1(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    CACHE_GET_ADDR(n, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    GPOP_INT(v);
+    GPOP_ADDR(d, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, d, n)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    (((void(*)(vm_t*, heap_t*, s4, s8, s4, s8))(uintptr_t)_HOLE_jav_memory_fill)(NATIVE_ARGS, memidx, d, v, n));
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_memory_fill__s2(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    CACHE_GET_ADDR(n, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    s4 v = CACHE_GET_INT(CACHE_R1);
+    GPOP_ADDR(d, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, d, n)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    (((void(*)(vm_t*, heap_t*, s4, s8, s4, s8))(uintptr_t)_HOLE_jav_memory_fill)(NATIVE_ARGS, memidx, d, v, n));
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_memory_fill__s3(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    CACHE_GET_ADDR(n, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    s4 v = CACHE_GET_INT(CACHE_R1);
+    CACHE_GET_ADDR(d, CACHE_R2, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, d, n)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    (((void(*)(vm_t*, heap_t*, s4, s8, s4, s8))(uintptr_t)_HOLE_jav_memory_fill)(NATIVE_ARGS, memidx, d, v, n));
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_memory_fill__s4(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    CACHE_GET_ADDR(n, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    s4 v = CACHE_GET_INT(CACHE_R1);
+    CACHE_GET_ADDR(d, CACHE_R2, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, d, n)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    (((void(*)(vm_t*, heap_t*, s4, s8, s4, s8))(uintptr_t)_HOLE_jav_memory_fill)(NATIVE_ARGS, memidx, d, v, n));
+    CACHE_R0 = CACHE_R3;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_memory_fill__s5(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    CACHE_GET_ADDR(n, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    s4 v = CACHE_GET_INT(CACHE_R1);
+    CACHE_GET_ADDR(d, CACHE_R2, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, d, n)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    (((void(*)(vm_t*, heap_t*, s4, s8, s4, s8))(uintptr_t)_HOLE_jav_memory_fill)(NATIVE_ARGS, memidx, d, v, n));
+    CACHE_R0 = CACHE_R3;
+    CACHE_R1 = CACHE_R4;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_memory_fill__s6(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    CACHE_GET_ADDR(n, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    s4 v = CACHE_GET_INT(CACHE_R1);
+    CACHE_GET_ADDR(d, CACHE_R2, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, d, n)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    (((void(*)(vm_t*, heap_t*, s4, s8, s4, s8))(uintptr_t)_HOLE_jav_memory_fill)(NATIVE_ARGS, memidx, d, v, n));
+    CACHE_R0 = CACHE_R3;
+    CACHE_R1 = CACHE_R4;
+    CACHE_R2 = CACHE_R5;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_memory_fill__s7(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    CACHE_GET_ADDR(n, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    s4 v = CACHE_GET_INT(CACHE_R1);
+    CACHE_GET_ADDR(d, CACHE_R2, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, d, n)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    (((void(*)(vm_t*, heap_t*, s4, s8, s4, s8))(uintptr_t)_HOLE_jav_memory_fill)(NATIVE_ARGS, memidx, d, v, n));
+    CACHE_R0 = CACHE_R3;
+    CACHE_R1 = CACHE_R4;
+    CACHE_R2 = CACHE_R5;
+    CACHE_R3 = CACHE_R6;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_memory_fill__s8(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    CACHE_GET_ADDR(n, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    s4 v = CACHE_GET_INT(CACHE_R1);
+    CACHE_GET_ADDR(d, CACHE_R2, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, d, n)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    (((void(*)(vm_t*, heap_t*, s4, s8, s4, s8))(uintptr_t)_HOLE_jav_memory_fill)(NATIVE_ARGS, memidx, d, v, n));
+    CACHE_R0 = CACHE_R3;
+    CACHE_R1 = CACHE_R4;
+    CACHE_R2 = CACHE_R5;
+    CACHE_R3 = CACHE_R6;
+    CACHE_R4 = CACHE_R7;
     if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
     TAIL return _HOLE_cont(CACHE_PASS);
 }
@@ -1481,6 +4498,133 @@ void STENCIL gen_st_memory_copy__s0(CACHE_ARGS) {
     GPOP_ADDR(d, (mem_is64(NATIVE_ARGS, dst_mem)));
     if ((_Bool)(!((mem_in_bounds(NATIVE_ARGS, dst_mem, d, n)) && (mem_in_bounds(NATIVE_ARGS, src_mem, s, n))))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
     (((void(*)(vm_t*, heap_t*, s4, s4, s8, s8, s8))(uintptr_t)_HOLE_jav_memory_copy)(NATIVE_ARGS, dst_mem, src_mem, d, s, n));
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_memory_copy__s1(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 dst_mem = (u4)_HOLE_dst_mem;
+    u4 src_mem = (u4)_HOLE_src_mem;
+    CACHE_GET_ADDR(n, CACHE_R0, ((mem_is64(NATIVE_ARGS, dst_mem)) && (mem_is64(NATIVE_ARGS, src_mem))));
+    GPOP_ADDR(s, (mem_is64(NATIVE_ARGS, src_mem)));
+    GPOP_ADDR(d, (mem_is64(NATIVE_ARGS, dst_mem)));
+    if ((_Bool)(!((mem_in_bounds(NATIVE_ARGS, dst_mem, d, n)) && (mem_in_bounds(NATIVE_ARGS, src_mem, s, n))))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    (((void(*)(vm_t*, heap_t*, s4, s4, s8, s8, s8))(uintptr_t)_HOLE_jav_memory_copy)(NATIVE_ARGS, dst_mem, src_mem, d, s, n));
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_memory_copy__s2(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 dst_mem = (u4)_HOLE_dst_mem;
+    u4 src_mem = (u4)_HOLE_src_mem;
+    CACHE_GET_ADDR(n, CACHE_R0, ((mem_is64(NATIVE_ARGS, dst_mem)) && (mem_is64(NATIVE_ARGS, src_mem))));
+    CACHE_GET_ADDR(s, CACHE_R1, (mem_is64(NATIVE_ARGS, src_mem)));
+    GPOP_ADDR(d, (mem_is64(NATIVE_ARGS, dst_mem)));
+    if ((_Bool)(!((mem_in_bounds(NATIVE_ARGS, dst_mem, d, n)) && (mem_in_bounds(NATIVE_ARGS, src_mem, s, n))))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    (((void(*)(vm_t*, heap_t*, s4, s4, s8, s8, s8))(uintptr_t)_HOLE_jav_memory_copy)(NATIVE_ARGS, dst_mem, src_mem, d, s, n));
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_memory_copy__s3(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 dst_mem = (u4)_HOLE_dst_mem;
+    u4 src_mem = (u4)_HOLE_src_mem;
+    CACHE_GET_ADDR(n, CACHE_R0, ((mem_is64(NATIVE_ARGS, dst_mem)) && (mem_is64(NATIVE_ARGS, src_mem))));
+    CACHE_GET_ADDR(s, CACHE_R1, (mem_is64(NATIVE_ARGS, src_mem)));
+    CACHE_GET_ADDR(d, CACHE_R2, (mem_is64(NATIVE_ARGS, dst_mem)));
+    if ((_Bool)(!((mem_in_bounds(NATIVE_ARGS, dst_mem, d, n)) && (mem_in_bounds(NATIVE_ARGS, src_mem, s, n))))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    (((void(*)(vm_t*, heap_t*, s4, s4, s8, s8, s8))(uintptr_t)_HOLE_jav_memory_copy)(NATIVE_ARGS, dst_mem, src_mem, d, s, n));
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_memory_copy__s4(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 dst_mem = (u4)_HOLE_dst_mem;
+    u4 src_mem = (u4)_HOLE_src_mem;
+    CACHE_GET_ADDR(n, CACHE_R0, ((mem_is64(NATIVE_ARGS, dst_mem)) && (mem_is64(NATIVE_ARGS, src_mem))));
+    CACHE_GET_ADDR(s, CACHE_R1, (mem_is64(NATIVE_ARGS, src_mem)));
+    CACHE_GET_ADDR(d, CACHE_R2, (mem_is64(NATIVE_ARGS, dst_mem)));
+    if ((_Bool)(!((mem_in_bounds(NATIVE_ARGS, dst_mem, d, n)) && (mem_in_bounds(NATIVE_ARGS, src_mem, s, n))))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    (((void(*)(vm_t*, heap_t*, s4, s4, s8, s8, s8))(uintptr_t)_HOLE_jav_memory_copy)(NATIVE_ARGS, dst_mem, src_mem, d, s, n));
+    CACHE_R0 = CACHE_R3;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_memory_copy__s5(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 dst_mem = (u4)_HOLE_dst_mem;
+    u4 src_mem = (u4)_HOLE_src_mem;
+    CACHE_GET_ADDR(n, CACHE_R0, ((mem_is64(NATIVE_ARGS, dst_mem)) && (mem_is64(NATIVE_ARGS, src_mem))));
+    CACHE_GET_ADDR(s, CACHE_R1, (mem_is64(NATIVE_ARGS, src_mem)));
+    CACHE_GET_ADDR(d, CACHE_R2, (mem_is64(NATIVE_ARGS, dst_mem)));
+    if ((_Bool)(!((mem_in_bounds(NATIVE_ARGS, dst_mem, d, n)) && (mem_in_bounds(NATIVE_ARGS, src_mem, s, n))))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    (((void(*)(vm_t*, heap_t*, s4, s4, s8, s8, s8))(uintptr_t)_HOLE_jav_memory_copy)(NATIVE_ARGS, dst_mem, src_mem, d, s, n));
+    CACHE_R0 = CACHE_R3;
+    CACHE_R1 = CACHE_R4;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_memory_copy__s6(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 dst_mem = (u4)_HOLE_dst_mem;
+    u4 src_mem = (u4)_HOLE_src_mem;
+    CACHE_GET_ADDR(n, CACHE_R0, ((mem_is64(NATIVE_ARGS, dst_mem)) && (mem_is64(NATIVE_ARGS, src_mem))));
+    CACHE_GET_ADDR(s, CACHE_R1, (mem_is64(NATIVE_ARGS, src_mem)));
+    CACHE_GET_ADDR(d, CACHE_R2, (mem_is64(NATIVE_ARGS, dst_mem)));
+    if ((_Bool)(!((mem_in_bounds(NATIVE_ARGS, dst_mem, d, n)) && (mem_in_bounds(NATIVE_ARGS, src_mem, s, n))))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    (((void(*)(vm_t*, heap_t*, s4, s4, s8, s8, s8))(uintptr_t)_HOLE_jav_memory_copy)(NATIVE_ARGS, dst_mem, src_mem, d, s, n));
+    CACHE_R0 = CACHE_R3;
+    CACHE_R1 = CACHE_R4;
+    CACHE_R2 = CACHE_R5;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_memory_copy__s7(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 dst_mem = (u4)_HOLE_dst_mem;
+    u4 src_mem = (u4)_HOLE_src_mem;
+    CACHE_GET_ADDR(n, CACHE_R0, ((mem_is64(NATIVE_ARGS, dst_mem)) && (mem_is64(NATIVE_ARGS, src_mem))));
+    CACHE_GET_ADDR(s, CACHE_R1, (mem_is64(NATIVE_ARGS, src_mem)));
+    CACHE_GET_ADDR(d, CACHE_R2, (mem_is64(NATIVE_ARGS, dst_mem)));
+    if ((_Bool)(!((mem_in_bounds(NATIVE_ARGS, dst_mem, d, n)) && (mem_in_bounds(NATIVE_ARGS, src_mem, s, n))))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    (((void(*)(vm_t*, heap_t*, s4, s4, s8, s8, s8))(uintptr_t)_HOLE_jav_memory_copy)(NATIVE_ARGS, dst_mem, src_mem, d, s, n));
+    CACHE_R0 = CACHE_R3;
+    CACHE_R1 = CACHE_R4;
+    CACHE_R2 = CACHE_R5;
+    CACHE_R3 = CACHE_R6;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_memory_copy__s8(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 dst_mem = (u4)_HOLE_dst_mem;
+    u4 src_mem = (u4)_HOLE_src_mem;
+    CACHE_GET_ADDR(n, CACHE_R0, ((mem_is64(NATIVE_ARGS, dst_mem)) && (mem_is64(NATIVE_ARGS, src_mem))));
+    CACHE_GET_ADDR(s, CACHE_R1, (mem_is64(NATIVE_ARGS, src_mem)));
+    CACHE_GET_ADDR(d, CACHE_R2, (mem_is64(NATIVE_ARGS, dst_mem)));
+    if ((_Bool)(!((mem_in_bounds(NATIVE_ARGS, dst_mem, d, n)) && (mem_in_bounds(NATIVE_ARGS, src_mem, s, n))))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    (((void(*)(vm_t*, heap_t*, s4, s4, s8, s8, s8))(uintptr_t)_HOLE_jav_memory_copy)(NATIVE_ARGS, dst_mem, src_mem, d, s, n));
+    CACHE_R0 = CACHE_R3;
+    CACHE_R1 = CACHE_R4;
+    CACHE_R2 = CACHE_R5;
+    CACHE_R3 = CACHE_R6;
+    CACHE_R4 = CACHE_R7;
     if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
     TAIL return _HOLE_cont(CACHE_PASS);
 }
@@ -1537,6 +4681,105 @@ void STENCIL gen_st_memory_init__s2(CACHE_ARGS) {
     GPOP_ADDR(d, (mem_is64(NATIVE_ARGS, memidx)));
     if ((_Bool)(!((((n >= 0) && (s >= 0)) && ((((s8)s) + ((s8)n)) <= (data_seg_len(NATIVE_ARGS, seg)))) && (mem_in_bounds(NATIVE_ARGS, memidx, d, n))))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
     (((void(*)(vm_t*, heap_t*, s4, s4, s8, s4, s4))(uintptr_t)_HOLE_jav_memory_init)(NATIVE_ARGS, memidx, seg, d, s, n));
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_memory_init__s3(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 seg = (u4)_HOLE_seg;
+    u4 memidx = (u4)_HOLE_memidx;
+    s4 n = CACHE_GET_INT(CACHE_R0);
+    s4 s = CACHE_GET_INT(CACHE_R1);
+    CACHE_GET_ADDR(d, CACHE_R2, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!((((n >= 0) && (s >= 0)) && ((((s8)s) + ((s8)n)) <= (data_seg_len(NATIVE_ARGS, seg)))) && (mem_in_bounds(NATIVE_ARGS, memidx, d, n))))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    (((void(*)(vm_t*, heap_t*, s4, s4, s8, s4, s4))(uintptr_t)_HOLE_jav_memory_init)(NATIVE_ARGS, memidx, seg, d, s, n));
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_memory_init__s4(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 seg = (u4)_HOLE_seg;
+    u4 memidx = (u4)_HOLE_memidx;
+    s4 n = CACHE_GET_INT(CACHE_R0);
+    s4 s = CACHE_GET_INT(CACHE_R1);
+    CACHE_GET_ADDR(d, CACHE_R2, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!((((n >= 0) && (s >= 0)) && ((((s8)s) + ((s8)n)) <= (data_seg_len(NATIVE_ARGS, seg)))) && (mem_in_bounds(NATIVE_ARGS, memidx, d, n))))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    (((void(*)(vm_t*, heap_t*, s4, s4, s8, s4, s4))(uintptr_t)_HOLE_jav_memory_init)(NATIVE_ARGS, memidx, seg, d, s, n));
+    CACHE_R0 = CACHE_R3;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_memory_init__s5(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 seg = (u4)_HOLE_seg;
+    u4 memidx = (u4)_HOLE_memidx;
+    s4 n = CACHE_GET_INT(CACHE_R0);
+    s4 s = CACHE_GET_INT(CACHE_R1);
+    CACHE_GET_ADDR(d, CACHE_R2, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!((((n >= 0) && (s >= 0)) && ((((s8)s) + ((s8)n)) <= (data_seg_len(NATIVE_ARGS, seg)))) && (mem_in_bounds(NATIVE_ARGS, memidx, d, n))))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    (((void(*)(vm_t*, heap_t*, s4, s4, s8, s4, s4))(uintptr_t)_HOLE_jav_memory_init)(NATIVE_ARGS, memidx, seg, d, s, n));
+    CACHE_R0 = CACHE_R3;
+    CACHE_R1 = CACHE_R4;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_memory_init__s6(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 seg = (u4)_HOLE_seg;
+    u4 memidx = (u4)_HOLE_memidx;
+    s4 n = CACHE_GET_INT(CACHE_R0);
+    s4 s = CACHE_GET_INT(CACHE_R1);
+    CACHE_GET_ADDR(d, CACHE_R2, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!((((n >= 0) && (s >= 0)) && ((((s8)s) + ((s8)n)) <= (data_seg_len(NATIVE_ARGS, seg)))) && (mem_in_bounds(NATIVE_ARGS, memidx, d, n))))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    (((void(*)(vm_t*, heap_t*, s4, s4, s8, s4, s4))(uintptr_t)_HOLE_jav_memory_init)(NATIVE_ARGS, memidx, seg, d, s, n));
+    CACHE_R0 = CACHE_R3;
+    CACHE_R1 = CACHE_R4;
+    CACHE_R2 = CACHE_R5;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_memory_init__s7(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 seg = (u4)_HOLE_seg;
+    u4 memidx = (u4)_HOLE_memidx;
+    s4 n = CACHE_GET_INT(CACHE_R0);
+    s4 s = CACHE_GET_INT(CACHE_R1);
+    CACHE_GET_ADDR(d, CACHE_R2, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!((((n >= 0) && (s >= 0)) && ((((s8)s) + ((s8)n)) <= (data_seg_len(NATIVE_ARGS, seg)))) && (mem_in_bounds(NATIVE_ARGS, memidx, d, n))))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    (((void(*)(vm_t*, heap_t*, s4, s4, s8, s4, s4))(uintptr_t)_HOLE_jav_memory_init)(NATIVE_ARGS, memidx, seg, d, s, n));
+    CACHE_R0 = CACHE_R3;
+    CACHE_R1 = CACHE_R4;
+    CACHE_R2 = CACHE_R5;
+    CACHE_R3 = CACHE_R6;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_memory_init__s8(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 seg = (u4)_HOLE_seg;
+    u4 memidx = (u4)_HOLE_memidx;
+    s4 n = CACHE_GET_INT(CACHE_R0);
+    s4 s = CACHE_GET_INT(CACHE_R1);
+    CACHE_GET_ADDR(d, CACHE_R2, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!((((n >= 0) && (s >= 0)) && ((((s8)s) + ((s8)n)) <= (data_seg_len(NATIVE_ARGS, seg)))) && (mem_in_bounds(NATIVE_ARGS, memidx, d, n))))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    (((void(*)(vm_t*, heap_t*, s4, s4, s8, s4, s4))(uintptr_t)_HOLE_jav_memory_init)(NATIVE_ARGS, memidx, seg, d, s, n));
+    CACHE_R0 = CACHE_R3;
+    CACHE_R1 = CACHE_R4;
+    CACHE_R2 = CACHE_R5;
+    CACHE_R3 = CACHE_R6;
+    CACHE_R4 = CACHE_R7;
     if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
     TAIL return _HOLE_cont(CACHE_PASS);
 }
@@ -1804,6 +5047,35 @@ void STENCIL gen_st_table_grow__s0(CACHE_ARGS) {
     TAIL return _HOLE_cont(CACHE_PASS);
 }
 
+void STENCIL gen_st_table_grow__s1(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 table = (u4)_HOLE_table;
+    CACHE_GET_ADDR(delta, CACHE_R0, (table_is64(NATIVE_ARGS, table)));
+    GPOP_ANY(initref);
+    slot_t result; u1 result_wt;
+    (void)result_wt;
+    result.l = (s8)((((s8(*)(vm_t*, heap_t*, s4, s8, any_t))(uintptr_t)_HOLE_jav_table_grow)(NATIVE_ARGS, table, delta, initref)));
+    result_wt = (s4)(((table_is64(NATIVE_ARGS, table)) ? T_LONG : T_INT));
+    CACHE_R0 = CACHE_PUT_WORD(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_table_grow__s1m(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 table = (u4)_HOLE_table;
+    CACHE_GET_ADDR(delta, CACHE_R0, (table_is64(NATIVE_ARGS, table)));
+    GPOP_ANY(initref);
+    slot_t result; u1 result_wt;
+    result.l = (s8)((((s8(*)(vm_t*, heap_t*, s4, s8, any_t))(uintptr_t)_HOLE_jav_table_grow)(NATIVE_ARGS, table, delta, initref)));
+    result_wt = (s4)(((table_is64(NATIVE_ARGS, table)) ? T_LONG : T_INT));
+    GPUSH_WORD(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
 void STENCIL gen_st_table_fill(CACHE_ARGS) {
     frame_t* f = &vm->frame; (void)f;
     STENCIL_TRAP_PC(_HOLE_pc);   /* per-stencil source byte offset: the default discards it (no trap-frame); a backend that records a trap site (e.g. §7.1.8) #defines STENCIL_TRAP_PC to bake _HOLE_pc into its frame */
@@ -1828,6 +5100,25 @@ void STENCIL gen_st_table_fill__s0(CACHE_ARGS) {
     STENCIL_TRAP_PC(_HOLE_pc);
     u4 table = (u4)_HOLE_table;
     GPOP_ADDR(n, (table_is64(NATIVE_ARGS, table)));
+    GPOP_ANY(v);
+    GPOP_ADDR(i, (table_is64(NATIVE_ARGS, table)));
+    if ((_Bool)(!((i <= (table_len(NATIVE_ARGS, table))) && (n <= ((table_len(NATIVE_ARGS, table)) - i))))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsTableAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    {
+    s8 k = (s8)(0);
+    while ((k < ((s8)n))) {
+    table_set(NATIVE_ARGS, table, (i + k), v);
+    k = (s4)((k + 1));
+    }
+    }
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_table_fill__s1(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 table = (u4)_HOLE_table;
+    CACHE_GET_ADDR(n, CACHE_R0, (table_is64(NATIVE_ARGS, table)));
     GPOP_ANY(v);
     GPOP_ADDR(i, (table_is64(NATIVE_ARGS, table)));
     if ((_Bool)(!((i <= (table_len(NATIVE_ARGS, table))) && (n <= ((table_len(NATIVE_ARGS, table)) - i))))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsTableAccess); TAIL return _HOLE_trap(CACHE_PASS); }
@@ -1902,6 +5193,261 @@ void STENCIL gen_st_table_copy__s0(CACHE_ARGS) {
     TAIL return _HOLE_cont(CACHE_PASS);
 }
 
+void STENCIL gen_st_table_copy__s1(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 dst_table = (u4)_HOLE_dst_table;
+    u4 src_table = (u4)_HOLE_src_table;
+    CACHE_GET_ADDR(n, CACHE_R0, ((table_is64(NATIVE_ARGS, dst_table)) && (table_is64(NATIVE_ARGS, src_table))));
+    GPOP_ADDR(s, (table_is64(NATIVE_ARGS, src_table)));
+    GPOP_ADDR(d, (table_is64(NATIVE_ARGS, dst_table)));
+    if ((_Bool)(!((((d <= (table_len(NATIVE_ARGS, dst_table))) && (n <= ((table_len(NATIVE_ARGS, dst_table)) - d))) && (s <= (table_len(NATIVE_ARGS, src_table)))) && (n <= ((table_len(NATIVE_ARGS, src_table)) - s))))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsTableAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    if ((_Bool)(d <= s)) {
+    {
+    s8 k = (s8)(0);
+    while ((k < ((s8)n))) {
+    table_set(NATIVE_ARGS, dst_table, (d + k), (table_get(NATIVE_ARGS, src_table, (s + k))));
+    k = (s4)((k + 1));
+    }
+    }
+    } else {
+    {
+    s8 k = (s8)((((s8)n) - 1));
+    while ((k >= 0)) {
+    table_set(NATIVE_ARGS, dst_table, (d + k), (table_get(NATIVE_ARGS, src_table, (s + k))));
+    k = (s4)((k - 1));
+    }
+    }
+    }
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_table_copy__s2(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 dst_table = (u4)_HOLE_dst_table;
+    u4 src_table = (u4)_HOLE_src_table;
+    CACHE_GET_ADDR(n, CACHE_R0, ((table_is64(NATIVE_ARGS, dst_table)) && (table_is64(NATIVE_ARGS, src_table))));
+    CACHE_GET_ADDR(s, CACHE_R1, (table_is64(NATIVE_ARGS, src_table)));
+    GPOP_ADDR(d, (table_is64(NATIVE_ARGS, dst_table)));
+    if ((_Bool)(!((((d <= (table_len(NATIVE_ARGS, dst_table))) && (n <= ((table_len(NATIVE_ARGS, dst_table)) - d))) && (s <= (table_len(NATIVE_ARGS, src_table)))) && (n <= ((table_len(NATIVE_ARGS, src_table)) - s))))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsTableAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    if ((_Bool)(d <= s)) {
+    {
+    s8 k = (s8)(0);
+    while ((k < ((s8)n))) {
+    table_set(NATIVE_ARGS, dst_table, (d + k), (table_get(NATIVE_ARGS, src_table, (s + k))));
+    k = (s4)((k + 1));
+    }
+    }
+    } else {
+    {
+    s8 k = (s8)((((s8)n) - 1));
+    while ((k >= 0)) {
+    table_set(NATIVE_ARGS, dst_table, (d + k), (table_get(NATIVE_ARGS, src_table, (s + k))));
+    k = (s4)((k - 1));
+    }
+    }
+    }
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_table_copy__s3(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 dst_table = (u4)_HOLE_dst_table;
+    u4 src_table = (u4)_HOLE_src_table;
+    CACHE_GET_ADDR(n, CACHE_R0, ((table_is64(NATIVE_ARGS, dst_table)) && (table_is64(NATIVE_ARGS, src_table))));
+    CACHE_GET_ADDR(s, CACHE_R1, (table_is64(NATIVE_ARGS, src_table)));
+    CACHE_GET_ADDR(d, CACHE_R2, (table_is64(NATIVE_ARGS, dst_table)));
+    if ((_Bool)(!((((d <= (table_len(NATIVE_ARGS, dst_table))) && (n <= ((table_len(NATIVE_ARGS, dst_table)) - d))) && (s <= (table_len(NATIVE_ARGS, src_table)))) && (n <= ((table_len(NATIVE_ARGS, src_table)) - s))))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsTableAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    if ((_Bool)(d <= s)) {
+    {
+    s8 k = (s8)(0);
+    while ((k < ((s8)n))) {
+    table_set(NATIVE_ARGS, dst_table, (d + k), (table_get(NATIVE_ARGS, src_table, (s + k))));
+    k = (s4)((k + 1));
+    }
+    }
+    } else {
+    {
+    s8 k = (s8)((((s8)n) - 1));
+    while ((k >= 0)) {
+    table_set(NATIVE_ARGS, dst_table, (d + k), (table_get(NATIVE_ARGS, src_table, (s + k))));
+    k = (s4)((k - 1));
+    }
+    }
+    }
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_table_copy__s4(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 dst_table = (u4)_HOLE_dst_table;
+    u4 src_table = (u4)_HOLE_src_table;
+    CACHE_GET_ADDR(n, CACHE_R0, ((table_is64(NATIVE_ARGS, dst_table)) && (table_is64(NATIVE_ARGS, src_table))));
+    CACHE_GET_ADDR(s, CACHE_R1, (table_is64(NATIVE_ARGS, src_table)));
+    CACHE_GET_ADDR(d, CACHE_R2, (table_is64(NATIVE_ARGS, dst_table)));
+    if ((_Bool)(!((((d <= (table_len(NATIVE_ARGS, dst_table))) && (n <= ((table_len(NATIVE_ARGS, dst_table)) - d))) && (s <= (table_len(NATIVE_ARGS, src_table)))) && (n <= ((table_len(NATIVE_ARGS, src_table)) - s))))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsTableAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    if ((_Bool)(d <= s)) {
+    {
+    s8 k = (s8)(0);
+    while ((k < ((s8)n))) {
+    table_set(NATIVE_ARGS, dst_table, (d + k), (table_get(NATIVE_ARGS, src_table, (s + k))));
+    k = (s4)((k + 1));
+    }
+    }
+    } else {
+    {
+    s8 k = (s8)((((s8)n) - 1));
+    while ((k >= 0)) {
+    table_set(NATIVE_ARGS, dst_table, (d + k), (table_get(NATIVE_ARGS, src_table, (s + k))));
+    k = (s4)((k - 1));
+    }
+    }
+    }
+    CACHE_R0 = CACHE_R3;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_table_copy__s5(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 dst_table = (u4)_HOLE_dst_table;
+    u4 src_table = (u4)_HOLE_src_table;
+    CACHE_GET_ADDR(n, CACHE_R0, ((table_is64(NATIVE_ARGS, dst_table)) && (table_is64(NATIVE_ARGS, src_table))));
+    CACHE_GET_ADDR(s, CACHE_R1, (table_is64(NATIVE_ARGS, src_table)));
+    CACHE_GET_ADDR(d, CACHE_R2, (table_is64(NATIVE_ARGS, dst_table)));
+    if ((_Bool)(!((((d <= (table_len(NATIVE_ARGS, dst_table))) && (n <= ((table_len(NATIVE_ARGS, dst_table)) - d))) && (s <= (table_len(NATIVE_ARGS, src_table)))) && (n <= ((table_len(NATIVE_ARGS, src_table)) - s))))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsTableAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    if ((_Bool)(d <= s)) {
+    {
+    s8 k = (s8)(0);
+    while ((k < ((s8)n))) {
+    table_set(NATIVE_ARGS, dst_table, (d + k), (table_get(NATIVE_ARGS, src_table, (s + k))));
+    k = (s4)((k + 1));
+    }
+    }
+    } else {
+    {
+    s8 k = (s8)((((s8)n) - 1));
+    while ((k >= 0)) {
+    table_set(NATIVE_ARGS, dst_table, (d + k), (table_get(NATIVE_ARGS, src_table, (s + k))));
+    k = (s4)((k - 1));
+    }
+    }
+    }
+    CACHE_R0 = CACHE_R3;
+    CACHE_R1 = CACHE_R4;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_table_copy__s6(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 dst_table = (u4)_HOLE_dst_table;
+    u4 src_table = (u4)_HOLE_src_table;
+    CACHE_GET_ADDR(n, CACHE_R0, ((table_is64(NATIVE_ARGS, dst_table)) && (table_is64(NATIVE_ARGS, src_table))));
+    CACHE_GET_ADDR(s, CACHE_R1, (table_is64(NATIVE_ARGS, src_table)));
+    CACHE_GET_ADDR(d, CACHE_R2, (table_is64(NATIVE_ARGS, dst_table)));
+    if ((_Bool)(!((((d <= (table_len(NATIVE_ARGS, dst_table))) && (n <= ((table_len(NATIVE_ARGS, dst_table)) - d))) && (s <= (table_len(NATIVE_ARGS, src_table)))) && (n <= ((table_len(NATIVE_ARGS, src_table)) - s))))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsTableAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    if ((_Bool)(d <= s)) {
+    {
+    s8 k = (s8)(0);
+    while ((k < ((s8)n))) {
+    table_set(NATIVE_ARGS, dst_table, (d + k), (table_get(NATIVE_ARGS, src_table, (s + k))));
+    k = (s4)((k + 1));
+    }
+    }
+    } else {
+    {
+    s8 k = (s8)((((s8)n) - 1));
+    while ((k >= 0)) {
+    table_set(NATIVE_ARGS, dst_table, (d + k), (table_get(NATIVE_ARGS, src_table, (s + k))));
+    k = (s4)((k - 1));
+    }
+    }
+    }
+    CACHE_R0 = CACHE_R3;
+    CACHE_R1 = CACHE_R4;
+    CACHE_R2 = CACHE_R5;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_table_copy__s7(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 dst_table = (u4)_HOLE_dst_table;
+    u4 src_table = (u4)_HOLE_src_table;
+    CACHE_GET_ADDR(n, CACHE_R0, ((table_is64(NATIVE_ARGS, dst_table)) && (table_is64(NATIVE_ARGS, src_table))));
+    CACHE_GET_ADDR(s, CACHE_R1, (table_is64(NATIVE_ARGS, src_table)));
+    CACHE_GET_ADDR(d, CACHE_R2, (table_is64(NATIVE_ARGS, dst_table)));
+    if ((_Bool)(!((((d <= (table_len(NATIVE_ARGS, dst_table))) && (n <= ((table_len(NATIVE_ARGS, dst_table)) - d))) && (s <= (table_len(NATIVE_ARGS, src_table)))) && (n <= ((table_len(NATIVE_ARGS, src_table)) - s))))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsTableAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    if ((_Bool)(d <= s)) {
+    {
+    s8 k = (s8)(0);
+    while ((k < ((s8)n))) {
+    table_set(NATIVE_ARGS, dst_table, (d + k), (table_get(NATIVE_ARGS, src_table, (s + k))));
+    k = (s4)((k + 1));
+    }
+    }
+    } else {
+    {
+    s8 k = (s8)((((s8)n) - 1));
+    while ((k >= 0)) {
+    table_set(NATIVE_ARGS, dst_table, (d + k), (table_get(NATIVE_ARGS, src_table, (s + k))));
+    k = (s4)((k - 1));
+    }
+    }
+    }
+    CACHE_R0 = CACHE_R3;
+    CACHE_R1 = CACHE_R4;
+    CACHE_R2 = CACHE_R5;
+    CACHE_R3 = CACHE_R6;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_table_copy__s8(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 dst_table = (u4)_HOLE_dst_table;
+    u4 src_table = (u4)_HOLE_src_table;
+    CACHE_GET_ADDR(n, CACHE_R0, ((table_is64(NATIVE_ARGS, dst_table)) && (table_is64(NATIVE_ARGS, src_table))));
+    CACHE_GET_ADDR(s, CACHE_R1, (table_is64(NATIVE_ARGS, src_table)));
+    CACHE_GET_ADDR(d, CACHE_R2, (table_is64(NATIVE_ARGS, dst_table)));
+    if ((_Bool)(!((((d <= (table_len(NATIVE_ARGS, dst_table))) && (n <= ((table_len(NATIVE_ARGS, dst_table)) - d))) && (s <= (table_len(NATIVE_ARGS, src_table)))) && (n <= ((table_len(NATIVE_ARGS, src_table)) - s))))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsTableAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    if ((_Bool)(d <= s)) {
+    {
+    s8 k = (s8)(0);
+    while ((k < ((s8)n))) {
+    table_set(NATIVE_ARGS, dst_table, (d + k), (table_get(NATIVE_ARGS, src_table, (s + k))));
+    k = (s4)((k + 1));
+    }
+    }
+    } else {
+    {
+    s8 k = (s8)((((s8)n) - 1));
+    while ((k >= 0)) {
+    table_set(NATIVE_ARGS, dst_table, (d + k), (table_get(NATIVE_ARGS, src_table, (s + k))));
+    k = (s4)((k - 1));
+    }
+    }
+    }
+    CACHE_R0 = CACHE_R3;
+    CACHE_R1 = CACHE_R4;
+    CACHE_R2 = CACHE_R5;
+    CACHE_R3 = CACHE_R6;
+    CACHE_R4 = CACHE_R7;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
 void STENCIL gen_st_table_init(CACHE_ARGS) {
     frame_t* f = &vm->frame; (void)f;
     STENCIL_TRAP_PC(_HOLE_pc);   /* per-stencil source byte offset: the default discards it (no trap-frame); a backend that records a trap site (e.g. §7.1.8) #defines STENCIL_TRAP_PC to bake _HOLE_pc into its frame */
@@ -1954,6 +5500,105 @@ void STENCIL gen_st_table_init__s2(CACHE_ARGS) {
     GPOP_ADDR(d, (table_is64(NATIVE_ARGS, table)));
     if ((_Bool)(!(((((n >= 0) && (s >= 0)) && ((((s8)s) + ((s8)n)) <= (elem_seg_len(NATIVE_ARGS, seg)))) && (d <= (table_len(NATIVE_ARGS, table)))) && (n <= ((table_len(NATIVE_ARGS, table)) - d))))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsTableAccess); TAIL return _HOLE_trap(CACHE_PASS); }
     (((void(*)(vm_t*, heap_t*, s4, s4, s8, s4, s4))(uintptr_t)_HOLE_jav_table_init)(NATIVE_ARGS, table, seg, d, s, n));
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_table_init__s3(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 seg = (u4)_HOLE_seg;
+    u4 table = (u4)_HOLE_table;
+    s4 n = CACHE_GET_INT(CACHE_R0);
+    s4 s = CACHE_GET_INT(CACHE_R1);
+    CACHE_GET_ADDR(d, CACHE_R2, (table_is64(NATIVE_ARGS, table)));
+    if ((_Bool)(!(((((n >= 0) && (s >= 0)) && ((((s8)s) + ((s8)n)) <= (elem_seg_len(NATIVE_ARGS, seg)))) && (d <= (table_len(NATIVE_ARGS, table)))) && (n <= ((table_len(NATIVE_ARGS, table)) - d))))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsTableAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    (((void(*)(vm_t*, heap_t*, s4, s4, s8, s4, s4))(uintptr_t)_HOLE_jav_table_init)(NATIVE_ARGS, table, seg, d, s, n));
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_table_init__s4(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 seg = (u4)_HOLE_seg;
+    u4 table = (u4)_HOLE_table;
+    s4 n = CACHE_GET_INT(CACHE_R0);
+    s4 s = CACHE_GET_INT(CACHE_R1);
+    CACHE_GET_ADDR(d, CACHE_R2, (table_is64(NATIVE_ARGS, table)));
+    if ((_Bool)(!(((((n >= 0) && (s >= 0)) && ((((s8)s) + ((s8)n)) <= (elem_seg_len(NATIVE_ARGS, seg)))) && (d <= (table_len(NATIVE_ARGS, table)))) && (n <= ((table_len(NATIVE_ARGS, table)) - d))))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsTableAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    (((void(*)(vm_t*, heap_t*, s4, s4, s8, s4, s4))(uintptr_t)_HOLE_jav_table_init)(NATIVE_ARGS, table, seg, d, s, n));
+    CACHE_R0 = CACHE_R3;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_table_init__s5(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 seg = (u4)_HOLE_seg;
+    u4 table = (u4)_HOLE_table;
+    s4 n = CACHE_GET_INT(CACHE_R0);
+    s4 s = CACHE_GET_INT(CACHE_R1);
+    CACHE_GET_ADDR(d, CACHE_R2, (table_is64(NATIVE_ARGS, table)));
+    if ((_Bool)(!(((((n >= 0) && (s >= 0)) && ((((s8)s) + ((s8)n)) <= (elem_seg_len(NATIVE_ARGS, seg)))) && (d <= (table_len(NATIVE_ARGS, table)))) && (n <= ((table_len(NATIVE_ARGS, table)) - d))))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsTableAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    (((void(*)(vm_t*, heap_t*, s4, s4, s8, s4, s4))(uintptr_t)_HOLE_jav_table_init)(NATIVE_ARGS, table, seg, d, s, n));
+    CACHE_R0 = CACHE_R3;
+    CACHE_R1 = CACHE_R4;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_table_init__s6(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 seg = (u4)_HOLE_seg;
+    u4 table = (u4)_HOLE_table;
+    s4 n = CACHE_GET_INT(CACHE_R0);
+    s4 s = CACHE_GET_INT(CACHE_R1);
+    CACHE_GET_ADDR(d, CACHE_R2, (table_is64(NATIVE_ARGS, table)));
+    if ((_Bool)(!(((((n >= 0) && (s >= 0)) && ((((s8)s) + ((s8)n)) <= (elem_seg_len(NATIVE_ARGS, seg)))) && (d <= (table_len(NATIVE_ARGS, table)))) && (n <= ((table_len(NATIVE_ARGS, table)) - d))))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsTableAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    (((void(*)(vm_t*, heap_t*, s4, s4, s8, s4, s4))(uintptr_t)_HOLE_jav_table_init)(NATIVE_ARGS, table, seg, d, s, n));
+    CACHE_R0 = CACHE_R3;
+    CACHE_R1 = CACHE_R4;
+    CACHE_R2 = CACHE_R5;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_table_init__s7(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 seg = (u4)_HOLE_seg;
+    u4 table = (u4)_HOLE_table;
+    s4 n = CACHE_GET_INT(CACHE_R0);
+    s4 s = CACHE_GET_INT(CACHE_R1);
+    CACHE_GET_ADDR(d, CACHE_R2, (table_is64(NATIVE_ARGS, table)));
+    if ((_Bool)(!(((((n >= 0) && (s >= 0)) && ((((s8)s) + ((s8)n)) <= (elem_seg_len(NATIVE_ARGS, seg)))) && (d <= (table_len(NATIVE_ARGS, table)))) && (n <= ((table_len(NATIVE_ARGS, table)) - d))))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsTableAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    (((void(*)(vm_t*, heap_t*, s4, s4, s8, s4, s4))(uintptr_t)_HOLE_jav_table_init)(NATIVE_ARGS, table, seg, d, s, n));
+    CACHE_R0 = CACHE_R3;
+    CACHE_R1 = CACHE_R4;
+    CACHE_R2 = CACHE_R5;
+    CACHE_R3 = CACHE_R6;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_table_init__s8(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 seg = (u4)_HOLE_seg;
+    u4 table = (u4)_HOLE_table;
+    s4 n = CACHE_GET_INT(CACHE_R0);
+    s4 s = CACHE_GET_INT(CACHE_R1);
+    CACHE_GET_ADDR(d, CACHE_R2, (table_is64(NATIVE_ARGS, table)));
+    if ((_Bool)(!(((((n >= 0) && (s >= 0)) && ((((s8)s) + ((s8)n)) <= (elem_seg_len(NATIVE_ARGS, seg)))) && (d <= (table_len(NATIVE_ARGS, table)))) && (n <= ((table_len(NATIVE_ARGS, table)) - d))))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsTableAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    (((void(*)(vm_t*, heap_t*, s4, s4, s8, s4, s4))(uintptr_t)_HOLE_jav_table_init)(NATIVE_ARGS, table, seg, d, s, n));
+    CACHE_R0 = CACHE_R3;
+    CACHE_R1 = CACHE_R4;
+    CACHE_R2 = CACHE_R5;
+    CACHE_R3 = CACHE_R6;
+    CACHE_R4 = CACHE_R7;
     if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
     TAIL return _HOLE_cont(CACHE_PASS);
 }
@@ -23797,6 +27442,24 @@ void STENCIL gen_st_call_indirect__s0(CACHE_ARGS) {
     TAIL return _HOLE_resync(CACHE_PASS);
 }
 
+void STENCIL gen_st_call_indirect__s1(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 type = (u4)_HOLE_type;
+    (void)type;
+    u4 table = (u4)_HOLE_table;
+    CACHE_GET_ADDR(idx, CACHE_R0, (table_is64(NATIVE_ARGS, table)));
+    s4 _vc_args = (s4)((((s4(*)(vm_t*, heap_t*, s4))(uintptr_t)_HOLE_jav_type_nparams)(NATIVE_ARGS, type)));
+    slot_t* _vb_args = &JV_STK[JV_SP - _vc_args]; u1* _vt_args = &JV_STKT[JV_SP - _vc_args]; (void)_vb_args; (void)_vt_args;
+    JV_SP -= _vc_args;
+    if ((_Bool)(!(idx < (table_len(NATIVE_ARGS, table))))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_UndefinedElement); TAIL return _HOLE_trap(CACHE_PASS); }
+    if ((_Bool)(jav_is_null(NATIVE_ARGS, (table_get(NATIVE_ARGS, table, idx))))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_UninitializedElement); TAIL return _HOLE_trap(CACHE_PASS); }
+    if ((_Bool)(!(((s4(*)(vm_t*, heap_t*, any_t, s4))(uintptr_t)_HOLE_jav_funcref_typematch)(NATIVE_ARGS, (table_get(NATIVE_ARGS, table, idx)), type)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_IndirectCallTypeMismatch); TAIL return _HOLE_trap(CACHE_PASS); }
+    vm->frame.code.pos = (size_t)_HOLE_ip;
+    (((jav_status_t(*)(vm_t*, heap_t*, any_t))(uintptr_t)_HOLE_jav_invoke_ref)(NATIVE_ARGS, (table_get(NATIVE_ARGS, table, idx))));
+    TAIL return _HOLE_resync(CACHE_PASS);
+}
+
 void STENCIL gen_st_return_call(CACHE_ARGS) {
     frame_t* f = &vm->frame; (void)f;
     STENCIL_TRAP_PC(_HOLE_pc);   /* per-stencil source byte offset: the default discards it (no trap-frame); a backend that records a trap site (e.g. §7.1.8) #defines STENCIL_TRAP_PC to bake _HOLE_pc into its frame */
@@ -23846,6 +27509,24 @@ void STENCIL gen_st_return_call_indirect__s0(CACHE_ARGS) {
     (void)type;
     u4 table = (u4)_HOLE_table;
     GPOP_ADDR(idx, (table_is64(NATIVE_ARGS, table)));
+    s4 _vc_args = (s4)((((s4(*)(vm_t*, heap_t*, s4))(uintptr_t)_HOLE_jav_type_nparams)(NATIVE_ARGS, type)));
+    slot_t* _vb_args = &JV_STK[JV_SP - _vc_args]; u1* _vt_args = &JV_STKT[JV_SP - _vc_args]; (void)_vb_args; (void)_vt_args;
+    JV_SP -= _vc_args;
+    if ((_Bool)(!(idx < (table_len(NATIVE_ARGS, table))))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_UndefinedElement); TAIL return _HOLE_trap(CACHE_PASS); }
+    if ((_Bool)(jav_is_null(NATIVE_ARGS, (table_get(NATIVE_ARGS, table, idx))))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_UninitializedElement); TAIL return _HOLE_trap(CACHE_PASS); }
+    if ((_Bool)(!(((s4(*)(vm_t*, heap_t*, any_t, s4))(uintptr_t)_HOLE_jav_funcref_typematch)(NATIVE_ARGS, (table_get(NATIVE_ARGS, table, idx)), type)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_IndirectCallTypeMismatch); TAIL return _HOLE_trap(CACHE_PASS); }
+    vm->frame.code.pos = (size_t)_HOLE_ip;
+    (((jav_status_t(*)(vm_t*, heap_t*, any_t))(uintptr_t)_HOLE_jav_tail_invoke_ref)(NATIVE_ARGS, (table_get(NATIVE_ARGS, table, idx))));
+    TAIL return _HOLE_resync(CACHE_PASS);
+}
+
+void STENCIL gen_st_return_call_indirect__s1(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 type = (u4)_HOLE_type;
+    (void)type;
+    u4 table = (u4)_HOLE_table;
+    CACHE_GET_ADDR(idx, CACHE_R0, (table_is64(NATIVE_ARGS, table)));
     s4 _vc_args = (s4)((((s4(*)(vm_t*, heap_t*, s4))(uintptr_t)_HOLE_jav_type_nparams)(NATIVE_ARGS, type)));
     slot_t* _vb_args = &JV_STK[JV_SP - _vc_args]; u1* _vt_args = &JV_STKT[JV_SP - _vc_args]; (void)_vb_args; (void)_vt_args;
     JV_SP -= _vc_args;
@@ -26291,6 +29972,123 @@ void STENCIL gen_st_table_get__s0(CACHE_ARGS) {
     TAIL return _HOLE_cont(CACHE_PASS);
 }
 
+void STENCIL gen_st_table_get__s1(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 table = (u4)_HOLE_table;
+    CACHE_GET_ADDR(i, CACHE_R0, (table_is64(NATIVE_ARGS, table)));
+    if ((_Bool)(!(i < (table_len(NATIVE_ARGS, table))))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsTableAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    any_t result;
+    result = ((table_get(NATIVE_ARGS, table, i)));
+    CACHE_R0 = CACHE_PUT_ANY(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_table_get__s1m(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 table = (u4)_HOLE_table;
+    CACHE_GET_ADDR(i, CACHE_R0, (table_is64(NATIVE_ARGS, table)));
+    if ((_Bool)(!(i < (table_len(NATIVE_ARGS, table))))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsTableAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    any_t result;
+    result = ((table_get(NATIVE_ARGS, table, i)));
+    GPUSH_ANY(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_table_get__s2(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 table = (u4)_HOLE_table;
+    CACHE_GET_ADDR(i, CACHE_R0, (table_is64(NATIVE_ARGS, table)));
+    if ((_Bool)(!(i < (table_len(NATIVE_ARGS, table))))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsTableAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    any_t result;
+    result = ((table_get(NATIVE_ARGS, table, i)));
+    CACHE_R0 = CACHE_PUT_ANY(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_table_get__s3(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 table = (u4)_HOLE_table;
+    CACHE_GET_ADDR(i, CACHE_R0, (table_is64(NATIVE_ARGS, table)));
+    if ((_Bool)(!(i < (table_len(NATIVE_ARGS, table))))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsTableAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    any_t result;
+    result = ((table_get(NATIVE_ARGS, table, i)));
+    CACHE_R0 = CACHE_PUT_ANY(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_table_get__s4(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 table = (u4)_HOLE_table;
+    CACHE_GET_ADDR(i, CACHE_R0, (table_is64(NATIVE_ARGS, table)));
+    if ((_Bool)(!(i < (table_len(NATIVE_ARGS, table))))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsTableAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    any_t result;
+    result = ((table_get(NATIVE_ARGS, table, i)));
+    CACHE_R0 = CACHE_PUT_ANY(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_table_get__s5(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 table = (u4)_HOLE_table;
+    CACHE_GET_ADDR(i, CACHE_R0, (table_is64(NATIVE_ARGS, table)));
+    if ((_Bool)(!(i < (table_len(NATIVE_ARGS, table))))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsTableAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    any_t result;
+    result = ((table_get(NATIVE_ARGS, table, i)));
+    CACHE_R0 = CACHE_PUT_ANY(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_table_get__s6(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 table = (u4)_HOLE_table;
+    CACHE_GET_ADDR(i, CACHE_R0, (table_is64(NATIVE_ARGS, table)));
+    if ((_Bool)(!(i < (table_len(NATIVE_ARGS, table))))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsTableAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    any_t result;
+    result = ((table_get(NATIVE_ARGS, table, i)));
+    CACHE_R0 = CACHE_PUT_ANY(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_table_get__s7(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 table = (u4)_HOLE_table;
+    CACHE_GET_ADDR(i, CACHE_R0, (table_is64(NATIVE_ARGS, table)));
+    if ((_Bool)(!(i < (table_len(NATIVE_ARGS, table))))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsTableAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    any_t result;
+    result = ((table_get(NATIVE_ARGS, table, i)));
+    CACHE_R0 = CACHE_PUT_ANY(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_table_get__s8(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 table = (u4)_HOLE_table;
+    CACHE_GET_ADDR(i, CACHE_R0, (table_is64(NATIVE_ARGS, table)));
+    if ((_Bool)(!(i < (table_len(NATIVE_ARGS, table))))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsTableAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    any_t result;
+    result = ((table_get(NATIVE_ARGS, table, i)));
+    CACHE_R0 = CACHE_PUT_ANY(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
 void STENCIL gen_st_table_set(CACHE_ARGS) {
     frame_t* f = &vm->frame; (void)f;
     STENCIL_TRAP_PC(_HOLE_pc);   /* per-stencil source byte offset: the default discards it (no trap-frame); a backend that records a trap site (e.g. §7.1.8) #defines STENCIL_TRAP_PC to bake _HOLE_pc into its frame */
@@ -26344,6 +30142,146 @@ void STENCIL gen_st_v128_load__s0(CACHE_ARGS) {
     TAIL return _HOLE_cont(CACHE_PASS);
 }
 
+void STENCIL gen_st_v128_load__s1(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 16)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = ((mem_load_v128(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load__s1m(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 16)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = ((mem_load_v128(NATIVE_ARGS, memidx, (addr + offset))));
+    GPUSH_V128(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load__s2(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 16)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = ((mem_load_v128(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R2 = CACHE_R1;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load__s3(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 16)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = ((mem_load_v128(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R3 = CACHE_R2;
+    CACHE_R2 = CACHE_R1;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load__s4(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 16)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = ((mem_load_v128(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R4 = CACHE_R3;
+    CACHE_R3 = CACHE_R2;
+    CACHE_R2 = CACHE_R1;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load__s5(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 16)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = ((mem_load_v128(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R5 = CACHE_R4;
+    CACHE_R4 = CACHE_R3;
+    CACHE_R3 = CACHE_R2;
+    CACHE_R2 = CACHE_R1;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load__s6(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 16)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = ((mem_load_v128(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R6 = CACHE_R5;
+    CACHE_R5 = CACHE_R4;
+    CACHE_R4 = CACHE_R3;
+    CACHE_R3 = CACHE_R2;
+    CACHE_R2 = CACHE_R1;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load__s7(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 16)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = ((mem_load_v128(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R7 = CACHE_R6;
+    CACHE_R6 = CACHE_R5;
+    CACHE_R5 = CACHE_R4;
+    CACHE_R4 = CACHE_R3;
+    CACHE_R3 = CACHE_R2;
+    CACHE_R2 = CACHE_R1;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
 void STENCIL gen_st_v128_store(CACHE_ARGS) {
     frame_t* f = &vm->frame; (void)f;
     STENCIL_TRAP_PC(_HOLE_pc);   /* per-stencil source byte offset: the default discards it (no trap-frame); a backend that records a trap site (e.g. §7.1.8) #defines STENCIL_TRAP_PC to bake _HOLE_pc into its frame */
@@ -26383,6 +30321,99 @@ void STENCIL gen_st_v128_store__s2(CACHE_ARGS) {
     TAIL return _HOLE_cont(CACHE_PASS);
 }
 
+void STENCIL gen_st_v128_store__s3(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    v128_t v = CACHE_GET_V128(CACHE_R0, CACHE_R1);
+    CACHE_GET_ADDR(addr, CACHE_R2, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 16)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_v128(NATIVE_ARGS, memidx, (addr + offset), v);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_store__s4(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    v128_t v = CACHE_GET_V128(CACHE_R0, CACHE_R1);
+    CACHE_GET_ADDR(addr, CACHE_R2, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 16)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_v128(NATIVE_ARGS, memidx, (addr + offset), v);
+    CACHE_R0 = CACHE_R3;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_store__s5(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    v128_t v = CACHE_GET_V128(CACHE_R0, CACHE_R1);
+    CACHE_GET_ADDR(addr, CACHE_R2, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 16)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_v128(NATIVE_ARGS, memidx, (addr + offset), v);
+    CACHE_R0 = CACHE_R3;
+    CACHE_R1 = CACHE_R4;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_store__s6(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    v128_t v = CACHE_GET_V128(CACHE_R0, CACHE_R1);
+    CACHE_GET_ADDR(addr, CACHE_R2, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 16)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_v128(NATIVE_ARGS, memidx, (addr + offset), v);
+    CACHE_R0 = CACHE_R3;
+    CACHE_R1 = CACHE_R4;
+    CACHE_R2 = CACHE_R5;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_store__s7(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    v128_t v = CACHE_GET_V128(CACHE_R0, CACHE_R1);
+    CACHE_GET_ADDR(addr, CACHE_R2, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 16)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_v128(NATIVE_ARGS, memidx, (addr + offset), v);
+    CACHE_R0 = CACHE_R3;
+    CACHE_R1 = CACHE_R4;
+    CACHE_R2 = CACHE_R5;
+    CACHE_R3 = CACHE_R6;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_store__s8(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    v128_t v = CACHE_GET_V128(CACHE_R0, CACHE_R1);
+    CACHE_GET_ADDR(addr, CACHE_R2, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 16)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_v128(NATIVE_ARGS, memidx, (addr + offset), v);
+    CACHE_R0 = CACHE_R3;
+    CACHE_R1 = CACHE_R4;
+    CACHE_R2 = CACHE_R5;
+    CACHE_R3 = CACHE_R6;
+    CACHE_R4 = CACHE_R7;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
 void STENCIL gen_st_v128_load8x8_s(CACHE_ARGS) {
     frame_t* f = &vm->frame; (void)f;
     STENCIL_TRAP_PC(_HOLE_pc);   /* per-stencil source byte offset: the default discards it (no trap-frame); a backend that records a trap site (e.g. §7.1.8) #defines STENCIL_TRAP_PC to bake _HOLE_pc into its frame */
@@ -26406,6 +30437,146 @@ void STENCIL gen_st_v128_load8x8_s__s0(CACHE_ARGS) {
     if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
     v128_t result;
     result = ((mem_load8x8_s(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load8x8_s__s1(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = ((mem_load8x8_s(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load8x8_s__s1m(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = ((mem_load8x8_s(NATIVE_ARGS, memidx, (addr + offset))));
+    GPUSH_V128(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load8x8_s__s2(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = ((mem_load8x8_s(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R2 = CACHE_R1;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load8x8_s__s3(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = ((mem_load8x8_s(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R3 = CACHE_R2;
+    CACHE_R2 = CACHE_R1;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load8x8_s__s4(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = ((mem_load8x8_s(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R4 = CACHE_R3;
+    CACHE_R3 = CACHE_R2;
+    CACHE_R2 = CACHE_R1;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load8x8_s__s5(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = ((mem_load8x8_s(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R5 = CACHE_R4;
+    CACHE_R4 = CACHE_R3;
+    CACHE_R3 = CACHE_R2;
+    CACHE_R2 = CACHE_R1;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load8x8_s__s6(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = ((mem_load8x8_s(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R6 = CACHE_R5;
+    CACHE_R5 = CACHE_R4;
+    CACHE_R4 = CACHE_R3;
+    CACHE_R3 = CACHE_R2;
+    CACHE_R2 = CACHE_R1;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load8x8_s__s7(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = ((mem_load8x8_s(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R7 = CACHE_R6;
+    CACHE_R6 = CACHE_R5;
+    CACHE_R5 = CACHE_R4;
+    CACHE_R4 = CACHE_R3;
+    CACHE_R3 = CACHE_R2;
+    CACHE_R2 = CACHE_R1;
     CACHE_R0 = CACHE_PUT_V128_LO(result);
     CACHE_R1 = CACHE_PUT_V128_HI(result);
     if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
@@ -26441,6 +30612,146 @@ void STENCIL gen_st_v128_load8x8_u__s0(CACHE_ARGS) {
     TAIL return _HOLE_cont(CACHE_PASS);
 }
 
+void STENCIL gen_st_v128_load8x8_u__s1(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = ((mem_load8x8_u(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load8x8_u__s1m(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = ((mem_load8x8_u(NATIVE_ARGS, memidx, (addr + offset))));
+    GPUSH_V128(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load8x8_u__s2(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = ((mem_load8x8_u(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R2 = CACHE_R1;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load8x8_u__s3(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = ((mem_load8x8_u(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R3 = CACHE_R2;
+    CACHE_R2 = CACHE_R1;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load8x8_u__s4(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = ((mem_load8x8_u(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R4 = CACHE_R3;
+    CACHE_R3 = CACHE_R2;
+    CACHE_R2 = CACHE_R1;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load8x8_u__s5(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = ((mem_load8x8_u(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R5 = CACHE_R4;
+    CACHE_R4 = CACHE_R3;
+    CACHE_R3 = CACHE_R2;
+    CACHE_R2 = CACHE_R1;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load8x8_u__s6(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = ((mem_load8x8_u(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R6 = CACHE_R5;
+    CACHE_R5 = CACHE_R4;
+    CACHE_R4 = CACHE_R3;
+    CACHE_R3 = CACHE_R2;
+    CACHE_R2 = CACHE_R1;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load8x8_u__s7(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = ((mem_load8x8_u(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R7 = CACHE_R6;
+    CACHE_R6 = CACHE_R5;
+    CACHE_R5 = CACHE_R4;
+    CACHE_R4 = CACHE_R3;
+    CACHE_R3 = CACHE_R2;
+    CACHE_R2 = CACHE_R1;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
 void STENCIL gen_st_v128_load16x4_s(CACHE_ARGS) {
     frame_t* f = &vm->frame; (void)f;
     STENCIL_TRAP_PC(_HOLE_pc);   /* per-stencil source byte offset: the default discards it (no trap-frame); a backend that records a trap site (e.g. §7.1.8) #defines STENCIL_TRAP_PC to bake _HOLE_pc into its frame */
@@ -26464,6 +30775,146 @@ void STENCIL gen_st_v128_load16x4_s__s0(CACHE_ARGS) {
     if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
     v128_t result;
     result = ((mem_load16x4_s(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load16x4_s__s1(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = ((mem_load16x4_s(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load16x4_s__s1m(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = ((mem_load16x4_s(NATIVE_ARGS, memidx, (addr + offset))));
+    GPUSH_V128(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load16x4_s__s2(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = ((mem_load16x4_s(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R2 = CACHE_R1;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load16x4_s__s3(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = ((mem_load16x4_s(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R3 = CACHE_R2;
+    CACHE_R2 = CACHE_R1;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load16x4_s__s4(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = ((mem_load16x4_s(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R4 = CACHE_R3;
+    CACHE_R3 = CACHE_R2;
+    CACHE_R2 = CACHE_R1;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load16x4_s__s5(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = ((mem_load16x4_s(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R5 = CACHE_R4;
+    CACHE_R4 = CACHE_R3;
+    CACHE_R3 = CACHE_R2;
+    CACHE_R2 = CACHE_R1;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load16x4_s__s6(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = ((mem_load16x4_s(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R6 = CACHE_R5;
+    CACHE_R5 = CACHE_R4;
+    CACHE_R4 = CACHE_R3;
+    CACHE_R3 = CACHE_R2;
+    CACHE_R2 = CACHE_R1;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load16x4_s__s7(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = ((mem_load16x4_s(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R7 = CACHE_R6;
+    CACHE_R6 = CACHE_R5;
+    CACHE_R5 = CACHE_R4;
+    CACHE_R4 = CACHE_R3;
+    CACHE_R3 = CACHE_R2;
+    CACHE_R2 = CACHE_R1;
     CACHE_R0 = CACHE_PUT_V128_LO(result);
     CACHE_R1 = CACHE_PUT_V128_HI(result);
     if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
@@ -26499,6 +30950,146 @@ void STENCIL gen_st_v128_load16x4_u__s0(CACHE_ARGS) {
     TAIL return _HOLE_cont(CACHE_PASS);
 }
 
+void STENCIL gen_st_v128_load16x4_u__s1(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = ((mem_load16x4_u(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load16x4_u__s1m(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = ((mem_load16x4_u(NATIVE_ARGS, memidx, (addr + offset))));
+    GPUSH_V128(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load16x4_u__s2(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = ((mem_load16x4_u(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R2 = CACHE_R1;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load16x4_u__s3(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = ((mem_load16x4_u(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R3 = CACHE_R2;
+    CACHE_R2 = CACHE_R1;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load16x4_u__s4(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = ((mem_load16x4_u(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R4 = CACHE_R3;
+    CACHE_R3 = CACHE_R2;
+    CACHE_R2 = CACHE_R1;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load16x4_u__s5(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = ((mem_load16x4_u(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R5 = CACHE_R4;
+    CACHE_R4 = CACHE_R3;
+    CACHE_R3 = CACHE_R2;
+    CACHE_R2 = CACHE_R1;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load16x4_u__s6(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = ((mem_load16x4_u(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R6 = CACHE_R5;
+    CACHE_R5 = CACHE_R4;
+    CACHE_R4 = CACHE_R3;
+    CACHE_R3 = CACHE_R2;
+    CACHE_R2 = CACHE_R1;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load16x4_u__s7(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = ((mem_load16x4_u(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R7 = CACHE_R6;
+    CACHE_R6 = CACHE_R5;
+    CACHE_R5 = CACHE_R4;
+    CACHE_R4 = CACHE_R3;
+    CACHE_R3 = CACHE_R2;
+    CACHE_R2 = CACHE_R1;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
 void STENCIL gen_st_v128_load32x2_s(CACHE_ARGS) {
     frame_t* f = &vm->frame; (void)f;
     STENCIL_TRAP_PC(_HOLE_pc);   /* per-stencil source byte offset: the default discards it (no trap-frame); a backend that records a trap site (e.g. §7.1.8) #defines STENCIL_TRAP_PC to bake _HOLE_pc into its frame */
@@ -26522,6 +31113,146 @@ void STENCIL gen_st_v128_load32x2_s__s0(CACHE_ARGS) {
     if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
     v128_t result;
     result = ((mem_load32x2_s(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load32x2_s__s1(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = ((mem_load32x2_s(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load32x2_s__s1m(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = ((mem_load32x2_s(NATIVE_ARGS, memidx, (addr + offset))));
+    GPUSH_V128(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load32x2_s__s2(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = ((mem_load32x2_s(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R2 = CACHE_R1;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load32x2_s__s3(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = ((mem_load32x2_s(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R3 = CACHE_R2;
+    CACHE_R2 = CACHE_R1;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load32x2_s__s4(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = ((mem_load32x2_s(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R4 = CACHE_R3;
+    CACHE_R3 = CACHE_R2;
+    CACHE_R2 = CACHE_R1;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load32x2_s__s5(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = ((mem_load32x2_s(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R5 = CACHE_R4;
+    CACHE_R4 = CACHE_R3;
+    CACHE_R3 = CACHE_R2;
+    CACHE_R2 = CACHE_R1;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load32x2_s__s6(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = ((mem_load32x2_s(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R6 = CACHE_R5;
+    CACHE_R5 = CACHE_R4;
+    CACHE_R4 = CACHE_R3;
+    CACHE_R3 = CACHE_R2;
+    CACHE_R2 = CACHE_R1;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load32x2_s__s7(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = ((mem_load32x2_s(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R7 = CACHE_R6;
+    CACHE_R6 = CACHE_R5;
+    CACHE_R5 = CACHE_R4;
+    CACHE_R4 = CACHE_R3;
+    CACHE_R3 = CACHE_R2;
+    CACHE_R2 = CACHE_R1;
     CACHE_R0 = CACHE_PUT_V128_LO(result);
     CACHE_R1 = CACHE_PUT_V128_HI(result);
     if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
@@ -26557,6 +31288,146 @@ void STENCIL gen_st_v128_load32x2_u__s0(CACHE_ARGS) {
     TAIL return _HOLE_cont(CACHE_PASS);
 }
 
+void STENCIL gen_st_v128_load32x2_u__s1(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = ((mem_load32x2_u(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load32x2_u__s1m(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = ((mem_load32x2_u(NATIVE_ARGS, memidx, (addr + offset))));
+    GPUSH_V128(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load32x2_u__s2(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = ((mem_load32x2_u(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R2 = CACHE_R1;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load32x2_u__s3(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = ((mem_load32x2_u(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R3 = CACHE_R2;
+    CACHE_R2 = CACHE_R1;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load32x2_u__s4(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = ((mem_load32x2_u(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R4 = CACHE_R3;
+    CACHE_R3 = CACHE_R2;
+    CACHE_R2 = CACHE_R1;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load32x2_u__s5(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = ((mem_load32x2_u(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R5 = CACHE_R4;
+    CACHE_R4 = CACHE_R3;
+    CACHE_R3 = CACHE_R2;
+    CACHE_R2 = CACHE_R1;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load32x2_u__s6(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = ((mem_load32x2_u(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R6 = CACHE_R5;
+    CACHE_R5 = CACHE_R4;
+    CACHE_R4 = CACHE_R3;
+    CACHE_R3 = CACHE_R2;
+    CACHE_R2 = CACHE_R1;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load32x2_u__s7(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = ((mem_load32x2_u(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R7 = CACHE_R6;
+    CACHE_R6 = CACHE_R5;
+    CACHE_R5 = CACHE_R4;
+    CACHE_R4 = CACHE_R3;
+    CACHE_R3 = CACHE_R2;
+    CACHE_R2 = CACHE_R1;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
 void STENCIL gen_st_v128_load32_zero(CACHE_ARGS) {
     frame_t* f = &vm->frame; (void)f;
     STENCIL_TRAP_PC(_HOLE_pc);   /* per-stencil source byte offset: the default discards it (no trap-frame); a backend that records a trap site (e.g. §7.1.8) #defines STENCIL_TRAP_PC to bake _HOLE_pc into its frame */
@@ -26586,6 +31457,146 @@ void STENCIL gen_st_v128_load32_zero__s0(CACHE_ARGS) {
     TAIL return _HOLE_cont(CACHE_PASS);
 }
 
+void STENCIL gen_st_v128_load32_zero__s1(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = ((mem_load32_zero(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load32_zero__s1m(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = ((mem_load32_zero(NATIVE_ARGS, memidx, (addr + offset))));
+    GPUSH_V128(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load32_zero__s2(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = ((mem_load32_zero(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R2 = CACHE_R1;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load32_zero__s3(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = ((mem_load32_zero(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R3 = CACHE_R2;
+    CACHE_R2 = CACHE_R1;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load32_zero__s4(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = ((mem_load32_zero(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R4 = CACHE_R3;
+    CACHE_R3 = CACHE_R2;
+    CACHE_R2 = CACHE_R1;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load32_zero__s5(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = ((mem_load32_zero(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R5 = CACHE_R4;
+    CACHE_R4 = CACHE_R3;
+    CACHE_R3 = CACHE_R2;
+    CACHE_R2 = CACHE_R1;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load32_zero__s6(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = ((mem_load32_zero(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R6 = CACHE_R5;
+    CACHE_R5 = CACHE_R4;
+    CACHE_R4 = CACHE_R3;
+    CACHE_R3 = CACHE_R2;
+    CACHE_R2 = CACHE_R1;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load32_zero__s7(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = ((mem_load32_zero(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R7 = CACHE_R6;
+    CACHE_R6 = CACHE_R5;
+    CACHE_R5 = CACHE_R4;
+    CACHE_R4 = CACHE_R3;
+    CACHE_R3 = CACHE_R2;
+    CACHE_R2 = CACHE_R1;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
 void STENCIL gen_st_v128_load64_zero(CACHE_ARGS) {
     frame_t* f = &vm->frame; (void)f;
     STENCIL_TRAP_PC(_HOLE_pc);   /* per-stencil source byte offset: the default discards it (no trap-frame); a backend that records a trap site (e.g. §7.1.8) #defines STENCIL_TRAP_PC to bake _HOLE_pc into its frame */
@@ -26609,6 +31620,146 @@ void STENCIL gen_st_v128_load64_zero__s0(CACHE_ARGS) {
     if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
     v128_t result;
     result = ((mem_load64_zero(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load64_zero__s1(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = ((mem_load64_zero(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load64_zero__s1m(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = ((mem_load64_zero(NATIVE_ARGS, memidx, (addr + offset))));
+    GPUSH_V128(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load64_zero__s2(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = ((mem_load64_zero(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R2 = CACHE_R1;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load64_zero__s3(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = ((mem_load64_zero(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R3 = CACHE_R2;
+    CACHE_R2 = CACHE_R1;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load64_zero__s4(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = ((mem_load64_zero(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R4 = CACHE_R3;
+    CACHE_R3 = CACHE_R2;
+    CACHE_R2 = CACHE_R1;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load64_zero__s5(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = ((mem_load64_zero(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R5 = CACHE_R4;
+    CACHE_R4 = CACHE_R3;
+    CACHE_R3 = CACHE_R2;
+    CACHE_R2 = CACHE_R1;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load64_zero__s6(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = ((mem_load64_zero(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R6 = CACHE_R5;
+    CACHE_R5 = CACHE_R4;
+    CACHE_R4 = CACHE_R3;
+    CACHE_R3 = CACHE_R2;
+    CACHE_R2 = CACHE_R1;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load64_zero__s7(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = ((mem_load64_zero(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R7 = CACHE_R6;
+    CACHE_R6 = CACHE_R5;
+    CACHE_R5 = CACHE_R4;
+    CACHE_R4 = CACHE_R3;
+    CACHE_R3 = CACHE_R2;
+    CACHE_R2 = CACHE_R1;
     CACHE_R0 = CACHE_PUT_V128_LO(result);
     CACHE_R1 = CACHE_PUT_V128_HI(result);
     if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
@@ -26967,6 +32118,162 @@ void STENCIL gen_st_v128_load8_splat__s0(CACHE_ARGS) {
     TAIL return _HOLE_cont(CACHE_PASS);
 }
 
+void STENCIL gen_st_v128_load8_splat__s1(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    for (int _k = 0; _k < 16; _k++) {
+    result.i8[_k] = (s1)((mem_load_i8(NATIVE_ARGS, memidx, (addr + offset))));
+    }
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load8_splat__s1m(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    for (int _k = 0; _k < 16; _k++) {
+    result.i8[_k] = (s1)((mem_load_i8(NATIVE_ARGS, memidx, (addr + offset))));
+    }
+    GPUSH_V128(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load8_splat__s2(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    for (int _k = 0; _k < 16; _k++) {
+    result.i8[_k] = (s1)((mem_load_i8(NATIVE_ARGS, memidx, (addr + offset))));
+    }
+    CACHE_R2 = CACHE_R1;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load8_splat__s3(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    for (int _k = 0; _k < 16; _k++) {
+    result.i8[_k] = (s1)((mem_load_i8(NATIVE_ARGS, memidx, (addr + offset))));
+    }
+    CACHE_R3 = CACHE_R2;
+    CACHE_R2 = CACHE_R1;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load8_splat__s4(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    for (int _k = 0; _k < 16; _k++) {
+    result.i8[_k] = (s1)((mem_load_i8(NATIVE_ARGS, memidx, (addr + offset))));
+    }
+    CACHE_R4 = CACHE_R3;
+    CACHE_R3 = CACHE_R2;
+    CACHE_R2 = CACHE_R1;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load8_splat__s5(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    for (int _k = 0; _k < 16; _k++) {
+    result.i8[_k] = (s1)((mem_load_i8(NATIVE_ARGS, memidx, (addr + offset))));
+    }
+    CACHE_R5 = CACHE_R4;
+    CACHE_R4 = CACHE_R3;
+    CACHE_R3 = CACHE_R2;
+    CACHE_R2 = CACHE_R1;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load8_splat__s6(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    for (int _k = 0; _k < 16; _k++) {
+    result.i8[_k] = (s1)((mem_load_i8(NATIVE_ARGS, memidx, (addr + offset))));
+    }
+    CACHE_R6 = CACHE_R5;
+    CACHE_R5 = CACHE_R4;
+    CACHE_R4 = CACHE_R3;
+    CACHE_R3 = CACHE_R2;
+    CACHE_R2 = CACHE_R1;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load8_splat__s7(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    for (int _k = 0; _k < 16; _k++) {
+    result.i8[_k] = (s1)((mem_load_i8(NATIVE_ARGS, memidx, (addr + offset))));
+    }
+    CACHE_R7 = CACHE_R6;
+    CACHE_R6 = CACHE_R5;
+    CACHE_R5 = CACHE_R4;
+    CACHE_R4 = CACHE_R3;
+    CACHE_R3 = CACHE_R2;
+    CACHE_R2 = CACHE_R1;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
 void STENCIL gen_st_v128_load16_splat(CACHE_ARGS) {
     frame_t* f = &vm->frame; (void)f;
     STENCIL_TRAP_PC(_HOLE_pc);   /* per-stencil source byte offset: the default discards it (no trap-frame); a backend that records a trap site (e.g. §7.1.8) #defines STENCIL_TRAP_PC to bake _HOLE_pc into its frame */
@@ -26994,6 +32301,162 @@ void STENCIL gen_st_v128_load16_splat__s0(CACHE_ARGS) {
     for (int _k = 0; _k < 8; _k++) {
     result.i16[_k] = (s2)((mem_load_i16(NATIVE_ARGS, memidx, (addr + offset))));
     }
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load16_splat__s1(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    for (int _k = 0; _k < 8; _k++) {
+    result.i16[_k] = (s2)((mem_load_i16(NATIVE_ARGS, memidx, (addr + offset))));
+    }
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load16_splat__s1m(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    for (int _k = 0; _k < 8; _k++) {
+    result.i16[_k] = (s2)((mem_load_i16(NATIVE_ARGS, memidx, (addr + offset))));
+    }
+    GPUSH_V128(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load16_splat__s2(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    for (int _k = 0; _k < 8; _k++) {
+    result.i16[_k] = (s2)((mem_load_i16(NATIVE_ARGS, memidx, (addr + offset))));
+    }
+    CACHE_R2 = CACHE_R1;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load16_splat__s3(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    for (int _k = 0; _k < 8; _k++) {
+    result.i16[_k] = (s2)((mem_load_i16(NATIVE_ARGS, memidx, (addr + offset))));
+    }
+    CACHE_R3 = CACHE_R2;
+    CACHE_R2 = CACHE_R1;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load16_splat__s4(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    for (int _k = 0; _k < 8; _k++) {
+    result.i16[_k] = (s2)((mem_load_i16(NATIVE_ARGS, memidx, (addr + offset))));
+    }
+    CACHE_R4 = CACHE_R3;
+    CACHE_R3 = CACHE_R2;
+    CACHE_R2 = CACHE_R1;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load16_splat__s5(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    for (int _k = 0; _k < 8; _k++) {
+    result.i16[_k] = (s2)((mem_load_i16(NATIVE_ARGS, memidx, (addr + offset))));
+    }
+    CACHE_R5 = CACHE_R4;
+    CACHE_R4 = CACHE_R3;
+    CACHE_R3 = CACHE_R2;
+    CACHE_R2 = CACHE_R1;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load16_splat__s6(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    for (int _k = 0; _k < 8; _k++) {
+    result.i16[_k] = (s2)((mem_load_i16(NATIVE_ARGS, memidx, (addr + offset))));
+    }
+    CACHE_R6 = CACHE_R5;
+    CACHE_R5 = CACHE_R4;
+    CACHE_R4 = CACHE_R3;
+    CACHE_R3 = CACHE_R2;
+    CACHE_R2 = CACHE_R1;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load16_splat__s7(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    for (int _k = 0; _k < 8; _k++) {
+    result.i16[_k] = (s2)((mem_load_i16(NATIVE_ARGS, memidx, (addr + offset))));
+    }
+    CACHE_R7 = CACHE_R6;
+    CACHE_R6 = CACHE_R5;
+    CACHE_R5 = CACHE_R4;
+    CACHE_R4 = CACHE_R3;
+    CACHE_R3 = CACHE_R2;
+    CACHE_R2 = CACHE_R1;
     CACHE_R0 = CACHE_PUT_V128_LO(result);
     CACHE_R1 = CACHE_PUT_V128_HI(result);
     if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
@@ -27033,6 +32496,162 @@ void STENCIL gen_st_v128_load32_splat__s0(CACHE_ARGS) {
     TAIL return _HOLE_cont(CACHE_PASS);
 }
 
+void STENCIL gen_st_v128_load32_splat__s1(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    for (int _k = 0; _k < 4; _k++) {
+    result.i32[_k] = (s4)((mem_load_i32(NATIVE_ARGS, memidx, (addr + offset))));
+    }
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load32_splat__s1m(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    for (int _k = 0; _k < 4; _k++) {
+    result.i32[_k] = (s4)((mem_load_i32(NATIVE_ARGS, memidx, (addr + offset))));
+    }
+    GPUSH_V128(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load32_splat__s2(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    for (int _k = 0; _k < 4; _k++) {
+    result.i32[_k] = (s4)((mem_load_i32(NATIVE_ARGS, memidx, (addr + offset))));
+    }
+    CACHE_R2 = CACHE_R1;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load32_splat__s3(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    for (int _k = 0; _k < 4; _k++) {
+    result.i32[_k] = (s4)((mem_load_i32(NATIVE_ARGS, memidx, (addr + offset))));
+    }
+    CACHE_R3 = CACHE_R2;
+    CACHE_R2 = CACHE_R1;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load32_splat__s4(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    for (int _k = 0; _k < 4; _k++) {
+    result.i32[_k] = (s4)((mem_load_i32(NATIVE_ARGS, memidx, (addr + offset))));
+    }
+    CACHE_R4 = CACHE_R3;
+    CACHE_R3 = CACHE_R2;
+    CACHE_R2 = CACHE_R1;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load32_splat__s5(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    for (int _k = 0; _k < 4; _k++) {
+    result.i32[_k] = (s4)((mem_load_i32(NATIVE_ARGS, memidx, (addr + offset))));
+    }
+    CACHE_R5 = CACHE_R4;
+    CACHE_R4 = CACHE_R3;
+    CACHE_R3 = CACHE_R2;
+    CACHE_R2 = CACHE_R1;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load32_splat__s6(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    for (int _k = 0; _k < 4; _k++) {
+    result.i32[_k] = (s4)((mem_load_i32(NATIVE_ARGS, memidx, (addr + offset))));
+    }
+    CACHE_R6 = CACHE_R5;
+    CACHE_R5 = CACHE_R4;
+    CACHE_R4 = CACHE_R3;
+    CACHE_R3 = CACHE_R2;
+    CACHE_R2 = CACHE_R1;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load32_splat__s7(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    for (int _k = 0; _k < 4; _k++) {
+    result.i32[_k] = (s4)((mem_load_i32(NATIVE_ARGS, memidx, (addr + offset))));
+    }
+    CACHE_R7 = CACHE_R6;
+    CACHE_R6 = CACHE_R5;
+    CACHE_R5 = CACHE_R4;
+    CACHE_R4 = CACHE_R3;
+    CACHE_R3 = CACHE_R2;
+    CACHE_R2 = CACHE_R1;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
 void STENCIL gen_st_v128_load64_splat(CACHE_ARGS) {
     frame_t* f = &vm->frame; (void)f;
     STENCIL_TRAP_PC(_HOLE_pc);   /* per-stencil source byte offset: the default discards it (no trap-frame); a backend that records a trap site (e.g. §7.1.8) #defines STENCIL_TRAP_PC to bake _HOLE_pc into its frame */
@@ -27060,6 +32679,162 @@ void STENCIL gen_st_v128_load64_splat__s0(CACHE_ARGS) {
     for (int _k = 0; _k < 2; _k++) {
     result.i64[_k] = (s8)((mem_load_i64(NATIVE_ARGS, memidx, (addr + offset))));
     }
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load64_splat__s1(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    for (int _k = 0; _k < 2; _k++) {
+    result.i64[_k] = (s8)((mem_load_i64(NATIVE_ARGS, memidx, (addr + offset))));
+    }
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load64_splat__s1m(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    for (int _k = 0; _k < 2; _k++) {
+    result.i64[_k] = (s8)((mem_load_i64(NATIVE_ARGS, memidx, (addr + offset))));
+    }
+    GPUSH_V128(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load64_splat__s2(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    for (int _k = 0; _k < 2; _k++) {
+    result.i64[_k] = (s8)((mem_load_i64(NATIVE_ARGS, memidx, (addr + offset))));
+    }
+    CACHE_R2 = CACHE_R1;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load64_splat__s3(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    for (int _k = 0; _k < 2; _k++) {
+    result.i64[_k] = (s8)((mem_load_i64(NATIVE_ARGS, memidx, (addr + offset))));
+    }
+    CACHE_R3 = CACHE_R2;
+    CACHE_R2 = CACHE_R1;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load64_splat__s4(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    for (int _k = 0; _k < 2; _k++) {
+    result.i64[_k] = (s8)((mem_load_i64(NATIVE_ARGS, memidx, (addr + offset))));
+    }
+    CACHE_R4 = CACHE_R3;
+    CACHE_R3 = CACHE_R2;
+    CACHE_R2 = CACHE_R1;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load64_splat__s5(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    for (int _k = 0; _k < 2; _k++) {
+    result.i64[_k] = (s8)((mem_load_i64(NATIVE_ARGS, memidx, (addr + offset))));
+    }
+    CACHE_R5 = CACHE_R4;
+    CACHE_R4 = CACHE_R3;
+    CACHE_R3 = CACHE_R2;
+    CACHE_R2 = CACHE_R1;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load64_splat__s6(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    for (int _k = 0; _k < 2; _k++) {
+    result.i64[_k] = (s8)((mem_load_i64(NATIVE_ARGS, memidx, (addr + offset))));
+    }
+    CACHE_R6 = CACHE_R5;
+    CACHE_R5 = CACHE_R4;
+    CACHE_R4 = CACHE_R3;
+    CACHE_R3 = CACHE_R2;
+    CACHE_R2 = CACHE_R1;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load64_splat__s7(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    CACHE_GET_ADDR(addr, CACHE_R0, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    for (int _k = 0; _k < 2; _k++) {
+    result.i64[_k] = (s8)((mem_load_i64(NATIVE_ARGS, memidx, (addr + offset))));
+    }
+    CACHE_R7 = CACHE_R6;
+    CACHE_R6 = CACHE_R5;
+    CACHE_R5 = CACHE_R4;
+    CACHE_R4 = CACHE_R3;
+    CACHE_R3 = CACHE_R2;
+    CACHE_R2 = CACHE_R1;
     CACHE_R0 = CACHE_PUT_V128_LO(result);
     CACHE_R1 = CACHE_PUT_V128_HI(result);
     if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
@@ -27136,6 +32911,146 @@ void STENCIL gen_st_v128_load8_lane__s2m(CACHE_ARGS) {
     TAIL return _HOLE_cont(CACHE_PASS);
 }
 
+void STENCIL gen_st_v128_load8_lane__s3(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    u1 lane = (u1)_HOLE_lane;
+    v128_t a = CACHE_GET_V128(CACHE_R0, CACHE_R1);
+    CACHE_GET_ADDR(addr, CACHE_R2, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = (a);
+    result.i8[lane] = (s1)((mem_load_i8(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load8_lane__s3m(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    u1 lane = (u1)_HOLE_lane;
+    v128_t a = CACHE_GET_V128(CACHE_R0, CACHE_R1);
+    CACHE_GET_ADDR(addr, CACHE_R2, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = (a);
+    result.i8[lane] = (s1)((mem_load_i8(NATIVE_ARGS, memidx, (addr + offset))));
+    GPUSH_V128(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load8_lane__s4(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    u1 lane = (u1)_HOLE_lane;
+    v128_t a = CACHE_GET_V128(CACHE_R0, CACHE_R1);
+    CACHE_GET_ADDR(addr, CACHE_R2, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = (a);
+    result.i8[lane] = (s1)((mem_load_i8(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R2 = CACHE_R3;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load8_lane__s5(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    u1 lane = (u1)_HOLE_lane;
+    v128_t a = CACHE_GET_V128(CACHE_R0, CACHE_R1);
+    CACHE_GET_ADDR(addr, CACHE_R2, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = (a);
+    result.i8[lane] = (s1)((mem_load_i8(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R2 = CACHE_R3;
+    CACHE_R3 = CACHE_R4;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load8_lane__s6(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    u1 lane = (u1)_HOLE_lane;
+    v128_t a = CACHE_GET_V128(CACHE_R0, CACHE_R1);
+    CACHE_GET_ADDR(addr, CACHE_R2, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = (a);
+    result.i8[lane] = (s1)((mem_load_i8(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R2 = CACHE_R3;
+    CACHE_R3 = CACHE_R4;
+    CACHE_R4 = CACHE_R5;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load8_lane__s7(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    u1 lane = (u1)_HOLE_lane;
+    v128_t a = CACHE_GET_V128(CACHE_R0, CACHE_R1);
+    CACHE_GET_ADDR(addr, CACHE_R2, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = (a);
+    result.i8[lane] = (s1)((mem_load_i8(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R2 = CACHE_R3;
+    CACHE_R3 = CACHE_R4;
+    CACHE_R4 = CACHE_R5;
+    CACHE_R5 = CACHE_R6;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load8_lane__s8(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    u1 lane = (u1)_HOLE_lane;
+    v128_t a = CACHE_GET_V128(CACHE_R0, CACHE_R1);
+    CACHE_GET_ADDR(addr, CACHE_R2, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = (a);
+    result.i8[lane] = (s1)((mem_load_i8(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R2 = CACHE_R3;
+    CACHE_R3 = CACHE_R4;
+    CACHE_R4 = CACHE_R5;
+    CACHE_R5 = CACHE_R6;
+    CACHE_R6 = CACHE_R7;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
 void STENCIL gen_st_v128_load16_lane(CACHE_ARGS) {
     frame_t* f = &vm->frame; (void)f;
     STENCIL_TRAP_PC(_HOLE_pc);   /* per-stencil source byte offset: the default discards it (no trap-frame); a backend that records a trap site (e.g. §7.1.8) #defines STENCIL_TRAP_PC to bake _HOLE_pc into its frame */
@@ -27202,6 +33117,146 @@ void STENCIL gen_st_v128_load16_lane__s2m(CACHE_ARGS) {
     result = (a);
     result.i16[lane] = (s2)((mem_load_i16(NATIVE_ARGS, memidx, (addr + offset))));
     GPUSH_V128(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load16_lane__s3(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    u1 lane = (u1)_HOLE_lane;
+    v128_t a = CACHE_GET_V128(CACHE_R0, CACHE_R1);
+    CACHE_GET_ADDR(addr, CACHE_R2, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = (a);
+    result.i16[lane] = (s2)((mem_load_i16(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load16_lane__s3m(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    u1 lane = (u1)_HOLE_lane;
+    v128_t a = CACHE_GET_V128(CACHE_R0, CACHE_R1);
+    CACHE_GET_ADDR(addr, CACHE_R2, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = (a);
+    result.i16[lane] = (s2)((mem_load_i16(NATIVE_ARGS, memidx, (addr + offset))));
+    GPUSH_V128(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load16_lane__s4(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    u1 lane = (u1)_HOLE_lane;
+    v128_t a = CACHE_GET_V128(CACHE_R0, CACHE_R1);
+    CACHE_GET_ADDR(addr, CACHE_R2, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = (a);
+    result.i16[lane] = (s2)((mem_load_i16(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R2 = CACHE_R3;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load16_lane__s5(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    u1 lane = (u1)_HOLE_lane;
+    v128_t a = CACHE_GET_V128(CACHE_R0, CACHE_R1);
+    CACHE_GET_ADDR(addr, CACHE_R2, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = (a);
+    result.i16[lane] = (s2)((mem_load_i16(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R2 = CACHE_R3;
+    CACHE_R3 = CACHE_R4;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load16_lane__s6(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    u1 lane = (u1)_HOLE_lane;
+    v128_t a = CACHE_GET_V128(CACHE_R0, CACHE_R1);
+    CACHE_GET_ADDR(addr, CACHE_R2, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = (a);
+    result.i16[lane] = (s2)((mem_load_i16(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R2 = CACHE_R3;
+    CACHE_R3 = CACHE_R4;
+    CACHE_R4 = CACHE_R5;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load16_lane__s7(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    u1 lane = (u1)_HOLE_lane;
+    v128_t a = CACHE_GET_V128(CACHE_R0, CACHE_R1);
+    CACHE_GET_ADDR(addr, CACHE_R2, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = (a);
+    result.i16[lane] = (s2)((mem_load_i16(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R2 = CACHE_R3;
+    CACHE_R3 = CACHE_R4;
+    CACHE_R4 = CACHE_R5;
+    CACHE_R5 = CACHE_R6;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load16_lane__s8(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    u1 lane = (u1)_HOLE_lane;
+    v128_t a = CACHE_GET_V128(CACHE_R0, CACHE_R1);
+    CACHE_GET_ADDR(addr, CACHE_R2, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = (a);
+    result.i16[lane] = (s2)((mem_load_i16(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R2 = CACHE_R3;
+    CACHE_R3 = CACHE_R4;
+    CACHE_R4 = CACHE_R5;
+    CACHE_R5 = CACHE_R6;
+    CACHE_R6 = CACHE_R7;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
     if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
     TAIL return _HOLE_cont(CACHE_PASS);
 }
@@ -27276,6 +33331,146 @@ void STENCIL gen_st_v128_load32_lane__s2m(CACHE_ARGS) {
     TAIL return _HOLE_cont(CACHE_PASS);
 }
 
+void STENCIL gen_st_v128_load32_lane__s3(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    u1 lane = (u1)_HOLE_lane;
+    v128_t a = CACHE_GET_V128(CACHE_R0, CACHE_R1);
+    CACHE_GET_ADDR(addr, CACHE_R2, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = (a);
+    result.i32[lane] = (s4)((mem_load_i32(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load32_lane__s3m(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    u1 lane = (u1)_HOLE_lane;
+    v128_t a = CACHE_GET_V128(CACHE_R0, CACHE_R1);
+    CACHE_GET_ADDR(addr, CACHE_R2, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = (a);
+    result.i32[lane] = (s4)((mem_load_i32(NATIVE_ARGS, memidx, (addr + offset))));
+    GPUSH_V128(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load32_lane__s4(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    u1 lane = (u1)_HOLE_lane;
+    v128_t a = CACHE_GET_V128(CACHE_R0, CACHE_R1);
+    CACHE_GET_ADDR(addr, CACHE_R2, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = (a);
+    result.i32[lane] = (s4)((mem_load_i32(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R2 = CACHE_R3;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load32_lane__s5(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    u1 lane = (u1)_HOLE_lane;
+    v128_t a = CACHE_GET_V128(CACHE_R0, CACHE_R1);
+    CACHE_GET_ADDR(addr, CACHE_R2, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = (a);
+    result.i32[lane] = (s4)((mem_load_i32(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R2 = CACHE_R3;
+    CACHE_R3 = CACHE_R4;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load32_lane__s6(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    u1 lane = (u1)_HOLE_lane;
+    v128_t a = CACHE_GET_V128(CACHE_R0, CACHE_R1);
+    CACHE_GET_ADDR(addr, CACHE_R2, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = (a);
+    result.i32[lane] = (s4)((mem_load_i32(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R2 = CACHE_R3;
+    CACHE_R3 = CACHE_R4;
+    CACHE_R4 = CACHE_R5;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load32_lane__s7(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    u1 lane = (u1)_HOLE_lane;
+    v128_t a = CACHE_GET_V128(CACHE_R0, CACHE_R1);
+    CACHE_GET_ADDR(addr, CACHE_R2, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = (a);
+    result.i32[lane] = (s4)((mem_load_i32(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R2 = CACHE_R3;
+    CACHE_R3 = CACHE_R4;
+    CACHE_R4 = CACHE_R5;
+    CACHE_R5 = CACHE_R6;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load32_lane__s8(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    u1 lane = (u1)_HOLE_lane;
+    v128_t a = CACHE_GET_V128(CACHE_R0, CACHE_R1);
+    CACHE_GET_ADDR(addr, CACHE_R2, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = (a);
+    result.i32[lane] = (s4)((mem_load_i32(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R2 = CACHE_R3;
+    CACHE_R3 = CACHE_R4;
+    CACHE_R4 = CACHE_R5;
+    CACHE_R5 = CACHE_R6;
+    CACHE_R6 = CACHE_R7;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
 void STENCIL gen_st_v128_load64_lane(CACHE_ARGS) {
     frame_t* f = &vm->frame; (void)f;
     STENCIL_TRAP_PC(_HOLE_pc);   /* per-stencil source byte offset: the default discards it (no trap-frame); a backend that records a trap site (e.g. §7.1.8) #defines STENCIL_TRAP_PC to bake _HOLE_pc into its frame */
@@ -27346,6 +33541,146 @@ void STENCIL gen_st_v128_load64_lane__s2m(CACHE_ARGS) {
     TAIL return _HOLE_cont(CACHE_PASS);
 }
 
+void STENCIL gen_st_v128_load64_lane__s3(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    u1 lane = (u1)_HOLE_lane;
+    v128_t a = CACHE_GET_V128(CACHE_R0, CACHE_R1);
+    CACHE_GET_ADDR(addr, CACHE_R2, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = (a);
+    result.i64[lane] = (s8)((mem_load_i64(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load64_lane__s3m(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    u1 lane = (u1)_HOLE_lane;
+    v128_t a = CACHE_GET_V128(CACHE_R0, CACHE_R1);
+    CACHE_GET_ADDR(addr, CACHE_R2, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = (a);
+    result.i64[lane] = (s8)((mem_load_i64(NATIVE_ARGS, memidx, (addr + offset))));
+    GPUSH_V128(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load64_lane__s4(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    u1 lane = (u1)_HOLE_lane;
+    v128_t a = CACHE_GET_V128(CACHE_R0, CACHE_R1);
+    CACHE_GET_ADDR(addr, CACHE_R2, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = (a);
+    result.i64[lane] = (s8)((mem_load_i64(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R2 = CACHE_R3;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load64_lane__s5(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    u1 lane = (u1)_HOLE_lane;
+    v128_t a = CACHE_GET_V128(CACHE_R0, CACHE_R1);
+    CACHE_GET_ADDR(addr, CACHE_R2, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = (a);
+    result.i64[lane] = (s8)((mem_load_i64(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R2 = CACHE_R3;
+    CACHE_R3 = CACHE_R4;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load64_lane__s6(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    u1 lane = (u1)_HOLE_lane;
+    v128_t a = CACHE_GET_V128(CACHE_R0, CACHE_R1);
+    CACHE_GET_ADDR(addr, CACHE_R2, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = (a);
+    result.i64[lane] = (s8)((mem_load_i64(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R2 = CACHE_R3;
+    CACHE_R3 = CACHE_R4;
+    CACHE_R4 = CACHE_R5;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load64_lane__s7(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    u1 lane = (u1)_HOLE_lane;
+    v128_t a = CACHE_GET_V128(CACHE_R0, CACHE_R1);
+    CACHE_GET_ADDR(addr, CACHE_R2, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = (a);
+    result.i64[lane] = (s8)((mem_load_i64(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R2 = CACHE_R3;
+    CACHE_R3 = CACHE_R4;
+    CACHE_R4 = CACHE_R5;
+    CACHE_R5 = CACHE_R6;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_load64_lane__s8(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    u1 lane = (u1)_HOLE_lane;
+    v128_t a = CACHE_GET_V128(CACHE_R0, CACHE_R1);
+    CACHE_GET_ADDR(addr, CACHE_R2, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    v128_t result;
+    result = (a);
+    result.i64[lane] = (s8)((mem_load_i64(NATIVE_ARGS, memidx, (addr + offset))));
+    CACHE_R2 = CACHE_R3;
+    CACHE_R3 = CACHE_R4;
+    CACHE_R4 = CACHE_R5;
+    CACHE_R5 = CACHE_R6;
+    CACHE_R6 = CACHE_R7;
+    CACHE_R0 = CACHE_PUT_V128_LO(result);
+    CACHE_R1 = CACHE_PUT_V128_HI(result);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
 void STENCIL gen_st_v128_store8_lane(CACHE_ARGS) {
     frame_t* f = &vm->frame; (void)f;
     STENCIL_TRAP_PC(_HOLE_pc);   /* per-stencil source byte offset: the default discards it (no trap-frame); a backend that records a trap site (e.g. §7.1.8) #defines STENCIL_TRAP_PC to bake _HOLE_pc into its frame */
@@ -27384,6 +33719,105 @@ void STENCIL gen_st_v128_store8_lane__s2(CACHE_ARGS) {
     GPOP_ADDR(addr, (mem_is64(NATIVE_ARGS, memidx)));
     if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
     mem_store_i8(NATIVE_ARGS, memidx, (addr + offset), a.i8[lane]);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_store8_lane__s3(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    u1 lane = (u1)_HOLE_lane;
+    v128_t a = CACHE_GET_V128(CACHE_R0, CACHE_R1);
+    CACHE_GET_ADDR(addr, CACHE_R2, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i8(NATIVE_ARGS, memidx, (addr + offset), a.i8[lane]);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_store8_lane__s4(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    u1 lane = (u1)_HOLE_lane;
+    v128_t a = CACHE_GET_V128(CACHE_R0, CACHE_R1);
+    CACHE_GET_ADDR(addr, CACHE_R2, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i8(NATIVE_ARGS, memidx, (addr + offset), a.i8[lane]);
+    CACHE_R0 = CACHE_R3;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_store8_lane__s5(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    u1 lane = (u1)_HOLE_lane;
+    v128_t a = CACHE_GET_V128(CACHE_R0, CACHE_R1);
+    CACHE_GET_ADDR(addr, CACHE_R2, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i8(NATIVE_ARGS, memidx, (addr + offset), a.i8[lane]);
+    CACHE_R0 = CACHE_R3;
+    CACHE_R1 = CACHE_R4;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_store8_lane__s6(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    u1 lane = (u1)_HOLE_lane;
+    v128_t a = CACHE_GET_V128(CACHE_R0, CACHE_R1);
+    CACHE_GET_ADDR(addr, CACHE_R2, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i8(NATIVE_ARGS, memidx, (addr + offset), a.i8[lane]);
+    CACHE_R0 = CACHE_R3;
+    CACHE_R1 = CACHE_R4;
+    CACHE_R2 = CACHE_R5;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_store8_lane__s7(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    u1 lane = (u1)_HOLE_lane;
+    v128_t a = CACHE_GET_V128(CACHE_R0, CACHE_R1);
+    CACHE_GET_ADDR(addr, CACHE_R2, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i8(NATIVE_ARGS, memidx, (addr + offset), a.i8[lane]);
+    CACHE_R0 = CACHE_R3;
+    CACHE_R1 = CACHE_R4;
+    CACHE_R2 = CACHE_R5;
+    CACHE_R3 = CACHE_R6;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_store8_lane__s8(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    u1 lane = (u1)_HOLE_lane;
+    v128_t a = CACHE_GET_V128(CACHE_R0, CACHE_R1);
+    CACHE_GET_ADDR(addr, CACHE_R2, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 1)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i8(NATIVE_ARGS, memidx, (addr + offset), a.i8[lane]);
+    CACHE_R0 = CACHE_R3;
+    CACHE_R1 = CACHE_R4;
+    CACHE_R2 = CACHE_R5;
+    CACHE_R3 = CACHE_R6;
+    CACHE_R4 = CACHE_R7;
     if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
     TAIL return _HOLE_cont(CACHE_PASS);
 }
@@ -27430,6 +33864,105 @@ void STENCIL gen_st_v128_store16_lane__s2(CACHE_ARGS) {
     TAIL return _HOLE_cont(CACHE_PASS);
 }
 
+void STENCIL gen_st_v128_store16_lane__s3(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    u1 lane = (u1)_HOLE_lane;
+    v128_t a = CACHE_GET_V128(CACHE_R0, CACHE_R1);
+    CACHE_GET_ADDR(addr, CACHE_R2, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i16(NATIVE_ARGS, memidx, (addr + offset), a.i16[lane]);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_store16_lane__s4(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    u1 lane = (u1)_HOLE_lane;
+    v128_t a = CACHE_GET_V128(CACHE_R0, CACHE_R1);
+    CACHE_GET_ADDR(addr, CACHE_R2, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i16(NATIVE_ARGS, memidx, (addr + offset), a.i16[lane]);
+    CACHE_R0 = CACHE_R3;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_store16_lane__s5(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    u1 lane = (u1)_HOLE_lane;
+    v128_t a = CACHE_GET_V128(CACHE_R0, CACHE_R1);
+    CACHE_GET_ADDR(addr, CACHE_R2, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i16(NATIVE_ARGS, memidx, (addr + offset), a.i16[lane]);
+    CACHE_R0 = CACHE_R3;
+    CACHE_R1 = CACHE_R4;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_store16_lane__s6(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    u1 lane = (u1)_HOLE_lane;
+    v128_t a = CACHE_GET_V128(CACHE_R0, CACHE_R1);
+    CACHE_GET_ADDR(addr, CACHE_R2, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i16(NATIVE_ARGS, memidx, (addr + offset), a.i16[lane]);
+    CACHE_R0 = CACHE_R3;
+    CACHE_R1 = CACHE_R4;
+    CACHE_R2 = CACHE_R5;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_store16_lane__s7(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    u1 lane = (u1)_HOLE_lane;
+    v128_t a = CACHE_GET_V128(CACHE_R0, CACHE_R1);
+    CACHE_GET_ADDR(addr, CACHE_R2, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i16(NATIVE_ARGS, memidx, (addr + offset), a.i16[lane]);
+    CACHE_R0 = CACHE_R3;
+    CACHE_R1 = CACHE_R4;
+    CACHE_R2 = CACHE_R5;
+    CACHE_R3 = CACHE_R6;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_store16_lane__s8(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    u1 lane = (u1)_HOLE_lane;
+    v128_t a = CACHE_GET_V128(CACHE_R0, CACHE_R1);
+    CACHE_GET_ADDR(addr, CACHE_R2, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 2)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i16(NATIVE_ARGS, memidx, (addr + offset), a.i16[lane]);
+    CACHE_R0 = CACHE_R3;
+    CACHE_R1 = CACHE_R4;
+    CACHE_R2 = CACHE_R5;
+    CACHE_R3 = CACHE_R6;
+    CACHE_R4 = CACHE_R7;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
 void STENCIL gen_st_v128_store32_lane(CACHE_ARGS) {
     frame_t* f = &vm->frame; (void)f;
     STENCIL_TRAP_PC(_HOLE_pc);   /* per-stencil source byte offset: the default discards it (no trap-frame); a backend that records a trap site (e.g. §7.1.8) #defines STENCIL_TRAP_PC to bake _HOLE_pc into its frame */
@@ -27472,6 +34005,105 @@ void STENCIL gen_st_v128_store32_lane__s2(CACHE_ARGS) {
     TAIL return _HOLE_cont(CACHE_PASS);
 }
 
+void STENCIL gen_st_v128_store32_lane__s3(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    u1 lane = (u1)_HOLE_lane;
+    v128_t a = CACHE_GET_V128(CACHE_R0, CACHE_R1);
+    CACHE_GET_ADDR(addr, CACHE_R2, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i32(NATIVE_ARGS, memidx, (addr + offset), a.i32[lane]);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_store32_lane__s4(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    u1 lane = (u1)_HOLE_lane;
+    v128_t a = CACHE_GET_V128(CACHE_R0, CACHE_R1);
+    CACHE_GET_ADDR(addr, CACHE_R2, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i32(NATIVE_ARGS, memidx, (addr + offset), a.i32[lane]);
+    CACHE_R0 = CACHE_R3;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_store32_lane__s5(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    u1 lane = (u1)_HOLE_lane;
+    v128_t a = CACHE_GET_V128(CACHE_R0, CACHE_R1);
+    CACHE_GET_ADDR(addr, CACHE_R2, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i32(NATIVE_ARGS, memidx, (addr + offset), a.i32[lane]);
+    CACHE_R0 = CACHE_R3;
+    CACHE_R1 = CACHE_R4;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_store32_lane__s6(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    u1 lane = (u1)_HOLE_lane;
+    v128_t a = CACHE_GET_V128(CACHE_R0, CACHE_R1);
+    CACHE_GET_ADDR(addr, CACHE_R2, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i32(NATIVE_ARGS, memidx, (addr + offset), a.i32[lane]);
+    CACHE_R0 = CACHE_R3;
+    CACHE_R1 = CACHE_R4;
+    CACHE_R2 = CACHE_R5;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_store32_lane__s7(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    u1 lane = (u1)_HOLE_lane;
+    v128_t a = CACHE_GET_V128(CACHE_R0, CACHE_R1);
+    CACHE_GET_ADDR(addr, CACHE_R2, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i32(NATIVE_ARGS, memidx, (addr + offset), a.i32[lane]);
+    CACHE_R0 = CACHE_R3;
+    CACHE_R1 = CACHE_R4;
+    CACHE_R2 = CACHE_R5;
+    CACHE_R3 = CACHE_R6;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_store32_lane__s8(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    u1 lane = (u1)_HOLE_lane;
+    v128_t a = CACHE_GET_V128(CACHE_R0, CACHE_R1);
+    CACHE_GET_ADDR(addr, CACHE_R2, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 4)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i32(NATIVE_ARGS, memidx, (addr + offset), a.i32[lane]);
+    CACHE_R0 = CACHE_R3;
+    CACHE_R1 = CACHE_R4;
+    CACHE_R2 = CACHE_R5;
+    CACHE_R3 = CACHE_R6;
+    CACHE_R4 = CACHE_R7;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
 void STENCIL gen_st_v128_store64_lane(CACHE_ARGS) {
     frame_t* f = &vm->frame; (void)f;
     STENCIL_TRAP_PC(_HOLE_pc);   /* per-stencil source byte offset: the default discards it (no trap-frame); a backend that records a trap site (e.g. §7.1.8) #defines STENCIL_TRAP_PC to bake _HOLE_pc into its frame */
@@ -27510,6 +34142,105 @@ void STENCIL gen_st_v128_store64_lane__s2(CACHE_ARGS) {
     GPOP_ADDR(addr, (mem_is64(NATIVE_ARGS, memidx)));
     if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
     mem_store_i64(NATIVE_ARGS, memidx, (addr + offset), a.i64[lane]);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_store64_lane__s3(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    u1 lane = (u1)_HOLE_lane;
+    v128_t a = CACHE_GET_V128(CACHE_R0, CACHE_R1);
+    CACHE_GET_ADDR(addr, CACHE_R2, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i64(NATIVE_ARGS, memidx, (addr + offset), a.i64[lane]);
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_store64_lane__s4(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    u1 lane = (u1)_HOLE_lane;
+    v128_t a = CACHE_GET_V128(CACHE_R0, CACHE_R1);
+    CACHE_GET_ADDR(addr, CACHE_R2, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i64(NATIVE_ARGS, memidx, (addr + offset), a.i64[lane]);
+    CACHE_R0 = CACHE_R3;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_store64_lane__s5(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    u1 lane = (u1)_HOLE_lane;
+    v128_t a = CACHE_GET_V128(CACHE_R0, CACHE_R1);
+    CACHE_GET_ADDR(addr, CACHE_R2, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i64(NATIVE_ARGS, memidx, (addr + offset), a.i64[lane]);
+    CACHE_R0 = CACHE_R3;
+    CACHE_R1 = CACHE_R4;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_store64_lane__s6(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    u1 lane = (u1)_HOLE_lane;
+    v128_t a = CACHE_GET_V128(CACHE_R0, CACHE_R1);
+    CACHE_GET_ADDR(addr, CACHE_R2, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i64(NATIVE_ARGS, memidx, (addr + offset), a.i64[lane]);
+    CACHE_R0 = CACHE_R3;
+    CACHE_R1 = CACHE_R4;
+    CACHE_R2 = CACHE_R5;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_store64_lane__s7(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    u1 lane = (u1)_HOLE_lane;
+    v128_t a = CACHE_GET_V128(CACHE_R0, CACHE_R1);
+    CACHE_GET_ADDR(addr, CACHE_R2, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i64(NATIVE_ARGS, memidx, (addr + offset), a.i64[lane]);
+    CACHE_R0 = CACHE_R3;
+    CACHE_R1 = CACHE_R4;
+    CACHE_R2 = CACHE_R5;
+    CACHE_R3 = CACHE_R6;
+    if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_v128_store64_lane__s8(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 memidx = (u4)_HOLE_memidx;
+    u8 offset = (u8)_HOLE_offset;
+    u1 lane = (u1)_HOLE_lane;
+    v128_t a = CACHE_GET_V128(CACHE_R0, CACHE_R1);
+    CACHE_GET_ADDR(addr, CACHE_R2, (mem_is64(NATIVE_ARGS, memidx)));
+    if ((_Bool)(!(mem_in_bounds(NATIVE_ARGS, memidx, (addr + offset), 8)))) { OPGEN_GUARD_TRAP(vm, OPGEN_ERR_OutOfBoundsMemoryAccess); TAIL return _HOLE_trap(CACHE_PASS); }
+    mem_store_i64(NATIVE_ARGS, memidx, (addr + offset), a.i64[lane]);
+    CACHE_R0 = CACHE_R3;
+    CACHE_R1 = CACHE_R4;
+    CACHE_R2 = CACHE_R5;
+    CACHE_R3 = CACHE_R6;
+    CACHE_R4 = CACHE_R7;
     if (vm->trapped) TAIL return _HOLE_trap(CACHE_PASS);
     TAIL return _HOLE_cont(CACHE_PASS);
 }
