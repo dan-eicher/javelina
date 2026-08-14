@@ -173,26 +173,56 @@ typedef struct {
      * stays on the tier below, so this is the work list for widening coverage —
      * a bare count says how much is missing but not what. */
     uint32_t decline_op[256];
+    /* Entry states, as a histogram rather than the two thresholds above.
+     * `states_cached`/`states_deep` are its partial sums and stay for their
+     * existing consumers; what they cannot say is "an instruction ran at state 4
+     * exactly", which is what a v128 pair needs proving and what a fixture's
+     * expected cover reduces to. Index clamps at the last bucket. */
+    uint64_t entry_state[9];
+    /* Stamps whose rule named a v128 in a register (operand or result). The class
+     * axis the counters above are blind to — v128 caching shipped once with no
+     * fixture able to see it, which is why this is a counter and not a comment. */
+    uint64_t wide_cached;
+    /* Regions whose first stamp found the machine's cache non-empty. The offmap
+     * argument leans on region entries being canonical, so a non-zero here is a
+     * fact to explain, not a curiosity. */
+    uint64_t regions_hot;
+    /* Bodies whose reduce-driven walk failed mid-emission and re-stamped through
+     * the plain byte walk. Correct (D8's fallback) and therefore silent and
+     * therefore counted — with the first failure named, because a count says how
+     * much coverage was lost and not why. `why`: 1 capacity, 2 read, 3 no
+     * stencil, 4 no variant at the entry state, 5 no exit state, 6 unbridged. */
+    uint64_t tree_fallbacks;
+    int      have_fallback;
+    uint8_t  first_fallback_op;
+    uint32_t first_fallback_bpos;
+    int      first_fallback_entry, first_fallback_why;
 } jav_ttree_stats_t;
 
 const jav_ttree_stats_t* jav_ttree_stats(void);
 void                     jav_ttree_stats_reset(void);
+/* Point the EMISSION notes (stitch/transition/mem/wide/region-entry) at a
+ * per-compile accumulator, or back at the globals (NULL). An emission can be
+ * abandoned — a walk that fails mid-body re-stamps through the other one — and
+ * meters that counted the abandoned half describe code that never shipped. */
+void jav_ttree_stats_sink(jav_ttree_stats_t* s);
+/* Fold a committed walk's accumulator into the globals. */
+void jav_ttree_stats_commit(const jav_ttree_stats_t* d);
 
 /* Record the tiling's verdict for one body. `sig` is burg's error argument — the
  * terminal it had no rule for — meaningful only when covered is 0. */
 void jav_ttree_note_cover(int covered, int sig);
 
-/* ── what the tiling decided, per instruction ──────────────
+/* ── the stamping action ───────────────────────────────────
  *
- * The cover picks a rule per node, and a rule is a (signature, cache state)
- * pair, so what comes out is a cache state per INSTRUCTION. The stitcher joins
- * it back by byte offset, which is what `pc` is on the node for: burg never
- * reads `pc`, and the stamping walk never reads the tree.
- *
- * `jav_tile_begin` arms the map for one body; the generated rule actions call
- * `jav_tile_pick`; the stamping walk asks `jav_tile_state_at`. A body whose
- * tiling failed leaves the map disarmed, so every offset answers 0 — the tier-1
- * form — which is D8's fallback with no branch in the walk. */
+ * The cover picks a rule per node, a rule is a (signature, cache state) pair,
+ * and the rule's ACTION is where the stencil is stamped: burg matches the tree
+ * and emits from the reduce, which is the design the generated matcher's own
+ * header states ("label a tree, then … drive burg_reduce toward a goal").
+ * There is no offset-keyed map between the cover and the emitter anymore — the
+ * map existed to join a tree cover to a byte-driven stamping walk, and the walk
+ * that consumed it survives only as tier-1 and as the decline fallback (D8),
+ * where every stencil is the plain form and no state exists to record. */
 /* ── what a cover costs (Ertl §2.6, printed 36) ─────────────
  *
  *   "the components have to be weighed and added. We used the following weights:
@@ -237,50 +267,43 @@ void jav_ttree_note_cover(int covered, int sig);
  * on THIS backend instead of borrowed from that one. */
 #define JAV_COST_TRANSITION (JAV_COST_MEM + JAV_COST_DISPATCH)
 
-void jav_tile_begin(const uint8_t* base, uint32_t len);
 /* The classes this instruction expects to FIND in the cache and the one it LEAVES
- * in slot 0, packed three bits per slot — slot 0 in the low bits, slot 1 above
- * it. Packed rather than one argument per slot because this action is generated
- * into the grammar and its signature must not change with the cache size; three
- * bits hold JSC_COUNT and every class below it.
+ * in slot 0, packed per slot — slot 0 in the low bits, slot 1 above it. Packed
+ * rather than one argument per slot because this action is generated into the
+ * grammar and its signature must not change with the cache size.
  *
  * `in` names the cached OPERANDS, which the signature knows. `out` names only
  * what this instruction PRODUCES — a survivor's class came from whatever put it
- * there, which this rule cannot see, so the stitcher carries those along the
- * walk instead. A transition reads the side it is on: a spill moves the deepest
- * cached value, whose class the walk is carrying; a fill loads what the NEXT
- * instruction asked for, which is the only end that knows. */
+ * there, which this rule cannot see, so the emitter carries those along the
+ * reduce. A transition reads the side it is on: a spill moves the deepest cached
+ * value, whose class the emitter is carrying; a fill loads what the instruction
+ * being entered asked for, which is its own `in` pack. */
 /* Four bits, not three: the field has to hold JSC_COUNT — the "no class here"
  * answer — and that is 9, because the enum carries the non-final classes (STK,
  * ADDR, POLY) after the six real ones. Three bits truncate it to 1, which is
- * JSC_I64, so every empty slot read back as a cached i64 and the walk stamped
+ * JSC_I64, so every empty slot read back as a cached i64 and the emitter stamped
  * spills and fills for values that were never there. */
 #define JAV_TILE_CLS_BITS 4
 #define JAV_TILE_CLS_MASK 15u
 _Static_assert(JSC_COUNT <= JAV_TILE_CLS_MASK, "a class must fit its packed field");
-void jav_tile_pick(const jav_tnode_t* n, int state, uint32_t in_pack, uint32_t out_pack);
-/* The class in one slot, or JSC_COUNT where this rule named none. */
-int  jav_tile_in_class_at(uint32_t off, int slot);
-int  jav_tile_out_class_at(uint32_t off, int slot);
-/* Did a cover speak for this body? A disarmed map answers state 0 everywhere,
- * and state 0 is NOT the uncached form — it means nothing is cached on ENTRY,
- * while the variant still caches its result. A walk that cannot tell them apart
- * stamps tier-2 stencils with no transitions between them. */
-int  jav_tile_armed(void);
-/* Did a rule fire for the instruction at this offset? Dead code builds no tree,
- * so the walk meets instructions the cover never saw; they have no cache state
- * and must be stamped at the tier below rather than read off the zero-fill. */
-int  jav_tile_picked_at(uint32_t off);
-int  jav_tile_state_at(uint32_t off);
-/* Nodes the cover assigned a state to, since the last begin. */
-uint32_t jav_tile_picked(void);
+/* THE generated rule action: stamp this node's stencil variant for (state, packs),
+ * bridging the machine's carried cache state to `state` first. Implemented by the
+ * driver (jit_driver.c), which owns the emission context the reduce runs inside;
+ * a call outside a driver-armed reduce is a bug and stamps nothing. */
+void jav_t2_stamp(const jav_tnode_t* n, int state, uint32_t in_pack, uint32_t out_pack);
 /* Per body: how many nodes the cover spoke for, against how many it was given.
  * A carried leaf carries no instruction, so it is expected to go unpicked. */
 void jav_ttree_note_picks(uint32_t picked, uint32_t nodes);
 void jav_ttree_note_code(uint64_t bytes);
-/* One instruction the stamping walk placed: the state it ran in, how many
- * transitions were stamped after it, and whether a gap was left unbridged. */
+/* One instruction the emitter placed: the state it ran in, how many transitions
+ * were stamped at its seam, and whether a gap was left unbridged. */
 void jav_ttree_note_stitch(int entry, int transitions, int bridge_failed);
+/* One stamp whose rule put a v128 in a register (either pack names JSC_V128). */
+void jav_ttree_note_wide(void);
+/* A body whose reduce-driven walk failed and re-stamped plain (D8). */
+void jav_ttree_note_fallback(uint8_t op, uint32_t bpos, int entry, int why);
+/* A region's first stamp, with the cache state the machine carried in. */
+void jav_ttree_note_region_entry(int live_state);
 /* One transition stamped: `down` is a spill (a fill otherwise), `boundary` says
  * the next instruction carried no tile of its own, so no rule costed this. */
 void jav_ttree_note_transition(int down, int boundary);

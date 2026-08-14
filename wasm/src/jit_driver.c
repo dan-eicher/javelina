@@ -165,400 +165,488 @@ static int state_agnostic(const jav_jit_meta_t* m, int tile_st) {
     return tile_st >= m->pop_slots;
 }
 
-/* …and whether the family can still land the result WHERE THE TILE ASKED if this
+/* …and whether the family can still land the result WHERE THE RULE ASKED if this
  * instruction runs at state `st`. The cover's one real choice for an operand-less
- * rule is mem-or-reg0 for its result, and reading the machine's state must not
- * quietly overturn it: at state 0 the memory form is the plain stencil and always
- * exists, but above it that form is D7s' `__sKm`, which a state need not have. */
-static int agnostic_entry_ok(const jav_jit_meta_t* m, uint32_t off, int st) {
+ * rule is mem-or-reg0 for its result — `out0` is the rule's slot-0 out class, and
+ * JSC_COUNT there means the rule reduced at `X_mem` — and reading the machine's
+ * state must not quietly overturn it: at state 0 the memory form is the plain
+ * stencil and always exists, but above it that form is D7s' `__sKm`, which a
+ * state need not have. */
+static int agnostic_entry_ok(const jav_jit_meta_t* m, int out0, int st) {
     if (st == 0) return 1;
-    if (m->push && jav_tile_out_class_at(off, 0) >= (int)(JAV_SCLASS_FINAL - 1))
+    if (m->push && out0 >= (int)(JAV_SCLASS_FINAL - 1))
         return jav_variant_m[m->stencil][st] >= 0;
     return jav_variant[m->stencil][st] >= 0 && jav_variant_fs[m->stencil][st] >= 0;
+}
+
+/* ── the emission context ────────────────────────────────────
+ *
+ * ONE body is compiled at a time, and the reduce's actions have no argument to
+ * carry a context through burg — so the driver arms this before it walks and the
+ * generated `jav_t2_stamp` calls land here. `tiled` says which of the two walks
+ * is running: the reduce over the tree (tier-2, states real), or the plain byte
+ * walk (tier-1 and the decline fallback, every stencil the plain form). */
+typedef struct {
+    int            active;
+    int            tiled;
+    bbq_ctx_t      code;        /* the body; a node's pc positions a cursor in it */
+    jit_codebuf_t* buf;
+    size_t*        offs;        /* buffer offsets, emission order */
+    int*           sids;
+    size_t*        boffs;       /* byte offset each stencil belongs to */
+    size_t         n, cap;
+    data_hole_t*   recs;
+    int            nrec;
+    /* The class in each cache slot, slot 0 the top — carried along the emission
+     * rather than asked of a rule: a rule names what it consumes and produces,
+     * and a survivor was put there by an instruction the rule has never seen. */
+    int            live_cls[JAV_TIER2_N > 0 ? JAV_TIER2_N : 1];
+    int            live_st;
+    size_t         last_bpos;   /* the previous stamp's byte offset — spills carry it */
+    /* Where the previous instruction's bytes ended. A stamp that begins past it
+     * means dead code was SKIPPED — it builds no tree — and in the byte walk that
+     * stretch stamped plain forms whose exit state is 0, so the cache does not
+     * survive it. The reset here is that same fact without the dead stencils. */
+    size_t         next_pos;
+    int            region_first;/* the next stamp opens a region (for regions_hot) */
+    uint32_t       stamped;     /* primaries stamped by rule actions == the picks */
+    jav_status_t   status;
+    int            unbridged;
+    /* Why the walk stopped, for the fallback meter's first-failure diagnostics. */
+    uint8_t        fail_op;
+    uint32_t       fail_bpos;
+    int            fail_entry, fail_why;
+    /* This walk's emission meters, committed only if its output ships. */
+    jav_ttree_stats_t acc;
+} emit_ctx_t;
+
+static emit_ctx_t g_e;
+
+static void emit_reset_live(void) {
+    g_e.live_st = 0;
+    for (int j = 0; j < JAV_TIER2_N; j++) g_e.live_cls[j] = (int)JSC_COUNT;
+}
+
+/* One instruction, from wherever `cur` points: decode it with the same readers
+ * the interpreter uses, pick the stencil form, bridge the machine's cache state
+ * to this rule's, stamp, and account. Shared by both walks — `g_e.tiled` is the
+ * only difference, and on the plain walk every state below is zero.
+ *
+ * Bridging happens at the CONSUMER: the transitions between instruction i and
+ * i+1 are stamped when i+1 is entered, spills carrying i's byte offset and fills
+ * i+1's — the same offsets the gap-side stitcher recorded, because a fill is the
+ * entered instruction's preparation (a call resumes through the offmap at the IP
+ * after it, and the fill must be what that arrival runs) while a spill disposes
+ * of what the previous one produced. */
+static void stamp_instr(bbq_ctx_t* cur, int entry_req,
+                        uint32_t in_pack, uint32_t out_pack) {
+    if (g_e.status != JAV_RETURN) return;
+    /* Room for this instruction and every transition it can imply — the same
+     * bound the buffer was sized with, checked so an argument that stops holding
+     * is a decline rather than a heap overflow. */
+    if (g_e.n + (size_t)JAV_TIER2_N + 1 > g_e.cap) {
+        g_e.fail_why = 1; g_e.fail_bpos = (uint32_t)cur->pos;
+        g_e.status = JAV_TRAP; return;
+    }
+    size_t bpos = cur->pos;
+    uint8_t op;
+    if (!bbq_read_u8(cur, &op)) {
+        g_e.fail_why = 2; g_e.fail_bpos = (uint32_t)bpos;
+        g_e.status = JAV_TRAP; return;
+    }
+    jav_jit_meta_t m;
+    if (jav_jit_meta_sub[op]) {
+        uint32_t sub = 0; bbq_read_uleb128_u32(cur, &sub);
+        m = jav_jit_meta_sub[op][sub];
+    } else m = jav_jit_meta[op];
+    if (m.stencil < 0) {
+        g_e.fail_why = 3; g_e.fail_op = op; g_e.fail_bpos = (uint32_t)bpos;
+        g_e.status = JAV_TRAP; return;
+    }
+
+    int entry = 0, plain = 1, chosen = m.stencil, ntrans = 0;
+    if (g_e.tiled) {
+        entry = entry_req;
+        int out0 = (int)(out_pack & JAV_TILE_CLS_MASK);
+        int out0mem = m.push && out0 >= (int)(JAV_SCLASS_FINAL - 1);
+        /* A state-agnostic rule recorded the MINIMUM state that produces it; the
+         * machine may be deeper. Run at the deepest state the family still has a
+         * form for — Ertl's minimal overflow (§2.3): the gap left, if any, costs
+         * one spill below rather than a flush. */
+        if (state_agnostic(&m, entry) && g_e.live_st > entry) {
+            int st = g_e.live_st;
+            while (st > entry && !agnostic_entry_ok(&m, out0, st)) st--;
+            entry = st;
+        }
+        /* The family is per OPCODE and a rule is per SIGNATURE, so a member need
+         * not offer every form its terminal's rule named — and the grammar's own
+         * contract (gen_tile_burg's C5 note) is that the emitter "reaches its
+         * state by transition". Descend to the nearest state this member
+         * provides: the bridge below spills the operands the rule wanted cached,
+         * and the lower form reads them from memory, values intact. State 0 is
+         * the plain stencil and always exists, so this terminates. The spill is a
+         * cost the cover never priced — the known coarseness of a per-signature
+         * grammar over a per-opcode family, counted rather than hidden: the old
+         * byte walk TRAPPED here and silently re-stamped the whole body at
+         * tier-1, 1,545 bodies of this corpus. */
+        while (entry > 0) {
+            int ok = out0mem
+                   ? jav_variant_m[m.stencil][entry] >= 0
+                   : (jav_variant[m.stencil][entry] >= 0
+                      && jav_variant_fs[m.stencil][entry] >= 0);
+            if (ok) break;
+            entry--;
+        }
+        /* The bridge. A cache state is a property of a program point: where the
+         * previous instruction left the cache and where this one expects it are
+         * two facts about the same point, and the difference IS the transition. */
+        while (g_e.live_st != entry) {
+            int down = g_e.live_st > entry;
+            /* A spill moves the DEEPEST cached value — the ones remaining must
+             * still be the top of the stack. A fill loads what THIS instruction
+             * wants at the slot it is about to occupy, which is its own in-pack.
+             * A value is one slot or TWO, so the step is its width. */
+            int cls = down ? g_e.live_cls[g_e.live_st - 1]
+                           : (int)((in_pack >> (g_e.live_st * JAV_TILE_CLS_BITS))
+                                   & JAV_TILE_CLS_MASK);
+            if (cls >= (int)(JAV_SCLASS_FINAL - 1)) {
+                g_e.unbridged = 1;
+                jav_ttree_note_unbridged(op, (uint32_t)bpos, g_e.live_st, entry, cls);
+                break;
+            }
+            int w = jav_class_width[cls];
+            int slot = down ? g_e.live_st - w : g_e.live_st;
+            if (slot < 0 || slot + w > JAV_TIER2_N) {
+                g_e.unbridged = 1;
+                jav_ttree_note_unbridged(op, (uint32_t)bpos, g_e.live_st, entry, cls);
+                break;
+            }
+            int tid = down ? jav_spill[cls][slot] : jav_fill[cls][slot];
+            if (tid < 0) {
+                g_e.unbridged = 1;
+                jav_ttree_note_unbridged(op, (uint32_t)bpos, g_e.live_st, entry, cls);
+                break;
+            }
+            g_e.boffs[g_e.n] = down ? g_e.last_bpos : bpos;
+            g_e.offs[g_e.n] = emit_stencil(g_e.buf, &stencil_table[tid], NULL,
+                                           g_e.recs, &g_e.nrec);
+            g_e.sids[g_e.n] = tid; g_e.n++; ntrans++;
+            /* Bridged INTO a tiled instruction, so a rule costed this seam. */
+            jav_ttree_note_transition(down, 0);
+            jav_ttree_note_mem(w);
+            for (int q = 0; q < w; q++)
+                g_e.live_cls[slot + q] = down ? (int)JSC_COUNT : cls;
+            g_e.live_st += down ? -w : w;
+        }
+        jav_ttree_note_stitch(entry, ntrans, g_e.unbridged);
+        if (g_e.unbridged) {
+            g_e.fail_why = 6; g_e.fail_op = op; g_e.fail_bpos = (uint32_t)bpos;
+            g_e.fail_entry = entry;
+            g_e.status = JAV_TRAP; return;
+        }
+        plain = 0;
+        chosen = jav_variant[m.stencil][entry];
+        /* …unless the rule asked for the result in MEMORY. A variant caches what
+         * it produces; for a class with no *_reg0 rule that is not what the rule
+         * reduced at. At entry 0 the memory form is the plain stencil; above it,
+         * D7s' `__sKm` — same cached operands, result pushed inline. */
+        if (out0mem) {
+            int mv = entry == 0 ? m.stencil : jav_variant_m[m.stencil][entry];
+            if (mv >= 0) { chosen = mv; plain = 1; }
+        }
+        if (chosen < 0) {
+            g_e.fail_why = 4; g_e.fail_op = op; g_e.fail_bpos = (uint32_t)bpos;
+            g_e.fail_entry = entry;
+            g_e.status = JAV_TRAP; return;
+        }
+    } else {
+        jav_ttree_note_stitch(0, 0, 0);
+    }
+
+    const StencilDef* def = &stencil_table[chosen];
+    uint64_t vals[16] = {0};
+    fill_native_holes(def, vals);
+    for (int k = 0; k < m.operand_count; k++) {
+        /* A memarg yields TWO stencil holes from one decode: the offset (this
+         * operand's hole) and the memidx (the active memory). */
+        if (m.operands[k].kind == JOP_MEMARG) {
+            uint32_t fl = 0, mi = 0; bbq_read_uleb128_u32(cur, &fl);
+            if (fl & 0x40) bbq_read_uleb128_u32(cur, &mi);
+            uint64_t off = 0; bbq_read_uleb128_u64(cur, &off);
+            int ho = find_hole(def, m.operands[k].hole); if (ho >= 0) vals[ho] = off;
+            int hm = def->h_memidx;                       if (hm >= 0) vals[hm] = mi;
+            continue;
+        }
+        /* JOP_CONST is a synthesized constant (e.g. a guard's range bound):
+         * its value rides in the meta — no bytecode, no cursor advance. */
+        uint64_t imm = (m.operands[k].kind == JOP_CONST)
+                     ? m.operands[k].value
+                     : decode_operand(cur, m.operands[k].kind);
+        int h = find_hole(def, m.operands[k].hole);
+        if (h >= 0) vals[h] = imm;
+    }
+    int hip = def->h_ip;
+    size_t ip_at_tail_start = cur->pos;
+    int hpc = def->h_pc;
+    if (hpc >= 0) vals[hpc] = bpos;
+    /* A variable-length trailing immediate the op's native reads at runtime: the
+     * walk steps over it to land on the next instruction; _HOLE_ip placement
+     * depends on whether the BODY still reads the tail at runtime (see wasm.def's
+     * m.tail declarations). */
+    int ip_after_tail = 0;
+    switch (m.tail) {
+    case JTAIL_BRTABLE: {
+        uint32_t count = g_last_brtable_count, lbl;
+        for (uint32_t i = 0; i <= count; i++) bbq_read_uleb128_u32(cur, &lbl);
+        ip_after_tail = 1;
+        break;
+    }
+    case JTAIL_TRYTABLE: {
+        int32_t bt = 0; bbq_read_sleb128_i32(cur, &bt);
+        if (bt == -29 || bt == -28) { int32_t ht = 0; bbq_read_sleb128_i32(cur, &ht); }
+        uint32_t nc = 0, tmp; bbq_read_uleb128_u32(cur, &nc);
+        for (uint32_t i = 0; i < nc; i++) {
+            uint8_t ck = 0; bbq_read_u8(cur, &ck);
+            if (ck == 0 || ck == 1) bbq_read_uleb128_u32(cur, &tmp);
+            bbq_read_uleb128_u32(cur, &tmp);
+        }
+        break;
+    }
+    case JTAIL_SELECTVEC: {
+        uint32_t nt = 0; bbq_read_uleb128_u32(cur, &nt);
+        for (uint32_t i = 0; i < nt; i++) {
+            uint8_t vt = 0; bbq_read_u8(cur, &vt);
+            if (vt == 0x63 || vt == 0x64) { int32_t ht = 0; bbq_read_sleb128_i32(cur, &ht); }
+        }
+        break;
+    }
+    case JTAIL_NONE: default: break;
+    }
+    if (hip >= 0) vals[hip] = ip_after_tail ? cur->pos : ip_at_tail_start;
+    g_e.boffs[g_e.n] = bpos;
+    g_e.offs[g_e.n] = emit_stencil(g_e.buf, def, vals, g_e.recs, &g_e.nrec);
+    g_e.sids[g_e.n] = chosen; g_e.n++;
+
+    /* Move the slot classes the way the stencil moved the values, and count the
+     * operand-stack traffic this form actually performs — the one place that
+     * knows which form was stamped. */
+    int exit_st = plain ? 0 : jav_variant_fs[m.stencil][entry];
+    if (exit_st < 0) {
+        g_e.fail_why = 5; g_e.fail_op = op; g_e.fail_bpos = (uint32_t)bpos;
+        g_e.fail_entry = entry;
+        g_e.status = JAV_TRAP; return;
+    }
+    {
+        int a = m.pop_slots;
+        int left = entry > a ? entry - a : 0;
+        int r = exit_st > left ? m.push_slots : 0;
+        jav_ttree_note_mem((a > entry ? a - entry : 0) + (r ? 0 : m.push_slots));
+        for (int j = 0; j < left; j++) g_e.live_cls[r + j] = g_e.live_cls[a + j];
+        for (int j = 0; j < r; j++)
+            g_e.live_cls[j] = (int)((out_pack >> (j * JAV_TILE_CLS_BITS))
+                                    & JAV_TILE_CLS_MASK);
+        for (int j = exit_st; j < JAV_TIER2_N; j++) g_e.live_cls[j] = (int)JSC_COUNT;
+    }
+    g_e.live_st = exit_st;
+    g_e.last_bpos = bpos;
+    g_e.next_pos = cur->pos;
+}
+
+/* THE generated rule action: burg matched this node, the rule said which state
+ * it runs in and where its operands and result sit, and this is where the
+ * stencil is stamped — the reduce IS the emitter (#16). */
+void jav_t2_stamp(const jav_tnode_t* n, int state, uint32_t in_pack, uint32_t out_pack) {
+    if (!g_e.active || !g_e.tiled || g_e.status != JAV_RETURN || !n->pc) return;
+    bbq_ctx_t cur = g_e.code;
+    cur.pos = (size_t)(n->pc - g_e.code.data);
+    /* Dead code builds no tree, so the reduce never meets it; the byte walk
+     * stamped it in plain forms whose exit state is 0, so the cache never
+     * survived the stretch. Same fact, stated instead of stamped. */
+    if (cur.pos != g_e.next_pos) emit_reset_live();
+    if (g_e.region_first) {
+        jav_ttree_note_region_entry(g_e.live_st);
+        g_e.region_first = 0;
+    }
+    if (JAV_TIER2_N > 0) {
+        /* A rule that names a v128 in a register, on either side — the class
+         * axis the state counters cannot see. */
+        int wide = 0;
+        for (int s = 0; s < 32 / JAV_TILE_CLS_BITS && !wide; s++) {
+            if (((in_pack  >> (s * JAV_TILE_CLS_BITS)) & JAV_TILE_CLS_MASK) == JSC_V128) wide = 1;
+            if (((out_pack >> (s * JAV_TILE_CLS_BITS)) & JAV_TILE_CLS_MASK) == JSC_V128) wide = 1;
+        }
+        if (wide) jav_ttree_note_wide();
+    }
+    g_e.stamped++;
+    stamp_instr(&cur, state, in_pack, out_pack);
+}
+
+/* The per-body prologue: the entry stencil, the one resync stencil (its offmap
+ * pointer and code length baked; control stencils backpatch to it) and the trap
+ * stencil. Shared by both walks, so a fallback re-stamps the same skeleton. */
+static void begin_body(jit_addr_t* offmap, size_t code_len,
+                       size_t* entry_off, size_t* resync_off, size_t* trap_off) {
+    const StencilDef* rd = &stencil_table[STENCIL_RESYNC];
+    jcb_reset(g_e.buf);
+    memset(offmap, 0, (code_len + 1) * sizeof *offmap);
+    g_e.n = 0; g_e.nrec = 0;
+    g_e.status = JAV_RETURN;
+    g_e.unbridged = 0;
+    g_e.stamped = 0;
+    g_e.last_bpos = 0;
+    g_e.next_pos = g_e.code.pos;
+    g_e.region_first = 0;
+    memset(&g_e.acc, 0, sizeof g_e.acc);
+    jav_ttree_stats_sink(&g_e.acc);
+    emit_reset_live();
+    *entry_off = emit_stencil(g_e.buf, &stencil_table[STENCIL_ENTRY], NULL,
+                              g_e.recs, &g_e.nrec);
+    {
+        uint64_t rvals[16] = {0};
+        int rh;
+        if ((rh = rd->h_offmap)  >= 0) rvals[rh] = (uint64_t)(uintptr_t)offmap;
+        if ((rh = rd->h_codelen) >= 0) rvals[rh] = code_len;
+        *resync_off = emit_stencil(g_e.buf, rd, rvals, g_e.recs, &g_e.nrec);
+    }
+    *trap_off = emit_stencil(g_e.buf, &stencil_table[STENCIL_TRAP], NULL,
+                             g_e.recs, &g_e.nrec);
+}
+
+/* The plain byte walk: tier-1, and the fallback for a body the cover or the
+ * bridge declined (D8). Every stencil is the plain form the meta names — with no
+ * tiling behind it, a variant that cached its result would leave a register
+ * nothing ever spills or reads. Dead code is stamped here like anything else,
+ * which is exactly right for it: it is unreachable, and tier-1 is its form. */
+static void byte_walk(void) {
+    bbq_ctx_t cur = g_e.code;
+    for (;;) {
+        if (g_e.status != JAV_RETURN) return;
+        if (g_e.n + (size_t)JAV_TIER2_N + 1 > g_e.cap) { g_e.status = JAV_TRAP; return; }
+        size_t bpos = cur.pos;
+        bbq_ctx_t pk = cur; uint8_t op;
+        if (!bbq_read_u8(&pk, &op)) {   /* off the end: the function's halt */
+            g_e.boffs[g_e.n] = bpos;
+            g_e.offs[g_e.n] = emit_stencil(g_e.buf, &stencil_table[STENCIL_GEN_ST_HALT],
+                                           NULL, g_e.recs, &g_e.nrec);
+            g_e.sids[g_e.n] = STENCIL_GEN_ST_HALT; g_e.n++;
+            return;
+        }
+        stamp_instr(&cur, 0, 0, 0);
+    }
+}
+
+/* The reduce-driven walk: regions in order, roots in order, and the generated
+ * rule actions stamp in postorder — which IS byte order over the live
+ * instructions, the invariant the order-break meter holds at zero. ONE burg
+ * context for the whole body with a single check at the end: the rewrite latches
+ * the first error and short-circuits, so clearing between regions would let a
+ * later region wipe an earlier region's no-cover. */
+static int tree_walk(const jav_ttree_t* tree, jav_tile_burg_ctx_t* bc) {
+    for (uint32_t r = 0; r < tree->nregions; r++) {
+        g_e.region_first = 1;
+        for (uint32_t i = 0; i < tree->regions[r].nroots; i++)
+            jav_tile_burg_rewrite(tree->regions[r].roots[i], bc);
+    }
+    if (jav_tile_burg_has_error(bc)) return 0;
+    if (g_e.status != JAV_RETURN || g_e.unbridged) return 0;
+    /* The function's halt — the off-the-end / `return` target the offmap's
+     * code-length slot resolves to. */
+    if (g_e.n + 1 > g_e.cap) { g_e.status = JAV_TRAP; return 0; }
+    g_e.boffs[g_e.n] = g_e.code.length;
+    g_e.offs[g_e.n] = emit_stencil(g_e.buf, &stencil_table[STENCIL_GEN_ST_HALT],
+                                   NULL, g_e.recs, &g_e.nrec);
+    g_e.sids[g_e.n] = STENCIL_GEN_ST_HALT; g_e.n++;
+    return 1;
 }
 
 jit_func_t* jit_compile(bbq_ctx_t code, const jav_tctx_t* tcx) {
     jit_func_t* fn = (jit_func_t*)malloc(sizeof *fn);
     if (!fn) return NULL;
 
-    /* Tier-2's input, and the cover over it. ONE jav_tile_burg_ctx_t for the whole
-     * body with a single check at the end — the rewrite latches the first error and
-     * short-circuits, so clearing between regions would let a later region wipe
-     * an earlier region's no-cover and the body would pass its own check.
-     *
-     * A no-cover is not a failure: tier-2 is an optimization on top of tier-1,
-     * so losing it leaves the default, and the tier-1 walk below runs either way
-     * (D8). What the tiling decides is which VARIANT each node stamps, which is
-     * the next thing to wire. */
-    if (tcx) {
-        bbq_arena ta; bbq_arena_init(&ta, 16 * 1024);
-        jav_ttree_t tree;
-        if (jav_ttree_build(code, tcx, &ta, &tree)) {
-            jav_tile_burg_ctx_t bc;
-            jav_tile_burg_ctx_init(&bc);
-            jav_tile_begin(code.data, (uint32_t)code.length);
-            for (uint32_t r = 0; r < tree.nregions; r++)
-                for (uint32_t i = 0; i < tree.regions[r].nroots; i++)
-                    jav_tile_burg_rewrite(tree.regions[r].roots[i], &bc);
-            int covered = !jav_tile_burg_has_error(&bc);
-            /* A cover that fired no action on some instruction would leave that
-             * offset reading 0 and the walk would stamp tier-1 there — silently
-             * correct, and silently unoptimized. Counting the picks against the
-             * nodes is what stops "covered" from meaning less than it says. */
-            jav_ttree_note_picks(jav_tile_picked(), tree.nnodes);
-            jav_ttree_note_cover(covered, jav_tile_burg_get_error_arg(&bc));
-            /* A body the cover rejected keeps nothing: the map is disarmed so
-             * every offset answers 0 and the walk below stamps tier-1 (D8). */
-            if (!covered) jav_tile_begin(NULL, 0);
-            jav_tile_burg_ctx_free(&bc);
-        }
-        bbq_arena_free(&ta);
-    }
     jit_codebuf_t buf;
     if (jcb_init(&buf, 4096) != 0) { free(fn); return NULL; }
 
     /* One stencil per body byte is a safe upper bound (every opcode is ≥1 byte),
      * plus the entry and halt stencils — and then the cache transitions, which
      * are stamped BETWEEN instructions and so are not bounded by the byte count:
-     * a 1-byte `i32.add` can emit itself and a spill. An instruction moves the
+     * a 1-byte `i32.add` can imply itself and a spill. An instruction moves the
      * state by at most the cache size, so n+1 per byte covers it. */
     size_t code_len = code.length;
     size_t cap = (code_len + 2) * (size_t)(JAV_TIER2_N + 1);
     size_t* offs  = (size_t*)malloc(cap * sizeof *offs);   /* buffer offsets, exec order */
     int*    sids  = (int*)   malloc(cap * sizeof *sids);
-    size_t* boffs = (size_t*)malloc(cap * sizeof *boffs);  /* byte offset each stencil came from */
+    size_t* boffs = (size_t*)malloc(cap * sizeof *boffs);  /* byte offset each stencil belongs to */
     jit_addr_t* offmap = (jit_addr_t*)calloc(code_len + 1, sizeof *offmap);  /* IP -> address; [code_len]=halt */
     data_hole_t* recs = (data_hole_t*)malloc((cap + 4) * 8 * sizeof *recs);  /* deferred rip-rel data loads */
-    int nrec = 0;
-    size_t  n = 0;
     if (!offs || !sids || !boffs || !offmap || !recs) {
         free(offs); free(sids); free(boffs); free(offmap); free(recs); jcb_free(&buf); free(fn); return NULL;
     }
 
-    /* The stamping walk, which may run TWICE. A cover can be complete and still
-     * leave a gap the stitcher cannot bridge — no transition stencil for that
-     * class, or nothing that names the class in reg0 — and the answer to that is
-     * D8's: keep the tier below. Below tier-2 is tier-1, not "no JIT at all", so
-     * the retry disarms the tiling and stamps the plain stencils rather than
-     * declining the body. Giving up outright left a function interpreted that
-     * tier-1 had compiled for the whole life of the JIT. */
+    memset(&g_e, 0, sizeof g_e);
+    g_e.active = 1;
+    g_e.code = code;
+    g_e.buf = &buf;
+    g_e.offs = offs; g_e.sids = sids; g_e.boffs = boffs;
+    g_e.cap = cap; g_e.recs = recs;
+
     size_t entry_off = 0, resync_off = 0, trap_off = 0;
-    bbq_ctx_t cur;
-    jav_status_t status;
-    /* The class in each cache slot, slot 0 being the top. Carried along the walk
-     * rather than asked of a rule: a rule names what it CONSUMES and what it
-     * PRODUCES, and a value that merely survived an instruction was put there by
-     * some earlier one the rule has never seen. At n=1 this was a single class
-     * and the distinction did not arise. */
-    int live_cls[JAV_TIER2_N > 0 ? JAV_TIER2_N : 1];
-    /* Slots the machine actually has cached here. For every rule that names an
-     * operand this equals the tile's recorded state; see `state_agnostic` for the
-     * rules where the tile cannot say. */
-    int live_st = 0;
-    int retried = 0;
-    const StencilDef* rd = &stencil_table[STENCIL_RESYNC];
-  stamp:
-    n = 0; nrec = 0;
-    jcb_reset(&buf);
-    memset(offmap, 0, (code_len + 1) * sizeof *offmap);
-    entry_off = emit_stencil(&buf, &stencil_table[STENCIL_ENTRY], NULL, recs, &nrec);
+    int done = 0;
 
-    /* The single resync stencil: bake the (stable) offmap pointer + code length;
-     * its contents are filled after finalize. Control stencils backpatch to it. */
-    {
-        uint64_t rvals[16] = {0};
-        int rh;
-        if ((rh = rd->h_offmap)  >= 0) rvals[rh] = (uint64_t)(uintptr_t)offmap;
-        if ((rh = rd->h_codelen) >= 0) rvals[rh] = code_len;
-        resync_off = emit_stencil(&buf, rd, rvals, recs, &nrec);
+    /* Tier-2: build the tree and let the reduce stamp it. A no-cover, an
+     * unbridgeable gap or a capacity miss is a decline, not a failure — tier-2 is
+     * an optimization on top of tier-1, so the body falls to the plain byte walk
+     * below rather than off the JIT (D8). Giving up outright once left a function
+     * interpreted that tier-1 had compiled for the whole life of the JIT. */
+    if (tcx) {
+        bbq_arena ta; bbq_arena_init(&ta, 16 * 1024);
+        jav_ttree_t tree;
+        if (jav_ttree_build(code, tcx, &ta, &tree)) {
+            jav_tile_burg_ctx_t bc;
+            jav_tile_burg_ctx_init(&bc);
+            g_e.tiled = 1;
+            begin_body(offmap, code_len, &entry_off, &resync_off, &trap_off);
+            done = tree_walk(&tree, &bc);
+            jav_ttree_stats_sink(NULL);
+            if (done) {
+                /* This walk's output ships: its meters are the body's. The
+                 * actions ARE the picks — one primary per non-carried node — so
+                 * counting the stamps against the nodes is what stops "covered"
+                 * from meaning less than it says. */
+                jav_ttree_stats_commit(&g_e.acc);
+                jav_ttree_note_picks(g_e.stamped, tree.nnodes);
+                jav_ttree_note_cover(1, 0);
+            } else if (jav_tile_burg_has_error(&bc)) {
+                /* A genuine no-cover: the grammar had no rule. Counted as
+                 * uncovered, exactly as before; the body ships tier-1. */
+                jav_ttree_note_cover(0, jav_tile_burg_get_error_arg(&bc));
+            } else {
+                /* Covered but unstampable — the walk failed mid-emission. The
+                 * body ships tier-1 and NOTHING from the abandoned walk is
+                 * counted except the fallback itself, first failure named:
+                 * meters describe shipped code, and the old silent retry is the
+                 * lie this line replaces. */
+                jav_ttree_note_fallback(g_e.fail_op, g_e.fail_bpos,
+                                        g_e.fail_entry, g_e.fail_why);
+            }
+            jav_tile_burg_ctx_free(&bc);
+        }
+        bbq_arena_free(&ta);
     }
-    trap_off = emit_stencil(&buf, &stencil_table[STENCIL_TRAP], NULL, recs, &nrec);   /* guards backpatch here */
-
-    cur = code;                       /* compile-time walk (a copy of the cursor) */
-    status = JAV_RETURN;
-    live_st = 0;
-    for (int j = 0; j < JAV_TIER2_N; j++) live_cls[j] = (int)JSC_COUNT;   /* empty cache */
-    for (;;) {
-        /* The bound above is an argument, and an argument that stops holding is
-         * a heap overflow rather than a wrong answer — so it is also a check.
-         * Room for this instruction and the transitions it can imply. */
-        if (n + (size_t)JAV_TIER2_N + 1 > cap) { status = JAV_TRAP; break; }
-        size_t bpos = cur.pos;          /* this opcode's start — the IP branches resolve to */
-        uint8_t op;
-        if (!bbq_read_u8(&cur, &op)) {  /* off the end: the function's halt */
-            boffs[n] = bpos;
-            offs[n] = emit_stencil(&buf, &stencil_table[STENCIL_GEN_ST_HALT], NULL, recs, &nrec);
-            sids[n] = STENCIL_GEN_ST_HALT; n++;
-            break;
+    if (!done) {
+        g_e.tiled = 0;
+        begin_body(offmap, code_len, &entry_off, &resync_off, &trap_off);
+        byte_walk();
+        jav_ttree_stats_sink(NULL);
+        if (g_e.status != JAV_RETURN) {
+            g_e.active = 0;
+            free(offs); free(sids); free(boffs); free(offmap); free(recs);
+            jcb_free(&buf); free(fn); return NULL;
         }
-        jav_jit_meta_t m;
-        if (jav_jit_meta_sub[op]) {                        /* prefixed (0xFC misc &c.) */
-            uint32_t sub = 0; bbq_read_uleb128_u32(&cur, &sub);
-            m = jav_jit_meta_sub[op][sub];
-        } else m = jav_jit_meta[op];
-        /* A defensive net for a `flag:no_jit` opcode (no stencil emitted): bail so the
-         * tier falls back to the interpreter. NO opcode is currently no_jit — every one
-         * is JITed (br_table/call included) — so this is presently unreachable; it is
-         * NOT a license to leave opcodes interp-only. */
-        if (m.stencil < 0) { status = JAV_TRAP; break; }
-
-        /* Which FORM of this instruction: the tiling said what the cache holds
-         * when it runs, and jav_variant maps that to the stencil. With the tier
-         * off, or on a body the cover declined, every offset reads state 0 and
-         * this is the tier-1 stencil — D8's fallback as an absence rather than a
-         * branch. A picked state with no variant would be the grammar and the
-         * family disagreeing, which is a decline, not something to paper over. */
-        /* No cover for this body — a decline, or a caller with no context to give
-         * — means tier-1, and tier-1 is the PLAIN stencil, which is what the meta
-         * names. Reading state 0 off a disarmed map and stamping its variant is
-         * not the same thing: that variant caches its result, and with no tiling
-         * behind it nothing would ever spill or read the register again. */
-        int armed = jav_tile_armed() && jav_tile_picked_at((uint32_t)bpos);
-        int entry = armed ? jav_tile_state_at((uint32_t)bpos) : 0;
-        if (armed && state_agnostic(&m, entry) && live_st > entry) {
-            /* The deepest state this instruction can still run in. Walking DOWN
-             * rather than back to the tile's minimum is Ertl's minimal overflow
-             * (§2.3): when the cache is full the deepest value goes to memory and
-             * the rest stay, so the gap costs one spill, not a flush. */
-            int st = live_st;
-            while (st > entry && !agnostic_entry_ok(&m, (uint32_t)bpos, st)) st--;
-            entry = st;
-        }
-        int chosen = armed ? jav_variant[m.stencil][entry] : m.stencil;
-        /* …unless the tile asked for the result in MEMORY. A variant caches what
-         * it produces, and for a class with no *_reg0 rule — v128, ref — that is
-         * not what the rule reduced at. The plain stencil is the form that pushes,
-         * so the tile's answer selects between them; `out_cls` is JSC_COUNT
-         * exactly when the rule's left side was `X_mem`. */
-        int plain = !armed;
-        if (armed && m.push
-            && jav_tile_out_class_at((uint32_t)bpos, 0) >= (int)(JAV_SCLASS_FINAL - 1)) {
-            /* The tile asked for the result in MEMORY. At entry 0 that form is the
-             * plain stencil; above it, D7s' `__sKm` — same cached operands, result
-             * pushed inline. Either way the exit state is what survived, which is
-             * 0 wherever these forms exist. */
-            int mv = entry == 0 ? m.stencil : jav_variant_m[m.stencil][entry];
-            if (mv >= 0) { chosen = mv; plain = 1; }
-        }
-        if (chosen < 0) { status = JAV_TRAP; break; }
-        const StencilDef* def = &stencil_table[chosen];
-        uint64_t vals[16] = {0};
-        fill_native_holes(def, vals);
-        for (int k = 0; k < m.operand_count; k++) {         /* decode EVERY operand, advancing the walk */
-            /* A memarg yields TWO stencil holes from one decode: the offset (this
-             * operand's hole) and the memidx (the active memory). Decode once, fill both. */
-            if (m.operands[k].kind == JOP_MEMARG) {
-                uint32_t fl = 0, mi = 0; bbq_read_uleb128_u32(&cur, &fl);
-                if (fl & 0x40) bbq_read_uleb128_u32(&cur, &mi);
-                uint64_t off = 0; bbq_read_uleb128_u64(&cur, &off);
-                int ho = find_hole(def, m.operands[k].hole); if (ho >= 0) vals[ho] = off;
-                int hm = def->h_memidx;                       if (hm >= 0) vals[hm] = mi;
-                continue;
-            }
-            /* JOP_CONST is a synthesized constant (e.g. a guard's range bound):
-             * its value rides in the meta — no bytecode, no cursor advance. */
-            uint64_t imm = (m.operands[k].kind == JOP_CONST)
-                         ? m.operands[k].value
-                         : decode_operand(&cur, m.operands[k].kind);
-            int h = find_hole(def, m.operands[k].hole);
-            if (h >= 0) vals[h] = imm;
-        }
-        int hip = def->h_ip;                         /* a control stencil's post-operand position */
-        size_t ip_at_tail_start = cur.pos;
-        int hpc = def->h_pc;                         /* §7.1.8 trap-frame offset: this op's source byte offset */
-        if (hpc >= 0) vals[hpc] = bpos;
-        /* A variable-length trailing immediate the op's native reads at runtime (a `vec(...)`):
-         * the compile-time walk must step over it to place the next stencil. Which kind is
-         * DATA-DRIVEN from the opcode's meta (m.tail), declared in wasm.def — no per-opcode
-         * special-casing here.
-         *
-         * _HOLE_ip placement depends on whether the BODY still reads the tail at runtime.
-         * A tail the body reads (try_table) needs ip at the tail's START, where the native
-         * begins reading. A tail opgen has fully consumed at compile time (br_table: the
-         * count is a baked operand and the labels are dead — the targets live in the
-         * side-table) needs ip AFTER it, because the side-table's delta_ip is relative to
-         * the cursor past the whole immediate. */
-        int ip_after_tail = 0;
-        switch (m.tail) {
-        case JTAIL_BRTABLE: {            /* §5.4.2 vec(labelidx) + a default labelidx */
-            /* The COUNT is a fixed operand now (JOP_BRTABLE_COUNT, decoded above and
-             * baked into the stencil), so only the labels remain to skip. */
-            uint32_t count = g_last_brtable_count, lbl;
-            for (uint32_t i = 0; i <= count; i++) bbq_read_uleb128_u32(&cur, &lbl);
-            ip_after_tail = 1;
-            break;
-        }
-        case JTAIL_TRYTABLE: {           /* §5.4.1 blocktype, then vec(catch) */
-            int32_t bt = 0; bbq_read_sleb128_i32(&cur, &bt);
-            if (bt == -29 || bt == -28) { int32_t ht = 0; bbq_read_sleb128_i32(&cur, &ht); }  /* (ref null? ht) blocktype: trailing heaptype */
-            uint32_t nc = 0, tmp; bbq_read_uleb128_u32(&cur, &nc);
-            for (uint32_t i = 0; i < nc; i++) {
-                uint8_t ck = 0; bbq_read_u8(&cur, &ck);
-                if (ck == 0 || ck == 1) bbq_read_uleb128_u32(&cur, &tmp);   /* tag for catch / catch_ref */
-                bbq_read_uleb128_u32(&cur, &tmp);                            /* label */
-            }
-            break;
-        }
-        case JTAIL_SELECTVEC: {          /* §5.4 vec(valtype) — select t's result-type vector */
-            uint32_t nt = 0; bbq_read_uleb128_u32(&cur, &nt);
-            for (uint32_t i = 0; i < nt; i++) {
-                uint8_t vt = 0; bbq_read_u8(&cur, &vt);
-                if (vt == 0x63 || vt == 0x64) { int32_t ht = 0; bbq_read_sleb128_i32(&cur, &ht); }  /* (ref null? ht) */
-            }
-            break;
-        }
-        case JTAIL_NONE: default: break;
-        }
-        if (hip >= 0) vals[hip] = ip_after_tail ? cur.pos : ip_at_tail_start;
-        boffs[n] = bpos;
-        offs[n] = emit_stencil(&buf, def, vals, recs, &nrec);
-        sids[n] = chosen; n++;
-
-        /* The transitions. A cache state is a property of a PROGRAM POINT, so
-         * where this instruction leaves the cache and where the next one expects
-         * it are two facts about the same point — and when they disagree, the
-         * difference IS the transition. Nothing here reads which chain rule
-         * fired: it reads what the stamped variant SAYS it left behind, which is
-         * the same number the grammar costed with.
-         *
-         * That number is published rather than recomputed because the arity
-         * cannot produce it. A `word` result — `local.get`, and every other
-         * polymorphic mover — pops and pushes exactly like an `i32` one and yet
-         * leaves the cache empty, having no storage class to cache AS.
-         *
-         * Stamped in the gap, so they belong to the fall-through path. A branch
-         * target is at the canonical state, so no transition ever precedes one
-         * and the offmap still resolves an arriving IP to the instruction. */
-        int exit_st = plain ? 0 : jav_variant_fs[m.stencil][entry];
-        int next_armed = jav_tile_armed() && jav_tile_picked_at((uint32_t)cur.pos);
-        int next_st = next_armed ? jav_tile_state_at((uint32_t)cur.pos) : 0;
-        /* The same question `entry` asks, for the instruction this gap leads to.
-         * If its rule takes no operand from the cache its recorded state is not a
-         * fact about the machine and there is nothing to bridge to — leave the
-         * cache as it is, PROVIDED the family has a form for it there. Where it
-         * does not, the cache is full and that is Ertl's OVERFLOW (§2.3): the
-         * spill is real and this gap is where it belongs. */
-        if (exit_st >= 0 && next_armed && next_st != exit_st) {
-            bbq_ctx_t pk = cur; uint8_t nxop;
-            if (bbq_read_u8(&pk, &nxop)) {
-                jav_jit_meta_t nm;
-                if (jav_jit_meta_sub[nxop]) {
-                    uint32_t nsub = 0; bbq_read_uleb128_u32(&pk, &nsub);
-                    nm = jav_jit_meta_sub[nxop][nsub];
-                } else nm = jav_jit_meta[nxop];
-                if (nm.stencil >= 0 && state_agnostic(&nm, next_st)
-                    && exit_st > next_st) {
-                    int st = exit_st;
-                    while (st > next_st && !agnostic_entry_ok(&nm, (uint32_t)cur.pos, st)) st--;
-                    next_st = st;
-                }
-            }
-        }
-        if (exit_st < 0) { status = JAV_TRAP; break; }
-        /* Move the slot classes the way the stencil moved the values. The variant
-         * consumed the cached operands off the top, its results took slot 0, and
-         * whatever survived underneath closed up behind them — the same shift the
-         * emitted body does with CACHE_R<nout+j> = CACHE_R<a+j>. Survivors keep
-         * their classes because nothing about them changed; only their depth did.
-         *
-         * In SLOTS, which is the unit `live_cls` and the state are in — a two-slot
-         * result names a class in both of them, and the item counts would name
-         * one and leave the other claiming nothing for the next spill to move. */
-        {
-            int a = m.pop_slots;
-            int left = entry > a ? entry - a : 0;
-            int r = exit_st > left ? m.push_slots : 0;
-            /* THE MEASURE. In state `entry` the top `entry` slots are in
-             * registers, so this stencil GPOPs the operands below them and GPUSHes
-             * its result unless it kept it. Counted here because this is the one
-             * place that knows which form was actually stamped. */
-            jav_ttree_note_mem((a > entry ? a - entry : 0) + (r ? 0 : m.push_slots));
-            for (int j = 0; j < left; j++) live_cls[r + j] = live_cls[a + j];
-            for (int j = 0; j < r; j++)
-                live_cls[j] = jav_tile_out_class_at((uint32_t)bpos, j);
-            for (int j = exit_st; j < JAV_TIER2_N; j++) live_cls[j] = (int)JSC_COUNT;
-        }
-        int ntrans = 0, unbridged = 0;
-        while (exit_st != next_st) {
-            int down = exit_st > next_st;
-            /* A spill moves the DEEPEST cached value because the ones remaining
-             * must still be the top of the stack; the minimal organization leaves
-             * no choice about which. A fill loads what the next instruction wants
-             * at the slot it is about to occupy.
-             *
-             * A value is one slot or TWO, so the step is its WIDTH — a v128 moves
-             * both halves in one transition and the state changes by two. Stepping
-             * by one tried to fill a v128 into the last slot, where the other half
-             * would not fit, and the gap could not be bridged. */
-            int cls = down ? live_cls[exit_st - 1]
-                           : jav_tile_in_class_at((uint32_t)cur.pos, exit_st);
-            if (cls >= (int)(JAV_SCLASS_FINAL - 1)) {
-                unbridged = 1;
-                jav_ttree_note_unbridged(op, (uint32_t)bpos, exit_st, next_st, cls);
-                break;
-            }
-            int w = jav_class_width[cls];
-            int slot = down ? exit_st - w : exit_st;
-            if (slot < 0 || slot + w > JAV_TIER2_N) {
-                unbridged = 1;
-                jav_ttree_note_unbridged(op, (uint32_t)bpos, exit_st, next_st, cls);
-                break;
-            }
-            int tid = down ? jav_spill[cls][slot] : jav_fill[cls][slot];
-            if (tid < 0) {
-                unbridged = 1;
-                jav_ttree_note_unbridged(op, (uint32_t)bpos, exit_st, next_st, cls);
-                break;
-            }
-            /* Which instruction a transition BELONGS to, which is what decides
-             * the IP it is stamped under and therefore whether an arrival runs
-             * it. A spill disposes of what THIS instruction produced, so it is
-             * this one's. A fill prepares what the NEXT instruction expects to
-             * find, so it is the next one's — and it has to be, because "the gap
-             * after an instruction" is only the fall-through path. A call ends
-             * `TAIL return _HOLE_resync(...)`: it resumes by mapping the IP after
-             * it through the offmap, not by falling into the next stencil. A fill
-             * left under the call's offset is then never executed, and the
-             * consumer reads a register nothing wrote — which is a call's result
-             * arriving as zero. */
-            boffs[n] = down ? bpos : cur.pos;
-            offs[n] = emit_stencil(&buf, &stencil_table[tid], NULL, recs, &nrec);
-            sids[n] = tid; n++; ntrans++;
-            /* Which kind, and whether any rule had a say. `next_st` came off a
-             * tile only if the next instruction was covered; otherwise it is the
-             * default 0 and this transition is a region boundary the cost model
-             * never saw. */
-            jav_ttree_note_transition(down,
-                !(jav_tile_armed() && jav_tile_picked_at((uint32_t)cur.pos)));
-            jav_ttree_note_mem(w);      /* its GPUSH or GPOP, same as any other */
-            /* The transition moves ONE value in or out of the deepest live slot,
-             * and neither direction renumbers: reg0 stays the top either way and
-             * only the count changes. */
-            for (int q = 0; q < w; q++)
-                live_cls[slot + q] = down ? (int)JSC_COUNT : cls;
-            exit_st += down ? -w : w;
-        }
-        /* Every claim about cache states holds trivially of a machine with no
-         * cache, so what the walk DID is recorded and gated on: a green over
-         * zero cached states is a green about nothing. */
-        live_st = exit_st;              /* what the machine holds, for the next one */
-        jav_ttree_note_stitch(entry, ntrans, unbridged);
-        /* A gap that cannot be bridged drops this body to tier-1 — recorded, so
-         * it is a visible loss of coverage rather than a silent one. */
-        if (unbridged) { status = JAV_TRAP; break; }
-        if (status != JAV_RETURN) break;
+        jav_ttree_stats_commit(&g_e.acc);
     }
-
-    if (status == JAV_TRAP) {
-        /* One retry, without the tiling: the plain stencils have no states to
-         * disagree about, so a second failure is a genuine decline. */
-        if (!retried && jav_tile_armed()) {
-            retried = 1;
-            jav_tile_begin(NULL, 0);
-            goto stamp;
-        }
-        free(offs); free(sids); free(boffs); free(offmap); free(recs); jcb_free(&buf); free(fn); return NULL;
-    }
+    size_t n = g_e.n;
+    int nrec = g_e.nrec;
+    g_e.active = 0;
 
     /* Shared footer pool: one 8-byte slot per DISTINCT constant the function's
      * rip-relative data loads need (operands, native ptrs, const holes), deduped

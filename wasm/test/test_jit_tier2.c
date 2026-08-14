@@ -113,18 +113,20 @@ static int slot_eq(slot_t a, slot_t b, jav_valtype_t t) {
     }
 }
 
-/* What the cover decided, per instruction. A wrong answer out of a tiled body is
- * a disagreement between the tiling and the walk, and the tiling is the half that
- * leaves no trace in the output — so a failing body prints it rather than leaving
- * the next reader to reconstruct it from the grammar. Class 9 is JSC_COUNT, "no
- * class here". Valid only while the map is still armed with this body's picks. */
-static void dump_tiles(const body_t* b) {
-    for (uint32_t off = 0; off < (uint32_t)b->len; off++)
-        if (jav_tile_picked_at(off))
-            printf("       @%-3u state %d  in[%d,%d] out[%d,%d]\n", off,
-                   jav_tile_state_at(off),
-                   jav_tile_in_class_at(off, 0), jav_tile_in_class_at(off, 1),
-                   jav_tile_out_class_at(off, 0), jav_tile_out_class_at(off, 1));
+/* What the emitter did, per body: the entry-state histogram delta. The offset
+ * map this used to dump retired with #16 — the rule actions stamp directly — so
+ * the cover's decisions surface as the states the stamps ran at, which is also
+ * the quantity every pin below is stated in. */
+static void dump_states(const jav_ttree_stats_t* before) {
+    const jav_ttree_stats_t* s = jav_ttree_stats();
+    printf("       entry states:");
+    for (int k = 0; k < 9; k++)
+        if (s->entry_state[k] > before->entry_state[k])
+            printf(" [%d]x%llu", k,
+                   (unsigned long long)(s->entry_state[k] - before->entry_state[k]));
+    printf("  transitions +%llu  wide +%llu\n",
+           (unsigned long long)(s->transitions - before->transitions),
+           (unsigned long long)(s->wide_cached - before->wide_cached));
 }
 
 /* PIN E-1. The interpreter is the oracle and it does not call the routine under
@@ -184,8 +186,9 @@ static void run_body(const body_t* b) {
      * tier-1, which is correct and silent. So the cover's own verdict is checked
      * per body rather than only in aggregate. */
     const jav_ttree_stats_t* s = jav_ttree_stats();
+    jav_ttree_stats_t s0 = *s;   /* the whole snapshot: every pin below is a delta */
     uint64_t built0 = s->bodies_built, cov0 = s->bodies_covered;
-    uint64_t cach0 = s->states_cached, bf0 = s->bridge_fails, tr0 = s->transitions;
+    uint64_t bf0 = s->bridge_fails, tr0 = s->transitions;
 
     bbq_ctx_t cc; bbq_ctx_init(&cc, b->code, b->len);
     jit_func_t* h = jit_compile(cc, &tcx);
@@ -201,39 +204,28 @@ static void run_body(const body_t* b) {
     CHECK(s->bodies_covered > cov0, "E-0 %s: the cover declined it", b->name);
     /* PIN C-7 — WideValueCaches. Whether SIMD operands reach registers is a
      * question about the GRAMMAR, so it is asked of a body whose only cacheable
-     * values are v128 and answered by this build's own cover. Asking it of a
-     * compiled program instead measures the wrapper the program calls through:
-     * one tiled `call` per kernel, whatever the kernel does inside.
-     *
-     * Read off the tile map rather than the counters: `states_cached` counts
-     * instructions that ran with a cached OPERAND and carries no class, so it is
-     * both too narrow (a cached RESULT is a v128 in a register too) and too
-     * broad (a scalar in the same body moves it). The map names the class in
-     * each slot, which is the quantity. It is still armed with this body's picks
-     * — the disarming re-compile below has not run yet. */
+     * values are v128 and answered by this build's own cover. `wide_cached`
+     * counts stamps whose RULE named a v128 in a register on either side — the
+     * class axis `states_cached` is blind to (a scalar in the same body moves
+     * that one; a cached v128 RESULT does not). The fixtures are v128-only, so
+     * the counter cannot be satisfied by anything scalar. */
     if (b->wide && JAV_TIER2_N >= 2) {
-        int wide_slot = 0;
-        for (uint32_t off = 0; off < (uint32_t)b->len && !wide_slot; off++)
-            for (int sl = 0; sl < JAV_TIER2_N; sl++)
-                if (jav_tile_in_class_at(off, sl)  == (int)JSC_V128
-                 || jav_tile_out_class_at(off, sl) == (int)JSC_V128) { wide_slot = 1; break; }
-        CHECK(wide_slot, "C-7 %s: no v128 ever occupied a cache slot", b->name);
+        CHECK(s->wide_cached > s0.wide_cached,
+              "C-7 %s: no rule ever named a v128 in a cache slot", b->name);
         /* …and at n>=4, the case that only exists there: TWO v128s in registers
          * at once, which is what a binary SIMD op needs to run fully cached. Four
-         * slots, so no smaller cache can be asked the question. Read as an entry
-         * state of 4 or more with a vector in the deepest of them. */
+         * slots, so no smaller cache can be asked the question. In a v128-only
+         * body an entry state of 4 IS two vectors in registers — nothing else in
+         * the body could fill four slots. */
         if (JAV_TIER2_N >= 4 && !strcmp(b->name, "v128_bin")) {
-            int pair = 0;
-            for (uint32_t off = 0; off < (uint32_t)b->len && !pair; off++)
-                if (jav_tile_picked_at(off) && jav_tile_state_at(off) >= 4
-                    && jav_tile_in_class_at(off, 0) == (int)JSC_V128
-                    && jav_tile_in_class_at(off, 2) == (int)JSC_V128) pair = 1;
-            CHECK(pair, "C-7 %s: no instruction ran with two v128 operands in "
-                        "registers, which is the whole of what n>=4 buys SIMD",
-                  b->name);
+            uint64_t deep4 = 0;
+            for (int k = 4; k < 9; k++)
+                deep4 += s->entry_state[k] - s0.entry_state[k];
+            CHECK(deep4 > 0, "C-7 %s: no instruction ran at state >= 4, so no "
+                             "binary SIMD op ever had both operands in registers — "
+                             "the whole of what n>=4 buys SIMD", b->name);
         }
     }
-    (void)cach0;
     /* PIN E-2, per body. A gap the stitcher cannot close drops that body to
      * tier-1: the answer stays right, so the aggregate count was the only
      * evidence and it names no body. This one does, and it is the check that a
@@ -262,9 +254,9 @@ static void run_body(const body_t* b) {
     if (s->transitions > tr0) {
         printf("  %-16s %llu transition(s)\n", b->name,
                (unsigned long long)(s->transitions - tr0));
-        dump_tiles(b);
+        dump_states(&s0);
     }
-    if (failures > failures0) dump_tiles(b);   /* while the map still holds this body */
+    if (failures > failures0) dump_states(&s0);
     jit_free(h);
 
     /* PIN E-1 — NoCoverFallsBackToTier1. A body the tiling cannot speak for still
@@ -327,7 +319,10 @@ static void state_claims(const body_t* b) {
     tcx.type_result_class = trc; tcx.type_nresults = tnr;
     tcx.ntypes = 1;
 
-    /* Compile for the side effect: it is what arms the map. */
+    /* Compile: the emitter's own accounting is what every claim below reads,
+     * as a delta across exactly this compile. */
+    const jav_ttree_stats_t* s = jav_ttree_stats();
+    jav_ttree_stats_t s0 = *s;
     bbq_ctx_t cc; bbq_ctx_init(&cc, b->code, b->len);
     jit_func_t* h = jit_compile(cc, &tcx);
     if (!h) { bbq_vec_free(st); return; }
@@ -342,19 +337,14 @@ static void state_claims(const body_t* b) {
          * That is also E-4, and deliberately: a branch reads its target from the
          * sidetable as a DELTA, so there is no target list to walk here, but in
          * structured control flow every target is a block/loop/end boundary and
-         * every one of those is a cut. Checking region heads therefore checks the
-         * set of offsets the machine can arrive at from elsewhere. A target at a
-         * non-zero state would also leave the offmap pointing at that target's
-         * fill instead of the instruction, so one check covers both defects.
-         *
-         * The `start` offset is the region's own record of where it began, not a
-         * recomputation from its roots — a root can be a carried leaf with no pc
-         * at all. */
-        for (uint32_t r = 0; r < tree.nregions; r++) {
-            int at = jav_tile_state_at(tree.regions[r].start);
-            CHECK(at == 0, "E-3 %s: region %u opens at @%u in state %d, not 0",
-                  b->name, r, tree.regions[r].start, at);
-        }
+         * every one of those is a cut. A region entered with the machine's cache
+         * non-empty would run its head in a state an arrival cannot be in — and
+         * would leave the offmap pointing at that head's fill instead of the
+         * instruction. The emitter counts exactly that (`regions_hot`), so one
+         * number covers both defects, for every region of every fixture. */
+        CHECK(s->regions_hot == s0.regions_hot,
+              "E-3 %s: %llu region(s) entered with the cache non-empty", b->name,
+              (unsigned long long)(s->regions_hot - s0.regions_hot));
         /* PIN F-1 MergeIsCanonical and PIN F-2 LoopBackEdgeIsCanonical are
          * INSTANCES of the check above, not separate machinery: a merge is an
          * offset control can arrive at from more than one place, and in
@@ -397,17 +387,22 @@ static void state_claims(const body_t* b) {
              *                 = 5
              *
              * No transition either way — the shift is free — so caching wins by
-             * 5 under any weighting where memory access costs anything at all. */
+             * 5 under any weighting where memory access costs anything at all.
+             *
+             * The add running at state 2 IS both constants reaching registers:
+             * nothing else in the body can fill two slots, so the one histogram
+             * bucket carries the whole of the old three-part claim. */
             int cost_cached = 0;
             int cost_memory = 4 * JAV_COST_MEM + JAV_COST_MEM;
-            CHECK(cost_cached < cost_memory && jav_tile_state_at(4) == 2,
-                  "C-6: i32.add runs at state %d though caching both operands "
-                  "costs %d against %d for memory — the DP is not obeying its own "
-                  "cost model", jav_tile_state_at(4), cost_cached, cost_memory);
-            CHECK(jav_tile_out_class_at(0, 0) < (int)(JAV_SCLASS_FINAL - 1),
-                  "C-6: the first constant did not reach a register");
-            CHECK(jav_tile_out_class_at(2, 0) < (int)(JAV_SCLASS_FINAL - 1),
-                  "C-6: the second constant did not reach a register");
+            uint64_t at2 = s->entry_state[2] - s0.entry_state[2];
+            CHECK(cost_cached < cost_memory && at2 == 1,
+                  "C-6: the add did not run at state 2 (%llu did) though caching "
+                  "both operands costs %d against %d for memory — the DP is not "
+                  "obeying its own cost model",
+                  (unsigned long long)at2, cost_cached, cost_memory);
+            CHECK(s->transitions == s0.transitions,
+                  "C-6: %llu transition(s) in a body whose winning cover needs none",
+                  (unsigned long long)(s->transitions - s0.transitions));
         }
 
         /* PIN C-2 CachedBeatsMemory. The plan's wording: "for (i32 i32)->(i32)
@@ -428,9 +423,8 @@ static void state_claims(const body_t* b) {
             CHECK(cost_cached < cost_allmem,
                   "C-2: the cost model does not separate a cached (i32 i32)->i32 "
                   "from the all-memory cover (%d vs %d)", cost_cached, cost_allmem);
-            CHECK(jav_tile_state_at(4) == 2,
-                  "C-2: the cheaper cover did not win — the add reduced at state %d",
-                  jav_tile_state_at(4));
+            CHECK(s->entry_state[2] - s0.entry_state[2] == 1,
+                  "C-2: the cheaper cover did not win — nothing stamped at state 2");
         }
 
         /* PIN D-2 NoSpUpdateWhenFullyCached. The plan's wording: "the fully-cached
@@ -471,7 +465,7 @@ static void state_claims(const body_t* b) {
          * has to go somewhere and the grammar's chain rule is where — the claim
          * is that such a body COVERS rather than failing to tile. */
         if (!strcmp(b->name, "spill"))
-            CHECK(tree.nregions >= 1 && jav_tile_picked_at(0),
+            CHECK(tree.nregions >= 1 && s->bodies_covered > s0.bodies_covered,
                   "C-3 spill: a body needing n+1 live values did not cover");
 
         /* PIN C-4 TransitionIsNotFree. The converse of C-2, and the one that says
@@ -503,21 +497,21 @@ static void state_claims(const body_t* b) {
              * against. */
             int cost_direct = JAV_COST_MEM + JAV_COST_MEM;
             int cost_round  = JAV_COST_TRANSITION;
-            int c0 = jav_tile_out_class_at(0, 0), c2 = jav_tile_out_class_at(2, 0),
-                c4 = jav_tile_out_class_at(4, 0);
-            CHECK(cost_direct < cost_round && c0 >= (int)(JAV_SCLASS_FINAL - 1),
-                  "C-4 spill: @0 cached then spilled, costing %d, where going "
-                  "straight to memory costs %d — the DP is not obeying its own "
-                  "cost model", cost_round, cost_direct);
-            CHECK(cost_direct < cost_round && c2 >= (int)(JAV_SCLASS_FINAL - 1),
-                  "C-4 spill: @2 cached then spilled, costing %d against %d",
+            /* The whole claim in the emitter's own quantities. @0 and @2 straight
+             * to memory and @4 cached means NO transition anywhere (a cached-
+             * then-spilled constant would stamp one), and exactly the two adds
+             * run with a cached operand — the inner one over @4's value, the
+             * outer one over the inner's result. */
+            CHECK(cost_direct < cost_round && s->transitions == s0.transitions,
+                  "C-4 spill: %llu transition(s) — a constant was cached then "
+                  "spilled, costing %d, where going straight to memory costs %d",
+                  (unsigned long long)(s->transitions - s0.transitions),
                   cost_round, cost_direct);
-            /* …and the positive direction, which C-2 also covers: @4 is consumed
-             * by the very next instruction, so caching it saves a store and a
-             * load and costs no transition at all. */
-            CHECK(c4 < (int)(JAV_SCLASS_FINAL - 1),
-                  "C-4 spill: @4 went to memory though its consumer is the next "
-                  "instruction, so caching it costs 0 and saves %d",
+            CHECK(s->entry_state[1] - s0.entry_state[1] == 2,
+                  "C-4 spill: %llu stamp(s) at state 1, not the two adds — either "
+                  "@4 went to memory (caching it costs 0 and saves %d) or a "
+                  "displaced constant stayed cached",
+                  (unsigned long long)(s->entry_state[1] - s0.entry_state[1]),
                   2 * JAV_COST_MEM);
         }
         /* …and the same question at n>=2, which is where it can actually fail.
@@ -546,19 +540,26 @@ static void state_claims(const body_t* b) {
          * use should never have been cached — and not a cache size: with three
          * slots or more nothing is displaced and caching @0 is simply right. */
         if (!strcmp(b->name, "spill") && JAV_TIER2_N >= 2 && SPILL_LIVE > JAV_TIER2_N) {
-            int c0 = jav_tile_out_class_at(0, 0);
-            int f1 = jav_tile_in_class_at(7, 1);
-            CHECK(c0 >= (int)(JAV_SCLASS_FINAL - 1),
-                  "C-4 spill: @0 cached then spilled, costing %d, where going "
-                  "straight to memory costs %d", JAV_COST_TRANSITION,
-                  2 * JAV_COST_MEM);
-            CHECK(f1 >= (int)(JAV_SCLASS_FINAL - 1),
-                  "C-4 spill: @7 wants its deep operand filled back into a "
-                  "register, costing %d, where reading it from memory costs %d",
+            /* Same claim, the n>=2 shape: @0 to memory and no fill-back means
+             * ZERO transitions; the inner add runs at state 2 (both its
+             * operands cached) and the outer at state 1 (the inner's result
+             * cached, @0's value read from memory where it sits). */
+            CHECK(s->transitions == s0.transitions,
+                  "C-4 spill: %llu transition(s) — either @0 was cached then "
+                  "spilled (%d against %d for going straight to memory) or @7 "
+                  "filled its deep operand back (%d against %d for reading it)",
+                  (unsigned long long)(s->transitions - s0.transitions),
+                  JAV_COST_TRANSITION, 2 * JAV_COST_MEM,
                   JAV_COST_TRANSITION, JAV_COST_MEM);
+            CHECK(s->entry_state[2] - s0.entry_state[2] == 1
+                  && s->entry_state[1] - s0.entry_state[1] == 1,
+                  "C-4 spill: expected the inner add at state 2 and the outer at "
+                  "state 1; got +%llu at 2, +%llu at 1",
+                  (unsigned long long)(s->entry_state[2] - s0.entry_state[2]),
+                  (unsigned long long)(s->entry_state[1] - s0.entry_state[1]));
         }
     }
-    if (failures > failures0) dump_tiles(b);   /* which states, before the map goes */
+    if (failures > failures0) dump_states(&s0);   /* which states this compile ran */
     bbq_arena_free(&ta);
 
     jit_free(h); bbq_vec_free(st);

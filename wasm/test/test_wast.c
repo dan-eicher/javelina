@@ -827,6 +827,16 @@ int main(int argc, char **argv) {
                     (unsigned long long)(ts->code_bytes / ts->code_bodies));
         if (ts->have_uncovered)
             fprintf(sum, "  first uncovered at signature %d\n", ts->first_uncovered_sig);
+        /* A body whose reduce-driven walk failed re-stamped plain — correct
+         * (D8), silent, therefore counted and gated: a fallback is a body the
+         * tier-2 meters above are NOT about, so a nonzero here makes them lie
+         * by omission. */
+        if (ts->tree_fallbacks)
+            fprintf(sum, "wast tier-2 fallbacks: %llu body(ies) re-stamped plain; "
+                         "first: op 0x%02x @%u entry %d why %d\n",
+                    (unsigned long long)ts->tree_fallbacks,
+                    ts->first_fallback_op, ts->first_fallback_bpos,
+                    ts->first_fallback_entry, ts->first_fallback_why);
         if (ts->bodies_declined) {          // the work list, busiest instruction first
             uint32_t left[256];
             memcpy(left, ts->decline_op, sizeof left);
@@ -864,6 +874,7 @@ int main(int argc, char **argv) {
             || (tier == WAST_TIER_2
                 && (ts->arity_mismatches || ts->order_breaks || ts->bodies_built == 0
                     || ts->bodies_declined || ts->bodies_uncovered
+                    || ts->tree_fallbacks
                     || ts->bodies_built + ts->bodies_declined != jit_offered
                     || ts->nodes_unpicked != ts->nodes_carried))
             /* …and the stitch meters, on the tier that HAS a cache. A body that

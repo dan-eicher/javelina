@@ -435,11 +435,12 @@ int main(int argc, char** argv) {
                                  | ((uint32_t)s->results[0] << sh);
                     }
             }
-            // The action IS the answer: a rule is a (signature, cache state) pair,
-            // so firing it says which state this instruction runs in. The stitcher
-            // joins it back by byte offset — burg never reads `pc`, and the
-            // stamping walk never reads the tree.
-            fprintf(o, " = %u (. jav_tile_pick(node, %d, 0x%xu, 0x%xu); .);\n",
+            // The action IS the emitter: a rule is a (signature, cache state) pair,
+            // and firing it stamps this node's stencil variant for that state —
+            // burg matches the tree and emits from the reduce (#16). The driver
+            // owns the emission context the reduce runs inside and bridges the
+            // machine's carried state to this rule's before stamping.
+            fprintf(o, " = %u (. jav_t2_stamp(node, %d, 0x%xu, 0x%xu); .);\n",
                     cost, state, in_pack, out_pack);
             rules++; any = 1;
         }

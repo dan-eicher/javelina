@@ -7921,14 +7921,14 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 0; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 126: { // i32_reg0: Sig_to_i32
         for (int _ci = 0; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999990u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999990u);
         break;
     }
     case 127: { // i32_mem: Sig_i32_to_i32(i32_mem)
@@ -7936,7 +7936,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 128: { // i32_reg0: Sig_i32_to_i32(i32_mem)
@@ -7944,7 +7944,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999990u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999990u);
         break;
     }
     case 129: { // i32_mem: Sig_i32_to_i32(i32_reg0)
@@ -7952,7 +7952,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
     case 130: { // i32_reg0: Sig_i32_to_i32(i32_reg0)
@@ -7960,7 +7960,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999990u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999990u);
         break;
     }
     case 131: { // i32_mem: Sig_i64_to_i32(i64_mem)
@@ -7968,7 +7968,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 132: { // i32_reg0: Sig_i64_to_i32(i64_mem)
@@ -7976,7 +7976,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999990u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999990u);
         break;
     }
     case 133: { // i32_mem: Sig_i64_to_i32(i64_reg0)
@@ -7984,7 +7984,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999991u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999991u, 0x99999999u);
         break;
     }
     case 134: { // i32_reg0: Sig_i64_to_i32(i64_reg0)
@@ -7992,7 +7992,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999991u, 0x99999990u);
+        jav_t2_stamp(node, 1, 0x99999991u, 0x99999990u);
         break;
     }
     case 135: { // i32_mem: Sig_i32_i32_to_i32(i32_mem, i32_mem)
@@ -8001,7 +8001,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 136: { // i32_reg0: Sig_i32_i32_to_i32(i32_mem, i32_mem)
@@ -8010,7 +8010,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999990u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999990u);
         break;
     }
     case 137: { // i32_mem: Sig_i32_i32_to_i32(i32_mem, i32_reg0)
@@ -8019,7 +8019,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
     case 138: { // i32_reg0: Sig_i32_i32_to_i32(i32_mem, i32_reg0)
@@ -8028,7 +8028,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999990u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999990u);
         break;
     }
     case 139: { // i32_mem: Sig_i32_i32_to_i32(i32_reg1, i32_reg0)
@@ -8037,7 +8037,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 2, 0x99999900u, 0x99999999u);
+        jav_t2_stamp(node, 2, 0x99999900u, 0x99999999u);
         break;
     }
     case 140: { // i32_reg0: Sig_i32_i32_to_i32(i32_reg1, i32_reg0)
@@ -8046,7 +8046,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 2, 0x99999900u, 0x99999990u);
+        jav_t2_stamp(node, 2, 0x99999900u, 0x99999990u);
         break;
     }
     case 141: { // i32_reg0: Sig_i32_i32_to_i32(i32_reg1, i32_reg0)
@@ -8055,7 +8055,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 3, 0x99999900u, 0x99999990u);
+        jav_t2_stamp(node, 3, 0x99999900u, 0x99999990u);
         break;
     }
     case 142: { // i32_reg0: Sig_i32_i32_to_i32(i32_reg1, i32_reg0)
@@ -8064,7 +8064,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 4, 0x99999900u, 0x99999990u);
+        jav_t2_stamp(node, 4, 0x99999900u, 0x99999990u);
         break;
     }
     case 143: { // i32_reg0: Sig_i32_i32_to_i32(i32_reg1, i32_reg0)
@@ -8073,7 +8073,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 5, 0x99999900u, 0x99999990u);
+        jav_t2_stamp(node, 5, 0x99999900u, 0x99999990u);
         break;
     }
     case 144: { // i32_reg0: Sig_i32_i32_to_i32(i32_reg1, i32_reg0)
@@ -8082,7 +8082,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 6, 0x99999900u, 0x99999990u);
+        jav_t2_stamp(node, 6, 0x99999900u, 0x99999990u);
         break;
     }
     case 145: { // i32_reg0: Sig_i32_i32_to_i32(i32_reg1, i32_reg0)
@@ -8091,7 +8091,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 7, 0x99999900u, 0x99999990u);
+        jav_t2_stamp(node, 7, 0x99999900u, 0x99999990u);
         break;
     }
     case 146: { // i32_reg0: Sig_i32_i32_to_i32(i32_reg1, i32_reg0)
@@ -8100,7 +8100,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 8, 0x99999900u, 0x99999990u);
+        jav_t2_stamp(node, 8, 0x99999900u, 0x99999990u);
         break;
     }
     case 147: { // i32_mem: Sig_i64_i32_to_i32(i64_mem, i32_mem)
@@ -8109,7 +8109,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 148: { // i32_reg0: Sig_i64_i32_to_i32(i64_mem, i32_mem)
@@ -8118,7 +8118,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999990u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999990u);
         break;
     }
     case 149: { // i32_mem: Sig_i64_i32_to_i32(i64_mem, i32_reg0)
@@ -8127,7 +8127,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
     case 150: { // i32_reg0: Sig_i64_i32_to_i32(i64_mem, i32_reg0)
@@ -8136,7 +8136,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999990u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999990u);
         break;
     }
     case 151: { // i32_mem: Sig_f32_i32_to_i32(f32_mem, i32_mem)
@@ -8145,7 +8145,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 152: { // i32_reg0: Sig_f32_i32_to_i32(f32_mem, i32_mem)
@@ -8154,7 +8154,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999990u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999990u);
         break;
     }
     case 153: { // i32_mem: Sig_f32_i32_to_i32(f32_mem, i32_reg0)
@@ -8163,7 +8163,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
     case 154: { // i32_reg0: Sig_f32_i32_to_i32(f32_mem, i32_reg0)
@@ -8172,7 +8172,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999990u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999990u);
         break;
     }
     case 155: { // i32_mem: Sig_f64_i32_to_i32(f64_mem, i32_mem)
@@ -8181,7 +8181,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 156: { // i32_reg0: Sig_f64_i32_to_i32(f64_mem, i32_mem)
@@ -8190,7 +8190,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999990u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999990u);
         break;
     }
     case 157: { // i32_mem: Sig_f64_i32_to_i32(f64_mem, i32_reg0)
@@ -8199,7 +8199,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
     case 158: { // i32_reg0: Sig_f64_i32_to_i32(f64_mem, i32_reg0)
@@ -8208,7 +8208,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999990u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999990u);
         break;
     }
     case 159: { // i32_mem: Sig_v128_i32_to_i32_pw(v128_mem, i32_mem)
@@ -8217,7 +8217,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 160: { // i32_reg0: Sig_v128_i32_to_i32_pw(v128_mem, i32_mem)
@@ -8226,7 +8226,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999990u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999990u);
         break;
     }
     case 161: { // i32_mem: Sig_v128_i32_to_i32_pw(v128_mem, i32_reg0)
@@ -8235,7 +8235,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
     case 162: { // i32_reg0: Sig_v128_i32_to_i32_pw(v128_mem, i32_reg0)
@@ -8244,7 +8244,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999990u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999990u);
         break;
     }
     case 163: { // i32_mem: Sig_ref_i32_to_i32(ref_mem, i32_mem)
@@ -8253,7 +8253,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 164: { // i32_reg0: Sig_ref_i32_to_i32(ref_mem, i32_mem)
@@ -8262,7 +8262,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999990u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999990u);
         break;
     }
     case 165: { // i32_mem: Sig_ref_i32_to_i32(ref_mem, i32_reg0)
@@ -8271,7 +8271,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
     case 166: { // i32_reg0: Sig_ref_i32_to_i32(ref_mem, i32_reg0)
@@ -8280,7 +8280,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999990u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999990u);
         break;
     }
     case 167: { // i32_mem: Sig_i32_i64_to_i32(i32_mem, i64_mem)
@@ -8289,7 +8289,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 168: { // i32_reg0: Sig_i32_i64_to_i32(i32_mem, i64_mem)
@@ -8298,7 +8298,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999990u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999990u);
         break;
     }
     case 169: { // i32_mem: Sig_i64_i64_to_i32(i64_mem, i64_mem)
@@ -8307,7 +8307,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 170: { // i32_reg0: Sig_i64_i64_to_i32(i64_mem, i64_mem)
@@ -8316,7 +8316,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999990u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999990u);
         break;
     }
     case 171: { // i32_mem: Sig_i64_i64_to_i32(i64_mem, i64_reg0)
@@ -8325,7 +8325,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999991u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999991u, 0x99999999u);
         break;
     }
     case 172: { // i32_reg0: Sig_i64_i64_to_i32(i64_mem, i64_reg0)
@@ -8334,7 +8334,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999991u, 0x99999990u);
+        jav_t2_stamp(node, 1, 0x99999991u, 0x99999990u);
         break;
     }
     case 173: { // i32_mem: Sig_i64_i64_to_i32(i64_reg1, i64_reg0)
@@ -8343,7 +8343,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 2, 0x99999911u, 0x99999999u);
+        jav_t2_stamp(node, 2, 0x99999911u, 0x99999999u);
         break;
     }
     case 174: { // i32_reg0: Sig_i64_i64_to_i32(i64_reg1, i64_reg0)
@@ -8352,7 +8352,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 2, 0x99999911u, 0x99999990u);
+        jav_t2_stamp(node, 2, 0x99999911u, 0x99999990u);
         break;
     }
     case 175: { // i32_reg0: Sig_i64_i64_to_i32(i64_reg1, i64_reg0)
@@ -8361,7 +8361,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 3, 0x99999911u, 0x99999990u);
+        jav_t2_stamp(node, 3, 0x99999911u, 0x99999990u);
         break;
     }
     case 176: { // i32_reg0: Sig_i64_i64_to_i32(i64_reg1, i64_reg0)
@@ -8370,7 +8370,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 4, 0x99999911u, 0x99999990u);
+        jav_t2_stamp(node, 4, 0x99999911u, 0x99999990u);
         break;
     }
     case 177: { // i32_reg0: Sig_i64_i64_to_i32(i64_reg1, i64_reg0)
@@ -8379,7 +8379,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 5, 0x99999911u, 0x99999990u);
+        jav_t2_stamp(node, 5, 0x99999911u, 0x99999990u);
         break;
     }
     case 178: { // i32_reg0: Sig_i64_i64_to_i32(i64_reg1, i64_reg0)
@@ -8388,7 +8388,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 6, 0x99999911u, 0x99999990u);
+        jav_t2_stamp(node, 6, 0x99999911u, 0x99999990u);
         break;
     }
     case 179: { // i32_reg0: Sig_i64_i64_to_i32(i64_reg1, i64_reg0)
@@ -8397,7 +8397,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 7, 0x99999911u, 0x99999990u);
+        jav_t2_stamp(node, 7, 0x99999911u, 0x99999990u);
         break;
     }
     case 180: { // i32_reg0: Sig_i64_i64_to_i32(i64_reg1, i64_reg0)
@@ -8406,7 +8406,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 8, 0x99999911u, 0x99999990u);
+        jav_t2_stamp(node, 8, 0x99999911u, 0x99999990u);
         break;
     }
     case 181: { // i32_mem: Sig_f32_i64_to_i32(f32_mem, i64_mem)
@@ -8415,7 +8415,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 182: { // i32_reg0: Sig_f32_i64_to_i32(f32_mem, i64_mem)
@@ -8424,7 +8424,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999990u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999990u);
         break;
     }
     case 183: { // i32_mem: Sig_f64_i64_to_i32(f64_mem, i64_mem)
@@ -8433,7 +8433,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 184: { // i32_reg0: Sig_f64_i64_to_i32(f64_mem, i64_mem)
@@ -8442,7 +8442,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999990u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999990u);
         break;
     }
     case 185: { // i32_mem: Sig_v128_i64_to_i32_pw(v128_mem, i64_mem)
@@ -8451,7 +8451,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 186: { // i32_reg0: Sig_v128_i64_to_i32_pw(v128_mem, i64_mem)
@@ -8460,7 +8460,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999990u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999990u);
         break;
     }
     case 187: { // i32_mem: Sig_ref_i64_to_i32(ref_mem, i64_mem)
@@ -8469,7 +8469,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 188: { // i32_reg0: Sig_ref_i64_to_i32(ref_mem, i64_mem)
@@ -8478,7 +8478,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999990u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999990u);
         break;
     }
     case 189: { // i32_mem: Sig_f32_f32_to_i32(f32_mem, f32_mem)
@@ -8487,7 +8487,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 190: { // i32_reg0: Sig_f32_f32_to_i32(f32_mem, f32_mem)
@@ -8496,7 +8496,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999990u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999990u);
         break;
     }
     case 191: { // i32_mem: Sig_f32_f32_to_i32(f32_mem, f32_reg0)
@@ -8505,7 +8505,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999992u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999992u, 0x99999999u);
         break;
     }
     case 192: { // i32_reg0: Sig_f32_f32_to_i32(f32_mem, f32_reg0)
@@ -8514,7 +8514,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999992u, 0x99999990u);
+        jav_t2_stamp(node, 1, 0x99999992u, 0x99999990u);
         break;
     }
     case 193: { // i32_mem: Sig_f32_f32_to_i32(f32_reg1, f32_reg0)
@@ -8523,7 +8523,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 2, 0x99999922u, 0x99999999u);
+        jav_t2_stamp(node, 2, 0x99999922u, 0x99999999u);
         break;
     }
     case 194: { // i32_reg0: Sig_f32_f32_to_i32(f32_reg1, f32_reg0)
@@ -8532,7 +8532,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 2, 0x99999922u, 0x99999990u);
+        jav_t2_stamp(node, 2, 0x99999922u, 0x99999990u);
         break;
     }
     case 195: { // i32_reg0: Sig_f32_f32_to_i32(f32_reg1, f32_reg0)
@@ -8541,7 +8541,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 3, 0x99999922u, 0x99999990u);
+        jav_t2_stamp(node, 3, 0x99999922u, 0x99999990u);
         break;
     }
     case 196: { // i32_reg0: Sig_f32_f32_to_i32(f32_reg1, f32_reg0)
@@ -8550,7 +8550,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 4, 0x99999922u, 0x99999990u);
+        jav_t2_stamp(node, 4, 0x99999922u, 0x99999990u);
         break;
     }
     case 197: { // i32_reg0: Sig_f32_f32_to_i32(f32_reg1, f32_reg0)
@@ -8559,7 +8559,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 5, 0x99999922u, 0x99999990u);
+        jav_t2_stamp(node, 5, 0x99999922u, 0x99999990u);
         break;
     }
     case 198: { // i32_reg0: Sig_f32_f32_to_i32(f32_reg1, f32_reg0)
@@ -8568,7 +8568,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 6, 0x99999922u, 0x99999990u);
+        jav_t2_stamp(node, 6, 0x99999922u, 0x99999990u);
         break;
     }
     case 199: { // i32_reg0: Sig_f32_f32_to_i32(f32_reg1, f32_reg0)
@@ -8577,7 +8577,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 7, 0x99999922u, 0x99999990u);
+        jav_t2_stamp(node, 7, 0x99999922u, 0x99999990u);
         break;
     }
     case 200: { // i32_reg0: Sig_f32_f32_to_i32(f32_reg1, f32_reg0)
@@ -8586,7 +8586,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 8, 0x99999922u, 0x99999990u);
+        jav_t2_stamp(node, 8, 0x99999922u, 0x99999990u);
         break;
     }
     case 201: { // i32_mem: Sig_f64_f64_to_i32(f64_mem, f64_mem)
@@ -8595,7 +8595,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 202: { // i32_reg0: Sig_f64_f64_to_i32(f64_mem, f64_mem)
@@ -8604,7 +8604,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999990u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999990u);
         break;
     }
     case 203: { // i32_mem: Sig_f64_f64_to_i32(f64_mem, f64_reg0)
@@ -8613,7 +8613,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999993u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999993u, 0x99999999u);
         break;
     }
     case 204: { // i32_reg0: Sig_f64_f64_to_i32(f64_mem, f64_reg0)
@@ -8622,7 +8622,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999993u, 0x99999990u);
+        jav_t2_stamp(node, 1, 0x99999993u, 0x99999990u);
         break;
     }
     case 205: { // i32_mem: Sig_f64_f64_to_i32(f64_reg1, f64_reg0)
@@ -8631,7 +8631,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 2, 0x99999933u, 0x99999999u);
+        jav_t2_stamp(node, 2, 0x99999933u, 0x99999999u);
         break;
     }
     case 206: { // i32_reg0: Sig_f64_f64_to_i32(f64_reg1, f64_reg0)
@@ -8640,7 +8640,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 2, 0x99999933u, 0x99999990u);
+        jav_t2_stamp(node, 2, 0x99999933u, 0x99999990u);
         break;
     }
     case 207: { // i32_reg0: Sig_f64_f64_to_i32(f64_reg1, f64_reg0)
@@ -8649,7 +8649,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 3, 0x99999933u, 0x99999990u);
+        jav_t2_stamp(node, 3, 0x99999933u, 0x99999990u);
         break;
     }
     case 208: { // i32_reg0: Sig_f64_f64_to_i32(f64_reg1, f64_reg0)
@@ -8658,7 +8658,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 4, 0x99999933u, 0x99999990u);
+        jav_t2_stamp(node, 4, 0x99999933u, 0x99999990u);
         break;
     }
     case 209: { // i32_reg0: Sig_f64_f64_to_i32(f64_reg1, f64_reg0)
@@ -8667,7 +8667,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 5, 0x99999933u, 0x99999990u);
+        jav_t2_stamp(node, 5, 0x99999933u, 0x99999990u);
         break;
     }
     case 210: { // i32_reg0: Sig_f64_f64_to_i32(f64_reg1, f64_reg0)
@@ -8676,7 +8676,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 6, 0x99999933u, 0x99999990u);
+        jav_t2_stamp(node, 6, 0x99999933u, 0x99999990u);
         break;
     }
     case 211: { // i32_reg0: Sig_f64_f64_to_i32(f64_reg1, f64_reg0)
@@ -8685,7 +8685,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 7, 0x99999933u, 0x99999990u);
+        jav_t2_stamp(node, 7, 0x99999933u, 0x99999990u);
         break;
     }
     case 212: { // i32_reg0: Sig_f64_f64_to_i32(f64_reg1, f64_reg0)
@@ -8694,7 +8694,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 8, 0x99999933u, 0x99999990u);
+        jav_t2_stamp(node, 8, 0x99999933u, 0x99999990u);
         break;
     }
     case 213: { // i32_mem: Sig_f32_to_i32(f32_mem)
@@ -8702,7 +8702,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 214: { // i32_reg0: Sig_f32_to_i32(f32_mem)
@@ -8710,7 +8710,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999990u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999990u);
         break;
     }
     case 215: { // i32_mem: Sig_f32_to_i32(f32_reg0)
@@ -8718,7 +8718,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999992u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999992u, 0x99999999u);
         break;
     }
     case 216: { // i32_reg0: Sig_f32_to_i32(f32_reg0)
@@ -8726,7 +8726,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999992u, 0x99999990u);
+        jav_t2_stamp(node, 1, 0x99999992u, 0x99999990u);
         break;
     }
     case 217: { // i32_mem: Sig_f64_to_i32(f64_mem)
@@ -8734,7 +8734,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 218: { // i32_reg0: Sig_f64_to_i32(f64_mem)
@@ -8742,7 +8742,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999990u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999990u);
         break;
     }
     case 219: { // i32_mem: Sig_f64_to_i32(f64_reg0)
@@ -8750,7 +8750,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999993u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999993u, 0x99999999u);
         break;
     }
     case 220: { // i32_reg0: Sig_f64_to_i32(f64_reg0)
@@ -8758,7 +8758,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999993u, 0x99999990u);
+        jav_t2_stamp(node, 1, 0x99999993u, 0x99999990u);
         break;
     }
     case 221: { // i32_mem: Sig_i32_i32_i32_to_i32(i32_mem, i32_mem, i32_mem)
@@ -8768,7 +8768,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 3; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 222: { // i32_reg0: Sig_i32_i32_i32_to_i32(i32_mem, i32_mem, i32_mem)
@@ -8778,7 +8778,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 3; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999990u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999990u);
         break;
     }
     case 223: { // i32_mem: Sig_i32_i32_i32_to_i32(i32_mem, i32_mem, i32_reg0)
@@ -8788,7 +8788,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 3; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
     case 224: { // i32_reg0: Sig_i32_i32_i32_to_i32(i32_mem, i32_mem, i32_reg0)
@@ -8798,7 +8798,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 3; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999990u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999990u);
         break;
     }
     case 225: { // i32_mem: Sig_ref_to_i32(ref_mem)
@@ -8806,7 +8806,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 226: { // i32_reg0: Sig_ref_to_i32(ref_mem)
@@ -8814,21 +8814,21 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999990u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999990u);
         break;
     }
     case 227: { // i32_mem: Sig_stk_to_i32
         for (int _ci = 0; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 228: { // i32_reg0: Sig_stk_to_i32
         for (int _ci = 0; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999990u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999990u);
         break;
     }
     case 229: { // i32_mem: Sig_ref_ref_to_i32(ref_mem, ref_mem)
@@ -8837,7 +8837,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 230: { // i32_reg0: Sig_ref_ref_to_i32(ref_mem, ref_mem)
@@ -8846,7 +8846,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999990u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999990u);
         break;
     }
     case 231: { // i32_mem: Sig_v128_to_i32_pw(v128_mem)
@@ -8854,7 +8854,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 232: { // i32_reg0: Sig_v128_to_i32_pw(v128_mem)
@@ -8862,7 +8862,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999990u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999990u);
         break;
     }
     case 233: { // i32_mem: Sig_v128_to_i32(v128_mem)
@@ -8870,7 +8870,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 234: { // i32_reg0: Sig_v128_to_i32(v128_mem)
@@ -8878,7 +8878,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999990u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999990u);
         break;
     }
     case 235: { // i32_mem: Sig_v128_to_i32(v128_reg0)
@@ -8886,7 +8886,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 2, 0x99999944u, 0x99999999u);
+        jav_t2_stamp(node, 2, 0x99999944u, 0x99999999u);
         break;
     }
     case 236: { // i32_reg0: Sig_v128_to_i32(v128_reg0)
@@ -8894,21 +8894,21 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 2, 0x99999944u, 0x99999990u);
+        jav_t2_stamp(node, 2, 0x99999944u, 0x99999990u);
         break;
     }
     case 237: { // i64_mem: Sig_to_i64
         for (int _ci = 0; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 238: { // i64_reg0: Sig_to_i64
         for (int _ci = 0; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999991u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999991u);
         break;
     }
     case 239: { // i64_mem: Sig_i64_to_i64(i64_mem)
@@ -8916,7 +8916,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 240: { // i64_reg0: Sig_i64_to_i64(i64_mem)
@@ -8924,7 +8924,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999991u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999991u);
         break;
     }
     case 241: { // i64_mem: Sig_i64_to_i64(i64_reg0)
@@ -8932,7 +8932,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999991u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999991u, 0x99999999u);
         break;
     }
     case 242: { // i64_reg0: Sig_i64_to_i64(i64_reg0)
@@ -8940,7 +8940,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999991u, 0x99999991u);
+        jav_t2_stamp(node, 1, 0x99999991u, 0x99999991u);
         break;
     }
     case 243: { // i64_mem: Sig_i32_to_i64(i32_mem)
@@ -8948,7 +8948,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 244: { // i64_reg0: Sig_i32_to_i64(i32_mem)
@@ -8956,7 +8956,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999991u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999991u);
         break;
     }
     case 245: { // i64_mem: Sig_i32_to_i64(i32_reg0)
@@ -8964,7 +8964,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
     case 246: { // i64_reg0: Sig_i32_to_i64(i32_reg0)
@@ -8972,7 +8972,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999991u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999991u);
         break;
     }
     case 247: { // i64_mem: Sig_i32_i32_to_i64(i32_mem, i32_mem)
@@ -8981,7 +8981,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 248: { // i64_reg0: Sig_i32_i32_to_i64(i32_mem, i32_mem)
@@ -8990,7 +8990,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999991u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999991u);
         break;
     }
     case 249: { // i64_mem: Sig_i32_i32_to_i64(i32_mem, i32_reg0)
@@ -8999,7 +8999,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
     case 250: { // i64_reg0: Sig_i32_i32_to_i64(i32_mem, i32_reg0)
@@ -9008,7 +9008,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999991u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999991u);
         break;
     }
     case 251: { // i64_mem: Sig_i32_i32_to_i64(i32_reg1, i32_reg0)
@@ -9017,7 +9017,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 2, 0x99999900u, 0x99999999u);
+        jav_t2_stamp(node, 2, 0x99999900u, 0x99999999u);
         break;
     }
     case 252: { // i64_reg0: Sig_i32_i32_to_i64(i32_reg1, i32_reg0)
@@ -9026,7 +9026,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 2, 0x99999900u, 0x99999991u);
+        jav_t2_stamp(node, 2, 0x99999900u, 0x99999991u);
         break;
     }
     case 253: { // i64_reg0: Sig_i32_i32_to_i64(i32_reg1, i32_reg0)
@@ -9035,7 +9035,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 3, 0x99999900u, 0x99999991u);
+        jav_t2_stamp(node, 3, 0x99999900u, 0x99999991u);
         break;
     }
     case 254: { // i64_reg0: Sig_i32_i32_to_i64(i32_reg1, i32_reg0)
@@ -9044,7 +9044,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 4, 0x99999900u, 0x99999991u);
+        jav_t2_stamp(node, 4, 0x99999900u, 0x99999991u);
         break;
     }
     case 255: { // i64_reg0: Sig_i32_i32_to_i64(i32_reg1, i32_reg0)
@@ -9053,7 +9053,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 5, 0x99999900u, 0x99999991u);
+        jav_t2_stamp(node, 5, 0x99999900u, 0x99999991u);
         break;
     }
     case 256: { // i64_reg0: Sig_i32_i32_to_i64(i32_reg1, i32_reg0)
@@ -9062,7 +9062,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 6, 0x99999900u, 0x99999991u);
+        jav_t2_stamp(node, 6, 0x99999900u, 0x99999991u);
         break;
     }
     case 257: { // i64_reg0: Sig_i32_i32_to_i64(i32_reg1, i32_reg0)
@@ -9071,7 +9071,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 7, 0x99999900u, 0x99999991u);
+        jav_t2_stamp(node, 7, 0x99999900u, 0x99999991u);
         break;
     }
     case 258: { // i64_reg0: Sig_i32_i32_to_i64(i32_reg1, i32_reg0)
@@ -9080,7 +9080,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 8, 0x99999900u, 0x99999991u);
+        jav_t2_stamp(node, 8, 0x99999900u, 0x99999991u);
         break;
     }
     case 259: { // i64_mem: Sig_i64_i32_to_i64(i64_mem, i32_mem)
@@ -9089,7 +9089,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 260: { // i64_reg0: Sig_i64_i32_to_i64(i64_mem, i32_mem)
@@ -9098,7 +9098,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999991u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999991u);
         break;
     }
     case 261: { // i64_mem: Sig_i64_i32_to_i64(i64_mem, i32_reg0)
@@ -9107,7 +9107,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
     case 262: { // i64_reg0: Sig_i64_i32_to_i64(i64_mem, i32_reg0)
@@ -9116,7 +9116,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999991u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999991u);
         break;
     }
     case 263: { // i64_mem: Sig_f32_i32_to_i64(f32_mem, i32_mem)
@@ -9125,7 +9125,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 264: { // i64_reg0: Sig_f32_i32_to_i64(f32_mem, i32_mem)
@@ -9134,7 +9134,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999991u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999991u);
         break;
     }
     case 265: { // i64_mem: Sig_f32_i32_to_i64(f32_mem, i32_reg0)
@@ -9143,7 +9143,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
     case 266: { // i64_reg0: Sig_f32_i32_to_i64(f32_mem, i32_reg0)
@@ -9152,7 +9152,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999991u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999991u);
         break;
     }
     case 267: { // i64_mem: Sig_f64_i32_to_i64(f64_mem, i32_mem)
@@ -9161,7 +9161,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 268: { // i64_reg0: Sig_f64_i32_to_i64(f64_mem, i32_mem)
@@ -9170,7 +9170,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999991u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999991u);
         break;
     }
     case 269: { // i64_mem: Sig_f64_i32_to_i64(f64_mem, i32_reg0)
@@ -9179,7 +9179,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
     case 270: { // i64_reg0: Sig_f64_i32_to_i64(f64_mem, i32_reg0)
@@ -9188,7 +9188,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999991u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999991u);
         break;
     }
     case 271: { // i64_mem: Sig_v128_i32_to_i64_pw(v128_mem, i32_mem)
@@ -9197,7 +9197,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 272: { // i64_reg0: Sig_v128_i32_to_i64_pw(v128_mem, i32_mem)
@@ -9206,7 +9206,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999991u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999991u);
         break;
     }
     case 273: { // i64_mem: Sig_v128_i32_to_i64_pw(v128_mem, i32_reg0)
@@ -9215,7 +9215,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
     case 274: { // i64_reg0: Sig_v128_i32_to_i64_pw(v128_mem, i32_reg0)
@@ -9224,7 +9224,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999991u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999991u);
         break;
     }
     case 275: { // i64_mem: Sig_ref_i32_to_i64(ref_mem, i32_mem)
@@ -9233,7 +9233,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 276: { // i64_reg0: Sig_ref_i32_to_i64(ref_mem, i32_mem)
@@ -9242,7 +9242,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999991u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999991u);
         break;
     }
     case 277: { // i64_mem: Sig_ref_i32_to_i64(ref_mem, i32_reg0)
@@ -9251,7 +9251,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
     case 278: { // i64_reg0: Sig_ref_i32_to_i64(ref_mem, i32_reg0)
@@ -9260,7 +9260,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999991u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999991u);
         break;
     }
     case 279: { // i64_mem: Sig_i32_i64_to_i64(i32_mem, i64_mem)
@@ -9269,7 +9269,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 280: { // i64_reg0: Sig_i32_i64_to_i64(i32_mem, i64_mem)
@@ -9278,7 +9278,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999991u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999991u);
         break;
     }
     case 281: { // i64_mem: Sig_i64_i64_to_i64(i64_mem, i64_mem)
@@ -9287,7 +9287,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 282: { // i64_reg0: Sig_i64_i64_to_i64(i64_mem, i64_mem)
@@ -9296,7 +9296,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999991u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999991u);
         break;
     }
     case 283: { // i64_mem: Sig_i64_i64_to_i64(i64_mem, i64_reg0)
@@ -9305,7 +9305,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999991u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999991u, 0x99999999u);
         break;
     }
     case 284: { // i64_reg0: Sig_i64_i64_to_i64(i64_mem, i64_reg0)
@@ -9314,7 +9314,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999991u, 0x99999991u);
+        jav_t2_stamp(node, 1, 0x99999991u, 0x99999991u);
         break;
     }
     case 285: { // i64_mem: Sig_i64_i64_to_i64(i64_reg1, i64_reg0)
@@ -9323,7 +9323,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 2, 0x99999911u, 0x99999999u);
+        jav_t2_stamp(node, 2, 0x99999911u, 0x99999999u);
         break;
     }
     case 286: { // i64_reg0: Sig_i64_i64_to_i64(i64_reg1, i64_reg0)
@@ -9332,7 +9332,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 2, 0x99999911u, 0x99999991u);
+        jav_t2_stamp(node, 2, 0x99999911u, 0x99999991u);
         break;
     }
     case 287: { // i64_reg0: Sig_i64_i64_to_i64(i64_reg1, i64_reg0)
@@ -9341,7 +9341,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 3, 0x99999911u, 0x99999991u);
+        jav_t2_stamp(node, 3, 0x99999911u, 0x99999991u);
         break;
     }
     case 288: { // i64_reg0: Sig_i64_i64_to_i64(i64_reg1, i64_reg0)
@@ -9350,7 +9350,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 4, 0x99999911u, 0x99999991u);
+        jav_t2_stamp(node, 4, 0x99999911u, 0x99999991u);
         break;
     }
     case 289: { // i64_reg0: Sig_i64_i64_to_i64(i64_reg1, i64_reg0)
@@ -9359,7 +9359,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 5, 0x99999911u, 0x99999991u);
+        jav_t2_stamp(node, 5, 0x99999911u, 0x99999991u);
         break;
     }
     case 290: { // i64_reg0: Sig_i64_i64_to_i64(i64_reg1, i64_reg0)
@@ -9368,7 +9368,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 6, 0x99999911u, 0x99999991u);
+        jav_t2_stamp(node, 6, 0x99999911u, 0x99999991u);
         break;
     }
     case 291: { // i64_reg0: Sig_i64_i64_to_i64(i64_reg1, i64_reg0)
@@ -9377,7 +9377,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 7, 0x99999911u, 0x99999991u);
+        jav_t2_stamp(node, 7, 0x99999911u, 0x99999991u);
         break;
     }
     case 292: { // i64_reg0: Sig_i64_i64_to_i64(i64_reg1, i64_reg0)
@@ -9386,7 +9386,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 8, 0x99999911u, 0x99999991u);
+        jav_t2_stamp(node, 8, 0x99999911u, 0x99999991u);
         break;
     }
     case 293: { // i64_mem: Sig_f32_i64_to_i64(f32_mem, i64_mem)
@@ -9395,7 +9395,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 294: { // i64_reg0: Sig_f32_i64_to_i64(f32_mem, i64_mem)
@@ -9404,7 +9404,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999991u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999991u);
         break;
     }
     case 295: { // i64_mem: Sig_f64_i64_to_i64(f64_mem, i64_mem)
@@ -9413,7 +9413,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 296: { // i64_reg0: Sig_f64_i64_to_i64(f64_mem, i64_mem)
@@ -9422,7 +9422,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999991u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999991u);
         break;
     }
     case 297: { // i64_mem: Sig_v128_i64_to_i64_pw(v128_mem, i64_mem)
@@ -9431,7 +9431,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 298: { // i64_reg0: Sig_v128_i64_to_i64_pw(v128_mem, i64_mem)
@@ -9440,7 +9440,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999991u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999991u);
         break;
     }
     case 299: { // i64_mem: Sig_ref_i64_to_i64(ref_mem, i64_mem)
@@ -9449,7 +9449,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 300: { // i64_reg0: Sig_ref_i64_to_i64(ref_mem, i64_mem)
@@ -9458,7 +9458,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999991u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999991u);
         break;
     }
     case 301: { // i64_mem: Sig_f32_to_i64(f32_mem)
@@ -9466,7 +9466,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 302: { // i64_reg0: Sig_f32_to_i64(f32_mem)
@@ -9474,7 +9474,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999991u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999991u);
         break;
     }
     case 303: { // i64_mem: Sig_f32_to_i64(f32_reg0)
@@ -9482,7 +9482,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999992u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999992u, 0x99999999u);
         break;
     }
     case 304: { // i64_reg0: Sig_f32_to_i64(f32_reg0)
@@ -9490,7 +9490,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999992u, 0x99999991u);
+        jav_t2_stamp(node, 1, 0x99999992u, 0x99999991u);
         break;
     }
     case 305: { // i64_mem: Sig_f64_to_i64(f64_mem)
@@ -9498,7 +9498,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 306: { // i64_reg0: Sig_f64_to_i64(f64_mem)
@@ -9506,7 +9506,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999991u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999991u);
         break;
     }
     case 307: { // i64_mem: Sig_f64_to_i64(f64_reg0)
@@ -9514,7 +9514,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999993u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999993u, 0x99999999u);
         break;
     }
     case 308: { // i64_reg0: Sig_f64_to_i64(f64_reg0)
@@ -9522,7 +9522,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999993u, 0x99999991u);
+        jav_t2_stamp(node, 1, 0x99999993u, 0x99999991u);
         break;
     }
     case 309: { // i64_mem: Sig_i64_i64_i32_to_i64(i64_mem, i64_mem, i32_mem)
@@ -9532,7 +9532,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 3; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 310: { // i64_reg0: Sig_i64_i64_i32_to_i64(i64_mem, i64_mem, i32_mem)
@@ -9542,7 +9542,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 3; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999991u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999991u);
         break;
     }
     case 311: { // i64_mem: Sig_i64_i64_i32_to_i64(i64_mem, i64_mem, i32_reg0)
@@ -9552,7 +9552,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 3; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
     case 312: { // i64_reg0: Sig_i64_i64_i32_to_i64(i64_mem, i64_mem, i32_reg0)
@@ -9562,21 +9562,21 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 3; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999991u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999991u);
         break;
     }
     case 313: { // i64_mem: Sig_stk_to_i64
         for (int _ci = 0; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 314: { // i64_reg0: Sig_stk_to_i64
         for (int _ci = 0; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999991u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999991u);
         break;
     }
     case 315: { // i64_mem: Sig_ref_to_i64(ref_mem)
@@ -9584,7 +9584,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 316: { // i64_reg0: Sig_ref_to_i64(ref_mem)
@@ -9592,7 +9592,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999991u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999991u);
         break;
     }
     case 317: { // i64_mem: Sig_v128_to_i64(v128_mem)
@@ -9600,7 +9600,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 318: { // i64_reg0: Sig_v128_to_i64(v128_mem)
@@ -9608,7 +9608,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999991u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999991u);
         break;
     }
     case 319: { // i64_mem: Sig_v128_to_i64(v128_reg0)
@@ -9616,7 +9616,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 2, 0x99999944u, 0x99999999u);
+        jav_t2_stamp(node, 2, 0x99999944u, 0x99999999u);
         break;
     }
     case 320: { // i64_reg0: Sig_v128_to_i64(v128_reg0)
@@ -9624,21 +9624,21 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 2, 0x99999944u, 0x99999991u);
+        jav_t2_stamp(node, 2, 0x99999944u, 0x99999991u);
         break;
     }
     case 321: { // f32_mem: Sig_to_f32
         for (int _ci = 0; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 322: { // f32_reg0: Sig_to_f32
         for (int _ci = 0; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999992u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999992u);
         break;
     }
     case 323: { // f32_mem: Sig_f32_to_f32(f32_mem)
@@ -9646,7 +9646,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 324: { // f32_reg0: Sig_f32_to_f32(f32_mem)
@@ -9654,7 +9654,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999992u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999992u);
         break;
     }
     case 325: { // f32_mem: Sig_f32_to_f32(f32_reg0)
@@ -9662,7 +9662,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999992u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999992u, 0x99999999u);
         break;
     }
     case 326: { // f32_reg0: Sig_f32_to_f32(f32_reg0)
@@ -9670,7 +9670,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999992u, 0x99999992u);
+        jav_t2_stamp(node, 1, 0x99999992u, 0x99999992u);
         break;
     }
     case 327: { // f32_mem: Sig_i32_to_f32(i32_mem)
@@ -9678,7 +9678,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 328: { // f32_reg0: Sig_i32_to_f32(i32_mem)
@@ -9686,7 +9686,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999992u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999992u);
         break;
     }
     case 329: { // f32_mem: Sig_i32_to_f32(i32_reg0)
@@ -9694,7 +9694,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
     case 330: { // f32_reg0: Sig_i32_to_f32(i32_reg0)
@@ -9702,7 +9702,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999992u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999992u);
         break;
     }
     case 331: { // f32_mem: Sig_i64_to_f32(i64_mem)
@@ -9710,7 +9710,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 332: { // f32_reg0: Sig_i64_to_f32(i64_mem)
@@ -9718,7 +9718,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999992u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999992u);
         break;
     }
     case 333: { // f32_mem: Sig_i64_to_f32(i64_reg0)
@@ -9726,7 +9726,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999991u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999991u, 0x99999999u);
         break;
     }
     case 334: { // f32_reg0: Sig_i64_to_f32(i64_reg0)
@@ -9734,7 +9734,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999991u, 0x99999992u);
+        jav_t2_stamp(node, 1, 0x99999991u, 0x99999992u);
         break;
     }
     case 335: { // f32_mem: Sig_i32_i32_to_f32(i32_mem, i32_mem)
@@ -9743,7 +9743,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 336: { // f32_reg0: Sig_i32_i32_to_f32(i32_mem, i32_mem)
@@ -9752,7 +9752,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999992u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999992u);
         break;
     }
     case 337: { // f32_mem: Sig_i32_i32_to_f32(i32_mem, i32_reg0)
@@ -9761,7 +9761,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
     case 338: { // f32_reg0: Sig_i32_i32_to_f32(i32_mem, i32_reg0)
@@ -9770,7 +9770,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999992u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999992u);
         break;
     }
     case 339: { // f32_mem: Sig_i32_i32_to_f32(i32_reg1, i32_reg0)
@@ -9779,7 +9779,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 2, 0x99999900u, 0x99999999u);
+        jav_t2_stamp(node, 2, 0x99999900u, 0x99999999u);
         break;
     }
     case 340: { // f32_reg0: Sig_i32_i32_to_f32(i32_reg1, i32_reg0)
@@ -9788,7 +9788,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 2, 0x99999900u, 0x99999992u);
+        jav_t2_stamp(node, 2, 0x99999900u, 0x99999992u);
         break;
     }
     case 341: { // f32_reg0: Sig_i32_i32_to_f32(i32_reg1, i32_reg0)
@@ -9797,7 +9797,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 3, 0x99999900u, 0x99999992u);
+        jav_t2_stamp(node, 3, 0x99999900u, 0x99999992u);
         break;
     }
     case 342: { // f32_reg0: Sig_i32_i32_to_f32(i32_reg1, i32_reg0)
@@ -9806,7 +9806,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 4, 0x99999900u, 0x99999992u);
+        jav_t2_stamp(node, 4, 0x99999900u, 0x99999992u);
         break;
     }
     case 343: { // f32_reg0: Sig_i32_i32_to_f32(i32_reg1, i32_reg0)
@@ -9815,7 +9815,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 5, 0x99999900u, 0x99999992u);
+        jav_t2_stamp(node, 5, 0x99999900u, 0x99999992u);
         break;
     }
     case 344: { // f32_reg0: Sig_i32_i32_to_f32(i32_reg1, i32_reg0)
@@ -9824,7 +9824,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 6, 0x99999900u, 0x99999992u);
+        jav_t2_stamp(node, 6, 0x99999900u, 0x99999992u);
         break;
     }
     case 345: { // f32_reg0: Sig_i32_i32_to_f32(i32_reg1, i32_reg0)
@@ -9833,7 +9833,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 7, 0x99999900u, 0x99999992u);
+        jav_t2_stamp(node, 7, 0x99999900u, 0x99999992u);
         break;
     }
     case 346: { // f32_reg0: Sig_i32_i32_to_f32(i32_reg1, i32_reg0)
@@ -9842,7 +9842,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 8, 0x99999900u, 0x99999992u);
+        jav_t2_stamp(node, 8, 0x99999900u, 0x99999992u);
         break;
     }
     case 347: { // f32_mem: Sig_i64_i32_to_f32(i64_mem, i32_mem)
@@ -9851,7 +9851,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 348: { // f32_reg0: Sig_i64_i32_to_f32(i64_mem, i32_mem)
@@ -9860,7 +9860,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999992u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999992u);
         break;
     }
     case 349: { // f32_mem: Sig_i64_i32_to_f32(i64_mem, i32_reg0)
@@ -9869,7 +9869,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
     case 350: { // f32_reg0: Sig_i64_i32_to_f32(i64_mem, i32_reg0)
@@ -9878,7 +9878,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999992u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999992u);
         break;
     }
     case 351: { // f32_mem: Sig_f32_i32_to_f32(f32_mem, i32_mem)
@@ -9887,7 +9887,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 352: { // f32_reg0: Sig_f32_i32_to_f32(f32_mem, i32_mem)
@@ -9896,7 +9896,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999992u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999992u);
         break;
     }
     case 353: { // f32_mem: Sig_f32_i32_to_f32(f32_mem, i32_reg0)
@@ -9905,7 +9905,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
     case 354: { // f32_reg0: Sig_f32_i32_to_f32(f32_mem, i32_reg0)
@@ -9914,7 +9914,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999992u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999992u);
         break;
     }
     case 355: { // f32_mem: Sig_f64_i32_to_f32(f64_mem, i32_mem)
@@ -9923,7 +9923,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 356: { // f32_reg0: Sig_f64_i32_to_f32(f64_mem, i32_mem)
@@ -9932,7 +9932,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999992u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999992u);
         break;
     }
     case 357: { // f32_mem: Sig_f64_i32_to_f32(f64_mem, i32_reg0)
@@ -9941,7 +9941,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
     case 358: { // f32_reg0: Sig_f64_i32_to_f32(f64_mem, i32_reg0)
@@ -9950,7 +9950,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999992u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999992u);
         break;
     }
     case 359: { // f32_mem: Sig_v128_i32_to_f32_pw(v128_mem, i32_mem)
@@ -9959,7 +9959,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 360: { // f32_reg0: Sig_v128_i32_to_f32_pw(v128_mem, i32_mem)
@@ -9968,7 +9968,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999992u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999992u);
         break;
     }
     case 361: { // f32_mem: Sig_v128_i32_to_f32_pw(v128_mem, i32_reg0)
@@ -9977,7 +9977,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
     case 362: { // f32_reg0: Sig_v128_i32_to_f32_pw(v128_mem, i32_reg0)
@@ -9986,7 +9986,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999992u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999992u);
         break;
     }
     case 363: { // f32_mem: Sig_ref_i32_to_f32(ref_mem, i32_mem)
@@ -9995,7 +9995,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 364: { // f32_reg0: Sig_ref_i32_to_f32(ref_mem, i32_mem)
@@ -10004,7 +10004,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999992u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999992u);
         break;
     }
     case 365: { // f32_mem: Sig_ref_i32_to_f32(ref_mem, i32_reg0)
@@ -10013,7 +10013,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
     case 366: { // f32_reg0: Sig_ref_i32_to_f32(ref_mem, i32_reg0)
@@ -10022,7 +10022,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999992u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999992u);
         break;
     }
     case 367: { // f32_mem: Sig_i32_i64_to_f32(i32_mem, i64_mem)
@@ -10031,7 +10031,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 368: { // f32_reg0: Sig_i32_i64_to_f32(i32_mem, i64_mem)
@@ -10040,7 +10040,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999992u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999992u);
         break;
     }
     case 369: { // f32_mem: Sig_i64_i64_to_f32(i64_mem, i64_mem)
@@ -10049,7 +10049,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 370: { // f32_reg0: Sig_i64_i64_to_f32(i64_mem, i64_mem)
@@ -10058,7 +10058,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999992u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999992u);
         break;
     }
     case 371: { // f32_mem: Sig_f32_i64_to_f32(f32_mem, i64_mem)
@@ -10067,7 +10067,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 372: { // f32_reg0: Sig_f32_i64_to_f32(f32_mem, i64_mem)
@@ -10076,7 +10076,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999992u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999992u);
         break;
     }
     case 373: { // f32_mem: Sig_f64_i64_to_f32(f64_mem, i64_mem)
@@ -10085,7 +10085,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 374: { // f32_reg0: Sig_f64_i64_to_f32(f64_mem, i64_mem)
@@ -10094,7 +10094,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999992u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999992u);
         break;
     }
     case 375: { // f32_mem: Sig_v128_i64_to_f32_pw(v128_mem, i64_mem)
@@ -10103,7 +10103,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 376: { // f32_reg0: Sig_v128_i64_to_f32_pw(v128_mem, i64_mem)
@@ -10112,7 +10112,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999992u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999992u);
         break;
     }
     case 377: { // f32_mem: Sig_ref_i64_to_f32(ref_mem, i64_mem)
@@ -10121,7 +10121,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 378: { // f32_reg0: Sig_ref_i64_to_f32(ref_mem, i64_mem)
@@ -10130,7 +10130,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999992u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999992u);
         break;
     }
     case 379: { // f32_mem: Sig_f32_f32_to_f32(f32_mem, f32_mem)
@@ -10139,7 +10139,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 380: { // f32_reg0: Sig_f32_f32_to_f32(f32_mem, f32_mem)
@@ -10148,7 +10148,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999992u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999992u);
         break;
     }
     case 381: { // f32_mem: Sig_f32_f32_to_f32(f32_mem, f32_reg0)
@@ -10157,7 +10157,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999992u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999992u, 0x99999999u);
         break;
     }
     case 382: { // f32_reg0: Sig_f32_f32_to_f32(f32_mem, f32_reg0)
@@ -10166,7 +10166,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999992u, 0x99999992u);
+        jav_t2_stamp(node, 1, 0x99999992u, 0x99999992u);
         break;
     }
     case 383: { // f32_mem: Sig_f32_f32_to_f32(f32_reg1, f32_reg0)
@@ -10175,7 +10175,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 2, 0x99999922u, 0x99999999u);
+        jav_t2_stamp(node, 2, 0x99999922u, 0x99999999u);
         break;
     }
     case 384: { // f32_reg0: Sig_f32_f32_to_f32(f32_reg1, f32_reg0)
@@ -10184,7 +10184,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 2, 0x99999922u, 0x99999992u);
+        jav_t2_stamp(node, 2, 0x99999922u, 0x99999992u);
         break;
     }
     case 385: { // f32_reg0: Sig_f32_f32_to_f32(f32_reg1, f32_reg0)
@@ -10193,7 +10193,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 3, 0x99999922u, 0x99999992u);
+        jav_t2_stamp(node, 3, 0x99999922u, 0x99999992u);
         break;
     }
     case 386: { // f32_reg0: Sig_f32_f32_to_f32(f32_reg1, f32_reg0)
@@ -10202,7 +10202,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 4, 0x99999922u, 0x99999992u);
+        jav_t2_stamp(node, 4, 0x99999922u, 0x99999992u);
         break;
     }
     case 387: { // f32_reg0: Sig_f32_f32_to_f32(f32_reg1, f32_reg0)
@@ -10211,7 +10211,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 5, 0x99999922u, 0x99999992u);
+        jav_t2_stamp(node, 5, 0x99999922u, 0x99999992u);
         break;
     }
     case 388: { // f32_reg0: Sig_f32_f32_to_f32(f32_reg1, f32_reg0)
@@ -10220,7 +10220,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 6, 0x99999922u, 0x99999992u);
+        jav_t2_stamp(node, 6, 0x99999922u, 0x99999992u);
         break;
     }
     case 389: { // f32_reg0: Sig_f32_f32_to_f32(f32_reg1, f32_reg0)
@@ -10229,7 +10229,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 7, 0x99999922u, 0x99999992u);
+        jav_t2_stamp(node, 7, 0x99999922u, 0x99999992u);
         break;
     }
     case 390: { // f32_reg0: Sig_f32_f32_to_f32(f32_reg1, f32_reg0)
@@ -10238,7 +10238,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 8, 0x99999922u, 0x99999992u);
+        jav_t2_stamp(node, 8, 0x99999922u, 0x99999992u);
         break;
     }
     case 391: { // f32_mem: Sig_f64_to_f32(f64_mem)
@@ -10246,7 +10246,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 392: { // f32_reg0: Sig_f64_to_f32(f64_mem)
@@ -10254,7 +10254,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999992u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999992u);
         break;
     }
     case 393: { // f32_mem: Sig_f64_to_f32(f64_reg0)
@@ -10262,7 +10262,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999993u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999993u, 0x99999999u);
         break;
     }
     case 394: { // f32_reg0: Sig_f64_to_f32(f64_reg0)
@@ -10270,7 +10270,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999993u, 0x99999992u);
+        jav_t2_stamp(node, 1, 0x99999993u, 0x99999992u);
         break;
     }
     case 395: { // f32_mem: Sig_f32_f32_i32_to_f32(f32_mem, f32_mem, i32_mem)
@@ -10280,7 +10280,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 3; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 396: { // f32_reg0: Sig_f32_f32_i32_to_f32(f32_mem, f32_mem, i32_mem)
@@ -10290,7 +10290,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 3; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999992u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999992u);
         break;
     }
     case 397: { // f32_mem: Sig_f32_f32_i32_to_f32(f32_mem, f32_mem, i32_reg0)
@@ -10300,7 +10300,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 3; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
     case 398: { // f32_reg0: Sig_f32_f32_i32_to_f32(f32_mem, f32_mem, i32_reg0)
@@ -10310,21 +10310,21 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 3; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999992u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999992u);
         break;
     }
     case 399: { // f32_mem: Sig_stk_to_f32
         for (int _ci = 0; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 400: { // f32_reg0: Sig_stk_to_f32
         for (int _ci = 0; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999992u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999992u);
         break;
     }
     case 401: { // f32_mem: Sig_ref_to_f32(ref_mem)
@@ -10332,7 +10332,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 402: { // f32_reg0: Sig_ref_to_f32(ref_mem)
@@ -10340,7 +10340,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999992u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999992u);
         break;
     }
     case 403: { // f32_mem: Sig_v128_to_f32(v128_mem)
@@ -10348,7 +10348,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 404: { // f32_reg0: Sig_v128_to_f32(v128_mem)
@@ -10356,7 +10356,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999992u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999992u);
         break;
     }
     case 405: { // f32_mem: Sig_v128_to_f32(v128_reg0)
@@ -10364,7 +10364,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 2, 0x99999944u, 0x99999999u);
+        jav_t2_stamp(node, 2, 0x99999944u, 0x99999999u);
         break;
     }
     case 406: { // f32_reg0: Sig_v128_to_f32(v128_reg0)
@@ -10372,21 +10372,21 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 2, 0x99999944u, 0x99999992u);
+        jav_t2_stamp(node, 2, 0x99999944u, 0x99999992u);
         break;
     }
     case 407: { // f64_mem: Sig_to_f64
         for (int _ci = 0; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 408: { // f64_reg0: Sig_to_f64
         for (int _ci = 0; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999993u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999993u);
         break;
     }
     case 409: { // f64_mem: Sig_f64_to_f64(f64_mem)
@@ -10394,7 +10394,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 410: { // f64_reg0: Sig_f64_to_f64(f64_mem)
@@ -10402,7 +10402,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999993u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999993u);
         break;
     }
     case 411: { // f64_mem: Sig_f64_to_f64(f64_reg0)
@@ -10410,7 +10410,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999993u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999993u, 0x99999999u);
         break;
     }
     case 412: { // f64_reg0: Sig_f64_to_f64(f64_reg0)
@@ -10418,7 +10418,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999993u, 0x99999993u);
+        jav_t2_stamp(node, 1, 0x99999993u, 0x99999993u);
         break;
     }
     case 413: { // f64_mem: Sig_i32_to_f64(i32_mem)
@@ -10426,7 +10426,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 414: { // f64_reg0: Sig_i32_to_f64(i32_mem)
@@ -10434,7 +10434,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999993u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999993u);
         break;
     }
     case 415: { // f64_mem: Sig_i32_to_f64(i32_reg0)
@@ -10442,7 +10442,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
     case 416: { // f64_reg0: Sig_i32_to_f64(i32_reg0)
@@ -10450,7 +10450,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999993u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999993u);
         break;
     }
     case 417: { // f64_mem: Sig_i64_to_f64(i64_mem)
@@ -10458,7 +10458,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 418: { // f64_reg0: Sig_i64_to_f64(i64_mem)
@@ -10466,7 +10466,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999993u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999993u);
         break;
     }
     case 419: { // f64_mem: Sig_i64_to_f64(i64_reg0)
@@ -10474,7 +10474,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999991u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999991u, 0x99999999u);
         break;
     }
     case 420: { // f64_reg0: Sig_i64_to_f64(i64_reg0)
@@ -10482,7 +10482,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999991u, 0x99999993u);
+        jav_t2_stamp(node, 1, 0x99999991u, 0x99999993u);
         break;
     }
     case 421: { // f64_mem: Sig_i32_i32_to_f64(i32_mem, i32_mem)
@@ -10491,7 +10491,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 422: { // f64_reg0: Sig_i32_i32_to_f64(i32_mem, i32_mem)
@@ -10500,7 +10500,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999993u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999993u);
         break;
     }
     case 423: { // f64_mem: Sig_i32_i32_to_f64(i32_mem, i32_reg0)
@@ -10509,7 +10509,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
     case 424: { // f64_reg0: Sig_i32_i32_to_f64(i32_mem, i32_reg0)
@@ -10518,7 +10518,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999993u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999993u);
         break;
     }
     case 425: { // f64_mem: Sig_i32_i32_to_f64(i32_reg1, i32_reg0)
@@ -10527,7 +10527,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 2, 0x99999900u, 0x99999999u);
+        jav_t2_stamp(node, 2, 0x99999900u, 0x99999999u);
         break;
     }
     case 426: { // f64_reg0: Sig_i32_i32_to_f64(i32_reg1, i32_reg0)
@@ -10536,7 +10536,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 2, 0x99999900u, 0x99999993u);
+        jav_t2_stamp(node, 2, 0x99999900u, 0x99999993u);
         break;
     }
     case 427: { // f64_reg0: Sig_i32_i32_to_f64(i32_reg1, i32_reg0)
@@ -10545,7 +10545,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 3, 0x99999900u, 0x99999993u);
+        jav_t2_stamp(node, 3, 0x99999900u, 0x99999993u);
         break;
     }
     case 428: { // f64_reg0: Sig_i32_i32_to_f64(i32_reg1, i32_reg0)
@@ -10554,7 +10554,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 4, 0x99999900u, 0x99999993u);
+        jav_t2_stamp(node, 4, 0x99999900u, 0x99999993u);
         break;
     }
     case 429: { // f64_reg0: Sig_i32_i32_to_f64(i32_reg1, i32_reg0)
@@ -10563,7 +10563,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 5, 0x99999900u, 0x99999993u);
+        jav_t2_stamp(node, 5, 0x99999900u, 0x99999993u);
         break;
     }
     case 430: { // f64_reg0: Sig_i32_i32_to_f64(i32_reg1, i32_reg0)
@@ -10572,7 +10572,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 6, 0x99999900u, 0x99999993u);
+        jav_t2_stamp(node, 6, 0x99999900u, 0x99999993u);
         break;
     }
     case 431: { // f64_reg0: Sig_i32_i32_to_f64(i32_reg1, i32_reg0)
@@ -10581,7 +10581,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 7, 0x99999900u, 0x99999993u);
+        jav_t2_stamp(node, 7, 0x99999900u, 0x99999993u);
         break;
     }
     case 432: { // f64_reg0: Sig_i32_i32_to_f64(i32_reg1, i32_reg0)
@@ -10590,7 +10590,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 8, 0x99999900u, 0x99999993u);
+        jav_t2_stamp(node, 8, 0x99999900u, 0x99999993u);
         break;
     }
     case 433: { // f64_mem: Sig_i64_i32_to_f64(i64_mem, i32_mem)
@@ -10599,7 +10599,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 434: { // f64_reg0: Sig_i64_i32_to_f64(i64_mem, i32_mem)
@@ -10608,7 +10608,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999993u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999993u);
         break;
     }
     case 435: { // f64_mem: Sig_i64_i32_to_f64(i64_mem, i32_reg0)
@@ -10617,7 +10617,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
     case 436: { // f64_reg0: Sig_i64_i32_to_f64(i64_mem, i32_reg0)
@@ -10626,7 +10626,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999993u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999993u);
         break;
     }
     case 437: { // f64_mem: Sig_f32_i32_to_f64(f32_mem, i32_mem)
@@ -10635,7 +10635,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 438: { // f64_reg0: Sig_f32_i32_to_f64(f32_mem, i32_mem)
@@ -10644,7 +10644,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999993u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999993u);
         break;
     }
     case 439: { // f64_mem: Sig_f32_i32_to_f64(f32_mem, i32_reg0)
@@ -10653,7 +10653,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
     case 440: { // f64_reg0: Sig_f32_i32_to_f64(f32_mem, i32_reg0)
@@ -10662,7 +10662,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999993u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999993u);
         break;
     }
     case 441: { // f64_mem: Sig_f64_i32_to_f64(f64_mem, i32_mem)
@@ -10671,7 +10671,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 442: { // f64_reg0: Sig_f64_i32_to_f64(f64_mem, i32_mem)
@@ -10680,7 +10680,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999993u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999993u);
         break;
     }
     case 443: { // f64_mem: Sig_f64_i32_to_f64(f64_mem, i32_reg0)
@@ -10689,7 +10689,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
     case 444: { // f64_reg0: Sig_f64_i32_to_f64(f64_mem, i32_reg0)
@@ -10698,7 +10698,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999993u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999993u);
         break;
     }
     case 445: { // f64_mem: Sig_v128_i32_to_f64_pw(v128_mem, i32_mem)
@@ -10707,7 +10707,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 446: { // f64_reg0: Sig_v128_i32_to_f64_pw(v128_mem, i32_mem)
@@ -10716,7 +10716,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999993u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999993u);
         break;
     }
     case 447: { // f64_mem: Sig_v128_i32_to_f64_pw(v128_mem, i32_reg0)
@@ -10725,7 +10725,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
     case 448: { // f64_reg0: Sig_v128_i32_to_f64_pw(v128_mem, i32_reg0)
@@ -10734,7 +10734,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999993u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999993u);
         break;
     }
     case 449: { // f64_mem: Sig_ref_i32_to_f64(ref_mem, i32_mem)
@@ -10743,7 +10743,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 450: { // f64_reg0: Sig_ref_i32_to_f64(ref_mem, i32_mem)
@@ -10752,7 +10752,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999993u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999993u);
         break;
     }
     case 451: { // f64_mem: Sig_ref_i32_to_f64(ref_mem, i32_reg0)
@@ -10761,7 +10761,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
     case 452: { // f64_reg0: Sig_ref_i32_to_f64(ref_mem, i32_reg0)
@@ -10770,7 +10770,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999993u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999993u);
         break;
     }
     case 453: { // f64_mem: Sig_i32_i64_to_f64(i32_mem, i64_mem)
@@ -10779,7 +10779,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 454: { // f64_reg0: Sig_i32_i64_to_f64(i32_mem, i64_mem)
@@ -10788,7 +10788,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999993u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999993u);
         break;
     }
     case 455: { // f64_mem: Sig_i64_i64_to_f64(i64_mem, i64_mem)
@@ -10797,7 +10797,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 456: { // f64_reg0: Sig_i64_i64_to_f64(i64_mem, i64_mem)
@@ -10806,7 +10806,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999993u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999993u);
         break;
     }
     case 457: { // f64_mem: Sig_f32_i64_to_f64(f32_mem, i64_mem)
@@ -10815,7 +10815,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 458: { // f64_reg0: Sig_f32_i64_to_f64(f32_mem, i64_mem)
@@ -10824,7 +10824,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999993u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999993u);
         break;
     }
     case 459: { // f64_mem: Sig_f64_i64_to_f64(f64_mem, i64_mem)
@@ -10833,7 +10833,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 460: { // f64_reg0: Sig_f64_i64_to_f64(f64_mem, i64_mem)
@@ -10842,7 +10842,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999993u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999993u);
         break;
     }
     case 461: { // f64_mem: Sig_v128_i64_to_f64_pw(v128_mem, i64_mem)
@@ -10851,7 +10851,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 462: { // f64_reg0: Sig_v128_i64_to_f64_pw(v128_mem, i64_mem)
@@ -10860,7 +10860,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999993u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999993u);
         break;
     }
     case 463: { // f64_mem: Sig_ref_i64_to_f64(ref_mem, i64_mem)
@@ -10869,7 +10869,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 464: { // f64_reg0: Sig_ref_i64_to_f64(ref_mem, i64_mem)
@@ -10878,7 +10878,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999993u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999993u);
         break;
     }
     case 465: { // f64_mem: Sig_f64_f64_to_f64(f64_mem, f64_mem)
@@ -10887,7 +10887,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 466: { // f64_reg0: Sig_f64_f64_to_f64(f64_mem, f64_mem)
@@ -10896,7 +10896,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999993u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999993u);
         break;
     }
     case 467: { // f64_mem: Sig_f64_f64_to_f64(f64_mem, f64_reg0)
@@ -10905,7 +10905,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999993u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999993u, 0x99999999u);
         break;
     }
     case 468: { // f64_reg0: Sig_f64_f64_to_f64(f64_mem, f64_reg0)
@@ -10914,7 +10914,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999993u, 0x99999993u);
+        jav_t2_stamp(node, 1, 0x99999993u, 0x99999993u);
         break;
     }
     case 469: { // f64_mem: Sig_f64_f64_to_f64(f64_reg1, f64_reg0)
@@ -10923,7 +10923,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 2, 0x99999933u, 0x99999999u);
+        jav_t2_stamp(node, 2, 0x99999933u, 0x99999999u);
         break;
     }
     case 470: { // f64_reg0: Sig_f64_f64_to_f64(f64_reg1, f64_reg0)
@@ -10932,7 +10932,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 2, 0x99999933u, 0x99999993u);
+        jav_t2_stamp(node, 2, 0x99999933u, 0x99999993u);
         break;
     }
     case 471: { // f64_reg0: Sig_f64_f64_to_f64(f64_reg1, f64_reg0)
@@ -10941,7 +10941,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 3, 0x99999933u, 0x99999993u);
+        jav_t2_stamp(node, 3, 0x99999933u, 0x99999993u);
         break;
     }
     case 472: { // f64_reg0: Sig_f64_f64_to_f64(f64_reg1, f64_reg0)
@@ -10950,7 +10950,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 4, 0x99999933u, 0x99999993u);
+        jav_t2_stamp(node, 4, 0x99999933u, 0x99999993u);
         break;
     }
     case 473: { // f64_reg0: Sig_f64_f64_to_f64(f64_reg1, f64_reg0)
@@ -10959,7 +10959,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 5, 0x99999933u, 0x99999993u);
+        jav_t2_stamp(node, 5, 0x99999933u, 0x99999993u);
         break;
     }
     case 474: { // f64_reg0: Sig_f64_f64_to_f64(f64_reg1, f64_reg0)
@@ -10968,7 +10968,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 6, 0x99999933u, 0x99999993u);
+        jav_t2_stamp(node, 6, 0x99999933u, 0x99999993u);
         break;
     }
     case 475: { // f64_reg0: Sig_f64_f64_to_f64(f64_reg1, f64_reg0)
@@ -10977,7 +10977,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 7, 0x99999933u, 0x99999993u);
+        jav_t2_stamp(node, 7, 0x99999933u, 0x99999993u);
         break;
     }
     case 476: { // f64_reg0: Sig_f64_f64_to_f64(f64_reg1, f64_reg0)
@@ -10986,7 +10986,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 8, 0x99999933u, 0x99999993u);
+        jav_t2_stamp(node, 8, 0x99999933u, 0x99999993u);
         break;
     }
     case 477: { // f64_mem: Sig_f32_to_f64(f32_mem)
@@ -10994,7 +10994,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 478: { // f64_reg0: Sig_f32_to_f64(f32_mem)
@@ -11002,7 +11002,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999993u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999993u);
         break;
     }
     case 479: { // f64_mem: Sig_f32_to_f64(f32_reg0)
@@ -11010,7 +11010,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999992u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999992u, 0x99999999u);
         break;
     }
     case 480: { // f64_reg0: Sig_f32_to_f64(f32_reg0)
@@ -11018,7 +11018,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999992u, 0x99999993u);
+        jav_t2_stamp(node, 1, 0x99999992u, 0x99999993u);
         break;
     }
     case 481: { // f64_mem: Sig_f64_f64_i32_to_f64(f64_mem, f64_mem, i32_mem)
@@ -11028,7 +11028,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 3; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 482: { // f64_reg0: Sig_f64_f64_i32_to_f64(f64_mem, f64_mem, i32_mem)
@@ -11038,7 +11038,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 3; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999993u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999993u);
         break;
     }
     case 483: { // f64_mem: Sig_f64_f64_i32_to_f64(f64_mem, f64_mem, i32_reg0)
@@ -11048,7 +11048,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 3; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
     case 484: { // f64_reg0: Sig_f64_f64_i32_to_f64(f64_mem, f64_mem, i32_reg0)
@@ -11058,21 +11058,21 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 3; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999993u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999993u);
         break;
     }
     case 485: { // f64_mem: Sig_stk_to_f64
         for (int _ci = 0; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 486: { // f64_reg0: Sig_stk_to_f64
         for (int _ci = 0; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999993u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999993u);
         break;
     }
     case 487: { // f64_mem: Sig_ref_to_f64(ref_mem)
@@ -11080,7 +11080,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 488: { // f64_reg0: Sig_ref_to_f64(ref_mem)
@@ -11088,7 +11088,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999993u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999993u);
         break;
     }
     case 489: { // f64_mem: Sig_v128_to_f64(v128_mem)
@@ -11096,7 +11096,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 490: { // f64_reg0: Sig_v128_to_f64(v128_mem)
@@ -11104,7 +11104,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999993u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999993u);
         break;
     }
     case 491: { // f64_mem: Sig_v128_to_f64(v128_reg0)
@@ -11112,7 +11112,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 2, 0x99999944u, 0x99999999u);
+        jav_t2_stamp(node, 2, 0x99999944u, 0x99999999u);
         break;
     }
     case 492: { // f64_reg0: Sig_v128_to_f64(v128_reg0)
@@ -11120,14 +11120,14 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 2, 0x99999944u, 0x99999993u);
+        jav_t2_stamp(node, 2, 0x99999944u, 0x99999993u);
         break;
     }
     case 493: { // v128_mem: Sig_to_v128_pw
         for (int _ci = 0; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 494: { // v128_mem: Sig_v128_to_v128_pw(v128_mem)
@@ -11135,7 +11135,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 495: { // v128_mem: Sig_i32_to_v128_pw(i32_mem)
@@ -11143,7 +11143,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 496: { // v128_mem: Sig_i32_to_v128_pw(i32_reg0)
@@ -11151,7 +11151,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
     case 497: { // v128_mem: Sig_i64_to_v128_pw(i64_mem)
@@ -11159,7 +11159,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 498: { // v128_mem: Sig_i32_i32_to_v128_pw(i32_mem, i32_mem)
@@ -11168,7 +11168,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 499: { // v128_mem: Sig_i32_i32_to_v128_pw(i32_mem, i32_reg0)
@@ -11177,7 +11177,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
     case 500: { // v128_mem: Sig_i32_i32_to_v128_pw(i32_reg1, i32_reg0)
@@ -11186,7 +11186,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 2, 0x99999900u, 0x99999999u);
+        jav_t2_stamp(node, 2, 0x99999900u, 0x99999999u);
         break;
     }
     case 501: { // v128_mem: Sig_i64_i32_to_v128_pw(i64_mem, i32_mem)
@@ -11195,7 +11195,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 502: { // v128_mem: Sig_i64_i32_to_v128_pw(i64_mem, i32_reg0)
@@ -11204,7 +11204,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
     case 503: { // v128_mem: Sig_f32_i32_to_v128_pw(f32_mem, i32_mem)
@@ -11213,7 +11213,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 504: { // v128_mem: Sig_f32_i32_to_v128_pw(f32_mem, i32_reg0)
@@ -11222,7 +11222,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
     case 505: { // v128_mem: Sig_f64_i32_to_v128_pw(f64_mem, i32_mem)
@@ -11231,7 +11231,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 506: { // v128_mem: Sig_f64_i32_to_v128_pw(f64_mem, i32_reg0)
@@ -11240,7 +11240,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
     case 507: { // v128_mem: Sig_v128_i32_to_v128_pw(v128_mem, i32_mem)
@@ -11249,7 +11249,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 508: { // v128_mem: Sig_v128_i32_to_v128_pw(v128_mem, i32_reg0)
@@ -11258,7 +11258,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
     case 509: { // v128_mem: Sig_ref_i32_to_v128_pw(ref_mem, i32_mem)
@@ -11267,7 +11267,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 510: { // v128_mem: Sig_ref_i32_to_v128_pw(ref_mem, i32_reg0)
@@ -11276,7 +11276,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
     case 511: { // v128_mem: Sig_i32_i64_to_v128_pw(i32_mem, i64_mem)
@@ -11285,7 +11285,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 512: { // v128_mem: Sig_i64_i64_to_v128_pw(i64_mem, i64_mem)
@@ -11294,7 +11294,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 513: { // v128_mem: Sig_f32_i64_to_v128_pw(f32_mem, i64_mem)
@@ -11303,7 +11303,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 514: { // v128_mem: Sig_f64_i64_to_v128_pw(f64_mem, i64_mem)
@@ -11312,7 +11312,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 515: { // v128_mem: Sig_v128_i64_to_v128_pw(v128_mem, i64_mem)
@@ -11321,7 +11321,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 516: { // v128_mem: Sig_ref_i64_to_v128_pw(ref_mem, i64_mem)
@@ -11330,7 +11330,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 517: { // v128_mem: Sig_v128_v128_i32_to_v128_pw(v128_mem, v128_mem, i32_mem)
@@ -11340,7 +11340,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 3; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 518: { // v128_mem: Sig_v128_v128_i32_to_v128_pw(v128_mem, v128_mem, i32_reg0)
@@ -11350,14 +11350,14 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 3; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
     case 519: { // v128_mem: Sig_stk_to_v128_pw
         for (int _ci = 0; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 520: { // v128_mem: Sig_ref_to_v128_pw(ref_mem)
@@ -11365,7 +11365,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 521: { // v128_mem: Sig_i32_to_v128(i32_mem)
@@ -11373,7 +11373,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 522: { // v128_reg0: Sig_i32_to_v128(i32_mem)
@@ -11381,7 +11381,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999944u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999944u);
         break;
     }
     case 523: { // v128_mem: Sig_i32_to_v128(i32_reg0)
@@ -11389,7 +11389,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
     case 524: { // v128_reg0: Sig_i32_to_v128(i32_reg0)
@@ -11397,7 +11397,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999944u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999944u);
         break;
     }
     case 525: { // v128_mem: Sig_i64_to_v128(i64_mem)
@@ -11405,7 +11405,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 526: { // v128_reg0: Sig_i64_to_v128(i64_mem)
@@ -11413,7 +11413,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999944u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999944u);
         break;
     }
     case 527: { // v128_mem: Sig_i64_to_v128(i64_reg0)
@@ -11421,7 +11421,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999991u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999991u, 0x99999999u);
         break;
     }
     case 528: { // v128_reg0: Sig_i64_to_v128(i64_reg0)
@@ -11429,21 +11429,21 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999991u, 0x99999944u);
+        jav_t2_stamp(node, 1, 0x99999991u, 0x99999944u);
         break;
     }
     case 529: { // v128_mem: Sig_to_v128
         for (int _ci = 0; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 530: { // v128_reg0: Sig_to_v128
         for (int _ci = 0; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999944u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999944u);
         break;
     }
     case 531: { // v128_mem: Sig_v128_v128_to_v128(v128_mem, v128_mem)
@@ -11452,7 +11452,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 532: { // v128_reg0: Sig_v128_v128_to_v128(v128_mem, v128_mem)
@@ -11461,7 +11461,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999944u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999944u);
         break;
     }
     case 533: { // v128_mem: Sig_v128_v128_to_v128(v128_mem, v128_reg0)
@@ -11470,7 +11470,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 2, 0x99999944u, 0x99999999u);
+        jav_t2_stamp(node, 2, 0x99999944u, 0x99999999u);
         break;
     }
     case 534: { // v128_reg0: Sig_v128_v128_to_v128(v128_mem, v128_reg0)
@@ -11479,7 +11479,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 2, 0x99999944u, 0x99999944u);
+        jav_t2_stamp(node, 2, 0x99999944u, 0x99999944u);
         break;
     }
     case 535: { // v128_mem: Sig_v128_v128_to_v128(v128_reg2, v128_reg0)
@@ -11488,7 +11488,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 4, 0x99994444u, 0x99999999u);
+        jav_t2_stamp(node, 4, 0x99994444u, 0x99999999u);
         break;
     }
     case 536: { // v128_reg0: Sig_v128_v128_to_v128(v128_reg2, v128_reg0)
@@ -11497,7 +11497,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 4, 0x99994444u, 0x99999944u);
+        jav_t2_stamp(node, 4, 0x99994444u, 0x99999944u);
         break;
     }
     case 537: { // v128_reg0: Sig_v128_v128_to_v128(v128_reg2, v128_reg0)
@@ -11506,7 +11506,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 5, 0x99994444u, 0x99999944u);
+        jav_t2_stamp(node, 5, 0x99994444u, 0x99999944u);
         break;
     }
     case 538: { // v128_reg0: Sig_v128_v128_to_v128(v128_reg2, v128_reg0)
@@ -11515,7 +11515,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 6, 0x99994444u, 0x99999944u);
+        jav_t2_stamp(node, 6, 0x99994444u, 0x99999944u);
         break;
     }
     case 539: { // v128_reg0: Sig_v128_v128_to_v128(v128_reg2, v128_reg0)
@@ -11524,7 +11524,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 7, 0x99994444u, 0x99999944u);
+        jav_t2_stamp(node, 7, 0x99994444u, 0x99999944u);
         break;
     }
     case 540: { // v128_reg0: Sig_v128_v128_to_v128(v128_reg2, v128_reg0)
@@ -11533,7 +11533,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 8, 0x99994444u, 0x99999944u);
+        jav_t2_stamp(node, 8, 0x99994444u, 0x99999944u);
         break;
     }
     case 541: { // v128_mem: Sig_i32_v128_to_v128(i32_mem, v128_mem)
@@ -11542,7 +11542,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 542: { // v128_reg0: Sig_i32_v128_to_v128(i32_mem, v128_mem)
@@ -11551,7 +11551,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999944u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999944u);
         break;
     }
     case 543: { // v128_mem: Sig_i32_v128_to_v128(i32_mem, v128_reg0)
@@ -11560,7 +11560,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 2, 0x99999944u, 0x99999999u);
+        jav_t2_stamp(node, 2, 0x99999944u, 0x99999999u);
         break;
     }
     case 544: { // v128_reg0: Sig_i32_v128_to_v128(i32_mem, v128_reg0)
@@ -11569,7 +11569,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 2, 0x99999944u, 0x99999944u);
+        jav_t2_stamp(node, 2, 0x99999944u, 0x99999944u);
         break;
     }
     case 545: { // v128_mem: Sig_i64_v128_to_v128(i64_mem, v128_mem)
@@ -11578,7 +11578,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 546: { // v128_reg0: Sig_i64_v128_to_v128(i64_mem, v128_mem)
@@ -11587,7 +11587,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999944u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999944u);
         break;
     }
     case 547: { // v128_mem: Sig_i64_v128_to_v128(i64_mem, v128_reg0)
@@ -11596,7 +11596,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 2, 0x99999944u, 0x99999999u);
+        jav_t2_stamp(node, 2, 0x99999944u, 0x99999999u);
         break;
     }
     case 548: { // v128_reg0: Sig_i64_v128_to_v128(i64_mem, v128_reg0)
@@ -11605,7 +11605,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 2, 0x99999944u, 0x99999944u);
+        jav_t2_stamp(node, 2, 0x99999944u, 0x99999944u);
         break;
     }
     case 549: { // v128_mem: Sig_f32_to_v128(f32_mem)
@@ -11613,7 +11613,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 550: { // v128_reg0: Sig_f32_to_v128(f32_mem)
@@ -11621,7 +11621,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999944u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999944u);
         break;
     }
     case 551: { // v128_mem: Sig_f32_to_v128(f32_reg0)
@@ -11629,7 +11629,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999992u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999992u, 0x99999999u);
         break;
     }
     case 552: { // v128_reg0: Sig_f32_to_v128(f32_reg0)
@@ -11637,7 +11637,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999992u, 0x99999944u);
+        jav_t2_stamp(node, 1, 0x99999992u, 0x99999944u);
         break;
     }
     case 553: { // v128_mem: Sig_f64_to_v128(f64_mem)
@@ -11645,7 +11645,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 554: { // v128_reg0: Sig_f64_to_v128(f64_mem)
@@ -11653,7 +11653,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999944u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999944u);
         break;
     }
     case 555: { // v128_mem: Sig_f64_to_v128(f64_reg0)
@@ -11661,7 +11661,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999993u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999993u, 0x99999999u);
         break;
     }
     case 556: { // v128_reg0: Sig_f64_to_v128(f64_reg0)
@@ -11669,7 +11669,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999993u, 0x99999944u);
+        jav_t2_stamp(node, 1, 0x99999993u, 0x99999944u);
         break;
     }
     case 557: { // v128_mem: Sig_v128_to_v128(v128_mem)
@@ -11677,7 +11677,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 558: { // v128_reg0: Sig_v128_to_v128(v128_mem)
@@ -11685,7 +11685,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999944u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999944u);
         break;
     }
     case 559: { // v128_mem: Sig_v128_to_v128(v128_reg0)
@@ -11693,7 +11693,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 2, 0x99999944u, 0x99999999u);
+        jav_t2_stamp(node, 2, 0x99999944u, 0x99999999u);
         break;
     }
     case 560: { // v128_reg0: Sig_v128_to_v128(v128_reg0)
@@ -11701,7 +11701,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 2, 0x99999944u, 0x99999944u);
+        jav_t2_stamp(node, 2, 0x99999944u, 0x99999944u);
         break;
     }
     case 561: { // v128_mem: Sig_v128_i32_to_v128(v128_mem, i32_mem)
@@ -11710,7 +11710,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 562: { // v128_reg0: Sig_v128_i32_to_v128(v128_mem, i32_mem)
@@ -11719,7 +11719,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999944u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999944u);
         break;
     }
     case 563: { // v128_mem: Sig_v128_i32_to_v128(v128_mem, i32_reg0)
@@ -11728,7 +11728,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
     case 564: { // v128_reg0: Sig_v128_i32_to_v128(v128_mem, i32_reg0)
@@ -11737,7 +11737,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999944u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999944u);
         break;
     }
     case 565: { // v128_mem: Sig_v128_i32_to_v128(v128_reg1, i32_reg0)
@@ -11746,7 +11746,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 3, 0x99999440u, 0x99999999u);
+        jav_t2_stamp(node, 3, 0x99999440u, 0x99999999u);
         break;
     }
     case 566: { // v128_reg0: Sig_v128_i32_to_v128(v128_reg1, i32_reg0)
@@ -11755,7 +11755,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 3, 0x99999440u, 0x99999944u);
+        jav_t2_stamp(node, 3, 0x99999440u, 0x99999944u);
         break;
     }
     case 567: { // v128_reg0: Sig_v128_i32_to_v128(v128_reg1, i32_reg0)
@@ -11764,7 +11764,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 4, 0x99999440u, 0x99999944u);
+        jav_t2_stamp(node, 4, 0x99999440u, 0x99999944u);
         break;
     }
     case 568: { // v128_reg0: Sig_v128_i32_to_v128(v128_reg1, i32_reg0)
@@ -11773,7 +11773,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 5, 0x99999440u, 0x99999944u);
+        jav_t2_stamp(node, 5, 0x99999440u, 0x99999944u);
         break;
     }
     case 569: { // v128_reg0: Sig_v128_i32_to_v128(v128_reg1, i32_reg0)
@@ -11782,7 +11782,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 6, 0x99999440u, 0x99999944u);
+        jav_t2_stamp(node, 6, 0x99999440u, 0x99999944u);
         break;
     }
     case 570: { // v128_reg0: Sig_v128_i32_to_v128(v128_reg1, i32_reg0)
@@ -11791,7 +11791,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 7, 0x99999440u, 0x99999944u);
+        jav_t2_stamp(node, 7, 0x99999440u, 0x99999944u);
         break;
     }
     case 571: { // v128_reg0: Sig_v128_i32_to_v128(v128_reg1, i32_reg0)
@@ -11800,7 +11800,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 8, 0x99999440u, 0x99999944u);
+        jav_t2_stamp(node, 8, 0x99999440u, 0x99999944u);
         break;
     }
     case 572: { // v128_mem: Sig_v128_i64_to_v128(v128_mem, i64_mem)
@@ -11809,7 +11809,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 573: { // v128_reg0: Sig_v128_i64_to_v128(v128_mem, i64_mem)
@@ -11818,7 +11818,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999944u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999944u);
         break;
     }
     case 574: { // v128_mem: Sig_v128_i64_to_v128(v128_mem, i64_reg0)
@@ -11827,7 +11827,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999991u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999991u, 0x99999999u);
         break;
     }
     case 575: { // v128_reg0: Sig_v128_i64_to_v128(v128_mem, i64_reg0)
@@ -11836,7 +11836,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999991u, 0x99999944u);
+        jav_t2_stamp(node, 1, 0x99999991u, 0x99999944u);
         break;
     }
     case 576: { // v128_mem: Sig_v128_i64_to_v128(v128_reg1, i64_reg0)
@@ -11845,7 +11845,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 3, 0x99999441u, 0x99999999u);
+        jav_t2_stamp(node, 3, 0x99999441u, 0x99999999u);
         break;
     }
     case 577: { // v128_reg0: Sig_v128_i64_to_v128(v128_reg1, i64_reg0)
@@ -11854,7 +11854,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 3, 0x99999441u, 0x99999944u);
+        jav_t2_stamp(node, 3, 0x99999441u, 0x99999944u);
         break;
     }
     case 578: { // v128_reg0: Sig_v128_i64_to_v128(v128_reg1, i64_reg0)
@@ -11863,7 +11863,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 4, 0x99999441u, 0x99999944u);
+        jav_t2_stamp(node, 4, 0x99999441u, 0x99999944u);
         break;
     }
     case 579: { // v128_reg0: Sig_v128_i64_to_v128(v128_reg1, i64_reg0)
@@ -11872,7 +11872,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 5, 0x99999441u, 0x99999944u);
+        jav_t2_stamp(node, 5, 0x99999441u, 0x99999944u);
         break;
     }
     case 580: { // v128_reg0: Sig_v128_i64_to_v128(v128_reg1, i64_reg0)
@@ -11881,7 +11881,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 6, 0x99999441u, 0x99999944u);
+        jav_t2_stamp(node, 6, 0x99999441u, 0x99999944u);
         break;
     }
     case 581: { // v128_reg0: Sig_v128_i64_to_v128(v128_reg1, i64_reg0)
@@ -11890,7 +11890,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 7, 0x99999441u, 0x99999944u);
+        jav_t2_stamp(node, 7, 0x99999441u, 0x99999944u);
         break;
     }
     case 582: { // v128_reg0: Sig_v128_i64_to_v128(v128_reg1, i64_reg0)
@@ -11899,7 +11899,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 8, 0x99999441u, 0x99999944u);
+        jav_t2_stamp(node, 8, 0x99999441u, 0x99999944u);
         break;
     }
     case 583: { // v128_mem: Sig_v128_f32_to_v128(v128_mem, f32_mem)
@@ -11908,7 +11908,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 584: { // v128_reg0: Sig_v128_f32_to_v128(v128_mem, f32_mem)
@@ -11917,7 +11917,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999944u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999944u);
         break;
     }
     case 585: { // v128_mem: Sig_v128_f32_to_v128(v128_mem, f32_reg0)
@@ -11926,7 +11926,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999992u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999992u, 0x99999999u);
         break;
     }
     case 586: { // v128_reg0: Sig_v128_f32_to_v128(v128_mem, f32_reg0)
@@ -11935,7 +11935,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999992u, 0x99999944u);
+        jav_t2_stamp(node, 1, 0x99999992u, 0x99999944u);
         break;
     }
     case 587: { // v128_mem: Sig_v128_f32_to_v128(v128_reg1, f32_reg0)
@@ -11944,7 +11944,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 3, 0x99999442u, 0x99999999u);
+        jav_t2_stamp(node, 3, 0x99999442u, 0x99999999u);
         break;
     }
     case 588: { // v128_reg0: Sig_v128_f32_to_v128(v128_reg1, f32_reg0)
@@ -11953,7 +11953,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 3, 0x99999442u, 0x99999944u);
+        jav_t2_stamp(node, 3, 0x99999442u, 0x99999944u);
         break;
     }
     case 589: { // v128_reg0: Sig_v128_f32_to_v128(v128_reg1, f32_reg0)
@@ -11962,7 +11962,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 4, 0x99999442u, 0x99999944u);
+        jav_t2_stamp(node, 4, 0x99999442u, 0x99999944u);
         break;
     }
     case 590: { // v128_reg0: Sig_v128_f32_to_v128(v128_reg1, f32_reg0)
@@ -11971,7 +11971,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 5, 0x99999442u, 0x99999944u);
+        jav_t2_stamp(node, 5, 0x99999442u, 0x99999944u);
         break;
     }
     case 591: { // v128_reg0: Sig_v128_f32_to_v128(v128_reg1, f32_reg0)
@@ -11980,7 +11980,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 6, 0x99999442u, 0x99999944u);
+        jav_t2_stamp(node, 6, 0x99999442u, 0x99999944u);
         break;
     }
     case 592: { // v128_reg0: Sig_v128_f32_to_v128(v128_reg1, f32_reg0)
@@ -11989,7 +11989,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 7, 0x99999442u, 0x99999944u);
+        jav_t2_stamp(node, 7, 0x99999442u, 0x99999944u);
         break;
     }
     case 593: { // v128_reg0: Sig_v128_f32_to_v128(v128_reg1, f32_reg0)
@@ -11998,7 +11998,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 8, 0x99999442u, 0x99999944u);
+        jav_t2_stamp(node, 8, 0x99999442u, 0x99999944u);
         break;
     }
     case 594: { // v128_mem: Sig_v128_f64_to_v128(v128_mem, f64_mem)
@@ -12007,7 +12007,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 595: { // v128_reg0: Sig_v128_f64_to_v128(v128_mem, f64_mem)
@@ -12016,7 +12016,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999944u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999944u);
         break;
     }
     case 596: { // v128_mem: Sig_v128_f64_to_v128(v128_mem, f64_reg0)
@@ -12025,7 +12025,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999993u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999993u, 0x99999999u);
         break;
     }
     case 597: { // v128_reg0: Sig_v128_f64_to_v128(v128_mem, f64_reg0)
@@ -12034,7 +12034,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999993u, 0x99999944u);
+        jav_t2_stamp(node, 1, 0x99999993u, 0x99999944u);
         break;
     }
     case 598: { // v128_mem: Sig_v128_f64_to_v128(v128_reg1, f64_reg0)
@@ -12043,7 +12043,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 3, 0x99999443u, 0x99999999u);
+        jav_t2_stamp(node, 3, 0x99999443u, 0x99999999u);
         break;
     }
     case 599: { // v128_reg0: Sig_v128_f64_to_v128(v128_reg1, f64_reg0)
@@ -12052,7 +12052,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 3, 0x99999443u, 0x99999944u);
+        jav_t2_stamp(node, 3, 0x99999443u, 0x99999944u);
         break;
     }
     case 600: { // v128_reg0: Sig_v128_f64_to_v128(v128_reg1, f64_reg0)
@@ -12061,7 +12061,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 4, 0x99999443u, 0x99999944u);
+        jav_t2_stamp(node, 4, 0x99999443u, 0x99999944u);
         break;
     }
     case 601: { // v128_reg0: Sig_v128_f64_to_v128(v128_reg1, f64_reg0)
@@ -12070,7 +12070,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 5, 0x99999443u, 0x99999944u);
+        jav_t2_stamp(node, 5, 0x99999443u, 0x99999944u);
         break;
     }
     case 602: { // v128_reg0: Sig_v128_f64_to_v128(v128_reg1, f64_reg0)
@@ -12079,7 +12079,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 6, 0x99999443u, 0x99999944u);
+        jav_t2_stamp(node, 6, 0x99999443u, 0x99999944u);
         break;
     }
     case 603: { // v128_reg0: Sig_v128_f64_to_v128(v128_reg1, f64_reg0)
@@ -12088,7 +12088,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 7, 0x99999443u, 0x99999944u);
+        jav_t2_stamp(node, 7, 0x99999443u, 0x99999944u);
         break;
     }
     case 604: { // v128_reg0: Sig_v128_f64_to_v128(v128_reg1, f64_reg0)
@@ -12097,7 +12097,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 8, 0x99999443u, 0x99999944u);
+        jav_t2_stamp(node, 8, 0x99999443u, 0x99999944u);
         break;
     }
     case 605: { // v128_mem: Sig_v128_v128_v128_to_v128(v128_mem, v128_mem, v128_mem)
@@ -12107,7 +12107,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 3; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 606: { // v128_reg0: Sig_v128_v128_v128_to_v128(v128_mem, v128_mem, v128_mem)
@@ -12117,7 +12117,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 3; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999944u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999944u);
         break;
     }
     case 607: { // v128_mem: Sig_v128_v128_v128_to_v128(v128_mem, v128_mem, v128_reg0)
@@ -12127,7 +12127,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 3; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 2, 0x99999944u, 0x99999999u);
+        jav_t2_stamp(node, 2, 0x99999944u, 0x99999999u);
         break;
     }
     case 608: { // v128_reg0: Sig_v128_v128_v128_to_v128(v128_mem, v128_mem, v128_reg0)
@@ -12137,7 +12137,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 3; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 2, 0x99999944u, 0x99999944u);
+        jav_t2_stamp(node, 2, 0x99999944u, 0x99999944u);
         break;
     }
     case 609: { // v128_mem: Sig_v128_v128_v128_to_v128(v128_mem, v128_reg2, v128_reg0)
@@ -12147,7 +12147,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 3; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 4, 0x99994444u, 0x99999999u);
+        jav_t2_stamp(node, 4, 0x99994444u, 0x99999999u);
         break;
     }
     case 610: { // v128_reg0: Sig_v128_v128_v128_to_v128(v128_mem, v128_reg2, v128_reg0)
@@ -12157,7 +12157,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 3; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 4, 0x99994444u, 0x99999944u);
+        jav_t2_stamp(node, 4, 0x99994444u, 0x99999944u);
         break;
     }
     case 611: { // v128_mem: Sig_v128_v128_v128_to_v128(v128_reg4, v128_reg2, v128_reg0)
@@ -12167,7 +12167,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 3; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 6, 0x99444444u, 0x99999999u);
+        jav_t2_stamp(node, 6, 0x99444444u, 0x99999999u);
         break;
     }
     case 612: { // v128_reg0: Sig_v128_v128_v128_to_v128(v128_reg4, v128_reg2, v128_reg0)
@@ -12177,7 +12177,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 3; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 6, 0x99444444u, 0x99999944u);
+        jav_t2_stamp(node, 6, 0x99444444u, 0x99999944u);
         break;
     }
     case 613: { // v128_reg0: Sig_v128_v128_v128_to_v128(v128_reg4, v128_reg2, v128_reg0)
@@ -12187,7 +12187,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 3; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 7, 0x99444444u, 0x99999944u);
+        jav_t2_stamp(node, 7, 0x99444444u, 0x99999944u);
         break;
     }
     case 614: { // v128_reg0: Sig_v128_v128_v128_to_v128(v128_reg4, v128_reg2, v128_reg0)
@@ -12197,14 +12197,14 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 3; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 8, 0x99444444u, 0x99999944u);
+        jav_t2_stamp(node, 8, 0x99444444u, 0x99999944u);
         break;
     }
     case 615: { // ref_mem: Sig_to_ref
         for (int _ci = 0; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 616: { // ref_mem: Sig_ref_to_ref(ref_mem)
@@ -12212,7 +12212,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 617: { // ref_mem: Sig_i32_to_ref(i32_mem)
@@ -12220,7 +12220,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 618: { // ref_mem: Sig_i32_to_ref(i32_reg0)
@@ -12228,7 +12228,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
     case 619: { // ref_mem: Sig_i64_to_ref(i64_mem)
@@ -12236,7 +12236,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 620: { // ref_mem: Sig_i32_i32_to_ref(i32_mem, i32_mem)
@@ -12245,7 +12245,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 621: { // ref_mem: Sig_i32_i32_to_ref(i32_mem, i32_reg0)
@@ -12254,7 +12254,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
     case 622: { // ref_mem: Sig_i32_i32_to_ref(i32_reg1, i32_reg0)
@@ -12263,7 +12263,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 2, 0x99999900u, 0x99999999u);
+        jav_t2_stamp(node, 2, 0x99999900u, 0x99999999u);
         break;
     }
     case 623: { // ref_mem: Sig_i64_i32_to_ref(i64_mem, i32_mem)
@@ -12272,7 +12272,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 624: { // ref_mem: Sig_i64_i32_to_ref(i64_mem, i32_reg0)
@@ -12281,7 +12281,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
     case 625: { // ref_mem: Sig_f32_i32_to_ref(f32_mem, i32_mem)
@@ -12290,7 +12290,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 626: { // ref_mem: Sig_f32_i32_to_ref(f32_mem, i32_reg0)
@@ -12299,7 +12299,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
     case 627: { // ref_mem: Sig_f64_i32_to_ref(f64_mem, i32_mem)
@@ -12308,7 +12308,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 628: { // ref_mem: Sig_f64_i32_to_ref(f64_mem, i32_reg0)
@@ -12317,7 +12317,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
     case 629: { // ref_mem: Sig_v128_i32_to_ref_pw(v128_mem, i32_mem)
@@ -12326,7 +12326,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 630: { // ref_mem: Sig_v128_i32_to_ref_pw(v128_mem, i32_reg0)
@@ -12335,7 +12335,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
     case 631: { // ref_mem: Sig_ref_i32_to_ref(ref_mem, i32_mem)
@@ -12344,7 +12344,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 632: { // ref_mem: Sig_ref_i32_to_ref(ref_mem, i32_reg0)
@@ -12353,7 +12353,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
     case 633: { // ref_mem: Sig_i32_i64_to_ref(i32_mem, i64_mem)
@@ -12362,7 +12362,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 634: { // ref_mem: Sig_i64_i64_to_ref(i64_mem, i64_mem)
@@ -12371,7 +12371,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 635: { // ref_mem: Sig_f32_i64_to_ref(f32_mem, i64_mem)
@@ -12380,7 +12380,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 636: { // ref_mem: Sig_f64_i64_to_ref(f64_mem, i64_mem)
@@ -12389,7 +12389,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 637: { // ref_mem: Sig_v128_i64_to_ref_pw(v128_mem, i64_mem)
@@ -12398,7 +12398,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 638: { // ref_mem: Sig_ref_i64_to_ref(ref_mem, i64_mem)
@@ -12407,7 +12407,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 639: { // ref_mem: Sig_ref_ref_i32_to_ref(ref_mem, ref_mem, i32_mem)
@@ -12417,7 +12417,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 3; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 640: { // ref_mem: Sig_ref_ref_i32_to_ref(ref_mem, ref_mem, i32_reg0)
@@ -12427,14 +12427,14 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 3; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
     case 641: { // ref_mem: Sig_stk_to_ref
         for (int _ci = 0; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 642: { // stmt: Sig_i32_to_void(i32_mem)
@@ -12442,7 +12442,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 643: { // stmt: Sig_i32_to_void(i32_reg0)
@@ -12450,7 +12450,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
     case 644: { // stmt: Sig_i64_to_void(i64_mem)
@@ -12458,7 +12458,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 645: { // stmt: Sig_f32_to_void(f32_mem)
@@ -12466,7 +12466,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 646: { // stmt: Sig_f64_to_void(f64_mem)
@@ -12474,7 +12474,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 647: { // stmt: Sig_v128_to_void_pw(v128_mem)
@@ -12482,7 +12482,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 648: { // stmt: Sig_ref_to_void(ref_mem)
@@ -12490,7 +12490,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 649: { // stmt: Sig_i32_i32_to_void(i32_mem, i32_mem)
@@ -12499,7 +12499,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 650: { // stmt: Sig_i32_i32_to_void(i32_mem, i32_reg0)
@@ -12508,7 +12508,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
     case 651: { // stmt: Sig_i64_i32_to_void(i64_mem, i32_mem)
@@ -12517,7 +12517,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 652: { // stmt: Sig_i64_i32_to_void(i64_mem, i32_reg0)
@@ -12526,7 +12526,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
     case 653: { // stmt: Sig_i32_i64_to_void(i32_mem, i64_mem)
@@ -12535,7 +12535,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 654: { // stmt: Sig_i32_i64_to_void(i32_mem, i64_reg0)
@@ -12544,7 +12544,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999991u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999991u, 0x99999999u);
         break;
     }
     case 655: { // stmt: Sig_i64_i64_to_void(i64_mem, i64_mem)
@@ -12553,7 +12553,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 656: { // stmt: Sig_i64_i64_to_void(i64_mem, i64_reg0)
@@ -12562,7 +12562,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999991u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999991u, 0x99999999u);
         break;
     }
     case 657: { // stmt: Sig_i32_f32_to_void(i32_mem, f32_mem)
@@ -12571,7 +12571,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 658: { // stmt: Sig_i32_f32_to_void(i32_mem, f32_reg0)
@@ -12580,7 +12580,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999992u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999992u, 0x99999999u);
         break;
     }
     case 659: { // stmt: Sig_i64_f32_to_void(i64_mem, f32_mem)
@@ -12589,7 +12589,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 660: { // stmt: Sig_i64_f32_to_void(i64_mem, f32_reg0)
@@ -12598,7 +12598,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999992u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999992u, 0x99999999u);
         break;
     }
     case 661: { // stmt: Sig_i32_f64_to_void(i32_mem, f64_mem)
@@ -12607,7 +12607,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 662: { // stmt: Sig_i32_f64_to_void(i32_mem, f64_reg0)
@@ -12616,7 +12616,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999993u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999993u, 0x99999999u);
         break;
     }
     case 663: { // stmt: Sig_i64_f64_to_void(i64_mem, f64_mem)
@@ -12625,7 +12625,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 664: { // stmt: Sig_i64_f64_to_void(i64_mem, f64_reg0)
@@ -12634,7 +12634,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999993u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999993u, 0x99999999u);
         break;
     }
     case 665: { // stmt: Sig_i32_i32_i32_to_void(i32_mem, i32_mem, i32_mem)
@@ -12644,7 +12644,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 3; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 666: { // stmt: Sig_i32_i32_i32_to_void(i32_mem, i32_mem, i32_reg0)
@@ -12654,7 +12654,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 3; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
     case 667: { // stmt: Sig_i32_i32_i32_to_void(i32_mem, i32_reg1, i32_reg0)
@@ -12664,7 +12664,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 3; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 2, 0x99999900u, 0x99999999u);
+        jav_t2_stamp(node, 2, 0x99999900u, 0x99999999u);
         break;
     }
     case 668: { // stmt: Sig_i64_i32_i64_to_void(i64_mem, i32_mem, i64_mem)
@@ -12674,7 +12674,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 3; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 669: { // stmt: Sig_i64_i32_i32_to_void(i64_mem, i32_mem, i32_mem)
@@ -12684,7 +12684,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 3; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 670: { // stmt: Sig_i64_i32_i32_to_void(i64_mem, i32_mem, i32_reg0)
@@ -12694,7 +12694,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 3; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
     case 671: { // stmt: Sig_i64_i32_i32_to_void(i64_mem, i32_reg1, i32_reg0)
@@ -12704,7 +12704,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 3; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 2, 0x99999900u, 0x99999999u);
+        jav_t2_stamp(node, 2, 0x99999900u, 0x99999999u);
         break;
     }
     case 672: { // stmt: Sig_i32_i64_i32_to_void(i32_mem, i64_mem, i32_mem)
@@ -12714,7 +12714,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 3; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 673: { // stmt: Sig_i64_i64_i64_to_void(i64_mem, i64_mem, i64_mem)
@@ -12724,14 +12724,14 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 3; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 674: { // stmt: Sig_to_void
         for (int _ci = 0; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 675: { // stmt: Sig_i32_f32_i32_to_void(i32_mem, f32_mem, i32_mem)
@@ -12741,7 +12741,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 3; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 676: { // stmt: Sig_i32_f64_i32_to_void(i32_mem, f64_mem, i32_mem)
@@ -12751,7 +12751,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 3; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 677: { // stmt: Sig_i32_v128_i32_to_void_pw(i32_mem, v128_mem, i32_mem)
@@ -12761,7 +12761,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 3; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 678: { // stmt: Sig_i32_ref_i32_to_void(i32_mem, ref_mem, i32_mem)
@@ -12771,7 +12771,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 3; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 679: { // stmt: Sig_i64_f32_i64_to_void(i64_mem, f32_mem, i64_mem)
@@ -12781,7 +12781,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 3; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 680: { // stmt: Sig_i64_f64_i64_to_void(i64_mem, f64_mem, i64_mem)
@@ -12791,7 +12791,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 3; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 681: { // stmt: Sig_i64_v128_i64_to_void_pw(i64_mem, v128_mem, i64_mem)
@@ -12801,7 +12801,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 3; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 682: { // stmt: Sig_i64_ref_i64_to_void(i64_mem, ref_mem, i64_mem)
@@ -12811,14 +12811,14 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 3; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 683: { // stmt: Sig_stk_to_void
         for (int _ci = 0; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 684: { // stmt: Sig_stk_i32_to_void(i32_mem)
@@ -12826,7 +12826,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 685: { // stmt: Sig_stk_i64_to_void(i64_mem)
@@ -12834,7 +12834,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 686: { // stmt: Sig_stk_f32_to_void(f32_mem)
@@ -12842,7 +12842,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 687: { // stmt: Sig_stk_f64_to_void(f64_mem)
@@ -12850,7 +12850,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 688: { // stmt: Sig_stk_v128_to_void_pw(v128_mem)
@@ -12858,7 +12858,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 689: { // stmt: Sig_stk_ref_to_void(ref_mem)
@@ -12866,7 +12866,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 690: { // stmt: Sig_ref_i32_to_void(ref_mem, i32_mem)
@@ -12875,7 +12875,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 691: { // stmt: Sig_ref_i64_to_void(ref_mem, i64_mem)
@@ -12884,7 +12884,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 692: { // stmt: Sig_ref_f32_to_void(ref_mem, f32_mem)
@@ -12893,7 +12893,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 693: { // stmt: Sig_ref_f64_to_void(ref_mem, f64_mem)
@@ -12902,7 +12902,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 694: { // stmt: Sig_ref_v128_to_void_pw(ref_mem, v128_mem)
@@ -12911,7 +12911,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 695: { // stmt: Sig_ref_ref_to_void(ref_mem, ref_mem)
@@ -12920,7 +12920,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 696: { // stmt: Sig_ref_i32_i32_to_void(ref_mem, i32_mem, i32_mem)
@@ -12930,7 +12930,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 3; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 697: { // stmt: Sig_ref_i32_i64_to_void(ref_mem, i32_mem, i64_mem)
@@ -12940,7 +12940,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 3; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 698: { // stmt: Sig_ref_i32_f32_to_void(ref_mem, i32_mem, f32_mem)
@@ -12950,7 +12950,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 3; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 699: { // stmt: Sig_ref_i32_f64_to_void(ref_mem, i32_mem, f64_mem)
@@ -12960,7 +12960,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 3; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 700: { // stmt: Sig_ref_i32_v128_to_void_pw(ref_mem, i32_mem, v128_mem)
@@ -12970,7 +12970,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 3; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 701: { // stmt: Sig_ref_i32_ref_to_void(ref_mem, i32_mem, ref_mem)
@@ -12980,7 +12980,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 3; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 702: { // stmt: Sig_ref_i32_i32_i32_to_void(ref_mem, i32_mem, i32_mem, i32_mem)
@@ -12991,7 +12991,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 4; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 703: { // stmt: Sig_ref_i32_i32_i32_to_void(ref_mem, i32_mem, i32_mem, i32_reg0)
@@ -13002,7 +13002,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 4; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
     case 704: { // stmt: Sig_ref_i32_i32_i32_to_void(ref_mem, i32_mem, i32_reg1, i32_reg0)
@@ -13013,7 +13013,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 4; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 2, 0x99999900u, 0x99999999u);
+        jav_t2_stamp(node, 2, 0x99999900u, 0x99999999u);
         break;
     }
     case 705: { // stmt: Sig_ref_i32_i32_i32_to_void(ref_mem, i32_reg2, i32_reg1, i32_reg0)
@@ -13024,7 +13024,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 4; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 3, 0x99999000u, 0x99999999u);
+        jav_t2_stamp(node, 3, 0x99999000u, 0x99999999u);
         break;
     }
     case 706: { // stmt: Sig_ref_i32_i64_i32_to_void(ref_mem, i32_mem, i64_mem, i32_mem)
@@ -13035,7 +13035,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 4; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 707: { // stmt: Sig_ref_i32_i64_i32_to_void(ref_mem, i32_mem, i64_mem, i32_reg0)
@@ -13046,7 +13046,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 4; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
     case 708: { // stmt: Sig_ref_i32_f32_i32_to_void(ref_mem, i32_mem, f32_mem, i32_mem)
@@ -13057,7 +13057,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 4; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 709: { // stmt: Sig_ref_i32_f32_i32_to_void(ref_mem, i32_mem, f32_mem, i32_reg0)
@@ -13068,7 +13068,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 4; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
     case 710: { // stmt: Sig_ref_i32_f64_i32_to_void(ref_mem, i32_mem, f64_mem, i32_mem)
@@ -13079,7 +13079,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 4; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 711: { // stmt: Sig_ref_i32_f64_i32_to_void(ref_mem, i32_mem, f64_mem, i32_reg0)
@@ -13090,7 +13090,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 4; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
     case 712: { // stmt: Sig_ref_i32_v128_i32_to_void_pw(ref_mem, i32_mem, v128_mem, i32_mem)
@@ -13101,7 +13101,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 4; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 713: { // stmt: Sig_ref_i32_v128_i32_to_void_pw(ref_mem, i32_mem, v128_mem, i32_reg0)
@@ -13112,7 +13112,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 4; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
     case 714: { // stmt: Sig_ref_i32_ref_i32_to_void(ref_mem, i32_mem, ref_mem, i32_mem)
@@ -13123,7 +13123,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 4; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 715: { // stmt: Sig_ref_i32_ref_i32_to_void(ref_mem, i32_mem, ref_mem, i32_reg0)
@@ -13134,7 +13134,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 4; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
     case 716: { // stmt: Sig_ref_i32_ref_i32_i32_to_void(ref_mem, i32_mem, ref_mem, i32_mem, i32_mem)
@@ -13146,7 +13146,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 5; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 717: { // stmt: Sig_ref_i32_ref_i32_i32_to_void(ref_mem, i32_mem, ref_mem, i32_mem, i32_reg0)
@@ -13158,7 +13158,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 5; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 1, 0x99999990u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
     case 718: { // stmt: Sig_ref_i32_ref_i32_i32_to_void(ref_mem, i32_mem, ref_mem, i32_reg1, i32_reg0)
@@ -13170,7 +13170,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 5; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 2, 0x99999900u, 0x99999999u);
+        jav_t2_stamp(node, 2, 0x99999900u, 0x99999999u);
         break;
     }
     case 719: { // stmt: Sig_i32_v128_to_void_pw(i32_mem, v128_mem)
@@ -13179,7 +13179,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 720: { // stmt: Sig_i32_ref_to_void(i32_mem, ref_mem)
@@ -13188,7 +13188,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 721: { // stmt: Sig_i64_v128_to_void_pw(i64_mem, v128_mem)
@@ -13197,7 +13197,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 722: { // stmt: Sig_i64_ref_to_void(i64_mem, ref_mem)
@@ -13206,7 +13206,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 723: { // stmt: Sig_i32_v128_to_void(i32_mem, v128_mem)
@@ -13215,7 +13215,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 724: { // stmt: Sig_i32_v128_to_void(i32_mem, v128_reg0)
@@ -13224,7 +13224,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 2, 0x99999944u, 0x99999999u);
+        jav_t2_stamp(node, 2, 0x99999944u, 0x99999999u);
         break;
     }
     case 725: { // stmt: Sig_i64_v128_to_void(i64_mem, v128_mem)
@@ -13233,7 +13233,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 0, 0x99999999u, 0x99999999u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
     case 726: { // stmt: Sig_i64_v128_to_void(i64_mem, v128_reg0)
@@ -13242,7 +13242,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_tile_pick(node, 2, 0x99999944u, 0x99999999u);
+        jav_t2_stamp(node, 2, 0x99999944u, 0x99999999u);
         break;
     }
     default:

@@ -75,89 +75,12 @@ static jav_ttree_stats_t g_stats;
 const jav_ttree_stats_t* jav_ttree_stats(void) { return &g_stats; }
 void jav_ttree_stats_reset(void) { memset(&g_stats, 0, sizeof g_stats); }
 
-/* ── the cover's answer, indexed by byte offset ────────────
- *
- * One body at a time: jit_compile builds, tiles and stamps a body before it
- * touches the next, so a single map is the whole state. Disarmed (base == NULL)
- * every offset reads 0, which is the tier-1 form.
- */
-static const uint8_t* g_tile_base;
-static uint8_t*       g_tile_state;
-static uint8_t*       g_tile_seen;
-static uint32_t*      g_tile_in, *g_tile_out;   /* packed, JAV_TILE_CLS_BITS per slot */
-static uint32_t       g_tile_len, g_tile_picked;
-
-/* Every slot reads JSC_COUNT when nothing named it. */
-static uint32_t tile_cls_none(void) {
-    uint32_t w = 0;
-    for (int s = 0; s < 32 / JAV_TILE_CLS_BITS; s++)
-        w |= (uint32_t)JSC_COUNT << (s * JAV_TILE_CLS_BITS);
-    return w;
-}
-
-void jav_tile_begin(const uint8_t* base, uint32_t len) {
-    static uint8_t* sbuf; static uint32_t* cbuf; static uint32_t cap;
-    if (len > cap) {
-        uint8_t*  nb = (uint8_t*)realloc(sbuf, (size_t)len * 2);
-        uint32_t* nc = (uint32_t*)realloc(cbuf, (size_t)len * 2 * sizeof *cbuf);
-        if (!nb || !nc) { g_tile_base = NULL; return; }
-        sbuf = nb; cbuf = nc; cap = len;
-    }
-    memset(sbuf, 0, (size_t)len * 2);            /* states, then the seen flags */
-    uint32_t none = tile_cls_none();
-    for (uint32_t i = 0; i < len * 2; i++) cbuf[i] = none;
-    g_tile_base = base; g_tile_state = sbuf; g_tile_seen = sbuf + len;
-    g_tile_in = cbuf; g_tile_out = cbuf + len;
-    g_tile_len = len; g_tile_picked = 0;
-}
-
-/* A transition needs the class of the value crossing it, and which end knows it
- * depends on the direction. A SPILL moves the deepest cached value, which the
- * stitcher has been carrying since whatever produced it; a FILL loads what the
- * NEXT instruction wants, so the consumer's operand class answers. They agree
- * wherever both exist — it is one value — but between a producer that left its
- * result in memory and a consumer that wants it cached, only the consumer knows. */
-void jav_tile_pick(const jav_tnode_t* n, int state, uint32_t in_pack, uint32_t out_pack) {
-    if (!g_tile_base || !n->pc) return;      /* a carried leaf stamps nothing */
-    size_t off = (size_t)(n->pc - g_tile_base);
-    if (off >= g_tile_len) return;
-    g_tile_state[off] = (uint8_t)state;
-    g_tile_in[off]    = in_pack;
-    g_tile_out[off]   = out_pack;
-    g_tile_seen[off]  = 1;
-    g_tile_picked++;
-}
-
-/* Did the cover speak for the instruction at this offset? Not every instruction
- * the stamping walk meets is in a tree: §7.6 dead code after a br/return builds
- * nothing (the operand stack is polymorphic there and the shapes are not real),
- * so those offsets keep the map's zero-fill. Reading that as "state 0" is what a
- * zero-fill invites and it is wrong at n>0 — state 0 still caches a result, and
- * an instruction no rule chose has no consumer to spill for and no class to
- * spill AS. It is unreachable, so tier-1 is exactly right for it. */
-int jav_tile_picked_at(uint32_t off) {
-    return (g_tile_base && off < g_tile_len) ? g_tile_seen[off] : 0;
-}
-
-/* Whether a cover spoke for this body at all. Disarmed, every offset answers
- * state 0 — which is not "tier-1" once a cache exists, because a state-0 variant
- * still leaves its result in a register. The walk has to tell the two apart. */
-int jav_tile_armed(void) { return g_tile_base != NULL; }
-
-int jav_tile_state_at(uint32_t off) {
-    return (g_tile_base && off < g_tile_len) ? g_tile_state[off] : 0;
-}
-
-static int tile_slot(const uint32_t* w, uint32_t off, int slot) {
-    if (!g_tile_base || off >= g_tile_len || slot < 0 || slot >= 32 / JAV_TILE_CLS_BITS)
-        return JSC_COUNT;
-    return (int)((w[off] >> (slot * JAV_TILE_CLS_BITS)) & JAV_TILE_CLS_MASK);
-}
-
-int jav_tile_in_class_at(uint32_t off, int slot)  { return tile_slot(g_tile_in,  off, slot); }
-int jav_tile_out_class_at(uint32_t off, int slot) { return tile_slot(g_tile_out, off, slot); }
-
-uint32_t jav_tile_picked(void) { return g_tile_picked; }
+/* The offset-keyed tile map lived here: `jav_tile_pick` recorded a cache state
+ * per byte offset and the byte-driven stamping walk read it back. It retired with
+ * cosmic Amendment #16 — the rule action IS the stamp now (`jav_t2_stamp`, in the
+ * driver that owns the emission context), so there is nothing to record and
+ * nothing to join. The byte walk survives as tier-1 and the decline fallback,
+ * where every stencil is the plain form and no state exists to look up. */
 
 void jav_ttree_note_picks(uint32_t picked, uint32_t nodes) {
     g_stats.nodes_picked += picked;
@@ -171,21 +94,65 @@ void jav_ttree_note_code(uint64_t bytes) {
     g_stats.code_bodies++;
 }
 
+/* The emission notes write through a SINK, because an emission can be abandoned:
+ * a walk that fails mid-body re-stamps through the other one, and meters that
+ * counted the abandoned half describe code that never shipped — which is what
+ * the old silent retry did to every number it touched. The driver points the
+ * sink at a per-compile accumulator and commits it only when that walk's output
+ * is the one kept. */
+static jav_ttree_stats_t* g_sink = &g_stats;
+
+void jav_ttree_stats_sink(jav_ttree_stats_t* s) { g_sink = s ? s : &g_stats; }
+
+void jav_ttree_stats_commit(const jav_ttree_stats_t* d) {
+    g_stats.states_cached  += d->states_cached;
+    g_stats.states_deep    += d->states_deep;
+    g_stats.slots_cached   += d->slots_cached;
+    g_stats.transitions    += d->transitions;
+    g_stats.bridge_fails   += d->bridge_fails;
+    g_stats.trans_spill    += d->trans_spill;
+    g_stats.trans_fill     += d->trans_fill;
+    g_stats.trans_boundary += d->trans_boundary;
+    g_stats.mem_slots      += d->mem_slots;
+    for (int i = 0; i < 9; i++) g_stats.entry_state[i] += d->entry_state[i];
+    g_stats.wide_cached    += d->wide_cached;
+    g_stats.regions_hot    += d->regions_hot;
+}
+
 void jav_ttree_note_stitch(int entry, int transitions, int bridge_failed) {
-    if (entry > 0) g_stats.states_cached++;
-    if (entry > 1) g_stats.states_deep++;
-    g_stats.slots_cached += (uint64_t)(entry > 0 ? entry : 0);
-    g_stats.transitions += (uint64_t)transitions;
-    g_stats.bridge_fails += (uint64_t)(bridge_failed != 0);
+    if (entry > 0) g_sink->states_cached++;
+    if (entry > 1) g_sink->states_deep++;
+    g_sink->slots_cached += (uint64_t)(entry > 0 ? entry : 0);
+    g_sink->transitions += (uint64_t)transitions;
+    g_sink->bridge_fails += (uint64_t)(bridge_failed != 0);
+    int b = entry < 0 ? 0 : entry;
+    if (b > 8) b = 8;
+    g_sink->entry_state[b]++;
+}
+
+void jav_ttree_note_wide(void) { g_sink->wide_cached++; }
+
+void jav_ttree_note_fallback(uint8_t op, uint32_t bpos, int entry, int why) {
+    g_stats.tree_fallbacks++;
+    if (g_stats.have_fallback) return;
+    g_stats.have_fallback = 1;
+    g_stats.first_fallback_op = op;
+    g_stats.first_fallback_bpos = bpos;
+    g_stats.first_fallback_entry = entry;
+    g_stats.first_fallback_why = why;
+}
+
+void jav_ttree_note_region_entry(int live_state) {
+    if (live_state > 0) g_sink->regions_hot++;
 }
 
 void jav_ttree_note_mem(int slots) {
-    if (slots > 0) g_stats.mem_slots += (uint64_t)slots;
+    if (slots > 0) g_sink->mem_slots += (uint64_t)slots;
 }
 
 void jav_ttree_note_transition(int down, int boundary) {
-    if (down) g_stats.trans_spill++; else g_stats.trans_fill++;
-    if (boundary) g_stats.trans_boundary++;
+    if (down) g_sink->trans_spill++; else g_sink->trans_fill++;
+    if (boundary) g_sink->trans_boundary++;
 }
 
 void jav_ttree_note_unbridged(uint8_t op, uint32_t off, int from, int to, int cls) {
