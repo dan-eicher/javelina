@@ -273,6 +273,29 @@ static void the_node_is_the_schema(void) {
     CK("the widest constructor is the arity ceiling", max_arity, JAV_SIG_MAX_KIDS);
     CK("sizeof(jav_tnode_t)", (long)sizeof(jav_tnode_t),
        8 + (long)sizeof(void*) * (JAV_SIG_MAX_KIDS + 1));
+
+    /* PIN B-2a-s — the `pw` flag IS the `_pw` name. The flag is gen_tile_burg's
+     * fence selector: a pw terminal's v128 slots never enter a cached window,
+     * because the variant family moves them as one declared word. The name
+     * suffix and the flag are printed from the same SigKind by sigemit, so this
+     * is the drift guard between the fence's selector and the vocabulary every
+     * other artifact keys on — and a pw terminal must actually carry the v128
+     * the flag speaks for. */
+    long pw_name_bad = 0, pw_without_v128 = 0;
+    for (int i = 0; i < JAV_TT_TAG_COUNT; i++) {
+        const jav_sig_t* s = &jav_sigtab[i];
+        size_t len = strlen(s->name);
+        int suffixed = len > 3 && strcmp(s->name + len - 3, "_pw") == 0;
+        if ((s->pw != 0) != suffixed) pw_name_bad++;
+        if (s->pw) {
+            int wide = 0;
+            for (int p = 0; p < s->nparams; p++) if (s->params[p] == JSC_V128) wide = 1;
+            for (int r = 0; r < s->nresults; r++) if (s->results[r] == JSC_V128) wide = 1;
+            if (!wide) pw_without_v128++;
+        }
+    }
+    CK("finals whose pw flag disagrees with the _pw suffix", pw_name_bad, 0);
+    CK("pw finals with no v128 slot to speak for", pw_without_v128, 0);
 }
 
 int main(void) {

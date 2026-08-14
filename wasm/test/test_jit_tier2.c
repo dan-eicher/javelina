@@ -49,6 +49,7 @@ typedef struct {
     const uint8_t*   code;
     size_t           len;
     jav_valtype_t    locals[4];  uint32_t nlocals;
+    uint32_t         ltidx[4];   /* parallel: heaptype of a WVT_REF local (else 0) */
     jav_valtype_t    result;     uint32_t result_tidx;   /* heaptype when result is WVT_REF */
     slot_t           args[4];
     uint8_t          argt[4];
@@ -56,6 +57,11 @@ typedef struct {
      * REGISTER. Only set on bodies whose every cached value is a v128, so a
      * green cannot be produced by the scalar half of a mixed body. */
     int              wide;
+    /* PIN B-2a: one module global (mutable), or none. The class axis of
+     * global.get/set is the same poly resolution as locals, and pinning it
+     * needs a global to exist — the corpus exercising it elsewhere is not a
+     * pin here. */
+    jav_valtype_t    gtype;      uint32_t nglobals;
 } body_t;
 
 /* Function 0 is `$dummy` — `(func)`, void to void, left interpreted. A fixture
@@ -85,11 +91,33 @@ static void funcs_init(void) {
     if (g_dummy_jit) { g_funcs[0].invoke = jit_invoke; g_funcs[0].invoke_ctx = g_dummy_jit; }
 }
 
+/* Re-entrant per body: the previous setup's pool is released FIRST — the suite
+ * sets up hundreds of times, and an un-freed 34MB reservation per setup adds up
+ * to an address space no ulimit survives. The caller zero-initializes vm before
+ * the first call so the free sees a NULL pool, not stack garbage. */
+/* The one global a PIN B-2a body declares: a slot the instance context points
+ * at, zeroed per setup so a set-then-get fixture starts from the same state on
+ * both tiers. */
+static slot_t  g_global_slot;
+static slot_t* g_globals[1] = { &g_global_slot };
+static u1      g_global_types[1];
+
 static void vm_setup(vm_t* vm, const body_t* b, jav_st_entry_t* st) {
+    jav_vm_free(vm);
     memset(vm, 0, sizeof *vm);
-    jav_vm_init(vm);
+    if (jav_vm_init(vm) != 0) {
+        /* The alternative is writing locals through NULL. */
+        fprintf(stderr, "vm_setup: stack-pool reservation failed\n");
+        exit(2);
+    }
     funcs_init();
     vm->cluster.functions = g_funcs; vm->cluster.num_functions = 1;
+    if (b->nglobals) {
+        memset(&g_global_slot, 0, sizeof g_global_slot);
+        g_global_types[0] = 0;
+        vm->cluster.globals = g_globals;
+        vm->cluster.global_types = g_global_types;
+    }
     bbq_ctx_init(&vm->frame.code, b->code, b->len);
     vm->frame.sidetable = st;
     for (uint32_t i = 0; i < b->nlocals; i++) {
@@ -138,11 +166,17 @@ static void dump_states(const jav_ttree_stats_t* before) {
 static void run_body(const body_t* b) {
     int failures0 = failures;
     jav_valtype_t res[1] = { b->result };
+    static const uint8_t gmut[1] = { 1 };
     jav_vctx_t c = {0};
     c.locals = b->locals; c.nlocals = b->nlocals;
     uint32_t rtidx[1] = { b->result_tidx };
     c.results = res; c.nresults = 1; c.result_tidx = rtidx;
     c.func_sigs = g_sigs; c.nfuncs = 1;      /* index 0 is $dummy */
+    c.globals = &b->gtype; c.nglobals = b->nglobals; c.global_mut = gmut;
+    /* The B-2a ref fixture: func_type_idx stays NULL so ref.func 0 types as the
+     * abstract (ref func) — the concrete (ref $t0) form would need the full
+     * §3.3 lattice wired, which this harness deliberately does not have. */
+    c.local_tidx = b->ltidx;
     jav_st_entry_t* st = NULL; unsigned nst = 0;
     if (!jav_typecheck(b->code, b->len, &c, &st, &nst)) {
         failures++; checks++;
@@ -152,13 +186,15 @@ static void run_body(const body_t* b) {
 
     /* The tier-2 context this body needs: the classes the tree builder reads to
      * resolve a `word` slot. Everything else is empty because these fixtures use
-     * no memory, table, global or composite type. */
-    uint8_t lcls[4], rcls[1];
+     * no memory, table or composite type. */
+    uint8_t lcls[4], rcls[1], gcls[1];
     for (uint32_t i = 0; i < b->nlocals; i++) lcls[i] = jav_sclass_of_valtype(b->locals[i]);
     rcls[0] = jav_sclass_of_valtype(b->result);
+    gcls[0] = jav_sclass_of_valtype(b->gtype);
     jav_tctx_t tcx = {0};
     tcx.local_class = lcls; tcx.nlocals = b->nlocals;
     tcx.result_class = rcls; tcx.nresults = 1;
+    tcx.global_class = gcls; tcx.nglobals = b->nglobals;
     /* $dummy's type, so the builder can resolve a `call`. Without it the build
      * DECLINES on the call, the map is never armed, and the body quietly runs
      * tier-1 — a fixture that looks like it exercises the stitcher and does not. */
@@ -171,7 +207,7 @@ static void run_body(const body_t* b) {
     tcx.type_result_class = trc; tcx.type_nresults = tnr;
     tcx.ntypes = 1;
 
-    vm_t vm;
+    vm_t vm; memset(&vm, 0, sizeof vm);   /* vm_setup's free must see a NULL pool */
     vm_setup(&vm, b, st);
     /* The STATUS is part of the answer. An `unreachable` body traps and leaves no
      * result, so the slot the two tiers hand back holds whatever the last value
@@ -198,7 +234,7 @@ static void run_body(const body_t* b) {
          * failure HERE even though it is not one in the engine. */
         failures++; checks++;
         printf("  FAIL %s: jit_compile declined the body\n", b->name);
-        bbq_vec_free(st); return;
+        jav_vm_free(&vm); bbq_vec_free(st); return;
     }
     CHECK(s->bodies_built > built0, "E-0 %s: the tree builder declined it", b->name);
     CHECK(s->bodies_covered > cov0, "E-0 %s: the cover declined it", b->name);
@@ -280,6 +316,7 @@ static void run_body(const body_t* b) {
                   b->name, (long long)t1.l, (long long)want.l);
         jit_free(h1);
     }
+    jav_vm_free(&vm);
     bbq_vec_free(st);
 }
 
@@ -293,20 +330,25 @@ static void run_body(const body_t* b) {
 static void state_claims(const body_t* b) {
     int failures0 = failures;
     jav_valtype_t res[1] = { b->result };
+    static const uint8_t gmut[1] = { 1 };
     jav_vctx_t c = {0};
     c.locals = b->locals; c.nlocals = b->nlocals;
     uint32_t rtidx[1] = { b->result_tidx };
     c.results = res; c.nresults = 1; c.result_tidx = rtidx;
     c.func_sigs = g_sigs; c.nfuncs = 1;      /* index 0 is $dummy */
+    c.globals = &b->gtype; c.nglobals = b->nglobals; c.global_mut = gmut;
+    c.local_tidx = b->ltidx;
     jav_st_entry_t* st = NULL; unsigned nst = 0;
     if (!jav_typecheck(b->code, b->len, &c, &st, &nst)) return;
 
-    uint8_t lcls[4], rcls[1];
+    uint8_t lcls[4], rcls[1], gcls[1];
     for (uint32_t i = 0; i < b->nlocals; i++) lcls[i] = jav_sclass_of_valtype(b->locals[i]);
     rcls[0] = jav_sclass_of_valtype(b->result);
+    gcls[0] = jav_sclass_of_valtype(b->gtype);
     jav_tctx_t tcx = {0};
     tcx.local_class = lcls; tcx.nlocals = b->nlocals;
     tcx.result_class = rcls; tcx.nresults = 1;
+    tcx.global_class = gcls; tcx.nglobals = b->nglobals;
     /* $dummy's type, so the builder can resolve a `call`. Without it the build
      * DECLINES on the call, the map is never armed, and the body quietly runs
      * tier-1 — a fixture that looks like it exercises the stitcher and does not. */
@@ -849,10 +891,12 @@ static size_t emit_convert_body(uint8_t* p) {
     return k;
 }
 
-#define B(nm, arr, nl, rt) { nm, arr, sizeof arr, {WVT_I32,WVT_I32}, nl, rt, 0, {{0}}, {0}, 0 }
+#define B(nm, arr, nl, rt) { .name = nm, .code = arr, .len = sizeof arr, \
+    .locals = {WVT_I32,WVT_I32}, .nlocals = nl, .result = rt }
 /* …and one whose every cacheable value is a v128, so PIN C-7 can read a cached
  * state as a cached v128 rather than as "something scalar in the same body". */
-#define BW(nm, arr, nl, rt) { nm, arr, sizeof arr, {WVT_I32,WVT_I32}, nl, rt, 0, {{0}}, {0}, 1 }
+#define BW(nm, arr, nl, rt) { .name = nm, .code = arr, .len = sizeof arr, \
+    .locals = {WVT_I32,WVT_I32}, .nlocals = nl, .result = rt, .wide = 1 }
 
 int main(void) {
     body_t bodies[] = {
@@ -940,6 +984,37 @@ int main(void) {
         CHECK((jav_variant[STENCIL_GEN_ST_LOCAL_GET][1] >= 0) == (JAV_TIER2_N >= 2),
               "D-5: local.get's state-1 variant should exist exactly when the cache "
               "has room for two items (n=%d)", JAV_TIER2_N);
+
+        /* PIN B-2a-t — PolyOperandFormsExist. The FAMILY side of B2a, read from
+         * the table so it cannot be satisfied by a cover that never engages: a
+         * `word` operand's cached form exists for every poly consumer at state 1
+         * (the operand alone in the cache). Red exactly when emits_variant goes
+         * back to refusing TyWord — the D-5 idiom, aimed at operands. The class
+         * axis of the same claim is behavioral (the pw/ref fixtures above): the
+         * table is per OPCODE and cannot say which instances may use it. */
+        CHECK(jav_variant[STENCIL_GEN_ST_LOCAL_SET][1] >= 0,
+              "B-2a-t: local.set has no cached-operand form at state 1");
+        CHECK(jav_variant[STENCIL_GEN_ST_LOCAL_TEE][1] >= 0,
+              "B-2a-t: local.tee has no cached-operand form at state 1");
+        CHECK(jav_variant[STENCIL_GEN_ST_DROP][1] >= 0,
+              "B-2a-t: drop has no cached-operand form at state 1");
+        CHECK(jav_variant[STENCIL_GEN_ST_GLOBAL_SET][1] >= 0,
+              "B-2a-t: global.set has no cached-operand form at state 1");
+        /* State 3, not 1: the condition alone (state 1) was always cacheable —
+         * it is a declared i32 outside the poly window — so the B2a claim for
+         * select is all THREE operands in registers, which only exists once the
+         * two `word` values are admitted. */
+        CHECK(JAV_TIER2_N < 3 || jav_variant[STENCIL_GEN_ST_SELECT][3] >= 0,
+              "B-2a-t: select's all-operands-cached form at state 3 is missing");
+        CHECK(JAV_TIER2_N < 3 || jav_variant[STENCIL_GEN_ST_SELECT_T][3] >= 0,
+              "B-2a-t: select_t's all-operands-cached form at state 3 is missing");
+        /* global.get mirrors D-5's local.get claims: result cached at state 0,
+         * state-1 variant exactly when two items fit. */
+        CHECK(jav_variant_fs[STENCIL_GEN_ST_GLOBAL_GET][0] == 1,
+              "B-2a-t: global.get leaves its result in memory at state 0");
+        CHECK((jav_variant[STENCIL_GEN_ST_GLOBAL_GET][1] >= 0) == (JAV_TIER2_N >= 2),
+              "B-2a-t: global.get's state-1 variant should exist exactly when the "
+              "cache has room for two items (n=%d)", JAV_TIER2_N);
     }
 
     for (size_t i = 0; i < sizeof bodies / sizeof bodies[0]; i++) {
@@ -971,6 +1046,110 @@ int main(void) {
         b.result = WVT_F64;
         run_body(&b);
         state_claims(&b);
+    }
+
+    /* ── PIN B-2a — the poly-operand axes, each pinned, none left to the
+     * corpus. A `word` operand's SCALAR instances ride a register (one slot is
+     * the whole value); its v128 and ref instances must NOT — the one-register
+     * carrier drops a v128's lanes 8..15, and a ref in an untagged register is
+     * a root the collector cannot see. The fence is the GRAMMAR's `pw` flag
+     * plus jav_class_cacheable, not the stencil, so every op × instance-class
+     * pair is its own fixture and E-1's differential is the judge (16-byte
+     * compare for v128, handle compare for ref). Falsified by removing the
+     * fence arm in gen_tile_burg (pw bodies go red) and by re-refusing TyWord
+     * in vmemit's emits_variant (the family pins + meter pin go red). */
+    {
+        /* v128.const A ; local.tee 0 ; local.get 0 ; v128.and ; end  → A.
+         * THE collision shape: tee-pw's want-fs at state 2 EQUALS the scalar
+         * body's declared fs, so only the pw flag keeps this off a register. */
+        static const uint8_t pw_tee[] = { V128C(0x11), 0x22,0x00, 0x20,0x00,
+                                          0xfd,0x4e, END };
+        /* v128.const A ; local.set 0 ; v128.const B ; drop ; local.get 0 → A
+         * (the drop consumes a v128-resolved `word` on the way) */
+        static const uint8_t pw_set[] = { V128C(0x11), 0x21,0x00, V128C(0x21),
+                                          0x1a, 0x20,0x00, END };
+        body_t b; memset(&b, 0, sizeof b);
+        b.locals[0] = WVT_V128; b.nlocals = 1; b.result = WVT_V128;
+        b.code = pw_tee; b.len = sizeof pw_tee; b.name = "pw.local_tee";
+        run_body(&b); state_claims(&b);
+        b.code = pw_set; b.len = sizeof pw_set; b.name = "pw.local_set";
+        run_body(&b); state_claims(&b);
+    }
+    {
+        /* v128.const A ; global.set 0 ; global.get 0 ; end → A. The global
+         * flavor of the same fence, plus global.get's pw RESULT staying in
+         * memory — the side that was previously protected only by the fs
+         * arithmetic happening to mismatch. */
+        static const uint8_t pw_glob[] = { V128C(0x11), 0x24,0x00, 0x23,0x00, END };
+        body_t b; memset(&b, 0, sizeof b);
+        b.gtype = WVT_V128; b.nglobals = 1; b.result = WVT_V128;
+        b.code = pw_glob; b.len = sizeof pw_glob; b.name = "pw.global";
+        run_body(&b); state_claims(&b);
+    }
+    {
+        /* ref.func 0 ; local.tee 0 ; drop ; local.get 0 ; end → the $dummy
+         * funcref, through a ref-resolved tee, drop AND get. A ref-resolved
+         * `word` never enters a slot; a wrong fence here reads as a wrong
+         * handle, and the GC hazard rides the same path. */
+        static const uint8_t ref_tee[] = { 0xd2,0x00, 0x22,0x00, 0x1a,
+                                           0x20,0x00, END };
+        body_t b; memset(&b, 0, sizeof b);
+        b.locals[0] = WVT_REF; b.nlocals = 1; b.ltidx[0] = (uint32_t)HT_FUNC;
+        b.result = WVT_REF; b.result_tidx = (uint32_t)HT_FUNC;
+        b.code = ref_tee; b.len = sizeof ref_tee; b.name = "ref.local_tee";
+        run_body(&b); state_claims(&b);
+    }
+    /* …and the payoff side, as meters: each scalar consumer's operand actually
+     * rides the cache. Before B2a none of these ops had a cached-operand form,
+     * so nothing in these bodies could run above state 0; the delta is per
+     * body, so a green names which op engaged and a red names which did not. */
+    if (JAV_TIER2_N >= 1) {
+        /* i32.const 42 ; local.set 0 ; local.get 0 ; end */
+        static const uint8_t sc_set[]  = { 0x41,0x2a, 0x21,0x00, 0x20,0x00, END };
+        /* i32.const 42 ; local.tee 0 ; local.get 0 ; i32.add ; end */
+        static const uint8_t sc_tee[]  = { 0x41,0x2a, 0x22,0x00, 0x20,0x00, 0x6a, END };
+        /* i32.const 42 ; i32.const 7 ; drop ; end */
+        static const uint8_t sc_drop[] = { 0x41,0x2a, 0x41,0x07, 0x1a, END };
+        /* i32.const 42 ; global.set 0 ; global.get 0 ; end */
+        static const uint8_t sc_glob[] = { 0x41,0x2a, 0x24,0x00, 0x23,0x00, END };
+        /* i32.const 42 ; i32.const 7 ; local.get 0 ; select (result i32) —
+         * select_t is its own OPCODE with its own variant family, and the
+         * class matrix above only reaches it through `ref`. */
+        static const uint8_t sc_selt[] = { 0x41,0x2a, 0x41,0x07, 0x20,0x00,
+                                           0x1c,0x01,0x7f, END };
+        struct { const char* nm; const uint8_t* code; size_t len; int uses_global; }
+        scs[] = {
+            { "scalar.local_set",  sc_set,  sizeof sc_set,  0 },
+            { "scalar.local_tee",  sc_tee,  sizeof sc_tee,  0 },
+            { "scalar.drop",       sc_drop, sizeof sc_drop, 0 },
+            { "scalar.global_set", sc_glob, sizeof sc_glob, 1 },
+            { "scalar.select_t",   sc_selt, sizeof sc_selt, 0 },
+        };
+        const jav_ttree_stats_t* ts = jav_ttree_stats();
+        for (size_t i = 0; i < sizeof scs / sizeof scs[0]; i++) {
+            body_t b; memset(&b, 0, sizeof b);
+            b.locals[0] = WVT_I32; b.nlocals = 1; b.result = WVT_I32;
+            b.args[0].i = 1; b.argt[0] = T_INT;
+            if (scs[i].uses_global) { b.gtype = WVT_I32; b.nglobals = 1; }
+            b.code = scs[i].code; b.len = scs[i].len; b.name = scs[i].nm;
+            /* select_t's condition (a declared i32 above the poly window) was
+             * always cacheable, so state 1 predates B2a: its engagement floor
+             * is state 3, all three operands in registers. */
+            int floor_k = strcmp(scs[i].nm, "scalar.select_t") == 0 ? 3 : 1;
+            uint64_t deep0 = 0, deepN = 0, tr0 = ts->transitions;
+            for (int k = floor_k; k < 9; k++) deep0 += ts->entry_state[k];
+            run_body(&b); state_claims(&b);
+            for (int k = floor_k; k < 9; k++) deepN += ts->entry_state[k];
+            /* Both halves, so a neighbouring const cannot green it: something
+             * ran cached at the op's own floor (deep) AND nothing was bridged
+             * around a refusing op (transitions) — a body this small has no
+             * other reason to pay one. */
+            CHECK(deepN > deep0 && ts->transitions == tr0,
+                  "B-2a %s: the op never rode the cache (deep +%llu at >=%d, "
+                  "transitions +%llu)", scs[i].nm,
+                  (unsigned long long)(deepN - deep0), floor_k,
+                  (unsigned long long)(ts->transitions - tr0));
+        }
     }
 
     /* The cross-product: every cut form, carrying every class, with and without

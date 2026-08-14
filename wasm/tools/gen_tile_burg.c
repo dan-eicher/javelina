@@ -338,6 +338,29 @@ int main(int argc, char** argv) {
              * the register file. Without it the grammar offers `ref_reg0` and the
              * collector loses a root it cannot see or relocate. */
             if (cached_res && !jav_class_cacheable[s->results[0]]) continue;
+            /* The POLY fence. The variant family's slot arithmetic is
+             * DECLARED-width — a `word` is one slot there — so a rule may pair
+             * this terminal with a variant only where every slot the state's
+             * window touches is one the family moves the way the RESOLUTION
+             * says. Two resolutions break that and pin the state below
+             * themselves: a pw terminal's v128 (two registers here, one
+             * declared word there — the fs arithmetic happens to refuse most
+             * such pairings, but local_tee-shaped signatures COLLIDE: consumed 2
+             * + cached 2 equals declared left 1 + result 1) and any
+             * non-cacheable class (ref: the value is in memory wherever the
+             * window claims it). Cached pw results are refused for the same
+             * width reason. */
+            {
+                int fenced = 0;
+                for (int i = 0; i < s->nkids && !fenced; i++) {
+                    uint8_t c = kid_class(s, i);
+                    if (operand_slot_of(s, i) < state
+                        && (c >= 6 || !jav_class_cacheable[c]
+                            || (s->pw && c == JSC_V128))) fenced = 1;
+                }
+                if (cached_res && s->pw && s->results[0] == JSC_V128) fenced = 1;
+                if (fenced) continue;
+            }
             if (!mean_size(t, state, fs, &cost, &nops)) continue;
             cost = rule_cost(s, state, cached_res);   /* cycles, not bytes */
             /* In state k the top k operands are in registers; a cached result

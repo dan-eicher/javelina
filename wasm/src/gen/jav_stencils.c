@@ -341,6 +341,114 @@ void STENCIL gen_st_local_set__s0(CACHE_ARGS) {
     TAIL return _HOLE_cont(CACHE_PASS);
 }
 
+void STENCIL gen_st_local_set__s1(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 index = (u4)_HOLE_index;
+    slot_t v = CACHE_GET_WORD(CACHE_R0); u1 v_wt = 0; (void)v; (void)v_wt;
+    LOCAL_SLOT(index) = v;
+    LOCAL_TAG_SET(index, v_wt);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_local_set__s2(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 index = (u4)_HOLE_index;
+    slot_t v = CACHE_GET_WORD(CACHE_R0); u1 v_wt = 0; (void)v; (void)v_wt;
+    LOCAL_SLOT(index) = v;
+    LOCAL_TAG_SET(index, v_wt);
+    CACHE_R0 = CACHE_R1;
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_local_set__s3(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 index = (u4)_HOLE_index;
+    slot_t v = CACHE_GET_WORD(CACHE_R0); u1 v_wt = 0; (void)v; (void)v_wt;
+    LOCAL_SLOT(index) = v;
+    LOCAL_TAG_SET(index, v_wt);
+    CACHE_R0 = CACHE_R1;
+    CACHE_R1 = CACHE_R2;
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_local_set__s4(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 index = (u4)_HOLE_index;
+    slot_t v = CACHE_GET_WORD(CACHE_R0); u1 v_wt = 0; (void)v; (void)v_wt;
+    LOCAL_SLOT(index) = v;
+    LOCAL_TAG_SET(index, v_wt);
+    CACHE_R0 = CACHE_R1;
+    CACHE_R1 = CACHE_R2;
+    CACHE_R2 = CACHE_R3;
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_local_set__s5(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 index = (u4)_HOLE_index;
+    slot_t v = CACHE_GET_WORD(CACHE_R0); u1 v_wt = 0; (void)v; (void)v_wt;
+    LOCAL_SLOT(index) = v;
+    LOCAL_TAG_SET(index, v_wt);
+    CACHE_R0 = CACHE_R1;
+    CACHE_R1 = CACHE_R2;
+    CACHE_R2 = CACHE_R3;
+    CACHE_R3 = CACHE_R4;
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_local_set__s6(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 index = (u4)_HOLE_index;
+    slot_t v = CACHE_GET_WORD(CACHE_R0); u1 v_wt = 0; (void)v; (void)v_wt;
+    LOCAL_SLOT(index) = v;
+    LOCAL_TAG_SET(index, v_wt);
+    CACHE_R0 = CACHE_R1;
+    CACHE_R1 = CACHE_R2;
+    CACHE_R2 = CACHE_R3;
+    CACHE_R3 = CACHE_R4;
+    CACHE_R4 = CACHE_R5;
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_local_set__s7(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 index = (u4)_HOLE_index;
+    slot_t v = CACHE_GET_WORD(CACHE_R0); u1 v_wt = 0; (void)v; (void)v_wt;
+    LOCAL_SLOT(index) = v;
+    LOCAL_TAG_SET(index, v_wt);
+    CACHE_R0 = CACHE_R1;
+    CACHE_R1 = CACHE_R2;
+    CACHE_R2 = CACHE_R3;
+    CACHE_R3 = CACHE_R4;
+    CACHE_R4 = CACHE_R5;
+    CACHE_R5 = CACHE_R6;
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_local_set__s8(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 index = (u4)_HOLE_index;
+    slot_t v = CACHE_GET_WORD(CACHE_R0); u1 v_wt = 0; (void)v; (void)v_wt;
+    LOCAL_SLOT(index) = v;
+    LOCAL_TAG_SET(index, v_wt);
+    CACHE_R0 = CACHE_R1;
+    CACHE_R1 = CACHE_R2;
+    CACHE_R2 = CACHE_R3;
+    CACHE_R3 = CACHE_R4;
+    CACHE_R4 = CACHE_R5;
+    CACHE_R5 = CACHE_R6;
+    CACHE_R6 = CACHE_R7;
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
 void STENCIL gen_st_local_tee(CACHE_ARGS) {
     frame_t* f = &vm->frame; (void)f;
     STENCIL_TRAP_PC(_HOLE_pc);   /* per-stencil source byte offset: the default discards it (no trap-frame); a backend that records a trap site (e.g. §7.1.8) #defines STENCIL_TRAP_PC to bake _HOLE_pc into its frame */
@@ -357,6 +465,105 @@ void STENCIL gen_st_local_tee__s0(CACHE_ARGS) {
     STENCIL_TRAP_PC(_HOLE_pc);
     u4 index = (u4)_HOLE_index;
     GPOP_WORD(v);
+    LOCAL_SLOT(index) = v;
+    LOCAL_TAG_SET(index, v_wt);
+    CACHE_R0 = CACHE_PUT_WORD(v);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_local_tee__s1(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 index = (u4)_HOLE_index;
+    slot_t v = CACHE_GET_WORD(CACHE_R0); u1 v_wt = 0; (void)v; (void)v_wt;
+    LOCAL_SLOT(index) = v;
+    LOCAL_TAG_SET(index, v_wt);
+    CACHE_R0 = CACHE_PUT_WORD(v);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_local_tee__s1m(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 index = (u4)_HOLE_index;
+    slot_t v = CACHE_GET_WORD(CACHE_R0); u1 v_wt = 0; (void)v; (void)v_wt;
+    LOCAL_SLOT(index) = v;
+    LOCAL_TAG_SET(index, v_wt);
+    GPUSH_WORD(v);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_local_tee__s2(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 index = (u4)_HOLE_index;
+    slot_t v = CACHE_GET_WORD(CACHE_R0); u1 v_wt = 0; (void)v; (void)v_wt;
+    LOCAL_SLOT(index) = v;
+    LOCAL_TAG_SET(index, v_wt);
+    CACHE_R0 = CACHE_PUT_WORD(v);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_local_tee__s3(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 index = (u4)_HOLE_index;
+    slot_t v = CACHE_GET_WORD(CACHE_R0); u1 v_wt = 0; (void)v; (void)v_wt;
+    LOCAL_SLOT(index) = v;
+    LOCAL_TAG_SET(index, v_wt);
+    CACHE_R0 = CACHE_PUT_WORD(v);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_local_tee__s4(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 index = (u4)_HOLE_index;
+    slot_t v = CACHE_GET_WORD(CACHE_R0); u1 v_wt = 0; (void)v; (void)v_wt;
+    LOCAL_SLOT(index) = v;
+    LOCAL_TAG_SET(index, v_wt);
+    CACHE_R0 = CACHE_PUT_WORD(v);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_local_tee__s5(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 index = (u4)_HOLE_index;
+    slot_t v = CACHE_GET_WORD(CACHE_R0); u1 v_wt = 0; (void)v; (void)v_wt;
+    LOCAL_SLOT(index) = v;
+    LOCAL_TAG_SET(index, v_wt);
+    CACHE_R0 = CACHE_PUT_WORD(v);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_local_tee__s6(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 index = (u4)_HOLE_index;
+    slot_t v = CACHE_GET_WORD(CACHE_R0); u1 v_wt = 0; (void)v; (void)v_wt;
+    LOCAL_SLOT(index) = v;
+    LOCAL_TAG_SET(index, v_wt);
+    CACHE_R0 = CACHE_PUT_WORD(v);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_local_tee__s7(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 index = (u4)_HOLE_index;
+    slot_t v = CACHE_GET_WORD(CACHE_R0); u1 v_wt = 0; (void)v; (void)v_wt;
+    LOCAL_SLOT(index) = v;
+    LOCAL_TAG_SET(index, v_wt);
+    CACHE_R0 = CACHE_PUT_WORD(v);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_local_tee__s8(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 index = (u4)_HOLE_index;
+    slot_t v = CACHE_GET_WORD(CACHE_R0); u1 v_wt = 0; (void)v; (void)v_wt;
     LOCAL_SLOT(index) = v;
     LOCAL_TAG_SET(index, v_wt);
     CACHE_R0 = CACHE_PUT_WORD(v);
@@ -515,6 +722,114 @@ void STENCIL gen_st_global_set__s0(CACHE_ARGS) {
     GPOP_WORD(v);
     GLOBAL_SET(index, v);
     GLOBAL_TAG_SET(index, v_wt);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_global_set__s1(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 index = (u4)_HOLE_index;
+    slot_t v = CACHE_GET_WORD(CACHE_R0); u1 v_wt = 0; (void)v; (void)v_wt;
+    GLOBAL_SET(index, v);
+    GLOBAL_TAG_SET(index, v_wt);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_global_set__s2(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 index = (u4)_HOLE_index;
+    slot_t v = CACHE_GET_WORD(CACHE_R0); u1 v_wt = 0; (void)v; (void)v_wt;
+    GLOBAL_SET(index, v);
+    GLOBAL_TAG_SET(index, v_wt);
+    CACHE_R0 = CACHE_R1;
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_global_set__s3(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 index = (u4)_HOLE_index;
+    slot_t v = CACHE_GET_WORD(CACHE_R0); u1 v_wt = 0; (void)v; (void)v_wt;
+    GLOBAL_SET(index, v);
+    GLOBAL_TAG_SET(index, v_wt);
+    CACHE_R0 = CACHE_R1;
+    CACHE_R1 = CACHE_R2;
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_global_set__s4(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 index = (u4)_HOLE_index;
+    slot_t v = CACHE_GET_WORD(CACHE_R0); u1 v_wt = 0; (void)v; (void)v_wt;
+    GLOBAL_SET(index, v);
+    GLOBAL_TAG_SET(index, v_wt);
+    CACHE_R0 = CACHE_R1;
+    CACHE_R1 = CACHE_R2;
+    CACHE_R2 = CACHE_R3;
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_global_set__s5(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 index = (u4)_HOLE_index;
+    slot_t v = CACHE_GET_WORD(CACHE_R0); u1 v_wt = 0; (void)v; (void)v_wt;
+    GLOBAL_SET(index, v);
+    GLOBAL_TAG_SET(index, v_wt);
+    CACHE_R0 = CACHE_R1;
+    CACHE_R1 = CACHE_R2;
+    CACHE_R2 = CACHE_R3;
+    CACHE_R3 = CACHE_R4;
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_global_set__s6(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 index = (u4)_HOLE_index;
+    slot_t v = CACHE_GET_WORD(CACHE_R0); u1 v_wt = 0; (void)v; (void)v_wt;
+    GLOBAL_SET(index, v);
+    GLOBAL_TAG_SET(index, v_wt);
+    CACHE_R0 = CACHE_R1;
+    CACHE_R1 = CACHE_R2;
+    CACHE_R2 = CACHE_R3;
+    CACHE_R3 = CACHE_R4;
+    CACHE_R4 = CACHE_R5;
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_global_set__s7(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 index = (u4)_HOLE_index;
+    slot_t v = CACHE_GET_WORD(CACHE_R0); u1 v_wt = 0; (void)v; (void)v_wt;
+    GLOBAL_SET(index, v);
+    GLOBAL_TAG_SET(index, v_wt);
+    CACHE_R0 = CACHE_R1;
+    CACHE_R1 = CACHE_R2;
+    CACHE_R2 = CACHE_R3;
+    CACHE_R3 = CACHE_R4;
+    CACHE_R4 = CACHE_R5;
+    CACHE_R5 = CACHE_R6;
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_global_set__s8(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    u4 index = (u4)_HOLE_index;
+    slot_t v = CACHE_GET_WORD(CACHE_R0); u1 v_wt = 0; (void)v; (void)v_wt;
+    GLOBAL_SET(index, v);
+    GLOBAL_TAG_SET(index, v_wt);
+    CACHE_R0 = CACHE_R1;
+    CACHE_R1 = CACHE_R2;
+    CACHE_R2 = CACHE_R3;
+    CACHE_R3 = CACHE_R4;
+    CACHE_R4 = CACHE_R5;
+    CACHE_R5 = CACHE_R6;
+    CACHE_R6 = CACHE_R7;
     TAIL return _HOLE_cont(CACHE_PASS);
 }
 
@@ -27298,6 +27613,90 @@ void STENCIL gen_st_drop__s0(CACHE_ARGS) {
     TAIL return _HOLE_cont(CACHE_PASS);
 }
 
+void STENCIL gen_st_drop__s1(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    slot_t a = CACHE_GET_WORD(CACHE_R0); u1 a_wt = 0; (void)a; (void)a_wt;
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_drop__s2(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    slot_t a = CACHE_GET_WORD(CACHE_R0); u1 a_wt = 0; (void)a; (void)a_wt;
+    CACHE_R0 = CACHE_R1;
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_drop__s3(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    slot_t a = CACHE_GET_WORD(CACHE_R0); u1 a_wt = 0; (void)a; (void)a_wt;
+    CACHE_R0 = CACHE_R1;
+    CACHE_R1 = CACHE_R2;
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_drop__s4(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    slot_t a = CACHE_GET_WORD(CACHE_R0); u1 a_wt = 0; (void)a; (void)a_wt;
+    CACHE_R0 = CACHE_R1;
+    CACHE_R1 = CACHE_R2;
+    CACHE_R2 = CACHE_R3;
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_drop__s5(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    slot_t a = CACHE_GET_WORD(CACHE_R0); u1 a_wt = 0; (void)a; (void)a_wt;
+    CACHE_R0 = CACHE_R1;
+    CACHE_R1 = CACHE_R2;
+    CACHE_R2 = CACHE_R3;
+    CACHE_R3 = CACHE_R4;
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_drop__s6(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    slot_t a = CACHE_GET_WORD(CACHE_R0); u1 a_wt = 0; (void)a; (void)a_wt;
+    CACHE_R0 = CACHE_R1;
+    CACHE_R1 = CACHE_R2;
+    CACHE_R2 = CACHE_R3;
+    CACHE_R3 = CACHE_R4;
+    CACHE_R4 = CACHE_R5;
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_drop__s7(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    slot_t a = CACHE_GET_WORD(CACHE_R0); u1 a_wt = 0; (void)a; (void)a_wt;
+    CACHE_R0 = CACHE_R1;
+    CACHE_R1 = CACHE_R2;
+    CACHE_R2 = CACHE_R3;
+    CACHE_R3 = CACHE_R4;
+    CACHE_R4 = CACHE_R5;
+    CACHE_R5 = CACHE_R6;
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_drop__s8(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    slot_t a = CACHE_GET_WORD(CACHE_R0); u1 a_wt = 0; (void)a; (void)a_wt;
+    CACHE_R0 = CACHE_R1;
+    CACHE_R1 = CACHE_R2;
+    CACHE_R2 = CACHE_R3;
+    CACHE_R3 = CACHE_R4;
+    CACHE_R4 = CACHE_R5;
+    CACHE_R5 = CACHE_R6;
+    CACHE_R6 = CACHE_R7;
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
 void STENCIL gen_st_select(CACHE_ARGS) {
     frame_t* f = &vm->frame; (void)f;
     STENCIL_TRAP_PC(_HOLE_pc);   /* per-stencil source byte offset: the default discards it (no trap-frame); a backend that records a trap site (e.g. §7.1.8) #defines STENCIL_TRAP_PC to bake _HOLE_pc into its frame */
@@ -27352,6 +27751,145 @@ void STENCIL gen_st_select__s1m(CACHE_ARGS) {
     TAIL return _HOLE_cont(CACHE_PASS);
 }
 
+void STENCIL gen_st_select__s2(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    s4 c = CACHE_GET_INT(CACHE_R0);
+    slot_t v2 = CACHE_GET_WORD(CACHE_R1); u1 v2_wt = 0; (void)v2; (void)v2_wt;
+    GPOP_WORD(v1);
+    slot_t result; u1 result_wt;
+    (void)result_wt;
+    result = ((c ? v1 : v2));
+    result_wt = (s4)((c ? v1_wt : v2_wt));
+    CACHE_R0 = CACHE_PUT_WORD(result);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_select__s2m(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    s4 c = CACHE_GET_INT(CACHE_R0);
+    slot_t v2 = CACHE_GET_WORD(CACHE_R1); u1 v2_wt = 0; (void)v2; (void)v2_wt;
+    GPOP_WORD(v1);
+    slot_t result; u1 result_wt;
+    result = ((c ? v1 : v2));
+    result_wt = (s4)((c ? v1_wt : v2_wt));
+    GPUSH_WORD(result);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_select__s3(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    s4 c = CACHE_GET_INT(CACHE_R0);
+    slot_t v2 = CACHE_GET_WORD(CACHE_R1); u1 v2_wt = 0; (void)v2; (void)v2_wt;
+    slot_t v1 = CACHE_GET_WORD(CACHE_R2); u1 v1_wt = 0; (void)v1; (void)v1_wt;
+    slot_t result; u1 result_wt;
+    (void)result_wt;
+    result = ((c ? v1 : v2));
+    result_wt = (s4)((c ? v1_wt : v2_wt));
+    CACHE_R0 = CACHE_PUT_WORD(result);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_select__s3m(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    s4 c = CACHE_GET_INT(CACHE_R0);
+    slot_t v2 = CACHE_GET_WORD(CACHE_R1); u1 v2_wt = 0; (void)v2; (void)v2_wt;
+    slot_t v1 = CACHE_GET_WORD(CACHE_R2); u1 v1_wt = 0; (void)v1; (void)v1_wt;
+    slot_t result; u1 result_wt;
+    result = ((c ? v1 : v2));
+    result_wt = (s4)((c ? v1_wt : v2_wt));
+    GPUSH_WORD(result);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_select__s4(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    s4 c = CACHE_GET_INT(CACHE_R0);
+    slot_t v2 = CACHE_GET_WORD(CACHE_R1); u1 v2_wt = 0; (void)v2; (void)v2_wt;
+    slot_t v1 = CACHE_GET_WORD(CACHE_R2); u1 v1_wt = 0; (void)v1; (void)v1_wt;
+    slot_t result; u1 result_wt;
+    (void)result_wt;
+    result = ((c ? v1 : v2));
+    result_wt = (s4)((c ? v1_wt : v2_wt));
+    CACHE_R1 = CACHE_R3;
+    CACHE_R0 = CACHE_PUT_WORD(result);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_select__s5(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    s4 c = CACHE_GET_INT(CACHE_R0);
+    slot_t v2 = CACHE_GET_WORD(CACHE_R1); u1 v2_wt = 0; (void)v2; (void)v2_wt;
+    slot_t v1 = CACHE_GET_WORD(CACHE_R2); u1 v1_wt = 0; (void)v1; (void)v1_wt;
+    slot_t result; u1 result_wt;
+    (void)result_wt;
+    result = ((c ? v1 : v2));
+    result_wt = (s4)((c ? v1_wt : v2_wt));
+    CACHE_R1 = CACHE_R3;
+    CACHE_R2 = CACHE_R4;
+    CACHE_R0 = CACHE_PUT_WORD(result);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_select__s6(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    s4 c = CACHE_GET_INT(CACHE_R0);
+    slot_t v2 = CACHE_GET_WORD(CACHE_R1); u1 v2_wt = 0; (void)v2; (void)v2_wt;
+    slot_t v1 = CACHE_GET_WORD(CACHE_R2); u1 v1_wt = 0; (void)v1; (void)v1_wt;
+    slot_t result; u1 result_wt;
+    (void)result_wt;
+    result = ((c ? v1 : v2));
+    result_wt = (s4)((c ? v1_wt : v2_wt));
+    CACHE_R1 = CACHE_R3;
+    CACHE_R2 = CACHE_R4;
+    CACHE_R3 = CACHE_R5;
+    CACHE_R0 = CACHE_PUT_WORD(result);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_select__s7(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    s4 c = CACHE_GET_INT(CACHE_R0);
+    slot_t v2 = CACHE_GET_WORD(CACHE_R1); u1 v2_wt = 0; (void)v2; (void)v2_wt;
+    slot_t v1 = CACHE_GET_WORD(CACHE_R2); u1 v1_wt = 0; (void)v1; (void)v1_wt;
+    slot_t result; u1 result_wt;
+    (void)result_wt;
+    result = ((c ? v1 : v2));
+    result_wt = (s4)((c ? v1_wt : v2_wt));
+    CACHE_R1 = CACHE_R3;
+    CACHE_R2 = CACHE_R4;
+    CACHE_R3 = CACHE_R5;
+    CACHE_R4 = CACHE_R6;
+    CACHE_R0 = CACHE_PUT_WORD(result);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_select__s8(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    s4 c = CACHE_GET_INT(CACHE_R0);
+    slot_t v2 = CACHE_GET_WORD(CACHE_R1); u1 v2_wt = 0; (void)v2; (void)v2_wt;
+    slot_t v1 = CACHE_GET_WORD(CACHE_R2); u1 v1_wt = 0; (void)v1; (void)v1_wt;
+    slot_t result; u1 result_wt;
+    (void)result_wt;
+    result = ((c ? v1 : v2));
+    result_wt = (s4)((c ? v1_wt : v2_wt));
+    CACHE_R1 = CACHE_R3;
+    CACHE_R2 = CACHE_R4;
+    CACHE_R3 = CACHE_R5;
+    CACHE_R4 = CACHE_R6;
+    CACHE_R5 = CACHE_R7;
+    CACHE_R0 = CACHE_PUT_WORD(result);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
 void STENCIL gen_st_select_t(CACHE_ARGS) {
     frame_t* f = &vm->frame; (void)f;
     STENCIL_TRAP_PC(_HOLE_pc);   /* per-stencil source byte offset: the default discards it (no trap-frame); a backend that records a trap site (e.g. §7.1.8) #defines STENCIL_TRAP_PC to bake _HOLE_pc into its frame */
@@ -27403,6 +27941,145 @@ void STENCIL gen_st_select_t__s1m(CACHE_ARGS) {
     result = ((c ? v1 : v2));
     result_wt = (s4)((c ? v1_wt : v2_wt));
     GPUSH_WORD(result);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_select_t__s2(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    s4 c = CACHE_GET_INT(CACHE_R0);
+    slot_t v2 = CACHE_GET_WORD(CACHE_R1); u1 v2_wt = 0; (void)v2; (void)v2_wt;
+    GPOP_WORD(v1);
+    slot_t result; u1 result_wt;
+    (void)result_wt;
+    result = ((c ? v1 : v2));
+    result_wt = (s4)((c ? v1_wt : v2_wt));
+    CACHE_R0 = CACHE_PUT_WORD(result);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_select_t__s2m(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    s4 c = CACHE_GET_INT(CACHE_R0);
+    slot_t v2 = CACHE_GET_WORD(CACHE_R1); u1 v2_wt = 0; (void)v2; (void)v2_wt;
+    GPOP_WORD(v1);
+    slot_t result; u1 result_wt;
+    result = ((c ? v1 : v2));
+    result_wt = (s4)((c ? v1_wt : v2_wt));
+    GPUSH_WORD(result);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_select_t__s3(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    s4 c = CACHE_GET_INT(CACHE_R0);
+    slot_t v2 = CACHE_GET_WORD(CACHE_R1); u1 v2_wt = 0; (void)v2; (void)v2_wt;
+    slot_t v1 = CACHE_GET_WORD(CACHE_R2); u1 v1_wt = 0; (void)v1; (void)v1_wt;
+    slot_t result; u1 result_wt;
+    (void)result_wt;
+    result = ((c ? v1 : v2));
+    result_wt = (s4)((c ? v1_wt : v2_wt));
+    CACHE_R0 = CACHE_PUT_WORD(result);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_select_t__s3m(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    s4 c = CACHE_GET_INT(CACHE_R0);
+    slot_t v2 = CACHE_GET_WORD(CACHE_R1); u1 v2_wt = 0; (void)v2; (void)v2_wt;
+    slot_t v1 = CACHE_GET_WORD(CACHE_R2); u1 v1_wt = 0; (void)v1; (void)v1_wt;
+    slot_t result; u1 result_wt;
+    result = ((c ? v1 : v2));
+    result_wt = (s4)((c ? v1_wt : v2_wt));
+    GPUSH_WORD(result);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_select_t__s4(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    s4 c = CACHE_GET_INT(CACHE_R0);
+    slot_t v2 = CACHE_GET_WORD(CACHE_R1); u1 v2_wt = 0; (void)v2; (void)v2_wt;
+    slot_t v1 = CACHE_GET_WORD(CACHE_R2); u1 v1_wt = 0; (void)v1; (void)v1_wt;
+    slot_t result; u1 result_wt;
+    (void)result_wt;
+    result = ((c ? v1 : v2));
+    result_wt = (s4)((c ? v1_wt : v2_wt));
+    CACHE_R1 = CACHE_R3;
+    CACHE_R0 = CACHE_PUT_WORD(result);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_select_t__s5(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    s4 c = CACHE_GET_INT(CACHE_R0);
+    slot_t v2 = CACHE_GET_WORD(CACHE_R1); u1 v2_wt = 0; (void)v2; (void)v2_wt;
+    slot_t v1 = CACHE_GET_WORD(CACHE_R2); u1 v1_wt = 0; (void)v1; (void)v1_wt;
+    slot_t result; u1 result_wt;
+    (void)result_wt;
+    result = ((c ? v1 : v2));
+    result_wt = (s4)((c ? v1_wt : v2_wt));
+    CACHE_R1 = CACHE_R3;
+    CACHE_R2 = CACHE_R4;
+    CACHE_R0 = CACHE_PUT_WORD(result);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_select_t__s6(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    s4 c = CACHE_GET_INT(CACHE_R0);
+    slot_t v2 = CACHE_GET_WORD(CACHE_R1); u1 v2_wt = 0; (void)v2; (void)v2_wt;
+    slot_t v1 = CACHE_GET_WORD(CACHE_R2); u1 v1_wt = 0; (void)v1; (void)v1_wt;
+    slot_t result; u1 result_wt;
+    (void)result_wt;
+    result = ((c ? v1 : v2));
+    result_wt = (s4)((c ? v1_wt : v2_wt));
+    CACHE_R1 = CACHE_R3;
+    CACHE_R2 = CACHE_R4;
+    CACHE_R3 = CACHE_R5;
+    CACHE_R0 = CACHE_PUT_WORD(result);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_select_t__s7(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    s4 c = CACHE_GET_INT(CACHE_R0);
+    slot_t v2 = CACHE_GET_WORD(CACHE_R1); u1 v2_wt = 0; (void)v2; (void)v2_wt;
+    slot_t v1 = CACHE_GET_WORD(CACHE_R2); u1 v1_wt = 0; (void)v1; (void)v1_wt;
+    slot_t result; u1 result_wt;
+    (void)result_wt;
+    result = ((c ? v1 : v2));
+    result_wt = (s4)((c ? v1_wt : v2_wt));
+    CACHE_R1 = CACHE_R3;
+    CACHE_R2 = CACHE_R4;
+    CACHE_R3 = CACHE_R5;
+    CACHE_R4 = CACHE_R6;
+    CACHE_R0 = CACHE_PUT_WORD(result);
+    TAIL return _HOLE_cont(CACHE_PASS);
+}
+
+void STENCIL gen_st_select_t__s8(CACHE_ARGS) {
+    frame_t* f = &vm->frame; (void)f;
+    STENCIL_TRAP_PC(_HOLE_pc);
+    s4 c = CACHE_GET_INT(CACHE_R0);
+    slot_t v2 = CACHE_GET_WORD(CACHE_R1); u1 v2_wt = 0; (void)v2; (void)v2_wt;
+    slot_t v1 = CACHE_GET_WORD(CACHE_R2); u1 v1_wt = 0; (void)v1; (void)v1_wt;
+    slot_t result; u1 result_wt;
+    (void)result_wt;
+    result = ((c ? v1 : v2));
+    result_wt = (s4)((c ? v1_wt : v2_wt));
+    CACHE_R1 = CACHE_R3;
+    CACHE_R2 = CACHE_R4;
+    CACHE_R3 = CACHE_R5;
+    CACHE_R4 = CACHE_R6;
+    CACHE_R5 = CACHE_R7;
+    CACHE_R0 = CACHE_PUT_WORD(result);
     TAIL return _HOLE_cont(CACHE_PASS);
 }
 
