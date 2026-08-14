@@ -7,6 +7,24 @@
 
 #include <stdint.h>
 
+/* Module index spaces with their own $id namespaces (§6.6.1). SP_N sizes the
+ * per-module table array; SP_LOCAL/SP_LABEL are FUNCTION-local spaces, resolved
+ * against separate per-func state, not the module array.
+ *
+ * Declared HERE because the rows below name these constants, which makes this
+ * header self-contained: a consumer that wants the `align` column (§3.4.5's
+ * natural alignment) or a mnemonic no longer has to declare the enum first and
+ * include this second. wat.peg's prelude reads them from here. */
+enum { SP_TYPE, SP_FUNC, SP_TABLE, SP_MEM, SP_GLOBAL, SP_TAG, SP_ELEM, SP_DATA, SP_N,
+       SP_LOCAL = SP_N, SP_LABEL };
+
+/* Immediate shapes, in the order instructions.toml uses (its `shape` field), which
+ * is what the `shape` column below indexes. Declared here for the same reason as
+ * the spaces above: the rows name it. */
+enum { WSH_NONE, WSH_IDX, WSH_IDX2, WSH_I32, WSH_I64, WSH_F32, WSH_F64, WSH_HEAP,
+       WSH_LANE, WSH_V128, WSH_MEMARG, WSH_MEMLANE, WSH_BRTABLE, WSH_SELECTT,
+       WSH_BRONCAST, WSH_BLOCK, WSH_IF, WSH_TRYTABLE };
+
 typedef struct {
     const char* name;
     uint8_t     prefix;   /* 0 for single-byte, else 0xFC/0xFD */

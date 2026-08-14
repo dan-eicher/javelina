@@ -45,6 +45,10 @@ wast_tier_t wast_exec_jit_tier(void);
 // A fallback is correct and therefore silent, so the count is what separates
 // "the tier ran" from "the tier was on and did nothing".
 uint32_t    wast_exec_jit_declined(void);
+// ...and the ones it took. The two together are every function the JIT was OFFERED,
+// which is the only independent count of what the tree builder should have seen: it
+// is maintained by jav_instance.c per instantiation, not by the builder.
+uint32_t    wast_exec_jit_compiled(void);
 // Operand-stack slots this build's JIT can use. Zero means tier-2 still builds
 // the tree and covers it but has no variant to choose, so "nothing was cached" is
 // the right answer rather than a missing gate.

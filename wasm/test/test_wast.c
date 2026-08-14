@@ -20,6 +20,12 @@
 #include "wast_sexpr.h"          // the shared .wast S-expr reader (Node + helpers)
 #include "wast_exec.h"           // the c-lite execution runner (separate TU: type-world split)
 #include "jav_ttree.h"           // PIN B-4: the tier-2 sweep's counters
+#include "wat_check.h"           // PIN A-4: water's own §7.6, against the engine's
+#include "jav_view_nav.h"        // PIN A-5: the span index that aligns the two walks
+#include "jav_module_index.h"    // PIN A-5: jav_module_index / jav_module_tctx
+#include "jav_module_struct.h"   // PIN A-5: the §5.5 gate the index reads counts through
+#include "jav_module_validate.h" // PIN A-5: fills body_locals, which the tctx needs
+#include "jav_sigtab.h"          // PIN A-5: jav_sclass_of_valtype
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -34,6 +40,10 @@
 static int g_wat_ok, g_wat_bad, g_wat_excl;
 static char g_wat_frag[64];          // WAST_CAT: source fragment at the parser's furthest point
 static const char *g_curfile = "";   // basename of the .wast file currently being scanned
+// The module command's source span, for the §7 differential's report: which of a
+// file's hundred assert_invalid modules diverged is the whole question, and the file
+// name cannot answer it.
+static const char *g_modsrc = ""; static int g_modlen = 0;
 
 static void free_parse_vecs(wat_ctx_t *c) {
     for (int i = 0; i < SP_N; i++) {
@@ -182,6 +192,7 @@ static int g_val_msgbad;   // rejected correctly, but for the WRONG reason (jav_
 // official vocabulary. The matcher is wast_msg_matches (wast_exec.h), shared with the
 // execution side so the two reason gates cannot drift apart.
 #define err_matches(actual, expected_tok) wast_msg_matches((actual), (expected_tok))
+static void run_module_wat76(const uint8_t *bytes, int n, int vm_accepted, jav_err_t vm_err);
 static void run_module_validate(const Node *m, int kind) {
     // assert_malformed is scored here too. It used to be skipped as "the decoder's job,
     // covered by run_module" — but run_module drives the OWNING reader plus jav_module_wf,
@@ -194,6 +205,7 @@ static void run_module_validate(const Node *m, int kind) {
         if (m->kids[i]->is_str) n += decode_str(m->kids[i], vbuf+n);
     jav_err_t err = JAV_E_NONE;
     int accepted = (jav_validate_bytes(vbuf, (size_t)n, &err) == JAV_OK);
+    run_module_wat76(vbuf, n, accepted, err);            // PIN A-4
     int want_accept = (kind == 0);
     if (accepted == want_accept) {
         if (!want_accept && !err_matches(jav_err_str(err), g_msg)) {   // right verdict, wrong reason
@@ -211,6 +223,211 @@ static void run_module_validate(const Node *m, int kind) {
                 accepted?"accept":"reject", jav_err_str(err));
 }
 
+// ── PIN A-4: water's §7.6 against the engine's, over the same bytes ──────────
+// water transcribes §7.6 itself and links no engine translation unit; what the two
+// share is opgen's generated per-opcode transfer table. This is the check on that
+// arrangement — two independent readings of one published algorithm, run over every
+// module in the corpus.
+//
+// PIN A-7: both directions. With §3.5 in (A7), water's verdict is the whole of §7, so
+// the gate is an IDENTITY — every module, accepted or rejected, must get the same
+// answer from both. A module the engine rejects that water accepts is the dangerous
+// direction (water would write .wat for something invalid); the converse is water
+// being wrong about a good module. Both are counted here.
+//
+// A module the OWNING reader cannot even read is not scored: §5 decode is
+// run_module's gate, over the same bytes, and it is already 810/0.
+// ── PIN A-5: water's §7.6 producer edges against jav_ttree_build's tree ──────
+//
+// Two independently-written walks over one instruction stream. water's iterates the
+// OWNING reader's jav_instr_t and has no byte positions; the tier-2 builder decodes
+// BYTES and its `pc` is one. The shared coordinate is the c-lite span index, which
+// this runner is holding anyway — the VM's module index is built out of it.
+//
+// The correspondence is positional: the k-th Instr capture in §5 pre-order is the k-th
+// row water recorded, because both readers are generated from wasm.bbq and take the
+// same switch arms over the same bytes. That is an assumption, so the count is checked
+// before anything is compared.
+static int g_a5_ok, g_a5_bad, g_a5_bodies, g_a5_unaligned;
+// jav_ttree_stats is a global accumulator whose intended producer is the JIT compiling
+// bodies. This differential is a SECOND producer of the same counters, so it tracks
+// exactly what it added and the sweep's report subtracts it. The alternative — teaching
+// the builder to stop counting on request — would be putting test scaffolding in the
+// engine to keep a test from breaking another test.
+static jav_ttree_stats_t g_a5_delta;
+
+// water's row for a given flat §5 ordinal, or NULL.
+static const wat_info_t *a5_row(const wat_body_t *wb, uint32_t seq) {
+    for (uint32_t i = 0; i < wb->ninfo; i++) if (wb->info[i].seq == seq) return &wb->info[i];
+    return NULL;
+}
+
+static void a5_compare(const wat_body_t *wb, const jav_ttree_t *t, const char *what) {
+    for (uint32_t r = 0; r < t->nregions; r++)
+        for (uint32_t k = 0; k < t->regions[r].nroots; k++) {
+            const jav_tnode_t *stack[256]; int sp = 0;
+            stack[sp++] = t->regions[r].roots[k];
+            while (sp) {
+                const jav_tnode_t *nd = stack[--sp];
+                if (nd->seq == JAV_TNODE_NO_SEQ) continue;   // a carried leaf: no instruction
+                const wat_info_t *info = a5_row(wb, nd->seq);
+                // The tier-2 tree does not model a VARIADIC instruction's argument
+                // group as children — it turns that group into roots and keeps only
+                // what its signature fixes — so its kids are a SUFFIX of the operands
+                // water popped. Both walks pop from the top, so the two align from the
+                // RIGHT: ttree kid j is water operand (noperands - nkids + j).
+                int shift = (info && info->noperands >= nd->nkids)
+                          ? (int)info->noperands - (int)nd->nkids : 0;
+                for (uint8_t j = 0; j < nd->nkids; j++) {
+                    const jav_tnode_t *kid = nd->kids[j];
+                    if (sp < 256) stack[sp++] = kid;
+                    if (kid->seq == JAV_TNODE_NO_SEQ) continue;   // carried, not an edge
+                    uint32_t wj = (uint32_t)(shift + j);
+                    const jav_instr_t *wp = (info && wj < info->noperands) ? info->producer[wj] : NULL;
+                    // water's producer is an instruction POINTER; find its row by
+                    // identity, then compare that row's ordinal with the tree's.
+                    int agree = 0; uint32_t wseq = 0xffffffffu;
+                    for (uint32_t q = 0; wp && q < wb->ninfo && !agree; q++)
+                        if (wb->info[q].in == wp) { wseq = wb->info[q].seq; agree = (wseq == kid->seq); }
+                    if (agree) g_a5_ok++;
+                    else {
+                        g_a5_bad++;
+                        const char *vmax = getenv("WAST_VMAX");
+                        if (getenv("WAST_VV") && g_a5_bad <= (vmax ? atoi(vmax) : 20))
+                            fprintf(stderr, "  A-5 EDGE DIFFERS: %s %s op 0x%02x seq=%u kid %u/%u "
+                                            "ttree-kid-seq=%u water-nops=%u water-seq=%d row=%s\n",
+                                    g_curfile, what, nd->pc ? nd->pc[0] : 0, nd->seq, j, nd->nkids,
+                                    kid->seq, info ? info->noperands : 0,
+                                    wp ? (int)wseq : -1, info ? "yes" : "MISSING");
+                    }
+                }
+            }
+        }
+}
+
+// One body: build the tier-2 tree over the same bytes and compare its edges with the
+// rows water just produced. The per-FUNCTION half of the tier-2 context is the locals
+// validation decoded plus this function's own results (§7.6's outermost frame) — the
+// same fill jav_instance.c does at its compile site.
+static void a5_body(const jav_modidx_t *vmod, jav_tctx_t *tcx, bbq_arena *ta,
+                    const bbq_field_capture *ventries, const uint8_t *bytes,
+                    uint32_t nimp, uint32_t d, const wat_body_t *wb) {
+    const bbq_field_capture *entry = &ventries->children[d];
+    const bbq_field_capture *expr  = jav_view_field(jav_view_field(entry, "body"), "body");
+    if (!expr) return;
+    const jav_functype_t *sig = &vmod->func_sigs[nimp + d];
+    jav_valtype_t *locals = vmod->body_locals[d];
+    uint32_t nloc = (uint32_t)bbq_vec_len(locals);
+    uint8_t *lcls = nloc ? (uint8_t *)bbq_arena_alloc(ta, nloc) : NULL;
+    for (uint32_t i = 0; i < nloc; i++) lcls[i] = jav_sclass_of_valtype(locals[i]);
+    uint8_t *rcls = sig->nresults ? (uint8_t *)bbq_arena_alloc(ta, sig->nresults) : NULL;
+    for (uint32_t i = 0; i < sig->nresults; i++) rcls[i] = jav_sclass_of_valtype(sig->results[i]);
+    tcx->local_class = lcls;  tcx->nlocals  = nloc;
+    tcx->result_class = rcls; tcx->nresults = sig->nresults;
+
+    const uint8_t *code = bytes + expr->start_offset;
+    size_t code_len = expr->end_offset - expr->start_offset;
+    bbq_ctx_t cc; bbq_ctx_init(&cc, code, code_len);
+    bbq_arena tra; bbq_arena_init(&tra, 64 * 1024);
+    jav_ttree_t tt; memset(&tt, 0, sizeof tt);
+    jav_ttree_stats_t pre = *jav_ttree_stats();
+    int built = jav_ttree_build(cc, tcx, &tra, &tt);    // a decline is not a divergence
+    const jav_ttree_stats_t *post = jav_ttree_stats();
+    g_a5_delta.bodies_built    += post->bodies_built    - pre.bodies_built;
+    g_a5_delta.bodies_declined += post->bodies_declined - pre.bodies_declined;
+    g_a5_delta.nodes           += post->nodes           - pre.nodes;
+    g_a5_delta.nodes_carried   += post->nodes_carried   - pre.nodes_carried;
+    if (built) { a5_compare(wb, &tt, "func"); g_a5_bodies++; }
+    bbq_arena_free(&tra);
+}
+
+static int g_wat76_ok, g_wat76_bad;
+static void run_module_wat76(const uint8_t *bytes, int n, int vm_accepted, jav_err_t vm_err) {
+    bbq_ctx_t c; bbq_ctx_init(&c, bytes, (size_t)n);
+    jav_module_t mod; memset(&mod, 0, sizeof mod);
+    int read_ok = jav_module_read(&c, &mod) && bbq_at_end(&c);
+    bbq_ctx_free(&c);
+    if (!read_ok) { jav_module_free(&mod); return; }
+
+    bbq_arena a; bbq_arena_init(&a, 256 * 1024);
+    jav_err_t err = JAV_E_NONE;
+    wat_check_ctx_t *wcx = wat_check_ctx_build(&mod, &a, &err);
+    int bad = 0; uint32_t bad_fn = 0; const jav_instr_t *bad_in = NULL;
+    jav_err_t bad_err = err;
+    int wat_accepted = 1;
+    if (!wcx) {
+        wat_accepted = 0;
+    } else if (!wat_check_module(wcx, &a, &bad_err)) {
+        wat_accepted = 0;                                  // §3.5 rejected it (A7)
+    } else {
+        // PIN A-5's other side: the VM's own index over the SAME bytes, which is what
+        // jav_ttree_build's context is projected from and what carries the spans that
+        // align the two walks. Built only for a module the engine accepted, because a
+        // tier-2 tree is only defined for one.
+        bbq_arena va, ta; bbq_capture_metadata vmeta; jav_modidx_t vmod;
+        const bbq_field_capture *ventries = NULL; jav_tctx_t tcx; int a5 = 0;
+        if (vm_accepted) {
+            bbq_arena_init(&va, 0);
+            vmeta = jav_view_module(bytes, (size_t)n, &va);
+            jav_err_t ve;
+            if (vmeta.success && jav_module_struct(vmeta.root, bytes) == JAV_E_NONE &&
+                jav_module_index(vmeta.root, bytes, &va, &vmod) &&
+                jav_module_validate(vmeta.root, bytes, &vmod, &ve) == JAV_OK) {
+                ventries = jav_view_section_array(vmeta.root, 10, "entries", bytes);
+                bbq_arena_init(&ta, 8 * 1024);
+                tcx = jav_module_tctx(&vmod, &ta);
+                a5 = 1;
+            } else {
+                bbq_arena_free(&va);
+            }
+        }
+        // The code section's entries are the DEFINED functions, which follow the
+        // imported ones in the function index space (§5.5.5).
+        uint32_t nimp = 0;
+        for (size_t i = 0; i < mod.sections.count; i++)
+            if (mod.sections.items[i].id == 2) {
+                const jav_import_section_t *is = &mod.sections.items[i].body.u.case_2;
+                for (size_t k = 0; k < is->imports.count; k++)
+                    if (is->imports.items[k].desc.kind == 0x00) nimp++;
+            }
+        for (size_t i = 0; i < mod.sections.count && !bad; i++) {
+            if (mod.sections.items[i].id != 10) continue;
+            const jav_code_section_t *cs = &mod.sections.items[i].body.u.case_10;
+            for (size_t d = 0; d < cs->entries.count; d++) {
+                wat_body_t r;
+                if (!wat_check_body(wcx, nimp + (uint32_t)d, &cs->entries.items[d].body, &a, &r)) {
+                    bad = 1; bad_fn = nimp + (uint32_t)d; bad_in = r.fail; bad_err = r.err;
+                    break;
+                }
+                if (a5 && ventries && d < jav_view_nchild(ventries))
+                    a5_body(&vmod, &tcx, &ta, ventries, bytes, nimp, (uint32_t)d, &r);
+            }
+        }
+        if (bad) wat_accepted = 0;
+        if (a5) { jav_modidx_free_bodies(&vmod); bbq_arena_free(&ta); bbq_arena_free(&va); }
+    }
+    if (wat_accepted == vm_accepted) g_wat76_ok++;
+    else {
+        g_wat76_bad++;
+        const char *vmax = getenv("WAST_VMAX");
+        if (getenv("WAST_VV") && g_wat76_bad <= (vmax ? atoi(vmax) : 60))
+            fprintf(stderr, "  wat §7 DIFFERS: %s engine=%s wat=%s func %u op 0x%02x "
+                            "engine-said=\"%s\" wat-said=\"%s\" wast-expects=%s\n",
+                    g_curfile, vm_accepted ? "accept" : "reject",
+                    wat_accepted ? "accept" : "reject",
+                    bad_fn, bad_in ? bad_in->op : 0,
+                    jav_err_str(vm_err), jav_err_str(bad_err), g_msg);
+        if (getenv("WAST_VV") && g_wat76_bad <= (vmax ? atoi(vmax) : 60) && g_modlen) {
+            int sn = g_modlen > 200 ? 200 : g_modlen;
+            fprintf(stderr, "      ");
+            for (int i = 0; i < sn; i++) { char ch = g_modsrc[i]; putc((ch=='\n'||ch=='\t')?' ':ch, stderr); }
+            putc('\n', stderr);
+        }
+    }
+    bbq_arena_free(&a);
+    jav_module_free(&mod);
+}
+
 // ── §7 validation gate over TEXT modules: assemble (the water path: wat_assemble →
 // jav_module_write → bytes) then run the SAME jav_validate_bytes. This is what carries
 // the GC validation corpus (type-subtyping/array/struct .wast, all text-form) into the
@@ -222,6 +439,7 @@ static void run_module_validate_text(const Node *m, int kind) {
     static char qbuf[1<<20];
     const char *src; int len;
     if (!module_wat_source(m, qbuf, &src, &len)) return; // binary modules → run_module_validate; instance → not a module
+    g_modsrc = src; g_modlen = len;
     wat_ctx_t ctx; memset(&ctx, 0, sizeof ctx);
     bbq_arena_init(&ctx.arena, 64 * 1024);
     peg_state p;
@@ -244,6 +462,9 @@ static void run_module_validate_text(const Node *m, int kind) {
     if (!wrote) { bbq_write_ctx_free(&w); g_tval_excl++; return; }
     jav_err_t err = JAV_E_NONE;
     int accepted = (jav_validate_bytes(w.data, w.pos, &err) == JAV_OK);
+    // PIN A-4 over the TEXT corpus too — which is where the GC and SIMD validation
+    // cases live, so it is the half of the differential with the type-system reach.
+    run_module_wat76(w.data, (int)w.pos, accepted, err);
     bbq_write_ctx_free(&w);
     int want_accept = (kind == 0);
     if (accepted == want_accept) {
@@ -483,6 +704,19 @@ int main(int argc, char **argv) {
     fprintf(sum, "wast §7 reject-reason (jav_err_str vs .wast string): %d rejected for the WRONG reason\n", g_val_msgbad);
     fprintf(sum, "wast text-module (.wat reader) conformance: %d ok, %d mismatched, %d excluded (non-core-3.0)\n",
             g_wat_ok, g_wat_bad, g_wat_excl);
+    // PIN A-4. water transcribes §7.6 itself and links no engine TU; this is the
+    // check on that — every module the engine accepts, water's own walk accepts.
+    fprintf(sum, "wast §7 differential (water vs engine): %d ok, %d verdicts differ\n",
+            g_wat76_ok, g_wat76_bad);
+    // PIN A-5. Two walks that share no code — water's §7.6 over the owning reader's
+    // structs, and jav_ttree_build decoding bytes — must agree on every producer edge.
+    // The point of the second implementation is that EITHER side can be the wrong one,
+    // so a body the harness cannot align is a body this check did not make: `unaligned`
+    // is in the exit code exactly like `differ`, because an uncompared body is where a
+    // real disagreement would sit unseen.
+    fprintf(sum, "wast §7.6 edge differential (water vs tier-2 tree): %d edges over %d bodies, "
+                 "%d differ, %d unaligned\n",
+            g_a5_ok, g_a5_bodies, g_a5_bad, g_a5_unaligned);
     int eok = 0, ebad = 0, eexcl = 0;
     if (g_store_ready && !sweep) {
         const char *ereason;
@@ -503,7 +737,16 @@ int main(int argc, char **argv) {
     // PIN B-4. The arity claim alone would be green over zero nodes, so the sweep
     // reports what it built: a body it declined is one the tier-2 walk is short a
     // fact for, and the first one names the instruction it stopped on.
-    const jav_ttree_stats_t *ts = jav_ttree_stats();
+    // …minus what the §7.6 edge differential built for its own comparison, which lands
+    // in the same global counters but is not the JIT compiling anything. Arity and
+    // order breaks are NOT subtracted: they are gated at zero and a non-zero from
+    // either producer is the same real defect in the same builder.
+    jav_ttree_stats_t jit_only = *jav_ttree_stats();
+    jit_only.bodies_built    -= g_a5_delta.bodies_built;
+    jit_only.bodies_declined -= g_a5_delta.bodies_declined;
+    jit_only.nodes           -= g_a5_delta.nodes;
+    jit_only.nodes_carried   -= g_a5_delta.nodes_carried;
+    const jav_ttree_stats_t *ts = &jit_only;
     if (tier != WAST_TIER_INTERP) {
         fprintf(sum, "wast tier-2 tree sweep: %llu bodies, %llu nodes, "
                      "%llu arity mismatches, %llu order breaks, %llu declined\n",
@@ -554,6 +797,23 @@ int main(int argc, char **argv) {
         uint32_t dec = wast_exec_jit_declined();
         fprintf(sum, "wast jit coverage: %u function(s) declined by the JIT\n", dec);
     }
+    /* EVERY function the JIT was offered got a tree built for it — the one claim that
+     * says the tier-2 meters cover the run rather than some part of it. `bodies_built`
+     * is the builder's own count and was gated only against ZERO, so a run that swept a
+     * third of the corpus passed exactly like one that swept all of it. The count it is
+     * checked against is maintained somewhere else entirely, by jav_instance.c at each
+     * instantiation, so the two can only agree by both being right.
+     *
+     * It is not a constant: the corpus decides how many functions there are, and this
+     * says the builder saw all of them in the same run that counted them. */
+    uint32_t jit_offered = 0;
+    if (tier == WAST_TIER_2) {
+        jit_offered = wast_exec_jit_compiled() + wast_exec_jit_declined();
+        fprintf(sum, "wast tier-2 body coverage: %llu built + %llu declined, "
+                     "of %u function(s) the JIT was offered\n",
+                (unsigned long long)ts->bodies_built,
+                (unsigned long long)ts->bodies_declined, jit_offered);
+    }
     if (tier != WAST_TIER_INTERP) {
         if (ts->have_unbridged)
             fprintf(sum, "  first unbridged: op 0x%02x @%u, state %d -> %d, class %d\n",
@@ -589,14 +849,22 @@ int main(int argc, char **argv) {
     // number worth failing on; if one is expected to be non-zero it belongs in
     // docs/test-baseline.md as a committed figure, not silently ungated here.
     return (g_bad || g_wat_bad || g_val_bad || g_tval_bad || g_val_msgbad
+            || g_wat76_bad || g_a5_bad || g_a5_unaligned || g_a5_bodies == 0
             || ebad || (!sweep && wast_exec_trap_msgbad())
             /* The tree and tiling meters belong to TIER-2: tier-1 compiles with no
              * tiling context, so no tree is built and there is nothing for them to
              * be about. Gating them on "any JIT tier" made a correct tier-1 run
              * fail for having built zero trees. */
+            /* `bodies_declined` was printed, and given a by-instruction histogram
+             * when non-zero, and gated by nothing — so the builder's own refusals
+             * were the one decline of the three Amendment #9 named that could still
+             * grow silently. It is the meter every check INSIDE the builder reports
+             * through (arity, emission order, a walk that did not consume the body),
+             * which makes an ungated one a check that cannot fail. 0 for this corpus. */
             || (tier == WAST_TIER_2
                 && (ts->arity_mismatches || ts->order_breaks || ts->bodies_built == 0
-                    || ts->bodies_uncovered
+                    || ts->bodies_declined || ts->bodies_uncovered
+                    || ts->bodies_built + ts->bodies_declined != jit_offered
                     || ts->nodes_unpicked != ts->nodes_carried))
             /* …and the stitch meters, on the tier that HAS a cache. A body that
              * dropped back to tier-1 is a body this run did not test, so a green

@@ -442,14 +442,15 @@ int wast_exec_store_init(wast_tier_t tier) {
 void wast_exec_spectest(uint8_t *bytes, size_t len) {
     g_spec_bytes = bytes; g_spec_len = len;   // retained; re-instantiated into each file's store
 }
-static uint32_t g_jit_declined;
+static uint32_t g_jit_declined, g_jit_compiled;
 uint32_t wast_exec_jit_declined(void) { return g_jit_declined; }
+uint32_t wast_exec_jit_compiled(void) { return g_jit_compiled; }
 
 void wast_exec_file_reset(void) {
-    // The store is about to be replaced, so bank its declines first — the counter
-    // lives on the store, and a per-file corpus would otherwise report only the
-    // last file's.
-    if (g_store) g_jit_declined += jav_capi_jit_declined(g_store);
+    // The store is about to be replaced, so bank its counts first — they live on the
+    // store, and a per-file corpus would otherwise report only the last file's.
+    if (g_store) { g_jit_declined += jav_capi_jit_declined(g_store);
+                   g_jit_compiled += jav_capi_jit_count(g_store); }
     file_scope_free();
     g_store = wasm_store_new(g_engine);
     if (g_spec_bytes) {                                   // re-instantiate + register spectest into the new store
@@ -658,6 +659,11 @@ void wast_exec_assert_exception(const Node *cmd) {
     if (s == ACT_EXN) g_exec_ok++; else { g_exec_bad++; if (getenv("WAST_E")) fprintf(stderr, "  EXEC assert_exception NOT-EXN status=%d\n", s); }
 }
 void wast_exec_teardown(void) {
+    // The LAST file's store is never replaced, so file_reset never banked it and its
+    // counts would be dropped — silently, and by the same amount every run, which is
+    // what a constant shortfall in the body-coverage identity turned out to be.
+    if (g_store) { g_jit_declined += jav_capi_jit_declined(g_store);
+                   g_jit_compiled += jav_capi_jit_count(g_store); }
     file_scope_free();
     bbq_vec_free(g_mods); bbq_vec_free(g_defs); bbq_vec_free(g_reg); bbq_vec_free(g_externrefs);
     free(g_spec_bytes);

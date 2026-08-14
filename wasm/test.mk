@@ -120,6 +120,25 @@ $(B)/test_wat: test/test_wat.c $(WAT_OBJS) $(B)/jav_reader.o $(B)/jav_writer.o $
 $(B)/test_water: test/test_water.c $(WAT_OBJS) $(B)/jav_reader.o $(B)/jav_writer.o $(B)/jav_utf8.o $(TOML_OBJS) $(B)/bbq_arena.o | $(B)
 	$(CC) $(CFLAGS) -D_POSIX_C_SOURCE=200809L -Wno-unused-function -Iinclude -I$(PEGRT) $(LINK) -lm -o $@
 
+# water's disassembler half: §7.6 over the decoded instruction tree, and the §6
+# emitter over it. The link set is ENUMERATED rather than borrowed from $(OBJS),
+# because what is ABSENT from it is the contract: no validate.o, no
+# jav_module_index.o, no jav_view_reader.o, no jav_ttree.o. water and the engine are
+# separate tools; what they share is generated output — jav_reader.o (bbqc, from
+# wasm.bbq) and the opgen tables that are headers — plus jav_subtype.o, the one §3.3
+# lattice. A second reading of the subtype relation is the one duplication with no
+# upside, so it is linked and not re-derived.
+WATOUT_OBJS  := $(B)/wat_check.o $(B)/wat_emit.o $(B)/jav_reader.o $(B)/jav_subtype.o \
+                $(B)/jav_error.o $(B)/jav_utf8.o $(B)/bbq_arena.o $(B)/bbq_hmap.o
+$(B)/wat_check.o: src/wat_check.c | $(B)
+	$(CC) $(CFLAGS) -Wno-unused-function -c $< -o $@
+$(B)/wat_emit.o:  src/wat_emit.c | $(B)
+	$(CC) $(CFLAGS) -Wno-unused-function -c $< -o $@
+
+WATOUT_TESTS := test_wat_check test_wat_fold test_wat_emit
+$(WATOUT_TESTS:%=$(B)/%): $(B)/%: test/%.c $(WATOUT_OBJS) | $(B)
+	$(CC) $(CFLAGS) -Wno-unused-function $(LINK) -lm -o $@
+
 # The conformance runner: the official testsuite, executed.
 $(B)/test_wast: test/test_wast.c test/wast_exec.c $(B)/wasm_capi.o $(WAT_OBJS) \
                 $(B)/jav_validate_module.o $(B)/jav_reader.o $(B)/jav_writer.o $(B)/jav_utf8.o \
@@ -129,7 +148,7 @@ $(B)/test_wast: test/test_wast.c test/wast_exec.c $(B)/wasm_capi.o $(WAT_OBJS) \
                 $(B)/jav_extern.o $(B)/jav_error.o $(B)/bbq_htree_capi.o $(B)/jav_view_reader.o \
                 $(B)/bbq_lite.o $(B)/validate.o $(B)/jav_subtype.o $(B)/interp.o \
                 $(B)/jav_runtime.o $(B)/gen_interp.o $(B)/jit_driver.o $(B)/jav_ttree.o \
-                $(B)/jav_tile.o $(B)/bbq_hmap.o $(GC_OBJS) | $(B)
+                $(B)/jav_tile.o $(B)/bbq_hmap.o $(B)/wat_check.o $(GC_OBJS) | $(B)
 	$(CC) $(CFLAGS) -Wno-unused-function -Iinclude -I$(PEGRT) $(LINK) -lm -o $@
 
 # The public wasm.h surface.
@@ -155,7 +174,7 @@ $(B)/embed: examples/embed.c $(B)/libjavelina.a | $(B)
 
 # Everything that is a plain "build it, run it in test/, expect exit 0" gate.
 PLAIN_TESTS := $(IMMIX_TESTS) $(TESTS) $(CLITE_TESTS) test_align test_module_struct $(OWNING_TESTS) \
-               test_instr test_wat test_water $(CAPI_TESTS)
+               test_instr test_wat test_water $(WATOUT_TESTS) $(CAPI_TESTS)
 # ...minus the few that take an argument, handled by name below.
 ARGV_add_wasm := test_skeleton test_load test_roundtrip test_func
 

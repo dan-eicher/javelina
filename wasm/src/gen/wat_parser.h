@@ -26,19 +26,13 @@
 } while (0)
 
 /* Immediate shapes, in the order instructions.toml uses (the `shape` field). */
-enum { WSH_NONE, WSH_IDX, WSH_IDX2, WSH_I32, WSH_I64, WSH_F32, WSH_F64, WSH_HEAP,
-       WSH_LANE, WSH_V128, WSH_MEMARG, WSH_MEMLANE, WSH_BRTABLE, WSH_SELECTT,
-       WSH_BRONCAST, WSH_BLOCK, WSH_IF, WSH_TRYTABLE };
+/* WSH_* (immediate shapes) and SP_* (index spaces) both come from
+ * wat_mnemonics.h, included below — the generated table's rows name them. */
 
-/* Module index spaces with their own $id namespaces (§6.6.1). SP_N sizes the
- * per-module table array; SP_LOCAL/SP_LABEL are FUNCTION-local spaces, resolved
- * against separate per-func state, not the module array. */
-enum { SP_TYPE, SP_FUNC, SP_TABLE, SP_MEM, SP_GLOBAL, SP_TAG, SP_ELEM, SP_DATA, SP_N,
-       SP_LOCAL = SP_N, SP_LABEL };
-
-/* The mnemonic table, generated from spec/instructions.toml at BUILD time. Included
- * HERE rather than with the other headers because its rows name the SP_* spaces
- * above. */
+/* The mnemonic table, generated from spec/instructions.toml at BUILD time — and with
+ * it the SP_* index spaces (§6.6.1), which its rows name and which it therefore
+ * declares. Generated so the .wat reader needs no data file at runtime and `water`
+ * is a standalone binary. */
 #include "wat_mnemonics.h"
 
 /* A resolved try_table catch clause (§5.4): kind 0 catch / 1 catch_ref (both carry a

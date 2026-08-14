@@ -38,9 +38,20 @@ typedef struct jav_tnode {
      * runs: the tree says which value each child is, and this says how much room
      * evaluating it takes. */
     uint8_t           need;
+    /* This instruction's ORDINAL in the body's §5 sequence — the position the walk
+     * was at when it built the node, counted as it decodes. `pc` says WHERE in the
+     * bytes; a consumer that holds the instructions in some other form (already
+     * decoded, say) cannot use a byte offset but can use this, because every walk
+     * over one body meets the same instructions in the same order. UINT32_MAX for a
+     * carried leaf, which stands for a stack slot and no instruction at all.
+     *
+     * It costs nothing: sig+nkids+need is 4 bytes and the pointers that follow are
+     * 8-aligned, so this lands in padding the node already had. */
+    uint32_t          seq;
     struct jav_tnode* kids[JAV_SIG_MAX_KIDS];
     const uint8_t*    pc;
 } jav_tnode_t;
+#define JAV_TNODE_NO_SEQ  UINT32_MAX
 
 /* §3.3 A region: the run between two cuts. Its roots are the nodes nothing
  * inside the region consumed — the effectful ones, and whatever the region left

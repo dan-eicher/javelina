@@ -61,6 +61,11 @@ typedef struct {
     uint32_t          order_breaks;
     uint8_t           cur_op,  decline_op;
     uint32_t          cur_sub, decline_sub;
+    /* The flat §5 opcode ordinal of the instruction being built — §7.6's own unit,
+     * "the flat sequence of opcodes as occurring in the binary format". Counted here
+     * because this walk decodes that sequence directly; `end` and `else` are opcodes
+     * in it and are counted like any other. */
+    uint32_t          seq;
     int               ok;
 } builder_t;
 
@@ -270,10 +275,12 @@ static int pop_val(builder_t* b, tval_t* out) {
  * starts. It cannot borrow a producer's terminal — the stitcher would stamp that
  * instruction again — so it becomes the leaf the vocabulary carries for it. */
 static jav_tnode_t* carried_leaf(builder_t* b, uint8_t cls) {
+    /* stands for a stack slot the region opened on, not an instruction */
     jav_tnode_t* n = (jav_tnode_t*)bbq_arena_alloc(b->arena, sizeof *n);
     if (!n) { decline(b); return NULL; }
     memset(n, 0, sizeof *n);
     n->sig = jav_carried_sig[cls];
+    n->seq = JAV_TNODE_NO_SEQ;
     /* Already on the memory stack and computing nothing, so it needs room for
      * itself and no more. */
     n->need = cls < 7 ? jav_class_width[cls] : 1;
@@ -514,6 +521,7 @@ static void build_node(builder_t* b, uint8_t op, uint32_t sub,
     memset(n, 0, sizeof *n);
     n->sig = (uint16_t)sid;
     n->pc = pc;
+    n->seq = b->seq;
     uint8_t k = 0;
     for (uint8_t i = 0; i < d->nparams; i++)
         if (d->params[i] != JSC_STK) n->kids[k++] = kid[i].node;
@@ -675,6 +683,8 @@ int jav_ttree_build(bbq_ctx_t code, const jav_tctx_t* ctx,
 
     bbq_ctx_t cur = code;
     uint32_t region_start = (uint32_t)cur.pos;
+    uint32_t nseq = 0;
+    int closed_body = 0;   /* the walk met frame 0's `end`, rather than running dry */
     while (b.ok) {
         uint32_t bpos = (uint32_t)cur.pos;
         uint8_t op;
@@ -695,6 +705,7 @@ int jav_ttree_build(bbq_ctx_t code, const jav_tctx_t* ctx,
         }
         b.cur_op = op; b.cur_sub = sub;
         if (!row->present) { decline(&b); break; }
+        b.seq = nseq++;                  /* this instruction's flat §5 ordinal */
 
         /* Decode every operand, with the SAME table and the same order tier-1
          * uses, so the two walks land on the same next instruction. `ent[k]` is
@@ -768,7 +779,7 @@ int jav_ttree_build(bbq_ctx_t code, const jav_tctx_t* ctx,
             } else if (op == OP_END) {
                 uint32_t h = f->height;
                 const uint8_t* rc = f->result_class; uint32_t nr = f->nresults;
-                if (b.nframes == 1) { close_region(&b, region_start); break; }
+                if (b.nframes == 1) { close_region(&b, region_start); closed_body = 1; break; }
                 b.nframes--;
                 reset_to(&b, h, rc, nr);
             }
@@ -790,7 +801,7 @@ int jav_ttree_build(bbq_ctx_t code, const jav_tctx_t* ctx,
             build_node(&b, op, sub, row, ent, pc, 1);
             uint32_t h = f->height;
             const uint8_t* rc = f->result_class; uint32_t nr = f->nresults;
-            if (b.nframes == 1) { close_region(&b, region_start); goto done; }
+            if (b.nframes == 1) { close_region(&b, region_start); closed_body = 1; goto done; }
             b.nframes--;
             reset_to(&b, h, rc, nr);
             break; }
@@ -806,9 +817,23 @@ int jav_ttree_build(bbq_ctx_t code, const jav_tctx_t* ctx,
         if (is_cut(op, sub)) { close_region(&b, region_start); region_start = (uint32_t)cur.pos; }
     }
 done:
-    /* Blocks still open means the walk did not see the body whole; the caller
-     * keeps tier-1 rather than tile half a function. */
-    if (b.ok && b.nframes != 1) decline_at(&b, 0, 0);
+    /* The walk has to have ended the way a body ends: on frame 0's `end`, with the
+     * code entry's last byte consumed and no block left open. Otherwise it did not
+     * see the body whole, and the caller keeps tier-1 rather than tile half a
+     * function.
+     *
+     * This is a check on THIS FILE, not on its input. The walk decodes immediates
+     * with its own table — `jav_jit_meta`, generated from wasm.def — and neither the
+     * interpreter's decoder nor wasm.bbq's grammar is consulted, so if that table is
+     * wrong about one opcode the cursor lands inside an immediate and every byte
+     * after it is read as an opcode. Usually that meets something no row declares
+     * and declines. The case worth checking is when it does not: a 0x0B sitting in
+     * an immediate closes frame 0 early and the builder hands back a tree for half a
+     * function, which nothing downstream can tell from a whole one. Being handed a
+     * validated module says the BYTES are a body; it says nothing about whether this
+     * file's table reads them. */
+    if (b.ok && (!closed_body || b.nframes != 1 || cur.pos != code.length))
+        decline_at(&b, b.cur_op, b.cur_sub);
     if (b.ok) check_emission_order(&b);
     g_stats.arity_mismatches += b.arity_mismatches;
     g_stats.order_breaks += b.order_breaks;
