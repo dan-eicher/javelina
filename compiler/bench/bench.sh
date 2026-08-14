@@ -34,7 +34,7 @@ T_START=$(date +%s)
 # stay under this, or it stops being run and stops measuring anything. When the
 # warning fires, the fix is recalibrating Bench.java's full[] scales (the formula
 # is in its comment), not deleting kernels and not living with it.
-BUDGET=600
+BUDGET=800   # eight configs since the tier-3 legs joined (was 600 at six)
 
 # History worth keeping: this harness's FIRST run caught a Click -O miscompile (array-element
 # stores took §2 strong updates, so a rotating dispatch devirtualized on a false singleton and
@@ -55,9 +55,13 @@ done
 
 echo "== running the matrix =="
 # Two axes: javelinac's optimizer off/on, and javelina's execution tier. The tier
-# axis has three levels — interpret, copy-and-patch, copy-and-patch with
-# operand-stack caching — so the matrix is 2 x 3.
-CFGS="O0-t0 O0-t1 O0-t2 O-t0 O-t1 O-t2"
+# axis has four levels — interpret, copy-and-patch, copy-and-patch with
+# operand-stack caching, and that plus the eq-sat rewrite — so the matrix is
+# 2 x 4. The tier-3 question is asymmetric BY DESIGN: on -O output the rewrite
+# should find nothing (the compiler's Click already did this work), while on
+# -O0 output it is the "make crappy wasm less crappy" tier, and O0-t3 against
+# O0-t2 is that claim measured.
+CFGS="O0-t0 O0-t1 O0-t2 O0-t3 O-t0 O-t1 O-t2 O-t3"
 for cfg in $CFGS; do
     case $cfg in
         O0-*) jre=jre-O0.wasm; plug=bench-O0.wasm ;;
@@ -67,6 +71,7 @@ for cfg in $CFGS; do
         *-t0) tier="--tier 0" ;;
         *-t1) tier="--tier 1" ;;
         *-t2) tier="--tier 2" ;;
+        *-t3) tier="--tier 3" ;;
     esac
     echo "  -- $cfg"
     $B/javelina --jre $B/$jre $tier $B/$plug $QUICK > $B/bench-$cfg.out
@@ -84,28 +89,28 @@ for cfg in $CFGS; do
         exit 1
     fi
 done
-echo "  all six configs agree on every checksum"
+echo "  all eight configs agree on every checksum"
 
 [ -n "$QUICK" ] && exit 0
 
 echo ""
 echo "== comparison (min_ms; ratios vs O0-t0) =="
 # RESULT lines are 5 fields wide, so config k's min= is field 5k+4.
-paste $B/bench-O0-t0.out $B/bench-O0-t1.out $B/bench-O0-t2.out \
-      $B/bench-O-t0.out  $B/bench-O-t1.out  $B/bench-O-t2.out | \
+paste $B/bench-O0-t0.out $B/bench-O0-t1.out $B/bench-O0-t2.out $B/bench-O0-t3.out \
+      $B/bench-O-t0.out  $B/bench-O-t1.out  $B/bench-O-t2.out  $B/bench-O-t3.out | \
 awk '/^RESULT/ {
     name=$2;
-    split($4,a,"="); split($9,b,"="); split($14,c,"=");
-    split($19,d,"="); split($24,e,"="); split($29,f,"=");
-    m0=a[2]; m1=b[2]; m2=c[2]; m3=d[2]; m4=e[2]; m5=f[2];
-    if (!hdr) { printf "  %-7s %9s %9s %9s %9s %9s %9s   %7s %7s %7s\n",
-        "bench","O0-t0","O0-t1","O0-t2","O-t0","O-t1","O-t2",
-        "t1x","t2x","t2/t1"; hdr=1 }
-    printf "  %-7s %7dms %7dms %7dms %7dms %7dms %7dms   %6.2fx %6.2fx %6.2fx\n",
-        name, m0, m1, m2, m3, m4, m5,
-        (m4>0 ? m3/m4 : 0),          # what the JIT buys over the interpreter, at -O
-        (m5>0 ? m3/m5 : 0),          # what the CACHING JIT buys over the interpreter
-        (m5>0 ? m4/m5 : 0)           # …and over the plain JIT, which is the tier-2 question
+    split($4,a,"=");  split($9,b,"=");  split($14,c,"=");  split($19,g,"=");
+    split($24,d,"="); split($29,e,"="); split($34,f,"=");  split($39,h,"=");
+    m0=a[2]; m1=b[2]; m2=c[2]; m2b=g[2]; m3=d[2]; m4=e[2]; m5=f[2]; m5b=h[2];
+    if (!hdr) { printf "  %-7s %8s %8s %8s %8s %8s %8s %8s %8s   %6s %6s %7s\n",
+        "bench","O0-t0","O0-t1","O0-t2","O0-t3","O-t0","O-t1","O-t2","O-t3",
+        "t2/t1","t3/t2","Ot3/Ot2"; hdr=1 }
+    printf "  %-7s %6dms %6dms %6dms %6dms %6dms %6dms %6dms %6dms   %5.2fx %5.2fx %6.2fx\n",
+        name, m0, m1, m2, m2b, m3, m4, m5, m5b,
+        (m2>0  ? m1/m2   : 0),       # the tier-2 question: caching over plain, on -O0
+        (m2b>0 ? m2/m2b  : 0),       # the tier-3 question: eq-sat on CRAPPY code
+        (m5b>0 ? m5/m5b  : 0)        # …and on optimized code, where ~1.00x is CORRECT
 }'
 echo ""
 echo "raw per-config outputs: $B/bench-<config>.out (stable RESULT lines — diff them across compiler changes)"

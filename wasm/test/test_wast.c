@@ -814,15 +814,34 @@ int main(int argc, char **argv) {
      * it is the pass disagreeing with itself. Refusals are legal, counted,
      * and expected 0 on this corpus (a cap that binds is a fact to record). */
     const jav_eqsat_stats_t* es = jav_eqsat_stats();
-    if (tier == WAST_TIER_3)
+    if (tier == WAST_TIER_3) {
         fprintf(sum, "wast tier-3 eqsat: %llu bodies, %llu regions, %llu roots, "
                      "%llu rewritten, %llu rebuild refusal(s), %llu cap "
-                     "refusal(s), %llu identity failure(s)\n",
+                     "refusal(s), %llu identity failure(s), %llu e-node peak\n",
                 (unsigned long long)es->bodies, (unsigned long long)es->regions,
                 (unsigned long long)es->roots, (unsigned long long)es->rewritten,
                 (unsigned long long)es->rebuild_refusals,
                 (unsigned long long)es->cap_refusals,
-                (unsigned long long)es->identity_fails);
+                (unsigned long long)es->identity_fails,
+                (unsigned long long)es->enodes_peak);
+        /* wins by family — which axioms did work on THIS corpus, busiest
+         * first, so a rule that never fires anywhere has nowhere to hide. */
+        const char* const* rn; const unsigned long long* rf;
+        int nr = jav_eqsat_rule_stats(&rn, &rf);
+        unsigned long long left[64] = {0};
+        for (int k = 0; k < nr && k < 64; k++) left[k] = rf[k];
+        fprintf(sum, "  rule fires:");
+        int shown = 0;
+        for (; shown < 6; shown++) {
+            int best = -1;
+            for (int k = 0; k < nr && k < 64; k++)
+                if (left[k] && (best < 0 || left[k] > left[best])) best = k;
+            if (best < 0) break;
+            fprintf(sum, " %s=%llu", rn[best], left[best]);
+            left[best] = 0;
+        }
+        fprintf(sum, "%s\n", shown ? "" : " (none)");
+    }
     /* Bodies the JIT declined OUTRIGHT, which stay on the interpreter. Distinct
      * from every meter above: those describe tier-2's decisions inside a body the
      * JIT took, while this is the JIT not taking it at all. It is the quietest

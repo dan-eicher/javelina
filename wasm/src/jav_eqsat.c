@@ -131,14 +131,21 @@ void jav_eq_make(egraph* g, int op, int64_t data,
 }
 
 /* INTERSECTION, never union: two e-nodes in one class denote the SAME value,
- * so the combined fact is what both agree on. */
+ * so the combined fact is the strongest one both are consistent with.
+ * "Unknown" is NO information (the whole value set), and intersecting a
+ * known constant with it keeps the constant — an opaque member merged into
+ * a proven-constant class must not erase the proof. Two DIFFERENT known
+ * constants would be a contradiction (one value, two proofs); fail closed
+ * to unknown rather than pick a side. */
 void jav_eq_join(const void* a, const void* b, void* out, void* user) {
     (void)user;
     const jav_eq_fact_t* fa = (const jav_eq_fact_t*)a;
     const jav_eq_fact_t* fb = (const jav_eq_fact_t*)b;
     jav_eq_fact_t* fo = (jav_eq_fact_t*)out;
-    if (fa->kind && fb->kind && fa->kind == fb->kind && fa->v == fb->v) *fo = *fa;
-    else fo->kind = 0;
+    if (!fa->kind)                                    *fo = *fb;
+    else if (!fb->kind)                               *fo = *fa;
+    else if (fa->kind == fb->kind && fa->v == fb->v)  *fo = *fa;
+    else                                              fo->kind = 0;
 }
 
 /* Put the fact's constant INTO the class as an e-node, so extraction can
@@ -209,6 +216,7 @@ typedef struct {
     /* rebuild inputs */
     const jav_tctx_t* tcx;
     bbq_hmap*      synth;       /* the emitter's sidecar: node -> jav_synth_t* */
+    bbq_hmap*      facts;       /* Part F: producer node -> jav_eq_fact_t* (body-wide) */
     const uint32_t* snap;       /* version snapshot at the CURRENT root's entry */
     /* kept original subtrees, in the new tree's postorder — the order fence */
     const jav_tnode_t* kept[64];
@@ -245,9 +253,28 @@ static eg_id intern_node(ictx_t* c, jav_tnode_t* n) {
     if (c->failed) return 0;
 
     /* A carried leaf has no instruction (pc == NULL): a stack slot the
-     * region opened on, opaque by identity. */
-    if (!n->pc) return intern_as(c, n, JAV_EQ_OP_OPAQUE,
-                                 (int64_t)(uintptr_t)n, NULL, 0);
+     * region opened on, opaque by identity — which keeps it undroppable (the
+     * pop it stands for is owed). Part F: the builder linked it to its
+     * PRODUCER (kids[0], dead storage at nkids 0), and if the producer's
+     * region proved its class constant, the leaf's class merges with that
+     * constant — the fact crosses the cut. Extraction still prefers the
+     * leaf (an opaque costs less than a spelled constant), so the rules
+     * that can cash the fact are exactly the ones that KEEP the carried
+     * operand; every other form drops it and the rebuild fence refuses. */
+    if (!n->pc) {
+        eg_id id = intern_as(c, n, JAV_EQ_OP_OPAQUE, (int64_t)(uintptr_t)n, NULL, 0);
+        if (!c->failed && c->facts && n->nkids == 0 && n->kids[0]) {
+            const jav_eq_fact_t* pf = (const jav_eq_fact_t*)
+                bbq_hmap_get(c->facts, (uint64_t)(uintptr_t)n->kids[0]);
+            if (pf && pf->kind) {
+                eg_id k = eg_add(c->g, pf->kind == 1 ? OP_I32_CONST : OP_I64_CONST,
+                                 pf->v, NULL, 0);
+                eg_merge(c->g, id, k);
+                eg_rebuild(c->g);
+            }
+        }
+        return id;
+    }
     uint8_t op = n->pc[0];
 
     if (op == OP_LOCAL_GET) {
@@ -472,7 +499,8 @@ static int eq_cost(int op, int64_t data, void* user) {
 }
 
 static void eqsat_region(jav_ttree_t* tree, jav_tregion_t* reg,
-                         const jav_tctx_t* tcx, bbq_arena* a, bbq_hmap* synth) {
+                         const jav_tctx_t* tcx, bbq_arena* a, bbq_hmap* synth,
+                         bbq_hmap* facts) {
     g_eq.regions++;
     egraph g; eg_init(&g);
     jav_eqsat_set_analysis(&g, NULL);
@@ -482,7 +510,7 @@ static void eqsat_region(jav_ttree_t* tree, jav_tregion_t* reg,
     uint32_t* snaps = NULL;               /* per-root version snapshot (D3a splice) */
     ictx_t c = {0};
     c.g = &g; c.arena = a; c.recs = &recs; c.nlocals = nlocals;
-    c.tcx = tcx; c.synth = synth;
+    c.tcx = tcx; c.synth = synth; c.facts = facts;
     if (nlocals) {
         /* A region can be EMPTY (zero roots — a cut immediately followed by
          * another); bbq_arena_alloc(0) is NULL by contract, which is not a
@@ -510,6 +538,28 @@ static void eqsat_region(jav_ttree_t* tree, jav_tregion_t* reg,
 
     eg_caps caps = { EQ_ROUNDS, EQ_NODE_BUDGET };
     jav_eqsat_rewrite_region(&g, caps);
+    {
+        size_t nn = eg_node_count(&g);
+        if (nn > g_eq.enodes_peak) g_eq.enodes_peak = nn;
+    }
+
+    /* Part F, the producing side: every VALUE root's post-saturation fact is
+     * recorded against the ORIGINAL node — the pointer the next region's
+     * carried leaf was linked to — before any rebuild replaces it. */
+    if (facts)
+        for (uint32_t i = 0; i < reg->nroots; i++) {
+            const jav_tnode_t* rt = reg->roots[i];
+            if (!jav_sigtab[rt->sig].nresults) continue;
+            const eq_rec_t* rr = rec_of(&c, rt);
+            if (!rr) continue;
+            const jav_eq_fact_t* f = (const jav_eq_fact_t*)
+                eg_class_data(&g, eg_find(&g, rr->id));
+            if (!f || !f->kind) continue;
+            jav_eq_fact_t* keep = (jav_eq_fact_t*)bbq_arena_alloc(a, sizeof *keep);
+            if (!keep) break;
+            *keep = *f;
+            bbq_hmap_put(facts, (uint64_t)(uintptr_t)rt, keep);
+        }
 
     for (uint32_t i = 0; i < reg->nroots; i++) {
         g_eq.roots++;
@@ -542,6 +592,18 @@ static void eqsat_region(jav_ttree_t* tree, jav_tregion_t* reg,
 void jav_eqsat_body(jav_ttree_t* tree, const jav_tctx_t* tcx, bbq_arena* a,
                     bbq_hmap* synth) {
     g_eq.bodies++;
+    /* Part F: region-entry facts. Regions run in order, so a producer's
+     * post-saturation constant is on record before the region whose carried
+     * leaf links back to it interns — the map is the cut the facts cross. */
+    bbq_hmap facts; bbq_hmap_init(&facts, 0);
     for (uint32_t r = 0; r < tree->nregions; r++)
-        eqsat_region(tree, &tree->regions[r], tcx, a, synth);
+        eqsat_region(tree, &tree->regions[r], tcx, a, synth, &facts);
+    bbq_hmap_free(&facts);
+}
+
+int jav_eqsat_rule_stats(const char* const** names,
+                         const unsigned long long** fires) {
+    *names = jav_eqsat_rule_names;
+    *fires = jav_eqsat_rule_fires;
+    return (int)jav_eqsat_NRULES;
 }

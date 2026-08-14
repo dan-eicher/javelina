@@ -983,52 +983,103 @@ static bool rw_shru64_zero(egraph* g) {
     return changed;
 }
 
+/* Which rules did work, by name — a saturating pass that reports
+ * only "changed" hides which axiom earned its place, and a rule
+ * that never fires on any corpus is dead weight nobody can see.
+ * A fire is one round in which the rule added information. */
+enum { jav_eqsat_NRULES = 42 };
+const char* const jav_eqsat_rule_names[jav_eqsat_NRULES ? jav_eqsat_NRULES : 1] = {
+    "add32_comm",
+    "mul32_comm",
+    "and32_comm",
+    "or32_comm",
+    "xor32_comm",
+    "add64_comm",
+    "mul64_comm",
+    "and64_comm",
+    "or64_comm",
+    "xor64_comm",
+    "add32_assoc",
+    "add64_assoc",
+    "add32_zero",
+    "sub32_zero",
+    "sub32_self",
+    "add64_zero",
+    "sub64_zero",
+    "sub64_self",
+    "mul32_one",
+    "mul32_zero",
+    "mul64_one",
+    "mul64_zero",
+    "and32_self",
+    "and32_zero",
+    "and32_ones",
+    "or32_self",
+    "or32_zero",
+    "xor32_self",
+    "xor32_zero",
+    "and64_self",
+    "and64_zero",
+    "and64_ones",
+    "or64_self",
+    "or64_zero",
+    "xor64_self",
+    "xor64_zero",
+    "shl32_zero",
+    "shrs32_zero",
+    "shru32_zero",
+    "shl64_zero",
+    "shrs64_zero",
+    "shru64_zero",
+};
+unsigned long long jav_eqsat_rule_fires[jav_eqsat_NRULES ? jav_eqsat_NRULES : 1];
+
 /* One pass over the rule set. */
 static bool jav_eqsat_round(egraph* g, void* user) {
     (void)user;
     bool changed = false;
-    if (rw_add32_comm(g)) changed = true;
-    if (rw_mul32_comm(g)) changed = true;
-    if (rw_and32_comm(g)) changed = true;
-    if (rw_or32_comm(g)) changed = true;
-    if (rw_xor32_comm(g)) changed = true;
-    if (rw_add64_comm(g)) changed = true;
-    if (rw_mul64_comm(g)) changed = true;
-    if (rw_and64_comm(g)) changed = true;
-    if (rw_or64_comm(g)) changed = true;
-    if (rw_xor64_comm(g)) changed = true;
-    if (rw_add32_assoc(g)) changed = true;
-    if (rw_add64_assoc(g)) changed = true;
-    if (rw_add32_zero(g)) changed = true;
-    if (rw_sub32_zero(g)) changed = true;
-    if (rw_sub32_self(g)) changed = true;
-    if (rw_add64_zero(g)) changed = true;
-    if (rw_sub64_zero(g)) changed = true;
-    if (rw_sub64_self(g)) changed = true;
-    if (rw_mul32_one(g)) changed = true;
-    if (rw_mul32_zero(g)) changed = true;
-    if (rw_mul64_one(g)) changed = true;
-    if (rw_mul64_zero(g)) changed = true;
-    if (rw_and32_self(g)) changed = true;
-    if (rw_and32_zero(g)) changed = true;
-    if (rw_and32_ones(g)) changed = true;
-    if (rw_or32_self(g)) changed = true;
-    if (rw_or32_zero(g)) changed = true;
-    if (rw_xor32_self(g)) changed = true;
-    if (rw_xor32_zero(g)) changed = true;
-    if (rw_and64_self(g)) changed = true;
-    if (rw_and64_zero(g)) changed = true;
-    if (rw_and64_ones(g)) changed = true;
-    if (rw_or64_self(g)) changed = true;
-    if (rw_or64_zero(g)) changed = true;
-    if (rw_xor64_self(g)) changed = true;
-    if (rw_xor64_zero(g)) changed = true;
-    if (rw_shl32_zero(g)) changed = true;
-    if (rw_shrs32_zero(g)) changed = true;
-    if (rw_shru32_zero(g)) changed = true;
-    if (rw_shl64_zero(g)) changed = true;
-    if (rw_shrs64_zero(g)) changed = true;
-    if (rw_shru64_zero(g)) changed = true;
+    if (rw_add32_comm(g)) { changed = true; jav_eqsat_rule_fires[0]++; }
+    if (rw_mul32_comm(g)) { changed = true; jav_eqsat_rule_fires[1]++; }
+    if (rw_and32_comm(g)) { changed = true; jav_eqsat_rule_fires[2]++; }
+    if (rw_or32_comm(g)) { changed = true; jav_eqsat_rule_fires[3]++; }
+    if (rw_xor32_comm(g)) { changed = true; jav_eqsat_rule_fires[4]++; }
+    if (rw_add64_comm(g)) { changed = true; jav_eqsat_rule_fires[5]++; }
+    if (rw_mul64_comm(g)) { changed = true; jav_eqsat_rule_fires[6]++; }
+    if (rw_and64_comm(g)) { changed = true; jav_eqsat_rule_fires[7]++; }
+    if (rw_or64_comm(g)) { changed = true; jav_eqsat_rule_fires[8]++; }
+    if (rw_xor64_comm(g)) { changed = true; jav_eqsat_rule_fires[9]++; }
+    if (rw_add32_assoc(g)) { changed = true; jav_eqsat_rule_fires[10]++; }
+    if (rw_add64_assoc(g)) { changed = true; jav_eqsat_rule_fires[11]++; }
+    if (rw_add32_zero(g)) { changed = true; jav_eqsat_rule_fires[12]++; }
+    if (rw_sub32_zero(g)) { changed = true; jav_eqsat_rule_fires[13]++; }
+    if (rw_sub32_self(g)) { changed = true; jav_eqsat_rule_fires[14]++; }
+    if (rw_add64_zero(g)) { changed = true; jav_eqsat_rule_fires[15]++; }
+    if (rw_sub64_zero(g)) { changed = true; jav_eqsat_rule_fires[16]++; }
+    if (rw_sub64_self(g)) { changed = true; jav_eqsat_rule_fires[17]++; }
+    if (rw_mul32_one(g)) { changed = true; jav_eqsat_rule_fires[18]++; }
+    if (rw_mul32_zero(g)) { changed = true; jav_eqsat_rule_fires[19]++; }
+    if (rw_mul64_one(g)) { changed = true; jav_eqsat_rule_fires[20]++; }
+    if (rw_mul64_zero(g)) { changed = true; jav_eqsat_rule_fires[21]++; }
+    if (rw_and32_self(g)) { changed = true; jav_eqsat_rule_fires[22]++; }
+    if (rw_and32_zero(g)) { changed = true; jav_eqsat_rule_fires[23]++; }
+    if (rw_and32_ones(g)) { changed = true; jav_eqsat_rule_fires[24]++; }
+    if (rw_or32_self(g)) { changed = true; jav_eqsat_rule_fires[25]++; }
+    if (rw_or32_zero(g)) { changed = true; jav_eqsat_rule_fires[26]++; }
+    if (rw_xor32_self(g)) { changed = true; jav_eqsat_rule_fires[27]++; }
+    if (rw_xor32_zero(g)) { changed = true; jav_eqsat_rule_fires[28]++; }
+    if (rw_and64_self(g)) { changed = true; jav_eqsat_rule_fires[29]++; }
+    if (rw_and64_zero(g)) { changed = true; jav_eqsat_rule_fires[30]++; }
+    if (rw_and64_ones(g)) { changed = true; jav_eqsat_rule_fires[31]++; }
+    if (rw_or64_self(g)) { changed = true; jav_eqsat_rule_fires[32]++; }
+    if (rw_or64_zero(g)) { changed = true; jav_eqsat_rule_fires[33]++; }
+    if (rw_xor64_self(g)) { changed = true; jav_eqsat_rule_fires[34]++; }
+    if (rw_xor64_zero(g)) { changed = true; jav_eqsat_rule_fires[35]++; }
+    if (rw_shl32_zero(g)) { changed = true; jav_eqsat_rule_fires[36]++; }
+    if (rw_shrs32_zero(g)) { changed = true; jav_eqsat_rule_fires[37]++; }
+    if (rw_shru32_zero(g)) { changed = true; jav_eqsat_rule_fires[38]++; }
+    if (rw_shl64_zero(g)) { changed = true; jav_eqsat_rule_fires[39]++; }
+    if (rw_shrs64_zero(g)) { changed = true; jav_eqsat_rule_fires[40]++; }
+    if (rw_shru64_zero(g)) { changed = true; jav_eqsat_rule_fires[41]++; }
     return changed;
 }
 

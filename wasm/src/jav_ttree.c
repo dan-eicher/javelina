@@ -293,7 +293,16 @@ static void flush_below(builder_t* b, uint32_t keep) {
     for (uint32_t i = 0; i < n; i++) {
         if (is_carried(&b->stack[i])) continue;
         add_root(b, b->stack[i].node);
-        b->stack[i].node = carried_leaf(b, b->stack[i].cls);
+        jav_tnode_t* leaf = carried_leaf(b, b->stack[i].cls);
+        if (leaf) {
+            /* The PRODUCER, for tier-3's region-entry facts: the value this
+             * leaf stands for was computed by the node in hand right here,
+             * and nowhere later can the two be re-associated. nkids is 0, so
+             * kids[0] is dead storage to every consumer that honours the
+             * arity — the schema pin (B-6) checks arity, not the array. */
+            leaf->kids[0] = b->stack[i].node;
+        }
+        b->stack[i].node = leaf;
     }
 }
 

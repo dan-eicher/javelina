@@ -34,6 +34,7 @@ typedef struct {
                                  * (splice version, an impure or carried drop,
                                  * reordered originals) — original kept, counted */
     uint64_t identity_fails;    /* extraction != original with nothing to rebuild it */
+    uint64_t enodes_peak;       /* largest post-saturation graph any region reached */
 } jav_eqsat_stats_t;
 
 const jav_eqsat_stats_t* jav_eqsat_stats(void);
@@ -51,5 +52,12 @@ typedef struct { uint8_t op; int64_t imm; } jav_synth_t;
  * nodes register their jav_synth_t records there. */
 void jav_eqsat_body(jav_ttree_t* tree, const jav_tctx_t* tcx, bbq_arena* a,
                     bbq_hmap* synth);
+
+/* The per-rule fire counts the generated round maintains (a fire = one
+ * saturation round in which that rule added information), for the wins-by-
+ * family meter. Returns the rule count; the arrays are the generated
+ * matcher's own. */
+int jav_eqsat_rule_stats(const char* const** names,
+                         const unsigned long long** fires);
 
 #endif /* JAV_EQSAT_H */

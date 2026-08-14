@@ -251,6 +251,9 @@ int main(void) {
     static const uint8_t fx_eqz[]      = { 0x41,0x00, 0x45, END };
     static const uint8_t fx_reassoc[]  = { 0x20,0x00, 0x41,0x03, 0x6a,
                                            0x41,0x04, 0x6a, END };
+    /* i32.const 0 ; block ; br 0 ; end ; local.get 0 ; i32.mul ; end */
+    static const uint8_t fx_cross[]    = { 0x41,0x00, 0x02,0x40, 0x0c,0x00, END,
+                                           0x20,0x00, 0x6c, END };
     const rule_fix_t fixes[] = {
         /* family: const-fold via the analysis (i32, i64, and wrap refolds) */
         { "fold.i32",      fx_fold,    sizeof fx_fold,    0, 0,  1, 5 },
@@ -280,6 +283,14 @@ int main(void) {
         /* family: reassociate-and-refold — (x+3)+4 ≡ x+(3+4), then the
          * analysis folds 7 and extraction takes the smaller term */
         { "reassoc.refold", fx_reassoc, sizeof fx_reassoc, 1, 35, 1, 42 },
+        /* Part F: a constant proven in one region reaches the next. The
+         * i32.const 0 crosses the block's cut as a CARRIED leaf; mul_zero in
+         * the next region can only fire because the fact crossed with it —
+         * and its extraction KEEPS the carried operand (the rule returns $z),
+         * which is the one shape the drop fence admits: the local.get is
+         * dropped (pure), the owed pop stays owed, and the region's answer
+         * is the 0 already on the stack. */
+        { "fact.crosses_cut", fx_cross, sizeof fx_cross, 1, 42, 1, 0 },
     };
     for (size_t i = 0; i < sizeof fixes / sizeof fixes[0]; i++)
         run_rule_fix(&fixes[i]);
