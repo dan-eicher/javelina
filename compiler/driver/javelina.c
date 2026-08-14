@@ -57,6 +57,7 @@ static int usage(FILE* f, int code) {
         "                      0  interpret\n"
         "                      1  copy-and-patch JIT (default)\n"
         "                      2  copy-and-patch JIT with operand-stack caching\n"
+        "                      3  tier 2 with the eq-sat rewrite in front\n"
         "  --jit-stats       after the run, report to stderr what the JIT compiled and\n"
         "                    what the operand cache did (functions, cached uses,\n"
         "                    uses above the first slot, spills and fills)\n"
@@ -275,8 +276,8 @@ int main(int argc, char** argv) {
         else if (!strcmp(a, "--tier")) {
             if (++i >= argc) return usage(stderr, 2);
             char* end = NULL; long t = strtol(argv[i], &end, 10);
-            if (!end || *end || t < 0 || t > 2) {
-                fprintf(stderr, "%s: --tier wants 0, 1 or 2\n", prog_name);
+            if (!end || *end || t < 0 || t > 3) {
+                fprintf(stderr, "%s: --tier wants 0, 1, 2 or 3\n", prog_name);
                 return usage(stderr, 2);
             }
             want_tier = (int)t;
