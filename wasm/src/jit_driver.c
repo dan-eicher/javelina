@@ -210,6 +210,10 @@ typedef struct {
      * survive it. The reset here is that same fact without the dead stencils. */
     size_t         next_pos;
     int            region_first;/* the next stamp opens a region (for regions_hot) */
+    /* Tier-3's sidecar: node -> jav_synth_t for rebuilt nodes (pc == NULL).
+     * NULL below tier 3, and a pc-less node with no record is a carried leaf
+     * exactly as before. */
+    bbq_hmap*      synth;
     uint32_t       stamped;     /* primaries stamped by rule actions == the picks */
     jav_status_t   status;
     int            unbridged;
@@ -240,7 +244,8 @@ static void emit_reset_live(void) {
  * after it, and the fill must be what that arrival runs) while a spill disposes
  * of what the previous one produced. */
 static void stamp_instr(bbq_ctx_t* cur, int entry_req,
-                        uint32_t in_pack, uint32_t out_pack) {
+                        uint32_t in_pack, uint32_t out_pack,
+                        const jav_synth_t* syn) {
     if (g_e.status != JAV_RETURN) return;
     /* Room for this instruction and every transition it can imply — the same
      * bound the buffer was sized with, checked so an argument that stops holding
@@ -251,13 +256,14 @@ static void stamp_instr(bbq_ctx_t* cur, int entry_req,
     }
     size_t bpos = cur->pos;
     uint8_t op;
-    if (!bbq_read_u8(cur, &op)) {
+    if (syn) op = syn->op;                    /* no bytes: the record IS the decode */
+    else if (!bbq_read_u8(cur, &op)) {
         g_e.fail_why = 2; g_e.fail_bpos = (uint32_t)bpos;
         g_e.status = JAV_TRAP; return;
     }
     jav_jit_meta_t m;
     uint32_t sub = 0;
-    if (jav_jit_meta_sub[op]) {
+    if (!syn && jav_jit_meta_sub[op]) {
         bbq_read_uleb128_u32(cur, &sub);
         m = jav_jit_meta_sub[op][sub];
     } else m = jav_jit_meta[op];
@@ -383,10 +389,13 @@ static void stamp_instr(bbq_ctx_t* cur, int entry_req,
             continue;
         }
         /* JOP_CONST is a synthesized constant (e.g. a guard's range bound):
-         * its value rides in the meta — no bytecode, no cursor advance. */
+         * its value rides in the meta — no bytecode, no cursor advance.
+         * A tier-3 record's one immediate stands in for the byte read the
+         * same way — the v1 rebuild vocabulary has at most one operand. */
         uint64_t imm = (m.operands[k].kind == JOP_CONST)
                      ? m.operands[k].value
-                     : decode_operand(cur, m.operands[k].kind);
+                     : syn ? (uint64_t)syn->imm
+                           : decode_operand(cur, m.operands[k].kind);
         int h = find_hole(def, m.operands[k].hole);
         if (h >= 0) vals[h] = imm;
     }
@@ -461,9 +470,21 @@ static void stamp_instr(bbq_ctx_t* cur, int entry_req,
  * it runs in and where its operands and result sit, and this is where the
  * stencil is stamped — the reduce IS the emitter (#16). */
 void jav_t2_stamp(const jav_tnode_t* n, int state, uint32_t in_pack, uint32_t out_pack) {
-    if (!g_e.active || !g_e.tiled || g_e.status != JAV_RETURN || !n->pc) return;
+    if (!g_e.active || !g_e.tiled || g_e.status != JAV_RETURN) return;
+    /* A node with no pc is a carried leaf — nothing to stamp — unless tier-3
+     * rebuilt it, in which case its (op, imm) sit in the sidecar and the stamp
+     * ADOPTS the walk's current position: no bytes are consumed, the gap check
+     * cannot fire, and the next real instruction resumes exactly where the
+     * previous one left the cursor. */
+    const jav_synth_t* syn = NULL;
+    if (!n->pc) {
+        syn = g_e.synth
+            ? (const jav_synth_t*)bbq_hmap_get(g_e.synth, (uint64_t)(uintptr_t)n)
+            : NULL;
+        if (!syn) return;
+    }
     bbq_ctx_t cur = g_e.code;
-    cur.pos = (size_t)(n->pc - g_e.code.data);
+    cur.pos = syn ? g_e.next_pos : (size_t)(n->pc - g_e.code.data);
     /* Dead code builds no tree, so the reduce never meets it; the byte walk
      * stamped it in plain forms whose exit state is 0, so the cache never
      * survived the stretch. Same fact, stated instead of stamped. */
@@ -483,7 +504,7 @@ void jav_t2_stamp(const jav_tnode_t* n, int state, uint32_t in_pack, uint32_t ou
         if (wide) jav_ttree_note_wide();
     }
     g_e.stamped++;
-    stamp_instr(&cur, state, in_pack, out_pack);
+    stamp_instr(&cur, state, in_pack, out_pack, syn);
 }
 
 /* The per-body prologue: the entry stencil, the one resync stencil (its offmap
@@ -536,7 +557,7 @@ static void byte_walk(void) {
             g_e.sids[g_e.n] = STENCIL_GEN_ST_HALT; g_e.n++;
             return;
         }
-        stamp_instr(&cur, 0, 0, 0);
+        stamp_instr(&cur, 0, 0, 0, NULL);
     }
 }
 
@@ -604,14 +625,19 @@ jit_func_t* jit_compile(bbq_ctx_t code, const jav_tctx_t* tcx) {
      * interpreted that tier-1 had compiled for the whole life of the JIT. */
     if (tcx) {
         bbq_arena ta; bbq_arena_init(&ta, 16 * 1024);
+        bbq_hmap synth; bbq_hmap_init(&synth, 0);
         jav_ttree_t tree;
         if (jav_ttree_build(code, tcx, &ta, &tree)) {
             /* Tier-3 = this same pipeline with the saturation pass between
              * build and reduce (D1). Zero rules leave every subtree the
              * original pointer, so the reduce below consumes the identical
-             * tree — the structural identity PIN B-1 gates. Any refusal
+             * tree — the structural identity PIN B-1 gates. A rebuilt root's
+             * synthesized nodes stamp through the sidecar; any refusal
              * inside keeps originals and is counted in its own meters. */
-            if (tcx->tier >= 3) jav_eqsat_body(&tree, tcx, &ta);
+            if (tcx->tier >= 3) {
+                jav_eqsat_body(&tree, tcx, &ta, &synth);
+                g_e.synth = &synth;
+            }
             jav_tile_burg_ctx_t bc;
             jav_tile_burg_ctx_init(&bc);
             g_e.tiled = 1;
@@ -641,6 +667,11 @@ jit_func_t* jit_compile(bbq_ctx_t code, const jav_tctx_t* tcx) {
             }
             jav_tile_burg_ctx_free(&bc);
         }
+        /* The sidecar's records live in `ta`; the map itself is heap. The
+         * fallback byte walk below never consults it (g_e.synth is cleared
+         * with the tiled flag), so both die here together. */
+        g_e.synth = NULL;
+        bbq_hmap_free(&synth);
         bbq_arena_free(&ta);
     }
     if (!done) {

@@ -17,6 +17,7 @@
 #define JAV_EQSAT_H
 
 #include "jav_ttree.h"
+#include "bbq_hmap.h"
 
 /* Every counter is printed by the tier-3 stats block and gated: rewritten is
  * an identity (0 while the rule set is empty; a recorded baseline after),
@@ -27,18 +28,28 @@ typedef struct {
     uint64_t bodies;            /* bodies the pass ran over */
     uint64_t regions;           /* regions interned */
     uint64_t roots;             /* roots extracted */
-    uint64_t rewritten;         /* roots whose extraction differed (0 at zero rules) */
+    uint64_t rewritten;         /* roots whose extraction differed AND rebuilt */
     uint64_t cap_refusals;      /* regions dropped at the node budget */
+    uint64_t rebuild_refusals;  /* differing extractions the rebuild refused
+                                 * (splice version, an impure or carried drop,
+                                 * reordered originals) — original kept, counted */
     uint64_t identity_fails;    /* extraction != original with nothing to rebuild it */
 } jav_eqsat_stats_t;
 
 const jav_eqsat_stats_t* jav_eqsat_stats(void);
 void                     jav_eqsat_stats_reset(void);
 
-/* Run the pass over one body's tree, in place. Regions are independent
- * graphs; `a` is the compile's arena (version maps live there). Always
- * returns with the tree valid for the reduce — a refusal anywhere keeps the
- * original subtrees for that region. */
-void jav_eqsat_body(const jav_ttree_t* tree, const jav_tctx_t* tcx, bbq_arena* a);
+/* A synthesized node's stamp record: the emitter reads (op, imm) from here
+ * when a node has no pc. One immediate is the whole v1 vocabulary — a const
+ * carries its value, an extracted local its slot, pure arithmetic nothing. */
+typedef struct { uint8_t op; int64_t imm; } jav_synth_t;
+
+/* Run the pass over one body's tree, IN PLACE: a root whose extraction is
+ * cheaper and rebuildable is replaced (tree->nnodes adjusted so the picks
+ * identity holds); every refusal keeps the original and is counted. `a` is
+ * the compile's arena; `synth` is the emitter's per-body sidecar — rebuilt
+ * nodes register their jav_synth_t records there. */
+void jav_eqsat_body(jav_ttree_t* tree, const jav_tctx_t* tcx, bbq_arena* a,
+                    bbq_hmap* synth);
 
 #endif /* JAV_EQSAT_H */

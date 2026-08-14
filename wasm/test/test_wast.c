@@ -816,9 +816,11 @@ int main(int argc, char **argv) {
     const jav_eqsat_stats_t* es = jav_eqsat_stats();
     if (tier == WAST_TIER_3)
         fprintf(sum, "wast tier-3 eqsat: %llu bodies, %llu regions, %llu roots, "
-                     "%llu rewritten, %llu cap refusal(s), %llu identity failure(s)\n",
+                     "%llu rewritten, %llu rebuild refusal(s), %llu cap "
+                     "refusal(s), %llu identity failure(s)\n",
                 (unsigned long long)es->bodies, (unsigned long long)es->regions,
                 (unsigned long long)es->roots, (unsigned long long)es->rewritten,
+                (unsigned long long)es->rebuild_refusals,
                 (unsigned long long)es->cap_refusals,
                 (unsigned long long)es->identity_fails);
     /* Bodies the JIT declined OUTRIGHT, which stay on the interpreter. Distinct
@@ -938,13 +940,14 @@ int main(int argc, char **argv) {
             || (t2plus && wast_exec_cache_slots() > 0
                 && ts->states_cached == 0)
             /* Tier-3: the pass RAN (bodies == the tier-2 built count — every
-             * tree the builder produced went through the rewrite), nothing was
-             * rewritten (the zero-rule identity; Part C amends this to a
-             * recorded baseline WITH the axioms), nothing refused, and the
-             * pass never disagreed with itself. */
+             * tree the builder produced went through the rewrite), no cap
+             * bound on this corpus, and the pass never disagreed with itself.
+             * `rewritten` and `rebuild refusals` are printed BASELINES now
+             * that the axioms exist (docs/test-baseline.md law) — a rewrite
+             * is the tier working, and a refusal is a fence holding. */
             || (tier == WAST_TIER_3
                 && (es->bodies != ts->bodies_built
-                    || es->rewritten || es->cap_refusals || es->identity_fails
+                    || es->cap_refusals || es->identity_fails
                     || (es->bodies && !es->roots)))
             /* …and no function silently off the tier. 0 is the committed figure
              * for this corpus on both JIT tiers; an opcode that legitimately

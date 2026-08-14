@@ -218,13 +218,13 @@ test: $(ALL_TESTS:%=$(B)/%) $(B)/test_wast $(B)/embed water
 	  else echo "  FAIL  conformance (tier-$$jt)"; fail=$$((fail+1)); failed="$$failed conformance_t$$jt"; fi; \
 	done; \
 	if [ -f $(LOGS)/conformance_t2.log ] && [ -f $(LOGS)/conformance_t3.log ]; then \
-	  c2=$$(grep "wast tier-2 code:" $(LOGS)/conformance_t2.log); \
-	  c3=$$(grep "wast tier-2 code:" $(LOGS)/conformance_t3.log); \
-	  if [ -n "$$c2" ] && [ "$$c2" = "$$c3" ]; then \
-	    echo "  PASS  tier-3 == tier-2 code identity (PIN B-1: $${c2#wast tier-2 code: })"; pass=$$((pass+1)); \
+	  b2=$$(grep "wast tier-2 code:" $(LOGS)/conformance_t2.log | sed 's/.*code: \([0-9]*\) bytes.*/\1/'); \
+	  b3=$$(grep "wast tier-2 code:" $(LOGS)/conformance_t3.log | sed 's/.*code: \([0-9]*\) bytes.*/\1/'); \
+	  if [ -n "$$b2" ] && [ -n "$$b3" ] && [ "$$b3" -le "$$b2" ]; then \
+	    echo "  PASS  tier-3 code <= tier-2 (PIN B-1: $$b3 <= $$b2 bytes; saved $$((b2-b3)))"; pass=$$((pass+1)); \
 	  else \
-	    echo "  FAIL  tier-3 == tier-2 code identity"; echo "      | t2: $$c2"; echo "      | t3: $$c3"; \
-	    fail=$$((fail+1)); failed="$$failed t3_code_identity"; fi; \
+	    echo "  FAIL  tier-3 code <= tier-2 ($$b3 vs $$b2 bytes) — the rewrite made code BIGGER"; \
+	    fail=$$((fail+1)); failed="$$failed t3_code_size"; fi; \
 	fi; \
 	if ( cd test && ../$(B)/test_wast --sweep ../../testsuite/*.wast regress_*.wast ) > $(LOGS)/ttree_sweep.log 2>&1; then \
 	  grep -E "tree sweep|tier-2 tiling|declines by|uncovered at" $(LOGS)/ttree_sweep.log; \

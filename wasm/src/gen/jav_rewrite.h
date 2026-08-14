@@ -25,6 +25,13 @@
 #define BURG_I64ShrU OP_I64_SHR_U
 #define BURG_I64Eqz OP_I64_EQZ
 
+/* Auxiliaries. Each takes the classes its binders matched and
+ * returns the class of its result. A value an auxiliary needs
+ * arrives on the class payload, recorded by whichever stage
+ * built the graph and had it — it is not recovered here. */
+extern eg_id jav_eq_zero32(egraph* g, eg_id);
+extern eg_id jav_eq_zero64(egraph* g, eg_id);
+
 /* The e-class analysis this rule set reasons with (egg §4.1).
  * A rule states an equality; that a value lies in a range is
  * abstract interpretation and cannot be one, so the domain is
@@ -56,10 +63,972 @@ void jav_eqsat_set_analysis(egraph* g, void* user) {
     eg_set_analysis(g, &a);
 }
 
+/* add32_comm */
+static bool rw_add32_comm(egraph* g) {
+    bool changed = false;
+    int ncls = eg_class_count(g);
+    for (eg_id c = 0; c < ncls; c++) {
+        if (eg_find(g, c) != c) continue;
+        int n0_n = eg_class_nodes(g, c);
+        for (int n0 = 0; n0 < n0_n; n0++) {
+            if (eg_class_node_op(g, c, n0) != BURG_I32Add) continue;
+            if (eg_class_node_nkids(g, c, n0) != 2) continue;
+            eg_id bv_a = eg_class_node_kid(g, c, n0, 0);
+            (void)bv_a;
+            eg_id bv_b = eg_class_node_kid(g, c, n0, 1);
+            (void)bv_b;
+            eg_id b1_k[] = { bv_b, bv_a };
+            eg_id b1 = eg_add(g, BURG_I32Add, eg_class_node_data(g, c, n0), b1_k, 2);
+            if (eg_merge(g, c, b1)) changed = true;
+        }
+    }
+    return changed;
+}
+
+/* mul32_comm */
+static bool rw_mul32_comm(egraph* g) {
+    bool changed = false;
+    int ncls = eg_class_count(g);
+    for (eg_id c = 0; c < ncls; c++) {
+        if (eg_find(g, c) != c) continue;
+        int n0_n = eg_class_nodes(g, c);
+        for (int n0 = 0; n0 < n0_n; n0++) {
+            if (eg_class_node_op(g, c, n0) != BURG_I32Mul) continue;
+            if (eg_class_node_nkids(g, c, n0) != 2) continue;
+            eg_id bv_a = eg_class_node_kid(g, c, n0, 0);
+            (void)bv_a;
+            eg_id bv_b = eg_class_node_kid(g, c, n0, 1);
+            (void)bv_b;
+            eg_id b1_k[] = { bv_b, bv_a };
+            eg_id b1 = eg_add(g, BURG_I32Mul, eg_class_node_data(g, c, n0), b1_k, 2);
+            if (eg_merge(g, c, b1)) changed = true;
+        }
+    }
+    return changed;
+}
+
+/* and32_comm */
+static bool rw_and32_comm(egraph* g) {
+    bool changed = false;
+    int ncls = eg_class_count(g);
+    for (eg_id c = 0; c < ncls; c++) {
+        if (eg_find(g, c) != c) continue;
+        int n0_n = eg_class_nodes(g, c);
+        for (int n0 = 0; n0 < n0_n; n0++) {
+            if (eg_class_node_op(g, c, n0) != BURG_I32And) continue;
+            if (eg_class_node_nkids(g, c, n0) != 2) continue;
+            eg_id bv_a = eg_class_node_kid(g, c, n0, 0);
+            (void)bv_a;
+            eg_id bv_b = eg_class_node_kid(g, c, n0, 1);
+            (void)bv_b;
+            eg_id b1_k[] = { bv_b, bv_a };
+            eg_id b1 = eg_add(g, BURG_I32And, eg_class_node_data(g, c, n0), b1_k, 2);
+            if (eg_merge(g, c, b1)) changed = true;
+        }
+    }
+    return changed;
+}
+
+/* or32_comm */
+static bool rw_or32_comm(egraph* g) {
+    bool changed = false;
+    int ncls = eg_class_count(g);
+    for (eg_id c = 0; c < ncls; c++) {
+        if (eg_find(g, c) != c) continue;
+        int n0_n = eg_class_nodes(g, c);
+        for (int n0 = 0; n0 < n0_n; n0++) {
+            if (eg_class_node_op(g, c, n0) != BURG_I32Or) continue;
+            if (eg_class_node_nkids(g, c, n0) != 2) continue;
+            eg_id bv_a = eg_class_node_kid(g, c, n0, 0);
+            (void)bv_a;
+            eg_id bv_b = eg_class_node_kid(g, c, n0, 1);
+            (void)bv_b;
+            eg_id b1_k[] = { bv_b, bv_a };
+            eg_id b1 = eg_add(g, BURG_I32Or, eg_class_node_data(g, c, n0), b1_k, 2);
+            if (eg_merge(g, c, b1)) changed = true;
+        }
+    }
+    return changed;
+}
+
+/* xor32_comm */
+static bool rw_xor32_comm(egraph* g) {
+    bool changed = false;
+    int ncls = eg_class_count(g);
+    for (eg_id c = 0; c < ncls; c++) {
+        if (eg_find(g, c) != c) continue;
+        int n0_n = eg_class_nodes(g, c);
+        for (int n0 = 0; n0 < n0_n; n0++) {
+            if (eg_class_node_op(g, c, n0) != BURG_I32Xor) continue;
+            if (eg_class_node_nkids(g, c, n0) != 2) continue;
+            eg_id bv_a = eg_class_node_kid(g, c, n0, 0);
+            (void)bv_a;
+            eg_id bv_b = eg_class_node_kid(g, c, n0, 1);
+            (void)bv_b;
+            eg_id b1_k[] = { bv_b, bv_a };
+            eg_id b1 = eg_add(g, BURG_I32Xor, eg_class_node_data(g, c, n0), b1_k, 2);
+            if (eg_merge(g, c, b1)) changed = true;
+        }
+    }
+    return changed;
+}
+
+/* add64_comm */
+static bool rw_add64_comm(egraph* g) {
+    bool changed = false;
+    int ncls = eg_class_count(g);
+    for (eg_id c = 0; c < ncls; c++) {
+        if (eg_find(g, c) != c) continue;
+        int n0_n = eg_class_nodes(g, c);
+        for (int n0 = 0; n0 < n0_n; n0++) {
+            if (eg_class_node_op(g, c, n0) != BURG_I64Add) continue;
+            if (eg_class_node_nkids(g, c, n0) != 2) continue;
+            eg_id bv_a = eg_class_node_kid(g, c, n0, 0);
+            (void)bv_a;
+            eg_id bv_b = eg_class_node_kid(g, c, n0, 1);
+            (void)bv_b;
+            eg_id b1_k[] = { bv_b, bv_a };
+            eg_id b1 = eg_add(g, BURG_I64Add, eg_class_node_data(g, c, n0), b1_k, 2);
+            if (eg_merge(g, c, b1)) changed = true;
+        }
+    }
+    return changed;
+}
+
+/* mul64_comm */
+static bool rw_mul64_comm(egraph* g) {
+    bool changed = false;
+    int ncls = eg_class_count(g);
+    for (eg_id c = 0; c < ncls; c++) {
+        if (eg_find(g, c) != c) continue;
+        int n0_n = eg_class_nodes(g, c);
+        for (int n0 = 0; n0 < n0_n; n0++) {
+            if (eg_class_node_op(g, c, n0) != BURG_I64Mul) continue;
+            if (eg_class_node_nkids(g, c, n0) != 2) continue;
+            eg_id bv_a = eg_class_node_kid(g, c, n0, 0);
+            (void)bv_a;
+            eg_id bv_b = eg_class_node_kid(g, c, n0, 1);
+            (void)bv_b;
+            eg_id b1_k[] = { bv_b, bv_a };
+            eg_id b1 = eg_add(g, BURG_I64Mul, eg_class_node_data(g, c, n0), b1_k, 2);
+            if (eg_merge(g, c, b1)) changed = true;
+        }
+    }
+    return changed;
+}
+
+/* and64_comm */
+static bool rw_and64_comm(egraph* g) {
+    bool changed = false;
+    int ncls = eg_class_count(g);
+    for (eg_id c = 0; c < ncls; c++) {
+        if (eg_find(g, c) != c) continue;
+        int n0_n = eg_class_nodes(g, c);
+        for (int n0 = 0; n0 < n0_n; n0++) {
+            if (eg_class_node_op(g, c, n0) != BURG_I64And) continue;
+            if (eg_class_node_nkids(g, c, n0) != 2) continue;
+            eg_id bv_a = eg_class_node_kid(g, c, n0, 0);
+            (void)bv_a;
+            eg_id bv_b = eg_class_node_kid(g, c, n0, 1);
+            (void)bv_b;
+            eg_id b1_k[] = { bv_b, bv_a };
+            eg_id b1 = eg_add(g, BURG_I64And, eg_class_node_data(g, c, n0), b1_k, 2);
+            if (eg_merge(g, c, b1)) changed = true;
+        }
+    }
+    return changed;
+}
+
+/* or64_comm */
+static bool rw_or64_comm(egraph* g) {
+    bool changed = false;
+    int ncls = eg_class_count(g);
+    for (eg_id c = 0; c < ncls; c++) {
+        if (eg_find(g, c) != c) continue;
+        int n0_n = eg_class_nodes(g, c);
+        for (int n0 = 0; n0 < n0_n; n0++) {
+            if (eg_class_node_op(g, c, n0) != BURG_I64Or) continue;
+            if (eg_class_node_nkids(g, c, n0) != 2) continue;
+            eg_id bv_a = eg_class_node_kid(g, c, n0, 0);
+            (void)bv_a;
+            eg_id bv_b = eg_class_node_kid(g, c, n0, 1);
+            (void)bv_b;
+            eg_id b1_k[] = { bv_b, bv_a };
+            eg_id b1 = eg_add(g, BURG_I64Or, eg_class_node_data(g, c, n0), b1_k, 2);
+            if (eg_merge(g, c, b1)) changed = true;
+        }
+    }
+    return changed;
+}
+
+/* xor64_comm */
+static bool rw_xor64_comm(egraph* g) {
+    bool changed = false;
+    int ncls = eg_class_count(g);
+    for (eg_id c = 0; c < ncls; c++) {
+        if (eg_find(g, c) != c) continue;
+        int n0_n = eg_class_nodes(g, c);
+        for (int n0 = 0; n0 < n0_n; n0++) {
+            if (eg_class_node_op(g, c, n0) != BURG_I64Xor) continue;
+            if (eg_class_node_nkids(g, c, n0) != 2) continue;
+            eg_id bv_a = eg_class_node_kid(g, c, n0, 0);
+            (void)bv_a;
+            eg_id bv_b = eg_class_node_kid(g, c, n0, 1);
+            (void)bv_b;
+            eg_id b1_k[] = { bv_b, bv_a };
+            eg_id b1 = eg_add(g, BURG_I64Xor, eg_class_node_data(g, c, n0), b1_k, 2);
+            if (eg_merge(g, c, b1)) changed = true;
+        }
+    }
+    return changed;
+}
+
+/* add32_assoc */
+static bool rw_add32_assoc(egraph* g) {
+    bool changed = false;
+    int ncls = eg_class_count(g);
+    for (eg_id c = 0; c < ncls; c++) {
+        if (eg_find(g, c) != c) continue;
+        int n0_n = eg_class_nodes(g, c);
+        for (int n0 = 0; n0 < n0_n; n0++) {
+            if (eg_class_node_op(g, c, n0) != BURG_I32Add) continue;
+            if (eg_class_node_nkids(g, c, n0) != 2) continue;
+            eg_id k1 = eg_class_node_kid(g, c, n0, 0);
+            (void)k1;
+            eg_id bv_c = eg_class_node_kid(g, c, n0, 1);
+            (void)bv_c;
+            int n2_n = eg_class_nodes(g, k1);
+            for (int n2 = 0; n2 < n2_n; n2++) {
+                if (eg_class_node_op(g, k1, n2) != BURG_I32Add) continue;
+                if (eg_class_node_nkids(g, k1, n2) != 2) continue;
+                eg_id bv_a = eg_class_node_kid(g, k1, n2, 0);
+                (void)bv_a;
+                eg_id bv_b = eg_class_node_kid(g, k1, n2, 1);
+                (void)bv_b;
+                eg_id b3_k[] = { bv_b, bv_c };
+                eg_id b3 = eg_add(g, BURG_I32Add, eg_class_node_data(g, c, n0), b3_k, 2);
+                eg_id b4_k[] = { bv_a, b3 };
+                eg_id b4 = eg_add(g, BURG_I32Add, eg_class_node_data(g, c, n0), b4_k, 2);
+                if (eg_merge(g, c, b4)) changed = true;
+            }
+        }
+    }
+    return changed;
+}
+
+/* add64_assoc */
+static bool rw_add64_assoc(egraph* g) {
+    bool changed = false;
+    int ncls = eg_class_count(g);
+    for (eg_id c = 0; c < ncls; c++) {
+        if (eg_find(g, c) != c) continue;
+        int n0_n = eg_class_nodes(g, c);
+        for (int n0 = 0; n0 < n0_n; n0++) {
+            if (eg_class_node_op(g, c, n0) != BURG_I64Add) continue;
+            if (eg_class_node_nkids(g, c, n0) != 2) continue;
+            eg_id k1 = eg_class_node_kid(g, c, n0, 0);
+            (void)k1;
+            eg_id bv_c = eg_class_node_kid(g, c, n0, 1);
+            (void)bv_c;
+            int n2_n = eg_class_nodes(g, k1);
+            for (int n2 = 0; n2 < n2_n; n2++) {
+                if (eg_class_node_op(g, k1, n2) != BURG_I64Add) continue;
+                if (eg_class_node_nkids(g, k1, n2) != 2) continue;
+                eg_id bv_a = eg_class_node_kid(g, k1, n2, 0);
+                (void)bv_a;
+                eg_id bv_b = eg_class_node_kid(g, k1, n2, 1);
+                (void)bv_b;
+                eg_id b3_k[] = { bv_b, bv_c };
+                eg_id b3 = eg_add(g, BURG_I64Add, eg_class_node_data(g, c, n0), b3_k, 2);
+                eg_id b4_k[] = { bv_a, b3 };
+                eg_id b4 = eg_add(g, BURG_I64Add, eg_class_node_data(g, c, n0), b4_k, 2);
+                if (eg_merge(g, c, b4)) changed = true;
+            }
+        }
+    }
+    return changed;
+}
+
+/* add32_zero */
+static bool rw_add32_zero(egraph* g) {
+    bool changed = false;
+    int ncls = eg_class_count(g);
+    for (eg_id c = 0; c < ncls; c++) {
+        if (eg_find(g, c) != c) continue;
+        int n0_n = eg_class_nodes(g, c);
+        for (int n0 = 0; n0 < n0_n; n0++) {
+            if (eg_class_node_op(g, c, n0) != BURG_I32Add) continue;
+            if (eg_class_node_nkids(g, c, n0) != 2) continue;
+            eg_id bv_x = eg_class_node_kid(g, c, n0, 0);
+            (void)bv_x;
+            eg_id bv_z = eg_class_node_kid(g, c, n0, 1);
+            (void)bv_z;
+            if (!( jav_eq_is_const32(g, bv_z, 0) )) continue;
+            if (eg_merge(g, c, bv_x)) changed = true;
+        }
+    }
+    return changed;
+}
+
+/* sub32_zero */
+static bool rw_sub32_zero(egraph* g) {
+    bool changed = false;
+    int ncls = eg_class_count(g);
+    for (eg_id c = 0; c < ncls; c++) {
+        if (eg_find(g, c) != c) continue;
+        int n0_n = eg_class_nodes(g, c);
+        for (int n0 = 0; n0 < n0_n; n0++) {
+            if (eg_class_node_op(g, c, n0) != BURG_I32Sub) continue;
+            if (eg_class_node_nkids(g, c, n0) != 2) continue;
+            eg_id bv_x = eg_class_node_kid(g, c, n0, 0);
+            (void)bv_x;
+            eg_id bv_z = eg_class_node_kid(g, c, n0, 1);
+            (void)bv_z;
+            if (!( jav_eq_is_const32(g, bv_z, 0) )) continue;
+            if (eg_merge(g, c, bv_x)) changed = true;
+        }
+    }
+    return changed;
+}
+
+/* sub32_self */
+static bool rw_sub32_self(egraph* g) {
+    bool changed = false;
+    int ncls = eg_class_count(g);
+    for (eg_id c = 0; c < ncls; c++) {
+        if (eg_find(g, c) != c) continue;
+        int n0_n = eg_class_nodes(g, c);
+        for (int n0 = 0; n0 < n0_n; n0++) {
+            if (eg_class_node_op(g, c, n0) != BURG_I32Sub) continue;
+            if (eg_class_node_nkids(g, c, n0) != 2) continue;
+            eg_id bv_x = eg_class_node_kid(g, c, n0, 0);
+            (void)bv_x;
+            eg_id bv_y = eg_class_node_kid(g, c, n0, 1);
+            (void)bv_y;
+            if (!( eg_find(g, bv_x) == eg_find(g, bv_y) )) continue;
+            eg_id b1 = jav_eq_zero32(g, c);
+            if (eg_merge(g, c, b1)) changed = true;
+        }
+    }
+    return changed;
+}
+
+/* add64_zero */
+static bool rw_add64_zero(egraph* g) {
+    bool changed = false;
+    int ncls = eg_class_count(g);
+    for (eg_id c = 0; c < ncls; c++) {
+        if (eg_find(g, c) != c) continue;
+        int n0_n = eg_class_nodes(g, c);
+        for (int n0 = 0; n0 < n0_n; n0++) {
+            if (eg_class_node_op(g, c, n0) != BURG_I64Add) continue;
+            if (eg_class_node_nkids(g, c, n0) != 2) continue;
+            eg_id bv_x = eg_class_node_kid(g, c, n0, 0);
+            (void)bv_x;
+            eg_id bv_z = eg_class_node_kid(g, c, n0, 1);
+            (void)bv_z;
+            if (!( jav_eq_is_const64(g, bv_z, 0) )) continue;
+            if (eg_merge(g, c, bv_x)) changed = true;
+        }
+    }
+    return changed;
+}
+
+/* sub64_zero */
+static bool rw_sub64_zero(egraph* g) {
+    bool changed = false;
+    int ncls = eg_class_count(g);
+    for (eg_id c = 0; c < ncls; c++) {
+        if (eg_find(g, c) != c) continue;
+        int n0_n = eg_class_nodes(g, c);
+        for (int n0 = 0; n0 < n0_n; n0++) {
+            if (eg_class_node_op(g, c, n0) != BURG_I64Sub) continue;
+            if (eg_class_node_nkids(g, c, n0) != 2) continue;
+            eg_id bv_x = eg_class_node_kid(g, c, n0, 0);
+            (void)bv_x;
+            eg_id bv_z = eg_class_node_kid(g, c, n0, 1);
+            (void)bv_z;
+            if (!( jav_eq_is_const64(g, bv_z, 0) )) continue;
+            if (eg_merge(g, c, bv_x)) changed = true;
+        }
+    }
+    return changed;
+}
+
+/* sub64_self */
+static bool rw_sub64_self(egraph* g) {
+    bool changed = false;
+    int ncls = eg_class_count(g);
+    for (eg_id c = 0; c < ncls; c++) {
+        if (eg_find(g, c) != c) continue;
+        int n0_n = eg_class_nodes(g, c);
+        for (int n0 = 0; n0 < n0_n; n0++) {
+            if (eg_class_node_op(g, c, n0) != BURG_I64Sub) continue;
+            if (eg_class_node_nkids(g, c, n0) != 2) continue;
+            eg_id bv_x = eg_class_node_kid(g, c, n0, 0);
+            (void)bv_x;
+            eg_id bv_y = eg_class_node_kid(g, c, n0, 1);
+            (void)bv_y;
+            if (!( eg_find(g, bv_x) == eg_find(g, bv_y) )) continue;
+            eg_id b1 = jav_eq_zero64(g, c);
+            if (eg_merge(g, c, b1)) changed = true;
+        }
+    }
+    return changed;
+}
+
+/* mul32_one */
+static bool rw_mul32_one(egraph* g) {
+    bool changed = false;
+    int ncls = eg_class_count(g);
+    for (eg_id c = 0; c < ncls; c++) {
+        if (eg_find(g, c) != c) continue;
+        int n0_n = eg_class_nodes(g, c);
+        for (int n0 = 0; n0 < n0_n; n0++) {
+            if (eg_class_node_op(g, c, n0) != BURG_I32Mul) continue;
+            if (eg_class_node_nkids(g, c, n0) != 2) continue;
+            eg_id bv_x = eg_class_node_kid(g, c, n0, 0);
+            (void)bv_x;
+            eg_id bv_o = eg_class_node_kid(g, c, n0, 1);
+            (void)bv_o;
+            if (!( jav_eq_is_const32(g, bv_o, 1) )) continue;
+            if (eg_merge(g, c, bv_x)) changed = true;
+        }
+    }
+    return changed;
+}
+
+/* mul32_zero */
+static bool rw_mul32_zero(egraph* g) {
+    bool changed = false;
+    int ncls = eg_class_count(g);
+    for (eg_id c = 0; c < ncls; c++) {
+        if (eg_find(g, c) != c) continue;
+        int n0_n = eg_class_nodes(g, c);
+        for (int n0 = 0; n0 < n0_n; n0++) {
+            if (eg_class_node_op(g, c, n0) != BURG_I32Mul) continue;
+            if (eg_class_node_nkids(g, c, n0) != 2) continue;
+            eg_id bv_x = eg_class_node_kid(g, c, n0, 0);
+            (void)bv_x;
+            eg_id bv_z = eg_class_node_kid(g, c, n0, 1);
+            (void)bv_z;
+            if (!( jav_eq_is_const32(g, bv_z, 0) )) continue;
+            if (eg_merge(g, c, bv_z)) changed = true;
+        }
+    }
+    return changed;
+}
+
+/* mul64_one */
+static bool rw_mul64_one(egraph* g) {
+    bool changed = false;
+    int ncls = eg_class_count(g);
+    for (eg_id c = 0; c < ncls; c++) {
+        if (eg_find(g, c) != c) continue;
+        int n0_n = eg_class_nodes(g, c);
+        for (int n0 = 0; n0 < n0_n; n0++) {
+            if (eg_class_node_op(g, c, n0) != BURG_I64Mul) continue;
+            if (eg_class_node_nkids(g, c, n0) != 2) continue;
+            eg_id bv_x = eg_class_node_kid(g, c, n0, 0);
+            (void)bv_x;
+            eg_id bv_o = eg_class_node_kid(g, c, n0, 1);
+            (void)bv_o;
+            if (!( jav_eq_is_const64(g, bv_o, 1) )) continue;
+            if (eg_merge(g, c, bv_x)) changed = true;
+        }
+    }
+    return changed;
+}
+
+/* mul64_zero */
+static bool rw_mul64_zero(egraph* g) {
+    bool changed = false;
+    int ncls = eg_class_count(g);
+    for (eg_id c = 0; c < ncls; c++) {
+        if (eg_find(g, c) != c) continue;
+        int n0_n = eg_class_nodes(g, c);
+        for (int n0 = 0; n0 < n0_n; n0++) {
+            if (eg_class_node_op(g, c, n0) != BURG_I64Mul) continue;
+            if (eg_class_node_nkids(g, c, n0) != 2) continue;
+            eg_id bv_x = eg_class_node_kid(g, c, n0, 0);
+            (void)bv_x;
+            eg_id bv_z = eg_class_node_kid(g, c, n0, 1);
+            (void)bv_z;
+            if (!( jav_eq_is_const64(g, bv_z, 0) )) continue;
+            if (eg_merge(g, c, bv_z)) changed = true;
+        }
+    }
+    return changed;
+}
+
+/* and32_self */
+static bool rw_and32_self(egraph* g) {
+    bool changed = false;
+    int ncls = eg_class_count(g);
+    for (eg_id c = 0; c < ncls; c++) {
+        if (eg_find(g, c) != c) continue;
+        int n0_n = eg_class_nodes(g, c);
+        for (int n0 = 0; n0 < n0_n; n0++) {
+            if (eg_class_node_op(g, c, n0) != BURG_I32And) continue;
+            if (eg_class_node_nkids(g, c, n0) != 2) continue;
+            eg_id bv_x = eg_class_node_kid(g, c, n0, 0);
+            (void)bv_x;
+            eg_id bv_y = eg_class_node_kid(g, c, n0, 1);
+            (void)bv_y;
+            if (!( eg_find(g, bv_x) == eg_find(g, bv_y) )) continue;
+            if (eg_merge(g, c, bv_x)) changed = true;
+        }
+    }
+    return changed;
+}
+
+/* and32_zero */
+static bool rw_and32_zero(egraph* g) {
+    bool changed = false;
+    int ncls = eg_class_count(g);
+    for (eg_id c = 0; c < ncls; c++) {
+        if (eg_find(g, c) != c) continue;
+        int n0_n = eg_class_nodes(g, c);
+        for (int n0 = 0; n0 < n0_n; n0++) {
+            if (eg_class_node_op(g, c, n0) != BURG_I32And) continue;
+            if (eg_class_node_nkids(g, c, n0) != 2) continue;
+            eg_id bv_x = eg_class_node_kid(g, c, n0, 0);
+            (void)bv_x;
+            eg_id bv_z = eg_class_node_kid(g, c, n0, 1);
+            (void)bv_z;
+            if (!( jav_eq_is_const32(g, bv_z, 0) )) continue;
+            if (eg_merge(g, c, bv_z)) changed = true;
+        }
+    }
+    return changed;
+}
+
+/* and32_ones */
+static bool rw_and32_ones(egraph* g) {
+    bool changed = false;
+    int ncls = eg_class_count(g);
+    for (eg_id c = 0; c < ncls; c++) {
+        if (eg_find(g, c) != c) continue;
+        int n0_n = eg_class_nodes(g, c);
+        for (int n0 = 0; n0 < n0_n; n0++) {
+            if (eg_class_node_op(g, c, n0) != BURG_I32And) continue;
+            if (eg_class_node_nkids(g, c, n0) != 2) continue;
+            eg_id bv_x = eg_class_node_kid(g, c, n0, 0);
+            (void)bv_x;
+            eg_id bv_o = eg_class_node_kid(g, c, n0, 1);
+            (void)bv_o;
+            if (!( jav_eq_is_const32(g, bv_o, -1) )) continue;
+            if (eg_merge(g, c, bv_x)) changed = true;
+        }
+    }
+    return changed;
+}
+
+/* or32_self */
+static bool rw_or32_self(egraph* g) {
+    bool changed = false;
+    int ncls = eg_class_count(g);
+    for (eg_id c = 0; c < ncls; c++) {
+        if (eg_find(g, c) != c) continue;
+        int n0_n = eg_class_nodes(g, c);
+        for (int n0 = 0; n0 < n0_n; n0++) {
+            if (eg_class_node_op(g, c, n0) != BURG_I32Or) continue;
+            if (eg_class_node_nkids(g, c, n0) != 2) continue;
+            eg_id bv_x = eg_class_node_kid(g, c, n0, 0);
+            (void)bv_x;
+            eg_id bv_y = eg_class_node_kid(g, c, n0, 1);
+            (void)bv_y;
+            if (!( eg_find(g, bv_x) == eg_find(g, bv_y) )) continue;
+            if (eg_merge(g, c, bv_x)) changed = true;
+        }
+    }
+    return changed;
+}
+
+/* or32_zero */
+static bool rw_or32_zero(egraph* g) {
+    bool changed = false;
+    int ncls = eg_class_count(g);
+    for (eg_id c = 0; c < ncls; c++) {
+        if (eg_find(g, c) != c) continue;
+        int n0_n = eg_class_nodes(g, c);
+        for (int n0 = 0; n0 < n0_n; n0++) {
+            if (eg_class_node_op(g, c, n0) != BURG_I32Or) continue;
+            if (eg_class_node_nkids(g, c, n0) != 2) continue;
+            eg_id bv_x = eg_class_node_kid(g, c, n0, 0);
+            (void)bv_x;
+            eg_id bv_z = eg_class_node_kid(g, c, n0, 1);
+            (void)bv_z;
+            if (!( jav_eq_is_const32(g, bv_z, 0) )) continue;
+            if (eg_merge(g, c, bv_x)) changed = true;
+        }
+    }
+    return changed;
+}
+
+/* xor32_self */
+static bool rw_xor32_self(egraph* g) {
+    bool changed = false;
+    int ncls = eg_class_count(g);
+    for (eg_id c = 0; c < ncls; c++) {
+        if (eg_find(g, c) != c) continue;
+        int n0_n = eg_class_nodes(g, c);
+        for (int n0 = 0; n0 < n0_n; n0++) {
+            if (eg_class_node_op(g, c, n0) != BURG_I32Xor) continue;
+            if (eg_class_node_nkids(g, c, n0) != 2) continue;
+            eg_id bv_x = eg_class_node_kid(g, c, n0, 0);
+            (void)bv_x;
+            eg_id bv_y = eg_class_node_kid(g, c, n0, 1);
+            (void)bv_y;
+            if (!( eg_find(g, bv_x) == eg_find(g, bv_y) )) continue;
+            eg_id b1 = jav_eq_zero32(g, c);
+            if (eg_merge(g, c, b1)) changed = true;
+        }
+    }
+    return changed;
+}
+
+/* xor32_zero */
+static bool rw_xor32_zero(egraph* g) {
+    bool changed = false;
+    int ncls = eg_class_count(g);
+    for (eg_id c = 0; c < ncls; c++) {
+        if (eg_find(g, c) != c) continue;
+        int n0_n = eg_class_nodes(g, c);
+        for (int n0 = 0; n0 < n0_n; n0++) {
+            if (eg_class_node_op(g, c, n0) != BURG_I32Xor) continue;
+            if (eg_class_node_nkids(g, c, n0) != 2) continue;
+            eg_id bv_x = eg_class_node_kid(g, c, n0, 0);
+            (void)bv_x;
+            eg_id bv_z = eg_class_node_kid(g, c, n0, 1);
+            (void)bv_z;
+            if (!( jav_eq_is_const32(g, bv_z, 0) )) continue;
+            if (eg_merge(g, c, bv_x)) changed = true;
+        }
+    }
+    return changed;
+}
+
+/* and64_self */
+static bool rw_and64_self(egraph* g) {
+    bool changed = false;
+    int ncls = eg_class_count(g);
+    for (eg_id c = 0; c < ncls; c++) {
+        if (eg_find(g, c) != c) continue;
+        int n0_n = eg_class_nodes(g, c);
+        for (int n0 = 0; n0 < n0_n; n0++) {
+            if (eg_class_node_op(g, c, n0) != BURG_I64And) continue;
+            if (eg_class_node_nkids(g, c, n0) != 2) continue;
+            eg_id bv_x = eg_class_node_kid(g, c, n0, 0);
+            (void)bv_x;
+            eg_id bv_y = eg_class_node_kid(g, c, n0, 1);
+            (void)bv_y;
+            if (!( eg_find(g, bv_x) == eg_find(g, bv_y) )) continue;
+            if (eg_merge(g, c, bv_x)) changed = true;
+        }
+    }
+    return changed;
+}
+
+/* and64_zero */
+static bool rw_and64_zero(egraph* g) {
+    bool changed = false;
+    int ncls = eg_class_count(g);
+    for (eg_id c = 0; c < ncls; c++) {
+        if (eg_find(g, c) != c) continue;
+        int n0_n = eg_class_nodes(g, c);
+        for (int n0 = 0; n0 < n0_n; n0++) {
+            if (eg_class_node_op(g, c, n0) != BURG_I64And) continue;
+            if (eg_class_node_nkids(g, c, n0) != 2) continue;
+            eg_id bv_x = eg_class_node_kid(g, c, n0, 0);
+            (void)bv_x;
+            eg_id bv_z = eg_class_node_kid(g, c, n0, 1);
+            (void)bv_z;
+            if (!( jav_eq_is_const64(g, bv_z, 0) )) continue;
+            if (eg_merge(g, c, bv_z)) changed = true;
+        }
+    }
+    return changed;
+}
+
+/* and64_ones */
+static bool rw_and64_ones(egraph* g) {
+    bool changed = false;
+    int ncls = eg_class_count(g);
+    for (eg_id c = 0; c < ncls; c++) {
+        if (eg_find(g, c) != c) continue;
+        int n0_n = eg_class_nodes(g, c);
+        for (int n0 = 0; n0 < n0_n; n0++) {
+            if (eg_class_node_op(g, c, n0) != BURG_I64And) continue;
+            if (eg_class_node_nkids(g, c, n0) != 2) continue;
+            eg_id bv_x = eg_class_node_kid(g, c, n0, 0);
+            (void)bv_x;
+            eg_id bv_o = eg_class_node_kid(g, c, n0, 1);
+            (void)bv_o;
+            if (!( jav_eq_is_const64(g, bv_o, -1) )) continue;
+            if (eg_merge(g, c, bv_x)) changed = true;
+        }
+    }
+    return changed;
+}
+
+/* or64_self */
+static bool rw_or64_self(egraph* g) {
+    bool changed = false;
+    int ncls = eg_class_count(g);
+    for (eg_id c = 0; c < ncls; c++) {
+        if (eg_find(g, c) != c) continue;
+        int n0_n = eg_class_nodes(g, c);
+        for (int n0 = 0; n0 < n0_n; n0++) {
+            if (eg_class_node_op(g, c, n0) != BURG_I64Or) continue;
+            if (eg_class_node_nkids(g, c, n0) != 2) continue;
+            eg_id bv_x = eg_class_node_kid(g, c, n0, 0);
+            (void)bv_x;
+            eg_id bv_y = eg_class_node_kid(g, c, n0, 1);
+            (void)bv_y;
+            if (!( eg_find(g, bv_x) == eg_find(g, bv_y) )) continue;
+            if (eg_merge(g, c, bv_x)) changed = true;
+        }
+    }
+    return changed;
+}
+
+/* or64_zero */
+static bool rw_or64_zero(egraph* g) {
+    bool changed = false;
+    int ncls = eg_class_count(g);
+    for (eg_id c = 0; c < ncls; c++) {
+        if (eg_find(g, c) != c) continue;
+        int n0_n = eg_class_nodes(g, c);
+        for (int n0 = 0; n0 < n0_n; n0++) {
+            if (eg_class_node_op(g, c, n0) != BURG_I64Or) continue;
+            if (eg_class_node_nkids(g, c, n0) != 2) continue;
+            eg_id bv_x = eg_class_node_kid(g, c, n0, 0);
+            (void)bv_x;
+            eg_id bv_z = eg_class_node_kid(g, c, n0, 1);
+            (void)bv_z;
+            if (!( jav_eq_is_const64(g, bv_z, 0) )) continue;
+            if (eg_merge(g, c, bv_x)) changed = true;
+        }
+    }
+    return changed;
+}
+
+/* xor64_self */
+static bool rw_xor64_self(egraph* g) {
+    bool changed = false;
+    int ncls = eg_class_count(g);
+    for (eg_id c = 0; c < ncls; c++) {
+        if (eg_find(g, c) != c) continue;
+        int n0_n = eg_class_nodes(g, c);
+        for (int n0 = 0; n0 < n0_n; n0++) {
+            if (eg_class_node_op(g, c, n0) != BURG_I64Xor) continue;
+            if (eg_class_node_nkids(g, c, n0) != 2) continue;
+            eg_id bv_x = eg_class_node_kid(g, c, n0, 0);
+            (void)bv_x;
+            eg_id bv_y = eg_class_node_kid(g, c, n0, 1);
+            (void)bv_y;
+            if (!( eg_find(g, bv_x) == eg_find(g, bv_y) )) continue;
+            eg_id b1 = jav_eq_zero64(g, c);
+            if (eg_merge(g, c, b1)) changed = true;
+        }
+    }
+    return changed;
+}
+
+/* xor64_zero */
+static bool rw_xor64_zero(egraph* g) {
+    bool changed = false;
+    int ncls = eg_class_count(g);
+    for (eg_id c = 0; c < ncls; c++) {
+        if (eg_find(g, c) != c) continue;
+        int n0_n = eg_class_nodes(g, c);
+        for (int n0 = 0; n0 < n0_n; n0++) {
+            if (eg_class_node_op(g, c, n0) != BURG_I64Xor) continue;
+            if (eg_class_node_nkids(g, c, n0) != 2) continue;
+            eg_id bv_x = eg_class_node_kid(g, c, n0, 0);
+            (void)bv_x;
+            eg_id bv_z = eg_class_node_kid(g, c, n0, 1);
+            (void)bv_z;
+            if (!( jav_eq_is_const64(g, bv_z, 0) )) continue;
+            if (eg_merge(g, c, bv_x)) changed = true;
+        }
+    }
+    return changed;
+}
+
+/* shl32_zero */
+static bool rw_shl32_zero(egraph* g) {
+    bool changed = false;
+    int ncls = eg_class_count(g);
+    for (eg_id c = 0; c < ncls; c++) {
+        if (eg_find(g, c) != c) continue;
+        int n0_n = eg_class_nodes(g, c);
+        for (int n0 = 0; n0 < n0_n; n0++) {
+            if (eg_class_node_op(g, c, n0) != BURG_I32Shl) continue;
+            if (eg_class_node_nkids(g, c, n0) != 2) continue;
+            eg_id bv_x = eg_class_node_kid(g, c, n0, 0);
+            (void)bv_x;
+            eg_id bv_z = eg_class_node_kid(g, c, n0, 1);
+            (void)bv_z;
+            if (!( jav_eq_is_const32(g, bv_z, 0) )) continue;
+            if (eg_merge(g, c, bv_x)) changed = true;
+        }
+    }
+    return changed;
+}
+
+/* shrs32_zero */
+static bool rw_shrs32_zero(egraph* g) {
+    bool changed = false;
+    int ncls = eg_class_count(g);
+    for (eg_id c = 0; c < ncls; c++) {
+        if (eg_find(g, c) != c) continue;
+        int n0_n = eg_class_nodes(g, c);
+        for (int n0 = 0; n0 < n0_n; n0++) {
+            if (eg_class_node_op(g, c, n0) != BURG_I32ShrS) continue;
+            if (eg_class_node_nkids(g, c, n0) != 2) continue;
+            eg_id bv_x = eg_class_node_kid(g, c, n0, 0);
+            (void)bv_x;
+            eg_id bv_z = eg_class_node_kid(g, c, n0, 1);
+            (void)bv_z;
+            if (!( jav_eq_is_const32(g, bv_z, 0) )) continue;
+            if (eg_merge(g, c, bv_x)) changed = true;
+        }
+    }
+    return changed;
+}
+
+/* shru32_zero */
+static bool rw_shru32_zero(egraph* g) {
+    bool changed = false;
+    int ncls = eg_class_count(g);
+    for (eg_id c = 0; c < ncls; c++) {
+        if (eg_find(g, c) != c) continue;
+        int n0_n = eg_class_nodes(g, c);
+        for (int n0 = 0; n0 < n0_n; n0++) {
+            if (eg_class_node_op(g, c, n0) != BURG_I32ShrU) continue;
+            if (eg_class_node_nkids(g, c, n0) != 2) continue;
+            eg_id bv_x = eg_class_node_kid(g, c, n0, 0);
+            (void)bv_x;
+            eg_id bv_z = eg_class_node_kid(g, c, n0, 1);
+            (void)bv_z;
+            if (!( jav_eq_is_const32(g, bv_z, 0) )) continue;
+            if (eg_merge(g, c, bv_x)) changed = true;
+        }
+    }
+    return changed;
+}
+
+/* shl64_zero */
+static bool rw_shl64_zero(egraph* g) {
+    bool changed = false;
+    int ncls = eg_class_count(g);
+    for (eg_id c = 0; c < ncls; c++) {
+        if (eg_find(g, c) != c) continue;
+        int n0_n = eg_class_nodes(g, c);
+        for (int n0 = 0; n0 < n0_n; n0++) {
+            if (eg_class_node_op(g, c, n0) != BURG_I64Shl) continue;
+            if (eg_class_node_nkids(g, c, n0) != 2) continue;
+            eg_id bv_x = eg_class_node_kid(g, c, n0, 0);
+            (void)bv_x;
+            eg_id bv_z = eg_class_node_kid(g, c, n0, 1);
+            (void)bv_z;
+            if (!( jav_eq_is_const64(g, bv_z, 0) )) continue;
+            if (eg_merge(g, c, bv_x)) changed = true;
+        }
+    }
+    return changed;
+}
+
+/* shrs64_zero */
+static bool rw_shrs64_zero(egraph* g) {
+    bool changed = false;
+    int ncls = eg_class_count(g);
+    for (eg_id c = 0; c < ncls; c++) {
+        if (eg_find(g, c) != c) continue;
+        int n0_n = eg_class_nodes(g, c);
+        for (int n0 = 0; n0 < n0_n; n0++) {
+            if (eg_class_node_op(g, c, n0) != BURG_I64ShrS) continue;
+            if (eg_class_node_nkids(g, c, n0) != 2) continue;
+            eg_id bv_x = eg_class_node_kid(g, c, n0, 0);
+            (void)bv_x;
+            eg_id bv_z = eg_class_node_kid(g, c, n0, 1);
+            (void)bv_z;
+            if (!( jav_eq_is_const64(g, bv_z, 0) )) continue;
+            if (eg_merge(g, c, bv_x)) changed = true;
+        }
+    }
+    return changed;
+}
+
+/* shru64_zero */
+static bool rw_shru64_zero(egraph* g) {
+    bool changed = false;
+    int ncls = eg_class_count(g);
+    for (eg_id c = 0; c < ncls; c++) {
+        if (eg_find(g, c) != c) continue;
+        int n0_n = eg_class_nodes(g, c);
+        for (int n0 = 0; n0 < n0_n; n0++) {
+            if (eg_class_node_op(g, c, n0) != BURG_I64ShrU) continue;
+            if (eg_class_node_nkids(g, c, n0) != 2) continue;
+            eg_id bv_x = eg_class_node_kid(g, c, n0, 0);
+            (void)bv_x;
+            eg_id bv_z = eg_class_node_kid(g, c, n0, 1);
+            (void)bv_z;
+            if (!( jav_eq_is_const64(g, bv_z, 0) )) continue;
+            if (eg_merge(g, c, bv_x)) changed = true;
+        }
+    }
+    return changed;
+}
+
 /* One pass over the rule set. */
 static bool jav_eqsat_round(egraph* g, void* user) {
     (void)user;
     bool changed = false;
+    if (rw_add32_comm(g)) changed = true;
+    if (rw_mul32_comm(g)) changed = true;
+    if (rw_and32_comm(g)) changed = true;
+    if (rw_or32_comm(g)) changed = true;
+    if (rw_xor32_comm(g)) changed = true;
+    if (rw_add64_comm(g)) changed = true;
+    if (rw_mul64_comm(g)) changed = true;
+    if (rw_and64_comm(g)) changed = true;
+    if (rw_or64_comm(g)) changed = true;
+    if (rw_xor64_comm(g)) changed = true;
+    if (rw_add32_assoc(g)) changed = true;
+    if (rw_add64_assoc(g)) changed = true;
+    if (rw_add32_zero(g)) changed = true;
+    if (rw_sub32_zero(g)) changed = true;
+    if (rw_sub32_self(g)) changed = true;
+    if (rw_add64_zero(g)) changed = true;
+    if (rw_sub64_zero(g)) changed = true;
+    if (rw_sub64_self(g)) changed = true;
+    if (rw_mul32_one(g)) changed = true;
+    if (rw_mul32_zero(g)) changed = true;
+    if (rw_mul64_one(g)) changed = true;
+    if (rw_mul64_zero(g)) changed = true;
+    if (rw_and32_self(g)) changed = true;
+    if (rw_and32_zero(g)) changed = true;
+    if (rw_and32_ones(g)) changed = true;
+    if (rw_or32_self(g)) changed = true;
+    if (rw_or32_zero(g)) changed = true;
+    if (rw_xor32_self(g)) changed = true;
+    if (rw_xor32_zero(g)) changed = true;
+    if (rw_and64_self(g)) changed = true;
+    if (rw_and64_zero(g)) changed = true;
+    if (rw_and64_ones(g)) changed = true;
+    if (rw_or64_self(g)) changed = true;
+    if (rw_or64_zero(g)) changed = true;
+    if (rw_xor64_self(g)) changed = true;
+    if (rw_xor64_zero(g)) changed = true;
+    if (rw_shl32_zero(g)) changed = true;
+    if (rw_shrs32_zero(g)) changed = true;
+    if (rw_shru32_zero(g)) changed = true;
+    if (rw_shl64_zero(g)) changed = true;
+    if (rw_shrs64_zero(g)) changed = true;
+    if (rw_shru64_zero(g)) changed = true;
     return changed;
 }
 

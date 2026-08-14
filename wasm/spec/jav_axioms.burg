@@ -56,19 +56,114 @@ TERM I64ShrS = OP_I64_SHR_S
 TERM I64ShrU = OP_I64_SHR_U
 TERM I64Eqz  = OP_I64_EQZ
 
+AUXILIARIES
+  // Each takes the classes its binders matched and returns the class of its
+  // result. The zero-likes give the self-erasing identities their constant:
+  // §4.3.2's isub/ixor at i1 = i2 are exactly 0, at either width.
+  jav_eq_zero32 : (class) -> class
+  jav_eq_zero64 : (class) -> class
+
 REWRITE {
-  // The domain beside the rules (egg §4.1): constant-ness. A rule can say
-  // two terms are equal; that a class IS a known constant is the analysis,
-  // and `modify` is what folds it (Part C2). The hooks live in jav_eqsat.c;
-  // join is INTERSECTION — two e-nodes in one class denote the SAME value,
-  // so the strongest sound combination is agreement, never a union.
+  // The domain beside the rules (egg §4.1): constant-ness. `make` folds a
+  // pure operator over const-fact kids by its own §4.3.2 equation and
+  // `modify` puts the folded constant into the class — so CONST-FOLD (and
+  // eqz, wrap, extend refolds) is the analysis, not a rule per operator
+  // pair. join is INTERSECTION — two e-nodes in one class denote the SAME
+  // value, so the strongest sound combination is agreement, never a union.
   ANALYSIS jav_eq_fact_t {
     make:   jav_eq_make
     join:   jav_eq_join
     modify: jav_eq_modify
   }
 
-  // Part C lands the axioms here, each with its §4.3.x quote.
+  // ── COMMUTATIVITY (enablers: they state each identity once) ──
+  // §4.3.2, printed 94: "iadd_N(i1,i2) = (i1 + i2) mod 2^N" — addition of
+  // integers commutes, and mod distributes over it; "imul_N(i1,i2) =
+  // (i1 · i2) mod 2^N" likewise. Printed 95/96: iand/ior/ixor are the
+  // pointwise bit operations ∧ ∨ ⊻, each commutative.
+  add32_comm: I32Add($a, $b) => I32Add($b, $a);
+  mul32_comm: I32Mul($a, $b) => I32Mul($b, $a);
+  and32_comm: I32And($a, $b) => I32And($b, $a);
+  or32_comm:  I32Or($a, $b)  => I32Or($b, $a);
+  xor32_comm: I32Xor($a, $b) => I32Xor($b, $a);
+  add64_comm: I64Add($a, $b) => I64Add($b, $a);
+  mul64_comm: I64Mul($a, $b) => I64Mul($b, $a);
+  and64_comm: I64And($a, $b) => I64And($b, $a);
+  or64_comm:  I64Or($a, $b)  => I64Or($b, $a);
+  xor64_comm: I64Xor($a, $b) => I64Xor($b, $a);
+
+  // ── ASSOCIATIVITY (right-lean, so the analysis can refold constants
+  // that source order separated). §4.3.2 printed 94: iadd is addition
+  // mod 2^N, and (a+b)+c ≡ a+(b+c) holds in Z, hence mod 2^N.
+  add32_assoc: I32Add(I32Add($a, $b), $c) => I32Add($a, I32Add($b, $c));
+  add64_assoc: I64Add(I64Add($a, $b), $c) => I64Add($a, I64Add($b, $c));
+
+  // ── ADDITIVE IDENTITIES. §4.3.2 printed 94: "iadd_N(i1,i2) =
+  // (i1 + i2) mod 2^N" — i + 0 mod 2^N = i, since 0 ≤ i < 2^N by
+  // representation; "isub_N(i1,i2) = (i1 − i2 + 2^N) mod 2^N" — at
+  // i2 = 0 this is i1, and at i1 = i2 it is exactly 0.
+  // "Self" is same E-CLASS (one binder cannot appear twice in a pattern,
+  // and two classes proven equal ARE the same value — eg_find is exactly
+  // that question).
+  add32_zero: I32Add($x, $z) => $x where (. jav_eq_is_const32(g, $z, 0) .);
+  sub32_zero: I32Sub($x, $z) => $x where (. jav_eq_is_const32(g, $z, 0) .);
+  sub32_self: I32Sub($x, $y) => jav_eq_zero32($$)
+      where (. eg_find(g, $x) == eg_find(g, $y) .);
+  add64_zero: I64Add($x, $z) => $x where (. jav_eq_is_const64(g, $z, 0) .);
+  sub64_zero: I64Sub($x, $z) => $x where (. jav_eq_is_const64(g, $z, 0) .);
+  sub64_self: I64Sub($x, $y) => jav_eq_zero64($$)
+      where (. eg_find(g, $x) == eg_find(g, $y) .);
+
+  // ── MULTIPLICATIVE IDENTITY AND ABSORBER. §4.3.2 printed 94:
+  // "imul_N(i1,i2) = (i1 · i2) mod 2^N" — i·1 = i, i·0 = 0, at every
+  // value, overflow included. Dropping the non-constant operand is fenced
+  // at the REBUILD, not here: a subtree whose intern holds an opaque node
+  // (an effect, a carried stack value) refuses the splice and keeps the
+  // original — "pure operands only", enforced where the drop happens.
+  mul32_one:  I32Mul($x, $o) => $x where (. jav_eq_is_const32(g, $o, 1) .);
+  mul32_zero: I32Mul($x, $z) => $z where (. jav_eq_is_const32(g, $z, 0) .);
+  mul64_one:  I64Mul($x, $o) => $x where (. jav_eq_is_const64(g, $o, 1) .);
+  mul64_zero: I64Mul($x, $z) => $z where (. jav_eq_is_const64(g, $z, 0) .);
+
+  // ── BITWISE IDENTITIES, ABSORBERS, SELF-OPS. §4.3.2 printed 95/96:
+  // "iand_N(i1,i2) = ibits⁻¹(ibits(i1) ∧ ibits(i2))" — x∧x = x, x∧0 = 0,
+  // x∧1..1 = x; "ior_N" (∨): x∨x = x, x∨0 = x; "ixor_N" (⊻): x⊻x = 0,
+  // x⊻0 = x — all pointwise over the bit sequence.
+  and32_self: I32And($x, $y) => $x where (. eg_find(g, $x) == eg_find(g, $y) .);
+  and32_zero: I32And($x, $z) => $z where (. jav_eq_is_const32(g, $z, 0) .);
+  and32_ones: I32And($x, $o) => $x where (. jav_eq_is_const32(g, $o, -1) .);
+  or32_self:  I32Or($x, $y)  => $x where (. eg_find(g, $x) == eg_find(g, $y) .);
+  or32_zero:  I32Or($x, $z)  => $x where (. jav_eq_is_const32(g, $z, 0) .);
+  xor32_self: I32Xor($x, $y) => jav_eq_zero32($$)
+      where (. eg_find(g, $x) == eg_find(g, $y) .);
+  xor32_zero: I32Xor($x, $z) => $x where (. jav_eq_is_const32(g, $z, 0) .);
+  and64_self: I64And($x, $y) => $x where (. eg_find(g, $x) == eg_find(g, $y) .);
+  and64_zero: I64And($x, $z) => $z where (. jav_eq_is_const64(g, $z, 0) .);
+  and64_ones: I64And($x, $o) => $x where (. jav_eq_is_const64(g, $o, -1) .);
+  or64_self:  I64Or($x, $y)  => $x where (. eg_find(g, $x) == eg_find(g, $y) .);
+  or64_zero:  I64Or($x, $z)  => $x where (. jav_eq_is_const64(g, $z, 0) .);
+  xor64_self: I64Xor($x, $y) => jav_eq_zero64($$)
+      where (. eg_find(g, $x) == eg_find(g, $y) .);
+  xor64_zero: I64Xor($x, $z) => $x where (. jav_eq_is_const64(g, $z, 0) .);
+
+  // ── SHIFT BY ZERO. §4.3.2 printed 96: "Let k be i2 modulo N. Return the
+  // result of shifting i1 left by k bits" (ishl), "…right by k bits,
+  // extended with 0 bits" (ishr_u), "…extended with the most significant
+  // bit" (ishr_s) — at k = 0 every one of them moves nothing.
+  shl32_zero:  I32Shl($x, $z)  => $x where (. jav_eq_is_const32(g, $z, 0) .);
+  shrs32_zero: I32ShrS($x, $z) => $x where (. jav_eq_is_const32(g, $z, 0) .);
+  shru32_zero: I32ShrU($x, $z) => $x where (. jav_eq_is_const32(g, $z, 0) .);
+  shl64_zero:  I64Shl($x, $z)  => $x where (. jav_eq_is_const64(g, $z, 0) .);
+  shrs64_zero: I64ShrS($x, $z) => $x where (. jav_eq_is_const64(g, $z, 0) .);
+  shru64_zero: I64ShrU($x, $z) => $x where (. jav_eq_is_const64(g, $z, 0) .);
+
+  // EXCLUDED from v1, each a decision with its §4.3 reason recorded in the
+  // plan: strength ×2^k → <<k (byte-equal under the size-first cost, so it
+  // can never change an extraction and no fixture can go red for it);
+  // div/rem/trunc anything (partial — printed 94: "the result is
+  // undefined … This operator is partial"); every float rule (§4.3
+  // preamble: operators returning "one of several possible results" — NaN
+  // nondeterminism makes syntactic equality weaker than value equality).
 }
 
 RULES
