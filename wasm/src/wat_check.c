@@ -2199,8 +2199,12 @@ int wat_check_body(const wat_check_ctx_t* cx, uint32_t funcidx,
 
     tc s; memset(&s, 0, sizeof s);
     s.cx = cx; s.a = a; s.ok = 1; s.err = JAV_E_NONE;
-    s.vals  = ANEW(a, vslot, VALS_MAX);
-    s.ctrls = ANEW(a, ctrl_frame, CTRL_MAX);
+    /* Pure stacks: push_val writes both vslot fields and push_ctrl writes
+     * every ctrl_frame field before anything reads them, so the worst-case
+     * backing takes no zeroing — clearing these per body was 6% of a
+     * corpus-wide profile, mostly over ten-instruction bodies. */
+    s.vals  = (vslot*)bbq_arena_alloc(a, sizeof(vslot) * VALS_MAX);
+    s.ctrls = (ctrl_frame*)bbq_arena_alloc(a, sizeof(ctrl_frame) * CTRL_MAX);
     if (!s.vals || !s.ctrls) return 0;
 
     /* §7.6.1: locals = params ++ the declared ones, RLE-decoded (§5.5.13).
@@ -2386,8 +2390,12 @@ static int check_const_expr(const wat_check_ctx_t* cx, const jav_expr_t* e, val_
 
     tc s; memset(&s, 0, sizeof s);
     s.cx = cx; s.a = a; s.ok = 1; s.err = JAV_E_NONE;
-    s.vals  = ANEW(a, vslot, VALS_MAX);
-    s.ctrls = ANEW(a, ctrl_frame, CTRL_MAX);
+    /* Pure stacks: push_val writes both vslot fields and push_ctrl writes
+     * every ctrl_frame field before anything reads them, so the worst-case
+     * backing takes no zeroing — clearing these per body was 6% of a
+     * corpus-wide profile, mostly over ten-instruction bodies. */
+    s.vals  = (vslot*)bbq_arena_alloc(a, sizeof(vslot) * VALS_MAX);
+    s.ctrls = (ctrl_frame*)bbq_arena_alloc(a, sizeof(ctrl_frame) * CTRL_MAX);
     s.capinfo = count_instrs(e->instrs.items, (uint32_t)e->instrs.count) + 1;
     s.info    = ANEW(a, wat_info_t, s.capinfo);
     s.hi      = ANEW(a, uint32_t,   s.capinfo);
