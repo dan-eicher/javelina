@@ -28,6 +28,7 @@
 #include "jav_hostref.h"         // host externref boxing (jav_host_box_new/_get)
 #include "interp.h"              // vm_t / jav_vm_init / jav_vm_free
 #include "jav_ttree.h"           // jav_ttree_stats — what the stitcher did, for the readout
+#include "jav_eqsat.h"           // jav_eqsat_stats — what tier 3 rewrote, for the readout
 #include "runtime_api.h"         // slot_t, T_*, jav_status_t, jav_call
 #include "bbq_arena.h"
 #include "bbq_vec.h"
@@ -575,6 +576,12 @@ uint32_t jav_capi_jit_count(const wasm_store_t* s) { return s->vm.jit_compiled; 
 uint32_t jav_capi_jit_declined(const wasm_store_t* s) { return s->vm.jit_declined; }
 
 void jav_jit_cache_stats_reset(void) { jav_ttree_stats_reset(); }
+
+uint64_t jav_capi_eqsat_rewritten(void) { return jav_eqsat_stats()->rewritten; }
+
+int jav_capi_eqsat_rules(const char* const** names, const unsigned long long** fires) {
+    return jav_eqsat_rule_stats(names, fires);
+}
 
 /* The stitch meters an embedder can read. mem_slots is the one that prices the
  * mechanism — the operand-stack accesses the cache removed — and it was the one

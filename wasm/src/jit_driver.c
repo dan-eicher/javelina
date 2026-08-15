@@ -211,6 +211,13 @@ typedef struct {
      * survive it. The reset here is that same fact without the dead stencils. */
     size_t         next_pos;
     int            region_first;/* the next stamp opens a region (for regions_hot) */
+    /* A region ENTRY is a branch target: arrivals resync through the offmap at
+     * the region's first byte. Tier-3 can fold away the instructions that sat
+     * there, so the region's first stamped stencil claims the entry offset
+     * rather than its own — for an unrewritten region the two are the same
+     * offset and nothing changes. */
+    size_t         pending_bpos;
+    int            have_pending;
     /* Tier-3's sidecar: node -> jav_synth_t for rebuilt nodes (pc == NULL).
      * NULL below tier 3, and a pc-less node with no record is a carried leaf
      * exactly as before. */
@@ -262,6 +269,7 @@ static void stamp_instr(bbq_ctx_t* cur, int entry_req,
         g_e.status = JAV_TRAP; return;
     }
     size_t bpos = cur->pos;
+    if (g_e.have_pending) { bpos = g_e.pending_bpos; g_e.have_pending = 0; }
     uint8_t op;
     if (syn) op = syn->op;                    /* no bytes: the record IS the decode */
     else if (!bbq_read_u8(cur, &op)) {
@@ -510,12 +518,17 @@ void jav_t2_stamp(const jav_tnode_t* n, int state, uint32_t in_pack, uint32_t ou
     }
     bbq_ctx_t cur = g_e.code;
     cur.pos = syn ? g_e.next_pos : (size_t)(n->pc - g_e.code.data);
-    /* Dead code builds no tree, so the reduce never meets it; the byte walk
-     * stamped it in plain forms whose exit state is 0, so the cache never
-     * survived the stretch. Same fact, stated instead of stamped. */
-    if (cur.pos != g_e.next_pos) emit_reset_live();
+    /* State never survives a CUT: a region entry is an arrival point, and an
+     * arrival cannot be holding what the fallthrough held, so the cache
+     * resets exactly where the tree says a region opens. Dead code is
+     * covered by the same fact — the reduce never meets it, and the next
+     * covered instruction opens a region. A byte gap is NOT evidence of a
+     * cut: a tier-3 pure drop leaves gaps inside one tree, where the cache
+     * legitimately carries values across. The meter reads the arriving
+     * state, before the reset. */
     if (g_e.region_first) {
         jav_ttree_note_region_entry(g_e.live_st);
+        emit_reset_live();
         g_e.region_first = 0;
     }
     if (JAV_TIER2_N > 0) {
@@ -545,6 +558,7 @@ static void begin_body(jit_addr_t* offmap, size_t code_len,
     g_e.unbridged = 0;
     g_e.stamped = 0;
     g_e.last_bpos = 0;
+    g_e.have_pending = 0;
     g_e.next_pos = g_e.code.pos;
     g_e.region_first = 0;
     memset(&g_e.acc, 0, sizeof g_e.acc);
@@ -595,6 +609,8 @@ static void byte_walk(void) {
 static int tree_walk(const jav_ttree_t* tree, jav_tile_burg_ctx_t* bc) {
     for (uint32_t r = 0; r < tree->nregions; r++) {
         g_e.region_first = 1;
+        g_e.pending_bpos = tree->regions[r].start;
+        g_e.have_pending = 1;
         for (uint32_t i = 0; i < tree->regions[r].nroots; i++)
             jav_tile_burg_rewrite(tree->regions[r].roots[i], bc);
     }

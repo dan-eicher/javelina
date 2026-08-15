@@ -199,8 +199,11 @@ int main(void) {
                                          0x6a, END };
     /* An opaque consumer: drop is not in the fence, so it interns by
      * identity with its pure subtree still graphed. Two roots: the drop and
-     * the result const. */
-    static const uint8_t opaque[]    = { 0x41,0x01, 0x41,0x02, 0x6a, 0x1a,
+     * the result const. The dropped expression is (x+3) — RULE-IMMUNE, like
+     * pure_tree's (x+3)*x and for the same reason: this suite asserts
+     * extraction identity, and now that extraction descends under statement
+     * roots, a foldable (1+2) here would legitimately differ. */
+    static const uint8_t opaque[]    = { 0x20,0x00, 0x41,0x03, 0x6a, 0x1a,
                                          0x41,0x09, END };
     /* Two regions: a block whose br cuts, and the fall-through result whose
      * operand crosses the cut as a CARRIED leaf (opaque by identity). */
@@ -219,7 +222,7 @@ int main(void) {
         { "pure_tree", pure_tree, sizeof pure_tree, {WVT_I32}, 1, WVT_I32, 2, 2 },
         { "same_ver",  same_ver,  sizeof same_ver,  {WVT_I32}, 1, WVT_I32, 2, 2 },
         { "versions",  versions,  sizeof versions,  {WVT_I32}, 1, WVT_I32, 2, 3 },
-        { "opaque",    opaque,    sizeof opaque,    {0}, 0, WVT_I32, 2, 3 },
+        { "opaque",    opaque,    sizeof opaque,    {WVT_I32}, 1, WVT_I32, 2, 3 },
         { "regions",   regions,   sizeof regions,   {0}, 0, WVT_I32, 5, 5 },
     };
     for (size_t i = 0; i < sizeof bodies / sizeof bodies[0]; i++)
@@ -237,6 +240,56 @@ int main(void) {
     static const uint8_t fx_subz[]     = { 0x20,0x00, 0x41,0x00, 0x6b, END };
     static const uint8_t fx_subself[]  = { 0x20,0x00, 0x20,0x00, 0x6b, END };
     static const uint8_t fx_mulone[]   = { 0x20,0x00, 0x41,0x01, 0x6c, END };
+
+    /* ── PIN E3-u — statement roots rewrite. Every fixture above puts its
+     * junk in RESULT position, so this suite stayed green while extraction
+     * never descended past an opaque statement root — local.set, drop, a
+     * loop-region set: the shapes real code puts values in. One fixture per
+     * statement shape, junk identical to a green result-position family.
+     * Falsified by reverting rw_tree's descent (extract the root's own
+     * class only): all three red on want_rewritten while the suite's
+     * original fixtures stay green — exactly the blindness. */
+    static const uint8_t sr_set[]  = { 0x20,0x00, 0x41,0x01, 0x6c, 0x21,0x00,
+                                       0x20,0x00, END };
+    static const uint8_t sr_drop[] = { 0x20,0x00, 0x41,0x00, 0x73, 0x1a,
+                                       0x41,0x07, END };
+    static const uint8_t sr_loop[] = { 0x02,0x40, 0x20,0x00, 0x41,0x00, 0x6a,
+                                       0x21,0x00, 0x0b, 0x20,0x00, END };
+    /* ── PIN E3-b — a rewritten region keeps its ENTRY continuation. The
+     * region after a block's end is a branch target: br_if arrives at its
+     * first instruction's byte offset through the side table and the offmap.
+     * When the fold drops exactly those leading instructions —
+     * add(carried, 0) => carried erases the add AND the const that opened
+     * the region — the offmap must still map the entry offset to the
+     * region's first surviving stencil, or an arrival resyncs into the halt
+     * slot and the function returns early with the branch value. Shape is
+     * labels.wast br_if3 minimized: branch taken with value 1, local ends
+     * at 2, the folded add sat at the target offset. */
+    static const uint8_t sr_entry[] = { 0x02,0x7f,               /* block $l0 (result i32) */
+                                        0x41,0x01,               /*   i32.const 1 (branch value) */
+                                        0x02,0x7f,               /*   block (result i32) */
+                                        0x41,0x02, 0x21,0x00,    /*     const 2; local.set 0 */
+                                        0x20,0x00,               /*     local.get 0 */
+                                        0x0b,                    /*   end */
+                                        0x0d,0x00,               /*   br_if $l0 (cond = 2, taken) */
+                                        0x1a,                    /*   drop (untaken value) */
+                                        0x41,0x00,               /*   i32.const 0 (fallthrough) */
+                                        0x0b,                    /* end $l0 */
+                                        0x41,0x00,               /* i32.const 0  <- the entry, dropped */
+                                        0x6a,                    /* i32.add      <- folds away */
+                                        0x1a,                    /* drop */
+                                        0x20,0x00,               /* local.get 0 */
+                                        END };
+    /* ── PIN E3-r — a cached value survives a pure-drop's byte gap.
+     * set(add(mul(x,x), xor(x,0))): the xor folds, its bytes vanish from the
+     * stamped tree, and the add stamps at a pc that no longer follows its
+     * first operand's — a reset keyed on that byte gap wipes mul's cached
+     * result mid-expression and the stamped code reads a register nothing
+     * tracks. Falsified by restoring the gap-keyed reset in jav_t2_stamp:
+     * the spliced fixtures crash outright (the corpus's own failure mode). */
+    static const uint8_t sr_gap[]  = { 0x20,0x00, 0x20,0x00, 0x6c,
+                                       0x20,0x00, 0x41,0x00, 0x73,
+                                       0x6a, 0x21,0x00, 0x20,0x00, END };
     static const uint8_t fx_mulzero[]  = { 0x20,0x00, 0x41,0x00, 0x6c, END };
     static const uint8_t fx_andself[]  = { 0x20,0x00, 0x20,0x00, 0x71, END };
     static const uint8_t fx_andneg1[]  = { 0x20,0x00, 0x41,0x7f, 0x71, END };
@@ -541,6 +594,12 @@ int main(void) {
         { "v.shuffle_a", v_shuf_a, sizeof v_shuf_a, 1, 5, 1, 5 },
         { "v.shuffle_b", v_shuf_b, sizeof v_shuf_b, 1, 5, 1, 0 },
         /* strength ×2^k → shift (arg 5; ×8 = 40) */
+        /* PIN E3-u / E3-r: statement-root rewrites + the gap survivor */
+        { "stmt.set_mulone", sr_set,  sizeof sr_set,  1, 42, 1, 42 },
+        { "stmt.drop_xorz",  sr_drop, sizeof sr_drop, 1, 42, 1, 7 },
+        { "stmt.loop_addz",  sr_loop, sizeof sr_loop, 1, 42, 1, 42 },
+        { "stmt.gap_survivor", sr_gap, sizeof sr_gap, 1, 42, 1, 1806 },
+        { "stmt.brtarget_entry", sr_entry, sizeof sr_entry, 1, 42, 1, 2 },
         { "strength.mul32",  st_mul32,  sizeof st_mul32,  1, 5, 1, 40 },
         { "strength.mul64",  st_mul64,  sizeof st_mul64,  1, 5, 1, 40 },
         { "strength.vmul16", st_vmul16, sizeof st_vmul16, 1, 5, 1, 40 },

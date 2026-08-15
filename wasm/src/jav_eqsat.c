@@ -774,6 +774,56 @@ static jav_tnode_t* rb_root(ictx_t* c, const eg_extract_result* r,
     return nu;
 }
 
+/* Extract-and-splice the subtree at *slot when its class is a PURE one whose
+ * cheapest spelling differs; otherwise descend into the kids and try theirs.
+ *
+ * A STATEMENT root — local.set, drop, a store, a call — interns as an opaque
+ * atom keyed by its own address, so extraction from ITS class can never
+ * differ, however much saturation merged the value classes underneath; the
+ * descent is what connects those classes to the splice. Extraction from a
+ * pure class returns the whole min-cost TERM, kids included, so a kept pure
+ * subtree needs no further descent — if the spelling matched, everything
+ * under it was already minimal.
+ *
+ * Returns 1 if anything under *slot was spliced. A node the intern holds no
+ * record for keeps its subtree untouched and counts an identity_fail. */
+static int same_term(ictx_t* c, const eg_extract_result* r, int xi,
+                     const jav_tnode_t* n);
+static int eq_cost(int op, int64_t data, void* user);
+
+static int rw_tree(ictx_t* c, jav_ttree_t* tree, jav_tnode_t** slot) {
+    jav_tnode_t* n = *slot;
+    const eq_rec_t* rr = rec_of(c, n);
+    if (!rr) { g_eq.identity_fails++; return 0; }
+    if (rr->op != JAV_EQ_OP_OPAQUE) {
+        eg_extract_result ex;
+        if (!eg_extract(c->g, rr->id, eq_cost, NULL, &ex)) {
+            g_eq.identity_fails++;        /* no finite term: keep the original */
+            return 0;
+        }
+        int changed = 0;
+        if (!same_term(c, &ex, ex.root, n)) {
+            int32_t dn = 0;
+            jav_tnode_t* nu = rb_root(c, &ex, n, &dn);
+            if (nu) {
+                *slot = nu;
+                tree->nnodes = (uint32_t)((int64_t)tree->nnodes + dn);
+                changed = 1;
+            } else {
+                g_eq.rebuild_refusals++;  /* original stands, counted, never guessed */
+            }
+        }
+        eg_extract_free(&ex);
+        return changed;
+    }
+    /* An opaque spine: a carried leaf's nkids is 0 (its kids[0] is the
+     * producer link, not a subtree), so this walks only real children. */
+    int changed = 0;
+    for (uint8_t k = 0; k < n->nkids; k++)
+        if (n->kids[k] && rw_tree(c, tree, &n->kids[k])) changed = 1;
+    return changed;
+}
+
 /* Does the extracted term rooted at r[xi] spell the original subtree `n`
  * node-for-node? Compared against what intern RECORDED, so the walk cannot
  * disagree with itself about versions consumed mid-region. */
@@ -904,26 +954,8 @@ static void eqsat_region(jav_ttree_t* tree, jav_tregion_t* reg,
 
     for (uint32_t i = 0; i < reg->nroots; i++) {
         g_eq.roots++;
-        const eq_rec_t* rr = rec_of(&c, reg->roots[i]);
-        if (!rr) { g_eq.identity_fails++; continue; }
-        eg_extract_result ex;
-        if (!eg_extract(&g, rr->id, eq_cost, NULL, &ex)) {
-            g_eq.identity_fails++;        /* no finite term: keep the original */
-            continue;
-        }
-        if (!same_term(&c, &ex, ex.root, reg->roots[i])) {
-            c.snap = nlocals ? snaps + (size_t)i * nlocals : NULL;
-            int32_t dn = 0;
-            jav_tnode_t* nu = rb_root(&c, &ex, reg->roots[i], &dn);
-            if (nu) {
-                reg->roots[i] = nu;
-                tree->nnodes = (uint32_t)((int64_t)tree->nnodes + dn);
-                g_eq.rewritten++;
-            } else {
-                g_eq.rebuild_refusals++;  /* original stands, counted, never guessed */
-            }
-        }
-        eg_extract_free(&ex);
+        c.snap = nlocals ? snaps + (size_t)i * nlocals : NULL;
+        if (rw_tree(&c, tree, &reg->roots[i])) g_eq.rewritten++;
     }
 
     g_cur = NULL;

@@ -96,4 +96,19 @@ void     jav_jit_cache_stats(uint64_t* cached_ops, uint64_t* deep, uint64_t* occ
 // in the runtime's — 24 functions against 1289 resolve to nothing.
 void     jav_jit_cache_stats_reset(void);
 
+// Tier 3's own observable, on the same terms as the cache stats above:
+// how many roots the eq-sat pass extracted differently and rebuilt, process-
+// global across every module compiled at tier 3 (0 at every other tier).
+// An embedder measuring whether the rewrite earns its place on a corpus reads
+// this beside the wall clock — a 1.00x with rewritten=0 says "nothing to
+// fold", the same ratio with a large count says "folding buys nothing here",
+// and those are different verdicts about different things.
+uint64_t jav_capi_eqsat_rewritten(void);
+// …and per-rule fire counts (parallel arrays, process-global), returning the
+// rule count. A corpus meant to exercise the rewrite gates on these: a rule
+// no input ever fires is vocabulary, not capability, and only a per-rule
+// number can say which.
+int      jav_capi_eqsat_rules(const char* const** names,
+                              const unsigned long long** fires);
+
 #endif // JAV_EXTERN_H

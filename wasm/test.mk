@@ -173,9 +173,29 @@ lib: $(B)/libjavelina.a
 $(B)/embed: examples/embed.c $(B)/libjavelina.a | $(B)
 	$(CC) $(CFLAGS) -Wno-unused-function -Iinclude examples/embed.c $(B)/libjavelina.a -lm -o $@
 
+# ── the naive-producer corpus (PIN E3) ──────────────────────────────────────
+# Kernels lowered the way template producers lower, each with a hand-clean
+# twin; water assembles them at build time, and the consumers are EMBEDDERS —
+# the archive + wasm.h + the jav_ extension seam, never engine objects or the
+# in-process assembler. test_bench_naive is the suite leg (checksum identity
+# across tiers and forms + the rewrite pins); run_naive is the timed matrix
+# and runs only on the bench handshake (`make bench-naive`).
+NAIVE_KERNELS := k_addr k_poly k_wide k_smand k_vmand
+NAIVE_WASM := $(foreach k,$(NAIVE_KERNELS),$(B)/naive/$(k)_naive.wasm $(B)/naive/$(k)_clean.wasm)
+$(B)/naive/%.wasm: bench/naive/%.wat $(B)/water
+	@mkdir -p $(B)/naive
+	$(B)/water $< -o $@
+$(B)/test_bench_naive: test/test_bench_naive.c $(B)/libjavelina.a $(NAIVE_WASM) | $(B)
+	$(CC) $(CFLAGS) -Wno-unused-function -Iinclude test/test_bench_naive.c $(B)/libjavelina.a -lm -o $@
+$(B)/run_naive: bench/run_naive.c $(B)/libjavelina.a $(NAIVE_WASM) | $(B)
+	$(CC) $(CFLAGS) -Wno-unused-function -Iinclude bench/run_naive.c $(B)/libjavelina.a -lm -o $@
+.PHONY: bench-naive
+bench-naive: $(B)/run_naive $(NAIVE_WASM)
+	./$(B)/run_naive $(B)/naive
+
 # Everything that is a plain "build it, run it in test/, expect exit 0" gate.
 PLAIN_TESTS := $(IMMIX_TESTS) $(TESTS) $(CLITE_TESTS) test_align test_module_struct $(OWNING_TESTS) \
-               test_instr test_wat test_water $(WATOUT_TESTS) $(CAPI_TESTS)
+               test_instr test_wat test_water $(WATOUT_TESTS) $(CAPI_TESTS) test_bench_naive
 # ...minus the few that take an argument, handled by name below.
 ARGV_add_wasm := test_skeleton test_load test_roundtrip test_func
 
