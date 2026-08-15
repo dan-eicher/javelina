@@ -59,8 +59,8 @@ static live_t up(const wasm_byte_vec_t* bin, int tier) {
     jav_config_set_jit(cfg, tier);
     L.engine = wasm_engine_new_with_config(cfg);
     L.store = wasm_store_new(L.engine);
-    wasm_byte_vec_t copy; wasm_byte_vec_copy(&copy, bin);
-    L.mod = wasm_module_new(L.store, &copy);
+    /* wasm_module_new takes const and copies internally — no caller copy. */
+    L.mod = wasm_module_new(L.store, bin);
     if (!L.mod) { fprintf(stderr, "module_new failed\n"); exit(2); }
     wasm_extern_vec_t imports = WASM_EMPTY_VEC;
     wasm_trap_t* trap = NULL;

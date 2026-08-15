@@ -67,6 +67,24 @@ STENCIL_CFLAGS := -O2 -Wall -Werror -fno-stack-protector -fno-asynchronous-unwin
 
 GEN     := src/gen
 B       := build
+# SAN=1 — engine, runtime and tests under AddressSanitizer, in their own
+# build dir. STENCIL_CFLAGS is deliberately untouched: the stencils are
+# extracted MACHINE CODE, and a sanitizer call baked into copied bytes is a
+# landmine, not a detector — the stamped code's raw slot accesses simply go
+# unchecked while every C path around them is checked. The link recipes pass
+# $(CFLAGS), so the runtime links in without extra plumbing.
+ifeq ($(SAN),1)
+CFLAGS += -fsanitize=address -fno-omit-frame-pointer
+B      := build-asan
+endif
+# PROFILE=1 — -O0 with frame pointers, its own build dir: the -O2 inliner
+# smears costs across callers and erases the call counts a recompute-vs-cache
+# question needs, so a profile of the optimized build attributes work to the
+# wrong functions and misses N-times-what-should-be-once entirely.
+ifeq ($(PROFILE),1)
+CFLAGS := $(filter-out -O2,$(CFLAGS)) -O0 -fno-omit-frame-pointer
+B      := build-prof
+endif
 GC_OBJS := $(B)/immix_line_map.o $(B)/immix_block.o $(B)/immix_block_allocator.o \
            $(B)/immix_space.o $(B)/jav_gc.o
 # The VM engine — the runtime, with NO owning reader/writer: the VM loads via the c-lite

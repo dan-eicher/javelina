@@ -51,8 +51,10 @@ static res_t run_at(const wasm_byte_vec_t* bin, int tier, int32_t n) {
     jav_config_set_jit(cfg, tier);
     wasm_engine_t* engine = wasm_engine_new_with_config(cfg);
     wasm_store_t* store = wasm_store_new(engine);
-    wasm_byte_vec_t copy; wasm_byte_vec_copy(&copy, bin);
-    wasm_module_t* mod = wasm_module_new(store, &copy);
+    /* wasm_module_new takes const and copies internally — the caller keeps
+     * the vec. The first draft copied it per call and never deleted the
+     * copy; the leaks pass caught its own harness. */
+    wasm_module_t* mod = wasm_module_new(store, bin);
     if (!mod) goto out_store;
     {
         wasm_extern_vec_t imports = WASM_EMPTY_VEC;

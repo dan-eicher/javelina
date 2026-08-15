@@ -82,8 +82,9 @@ static run_t run_at_tier(const wasm_byte_vec_t* bin, int jit, const char* export
     g_probe_ops = 0;
     jav_capi_set_probe(store, probe_cb, NULL);
 
-    wasm_byte_vec_t copy; wasm_byte_vec_copy(&copy, bin);
-    wasm_module_t* mod = wasm_module_new(store, &copy);
+    /* wasm_module_new takes const and copies internally — the caller keeps
+     * the vec, so a per-run copy with no delete was a slow leak. */
+    wasm_module_t* mod = wasm_module_new(store, bin);
     if (!mod) { printf("  FAIL: module_new (jit=%d)\n", jit); fails++; goto out; }
 
     wasm_extern_vec_t imports = WASM_EMPTY_VEC;

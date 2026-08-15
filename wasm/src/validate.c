@@ -1161,13 +1161,21 @@ int jav_typecheck_ex(const uint8_t* code, size_t len, const jav_vctx_t* cx,
     if (s.nctrls != 0) s.ok = 0;            /* unbalanced control (missing end) */
     if (max_height > MAX_STACK) s.ok = 0;
 
-    /* delta_ip / delta_stp post-pass (identical to the legacy builder). */
+    /* delta_ip / delta_stp post-pass. delta_stp needs, per entry, the count of
+     * entries whose branch position precedes this entry's target. bpos[] is
+     * append-ordered by the walk, hence sorted, so that count is a lower
+     * bound — a binary search. The first spelling rescanned linearly from 0
+     * for every entry (faithful to the legacy builder, quadratic with it):
+     * one line, 34% of a corpus-wide profile. */
     unsigned nst = (unsigned)bbq_vec_len(s.st);
     for (unsigned e = 0; e < nst; e++) {
         s.st[e].delta_ip = (int32_t)((long)s.tip[e] - (long)s.bpos[e]);
-        unsigned j = 0;
-        while (j < nst && s.bpos[j] < s.tip[e]) j++;
-        s.st[e].delta_stp = (int32_t)j - (int32_t)e + s.eskip[e];   /* +1 for an if-false → else target */
+        unsigned lo = 0, hi = nst;
+        while (lo < hi) {
+            unsigned mid = lo + (hi - lo) / 2;
+            if (s.bpos[mid] < s.tip[e]) lo = mid + 1; else hi = mid;
+        }
+        s.st[e].delta_stp = (int32_t)lo - (int32_t)e + s.eskip[e];   /* +1 for an if-false → else target */
     }
 
     for (int i = 0; i < s.nctrls; i++) bbq_vec_free(s.ctrls[i].fixups);   /* frames still open on an early exit */
