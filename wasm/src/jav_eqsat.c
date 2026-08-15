@@ -303,6 +303,11 @@ typedef struct {
     const jav_tctx_t* tcx;
     bbq_hmap*      synth;       /* the emitter's sidecar: node -> jav_synth_t* */
     bbq_hmap*      facts;       /* cross-region: producer node -> jav_eq_fact_t* (body-wide) */
+    /* The extraction plan, prepared ONCE per region after saturation: the
+     * per-class cost DP is a function of the graph and the cost model, and
+     * the graph no longer mutates once the roots are being extracted, so
+     * re-running it per subtree priced the same table O(roots) times. */
+    const eg_extract_plan* plan;
     const uint32_t* snap;       /* version snapshot at the CURRENT root's entry */
     /* kept original subtrees, in the new tree's postorder — the order fence */
     const jav_tnode_t* kept[64];
@@ -797,7 +802,7 @@ static int rw_tree(ictx_t* c, jav_ttree_t* tree, jav_tnode_t** slot) {
     if (!rr) { g_eq.identity_fails++; return 0; }
     if (rr->op != JAV_EQ_OP_OPAQUE) {
         eg_extract_result ex;
-        if (!eg_extract(c->g, rr->id, eq_cost, NULL, &ex)) {
+        if (!eg_extract_from(c->g, c->plan, rr->id, &ex)) {
             g_eq.identity_fails++;        /* no finite term: keep the original */
             return 0;
         }
@@ -952,10 +957,19 @@ static void eqsat_region(jav_ttree_t* tree, jav_tregion_t* reg,
             bbq_hmap_put(facts, (uint64_t)(uintptr_t)rt, keep);
         }
 
-    for (uint32_t i = 0; i < reg->nroots; i++) {
-        g_eq.roots++;
-        c.snap = nlocals ? snaps + (size_t)i * nlocals : NULL;
-        if (rw_tree(&c, tree, &reg->roots[i])) g_eq.rewritten++;
+    eg_extract_plan plan;
+    if (!eg_extract_prepare(&g, eq_cost, NULL, -1, 0, &plan)) {
+        /* Allocation failed: originals stand, counted, never guessed. */
+        g_eq.roots += reg->nroots;
+        g_eq.identity_fails += reg->nroots;
+    } else {
+        c.plan = &plan;
+        for (uint32_t i = 0; i < reg->nroots; i++) {
+            g_eq.roots++;
+            c.snap = nlocals ? snaps + (size_t)i * nlocals : NULL;
+            if (rw_tree(&c, tree, &reg->roots[i])) g_eq.rewritten++;
+        }
+        eg_extract_plan_free(&plan);
     }
 
     g_cur = NULL;
