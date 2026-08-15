@@ -202,6 +202,17 @@ test: generate-parser generate-ddcg generate-codegen $(addprefix $(B)/,$(COMPILE
 	  echo ""; echo "── test-bench ───────────────────────────────────"; \
 	  sed 's/^/  | /' $(LOGS)/test_bench.log | tail -40; \
 	fi; \
+	if $(B)/javelina --jre $(B)/jre-O.wasm --tier 3 --jit-stats $(B)/bench-O.wasm quick \
+	     > /dev/null 2> $(LOGS)/eqsat_canary.log \
+	   && grep -qE "eqsat: .* 0 rewritten" $(LOGS)/eqsat_canary.log; then \
+	  echo "  PASS  eqsat canary (-O output rewrites 0 at tier 3)"; pass=$$((pass+1)); \
+	else \
+	  echo "  FAIL  eqsat canary — tier 3 found something to respell in the"; \
+	  echo "        compiler's OPTIMIZED output: either codegen started emitting"; \
+	  echo "        junk or a rewrite rule started firing on non-junk"; \
+	  fail=$$((fail+1)); \
+	  grep -E "eqsat:|rules:" $(LOGS)/eqsat_canary.log | sed 's/^/  | /'; \
+	fi; \
 	echo ""; echo "compiler tests: $$pass passed, $$fail failed"; \
 	[ $$fail -eq 0 ]
 
