@@ -1,0 +1,97 @@
+// wat_module.asdl — the MODULE half of water's render-tree schema.
+// Hand-authored: this file is the §6.6/§6.4 authority the way spec/wasm.def
+// is opgen's. The instruction half (one constructor per instructions.toml
+// row) is APPENDED by tools/gen_wat_ir.c into src/gen/wat_ir.asdl; this file
+// never carries it.
+//
+// Reading rules, shared with the generated half:
+//
+//   * A constructor's FIELDS are its burg-pattern children, exactly — the
+//     subtrees the layout labeller ranges over. burgc counts a field as a
+//     child only when its type is a non-enum sum, and §6's module syntax is
+//     flat records over enum-like leaves (comptype, typeuse), so the module
+//     half is all LEAF constructors and the pattern-structured tree lives
+//     where §6 puts it: instruction folding (§6.5.11). References between
+//     module constructs ride the r1/r2 attribute spans instead, each target
+//     its own label root.
+//   * SEQUENCES are never children (a cons spine the length of a module
+//     overflows a recursive labeller; the engine iterates spans instead).
+//     r1/nr1 and r2/nr2 span the builder's roots array; av/nav span the
+//     atoms array — payload tokens the emitter lays out by its fill policy.
+//   * ptxt/pw are the node's OWN rendered payload (pool offset, byte width):
+//     indices, names, limits, constants, blocktypes — everything that is a
+//     token but not structure. Grammar rule costs carry ONLY structure (each
+//     rule's own literal bytes); a group's flat width is the rule costs plus
+//     the payload widths plus separators, and test_wast's `wat width
+//     honesty` counter gates that sum against emitted bytes over both
+//     corpora.
+//
+// Per-constructor § citations are against WebAssembly 3.0 (2026-06-03),
+// printed page = PDF page - 4.
+
+module wat_ir {
+
+    // C carrier for the shared attribute fields.
+    type u32 = "uint32_t"
+
+    // §6.6 module fields, one constructor per rendered declaration form.
+    // The module itself (§6.6.13) is not a constructor: it is the emitter's
+    // frame, a loop over decl roots.
+    decl = W_type      // §6.6.2 typedef; r1 = its subtype
+         | W_rec       // §6.4.7 rec group; r1 = members (each a W_type)
+         | W_import    // §6.6.11; "m" "n" = ptxt; r1 = its externdesc
+         | W_func      // §6.6.7; r2 = typeuse, av = locals, r1 = body statements
+         | W_table     // §6.6.6; tabletype = ptxt; r1 = init expr roots
+         | W_memory    // §6.6.5; memtype = ptxt
+         | W_global    // §6.6.4; globaltype = ptxt; r1 = init expr roots
+         | W_tag       // §6.6.3; r1 = typeuse
+         | W_export    // §6.6.12; name + externidx = ptxt
+         | W_start     // §6.6.10; funcidx = ptxt
+         | W_elem      // §6.6.9; mode/table = ptxt; r1 = offset, r2 = item exprs, av = funcidx list
+         | W_data      // §6.6.8; mode/mem = ptxt; r1 = offset; av = datastring pieces
+         | W_custom    // §7.7.3 (@custom "name" place datastring); ptxt + av
+         attributes (u32 pw, u32 ptxt, u32 av, u32 nav, u32 r1, u32 nr1, u32 r2, u32 nr2)
+
+    // §6.4.7. W_sub is the abbreviated form (final, no supertypes — the
+    // omitted `sub final`), rendered as its bare comptype; W_subx is the
+    // explicit `(sub final? x* comptype)`, final/supers in ptxt. Two
+    // constructors because two rules with one (nonterm, pattern) cannot both
+    // fire — burgc reports that as a hard error — and the builder settles
+    // which form a type entry takes. r1 = the comptype.
+    subtype = W_sub
+            | W_subx
+            attributes (u32 pw, u32 ptxt, u32 av, u32 nav, u32 r1, u32 nr1, u32 r2, u32 nr2)
+
+    // §6.4.6. params/results/fields = av (atom lists, fill policy); an
+    // array's fieldtype = ptxt.
+    comptype = W_comp_func
+             | W_comp_struct
+             | W_comp_array
+             attributes (u32 pw, u32 ptxt, u32 av, u32 nav, u32 r1, u32 nr1, u32 r2, u32 nr2)
+
+    // §6.4.15. `(type x)` = ptxt; the echoed params/results = av. The echo
+    // is admissible by construction: it is printed FROM the indexed type, so
+    // §6.4.15's matching constraint holds identically.
+    typeuse = W_typeuse
+            attributes (u32 pw, u32 ptxt, u32 av, u32 nav, u32 r1, u32 nr1, u32 r2, u32 nr2)
+
+    // §6.6.11 import descriptors. Table/mem/global payloads = ptxt; func and
+    // tag reference their typeuse through r1.
+    externdesc = W_ed_func
+               | W_ed_table
+               | W_ed_mem
+               | W_ed_global
+               | W_ed_tag
+               attributes (u32 pw, u32 ptxt, u32 av, u32 nav, u32 r1, u32 nr1, u32 r2, u32 nr2)
+
+    // ── generated half (gen_wat_ir.c appends into src/gen/wat_ir.asdl) ──
+    //
+    //   instr    = I_<mnemonic>(operands a0)      one per instructions.toml row
+    //            attributes (...)                 block/loop/if/try_table carry
+    //                                             bodies as r1/r2, catches as av,
+    //                                             blocktype as ptxt; §6.5.11 rule
+    //                                             1's folded sequence is the spine
+    //   operands = W_op_cons(instr a0, operands a1)
+    //            | W_op_nil
+    //            attributes (...)
+}

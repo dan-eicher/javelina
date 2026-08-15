@@ -243,6 +243,39 @@ $(B)/gen_trap_reasons: tools/gen_trap_reasons.c $(B)/toml_parser.o $(B)/toml_doc
 $(GEN)/jav_trap_reason.h: spec/instructions.toml spec/wasm.def $(B)/gen_trap_reasons
 	$(B)/gen_trap_reasons spec/instructions.toml spec/wasm.def $(GEN)/jav_trap_reason.h
 
+# ── water's render tree (wasm → wat) ───────────────────────────────────────
+# The module half's authority is spec/wat_module.asdl, hand-authored; the json
+# sidecar is how tools read it (asdl's own parse, never a hand scan).
+$(GEN)/wat_module.json: spec/wat_module.asdl $(ASDL)
+	$(ASDL) -i $< --json $@
+$(B)/gen_wat_ir: tools/gen_wat_ir.c $(B)/toml_parser.o $(B)/toml_doc.o $(B)/bbq_arena.o | $(B)
+	$(CC) -O2 -std=c11 -Wall -Werror $(TOML_INC) -Isrc/gen \
+	  tools/gen_wat_ir.c $(B)/toml_parser.o $(B)/toml_doc.o $(B)/bbq_arena.o -o $@
+# ONE walk, four projections (schema ⊕ per-instruction constructors, grammar
+# with own-literal costs, render rows made of the same literals, the
+# production inventory) — they cannot disagree because they are one loop, and
+# test_wast's `wat width honesty` counter gates the width sum against emitted
+# bytes anyway.
+$(GEN)/wat_ir.asdl $(GEN)/wat_layout.burg $(GEN)/wat_render.h &: \
+		spec/wat_module.asdl $(GEN)/wat_module.json spec/instructions.toml $(B)/gen_wat_ir
+	$(B)/gen_wat_ir spec/wat_module.asdl $(GEN)/wat_module.json spec/instructions.toml $(GEN)
+$(GEN)/wat_ir.json: $(GEN)/wat_ir.asdl $(ASDL)
+	$(ASDL) -i $< --json $@
+# The node the builder allocates, generated from the SAME schema the layout
+# grammar's coverage is checked against, exactly as jav_tnode.h is for the
+# tiling grammar. Tag values == burg TERM ids by declaration order;
+# test_wat_layout compares the ends name-for-name.
+$(GEN)/wat_tnode.h: $(GEN)/wat_ir.asdl spec/templates/wat_tnode.inja $(ASDL)
+	$(ASDL) -i $(GEN)/wat_ir.asdl -t spec/templates/wat_tnode.inja -o $@ -l c
+$(GEN)/wat_layout.c $(GEN)/wat_layout.h &: $(GEN)/wat_layout.burg $(BURGC)
+	$(BURGC) -i $(GEN)/wat_layout.burg -lang c -frames $(BBQ)/burgc/frames -o $(GEN)/wat_layout.h
+.PHONY: wat-coverage
+# Mirrors tile-coverage verbatim, for the same reason: both sides of the check
+# come out of one generator walk, so an arity disagreement is a generator bug
+# and --asdl-strict keeps burgc from demoting it to the heuristic filter.
+wat-coverage: $(GEN)/wat_layout.burg $(GEN)/wat_ir.json $(BURGC)
+	$(BURGC) -i $(GEN)/wat_layout.burg -asdl $(GEN)/wat_ir.json --coverage --strict --asdl-strict
+
 # ── tier-3: the eq-sat pass's generated artifacts ─────────────────────────
 # The e-node admission fence, from the same spec table (D2 of the tier-3 plan:
 # one authority, never a hand list in jav_eqsat.c).

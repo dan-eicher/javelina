@@ -1,0 +1,6438 @@
+{
+  "aliases": {
+    "u32": "uint32_t"
+  },
+  "bases": [
+    "Instr",
+    "Operands"
+  ],
+  "definitions": [
+    {
+      "attributes": [
+        {
+          "flag": "none",
+          "name": "pw",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "ptxt",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "av",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "nav",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "r1",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "nr1",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "r2",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "nr2",
+          "type": "u32"
+        }
+      ],
+      "is_enum": true,
+      "name": "decl",
+      "type": "sum",
+      "types": [
+        {
+          "fields": [],
+          "name": "W_type"
+        },
+        {
+          "fields": [],
+          "name": "W_rec"
+        },
+        {
+          "fields": [],
+          "name": "W_import"
+        },
+        {
+          "fields": [],
+          "name": "W_func"
+        },
+        {
+          "fields": [],
+          "name": "W_table"
+        },
+        {
+          "fields": [],
+          "name": "W_memory"
+        },
+        {
+          "fields": [],
+          "name": "W_global"
+        },
+        {
+          "fields": [],
+          "name": "W_tag"
+        },
+        {
+          "fields": [],
+          "name": "W_export"
+        },
+        {
+          "fields": [],
+          "name": "W_start"
+        },
+        {
+          "fields": [],
+          "name": "W_elem"
+        },
+        {
+          "fields": [],
+          "name": "W_data"
+        },
+        {
+          "fields": [],
+          "name": "W_custom"
+        }
+      ]
+    },
+    {
+      "attributes": [
+        {
+          "flag": "none",
+          "name": "pw",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "ptxt",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "av",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "nav",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "r1",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "nr1",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "r2",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "nr2",
+          "type": "u32"
+        }
+      ],
+      "is_enum": true,
+      "name": "subtype",
+      "type": "sum",
+      "types": [
+        {
+          "fields": [],
+          "name": "W_sub"
+        },
+        {
+          "fields": [],
+          "name": "W_subx"
+        }
+      ]
+    },
+    {
+      "attributes": [
+        {
+          "flag": "none",
+          "name": "pw",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "ptxt",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "av",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "nav",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "r1",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "nr1",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "r2",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "nr2",
+          "type": "u32"
+        }
+      ],
+      "is_enum": true,
+      "name": "comptype",
+      "type": "sum",
+      "types": [
+        {
+          "fields": [],
+          "name": "W_comp_func"
+        },
+        {
+          "fields": [],
+          "name": "W_comp_struct"
+        },
+        {
+          "fields": [],
+          "name": "W_comp_array"
+        }
+      ]
+    },
+    {
+      "attributes": [
+        {
+          "flag": "none",
+          "name": "pw",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "ptxt",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "av",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "nav",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "r1",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "nr1",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "r2",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "nr2",
+          "type": "u32"
+        }
+      ],
+      "is_enum": true,
+      "name": "typeuse",
+      "type": "sum",
+      "types": [
+        {
+          "fields": [],
+          "name": "W_typeuse"
+        }
+      ]
+    },
+    {
+      "attributes": [
+        {
+          "flag": "none",
+          "name": "pw",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "ptxt",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "av",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "nav",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "r1",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "nr1",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "r2",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "nr2",
+          "type": "u32"
+        }
+      ],
+      "is_enum": true,
+      "name": "externdesc",
+      "type": "sum",
+      "types": [
+        {
+          "fields": [],
+          "name": "W_ed_func"
+        },
+        {
+          "fields": [],
+          "name": "W_ed_table"
+        },
+        {
+          "fields": [],
+          "name": "W_ed_mem"
+        },
+        {
+          "fields": [],
+          "name": "W_ed_global"
+        },
+        {
+          "fields": [],
+          "name": "W_ed_tag"
+        }
+      ]
+    },
+    {
+      "attributes": [
+        {
+          "flag": "none",
+          "name": "pw",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "ptxt",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "av",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "nav",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "r1",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "nr1",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "r2",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "nr2",
+          "type": "u32"
+        }
+      ],
+      "is_enum": false,
+      "name": "instr",
+      "type": "sum",
+      "types": [
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_unreachable"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_nop"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_block"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_loop"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_if"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_throw"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_throw_ref"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_br"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_br_if"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_br_table"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_return"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_call"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_call_indirect"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_return_call"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_return_call_indirect"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_call_ref"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_return_call_ref"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_drop"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_select"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_select_x1c"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_try_table"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_local_get"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_local_set"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_local_tee"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_global_get"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_global_set"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_table_get"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_table_set"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32_load"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64_load"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f32_load"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f64_load"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32_load8_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32_load8_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32_load16_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32_load16_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64_load8_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64_load8_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64_load16_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64_load16_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64_load32_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64_load32_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32_store"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64_store"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f32_store"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f64_store"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32_store8"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32_store16"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64_store8"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64_store16"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64_store32"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_memory_size"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_memory_grow"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32_const"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64_const"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f32_const"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f64_const"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32_eqz"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32_eq"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32_ne"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32_lt_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32_lt_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32_gt_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32_gt_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32_le_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32_le_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32_ge_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32_ge_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64_eqz"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64_eq"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64_ne"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64_lt_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64_lt_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64_gt_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64_gt_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64_le_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64_le_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64_ge_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64_ge_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f32_eq"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f32_ne"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f32_lt"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f32_gt"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f32_le"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f32_ge"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f64_eq"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f64_ne"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f64_lt"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f64_gt"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f64_le"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f64_ge"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32_clz"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32_ctz"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32_popcnt"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32_add"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32_sub"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32_mul"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32_div_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32_div_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32_rem_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32_rem_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32_and"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32_or"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32_xor"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32_shl"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32_shr_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32_shr_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32_rotl"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32_rotr"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64_clz"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64_ctz"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64_popcnt"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64_add"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64_sub"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64_mul"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64_div_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64_div_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64_rem_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64_rem_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64_and"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64_or"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64_xor"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64_shl"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64_shr_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64_shr_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64_rotl"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64_rotr"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f32_abs"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f32_neg"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f32_ceil"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f32_floor"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f32_trunc"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f32_nearest"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f32_sqrt"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f32_add"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f32_sub"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f32_mul"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f32_div"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f32_min"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f32_max"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f32_copysign"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f64_abs"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f64_neg"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f64_ceil"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f64_floor"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f64_trunc"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f64_nearest"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f64_sqrt"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f64_add"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f64_sub"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f64_mul"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f64_div"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f64_min"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f64_max"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f64_copysign"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32_wrap_i64"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32_trunc_f32_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32_trunc_f32_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32_trunc_f64_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32_trunc_f64_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64_extend_i32_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64_extend_i32_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64_trunc_f32_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64_trunc_f32_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64_trunc_f64_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64_trunc_f64_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f32_convert_i32_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f32_convert_i32_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f32_convert_i64_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f32_convert_i64_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f32_demote_f64"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f64_convert_i32_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f64_convert_i32_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f64_convert_i64_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f64_convert_i64_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f64_promote_f32"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32_reinterpret_f32"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64_reinterpret_f64"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f32_reinterpret_i32"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f64_reinterpret_i64"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32_extend8_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32_extend16_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64_extend8_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64_extend16_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64_extend32_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_ref_null"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_ref_is_null"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_ref_func"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_ref_eq"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_ref_as_non_null"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_br_on_null"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_br_on_non_null"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_struct_new"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_struct_new_default"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_struct_get"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_struct_get_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_struct_get_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_struct_set"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_array_new"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_array_new_default"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_array_new_fixed"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_array_new_data"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_array_new_elem"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_array_get"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_array_get_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_array_get_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_array_set"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_array_len"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_array_fill"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_array_copy"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_array_init_data"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_array_init_elem"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_ref_test"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_ref_test_x15"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_ref_cast"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_ref_cast_x17"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_br_on_cast"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_br_on_cast_fail"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_any_convert_extern"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_extern_convert_any"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_ref_i31"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i31_get_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i31_get_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32_trunc_sat_f32_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32_trunc_sat_f32_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32_trunc_sat_f64_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32_trunc_sat_f64_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64_trunc_sat_f32_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64_trunc_sat_f32_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64_trunc_sat_f64_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64_trunc_sat_f64_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_memory_init"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_data_drop"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_memory_copy"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_memory_fill"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_table_init"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_elem_drop"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_table_copy"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_table_grow"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_table_size"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_table_fill"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_v128_load"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_v128_load8x8_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_v128_load8x8_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_v128_load16x4_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_v128_load16x4_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_v128_load32x2_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_v128_load32x2_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_v128_load8_splat"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_v128_load16_splat"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_v128_load32_splat"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_v128_load64_splat"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_v128_store"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_v128_const"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i8x16_shuffle"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i8x16_swizzle"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i8x16_splat"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i16x8_splat"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32x4_splat"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64x2_splat"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f32x4_splat"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f64x2_splat"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i8x16_extract_lane_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i8x16_extract_lane_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i8x16_replace_lane"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i16x8_extract_lane_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i16x8_extract_lane_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i16x8_replace_lane"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32x4_extract_lane"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32x4_replace_lane"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64x2_extract_lane"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64x2_replace_lane"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f32x4_extract_lane"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f32x4_replace_lane"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f64x2_extract_lane"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f64x2_replace_lane"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i8x16_eq"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i8x16_ne"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i8x16_lt_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i8x16_lt_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i8x16_gt_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i8x16_gt_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i8x16_le_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i8x16_le_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i8x16_ge_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i8x16_ge_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i16x8_eq"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i16x8_ne"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i16x8_lt_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i16x8_lt_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i16x8_gt_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i16x8_gt_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i16x8_le_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i16x8_le_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i16x8_ge_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i16x8_ge_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32x4_eq"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32x4_ne"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32x4_lt_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32x4_lt_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32x4_gt_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32x4_gt_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32x4_le_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32x4_le_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32x4_ge_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32x4_ge_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f32x4_eq"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f32x4_ne"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f32x4_lt"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f32x4_gt"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f32x4_le"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f32x4_ge"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f64x2_eq"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f64x2_ne"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f64x2_lt"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f64x2_gt"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f64x2_le"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f64x2_ge"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_v128_not"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_v128_and"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_v128_andnot"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_v128_or"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_v128_xor"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_v128_bitselect"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_v128_any_true"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_v128_load8_lane"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_v128_load16_lane"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_v128_load32_lane"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_v128_load64_lane"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_v128_store8_lane"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_v128_store16_lane"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_v128_store32_lane"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_v128_store64_lane"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_v128_load32_zero"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_v128_load64_zero"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f32x4_demote_f64x2_zero"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f64x2_promote_low_f32x4"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i8x16_abs"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i8x16_neg"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i8x16_popcnt"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i8x16_all_true"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i8x16_bitmask"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i8x16_narrow_i16x8_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i8x16_narrow_i16x8_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f32x4_ceil"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f32x4_floor"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f32x4_trunc"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f32x4_nearest"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i8x16_shl"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i8x16_shr_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i8x16_shr_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i8x16_add"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i8x16_add_sat_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i8x16_add_sat_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i8x16_sub"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i8x16_sub_sat_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i8x16_sub_sat_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f64x2_ceil"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f64x2_floor"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i8x16_min_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i8x16_min_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i8x16_max_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i8x16_max_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f64x2_trunc"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i8x16_avgr_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i16x8_extadd_pairwise_i8x16_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i16x8_extadd_pairwise_i8x16_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32x4_extadd_pairwise_i16x8_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32x4_extadd_pairwise_i16x8_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i16x8_abs"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i16x8_neg"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i16x8_q15mulr_sat_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i16x8_all_true"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i16x8_bitmask"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i16x8_narrow_i32x4_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i16x8_narrow_i32x4_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i16x8_extend_low_i8x16_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i16x8_extend_high_i8x16_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i16x8_extend_low_i8x16_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i16x8_extend_high_i8x16_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i16x8_shl"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i16x8_shr_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i16x8_shr_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i16x8_add"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i16x8_add_sat_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i16x8_add_sat_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i16x8_sub"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i16x8_sub_sat_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i16x8_sub_sat_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f64x2_nearest"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i16x8_mul"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i16x8_min_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i16x8_min_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i16x8_max_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i16x8_max_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i16x8_avgr_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i16x8_extmul_low_i8x16_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i16x8_extmul_high_i8x16_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i16x8_extmul_low_i8x16_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i16x8_extmul_high_i8x16_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32x4_abs"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32x4_neg"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32x4_all_true"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32x4_bitmask"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32x4_extend_low_i16x8_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32x4_extend_high_i16x8_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32x4_extend_low_i16x8_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32x4_extend_high_i16x8_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32x4_shl"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32x4_shr_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32x4_shr_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32x4_add"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32x4_sub"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32x4_mul"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32x4_min_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32x4_min_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32x4_max_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32x4_max_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32x4_dot_i16x8_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32x4_extmul_low_i16x8_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32x4_extmul_high_i16x8_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32x4_extmul_low_i16x8_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32x4_extmul_high_i16x8_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64x2_abs"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64x2_neg"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64x2_all_true"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64x2_bitmask"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64x2_extend_low_i32x4_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64x2_extend_high_i32x4_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64x2_extend_low_i32x4_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64x2_extend_high_i32x4_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64x2_shl"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64x2_shr_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64x2_shr_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64x2_add"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64x2_sub"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64x2_mul"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64x2_eq"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64x2_ne"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64x2_lt_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64x2_gt_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64x2_le_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64x2_ge_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64x2_extmul_low_i32x4_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64x2_extmul_high_i32x4_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64x2_extmul_low_i32x4_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64x2_extmul_high_i32x4_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f32x4_abs"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f32x4_neg"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f32x4_sqrt"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f32x4_add"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f32x4_sub"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f32x4_mul"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f32x4_div"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f32x4_min"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f32x4_max"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f32x4_pmin"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f32x4_pmax"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f64x2_abs"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f64x2_neg"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f64x2_sqrt"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f64x2_add"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f64x2_sub"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f64x2_mul"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f64x2_div"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f64x2_min"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f64x2_max"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f64x2_pmin"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f64x2_pmax"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32x4_trunc_sat_f32x4_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32x4_trunc_sat_f32x4_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f32x4_convert_i32x4_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f32x4_convert_i32x4_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32x4_trunc_sat_f64x2_s_zero"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32x4_trunc_sat_f64x2_u_zero"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f64x2_convert_low_i32x4_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f64x2_convert_low_i32x4_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i8x16_relaxed_swizzle"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32x4_relaxed_trunc_f32x4_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32x4_relaxed_trunc_f32x4_u"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32x4_relaxed_trunc_f64x2_s_zero"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32x4_relaxed_trunc_f64x2_u_zero"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f32x4_relaxed_madd"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f32x4_relaxed_nmadd"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f64x2_relaxed_madd"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f64x2_relaxed_nmadd"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i8x16_relaxed_laneselect"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i16x8_relaxed_laneselect"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32x4_relaxed_laneselect"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i64x2_relaxed_laneselect"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f32x4_relaxed_min"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f32x4_relaxed_max"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f64x2_relaxed_min"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_f64x2_relaxed_max"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i16x8_relaxed_q15mulr_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i16x8_relaxed_dot_i8x16_i7x16_s"
+        },
+        {
+          "base": "Instr",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "operands"
+            }
+          ],
+          "name": "I_i32x4_relaxed_dot_i8x16_i7x16_add_s"
+        }
+      ]
+    },
+    {
+      "attributes": [
+        {
+          "flag": "none",
+          "name": "pw",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "ptxt",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "av",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "nav",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "r1",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "nr1",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "r2",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "nr2",
+          "type": "u32"
+        }
+      ],
+      "is_enum": false,
+      "name": "operands",
+      "type": "sum",
+      "types": [
+        {
+          "base": "Operands",
+          "fields": [
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a0",
+              "type": "instr"
+            },
+            {
+              "flag": "none",
+              "is_schema": true,
+              "name": "a1",
+              "type": "operands"
+            }
+          ],
+          "name": "W_op_cons"
+        },
+        {
+          "base": "Operands",
+          "fields": [],
+          "name": "W_op_nil"
+        }
+      ]
+    }
+  ],
+  "name": "wat_ir"
+}

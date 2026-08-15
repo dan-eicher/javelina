@@ -22,6 +22,7 @@
 #include "jav_ttree.h"           // PIN B-4: the tier-2 sweep's counters
 #include "jav_eqsat.h"           // PIN B-1 (tier-3): the eqsat pass's counters
 #include "wat_check.h"           // PIN A-4: water's own §7.6, against the engine's
+#include "wat_emit.h"            // PIN B-5: the emitter's width honesty, exit-coded
 #include "jav_view_nav.h"        // PIN A-5: the span index that aligns the two walks
 #include "jav_module_index.h"    // PIN A-5: jav_module_index / jav_module_tctx
 #include "jav_module_struct.h"   // PIN A-5: the §5.5 gate the index reads counts through
@@ -343,6 +344,7 @@ static void a5_body(const jav_modidx_t *vmod, jav_tctx_t *tcx, bbq_arena *ta,
 }
 
 static int g_wat76_ok, g_wat76_bad;
+static int g_emit_ok, g_emit_fail;
 static void run_module_wat76(const uint8_t *bytes, int n, int vm_accepted, jav_err_t vm_err) {
     bbq_ctx_t c; bbq_ctx_init(&c, bytes, (size_t)n);
     jav_module_t mod; memset(&mod, 0, sizeof mod);
@@ -406,6 +408,23 @@ static void run_module_wat76(const uint8_t *bytes, int n, int vm_accepted, jav_e
         }
         if (bad) wat_accepted = 0;
         if (a5) { jav_modidx_free_bodies(&vmod); bbq_arena_free(&ta); bbq_arena_free(&va); }
+    }
+    // The width-honesty gate: every module both sides accept is RENDERED, and
+    // the engine's own per-group self-check (flat bytes == the width the fit
+    // test trusted; every line fits or its overflow is one unbreakable token)
+    // accumulates into wat_emit_stats, printed and exit-coded with the rest.
+    if (wat_accepted && vm_accepted && wcx) {
+        const char *txt = NULL; size_t tlen = 0;
+        if (wat_emit_module(&mod, wcx, 100, &a, &txt, &tlen) && tlen > 0) g_emit_ok++;
+        else {
+            g_emit_fail++;
+            if (getenv("WAST_VV")) {
+                const char *stage = "";
+                jav_err_t ee = wat_emit_last_error(&stage);
+                fprintf(stderr, "  wat EMIT REFUSED: %s stage=%s err=%s\n",
+                        g_curfile, stage, jav_err_str(ee));
+            }
+        }
     }
     if (wat_accepted == vm_accepted) g_wat76_ok++;
     else {
@@ -719,6 +738,22 @@ int main(int argc, char **argv) {
     fprintf(sum, "wast §7.6 edge differential (water vs tier-2 tree): %d edges over %d bodies, "
                  "%d differ, %d unaligned\n",
             g_a5_ok, g_a5_bodies, g_a5_bad, g_a5_unaligned);
+    // PIN B-5. Every module both sides accept is rendered; a group laid flat
+    // must emit exactly the bytes the fit test trusted, and every line fits
+    // the width unless its overflow is one unbreakable token — counted on its
+    // own, never hidden.
+    {
+        wat_emit_stats_t ws;
+        wat_emit_stats(&ws);
+        fprintf(sum, "wast wat width honesty: %d rendered, %d refused; "
+                     "%llu flat groups, %llu width mismatches, %llu overlong lines, "
+                     "%llu atom overflows\n",
+                g_emit_ok, g_emit_fail,
+                (unsigned long long)ws.flat_groups,
+                (unsigned long long)ws.width_mismatches,
+                (unsigned long long)ws.long_lines,
+                (unsigned long long)ws.atom_overflows);
+    }
     int eok = 0, ebad = 0, eexcl = 0;
     if (g_store_ready && !sweep) {
         const char *ereason;
@@ -912,8 +947,12 @@ int main(int argc, char **argv) {
     // validation from 5135/0 to 4928/74 still printed PASS. A number worth printing is a
     // number worth failing on; if one is expected to be non-zero it belongs in
     // docs/test-baseline.md as a committed figure, not silently ungated here.
+    wat_emit_stats_t ws_gate;
+    wat_emit_stats(&ws_gate);
     return (g_bad || g_wat_bad || g_val_bad || g_tval_bad || g_val_msgbad
             || g_wat76_bad || g_a5_bad || g_a5_unaligned || g_a5_bodies == 0
+            || g_emit_fail || ws_gate.width_mismatches || ws_gate.long_lines
+            || (g_emit_ok == 0)
             || ebad || (!sweep && wast_exec_trap_msgbad())
             /* The tree and tiling meters belong to TIER-2: tier-1 compiles with no
              * tiling context, so no tree is built and there is nothing for them to

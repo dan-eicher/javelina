@@ -128,16 +128,26 @@ $(B)/test_water: test/test_water.c $(WAT_OBJS) $(B)/jav_reader.o $(B)/jav_writer
 # wasm.bbq) and the opgen tables that are headers — plus jav_subtype.o, the one §3.3
 # lattice. A second reading of the subtype relation is the one duplication with no
 # upside, so it is linked and not re-derived.
-WATOUT_OBJS  := $(B)/wat_check.o $(B)/wat_emit.o $(B)/jav_reader.o $(B)/jav_subtype.o \
-                $(B)/jav_error.o $(B)/jav_utf8.o $(B)/bbq_arena.o $(B)/bbq_hmap.o
+WATOUT_OBJS  := $(B)/wat_check.o $(B)/wat_emit.o $(B)/wat_tree.o $(B)/wat_layout.o \
+                $(B)/jav_reader.o $(B)/jav_subtype.o \
+                $(B)/jav_error.o $(B)/jav_utf8.o $(B)/bbq_arena.o $(B)/bbq_hmap.o \
+                $(B)/bbq_htree.o
 $(B)/wat_check.o: src/wat_check.c | $(B)
 	$(CC) $(CFLAGS) -Wno-unused-function -c $< -o $@
-$(B)/wat_emit.o:  src/wat_emit.c | $(B)
+$(B)/wat_emit.o:  src/wat_emit.c $(GEN)/wat_tnode.h $(GEN)/wat_render.h $(GEN)/wat_layout.h | $(B)
+	$(CC) $(CFLAGS) -Wno-unused-function -c $< -o $@
+$(B)/wat_tree.o:  src/wat_tree.c src/wat_tree.h $(GEN)/wat_tnode.h $(GEN)/wat_render.h | $(B)
+	$(CC) $(CFLAGS) -Wno-unused-function -c $< -o $@
+# The generated labeller/reducer over the render tree (burgc's C backend).
+$(B)/wat_layout.o: $(GEN)/wat_layout.c $(GEN)/wat_layout.h src/wat_layout_burg.h $(GEN)/wat_tnode.h | $(B)
 	$(CC) $(CFLAGS) -Wno-unused-function -c $< -o $@
 
-WATOUT_TESTS := test_wat_check test_wat_fold test_wat_emit
+WATOUT_TESTS := test_wat_check test_wat_fold test_wat_emit test_wat_layout
 $(WATOUT_TESTS:%=$(B)/%): $(B)/%: test/%.c $(WATOUT_OBJS) | $(B)
 	$(CC) $(CFLAGS) -Wno-unused-function $(LINK) -lm -o $@
+# The layout gates compare the generated artifacts against each other and the
+# peg inventory, so they rebuild when any of those move.
+$(B)/test_wat_layout: $(GEN)/wat_tnode.h $(GEN)/wat_render.h $(GEN)/wat_layout.burg spec/wat.peg
 
 # The conformance runner: the official testsuite, executed.
 $(B)/test_wast: test/test_wast.c test/wast_exec.c $(B)/wasm_capi.o $(WAT_OBJS) \
@@ -149,7 +159,8 @@ $(B)/test_wast: test/test_wast.c test/wast_exec.c $(B)/wasm_capi.o $(WAT_OBJS) \
                 $(B)/bbq_lite.o $(B)/validate.o $(B)/jav_subtype.o $(B)/interp.o \
                 $(B)/jav_runtime.o $(B)/gen_interp.o $(B)/jit_driver.o $(B)/jav_ttree.o \
                 $(B)/jav_tile.o $(B)/jav_eqsat.o $(B)/egraph.o \
-                $(B)/bbq_hmap.o $(B)/wat_check.o $(GC_OBJS) | $(B)
+                $(B)/bbq_hmap.o $(B)/wat_check.o $(B)/wat_emit.o $(B)/wat_tree.o \
+                $(B)/wat_layout.o $(GC_OBJS) | $(B)
 	$(CC) $(CFLAGS) -Wno-unused-function -Iinclude -I$(PEGRT) $(LINK) -lm -o $@
 
 # The public wasm.h surface.

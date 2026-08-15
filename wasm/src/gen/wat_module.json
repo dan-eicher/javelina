@@ -1,0 +1,350 @@
+{
+  "aliases": {
+    "u32": "uint32_t"
+  },
+  "bases": [],
+  "definitions": [
+    {
+      "attributes": [
+        {
+          "flag": "none",
+          "name": "pw",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "ptxt",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "av",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "nav",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "r1",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "nr1",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "r2",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "nr2",
+          "type": "u32"
+        }
+      ],
+      "is_enum": true,
+      "name": "decl",
+      "type": "sum",
+      "types": [
+        {
+          "fields": [],
+          "name": "W_type"
+        },
+        {
+          "fields": [],
+          "name": "W_rec"
+        },
+        {
+          "fields": [],
+          "name": "W_import"
+        },
+        {
+          "fields": [],
+          "name": "W_func"
+        },
+        {
+          "fields": [],
+          "name": "W_table"
+        },
+        {
+          "fields": [],
+          "name": "W_memory"
+        },
+        {
+          "fields": [],
+          "name": "W_global"
+        },
+        {
+          "fields": [],
+          "name": "W_tag"
+        },
+        {
+          "fields": [],
+          "name": "W_export"
+        },
+        {
+          "fields": [],
+          "name": "W_start"
+        },
+        {
+          "fields": [],
+          "name": "W_elem"
+        },
+        {
+          "fields": [],
+          "name": "W_data"
+        },
+        {
+          "fields": [],
+          "name": "W_custom"
+        }
+      ]
+    },
+    {
+      "attributes": [
+        {
+          "flag": "none",
+          "name": "pw",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "ptxt",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "av",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "nav",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "r1",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "nr1",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "r2",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "nr2",
+          "type": "u32"
+        }
+      ],
+      "is_enum": true,
+      "name": "subtype",
+      "type": "sum",
+      "types": [
+        {
+          "fields": [],
+          "name": "W_sub"
+        },
+        {
+          "fields": [],
+          "name": "W_subx"
+        }
+      ]
+    },
+    {
+      "attributes": [
+        {
+          "flag": "none",
+          "name": "pw",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "ptxt",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "av",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "nav",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "r1",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "nr1",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "r2",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "nr2",
+          "type": "u32"
+        }
+      ],
+      "is_enum": true,
+      "name": "comptype",
+      "type": "sum",
+      "types": [
+        {
+          "fields": [],
+          "name": "W_comp_func"
+        },
+        {
+          "fields": [],
+          "name": "W_comp_struct"
+        },
+        {
+          "fields": [],
+          "name": "W_comp_array"
+        }
+      ]
+    },
+    {
+      "attributes": [
+        {
+          "flag": "none",
+          "name": "pw",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "ptxt",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "av",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "nav",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "r1",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "nr1",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "r2",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "nr2",
+          "type": "u32"
+        }
+      ],
+      "is_enum": true,
+      "name": "typeuse",
+      "type": "sum",
+      "types": [
+        {
+          "fields": [],
+          "name": "W_typeuse"
+        }
+      ]
+    },
+    {
+      "attributes": [
+        {
+          "flag": "none",
+          "name": "pw",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "ptxt",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "av",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "nav",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "r1",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "nr1",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "r2",
+          "type": "u32"
+        },
+        {
+          "flag": "none",
+          "name": "nr2",
+          "type": "u32"
+        }
+      ],
+      "is_enum": true,
+      "name": "externdesc",
+      "type": "sum",
+      "types": [
+        {
+          "fields": [],
+          "name": "W_ed_func"
+        },
+        {
+          "fields": [],
+          "name": "W_ed_table"
+        },
+        {
+          "fields": [],
+          "name": "W_ed_mem"
+        },
+        {
+          "fields": [],
+          "name": "W_ed_global"
+        },
+        {
+          "fields": [],
+          "name": "W_ed_tag"
+        }
+      ]
+    }
+  ],
+  "name": "wat_ir"
+}

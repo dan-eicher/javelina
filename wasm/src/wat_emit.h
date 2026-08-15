@@ -31,4 +31,24 @@
 int wat_emit_module(const jav_module_t* m, const wat_check_ctx_t* cx, int width,
                     bbq_arena* a, const char** out, size_t* out_len);
 
+/* The engine's self-check, accumulated across every wat_emit_module call:
+ * a group laid FLAT must emit exactly the bytes its width memo predicted —
+ * the number the fit test trusted — and every emitted line must fit the
+ * width except where a single unbreakable token overflows it (a long name
+ * or datastring piece), which is counted, never hidden. test_wast prints
+ * and gates these over both corpora. */
+typedef struct {
+    uint64_t flat_groups;      /* groups rendered flat */
+    uint64_t width_mismatches; /* flat groups whose bytes != predicted width */
+    uint64_t long_lines;       /* over-width lines with a break point available */
+    uint64_t atom_overflows;   /* over-width lines that are one unbreakable token */
+} wat_emit_stats_t;
+
+void wat_emit_stats(wat_emit_stats_t* out);
+void wat_emit_stats_reset(void);
+
+/* Why the last wat_emit_module returned 0: the builder's error and the stage
+ * ("build" / "label" / "cover" / "reduce" / "print") that refused. */
+jav_err_t wat_emit_last_error(const char** stage);
+
 #endif /* WAT_EMIT_H */
