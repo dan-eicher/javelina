@@ -40,6 +40,12 @@ typedef struct {
     const char*       pool;     /* payload text */
     const wat_atom_t* atoms;    /* av spans index here */
     uint32_t          natoms;
+    uint32_t          mod_id;   /* pool offset of the §7.7.1 module id, or ~0u */
+    /* §7.7.3 has no `tag` in its place vocabulary; a custom section at a
+     * position no word can express is counted here (and placed after last),
+     * never silently misplaced. Structurally zero today — the counter is the
+     * fail-closed guard on that argument. */
+    uint32_t          custom_unplaceable;
 } wat_forest_t;
 
 /* Build the forest for `m`, which `cx` was projected from and which already

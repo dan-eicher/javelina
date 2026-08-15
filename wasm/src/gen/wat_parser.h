@@ -67,6 +67,15 @@ typedef struct {
     jav_export_t* iexports;     /* inline `(export "n")` clauses on definitions (§6.6), merged into
                                     the export section at module end (a bbq_vec) */
     jav_import_t* iimports;     /* ALL imports (explicit + inline-on-def) in source order (bbq_vec) */
+    struct wat_custom_annot {    /* §7.7.3 `(@custom "name" place? datastring)` captures (bbq_vec).
+                                    place: 0 = (after last) — the default — 1 = (before first),
+                                    2 = (before sec), 3 = (after sec); anchor = the §5.5.2 id of
+                                    the named section. Flushed into AS_SECS at the placement's
+                                    slot during module assembly; co-located annotations keep
+                                    their source order, which is §7.7.3's own ordering rule. */
+        jav_custom_section_t sec;
+        uint8_t place, anchor, done;
+    }* customs;
     int nimp[SP_N];              /* pass-2 per-kind import counter -> an import's index in its space */
     int defs_seen;               /* pass 2: a func/table/memory/global/tag DEFINITION was built —
                                     a later import is malformed (§6.6: imports precede defs) */
@@ -498,6 +507,21 @@ static void wat_xtypes_seal_recgroup(wat_ctx_t* c, uint32_t base) {
     for (uint32_t i = base; i < n; i++) c->xtype_rec[i] = 1;
 }
 
+/* §7.7.3: append every not-yet-placed custom capture whose (place, anchor)
+ * matches this assembly slot. Source order within a slot is preserved by the
+ * scan order, which is the ordering rule §7.7.3 states for co-located
+ * annotations. */
+static void wat_flush_customs(wat_ctx_t* c, jav_section_t** secs, uint8_t place, uint8_t anchor) {
+    for (int i = 0; i < (int)bbq_vec_len(c->customs); i++) {
+        if (c->customs[i].done || c->customs[i].place != place ||
+            c->customs[i].anchor != anchor) continue;
+        jav_section_t s; memset(&s, 0, sizeof s);
+        s.id = 0; s.body.tag = 0; s.body.u.case_0 = c->customs[i].sec;
+        bbq_vec_push(*secs, s);
+        c->customs[i].done = 1;
+    }
+}
+
 /* Push a definition's collected inline-export names (§6.6) as exports with its index.
  * The index is known only after the import clause, so names are collected then flushed. */
 static void wat_flush_exports(wat_ctx_t* c, jav_name_t* enames, uint8_t kind, uint32_t idx) {
@@ -608,6 +632,10 @@ static void wat_scratch_free(wat_ctx_t* c) {
  * success vecs are already NULL. Also covers the ctx-collected inline lists
  * (ins / iexports / iimports), whose elements own payloads too. */
 static void wat_assembly_free(wat_ctx_t* c) {
+    for (int i = 0; i < (int)bbq_vec_len(c->customs); i++)    /* §7.7.3 captures a late
+                                                                 rejection abandoned */
+        if (!c->customs[i].done) jav_custom_section_free(&c->customs[i].sec);
+    bbq_vec_free(c->customs); c->customs = NULL;
     for (int i = 0; i < (int)bbq_vec_len(c->as_types); i++)   jav_rec_type_free(&c->as_types[i]);
     for (int i = 0; i < (int)bbq_vec_len(c->as_entries); i++) jav_code_entry_free(&c->as_entries[i]);
     for (int i = 0; i < (int)bbq_vec_len(c->as_tables); i++)  jav_table_free(&c->as_tables[i]);

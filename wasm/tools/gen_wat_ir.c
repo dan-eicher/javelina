@@ -298,6 +298,10 @@ static const map_row_t MAPS[] = {
     { "TagField",       "typeuse",    "nt" },
     { "ImportField",    "externdesc", "nt" },
     { "ImportField",    "typeuse",    "nt" },
+    /* §7.7.3: the @custom annotation renders as a module-level group; the
+     * placement's sec keyword is payload the builder spells. */
+    { "CustomAnnot",    "decl",       "nt" },
+    { "SecName",        "ptxt",       "atom" },
 };
 enum { NMAPS = sizeof MAPS / sizeof MAPS[0] };
 

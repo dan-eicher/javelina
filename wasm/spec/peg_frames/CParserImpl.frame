@@ -196,6 +196,13 @@ PEG_INTERNAL bool peg_skip_structured(peg_state* p, const peg_comment_spec* spec
     if (memcmp(p->pos, spec->open, (size_t)open_len) != 0) return false;
     char a = (p->pos + open_len < p->end) ? p->pos[open_len] : ' ';   /* §6.2.5 annotid = idchar+ | name */
     if (!(a == '"' || peg_is_idchar((unsigned char)a))) return false;
+    /* §7.7.3: `(@custom …)` is not white space to a consumer that round-trips
+     * custom sections — the grammar owns that one annotation. Exactly "custom"
+     * is held back; every other annotid stays skippable per §6.2.5. */
+    if ((size_t)(p->end - p->pos) > (size_t)open_len + 6 &&
+        memcmp(p->pos + open_len, "custom", 6) == 0 &&
+        !peg_is_idchar((unsigned char)p->pos[open_len + 6]))
+        return false;
     peg_mark start = peg_save(p);                 /* a skip can't reject; on a malformed annotation,
                                                    * restore + return false so the grammar chokes on `(@`. */
     for (int i = 0; i < open_len; i++) peg_advance(p);

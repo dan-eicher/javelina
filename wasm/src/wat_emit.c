@@ -378,13 +378,25 @@ int wat_emit_module(const jav_module_t* m, const wat_check_ctx_t* cx, int width,
 
     int ok = !e.failed;
     if (ok) {
+        g_stats.custom_unplaceable += f.custom_unplaceable;
+        const char* mid = (f.mod_id != WAT_TNODE_NONE) ? f.pool + f.mod_id : NULL;
+        size_t midlen = mid ? strlen(mid) : 0;
+        size_t head = 7 + (mid ? 2 + midlen : 0) + 1;   /* "(module" [" $id"] "\n" */
         size_t n = bbq_vec_len(e.out);
-        char* buf = bbq_arena_alloc(a, n + 12 + 3);
-        memcpy(buf, "(module\n", 8);
-        memcpy(buf + 8, e.out, n);
-        memcpy(buf + 8 + n, ")\n", 3);
+        char* buf = bbq_arena_alloc(a, head + n + 3);
+        memcpy(buf, "(module", 7);
+        size_t at = 7;
+        if (mid) {
+            memcpy(buf + at, " $", 2);
+            at += 2;
+            memcpy(buf + at, mid, midlen);
+            at += midlen;
+        }
+        buf[at++] = '\n';
+        memcpy(buf + at, e.out, n);
+        memcpy(buf + at + n, ")\n", 3);
         *out = buf;
-        *out_len = 8 + n + 2;
+        *out_len = at + n + 2;
     }
     wat_layout_burg_ctx_free(&bctx);
     bbq_hmap_free(&e.rec);

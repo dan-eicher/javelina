@@ -78,6 +78,15 @@ typedef struct {
     jav_export_t* iexports;     /* inline `(export "n")` clauses on definitions (§6.6), merged into
                                     the export section at module end (a bbq_vec) */
     jav_import_t* iimports;     /* ALL imports (explicit + inline-on-def) in source order (bbq_vec) */
+    struct wat_custom_annot {    /* §7.7.3 `(@custom "name" place? datastring)` captures (bbq_vec).
+                                    place: 0 = (after last) — the default — 1 = (before first),
+                                    2 = (before sec), 3 = (after sec); anchor = the §5.5.2 id of
+                                    the named section. Flushed into AS_SECS at the placement's
+                                    slot during module assembly; co-located annotations keep
+                                    their source order, which is §7.7.3's own ordering rule. */
+        jav_custom_section_t sec;
+        uint8_t place, anchor, done;
+    }* customs;
     int nimp[SP_N];              /* pass-2 per-kind import counter -> an import's index in its space */
     int defs_seen;               /* pass 2: a func/table/memory/global/tag DEFINITION was built —
                                     a later import is malformed (§6.6: imports precede defs) */
@@ -509,6 +518,21 @@ static void wat_xtypes_seal_recgroup(wat_ctx_t* c, uint32_t base) {
     for (uint32_t i = base; i < n; i++) c->xtype_rec[i] = 1;
 }
 
+/* §7.7.3: append every not-yet-placed custom capture whose (place, anchor)
+ * matches this assembly slot. Source order within a slot is preserved by the
+ * scan order, which is the ordering rule §7.7.3 states for co-located
+ * annotations. */
+static void wat_flush_customs(wat_ctx_t* c, jav_section_t** secs, uint8_t place, uint8_t anchor) {
+    for (int i = 0; i < (int)bbq_vec_len(c->customs); i++) {
+        if (c->customs[i].done || c->customs[i].place != place ||
+            c->customs[i].anchor != anchor) continue;
+        jav_section_t s; memset(&s, 0, sizeof s);
+        s.id = 0; s.body.tag = 0; s.body.u.case_0 = c->customs[i].sec;
+        bbq_vec_push(*secs, s);
+        c->customs[i].done = 1;
+    }
+}
+
 /* Push a definition's collected inline-export names (§6.6) as exports with its index.
  * The index is known only after the import clause, so names are collected then flushed. */
 static void wat_flush_exports(wat_ctx_t* c, jav_name_t* enames, uint8_t kind, uint32_t idx) {
@@ -619,6 +643,10 @@ static void wat_scratch_free(wat_ctx_t* c) {
  * success vecs are already NULL. Also covers the ctx-collected inline lists
  * (ins / iexports / iimports), whose elements own payloads too. */
 static void wat_assembly_free(wat_ctx_t* c) {
+    for (int i = 0; i < (int)bbq_vec_len(c->customs); i++)    /* §7.7.3 captures a late
+                                                                 rejection abandoned */
+        if (!c->customs[i].done) jav_custom_section_free(&c->customs[i].sec);
+    bbq_vec_free(c->customs); c->customs = NULL;
     for (int i = 0; i < (int)bbq_vec_len(c->as_types); i++)   jav_rec_type_free(&c->as_types[i]);
     for (int i = 0; i < (int)bbq_vec_len(c->as_entries); i++) jav_code_entry_free(&c->as_entries[i]);
     for (int i = 0; i < (int)bbq_vec_len(c->as_tables); i++)  jav_table_free(&c->as_tables[i]);
@@ -828,7 +856,8 @@ Wat
         | ElementField<&AS_ELEMS>
         | DataField<&AS_DATAS>
         | TagField<&AS_TAGS>
-        | StartField<&start_func, &has_start> )
+        | StartField<&start_func, &has_start>
+        | CustomAnnot )
         (. wat_wbufs_recycle(CTX); .) }                    /* no emit scratch is live across fields */
       ")"
       (. if (CTX->pass != 2) {                          /* pass 1 only collected $ids */
@@ -844,36 +873,50 @@ Wat
          bbq_vec_free(CTX->ins);
          jav_module_t* m = CTX->mod;
          m->magic = 0x6d736100u; m->version = 1u;
+         /* §7.7.3: captured @custom sections flush at their placement slots as
+          * the prescribed §5.5.17 order is walked; `tag` has no slot of its
+          * own because the spec's vocabulary omits it. */
+         wat_flush_customs(CTX, &AS_SECS, 1, 0);             /* (before first) */
+         wat_flush_customs(CTX, &AS_SECS, 2, 1);
          if (bbq_vec_len(AS_TYPES)) {                        /* type section (id 1) */
              memset(&s, 0, sizeof s); s.id = 1; s.body.tag = 1;
              WAT_FREEZE(AS_TYPES, s.body.u.case_1.types);
              s.body.u.case_1.count = (uint32_t)s.body.u.case_1.types.count;
              bbq_vec_push(AS_SECS, s);
          } else bbq_vec_free(AS_TYPES);
+         wat_flush_customs(CTX, &AS_SECS, 3, 1);
+         wat_flush_customs(CTX, &AS_SECS, 2, 2);
          if (bbq_vec_len(CTX->iimports)) {                /* import section (id 2) */
              memset(&s, 0, sizeof s); s.id = 2; s.body.tag = 2;
              WAT_FREEZE(CTX->iimports, s.body.u.case_2.imports);
              s.body.u.case_2.count = (uint32_t)s.body.u.case_2.imports.count;
              bbq_vec_push(AS_SECS, s);
          } else bbq_vec_free(CTX->iimports);
+         wat_flush_customs(CTX, &AS_SECS, 3, 2);
+         wat_flush_customs(CTX, &AS_SECS, 2, 3);
          if (bbq_vec_len(AS_FTIDX)) {                    /* function section (id 3) */
              memset(&s, 0, sizeof s); s.id = 3; s.body.tag = 3;
              WAT_FREEZE(AS_FTIDX, s.body.u.case_3.type_indices);
              s.body.u.case_3.count = (uint32_t)s.body.u.case_3.type_indices.count;
              bbq_vec_push(AS_SECS, s);
          } else bbq_vec_free(AS_FTIDX);
+         wat_flush_customs(CTX, &AS_SECS, 3, 3);
+         wat_flush_customs(CTX, &AS_SECS, 2, 4);
          if (bbq_vec_len(AS_TABLES)) {                       /* table section (id 4) */
              memset(&s, 0, sizeof s); s.id = 4; s.body.tag = 4;
              WAT_FREEZE(AS_TABLES, s.body.u.case_4.tables);
              s.body.u.case_4.count = (uint32_t)s.body.u.case_4.tables.count;
              bbq_vec_push(AS_SECS, s);
          } else bbq_vec_free(AS_TABLES);
+         wat_flush_customs(CTX, &AS_SECS, 3, 4);
+         wat_flush_customs(CTX, &AS_SECS, 2, 5);
          if (bbq_vec_len(AS_MEMS)) {                         /* memory section (id 5) */
              memset(&s, 0, sizeof s); s.id = 5; s.body.tag = 5;
              WAT_FREEZE(AS_MEMS, s.body.u.case_5.mems);
              s.body.u.case_5.count = (uint32_t)s.body.u.case_5.mems.count;
              bbq_vec_push(AS_SECS, s);
          } else bbq_vec_free(AS_MEMS);
+         wat_flush_customs(CTX, &AS_SECS, 3, 5);
          /* §5.5.17 puts the tag section BETWEEN memory and global — the prescribed
           * order is not id order, and this is the id that moves. Emitting it in id
           * order (last) produced a malformed module for every .wat carrying a tag;
@@ -884,12 +927,15 @@ Wat
              s.body.u.case_13.count = (uint32_t)s.body.u.case_13.tags.count;
              bbq_vec_push(AS_SECS, s);
          } else bbq_vec_free(AS_TAGS);
+         wat_flush_customs(CTX, &AS_SECS, 2, 6);
          if (bbq_vec_len(AS_GLOBALS)) {                      /* global section (id 6) */
              memset(&s, 0, sizeof s); s.id = 6; s.body.tag = 6;
              WAT_FREEZE(AS_GLOBALS, s.body.u.case_6.globals);
              s.body.u.case_6.count = (uint32_t)s.body.u.case_6.globals.count;
              bbq_vec_push(AS_SECS, s);
          } else bbq_vec_free(AS_GLOBALS);
+         wat_flush_customs(CTX, &AS_SECS, 3, 6);
+         wat_flush_customs(CTX, &AS_SECS, 2, 7);
          for (int i = 0; i < (int)bbq_vec_len(CTX->iexports); i++)   /* merge inline (export …) */
              bbq_vec_push(AS_EXPORTS, CTX->iexports[i]);
          bbq_vec_free(CTX->iexports);
@@ -899,17 +945,23 @@ Wat
              s.body.u.case_7.count = (uint32_t)s.body.u.case_7.exports.count;
              bbq_vec_push(AS_SECS, s);
          } else bbq_vec_free(AS_EXPORTS);
+         wat_flush_customs(CTX, &AS_SECS, 3, 7);
+         wat_flush_customs(CTX, &AS_SECS, 2, 8);
          if (has_start) {                                 /* start section (id 8) */
              memset(&s, 0, sizeof s); s.id = 8; s.body.tag = 8;
              s.body.u.case_8.func = start_func;
              bbq_vec_push(AS_SECS, s);
          }
+         wat_flush_customs(CTX, &AS_SECS, 3, 8);
+         wat_flush_customs(CTX, &AS_SECS, 2, 9);
          if (bbq_vec_len(AS_ELEMS)) {                        /* element section (id 9) */
              memset(&s, 0, sizeof s); s.id = 9; s.body.tag = 9;
              WAT_FREEZE(AS_ELEMS, s.body.u.case_9.elems);
              s.body.u.case_9.count = (uint32_t)s.body.u.case_9.elems.count;
              bbq_vec_push(AS_SECS, s);
          } else bbq_vec_free(AS_ELEMS);
+         wat_flush_customs(CTX, &AS_SECS, 3, 9);
+         wat_flush_customs(CTX, &AS_SECS, 2, 12);
          /* §5.5.17 puts the data count section (id 12) BEFORE the code section, and
           * §5.5.17's `n? != eps \/ dataidx(func*) = eps` makes it mandatory as soon as a
           * body carries a data index — §5.5.15's note explains why: the code section is
@@ -925,21 +977,84 @@ Wat
              s.body.u.case_12.count = (uint32_t)bbq_vec_len(AS_DATAS);
              bbq_vec_push(AS_SECS, s);
          }
+         wat_flush_customs(CTX, &AS_SECS, 3, 12);
+         wat_flush_customs(CTX, &AS_SECS, 2, 10);
          if (bbq_vec_len(AS_ENTRIES)) {                      /* code section (id 10) */
              memset(&s, 0, sizeof s); s.id = 10; s.body.tag = 10;
              WAT_FREEZE(AS_ENTRIES, s.body.u.case_10.entries);
              s.body.u.case_10.count = (uint32_t)s.body.u.case_10.entries.count;
              bbq_vec_push(AS_SECS, s);
          } else bbq_vec_free(AS_ENTRIES);
+         wat_flush_customs(CTX, &AS_SECS, 3, 10);
+         wat_flush_customs(CTX, &AS_SECS, 2, 11);
          if (bbq_vec_len(AS_DATAS)) {                        /* data section (id 11) */
              memset(&s, 0, sizeof s); s.id = 11; s.body.tag = 11;
              WAT_FREEZE(AS_DATAS, s.body.u.case_11.datas);
              s.body.u.case_11.count = (uint32_t)s.body.u.case_11.datas.count;
              bbq_vec_push(AS_SECS, s);
          } else bbq_vec_free(AS_DATAS);
+         wat_flush_customs(CTX, &AS_SECS, 3, 11);
+         wat_flush_customs(CTX, &AS_SECS, 0, 0);             /* (after last), the default */
+         bbq_vec_free(CTX->customs); CTX->customs = NULL;    /* every capture placed */
          WAT_FREEZE(AS_SECS, m->sections);
          peg_skip(p);
          if (!peg_at_end(p)) { report_parse_error(p); return false; } .)
+.
+
+// §7.7.3 `(@custom name customplace? datastring)` — the one annotation this
+// reader CAPTURES rather than skips (the frame holds exactly "custom" back
+// from the §6.2.5 white-space skip), because it is how a binary→text→binary
+// trip keeps every custom section: "By generating custom annotations, tools
+// converting between binary format and text format can maintain and
+// round-trip the content of custom sections even when they do not recognize
+// them." Pass 1 parses and discards; pass 2 records the section and its
+// placement for module assembly.
+CustomAnnot
+    (. jav_name_t nm; jav_byte_vec_t bv; uint8_t place = 0, anchor = 0; peg_span ns; .)
+    = "(@custom" !glue
+      /* §7.7.3 spells this `string`, not `name`: a non-UTF-8 section name
+       * still assembles, and rejecting the malformed BINARY is the
+       * validator's job — the same transcribe-only split as everywhere. */
+      string<&ns>
+      (. size_t nl; uint8_t* nb = wat_parse_string(ns, &nl);
+         if (!nb) return false;
+         nm.count = (uint32_t)nl; nm.bytes.data = nb; nm.bytes.length = nl; .)
+      [ "(" ( "before" !glue
+              ( "first" !glue                          (. place = 1; .)
+              | SecName<&anchor>                       (. place = 2; .) )
+            | "after" !glue
+              ( "last" !glue                           (. place = 0; .)
+              | SecName<&anchor>                       (. place = 3; .) ) )
+        ")" ]
+      DataString<&bv>
+      ")"
+      (. if (CTX->pass != 2) {
+             free((void*)nm.bytes.data); free((void*)bv.bytes.data); return true;
+         }
+         struct wat_custom_annot ca; memset(&ca, 0, sizeof ca);
+         ca.sec.name = nm;
+         ca.sec.data = bv.bytes;
+         ca.place = place; ca.anchor = anchor;
+         bbq_vec_push(CTX->customs, ca); .)
+.
+
+// §7.7.3's sec vocabulary, mapped to the §5.5.2 ids. `tag` is deliberately
+// absent from the spec's list — a custom section beside the tag section
+// anchors on its other neighbour (the writer picks it) — so the vocabulary
+// here stays exactly the spec's.
+SecName <. uint8_t* id .>
+    = ( "type" !glue      (. *id = 1;  .)
+      | "import" !glue    (. *id = 2;  .)
+      | "func" !glue      (. *id = 3;  .)
+      | "table" !glue     (. *id = 4;  .)
+      | "memory" !glue    (. *id = 5;  .)
+      | "global" !glue    (. *id = 6;  .)
+      | "export" !glue    (. *id = 7;  .)
+      | "start" !glue     (. *id = 8;  .)
+      | "elem" !glue      (. *id = 9;  .)
+      | "datacount" !glue (. *id = 12; .)
+      | "code" !glue      (. *id = 10; .)
+      | "data" !glue      (. *id = 11; .) )
 .
 
 // §6.6.7 function definition: `( func typeuse local* instr* )`. One text func

@@ -1115,8 +1115,10 @@ static const wat_map_row_t wat_maps[] __attribute__((unused)) = {
     { "TagField", "typeuse", "nt" },
     { "ImportField", "externdesc", "nt" },
     { "ImportField", "typeuse", "nt" },
+    { "CustomAnnot", "decl", "nt" },
+    { "SecName", "ptxt", "atom" },
 };
-enum { WAT_N_MAPS = 60 };
+enum { WAT_N_MAPS = 62 };
 
 static const char* const wat_nts[] __attribute__((unused)) = {
     "grp",

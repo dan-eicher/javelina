@@ -243,6 +243,14 @@ $(B)/gen_trap_reasons: tools/gen_trap_reasons.c $(B)/toml_parser.o $(B)/toml_doc
 $(GEN)/jav_trap_reason.h: spec/instructions.toml spec/wasm.def $(B)/gen_trap_reasons
 	$(B)/gen_trap_reasons spec/instructions.toml spec/wasm.def $(GEN)/jav_trap_reason.h
 
+# bbqc again for the §7.7.1 name section — its grammar runs over a name
+# custom section's PAYLOAD, so it is its own little reader beside the module
+# one, with its own prefix. Only the reader is linked; water reads names for
+# identifiers and never writes them (§7.7.3: the @custom annotation carries
+# the section itself).
+$(GEN)/jnm_reader.c $(GEN)/jnm_reader.h $(GEN)/jnm_types.h: spec/wasm_names.bbq $(BBQC) $(BBQ_TEMPLATE_SRCS)
+	$(BBQC) spec/wasm_names.bbq -backend c -prefix jnm -templates $(BBQ_TEMPLATES) -o $(GEN)/
+
 # ── water's render tree (wasm → wat) ───────────────────────────────────────
 # The module half's authority is spec/wat_module.asdl, hand-authored; the json
 # sidecar is how tools read it (asdl's own parse, never a hand scan).

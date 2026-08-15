@@ -196,6 +196,13 @@ PEG_INTERNAL bool peg_skip_structured(peg_state* p, const peg_comment_spec* spec
     if (memcmp(p->pos, spec->open, (size_t)open_len) != 0) return false;
     char a = (p->pos + open_len < p->end) ? p->pos[open_len] : ' ';   /* §6.2.5 annotid = idchar+ | name */
     if (!(a == '"' || peg_is_idchar((unsigned char)a))) return false;
+    /* §7.7.3: `(@custom …)` is not white space to a consumer that round-trips
+     * custom sections — the grammar owns that one annotation. Exactly "custom"
+     * is held back; every other annotid stays skippable per §6.2.5. */
+    if ((size_t)(p->end - p->pos) > (size_t)open_len + 6 &&
+        memcmp(p->pos + open_len, "custom", 6) == 0 &&
+        !peg_is_idchar((unsigned char)p->pos[open_len + 6]))
+        return false;
     peg_mark start = peg_save(p);                 /* a skip can't reject; on a malformed annotation,
                                                    * restore + return false so the grammar chokes on `(@`. */
     for (int i = 0; i < open_len; i++) peg_advance(p);
@@ -390,6 +397,8 @@ static bool wat_hexnat(peg_state* p, peg_span* out);
 static bool wat_id(peg_state* p, peg_span* out);
 static bool wat_string(peg_state* p, peg_span* out);
 static bool wat_parse_wat(peg_state* p);
+static bool wat_parse_custom_annot(peg_state* p);
+static bool wat_parse_sec_name(peg_state* p, uint8_t* id);
 static bool wat_parse_func_field(peg_state* p, uint32_t** func_tidx, jav_code_entry_t** entries);
 static bool wat_parse_instr(peg_state* p, bbq_write_ctx_t* w);
 static bool wat_parse_linear_instr(peg_state* p, bbq_write_ctx_t* w);
@@ -1238,8 +1247,19 @@ static bool wat_parse_wat(peg_state* p) {
                         peg_restore(p, _m3);
                     } else goto _choice_done3;
                 }
+                {
+                    bool _ok15 = false;
+                    do {
+                        peg_skip(p);
+                        if (!wat_parse_start_field(p, &start_func, &has_start)) break;
+                        _ok15 = true;
+                    } while(0);
+                    if (!_ok15) {
+                        peg_restore(p, _m3);
+                    } else goto _choice_done3;
+                }
                 peg_skip(p);
-                if (!wat_parse_start_field(p, &start_func, &has_start)) break;
+                if (!wat_parse_custom_annot(p)) break;
             _choice_done3:;
             }
             wat_wbufs_recycle(CTX);
@@ -1262,36 +1282,50 @@ static bool wat_parse_wat(peg_state* p) {
          bbq_vec_free(CTX->ins);
          jav_module_t* m = CTX->mod;
          m->magic = 0x6d736100u; m->version = 1u;
+         /* §7.7.3: captured @custom sections flush at their placement slots as
+          * the prescribed §5.5.17 order is walked; `tag` has no slot of its
+          * own because the spec's vocabulary omits it. */
+         wat_flush_customs(CTX, &AS_SECS, 1, 0);             /* (before first) */
+         wat_flush_customs(CTX, &AS_SECS, 2, 1);
          if (bbq_vec_len(AS_TYPES)) {                        /* type section (id 1) */
              memset(&s, 0, sizeof s); s.id = 1; s.body.tag = 1;
              WAT_FREEZE(AS_TYPES, s.body.u.case_1.types);
              s.body.u.case_1.count = (uint32_t)s.body.u.case_1.types.count;
              bbq_vec_push(AS_SECS, s);
          } else bbq_vec_free(AS_TYPES);
+         wat_flush_customs(CTX, &AS_SECS, 3, 1);
+         wat_flush_customs(CTX, &AS_SECS, 2, 2);
          if (bbq_vec_len(CTX->iimports)) {                /* import section (id 2) */
              memset(&s, 0, sizeof s); s.id = 2; s.body.tag = 2;
              WAT_FREEZE(CTX->iimports, s.body.u.case_2.imports);
              s.body.u.case_2.count = (uint32_t)s.body.u.case_2.imports.count;
              bbq_vec_push(AS_SECS, s);
          } else bbq_vec_free(CTX->iimports);
+         wat_flush_customs(CTX, &AS_SECS, 3, 2);
+         wat_flush_customs(CTX, &AS_SECS, 2, 3);
          if (bbq_vec_len(AS_FTIDX)) {                    /* function section (id 3) */
              memset(&s, 0, sizeof s); s.id = 3; s.body.tag = 3;
              WAT_FREEZE(AS_FTIDX, s.body.u.case_3.type_indices);
              s.body.u.case_3.count = (uint32_t)s.body.u.case_3.type_indices.count;
              bbq_vec_push(AS_SECS, s);
          } else bbq_vec_free(AS_FTIDX);
+         wat_flush_customs(CTX, &AS_SECS, 3, 3);
+         wat_flush_customs(CTX, &AS_SECS, 2, 4);
          if (bbq_vec_len(AS_TABLES)) {                       /* table section (id 4) */
              memset(&s, 0, sizeof s); s.id = 4; s.body.tag = 4;
              WAT_FREEZE(AS_TABLES, s.body.u.case_4.tables);
              s.body.u.case_4.count = (uint32_t)s.body.u.case_4.tables.count;
              bbq_vec_push(AS_SECS, s);
          } else bbq_vec_free(AS_TABLES);
+         wat_flush_customs(CTX, &AS_SECS, 3, 4);
+         wat_flush_customs(CTX, &AS_SECS, 2, 5);
          if (bbq_vec_len(AS_MEMS)) {                         /* memory section (id 5) */
              memset(&s, 0, sizeof s); s.id = 5; s.body.tag = 5;
              WAT_FREEZE(AS_MEMS, s.body.u.case_5.mems);
              s.body.u.case_5.count = (uint32_t)s.body.u.case_5.mems.count;
              bbq_vec_push(AS_SECS, s);
          } else bbq_vec_free(AS_MEMS);
+         wat_flush_customs(CTX, &AS_SECS, 3, 5);
          /* §5.5.17 puts the tag section BETWEEN memory and global — the prescribed
           * order is not id order, and this is the id that moves. Emitting it in id
           * order (last) produced a malformed module for every .wat carrying a tag;
@@ -1302,12 +1336,15 @@ static bool wat_parse_wat(peg_state* p) {
              s.body.u.case_13.count = (uint32_t)s.body.u.case_13.tags.count;
              bbq_vec_push(AS_SECS, s);
          } else bbq_vec_free(AS_TAGS);
+         wat_flush_customs(CTX, &AS_SECS, 2, 6);
          if (bbq_vec_len(AS_GLOBALS)) {                      /* global section (id 6) */
              memset(&s, 0, sizeof s); s.id = 6; s.body.tag = 6;
              WAT_FREEZE(AS_GLOBALS, s.body.u.case_6.globals);
              s.body.u.case_6.count = (uint32_t)s.body.u.case_6.globals.count;
              bbq_vec_push(AS_SECS, s);
          } else bbq_vec_free(AS_GLOBALS);
+         wat_flush_customs(CTX, &AS_SECS, 3, 6);
+         wat_flush_customs(CTX, &AS_SECS, 2, 7);
          for (int i = 0; i < (int)bbq_vec_len(CTX->iexports); i++)   /* merge inline (export …) */
              bbq_vec_push(AS_EXPORTS, CTX->iexports[i]);
          bbq_vec_free(CTX->iexports);
@@ -1317,17 +1354,23 @@ static bool wat_parse_wat(peg_state* p) {
              s.body.u.case_7.count = (uint32_t)s.body.u.case_7.exports.count;
              bbq_vec_push(AS_SECS, s);
          } else bbq_vec_free(AS_EXPORTS);
+         wat_flush_customs(CTX, &AS_SECS, 3, 7);
+         wat_flush_customs(CTX, &AS_SECS, 2, 8);
          if (has_start) {                                 /* start section (id 8) */
              memset(&s, 0, sizeof s); s.id = 8; s.body.tag = 8;
              s.body.u.case_8.func = start_func;
              bbq_vec_push(AS_SECS, s);
          }
+         wat_flush_customs(CTX, &AS_SECS, 3, 8);
+         wat_flush_customs(CTX, &AS_SECS, 2, 9);
          if (bbq_vec_len(AS_ELEMS)) {                        /* element section (id 9) */
              memset(&s, 0, sizeof s); s.id = 9; s.body.tag = 9;
              WAT_FREEZE(AS_ELEMS, s.body.u.case_9.elems);
              s.body.u.case_9.count = (uint32_t)s.body.u.case_9.elems.count;
              bbq_vec_push(AS_SECS, s);
          } else bbq_vec_free(AS_ELEMS);
+         wat_flush_customs(CTX, &AS_SECS, 3, 9);
+         wat_flush_customs(CTX, &AS_SECS, 2, 12);
          /* §5.5.17 puts the data count section (id 12) BEFORE the code section, and
           * §5.5.17's `n? != eps \/ dataidx(func*) = eps` makes it mandatory as soon as a
           * body carries a data index — §5.5.15's note explains why: the code section is
@@ -1343,21 +1386,449 @@ static bool wat_parse_wat(peg_state* p) {
              s.body.u.case_12.count = (uint32_t)bbq_vec_len(AS_DATAS);
              bbq_vec_push(AS_SECS, s);
          }
+         wat_flush_customs(CTX, &AS_SECS, 3, 12);
+         wat_flush_customs(CTX, &AS_SECS, 2, 10);
          if (bbq_vec_len(AS_ENTRIES)) {                      /* code section (id 10) */
              memset(&s, 0, sizeof s); s.id = 10; s.body.tag = 10;
              WAT_FREEZE(AS_ENTRIES, s.body.u.case_10.entries);
              s.body.u.case_10.count = (uint32_t)s.body.u.case_10.entries.count;
              bbq_vec_push(AS_SECS, s);
          } else bbq_vec_free(AS_ENTRIES);
+         wat_flush_customs(CTX, &AS_SECS, 3, 10);
+         wat_flush_customs(CTX, &AS_SECS, 2, 11);
          if (bbq_vec_len(AS_DATAS)) {                        /* data section (id 11) */
              memset(&s, 0, sizeof s); s.id = 11; s.body.tag = 11;
              WAT_FREEZE(AS_DATAS, s.body.u.case_11.datas);
              s.body.u.case_11.count = (uint32_t)s.body.u.case_11.datas.count;
              bbq_vec_push(AS_SECS, s);
          } else bbq_vec_free(AS_DATAS);
+         wat_flush_customs(CTX, &AS_SECS, 3, 11);
+         wat_flush_customs(CTX, &AS_SECS, 0, 0);             /* (after last), the default */
+         bbq_vec_free(CTX->customs); CTX->customs = NULL;    /* every capture placed */
          WAT_FREEZE(AS_SECS, m->sections);
          peg_skip(p);
          if (!peg_at_end(p)) { report_parse_error(p); return false; }
+    return true;
+}
+
+static bool wat_parse_custom_annot(peg_state* p) {
+    jav_name_t nm; jav_byte_vec_t bv; uint8_t place = 0, anchor = 0; peg_span ns;
+    peg_skip(p);
+    if (!peg_match_n(p, "(@custom", 8)) return false;
+    {
+        peg_mark _m0 = peg_save(p);
+        bool _ok0 = false;
+        do {
+            if (peg_at_end(p) || !is_glue(peg_peek_char(p))) break;
+            peg_advance(p);
+            _ok0 = true;
+        } while(0);
+        peg_restore(p, _m0);
+        if (_ok0) return false;
+    }
+    peg_skip(p);
+    if (!wat_string(p, &ns)) return false;
+    size_t nl; uint8_t* nb = wat_parse_string(ns, &nl);
+         if (!nb) return false;
+         nm.count = (uint32_t)nl; nm.bytes.data = nb; nm.bytes.length = nl;
+    {
+        peg_mark _m1 = peg_save(p);
+        bool _ok1 = false;
+        do {
+            peg_skip(p);
+            if (!peg_match_n(p, "(", 1)) break;
+            {
+                peg_mark _m2 = peg_save(p);
+                {
+                    bool _ok3 = false;
+                    do {
+                        peg_skip(p);
+                        if (!peg_match_n(p, "before", 6)) break;
+                        {
+                            peg_mark _m4 = peg_save(p);
+                            bool _ok4 = false;
+                            do {
+                                if (peg_at_end(p) || !is_glue(peg_peek_char(p))) break;
+                                peg_advance(p);
+                                _ok4 = true;
+                            } while(0);
+                            peg_restore(p, _m4);
+                            if (_ok4) break;
+                        }
+                        {
+                            peg_mark _m5 = peg_save(p);
+                            {
+                                bool _ok6 = false;
+                                do {
+                                    peg_skip(p);
+                                    if (!peg_match_n(p, "first", 5)) break;
+                                    {
+                                        peg_mark _m7 = peg_save(p);
+                                        bool _ok7 = false;
+                                        do {
+                                            if (peg_at_end(p) || !is_glue(peg_peek_char(p))) break;
+                                            peg_advance(p);
+                                            _ok7 = true;
+                                        } while(0);
+                                        peg_restore(p, _m7);
+                                        if (_ok7) break;
+                                    }
+                                    place = 1;
+                                    _ok6 = true;
+                                } while(0);
+                                if (!_ok6) {
+                                    peg_restore(p, _m5);
+                                } else goto _choice_done5;
+                            }
+                            peg_skip(p);
+                            if (!wat_parse_sec_name(p, &anchor)) break;
+                            place = 2;
+                        _choice_done5:;
+                        }
+                        _ok3 = true;
+                    } while(0);
+                    if (!_ok3) {
+                        peg_restore(p, _m2);
+                    } else goto _choice_done2;
+                }
+                peg_skip(p);
+                if (!peg_match_n(p, "after", 5)) break;
+                {
+                    peg_mark _m8 = peg_save(p);
+                    bool _ok8 = false;
+                    do {
+                        if (peg_at_end(p) || !is_glue(peg_peek_char(p))) break;
+                        peg_advance(p);
+                        _ok8 = true;
+                    } while(0);
+                    peg_restore(p, _m8);
+                    if (_ok8) break;
+                }
+                {
+                    peg_mark _m9 = peg_save(p);
+                    {
+                        bool _ok10 = false;
+                        do {
+                            peg_skip(p);
+                            if (!peg_match_n(p, "last", 4)) break;
+                            {
+                                peg_mark _m11 = peg_save(p);
+                                bool _ok11 = false;
+                                do {
+                                    if (peg_at_end(p) || !is_glue(peg_peek_char(p))) break;
+                                    peg_advance(p);
+                                    _ok11 = true;
+                                } while(0);
+                                peg_restore(p, _m11);
+                                if (_ok11) break;
+                            }
+                            place = 0;
+                            _ok10 = true;
+                        } while(0);
+                        if (!_ok10) {
+                            peg_restore(p, _m9);
+                        } else goto _choice_done9;
+                    }
+                    peg_skip(p);
+                    if (!wat_parse_sec_name(p, &anchor)) break;
+                    place = 3;
+                _choice_done9:;
+                }
+            _choice_done2:;
+            }
+            peg_skip(p);
+            if (!peg_match_n(p, ")", 1)) break;
+            _ok1 = true;
+        } while(0);
+        if (!_ok1) peg_restore(p, _m1);
+    }
+    peg_skip(p);
+    if (!wat_parse_data_string(p, &bv)) return false;
+    peg_skip(p);
+    if (!peg_match_n(p, ")", 1)) return false;
+    if (CTX->pass != 2) {
+             free((void*)nm.bytes.data); free((void*)bv.bytes.data); return true;
+         }
+         struct wat_custom_annot ca; memset(&ca, 0, sizeof ca);
+         ca.sec.name = nm;
+         ca.sec.data = bv.bytes;
+         ca.place = place; ca.anchor = anchor;
+         bbq_vec_push(CTX->customs, ca);
+    return true;
+}
+
+static bool wat_parse_sec_name(peg_state* p, uint8_t* id) {
+    {
+        peg_mark _m0 = peg_save(p);
+        {
+            bool _ok1 = false;
+            do {
+                peg_skip(p);
+                if (!peg_match_n(p, "type", 4)) break;
+                {
+                    peg_mark _m2 = peg_save(p);
+                    bool _ok2 = false;
+                    do {
+                        if (peg_at_end(p) || !is_glue(peg_peek_char(p))) break;
+                        peg_advance(p);
+                        _ok2 = true;
+                    } while(0);
+                    peg_restore(p, _m2);
+                    if (_ok2) break;
+                }
+                *id = 1;
+                _ok1 = true;
+            } while(0);
+            if (!_ok1) {
+                peg_restore(p, _m0);
+            } else goto _choice_done0;
+        }
+        {
+            bool _ok3 = false;
+            do {
+                peg_skip(p);
+                if (!peg_match_n(p, "import", 6)) break;
+                {
+                    peg_mark _m4 = peg_save(p);
+                    bool _ok4 = false;
+                    do {
+                        if (peg_at_end(p) || !is_glue(peg_peek_char(p))) break;
+                        peg_advance(p);
+                        _ok4 = true;
+                    } while(0);
+                    peg_restore(p, _m4);
+                    if (_ok4) break;
+                }
+                *id = 2;
+                _ok3 = true;
+            } while(0);
+            if (!_ok3) {
+                peg_restore(p, _m0);
+            } else goto _choice_done0;
+        }
+        {
+            bool _ok5 = false;
+            do {
+                peg_skip(p);
+                if (!peg_match_n(p, "func", 4)) break;
+                {
+                    peg_mark _m6 = peg_save(p);
+                    bool _ok6 = false;
+                    do {
+                        if (peg_at_end(p) || !is_glue(peg_peek_char(p))) break;
+                        peg_advance(p);
+                        _ok6 = true;
+                    } while(0);
+                    peg_restore(p, _m6);
+                    if (_ok6) break;
+                }
+                *id = 3;
+                _ok5 = true;
+            } while(0);
+            if (!_ok5) {
+                peg_restore(p, _m0);
+            } else goto _choice_done0;
+        }
+        {
+            bool _ok7 = false;
+            do {
+                peg_skip(p);
+                if (!peg_match_n(p, "table", 5)) break;
+                {
+                    peg_mark _m8 = peg_save(p);
+                    bool _ok8 = false;
+                    do {
+                        if (peg_at_end(p) || !is_glue(peg_peek_char(p))) break;
+                        peg_advance(p);
+                        _ok8 = true;
+                    } while(0);
+                    peg_restore(p, _m8);
+                    if (_ok8) break;
+                }
+                *id = 4;
+                _ok7 = true;
+            } while(0);
+            if (!_ok7) {
+                peg_restore(p, _m0);
+            } else goto _choice_done0;
+        }
+        {
+            bool _ok9 = false;
+            do {
+                peg_skip(p);
+                if (!peg_match_n(p, "memory", 6)) break;
+                {
+                    peg_mark _m10 = peg_save(p);
+                    bool _ok10 = false;
+                    do {
+                        if (peg_at_end(p) || !is_glue(peg_peek_char(p))) break;
+                        peg_advance(p);
+                        _ok10 = true;
+                    } while(0);
+                    peg_restore(p, _m10);
+                    if (_ok10) break;
+                }
+                *id = 5;
+                _ok9 = true;
+            } while(0);
+            if (!_ok9) {
+                peg_restore(p, _m0);
+            } else goto _choice_done0;
+        }
+        {
+            bool _ok11 = false;
+            do {
+                peg_skip(p);
+                if (!peg_match_n(p, "global", 6)) break;
+                {
+                    peg_mark _m12 = peg_save(p);
+                    bool _ok12 = false;
+                    do {
+                        if (peg_at_end(p) || !is_glue(peg_peek_char(p))) break;
+                        peg_advance(p);
+                        _ok12 = true;
+                    } while(0);
+                    peg_restore(p, _m12);
+                    if (_ok12) break;
+                }
+                *id = 6;
+                _ok11 = true;
+            } while(0);
+            if (!_ok11) {
+                peg_restore(p, _m0);
+            } else goto _choice_done0;
+        }
+        {
+            bool _ok13 = false;
+            do {
+                peg_skip(p);
+                if (!peg_match_n(p, "export", 6)) break;
+                {
+                    peg_mark _m14 = peg_save(p);
+                    bool _ok14 = false;
+                    do {
+                        if (peg_at_end(p) || !is_glue(peg_peek_char(p))) break;
+                        peg_advance(p);
+                        _ok14 = true;
+                    } while(0);
+                    peg_restore(p, _m14);
+                    if (_ok14) break;
+                }
+                *id = 7;
+                _ok13 = true;
+            } while(0);
+            if (!_ok13) {
+                peg_restore(p, _m0);
+            } else goto _choice_done0;
+        }
+        {
+            bool _ok15 = false;
+            do {
+                peg_skip(p);
+                if (!peg_match_n(p, "start", 5)) break;
+                {
+                    peg_mark _m16 = peg_save(p);
+                    bool _ok16 = false;
+                    do {
+                        if (peg_at_end(p) || !is_glue(peg_peek_char(p))) break;
+                        peg_advance(p);
+                        _ok16 = true;
+                    } while(0);
+                    peg_restore(p, _m16);
+                    if (_ok16) break;
+                }
+                *id = 8;
+                _ok15 = true;
+            } while(0);
+            if (!_ok15) {
+                peg_restore(p, _m0);
+            } else goto _choice_done0;
+        }
+        {
+            bool _ok17 = false;
+            do {
+                peg_skip(p);
+                if (!peg_match_n(p, "elem", 4)) break;
+                {
+                    peg_mark _m18 = peg_save(p);
+                    bool _ok18 = false;
+                    do {
+                        if (peg_at_end(p) || !is_glue(peg_peek_char(p))) break;
+                        peg_advance(p);
+                        _ok18 = true;
+                    } while(0);
+                    peg_restore(p, _m18);
+                    if (_ok18) break;
+                }
+                *id = 9;
+                _ok17 = true;
+            } while(0);
+            if (!_ok17) {
+                peg_restore(p, _m0);
+            } else goto _choice_done0;
+        }
+        {
+            bool _ok19 = false;
+            do {
+                peg_skip(p);
+                if (!peg_match_n(p, "datacount", 9)) break;
+                {
+                    peg_mark _m20 = peg_save(p);
+                    bool _ok20 = false;
+                    do {
+                        if (peg_at_end(p) || !is_glue(peg_peek_char(p))) break;
+                        peg_advance(p);
+                        _ok20 = true;
+                    } while(0);
+                    peg_restore(p, _m20);
+                    if (_ok20) break;
+                }
+                *id = 12;
+                _ok19 = true;
+            } while(0);
+            if (!_ok19) {
+                peg_restore(p, _m0);
+            } else goto _choice_done0;
+        }
+        {
+            bool _ok21 = false;
+            do {
+                peg_skip(p);
+                if (!peg_match_n(p, "code", 4)) break;
+                {
+                    peg_mark _m22 = peg_save(p);
+                    bool _ok22 = false;
+                    do {
+                        if (peg_at_end(p) || !is_glue(peg_peek_char(p))) break;
+                        peg_advance(p);
+                        _ok22 = true;
+                    } while(0);
+                    peg_restore(p, _m22);
+                    if (_ok22) break;
+                }
+                *id = 10;
+                _ok21 = true;
+            } while(0);
+            if (!_ok21) {
+                peg_restore(p, _m0);
+            } else goto _choice_done0;
+        }
+        peg_skip(p);
+        if (!peg_match_n(p, "data", 4)) return false;
+        {
+            peg_mark _m23 = peg_save(p);
+            bool _ok23 = false;
+            do {
+                if (peg_at_end(p) || !is_glue(peg_peek_char(p))) break;
+                peg_advance(p);
+                _ok23 = true;
+            } while(0);
+            peg_restore(p, _m23);
+            if (_ok23) return false;
+        }
+        *id = 11;
+    _choice_done0:;
+    }
     return true;
 }
 

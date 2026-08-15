@@ -22,6 +22,7 @@
 #include <string.h>
 
 #include "bbq_vec.h"
+#include "jnm_reader.h"
 #include "wat_mnemonics.h"
 #include "wat_render.h"
 
@@ -45,6 +46,26 @@ typedef struct {
     const jav_func_type_t** ftype;
     uint32_t*               nfields;
     uint32_t                ntypes;
+    /* §7.7.1 identifiers. A span points into the DECODED name section (freed
+     * at the end of the build; every use copies into the pool via sc). NULL =
+     * this index has no usable id: §7.7.1's names need not be unique or
+     * §6.3.5-clean, §6.6.1's identifiers must be both, so a name becomes an
+     * id only when it is nonempty, all idchar, and the FIRST of its spelling
+     * in its space — later duplicates fall back to numerals on both the
+     * binding and every use, which is what keeps the two sides consistent. */
+    struct wat_idspan { const uint8_t* p; uint32_t n; }* fn_id;   /* per funcidx  */
+    struct wat_idspan* ty_id;                                     /* per typeidx  */
+    struct wat_idspan* tag_id;                                    /* per tagidx   */
+    struct wat_idspan  mod_id;
+    const jnm_n_indirect_map_t* local_names;                      /* per func     */
+    const jnm_n_indirect_map_t* field_names;                      /* per type     */
+    const jnm_n_map_t* cur_locals;    /* the func being built, or NULL */
+    jnm_name_data_t names;
+    int have_names;
+    uint32_t nfuncs, ntags;
+    uint32_t nimp_funcs, nimp_tags;             /* imports precede definitions */
+    uint32_t nimp_funcs_seen, nimp_tags_seen;   /* walk cursors over the imports */
+    uint32_t custom_unplaceable;                /* §7.7.3 positions no sec word names */
     /* (prefix, op) → node tag, unpacked from wat_instr_tags once. */
     uint16_t tag0[256];
     uint16_t tagfb[64];
@@ -124,6 +145,159 @@ static void fail_at(wb_t* w, jav_err_t e, int line) {
 #define fail(w, e) fail_at((w), (e), __LINE__)
 
 static void av_bytes(wb_t* w, const uint8_t* p, size_t len);
+
+/* ── §7.7.1 names → §6.6.1 identifiers ─────────────────────────────────── */
+
+/* §6.3.5 idchar. */
+static int wat_idchar(uint8_t c) {
+    if ((c >= '0' && c <= '9') || (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')) return 1;
+    switch (c) {
+    case '!': case '#': case '$': case '%': case '&': case '\'': case '*': case '+':
+    case '-': case '.': case '/': case ':': case '<': case '=': case '>': case '?':
+    case '@': case '\\': case '^': case '_': case '`': case '|': case '~': return 1;
+    default: return 0;
+    }
+}
+static int id_clean(const uint8_t* p, uint32_t n) {
+    if (n == 0) return 0;
+    for (uint32_t i = 0; i < n; i++)
+        if (!wat_idchar(p[i])) return 0;
+    return 1;
+}
+
+/* First-of-its-spelling in `m` (both bind sites and use sites apply this, so
+ * the two always agree on which index carries the name). */
+static int map_first(const jnm_n_map_t* m, uint32_t at) {
+    const jnm_n_name_t* nm = &m->entries.items[at].name;
+    for (uint32_t j = 0; j < at; j++) {
+        const jnm_n_name_t* o = &m->entries.items[j].name;
+        if (o->count == nm->count &&
+            memcmp(o->bytes.data, nm->bytes.data, nm->count) == 0) return 0;
+    }
+    return 1;
+}
+
+/* Fill a per-index span table from a direct name map. */
+static void spans_from_map(wb_t* w, const jnm_n_map_t* m,
+                           struct wat_idspan* tab, uint32_t nidx) {
+    for (uint32_t i = 0; i < m->entries.count; i++) {
+        const jnm_n_assoc_t* a = &m->entries.items[i];
+        if (a->idx >= nidx) continue;
+        if (!id_clean(a->name.bytes.data, a->name.count) || !map_first(m, i)) continue;
+        tab[a->idx].p = a->name.bytes.data;
+        tab[a->idx].n = a->name.count;
+    }
+}
+
+static const jnm_n_map_t* indirect_at(const jnm_n_indirect_map_t* im, uint32_t idx) {
+    if (!im) return NULL;
+    for (uint32_t i = 0; i < im->entries.count; i++)
+        if (im->entries.items[i].idx == idx) return &im->entries.items[i].map;
+    return NULL;
+}
+
+/* The usable id for `idx` in `m`, or NULL — validity and first-wins applied. */
+static const jnm_n_name_t* map_id(const jnm_n_map_t* m, uint32_t idx) {
+    if (!m) return NULL;
+    for (uint32_t i = 0; i < m->entries.count; i++)
+        if (m->entries.items[i].idx == idx) {
+            if (!id_clean(m->entries.items[i].name.bytes.data,
+                          m->entries.items[i].name.count)) return NULL;
+            if (!map_first(m, i)) return NULL;
+            return &m->entries.items[i].name;
+        }
+    return NULL;
+}
+
+/* Spell "$id" for index `idx` of a span table, or the bare numeral. */
+static void sp_idx(wb_t* w, const struct wat_idspan* tab, uint32_t nidx, uint32_t idx) {
+    if (tab && idx < nidx && tab[idx].p) sc(w, "$%.*s", (int)tab[idx].n, tab[idx].p);
+    else sc(w, "%u", idx);
+}
+
+/* A binding site's own id, as the node's payload (nothing when unnamed). */
+static void sp_bind_id(wb_t* w, wat_tnode_t* n, const struct wat_idspan* tab,
+                       uint32_t nidx, uint32_t idx) {
+    if (tab && idx < nidx && tab[idx].p) {
+        sc(w, "$%.*s", (int)tab[idx].n, tab[idx].p);
+        set_ptxt(w, n);
+    }
+}
+#define sp_func_id(w, n, i) sp_bind_id((w), (n), (w)->fn_id, (w)->nfuncs, (i))
+#define sp_tag_id(w, n, i)  sp_bind_id((w), (n), (w)->tag_id, (w)->ntags, (i))
+#define sp_type_id(w, n, i) sp_bind_id((w), (n), (w)->ty_id, (w)->ntypes, (i))
+
+/* §7.7.1: decode the FIRST custom section named "name" and build the id
+ * tables. Every failure path is a quiet fallback to numerals — the section
+ * itself still round-trips through its @custom annotation, and §7.7 says
+ * this data "may be ignored by an implementation". The known-id ordering
+ * rule ("at most once, and in order of increasing id") is enforced here,
+ * the consumer, per the BBQ boundary. */
+static void build_names(wb_t* w) {
+    const jav_custom_section_t* ns = NULL;
+    for (size_t i = 0; i < w->m->sections.count && !ns; i++) {
+        const jav_section_t* s = &w->m->sections.items[i];
+        if (s->id != 0) continue;
+        const jav_custom_section_t* c = &s->body.u.case_0;
+        if (c->name.count == 4 && memcmp(c->name.bytes.data, "name", 4) == 0) ns = c;
+    }
+    if (!ns) return;
+    bbq_ctx_t c;
+    bbq_ctx_init(&c, ns->data.data, ns->data.length);
+    if (!jnm_name_data_read(&c, &w->names) || !bbq_at_end(&c)) {
+        bbq_ctx_free(&c);
+        return;
+    }
+    bbq_ctx_free(&c);
+    w->have_names = 1;
+    int last_known = -1, bad = 0;
+    const jnm_n_map_t *fnm = NULL, *tym = NULL, *tgm = NULL;
+    for (size_t i = 0; i < w->names.subsecs.count && !bad; i++) {
+        const jnm_n_subsec_t* ss = &w->names.subsecs.items[i];
+        switch (ss->id) {
+        case 0: case 1: case 2: case 4: case 10: case 11:
+            if ((int)ss->id <= last_known) { bad = 1; break; }
+            last_known = ss->id;
+            break;
+        default:
+            continue;   /* unknown subsections are ignorable, order unpoliced */
+        }
+        switch (ss->id) {
+        case 0:
+            if (id_clean(ss->body.u.case_0.name.bytes.data, ss->body.u.case_0.name.count)) {
+                w->mod_id.p = ss->body.u.case_0.name.bytes.data;
+                w->mod_id.n = ss->body.u.case_0.name.count;
+            }
+            break;
+        case 1:  fnm = &ss->body.u.case_1; break;
+        case 2:  w->local_names = &ss->body.u.case_2; break;
+        case 4:  tym = &ss->body.u.case_1; break;      /* same-typed member */
+        case 10: w->field_names = &ss->body.u.case_2; break;
+        case 11: tgm = &ss->body.u.case_1; break;
+        }
+    }
+    if (bad) {   /* out-of-order or duplicated known subsection: use none of it */
+        memset(&w->mod_id, 0, sizeof w->mod_id);
+        w->local_names = NULL;
+        w->field_names = NULL;
+        return;
+    }
+    if (fnm && w->nfuncs) {
+        w->fn_id = bbq_arena_alloc(w->a, w->nfuncs * sizeof *w->fn_id);
+        memset(w->fn_id, 0, w->nfuncs * sizeof *w->fn_id);
+        spans_from_map(w, fnm, w->fn_id, w->nfuncs);
+    }
+    if (tym && w->ntypes) {
+        w->ty_id = bbq_arena_alloc(w->a, w->ntypes * sizeof *w->ty_id);
+        memset(w->ty_id, 0, w->ntypes * sizeof *w->ty_id);
+        spans_from_map(w, tym, w->ty_id, w->ntypes);
+    }
+    if (tgm && w->ntags) {
+        w->tag_id = bbq_arena_alloc(w->a, w->ntags * sizeof *w->tag_id);
+        memset(w->tag_id, 0, w->ntags * sizeof *w->tag_id);
+        spans_from_map(w, tgm, w->tag_id, w->ntags);
+    }
+}
 
 /* ── spelling: types, names, numbers ────────────────────────────────────── */
 
@@ -327,11 +501,17 @@ static void build_type_index(wb_t* w) {
 
 /* ── typeuse and comptype groups ────────────────────────────────────────── */
 
+/* `locals` carries §7.7.1 local names (params are locals 0..n-1), so a
+ * function's echo can spell `(param $n i32)` — the identifier form the spec's
+ * own §6.5.11 example uses. NULL everywhere a param has no binding site. */
 static void av_params_results(wb_t* w, const jav_func_type_t* ft,
+                              const jnm_n_map_t* locals,
                               uint32_t* av, uint32_t* nav) {
     *av = (uint32_t)bbq_vec_len(w->atoms);
     for (size_t i = 0; i < ft->params.count; i++) {
+        const jnm_n_name_t* nm = map_id(locals, (uint32_t)i);
         sc(w, "(param ");
+        if (nm) sc(w, "$%.*s ", (int)nm->count, nm->bytes.data);
         sp_valtype(w, &ft->params.items[i]);
         sc(w, ")");
         atom_take(w);
@@ -347,29 +527,34 @@ static void av_params_results(wb_t* w, const jav_func_type_t* ft,
 
 /* §6.4.15: `(type x)` plus the echo, which is printed FROM the indexed type
  * so the section it expands into is the module's own. */
-static wat_tnode_t* build_typeuse(wb_t* w, uint32_t typeidx) {
+static wat_tnode_t* build_typeuse(wb_t* w, uint32_t typeidx, const jnm_n_map_t* locals) {
     wat_tnode_t* n = node_new(w, WAT_TT_W_TYPEUSE);
-    sc(w, "(type %u)", typeidx);
+    sc(w, "(type ");
+    sp_idx(w, w->ty_id, w->ntypes, typeidx);
+    sc(w, ")");
     set_ptxt(w, n);
     if (typeidx < w->ntypes && w->ftype[typeidx])
-        av_params_results(w, w->ftype[typeidx], &n->av, &n->nav);
+        av_params_results(w, w->ftype[typeidx], locals, &n->av, &n->nav);
     return n;
 }
 
-static wat_tnode_t* build_comptype(wb_t* w, const jav_comp_type_t* c) {
+static wat_tnode_t* build_comptype(wb_t* w, const jav_comp_type_t* c, uint32_t tyidx) {
     switch (c->head) {
     case 0x60: {
         wat_tnode_t* n = node_new(w, WAT_TT_W_COMP_FUNC);
-        av_params_results(w, &c->body.u.case_2, &n->av, &n->nav);
+        av_params_results(w, &c->body.u.case_2, NULL, &n->av, &n->nav);
         return n;
     }
     case 0x5f: {
         wat_tnode_t* n = node_new(w, WAT_TT_W_COMP_STRUCT);
         const jav_struct_type_t* st = &c->body.u.case_1;
+        const jnm_n_map_t* fm = indirect_at(w->field_names, tyidx);
         n->av = (uint32_t)bbq_vec_len(w->atoms);
         for (size_t i = 0; i < st->fields.count; i++) {
             const jav_field_type_t* f = &st->fields.items[i];
+            const jnm_n_name_t* nm = map_id(fm, (uint32_t)i);
             sc(w, "(field ");
+            if (nm) sc(w, "$%.*s ", (int)nm->count, nm->bytes.data);
             if (f->mut) sc(w, "(mut ");
             sp_storage(w, &f->storage);
             if (f->mut) sc(w, ")");
@@ -395,10 +580,12 @@ static wat_tnode_t* build_comptype(wb_t* w, const jav_comp_type_t* c) {
 }
 
 /* §6.4.7. `sub final` with no supertypes is elided (W_sub, the bare
- * comptype); anything else spells itself (W_subx). */
+ * comptype); anything else spells itself (W_subx). Supertype indices are
+ * type-space uses, so they carry §7.7.1 ids like every other type index. */
 static wat_tnode_t* build_subtype(wb_t* w, int is_final, const uint32_t* supers,
-                                  size_t nsupers, const jav_comp_type_t* c) {
-    wat_tnode_t* comp = build_comptype(w, c);
+                                  size_t nsupers, const jav_comp_type_t* c,
+                                  uint32_t tyidx) {
+    wat_tnode_t* comp = build_comptype(w, c, tyidx);
     uint32_t ci = root_push(w, comp);
     wat_tnode_t* n;
     if (is_final && nsupers == 0) {
@@ -406,8 +593,10 @@ static wat_tnode_t* build_subtype(wb_t* w, int is_final, const uint32_t* supers,
     } else {
         n = node_new(w, WAT_TT_W_SUBX);
         if (is_final) sc(w, "final");
-        for (size_t i = 0; i < nsupers; i++)
-            sc(w, "%s%u", (i || is_final) ? " " : "", supers[i]);
+        for (size_t i = 0; i < nsupers; i++) {
+            if (i || is_final) sc(w, " ");
+            sp_idx(w, w->ty_id, w->ntypes, supers[i]);
+        }
         set_ptxt(w, n);
     }
     n->r1 = ci;
@@ -416,27 +605,28 @@ static wat_tnode_t* build_subtype(wb_t* w, int is_final, const uint32_t* supers,
 }
 
 static wat_tnode_t* build_type_entry(wb_t* w, const jav_rec_member_t* mem,
-                                     const jav_rec_type_t* rec) {
+                                     const jav_rec_type_t* rec, uint32_t tyidx) {
     jav_comp_type_t* tmp = bbq_arena_alloc(w->a, sizeof *tmp);
     wat_tnode_t* sub = NULL;
     if (mem) {
         switch (mem->head) {
         case 0x4f: sub = build_subtype(w, 1, mem->body.u.case_0.supers.items,
-                                       mem->body.u.case_0.supers.count, &mem->body.u.case_0.body); break;
+                                       mem->body.u.case_0.supers.count, &mem->body.u.case_0.body, tyidx); break;
         case 0x50: sub = build_subtype(w, 0, mem->body.u.case_1.supers.items,
-                                       mem->body.u.case_1.supers.count, &mem->body.u.case_1.body); break;
-        default:   sub = build_subtype(w, 1, NULL, 0, member_comp(mem, tmp)); break;
+                                       mem->body.u.case_1.supers.count, &mem->body.u.case_1.body, tyidx); break;
+        default:   sub = build_subtype(w, 1, NULL, 0, member_comp(mem, tmp), tyidx); break;
         }
     } else {
         switch (rec->head) {
         case 0x4f: sub = build_subtype(w, 1, rec->body.u.case_1.supers.items,
-                                       rec->body.u.case_1.supers.count, &rec->body.u.case_1.body); break;
+                                       rec->body.u.case_1.supers.count, &rec->body.u.case_1.body, tyidx); break;
         case 0x50: sub = build_subtype(w, 0, rec->body.u.case_2.supers.items,
-                                       rec->body.u.case_2.supers.count, &rec->body.u.case_2.body); break;
-        default:   sub = build_subtype(w, 1, NULL, 0, rectype_comp(rec, tmp)); break;
+                                       rec->body.u.case_2.supers.count, &rec->body.u.case_2.body, tyidx); break;
+        default:   sub = build_subtype(w, 1, NULL, 0, rectype_comp(rec, tmp), tyidx); break;
         }
     }
     wat_tnode_t* n = node_new(w, WAT_TT_W_TYPE);
+    sp_type_id(w, n, tyidx);
     n->r1 = root_push(w, sub);
     n->nr1 = 1;
     return n;
@@ -481,7 +671,9 @@ static void sp_blocktype(wb_t* w, const jav_block_type_t* bt) {
         sc(w, ")");
         return;
     }
-    sc(w, "(type %" PRId64 ")", bt->bt);
+    sc(w, "(type ");
+    sp_idx(w, w->ty_id, w->ntypes, (uint32_t)bt->bt);
+    sc(w, ")");
     uint32_t ti = (uint32_t)bt->bt;
     if (ti < w->ntypes && w->ftype[ti]) {
         const jav_func_type_t* ft = w->ftype[ti];
@@ -571,8 +763,11 @@ static wat_tnode_t* build_instr(wb_t* w, const jav_instr_t* in, int depth) {
         for (size_t i = 0; i < b->catches.count; i++) {
             const jav_catch_t* c = &b->catches.items[i];
             switch (c->kind) {
-            case 0: sc(w, "(catch %u %u)", c->tag.value, c->label); break;
-            case 1: sc(w, "(catch_ref %u %u)", c->tag.value, c->label); break;
+            case 0: case 1:
+                sc(w, c->kind ? "(catch_ref " : "(catch ");
+                sp_idx(w, w->tag_id, w->ntags, c->tag.value);
+                sc(w, " %u)", c->label);
+                break;
             case 2: sc(w, "(catch_all %u)", c->label); break;
             default: sc(w, "(catch_all_ref %u)", c->label); break;
             }
@@ -589,9 +784,23 @@ static wat_tnode_t* build_instr(wb_t* w, const jav_instr_t* in, int depth) {
                    : (in->op == 0xfc) ? in->body.u.case_30.body.u.case_2.x
                                       : in->body.u.case_3.x;
         /* §6.5.5/§6.5.6: table and memory indices default to 0 and are
-         * omitted there; every other index space always spells itself. */
-        if (!(x == 0 && (mn->sp0 == SP_TABLE || mn->sp0 == SP_MEM)))
-            sc(w, "%u", x);
+         * omitted there; every other index space always spells itself — as
+         * its §7.7.1 id where the space has one. */
+        switch (mn->sp0) {
+        case SP_FUNC:  sp_idx(w, w->fn_id, w->nfuncs, x); break;
+        case SP_TYPE:  sp_idx(w, w->ty_id, w->ntypes, x); break;
+        case SP_TAG:   sp_idx(w, w->tag_id, w->ntags, x); break;
+        case SP_LOCAL: {
+            const jnm_n_name_t* nm = map_id(w->cur_locals, x);
+            if (nm) sc(w, "$%.*s", (int)nm->count, nm->bytes.data);
+            else sc(w, "%u", x);
+            break;
+        }
+        default:
+            if (!(x == 0 && (mn->sp0 == SP_TABLE || mn->sp0 == SP_MEM)))
+                sc(w, "%u", x);
+            break;
+        }
         set_ptxt(w, n);
         break;
     }
@@ -602,7 +811,26 @@ static wat_tnode_t* build_instr(wb_t* w, const jav_instr_t* in, int depth) {
         if (in->op == 0x11 || in->op == 0x13) {
             /* §6.5.3: `call_indirect tableidx? typeuse`, table omitted at 0. */
             if (im->y) sc(w, "%u ", im->y);
-            sc(w, "(type %u)", im->x);
+            sc(w, "(type ");
+            sp_idx(w, w->ty_id, w->ntypes, im->x);
+            sc(w, ")");
+        } else if (in->op == 0xfb) {
+            /* The GC pairs: the first index is always a type; the second is a
+             * field for struct.get/…/struct.set (subs 2–5), a type for
+             * array.copy (17), and a segment index for the rest. */
+            uint32_t sub = in->body.u.case_29.sub;
+            sp_idx(w, w->ty_id, w->ntypes, im->x);
+            sc(w, " ");
+            if (sub >= 2 && sub <= 5) {
+                const jnm_n_name_t* nm =
+                    map_id(indirect_at(w->field_names, im->x), im->y);
+                if (nm) sc(w, "$%.*s", (int)nm->count, nm->bytes.data);
+                else sc(w, "%u", im->y);
+            } else if (sub == 17) {
+                sp_idx(w, w->ty_id, w->ntypes, im->y);
+            } else {
+                sc(w, "%u", im->y);
+            }
         } else if (in->op == 0xfc && (in->body.u.case_30.sub == 8 ||
                                       in->body.u.case_30.sub == 12)) {
             /* §6.5.5/§6.5.6: memory.init / table.init spell the destination
@@ -817,7 +1045,9 @@ static void build_import(wb_t* w, const jav_import_t* imp) {
     switch (imp->desc.kind) {
     case 0x00:
         d = node_new(w, WAT_TT_W_ED_FUNC);
-        d->r1 = root_push(w, build_typeuse(w, imp->desc.body.u.case_0.x));
+        sp_func_id(w, d, w->nimp_funcs_seen);   /* the import's own funcidx */
+        w->nimp_funcs_seen++;
+        d->r1 = root_push(w, build_typeuse(w, imp->desc.body.u.case_0.x, NULL));
         d->nr1 = 1;
         break;
     case 0x01: {
@@ -845,7 +1075,9 @@ static void build_import(wb_t* w, const jav_import_t* imp) {
     }
     default:
         d = node_new(w, WAT_TT_W_ED_TAG);
-        d->r1 = root_push(w, build_typeuse(w, imp->desc.body.u.case_4.type));
+        sp_tag_id(w, d, w->nimp_tags_seen);
+        w->nimp_tags_seen++;
+        d->r1 = root_push(w, build_typeuse(w, imp->desc.body.u.case_4.type, NULL));
         d->nr1 = 1;
         break;
     }
@@ -879,21 +1111,36 @@ static void build_funcs(wb_t* w, const jav_function_section_t* fs) {
     uint32_t base = imported_funcs(w);
     for (size_t k = 0; k < fs->type_indices.count && !w->failed; k++) {
         const jav_func_body_t* body = &cs->entries.items[k].body;
+        uint32_t funcidx = base + (uint32_t)k;
         wat_tnode_t* n = node_new(w, WAT_TT_W_FUNC);
-        n->r2 = root_push(w, build_typeuse(w, fs->type_indices.items[k]));
+        sp_func_id(w, n, funcidx);
+        w->cur_locals = indirect_at(w->local_names, funcidx);
+        n->r2 = root_push(w, build_typeuse(w, fs->type_indices.items[k], w->cur_locals));
         n->nr2 = 1;
         /* §6.6.7: one (local …) per RLE run, so the reassembled runs are the
-         * module's own. */
+         * module's own. A local's §7.7.1 name binds only where the run is a
+         * SINGLETON — an id on a (local …) clause means exactly one local, so
+         * naming inside a longer run would split it and move the bytes. */
+        uint32_t nparams = 0;
+        uint32_t ti = fs->type_indices.items[k];
+        if (ti < w->ntypes && w->ftype[ti])
+            nparams = (uint32_t)w->ftype[ti]->params.count;
+        uint32_t lidx = nparams;
         n->av = (uint32_t)bbq_vec_len(w->atoms);
         for (size_t L = 0; L < body->locals.count; L++) {
             const jav_locals_t* loc = &body->locals.items[L];
             sc(w, "(local");
+            if (loc->count == 1) {
+                const jnm_n_name_t* nm = map_id(w->cur_locals, lidx);
+                if (nm) sc(w, " $%.*s", (int)nm->count, nm->bytes.data);
+            }
             for (uint32_t r = 0; r < loc->count; r++) {
                 sc(w, " ");
                 sp_valtype(w, &loc->type);
             }
             sc(w, ")");
             atom_take(w);
+            lidx += loc->count;
         }
         n->nav = (uint32_t)bbq_vec_len(w->atoms) - n->av;
         /* The body: §7.6's rows drive the folding. */
@@ -909,6 +1156,7 @@ static void build_funcs(wb_t* w, const jav_function_section_t* fs) {
         w->rows = &rows;
         wat_tnode_t** stmts = build_seq(w, body->body.instrs.items, body->body.instrs.count, 0);
         w->rows = NULL;
+        w->cur_locals = NULL;
         span_commit(w, stmts, &n->r1, &n->nr1);
         bbq_vec_free(stmts);
         decl_push(w, n);
@@ -931,17 +1179,31 @@ static const char* secname(uint8_t id) {
 static void build_custom(wb_t* w, const jav_custom_section_t* cs, size_t at) {
     wat_tnode_t* n = node_new(w, WAT_TT_W_CUSTOM);
     sp_name(w, &cs->name);
-    const char* anchor = NULL;
-    int before = 0;
-    for (size_t i = at; i-- > 0 && !anchor;)
-        anchor = secname(w->m->sections.items[i].id);
-    if (!anchor) {
-        before = 1;
-        for (size_t i = at + 1; i < w->m->sections.count && !anchor; i++)
-            anchor = secname(w->m->sections.items[i].id);
+    /* §7.7.3 placement. The anchor is the immediately preceding non-custom
+     * section — "the position after a section is considered different from
+     * the position before the consecutive section", so `after prev` is the
+     * exact slot. The one hole in the vocabulary is `tag`: a custom section
+     * whose predecessor is the tag section anchors on its FOLLOWING
+     * expressible neighbour instead ("before next"), which re-inserts at the
+     * same byte position because nothing sits between them. A position no
+     * vocabulary word can express is COUNTED, never silently misplaced. */
+    size_t p = at;
+    while (p > 0 && w->m->sections.items[p - 1].id == 0) p--;
+    const char* prev = (p > 0) ? secname(w->m->sections.items[p - 1].id) : NULL;
+    if (p == 0) {
+        sc(w, " (before first)");
+    } else if (prev) {
+        sc(w, " (after %s)", prev);
+    } else {
+        /* the predecessor is the tag section */
+        size_t q = at + 1;
+        while (q < w->m->sections.count && w->m->sections.items[q].id == 0) q++;
+        const char* next = (q < w->m->sections.count)
+                               ? secname(w->m->sections.items[q].id) : NULL;
+        if (q >= w->m->sections.count) sc(w, " (after last)");
+        else if (next)                 sc(w, " (before %s)", next);
+        else { w->custom_unplaceable++; sc(w, " (after last)"); }
     }
-    if (anchor) sc(w, " (%s %s)", before ? "before" : "after", anchor);
-    else        sc(w, " (before first)");
     set_ptxt(w, n);
     n->av = (uint32_t)bbq_vec_len(w->atoms);
     av_bytes(w, cs->data.data, cs->data.length);
@@ -1000,7 +1262,7 @@ static void build_elem(wb_t* w, const jav_elem_t* e) {
     if (funcs) {
         av_push_str(w, kind);
         for (size_t i = 0; i < funcs->idxs.count; i++) {
-            sc(w, "%u", funcs->idxs.items[i]);
+            sp_idx(w, w->fn_id, w->nfuncs, funcs->idxs.items[i]);
             atom_take(w);
         }
     } else if (rt) {
@@ -1063,6 +1325,22 @@ int wat_tree_build(const jav_module_t* m, const wat_check_ctx_t* cx,
     w.a = a;
     tag_tables_init(&w);
     build_type_index(&w);
+    /* Space sizes for the §7.7.1 id tables: imports first (§5.5.5). */
+    for (size_t i = 0; i < m->sections.count; i++) {
+        const jav_section_t* s = &m->sections.items[i];
+        if (s->id == 2) {
+            const jav_import_section_t* is = &s->body.u.case_2;
+            for (size_t k = 0; k < is->imports.count; k++) {
+                if (is->imports.items[k].desc.kind == 0x00) { w.nfuncs++; w.nimp_funcs++; }
+                if (is->imports.items[k].desc.kind == 0x04) { w.ntags++; w.nimp_tags++; }
+            }
+        } else if (s->id == 3) {
+            w.nfuncs += (uint32_t)s->body.u.case_3.type_indices.count;
+        } else if (s->id == 13) {
+            w.ntags += (uint32_t)s->body.u.case_13.tags.count;
+        }
+    }
+    build_names(&w);
 
     for (size_t si = 0; si < m->sections.count && !w.failed; si++) {
         const jav_section_t* s = &m->sections.items[si];
@@ -1072,19 +1350,21 @@ int wat_tree_build(const jav_module_t* m, const wat_check_ctx_t* cx,
             break;
         case 1: {
             const jav_type_section_t* ts = &s->body.u.case_1;
+            uint32_t tyat = 0;
             for (size_t i = 0; i < ts->types.count; i++) {
                 const jav_rec_type_t* r = &ts->types.items[i];
                 if (r->head == 0x4e) {
                     const jav_rec_group_t* g = &r->body.u.case_0;
                     wat_tnode_t** members = NULL;
                     for (size_t k = 0; k < g->members.count; k++)
-                        bbq_vec_push(members, build_type_entry(&w, &g->members.items[k], NULL));
+                        bbq_vec_push(members,
+                                     build_type_entry(&w, &g->members.items[k], NULL, tyat++));
                     wat_tnode_t* n = node_new(&w, WAT_TT_W_REC);
                     span_commit(&w, members, &n->r1, &n->nr1);
                     bbq_vec_free(members);
                     decl_push(&w, n);
                 } else {
-                    decl_push(&w, build_type_entry(&w, NULL, r));
+                    decl_push(&w, build_type_entry(&w, NULL, r, tyat++));
                 }
             }
             break;
@@ -1131,7 +1411,8 @@ int wat_tree_build(const jav_module_t* m, const wat_check_ctx_t* cx,
             const jav_tag_section_t* gs = &s->body.u.case_13;
             for (size_t i = 0; i < gs->tags.count; i++) {
                 wat_tnode_t* n = node_new(&w, WAT_TT_W_TAG);
-                n->r1 = root_push(&w, build_typeuse(&w, gs->tags.items[i].type));
+                sp_tag_id(&w, n, w.nimp_tags + (uint32_t)i);
+                n->r1 = root_push(&w, build_typeuse(&w, gs->tags.items[i].type, NULL));
                 n->nr1 = 1;
                 decl_push(&w, n);
             }
@@ -1158,7 +1439,11 @@ int wat_tree_build(const jav_module_t* m, const wat_check_ctx_t* cx,
                 const jav_export_t* e = &es->exports.items[i];
                 wat_tnode_t* n = node_new(&w, WAT_TT_W_EXPORT);
                 sp_name(&w, &e->name);
-                sc(&w, " (%s %u)", e->kind <= 4 ? kindname[e->kind] : "?", e->idx);
+                sc(&w, " (%s ", e->kind <= 4 ? kindname[e->kind] : "?");
+                if (e->kind == 0)      sp_idx(&w, w.fn_id, w.nfuncs, e->idx);
+                else if (e->kind == 4) sp_idx(&w, w.tag_id, w.ntags, e->idx);
+                else                   sc(&w, "%u", e->idx);
+                sc(&w, ")");
                 set_ptxt(&w, n);
                 decl_push(&w, n);
             }
@@ -1166,7 +1451,7 @@ int wat_tree_build(const jav_module_t* m, const wat_check_ctx_t* cx,
         }
         case 8: {
             wat_tnode_t* n = node_new(&w, WAT_TT_W_START);
-            sc(&w, "%u", s->body.u.case_8.func);
+            sp_idx(&w, w.fn_id, w.nfuncs, s->body.u.case_8.func);
             set_ptxt(&w, n);
             decl_push(&w, n);
             break;
@@ -1191,9 +1476,20 @@ int wat_tree_build(const jav_module_t* m, const wat_check_ctx_t* cx,
     if (w.failed) {
         bbq_vec_free(w.pool); bbq_vec_free(w.atoms);
         bbq_vec_free(w.roots); bbq_vec_free(w.decls); bbq_vec_free(w.sc);
+        if (w.have_names) jnm_name_data_free(&w.names);
         if (err) *err = w.err;
         return 0;
     }
+
+    /* The module's own §7.7.1 id, pooled like every other spelling. */
+    out->mod_id = WAT_TNODE_NONE;
+    if (w.mod_id.p) {
+        sc(&w, "%.*s", (int)w.mod_id.n, w.mod_id.p);
+        uint32_t mw;
+        out->mod_id = pool_take(&w, &mw);
+    }
+    out->custom_unplaceable = w.custom_unplaceable;
+    if (w.have_names) jnm_name_data_free(&w.names);
 
     /* Freeze the vecs into the caller's arena. */
     out->nroots = (uint32_t)bbq_vec_len(w.roots);

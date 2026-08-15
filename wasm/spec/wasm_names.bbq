@@ -1,0 +1,54 @@
+# wasm_names.bbq — the §7.7.1 name section, over a name custom section's
+# PAYLOAD (jav_custom_section_t.data: the bytes after the section's own
+# "name" string, which wasm.bbq's CustomSection already split off).
+#
+# Transcribed from the printed grammar (Release 3.0, printed 278–279):
+#
+#   namedata            ::= n:name modulenamesubsec? funcnamesubsec?
+#                           localnamesubsec? typenamesubsec?
+#                           fieldnamesubsec? tagnamesubsec?
+#   namesubsection_N(B) ::= N:byte size:u32 B          (if size = ||B||)
+#   namemap             ::= list(nameassoc)
+#   nameassoc           ::= idx name
+#   indirectnamemap     ::= list(indirectnameassoc)
+#   indirectnameassoc   ::= idx namemap
+#
+# Subsection ids: 0 module, 1 functions, 2 locals, 4 types, 10 fields,
+# 11 tags — "Each subsection may occur at most once, and in order of
+# increasing id", which is the CONSUMER's check against the shipping tree
+# (BBQ guarantees the grammar and the intervals). Ids outside the printed
+# set (labels, tables, globals, … from other toolchains) are skipped whole:
+# §7.7 says such data "may be ignored by an implementation", and a name the
+# renderer cannot read only costs an identifier, never the section — the
+# @custom annotation carries the bytes regardless.
+#
+# §7.7.1's Note: "Names need not be unique." Uniqueness is what §6.6.1
+# identifiers require, so the renderer's own sanitizer decides which names
+# become $ids; this reader just delivers the section.
+
+NName = struct { count: uleb128, bytes: bytes[count] }
+
+NAssoc = struct { idx: uleb128, name: NName }
+NMap   = struct { count: uleb128, entries: array<NAssoc>[count] }
+
+NIndirectAssoc = struct { idx: uleb128, map: NMap }
+NIndirectMap   = struct { count: uleb128, entries: array<NIndirectAssoc>[count] }
+
+NModuleName = struct { name: NName }
+NSkip       = struct { data: bytes[@remaining] }
+
+NSubsec = struct {
+    id:   uint8,
+    size: uleb128 @rest,
+    body: switch(id) {
+        0:  NModuleName;
+        1:  NMap;
+        2:  NIndirectMap;
+        4:  NMap;
+        10: NIndirectMap;
+        11: NMap;
+        default: NSkip;
+    }
+}
+
+NameData = struct { subsecs: array<NSubsec>(none, eof) }

@@ -778,6 +778,10 @@ int main(int argc, char **argv) {
                 (unsigned long long)ws.atom_overflows);
         fprintf(sum, "wast wat re-read (rendering through the .wat reader): "
                      "%d ok, %d failed\n", g_reread_ok, g_reread_fail);
+        // PIN D-2: §7.7.3's place vocabulary has no `tag`; a custom section at
+        // a position no word expresses is counted, never silently misplaced.
+        fprintf(sum, "wast custom placement: %llu inexpressible\n",
+                (unsigned long long)ws.custom_unplaceable);
     }
     int eok = 0, ebad = 0, eexcl = 0;
     if (g_store_ready && !sweep) {
@@ -978,6 +982,7 @@ int main(int argc, char **argv) {
             || g_wat76_bad || g_a5_bad || g_a5_unaligned || g_a5_bodies == 0
             || g_emit_fail || ws_gate.width_mismatches || ws_gate.long_lines
             || (g_emit_ok == 0) || g_reread_fail || (g_reread_ok == 0)
+            || ws_gate.custom_unplaceable
             || ebad || (!sweep && wast_exec_trap_msgbad())
             /* The tree and tiling meters belong to TIER-2: tier-1 compiles with no
              * tiling context, so no tree is built and there is nothing for them to

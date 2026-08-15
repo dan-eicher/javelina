@@ -11,6 +11,15 @@ runtime dependencies (the engine links only `libm`).
   surface is the standard [WebAssembly C API](https://github.com/WebAssembly/wasm-c-api)
   (`wasm.h`).
 
+- **The converter** (`water`, in `wasm/`) goes both ways between the §6 text
+  and §5 binary formats, with opposite contracts by design: assembling is
+  transcribe-only (so deliberately-invalid fixtures reach the engine to be
+  rejected for the right reason), while rendering validates first and emits
+  only §6.5.11-folded, identifier-carrying, byte-round-trippable text —
+  custom sections and the name section included. See
+  [`docs/water.md`](docs/water.md) for the contracts and the corpus gates
+  that hold them.
+
 - **The compiler** (`compiler/`) translates Java 1.0 (minus `synchronized`) to
   WebAssembly-GC. `javelinac` compiles `.java` to a `.wasm` module; `javelina`
   runs one. The runtime library it targets (`compiler/lib`) is real Java
@@ -21,7 +30,8 @@ runtime dependencies (the engine links only `libm`).
 ## Conformance
 
 Executed against the official [WebAssembly test suite](https://github.com/WebAssembly/testsuite)
-(pinned at `0dc0343`), both tiers, on 2026-07-24:
+(pinned at `0dc0343`), all tiers (interpreter, JIT, and the eq-sat tier), on
+2026-08-15:
 
 | gate | result |
 |---|---|
@@ -29,9 +39,16 @@ Executed against the official [WebAssembly test suite](https://github.com/WebAss
 | `.wat` text reader | 6364 ok, 0 mismatched, 3 excluded (non-core-3.0 text) |
 | §7 validation (text modules) | 5135 ok, 0 mismatched |
 | binary modules (260 files) | 810 ok, 0 mismatched |
+| §7 differential (water vs engine) | 5270 modules, 0 verdicts differ |
+| §7.6 producer edges (water vs JIT tree) | 19695 edges, 0 differ, 0 unaligned |
+| wat rendering (width / re-read / placement) | 2522 rendered, 0 mismatches, 0 unreadable |
 
 The three excluded cases are non-core-3.0 text-format fixtures; every executable
-assertion in the suite runs and agrees. Reproduce with `make conformance`.
+assertion in the suite runs and agrees. The last three rows are the converter's:
+water re-implements §7 from the spec and must agree with the engine on every
+module in both directions, its folded renderings must match their computed
+widths byte-for-byte and re-read through the real text reader. Reproduce with
+`make conformance`.
 
 ## Build
 
@@ -73,8 +90,12 @@ objects — so the link line above is the one an embedder actually uses.
 ## Layout
 
 ```
-wasm/          the engine: interpreter + JIT, Immix GC, validator, the wasm-c-api
-  spec/        the declarative opcode spec (wasm.def) everything is generated from
+wasm/          the engine: interpreter + JIT, Immix GC, validator, the wasm-c-api,
+               and water (the .wat <-> .wasm converter, docs/water.md)
+  spec/        the declarative specs everything is generated from: wasm.def
+               (opcodes), wasm.bbq (the container), wat.peg (the text reader),
+               wat_module.asdl + instructions.toml (the renderer's layout IR),
+               wasm_names.bbq (the name section)
   include/     the public headers (wasm.h)
   examples/    embed.c
 compiler/      Java 1.0 -> wasm-GC

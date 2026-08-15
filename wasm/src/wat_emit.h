@@ -42,6 +42,7 @@ typedef struct {
     uint64_t width_mismatches; /* flat groups whose bytes != predicted width */
     uint64_t long_lines;       /* over-width lines with a break point available */
     uint64_t atom_overflows;   /* over-width lines that are one unbreakable token */
+    uint64_t custom_unplaceable; /* §7.7.3 positions no sec word names (no `tag`) */
 } wat_emit_stats_t;
 
 void wat_emit_stats(wat_emit_stats_t* out);
