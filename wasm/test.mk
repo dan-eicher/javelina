@@ -156,6 +156,12 @@ $(B)/test_wat_layout: $(GEN)/wat_tnode.h $(GEN)/wat_render.h $(GEN)/wat_layout.b
 # as the shipped water does.
 $(B)/test_wat_emit $(B)/test_wat_custom: $(B)/%: test/%.c $(WATOUT_OBJS) $(WAT_OBJS) $(B)/jav_writer.o | $(B)
 	$(CC) $(CFLAGS) -Wno-unused-function -Iinclude -I$(PEGRT) $(LINK) -lm -o $@
+# The CLI's contracts, held from outside: test_wat_cli drives the water BINARY
+# through system(), so the binary is a build dependency.
+$(B)/test_wat_cli: test/test_wat_cli.c $(B)/water $(WAT_OBJS) $(B)/jav_reader.o \
+                   $(B)/jav_writer.o $(B)/jav_utf8.o $(TOML_OBJS) $(B)/bbq_arena.o | $(B)
+	$(CC) $(CFLAGS) -Wno-unused-function -Iinclude -I$(PEGRT) \
+	  $(filter %.c %.o,$^) -lm -o $@
 
 # The conformance runner: the official testsuite, executed.
 $(B)/test_wast: test/test_wast.c test/wast_exec.c $(B)/wasm_capi.o $(WAT_OBJS) \
@@ -214,7 +220,8 @@ bench-naive: $(B)/run_naive $(NAIVE_WASM)
 
 # Everything that is a plain "build it, run it in test/, expect exit 0" gate.
 PLAIN_TESTS := $(IMMIX_TESTS) $(TESTS) $(CLITE_TESTS) test_align test_module_struct $(OWNING_TESTS) \
-               test_instr test_wat test_water $(WATOUT_TESTS) test_wat_emit test_wat_custom $(CAPI_TESTS) test_bench_naive
+               test_instr test_wat test_water $(WATOUT_TESTS) test_wat_emit test_wat_custom \
+               test_wat_cli $(CAPI_TESTS) test_bench_naive
 # ...minus the few that take an argument, handled by name below.
 ARGV_add_wasm := test_skeleton test_load test_roundtrip test_func
 

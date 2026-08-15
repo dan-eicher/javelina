@@ -408,14 +408,23 @@ test-capi-jit: $(OBJS) $(TOML_OBJS) | $(B)
 	    $(CLITE_SRCS) src/jav_load.c $(ENGINE_OBJS) -lm -o $(B)/test_capi_jit
 	@cd test && ../$(B)/test_capi_jit
 
-# water: the .wat -> .wasm assembler. Same reader/writer/toml link set as the wat
-# tests; -D_POSIX_C_SOURCE for isatty/fileno under -std=c11.
+# water: the .wat <-> .wasm converter. The link set is ENUMERATED because what
+# is ABSENT from it is the contract: no validate.o, no jav_module_index.o, no
+# jav_ttree.o — water transcribes §7 itself (wat_check.o) and shares only
+# generated output and the §3.3 lattice (jav_subtype.o) with the engine.
+# -D_POSIX_C_SOURCE for isatty/fileno under -std=c11.
 water: $(B)/water
 $(B)/water: src/water.c src/wat_driver.c src/wat_driver.h $(GEN)/wat_parser.c \
-            $(B)/jav_reader.o $(B)/jav_writer.o $(B)/jav_utf8.o $(TOML_OBJS) $(B)/bbq_arena.o | $(B)
+            $(B)/wat_check.o $(B)/wat_tree.o $(B)/wat_emit.o $(B)/wat_layout.o \
+            $(B)/jnm_reader.o $(B)/jav_subtype.o $(B)/jav_error.o \
+            $(B)/jav_reader.o $(B)/jav_writer.o $(B)/jav_utf8.o $(TOML_OBJS) \
+            $(B)/bbq_arena.o $(B)/bbq_hmap.o $(B)/bbq_htree.o | $(B)
 	$(CC) $(CFLAGS) -D_POSIX_C_SOURCE=200809L -Wno-unused-function -Iinclude -I$(PEGRT) \
 	  src/water.c src/wat_driver.c $(GEN)/wat_parser.c \
-	  $(B)/jav_reader.o $(B)/jav_writer.o $(B)/jav_utf8.o $(TOML_OBJS) $(B)/bbq_arena.o -lm -o $(B)/water
+	  $(B)/wat_check.o $(B)/wat_tree.o $(B)/wat_emit.o $(B)/wat_layout.o \
+	  $(B)/jnm_reader.o $(B)/jav_subtype.o $(B)/jav_error.o \
+	  $(B)/jav_reader.o $(B)/jav_writer.o $(B)/jav_utf8.o $(TOML_OBJS) \
+	  $(B)/bbq_arena.o $(B)/bbq_hmap.o $(B)/bbq_htree.o -lm -o $(B)/water
 
 clean:
 	rm -rf $(B)

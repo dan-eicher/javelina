@@ -77,6 +77,12 @@ typedef struct {
     int               ok;
     jav_err_t         err;
     const jav_instr_t* fail;
+    /* The rejection's "where", for a diagnostic: `fail`'s flat §5 ordinal
+     * within the body, and the top of the operand stack as the walk saw it
+     * (captured at the one point every rejection funnels through). Empty
+     * when ok. */
+    uint32_t          fail_seq;
+    char              fail_stack[96];
 } wat_body_t;
 
 /* §3.5 module-level validation — the half of §7 that no body carries, and which

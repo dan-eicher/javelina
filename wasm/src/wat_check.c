@@ -841,12 +841,38 @@ typedef struct {
      * they are fields of the block — so they are counted HERE, where a walk over the
      * bytes would meet them, and the two orderings stay the same sequence. */
     uint32_t           nseq;
+    /* Captured at rejection, for the CLI's diagnostic. */
+    uint32_t           fail_seq;
+    char               fail_stack[96];
 } tc;
 
+/* The rejection's "where" for a diagnostic: the flat §5 ordinal and the top
+ * of the operand stack, captured at the ONE point every error funnels
+ * through, so the CLI can say what the walk was looking at. */
+static const char* vt_word(val_type t) {
+    switch (t.num) {
+    case WVT_I32: return "i32";
+    case WVT_I64: return "i64";
+    case WVT_F32: return "f32";
+    case WVT_F64: return "f64";
+    case WVT_V128: return "v128";
+    case VT_K_BOT: return "bot";
+    default: return t.null ? "(ref null …)" : "(ref …)";
+    }
+}
 static void fail_at(tc* s, jav_err_t e) {
     if (!s->ok) return;
     s->ok = 0; s->err = e;
     s->fail = s->cur;
+    s->fail_seq = s->nseq;
+    size_t at = 0;
+    uint32_t from = s->nvals > 6 ? s->nvals - 6 : 0;
+    if (from > 0) at += (size_t)snprintf(s->fail_stack, sizeof s->fail_stack, "… ");
+    for (uint32_t i = from; i < s->nvals && at + 16 < sizeof s->fail_stack; i++)
+        at += (size_t)snprintf(s->fail_stack + at, sizeof s->fail_stack - at,
+                               "%s%s", i > from || from > 0 ? " " : "",
+                               vt_word(s->vals[i].t));
+    if (s->nvals == 0) snprintf(s->fail_stack, sizeof s->fail_stack, "(empty)");
 }
 #define error_if(s, cond, e) do { if (cond) { fail_at((s), (e)); return; } } while (0)
 #define error_if_v(s, cond, e, v) do { if (cond) { fail_at((s), (e)); return (v); } } while (0)
@@ -2277,6 +2303,9 @@ int wat_check_body(const wat_check_ctx_t* cx, uint32_t funcidx,
     out->ok    = s.ok;
     out->err   = s.ok ? JAV_E_NONE : s.err;
     out->fail  = s.ok ? NULL : s.fail;
+    out->fail_seq = s.ok ? 0 : s.fail_seq;
+    memcpy(out->fail_stack, s.fail_stack, sizeof out->fail_stack);
+    if (s.ok) out->fail_stack[0] = 0;
     bbq_hmap_free(&s.map);
     return s.ok;
 }

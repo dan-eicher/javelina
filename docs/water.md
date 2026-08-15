@@ -9,15 +9,35 @@ WATER(1)                  WebAssembly Text Converter                  WATER(1)
 ## SYNOPSIS
 
 ```
-water file.wat          # assemble text to binary (stdout)
-water -                 # assemble stdin
+water file.wat -o file.wasm         # assemble (verifies by default)
+water --no-verify bad.wat -o f      # assemble without §7 — the fixture path
+water -d file.wasm                  # disassemble: folded .wat on stdout
+water -d file.wasm --width 80 -o f  # narrower line budget (default 100)
 ```
 
-The read-back direction (`.wasm` → `.wat`) is built and corpus-gated as a
-library (`wat_check` / `wat_tree` / `wat_emit`, linked by the test gate); its
-`-d` command-line flag ships with the CLI's verify-by-default work. This page
-documents both directions because they are one tool with two opposite
-contracts, and the contracts are the point.
+One tool, two directions, two opposite contracts — and the contracts are the
+point.
+
+## OPTIONS
+
+**-d**
+: Disassemble: `.wasm` in, folded `.wat` out. Validates first; a rejected
+  module produces a diagnostic (function, instruction ordinal, mnemonic,
+  §7.6 reason, and the operand stack at that point) and NO output file.
+
+**-o**, **--output** *F*
+: Output file. Omitted or `-`: stdout (binary output to a terminal is
+  refused).
+
+**--width** *N*
+: The `-d` line budget (default 100). Layout only — §6.1.1 makes white space
+  free, so this decides nothing about validity.
+
+**--no-verify**
+: Assemble without §7 verification, restoring the pure transcription. This is
+  how the conformance pipeline produces deliberately-invalid modules for the
+  engine to reject; the emitted bytes are identical to the always-unverified
+  library path's, and a pinned test holds them so.
 
 ## DESCRIPTION
 
