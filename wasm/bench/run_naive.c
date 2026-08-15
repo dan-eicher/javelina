@@ -3,12 +3,13 @@
 // burg never emits what eq-sat folds, so tier-3 measured 1.00x there by
 // construction. These kernels are lowered the way template producers lower —
 // identity junk and mul-spelled shifts on every hot path — with a hand-clean
-// twin of each as the ceiling. Per kernel, four timed configs:
+// twin of each as the ceiling. Per kernel, six timed configs — tier 1 (the
+// plain copy-and-patch JIT) is the compiled baseline for both forms:
 //
-//     clean t2   the ceiling: what a non-naive producer gets
-//     clean t3   must be ~1.00x of clean t2 (nothing to fold; the null leg)
-//     naive t2   the junk executed as written
-//     naive t3   the junk folded — the measurement
+//     clean t1/t2/t3   the ceiling and its own tier story
+//     naive t1         the junk at a dispatch per op — naivety's full price
+//     naive t2         what the stack cache absorbs of it
+//     naive t3         what only the fold removes — the measurement
 //
 // An EMBEDDER, deliberately: it consumes the .wasm water assembled at build
 // time and links libjavelina.a against wasm.h + the jav_ extension seam —
@@ -17,6 +18,7 @@
 // min-of-reps on one instance, checksums gated across every config against
 // the interpreted clean oracle. n is scaled ONCE per kernel (clean t2 to
 // >= 100ms) and shared by all four configs.
+#define _POSIX_C_SOURCE 200809L   /* clock_gettime under -std=c11 */
 #include "wasm.h"
 #include "jav_extern.h"
 #include <stdio.h>
@@ -111,10 +113,12 @@ int main(int argc, char** argv) {
     const char* dir = argc > 1 ? argv[1] : "build/naive";
     static const char* kernels[] = { "k_addr", "k_poly", "k_wide", "k_smand", "k_vmand" };
     const int REPS = 5;
-    printf("naive-producer corpus, 5 kernels x {clean,naive} x {t2,t3}, min of %d\n\n", REPS);
-    printf("  %-8s %9s %9s %9s %9s %9s   %7s %7s %7s\n",
-           "kernel", "n", "clean-t2", "clean-t3", "naive-t2", "naive-t3",
-           "nt3/nt2", "nt3/ct2", "nt2/ct2");
+    printf("naive-producer corpus, 5 kernels x {clean,naive} x {t1,t2,t3}, min of %d\n"
+           "tier 1 is the compiled baseline for both: nt2/nt1 is what the stack\n"
+           "cache absorbs of the junk, nt3/nt2 what only the fold removes.\n\n", REPS);
+    printf("  %-8s %8s %8s %8s %8s %8s %8s %8s | %7s %7s %7s %7s %7s\n",
+           "kernel", "n", "c-t1", "c-t2", "c-t3", "n-t1", "n-t2", "n-t3",
+           "ct2/ct1", "nt2/nt1", "nt3/nt2", "nt3/ct2", "nt2/ct2");
     for (int k = 0; k < 5; k++) {
         char pn[256], pc[256];
         snprintf(pn, sizeof pn, "%s/%s_naive.wasm", dir, kernels[k]);
@@ -139,16 +143,19 @@ int main(int argc, char** argv) {
             n <<= 1;
         }
 
+        meas_t ct1 = measure(&bc, 1, n, REPS);
         meas_t ct2 = measure(&bc, 2, n, REPS);
         meas_t ct3 = measure(&bc, 3, n, REPS);
+        meas_t nt1 = measure(&bn, 1, n, REPS);
         meas_t nt2 = measure(&bn, 2, n, REPS);
         meas_t nt3 = measure(&bn, 3, n, REPS);
 
         /* the gates: every config's checksum equals every other's at this n,
          * and a small-n naive-t3 run agrees with the interpreted oracle */
-        CK(ct2.sum == ct3.sum && ct2.sum == nt2.sum && ct2.sum == nt3.sum,
-           "%s: checksum drift across configs (%08x %08x %08x %08x)",
-           kernels[k], ct2.sum, ct3.sum, nt2.sum, nt3.sum);
+        CK(ct1.sum == ct2.sum && ct2.sum == ct3.sum
+           && ct1.sum == nt1.sum && ct2.sum == nt2.sum && ct2.sum == nt3.sum,
+           "%s: checksum drift across configs (%08x %08x %08x %08x %08x %08x)",
+           kernels[k], ct1.sum, ct2.sum, ct3.sum, nt1.sum, nt2.sum, nt3.sum);
         meas_t small = measure(&bn, 3, 3, 1);
         CK(small.sum == oracle_small,
            "%s: naive t3 (%08x) disagrees with the interpreted clean oracle at n=3",
@@ -157,12 +164,16 @@ int main(int argc, char** argv) {
         CK(ct3.rewritten == 0, "%s: tier-3 rewrote the CLEAN twin (%llu)",
            kernels[k], (unsigned long long)ct3.rewritten);
 
-        printf("  %-8s %9d %8.1fms %8.1fms %8.1fms %8.1fms   %6.2fx %6.2fx %6.2fx\n",
-               kernels[k], (int)n, ct2.min_ms, ct3.min_ms, nt2.min_ms, nt3.min_ms,
-               nt3.min_ms / nt2.min_ms, nt3.min_ms / ct2.min_ms, nt2.min_ms / ct2.min_ms);
+        printf("  %-8s %8d %6.1fms %6.1fms %6.1fms %6.1fms %6.1fms %6.1fms | %6.2fx %6.2fx %6.2fx %6.2fx %6.2fx\n",
+               kernels[k], (int)n, ct1.min_ms, ct2.min_ms, ct3.min_ms,
+               nt1.min_ms, nt2.min_ms, nt3.min_ms,
+               ct2.min_ms / ct1.min_ms, nt2.min_ms / nt1.min_ms,
+               nt3.min_ms / nt2.min_ms, nt3.min_ms / ct2.min_ms,
+               nt2.min_ms / ct2.min_ms);
     }
-    printf("\n  nt3/nt2 < 1 is eq-sat's own win on its target input; nt2/ct2 is what\n"
-           "  naivety costs untreated; nt3/ct2 -> 1.00 means the fold recovered it all.\n");
+    printf("\n  nt2/nt1 is the junk cost the stack cache absorbs; nt3/nt2 < 1 is the\n"
+           "  fold's own win on its target input; nt2/ct2 is what naivety costs\n"
+           "  untreated at t2; nt3/ct2 -> 1.00 means the fold recovered it all.\n");
     printf("%s\n", fails ? "FAILED" : "ok (all checksums agree)");
     return fails != 0;
 }
