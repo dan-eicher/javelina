@@ -69,7 +69,7 @@ static void closure_v128(burg_state_t* p, int c, BURG_NODE_TYPE node) {
     (void)node;
     if (c + 0 < p->cost[1]) {
         p->cost[1] = c + 0;
-        p->rule[1] = 376;
+        p->rule[1] = 377;
     }
 }
 
@@ -77,7 +77,7 @@ static void closure_ref(burg_state_t* p, int c, BURG_NODE_TYPE node) {
     (void)node;
     if (c + 0 < p->cost[1]) {
         p->cost[1] = c + 0;
-        p->rule[1] = 375;
+        p->rule[1] = 376;
     }
 }
 
@@ -85,7 +85,7 @@ static void closure_f64(burg_state_t* p, int c, BURG_NODE_TYPE node) {
     (void)node;
     if (c + 0 < p->cost[1]) {
         p->cost[1] = c + 0;
-        p->rule[1] = 374;
+        p->rule[1] = 375;
     }
 }
 
@@ -93,7 +93,7 @@ static void closure_i64(burg_state_t* p, int c, BURG_NODE_TYPE node) {
     (void)node;
     if (c + 0 < p->cost[1]) {
         p->cost[1] = c + 0;
-        p->rule[1] = 372;
+        p->rule[1] = 373;
     }
 }
 
@@ -101,7 +101,7 @@ static void closure_f32(burg_state_t* p, int c, BURG_NODE_TYPE node) {
     (void)node;
     if (c + 0 < p->cost[1]) {
         p->cost[1] = c + 0;
-        p->rule[1] = 373;
+        p->rule[1] = 374;
     }
 }
 
@@ -117,7 +117,7 @@ static void closure_i32(burg_state_t* p, int c, BURG_NODE_TYPE node) {
     }
     if (c + 0 < p->cost[1]) {
         p->cost[1] = c + 0;
-        p->rule[1] = 371;
+        p->rule[1] = 372;
     }
 }
 
@@ -133,7 +133,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 369;
+                p->rule[1] = 370;
             }
         }
         break;
@@ -144,7 +144,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[6]) {
                 p->cost[6] = c;
-                p->rule[6] = 368;
+                p->rule[6] = 369;
                 closure_ref(p, c, node);
             }
         }
@@ -156,7 +156,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[2]) {
                 p->cost[2] = c;
-                p->rule[2] = 357;
+                p->rule[2] = 358;
                 closure_i32(p, c, node);
             }
         }
@@ -166,7 +166,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[3]) {
                 p->cost[3] = c;
-                p->rule[3] = 358;
+                p->rule[3] = 359;
                 closure_i64(p, c, node);
             }
         }
@@ -176,7 +176,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[4]) {
                 p->cost[4] = c;
-                p->rule[4] = 359;
+                p->rule[4] = 360;
                 closure_f32(p, c, node);
             }
         }
@@ -186,7 +186,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[5]) {
                 p->cost[5] = c;
-                p->rule[5] = 360;
+                p->rule[5] = 361;
                 closure_f64(p, c, node);
             }
         }
@@ -196,7 +196,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[6]) {
                 p->cost[6] = c;
-                p->rule[6] = 361;
+                p->rule[6] = 362;
                 closure_ref(p, c, node);
             }
         }
@@ -206,7 +206,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[7]) {
                 p->cost[7] = c;
-                p->rule[7] = 362;
+                p->rule[7] = 363;
                 closure_v128(p, c, node);
             }
         }
@@ -216,7 +216,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[10]) {
                 p->cost[10] = c;
-                p->rule[10] = 366;
+                p->rule[10] = 367;
             }
         }
         break;
@@ -227,7 +227,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[2]) {
                 p->cost[2] = c;
-                p->rule[2] = 351;
+                p->rule[2] = 352;
                 closure_i32(p, c, node);
             }
         }
@@ -237,7 +237,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[3]) {
                 p->cost[3] = c;
-                p->rule[3] = 352;
+                p->rule[3] = 353;
                 closure_i64(p, c, node);
             }
         }
@@ -247,7 +247,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[4]) {
                 p->cost[4] = c;
-                p->rule[4] = 353;
+                p->rule[4] = 354;
                 closure_f32(p, c, node);
             }
         }
@@ -257,7 +257,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[5]) {
                 p->cost[5] = c;
-                p->rule[5] = 354;
+                p->rule[5] = 355;
                 closure_f64(p, c, node);
             }
         }
@@ -267,7 +267,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[6]) {
                 p->cost[6] = c;
-                p->rule[6] = 355;
+                p->rule[6] = 356;
                 closure_ref(p, c, node);
             }
         }
@@ -277,7 +277,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[7]) {
                 p->cost[7] = c;
-                p->rule[7] = 356;
+                p->rule[7] = 357;
                 closure_v128(p, c, node);
             }
         }
@@ -287,7 +287,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[10]) {
                 p->cost[10] = c;
-                p->rule[10] = 365;
+                p->rule[10] = 366;
             }
         }
         break;
@@ -298,7 +298,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[2]) {
                 p->cost[2] = c;
-                p->rule[2] = 345;
+                p->rule[2] = 346;
                 closure_i32(p, c, node);
             }
         }
@@ -308,7 +308,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[3]) {
                 p->cost[3] = c;
-                p->rule[3] = 346;
+                p->rule[3] = 347;
                 closure_i64(p, c, node);
             }
         }
@@ -318,7 +318,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[4]) {
                 p->cost[4] = c;
-                p->rule[4] = 347;
+                p->rule[4] = 348;
                 closure_f32(p, c, node);
             }
         }
@@ -328,7 +328,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[5]) {
                 p->cost[5] = c;
-                p->rule[5] = 348;
+                p->rule[5] = 349;
                 closure_f64(p, c, node);
             }
         }
@@ -338,7 +338,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[6]) {
                 p->cost[6] = c;
-                p->rule[6] = 349;
+                p->rule[6] = 350;
                 closure_ref(p, c, node);
             }
         }
@@ -348,7 +348,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[7]) {
                 p->cost[7] = c;
-                p->rule[7] = 350;
+                p->rule[7] = 351;
                 closure_v128(p, c, node);
             }
         }
@@ -358,7 +358,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[10]) {
                 p->cost[10] = c;
-                p->rule[10] = 364;
+                p->rule[10] = 365;
             }
         }
         break;
@@ -369,7 +369,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[2]) {
                 p->cost[2] = c;
-                p->rule[2] = 334;
+                p->rule[2] = 335;
                 closure_i32(p, c, node);
             }
         }
@@ -381,7 +381,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 329;
+                p->rule[1] = 330;
             }
         }
         if (p->child_count >= 3 && p->children[0]->rule[6] && p->children[1]->rule[2] && p->children[2]->rule[3]) {
@@ -390,7 +390,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 330;
+                p->rule[1] = 331;
             }
         }
         if (p->child_count >= 3 && p->children[0]->rule[6] && p->children[1]->rule[2] && p->children[2]->rule[4]) {
@@ -399,7 +399,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 331;
+                p->rule[1] = 332;
             }
         }
         if (p->child_count >= 3 && p->children[0]->rule[6] && p->children[1]->rule[2] && p->children[2]->rule[5]) {
@@ -408,7 +408,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 332;
+                p->rule[1] = 333;
             }
         }
         if (p->child_count >= 3 && p->children[0]->rule[6] && p->children[1]->rule[2] && p->children[2]->rule[7]) {
@@ -417,7 +417,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 333;
+                p->rule[1] = 334;
             }
         }
         if (p->child_count >= 3 && p->children[0]->rule[6] && p->children[1]->rule[2] && p->children[2]->rule[6]) {
@@ -426,7 +426,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 337;
+                p->rule[1] = 338;
             }
         }
         break;
@@ -437,7 +437,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 370;
+                p->rule[1] = 371;
             }
         }
         break;
@@ -448,7 +448,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[6]) {
                 p->cost[6] = c;
-                p->rule[6] = 320;
+                p->rule[6] = 321;
                 closure_ref(p, c, node);
             }
         }
@@ -460,7 +460,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 316;
+                p->rule[1] = 317;
             }
         }
         break;
@@ -471,7 +471,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 312;
+                p->rule[1] = 313;
             }
         }
         if (p->child_count >= 2 && p->children[0]->rule[2] && p->children[1]->rule[7] && (ew_op_width((wasm_op_t)node->simd_mem_store_lane.op) == 3)) {
@@ -480,7 +480,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 313;
+                p->rule[1] = 314;
             }
         }
         break;
@@ -491,7 +491,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[6]) {
                 p->cost[6] = c;
-                p->rule[6] = 281;
+                p->rule[6] = 282;
                 closure_ref(p, c, node);
             }
         }
@@ -503,7 +503,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 317;
+                p->rule[1] = 318;
             }
         }
         break;
@@ -514,7 +514,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[6]) {
                 p->cost[6] = c;
-                p->rule[6] = 279;
+                p->rule[6] = 280;
                 closure_ref(p, c, node);
             }
         }
@@ -526,7 +526,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[5]) {
                 p->cost[5] = c;
-                p->rule[5] = 258;
+                p->rule[5] = 259;
                 closure_f64(p, c, node);
             }
         }
@@ -538,7 +538,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[2]) {
                 p->cost[2] = c;
-                p->rule[2] = 367;
+                p->rule[2] = 368;
                 closure_i32(p, c, node);
             }
         }
@@ -550,7 +550,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[4]) {
                 p->cost[4] = c;
-                p->rule[4] = 257;
+                p->rule[4] = 258;
                 closure_f32(p, c, node);
             }
         }
@@ -562,7 +562,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[7]) {
                 p->cost[7] = c;
-                p->rule[7] = 253;
+                p->rule[7] = 254;
                 closure_v128(p, c, node);
             }
         }
@@ -572,7 +572,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[7]) {
                 p->cost[7] = c;
-                p->rule[7] = 254;
+                p->rule[7] = 255;
                 closure_v128(p, c, node);
             }
         }
@@ -584,7 +584,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[7]) {
                 p->cost[7] = c;
-                p->rule[7] = 251;
+                p->rule[7] = 252;
                 closure_v128(p, c, node);
             }
         }
@@ -594,7 +594,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[7]) {
                 p->cost[7] = c;
-                p->rule[7] = 252;
+                p->rule[7] = 253;
                 closure_v128(p, c, node);
             }
         }
@@ -606,7 +606,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 304;
+                p->rule[1] = 305;
             }
         }
         if (p->child_count >= 1 && p->children[0]->rule[3]) {
@@ -615,7 +615,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 305;
+                p->rule[1] = 306;
             }
         }
         if (p->child_count >= 1 && p->children[0]->rule[4]) {
@@ -624,7 +624,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 306;
+                p->rule[1] = 307;
             }
         }
         if (p->child_count >= 1 && p->children[0]->rule[5]) {
@@ -633,7 +633,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 307;
+                p->rule[1] = 308;
             }
         }
         if (p->child_count >= 1 && p->children[0]->rule[6]) {
@@ -642,7 +642,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 308;
+                p->rule[1] = 309;
             }
         }
         if (p->child_count >= 1 && p->children[0]->rule[7]) {
@@ -651,7 +651,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 309;
+                p->rule[1] = 310;
             }
         }
         break;
@@ -662,7 +662,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[7]) {
                 p->cost[7] = c;
-                p->rule[7] = 249;
+                p->rule[7] = 250;
                 closure_v128(p, c, node);
             }
         }
@@ -674,7 +674,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[7]) {
                 p->cost[7] = c;
-                p->rule[7] = 245;
+                p->rule[7] = 246;
                 closure_v128(p, c, node);
             }
         }
@@ -684,7 +684,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[7]) {
                 p->cost[7] = c;
-                p->rule[7] = 246;
+                p->rule[7] = 247;
                 closure_v128(p, c, node);
             }
         }
@@ -696,7 +696,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 318;
+                p->rule[1] = 319;
             }
         }
         break;
@@ -707,7 +707,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[4]) {
                 p->cost[4] = c;
-                p->rule[4] = 237;
+                p->rule[4] = 238;
                 closure_f32(p, c, node);
             }
         }
@@ -717,7 +717,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[4]) {
                 p->cost[4] = c;
-                p->rule[4] = 238;
+                p->rule[4] = 239;
                 closure_f32(p, c, node);
             }
         }
@@ -729,7 +729,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 310;
+                p->rule[1] = 311;
             }
         }
         if (p->child_count >= 2 && p->children[0]->rule[2] && p->children[1]->rule[7] && (ew_op_width((wasm_op_t)node->simd_mem_store.op) == 3)) {
@@ -738,7 +738,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 311;
+                p->rule[1] = 312;
             }
         }
         break;
@@ -749,7 +749,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[2]) {
                 p->cost[2] = c;
-                p->rule[2] = 260;
+                p->rule[2] = 261;
                 closure_i32(p, c, node);
             }
         }
@@ -761,7 +761,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[3]) {
                 p->cost[3] = c;
-                p->rule[3] = 235;
+                p->rule[3] = 236;
                 closure_i64(p, c, node);
             }
         }
@@ -771,7 +771,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[3]) {
                 p->cost[3] = c;
-                p->rule[3] = 236;
+                p->rule[3] = 237;
                 closure_i64(p, c, node);
             }
         }
@@ -783,7 +783,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[2]) {
                 p->cost[2] = c;
-                p->rule[2] = 233;
+                p->rule[2] = 234;
                 closure_i32(p, c, node);
             }
         }
@@ -793,7 +793,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[2]) {
                 p->cost[2] = c;
-                p->rule[2] = 234;
+                p->rule[2] = 235;
                 closure_i32(p, c, node);
             }
         }
@@ -805,7 +805,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[7]) {
                 p->cost[7] = c;
-                p->rule[7] = 227;
+                p->rule[7] = 228;
                 closure_v128(p, c, node);
             }
         }
@@ -815,7 +815,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[7]) {
                 p->cost[7] = c;
-                p->rule[7] = 228;
+                p->rule[7] = 229;
                 closure_v128(p, c, node);
             }
         }
@@ -827,7 +827,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[7]) {
                 p->cost[7] = c;
-                p->rule[7] = 225;
+                p->rule[7] = 226;
                 closure_v128(p, c, node);
             }
         }
@@ -837,7 +837,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[7]) {
                 p->cost[7] = c;
-                p->rule[7] = 226;
+                p->rule[7] = 227;
                 closure_v128(p, c, node);
             }
         }
@@ -849,7 +849,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[2]) {
                 p->cost[2] = c;
-                p->rule[2] = 223;
+                p->rule[2] = 224;
                 closure_i32(p, c, node);
             }
         }
@@ -859,7 +859,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[2]) {
                 p->cost[2] = c;
-                p->rule[2] = 224;
+                p->rule[2] = 225;
                 closure_i32(p, c, node);
             }
         }
@@ -871,7 +871,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[7]) {
                 p->cost[7] = c;
-                p->rule[7] = 221;
+                p->rule[7] = 222;
                 closure_v128(p, c, node);
             }
         }
@@ -881,7 +881,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[7]) {
                 p->cost[7] = c;
-                p->rule[7] = 222;
+                p->rule[7] = 223;
                 closure_v128(p, c, node);
             }
         }
@@ -893,7 +893,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[7]) {
                 p->cost[7] = c;
-                p->rule[7] = 219;
+                p->rule[7] = 220;
                 closure_v128(p, c, node);
             }
         }
@@ -903,7 +903,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[7]) {
                 p->cost[7] = c;
-                p->rule[7] = 220;
+                p->rule[7] = 221;
                 closure_v128(p, c, node);
             }
         }
@@ -927,7 +927,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 291;
+                p->rule[1] = 292;
             }
         }
         if (p->child_count >= 2 && p->children[0]->rule[6] && p->children[1]->rule[3]) {
@@ -936,7 +936,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 292;
+                p->rule[1] = 293;
             }
         }
         if (p->child_count >= 2 && p->children[0]->rule[6] && p->children[1]->rule[4]) {
@@ -945,7 +945,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 293;
+                p->rule[1] = 294;
             }
         }
         if (p->child_count >= 2 && p->children[0]->rule[6] && p->children[1]->rule[5]) {
@@ -954,7 +954,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 294;
+                p->rule[1] = 295;
             }
         }
         if (p->child_count >= 2 && p->children[0]->rule[6] && p->children[1]->rule[6]) {
@@ -963,7 +963,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 295;
+                p->rule[1] = 296;
             }
         }
         if (p->child_count >= 2 && p->children[0]->rule[6] && p->children[1]->rule[7]) {
@@ -972,7 +972,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 296;
+                p->rule[1] = 297;
             }
         }
         break;
@@ -1049,7 +1049,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 closure_i32(p, c, node);
             }
         }
-        if (p->child_count >= 2 && p->children[0]->rule[3] && p->children[1]->op == BURG_LoadLongConst && (LV(KID(node,1)) == 0)) {
+        if (p->child_count >= 2 && p->children[0]->rule[3] && p->children[1]->op == BURG_I2L && p->children[1]->children[0]->op == BURG_LoadConst && (CV(KID(KID(node,1),0)) == 0)) {
             int c = p->children[0]->cost[3] + 0;
             for (int _ci = 2; _ci < p->child_count; _ci++)
                 c += p->children[_ci]->cost[1];
@@ -1069,7 +1069,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 closure_i32(p, c, node);
             }
         }
-        if (p->child_count >= 2 && p->children[0]->op == BURG_LoadLongConst && p->children[1]->op == BURG_LoadLongConst) {
+        if (p->child_count >= 2 && p->children[0]->op == BURG_LoadLongConst && p->children[1]->op == BURG_I2L && p->children[1]->children[0]->op == BURG_LoadConst) {
             int c = 0 + 2;
             for (int _ci = 2; _ci < p->child_count; _ci++)
                 c += p->children[_ci]->cost[1];
@@ -1087,7 +1087,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[7]) {
                 p->cost[7] = c;
-                p->rule[7] = 243;
+                p->rule[7] = 244;
                 closure_v128(p, c, node);
             }
         }
@@ -1097,7 +1097,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[7]) {
                 p->cost[7] = c;
-                p->rule[7] = 244;
+                p->rule[7] = 245;
                 closure_v128(p, c, node);
             }
         }
@@ -1167,6 +1167,16 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 closure_i64(p, c, node);
             }
         }
+        if (p->child_count >= 1 && p->children[0]->op == BURG_LoadConst) {
+            int c = 0 + 2;
+            for (int _ci = 1; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[3]) {
+                p->cost[3] = c;
+                p->rule[3] = 176;
+                closure_i64(p, c, node);
+            }
+        }
         break;
     case BURG_MemStoreI:
         if (p->child_count >= 2 && p->children[0]->rule[2] && p->children[1]->rule[2]) {
@@ -1175,7 +1185,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 314;
+                p->rule[1] = 315;
             }
         }
         break;
@@ -1406,7 +1416,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[2]) {
                 p->cost[2] = c;
-                p->rule[2] = 184;
+                p->rule[2] = 185;
                 closure_i32(p, c, node);
             }
         }
@@ -1418,7 +1428,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[2]) {
                 p->cost[2] = c;
-                p->rule[2] = 187;
+                p->rule[2] = 188;
                 closure_i32(p, c, node);
             }
         }
@@ -1512,7 +1522,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[3]) {
                 p->cost[3] = c;
-                p->rule[3] = 186;
+                p->rule[3] = 187;
                 closure_i64(p, c, node);
             }
         }
@@ -1524,7 +1534,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 200;
+                p->rule[1] = 201;
             }
         }
         if (p->child_count >= 1 && p->children[0]->rule[3]) {
@@ -1533,7 +1543,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 201;
+                p->rule[1] = 202;
             }
         }
         if (p->child_count >= 1 && p->children[0]->rule[4]) {
@@ -1542,7 +1552,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 202;
+                p->rule[1] = 203;
             }
         }
         if (p->child_count >= 1 && p->children[0]->rule[5]) {
@@ -1551,7 +1561,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 203;
+                p->rule[1] = 204;
             }
         }
         if (p->child_count >= 1 && p->children[0]->rule[6]) {
@@ -1560,7 +1570,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 204;
+                p->rule[1] = 205;
             }
         }
         if (p->child_count >= 1 && p->children[0]->rule[7]) {
@@ -1569,7 +1579,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 205;
+                p->rule[1] = 206;
             }
         }
         if (p->child_count >= 1 && p->children[0]->rule[10]) {
@@ -1578,7 +1588,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 207;
+                p->rule[1] = 208;
             }
         }
         break;
@@ -1589,7 +1599,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 319;
+                p->rule[1] = 320;
             }
         }
         break;
@@ -1612,7 +1622,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[7]) {
                 p->cost[7] = c;
-                p->rule[7] = 231;
+                p->rule[7] = 232;
                 closure_v128(p, c, node);
             }
         }
@@ -1622,7 +1632,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[7]) {
                 p->cost[7] = c;
-                p->rule[7] = 232;
+                p->rule[7] = 233;
                 closure_v128(p, c, node);
             }
         }
@@ -1634,7 +1644,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[4]) {
                 p->cost[4] = c;
-                p->rule[4] = 179;
+                p->rule[4] = 180;
                 closure_f32(p, c, node);
             }
         }
@@ -1646,7 +1656,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[6]) {
                 p->cost[6] = c;
-                p->rule[6] = 335;
+                p->rule[6] = 336;
                 closure_ref(p, c, node);
             }
         }
@@ -1658,7 +1668,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[2]) {
                 p->cost[2] = c;
-                p->rule[2] = 283;
+                p->rule[2] = 284;
                 closure_i32(p, c, node);
             }
         }
@@ -1668,7 +1678,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[2]) {
                 p->cost[2] = c;
-                p->rule[2] = 284;
+                p->rule[2] = 285;
                 closure_i32(p, c, node);
             }
         }
@@ -1678,7 +1688,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[2]) {
                 p->cost[2] = c;
-                p->rule[2] = 285;
+                p->rule[2] = 286;
                 closure_i32(p, c, node);
             }
         }
@@ -1688,7 +1698,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[3]) {
                 p->cost[3] = c;
-                p->rule[3] = 286;
+                p->rule[3] = 287;
                 closure_i64(p, c, node);
             }
         }
@@ -1698,7 +1708,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[4]) {
                 p->cost[4] = c;
-                p->rule[4] = 287;
+                p->rule[4] = 288;
                 closure_f32(p, c, node);
             }
         }
@@ -1708,7 +1718,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[5]) {
                 p->cost[5] = c;
-                p->rule[5] = 288;
+                p->rule[5] = 289;
                 closure_f64(p, c, node);
             }
         }
@@ -1718,7 +1728,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[6]) {
                 p->cost[6] = c;
-                p->rule[6] = 289;
+                p->rule[6] = 290;
                 closure_ref(p, c, node);
             }
         }
@@ -1728,7 +1738,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[7]) {
                 p->cost[7] = c;
-                p->rule[7] = 290;
+                p->rule[7] = 291;
                 closure_v128(p, c, node);
             }
         }
@@ -1752,7 +1762,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[2]) {
                 p->cost[2] = c;
-                p->rule[2] = 322;
+                p->rule[2] = 323;
                 closure_i32(p, c, node);
             }
         }
@@ -1762,7 +1772,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[2]) {
                 p->cost[2] = c;
-                p->rule[2] = 323;
+                p->rule[2] = 324;
                 closure_i32(p, c, node);
             }
         }
@@ -1772,7 +1782,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[2]) {
                 p->cost[2] = c;
-                p->rule[2] = 324;
+                p->rule[2] = 325;
                 closure_i32(p, c, node);
             }
         }
@@ -1782,7 +1792,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[3]) {
                 p->cost[3] = c;
-                p->rule[3] = 325;
+                p->rule[3] = 326;
                 closure_i64(p, c, node);
             }
         }
@@ -1792,7 +1802,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[4]) {
                 p->cost[4] = c;
-                p->rule[4] = 326;
+                p->rule[4] = 327;
                 closure_f32(p, c, node);
             }
         }
@@ -1802,7 +1812,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[5]) {
                 p->cost[5] = c;
-                p->rule[5] = 327;
+                p->rule[5] = 328;
                 closure_f64(p, c, node);
             }
         }
@@ -1812,7 +1822,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[7]) {
                 p->cost[7] = c;
-                p->rule[7] = 328;
+                p->rule[7] = 329;
                 closure_v128(p, c, node);
             }
         }
@@ -1822,7 +1832,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[6]) {
                 p->cost[6] = c;
-                p->rule[6] = 336;
+                p->rule[6] = 337;
                 closure_ref(p, c, node);
             }
         }
@@ -1834,7 +1844,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[7]) {
                 p->cost[7] = c;
-                p->rule[7] = 229;
+                p->rule[7] = 230;
                 closure_v128(p, c, node);
             }
         }
@@ -1844,7 +1854,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[7]) {
                 p->cost[7] = c;
-                p->rule[7] = 230;
+                p->rule[7] = 231;
                 closure_v128(p, c, node);
             }
         }
@@ -1970,7 +1980,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[2]) {
                 p->cost[2] = c;
-                p->rule[2] = 280;
+                p->rule[2] = 281;
                 closure_i32(p, c, node);
             }
         }
@@ -2202,7 +2212,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[5]) {
                 p->cost[5] = c;
-                p->rule[5] = 190;
+                p->rule[5] = 191;
                 closure_f64(p, c, node);
             }
         }
@@ -2214,7 +2224,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 267;
+                p->rule[1] = 268;
             }
         }
         if (p->child_count >= 1 && p->children[0]->rule[3] && (node->expr_effect.is_void)) {
@@ -2223,7 +2233,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 268;
+                p->rule[1] = 269;
             }
         }
         if (p->child_count >= 1 && p->children[0]->rule[4] && (node->expr_effect.is_void)) {
@@ -2232,7 +2242,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 269;
+                p->rule[1] = 270;
             }
         }
         if (p->child_count >= 1 && p->children[0]->rule[5] && (node->expr_effect.is_void)) {
@@ -2241,7 +2251,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 270;
+                p->rule[1] = 271;
             }
         }
         if (p->child_count >= 1 && p->children[0]->rule[6] && (node->expr_effect.is_void)) {
@@ -2250,7 +2260,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 271;
+                p->rule[1] = 272;
             }
         }
         if (p->child_count >= 1 && p->children[0]->rule[7] && (node->expr_effect.is_void)) {
@@ -2259,7 +2269,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 272;
+                p->rule[1] = 273;
             }
         }
         if (p->child_count >= 1 && p->children[0]->rule[2] && (!node->expr_effect.is_void)) {
@@ -2268,7 +2278,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 273;
+                p->rule[1] = 274;
             }
         }
         if (p->child_count >= 1 && p->children[0]->rule[3] && (!node->expr_effect.is_void)) {
@@ -2277,7 +2287,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 274;
+                p->rule[1] = 275;
             }
         }
         if (p->child_count >= 1 && p->children[0]->rule[4] && (!node->expr_effect.is_void)) {
@@ -2286,7 +2296,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 275;
+                p->rule[1] = 276;
             }
         }
         if (p->child_count >= 1 && p->children[0]->rule[5] && (!node->expr_effect.is_void)) {
@@ -2295,7 +2305,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 276;
+                p->rule[1] = 277;
             }
         }
         if (p->child_count >= 1 && p->children[0]->rule[6] && (!node->expr_effect.is_void)) {
@@ -2304,7 +2314,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 277;
+                p->rule[1] = 278;
             }
         }
         if (p->child_count >= 1 && p->children[0]->rule[7] && (!node->expr_effect.is_void)) {
@@ -2313,7 +2323,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 278;
+                p->rule[1] = 279;
             }
         }
         break;
@@ -2386,7 +2396,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[7]) {
                 p->cost[7] = c;
-                p->rule[7] = 241;
+                p->rule[7] = 242;
                 closure_v128(p, c, node);
             }
         }
@@ -2396,7 +2406,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[7]) {
                 p->cost[7] = c;
-                p->rule[7] = 242;
+                p->rule[7] = 243;
                 closure_v128(p, c, node);
             }
         }
@@ -2432,7 +2442,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 closure_i32(p, c, node);
             }
         }
-        if (p->child_count >= 2 && p->children[0]->rule[3] && p->children[1]->op == BURG_LoadLongConst && (LV(KID(node,1)) == 0)) {
+        if (p->child_count >= 2 && p->children[0]->rule[3] && p->children[1]->op == BURG_I2L && p->children[1]->children[0]->op == BURG_LoadConst && (CV(KID(KID(node,1),0)) == 0)) {
             int c = p->children[0]->cost[3] + 0;
             for (int _ci = 2; _ci < p->child_count; _ci++)
                 c += p->children[_ci]->cost[1];
@@ -2452,7 +2462,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 closure_i32(p, c, node);
             }
         }
-        if (p->child_count >= 2 && p->children[0]->op == BURG_LoadLongConst && p->children[1]->op == BURG_LoadLongConst) {
+        if (p->child_count >= 2 && p->children[0]->op == BURG_LoadLongConst && p->children[1]->op == BURG_I2L && p->children[1]->children[0]->op == BURG_LoadConst) {
             int c = 0 + 2;
             for (int _ci = 2; _ci < p->child_count; _ci++)
                 c += p->children[_ci]->cost[1];
@@ -2470,7 +2480,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 338;
+                p->rule[1] = 339;
             }
         }
         break;
@@ -2493,7 +2503,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 206;
+                p->rule[1] = 207;
             }
         }
         break;
@@ -2712,7 +2722,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 closure_i32(p, c, node);
             }
         }
-        if (p->child_count >= 2 && p->children[0]->rule[3] && p->children[1]->op == BURG_LoadLongConst && (LV(KID(node,1)) == 0)) {
+        if (p->child_count >= 2 && p->children[0]->rule[3] && p->children[1]->op == BURG_I2L && p->children[1]->children[0]->op == BURG_LoadConst && (CV(KID(KID(node,1),0)) == 0)) {
             int c = p->children[0]->cost[3] + 0;
             for (int _ci = 2; _ci < p->child_count; _ci++)
                 c += p->children[_ci]->cost[1];
@@ -2732,7 +2742,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 closure_i32(p, c, node);
             }
         }
-        if (p->child_count >= 2 && p->children[0]->op == BURG_LoadLongConst && p->children[1]->op == BURG_LoadLongConst) {
+        if (p->child_count >= 2 && p->children[0]->op == BURG_LoadLongConst && p->children[1]->op == BURG_I2L && p->children[1]->children[0]->op == BURG_LoadConst) {
             int c = 0 + 2;
             for (int _ci = 2; _ci < p->child_count; _ci++)
                 c += p->children[_ci]->cost[1];
@@ -2750,7 +2760,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[5]) {
                 p->cost[5] = c;
-                p->rule[5] = 177;
+                p->rule[5] = 178;
                 closure_f64(p, c, node);
             }
         }
@@ -2824,7 +2834,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[7]) {
                 p->cost[7] = c;
-                p->rule[7] = 247;
+                p->rule[7] = 248;
                 closure_v128(p, c, node);
             }
         }
@@ -2834,7 +2844,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[7]) {
                 p->cost[7] = c;
-                p->rule[7] = 248;
+                p->rule[7] = 249;
                 closure_v128(p, c, node);
             }
         }
@@ -2858,7 +2868,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[2]) {
                 p->cost[2] = c;
-                p->rule[2] = 298;
+                p->rule[2] = 299;
                 closure_i32(p, c, node);
             }
         }
@@ -2868,7 +2878,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[3]) {
                 p->cost[3] = c;
-                p->rule[3] = 299;
+                p->rule[3] = 300;
                 closure_i64(p, c, node);
             }
         }
@@ -2878,7 +2888,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[4]) {
                 p->cost[4] = c;
-                p->rule[4] = 300;
+                p->rule[4] = 301;
                 closure_f32(p, c, node);
             }
         }
@@ -2888,7 +2898,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[5]) {
                 p->cost[5] = c;
-                p->rule[5] = 301;
+                p->rule[5] = 302;
                 closure_f64(p, c, node);
             }
         }
@@ -2898,7 +2908,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[6]) {
                 p->cost[6] = c;
-                p->rule[6] = 302;
+                p->rule[6] = 303;
                 closure_ref(p, c, node);
             }
         }
@@ -2908,7 +2918,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[7]) {
                 p->cost[7] = c;
-                p->rule[7] = 303;
+                p->rule[7] = 304;
                 closure_v128(p, c, node);
             }
         }
@@ -2920,7 +2930,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 297;
+                p->rule[1] = 298;
             }
         }
         break;
@@ -2943,7 +2953,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[2]) {
                 p->cost[2] = c;
-                p->rule[2] = 196;
+                p->rule[2] = 197;
                 closure_i32(p, c, node);
             }
         }
@@ -2955,7 +2965,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[6]) {
                 p->cost[6] = c;
-                p->rule[6] = 321;
+                p->rule[6] = 322;
                 closure_ref(p, c, node);
             }
         }
@@ -2967,7 +2977,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[2]) {
                 p->cost[2] = c;
-                p->rule[2] = 259;
+                p->rule[2] = 260;
                 closure_i32(p, c, node);
             }
         }
@@ -2979,7 +2989,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[5]) {
                 p->cost[5] = c;
-                p->rule[5] = 194;
+                p->rule[5] = 195;
                 closure_f64(p, c, node);
             }
         }
@@ -2991,7 +3001,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[7]) {
                 p->cost[7] = c;
-                p->rule[7] = 215;
+                p->rule[7] = 216;
                 closure_v128(p, c, node);
             }
         }
@@ -3001,7 +3011,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[7]) {
                 p->cost[7] = c;
-                p->rule[7] = 216;
+                p->rule[7] = 217;
                 closure_v128(p, c, node);
             }
         }
@@ -3043,7 +3053,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 261;
+                p->rule[1] = 262;
             }
         }
         if (p->child_count >= 1 && p->children[0]->rule[2] && (node->inc.data_type == SIR_DTBYTE || node->inc.data_type == SIR_DTSHORT)) {
@@ -3052,7 +3062,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 262;
+                p->rule[1] = 263;
             }
         }
         if (p->child_count >= 1 && p->children[0]->rule[2] && (node->inc.data_type == SIR_DTCHAR)) {
@@ -3061,7 +3071,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 263;
+                p->rule[1] = 264;
             }
         }
         if (p->child_count >= 1 && p->children[0]->rule[3]) {
@@ -3070,7 +3080,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 264;
+                p->rule[1] = 265;
             }
         }
         if (p->child_count >= 1 && p->children[0]->rule[4]) {
@@ -3079,7 +3089,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 265;
+                p->rule[1] = 266;
             }
         }
         if (p->child_count >= 1 && p->children[0]->rule[5]) {
@@ -3088,7 +3098,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 266;
+                p->rule[1] = 267;
             }
         }
         break;
@@ -3263,7 +3273,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[4]) {
                 p->cost[4] = c;
-                p->rule[4] = 182;
+                p->rule[4] = 183;
                 closure_f32(p, c, node);
             }
         }
@@ -3275,7 +3285,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[3]) {
                 p->cost[3] = c;
-                p->rule[3] = 185;
+                p->rule[3] = 186;
                 closure_i64(p, c, node);
             }
         }
@@ -3422,7 +3432,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[3]) {
                 p->cost[3] = c;
-                p->rule[3] = 256;
+                p->rule[3] = 257;
                 closure_i64(p, c, node);
             }
         }
@@ -3434,7 +3444,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[4]) {
                 p->cost[4] = c;
-                p->rule[4] = 176;
+                p->rule[4] = 177;
                 closure_f32(p, c, node);
             }
         }
@@ -3446,7 +3456,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[7]) {
                 p->cost[7] = c;
-                p->rule[7] = 250;
+                p->rule[7] = 251;
                 closure_v128(p, c, node);
             }
         }
@@ -3458,7 +3468,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[2]) {
                 p->cost[2] = c;
-                p->rule[2] = 178;
+                p->rule[2] = 179;
                 closure_i32(p, c, node);
             }
         }
@@ -3470,7 +3480,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 315;
+                p->rule[1] = 316;
             }
         }
         break;
@@ -3481,7 +3491,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[5]) {
                 p->cost[5] = c;
-                p->rule[5] = 193;
+                p->rule[5] = 194;
                 closure_f64(p, c, node);
             }
         }
@@ -3493,7 +3503,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[2]) {
                 p->cost[2] = c;
-                p->rule[2] = 255;
+                p->rule[2] = 256;
                 closure_i32(p, c, node);
             }
         }
@@ -3587,7 +3597,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[5]) {
                 p->cost[5] = c;
-                p->rule[5] = 180;
+                p->rule[5] = 181;
                 closure_f64(p, c, node);
             }
         }
@@ -3599,7 +3609,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[2]) {
                 p->cost[2] = c;
-                p->rule[2] = 195;
+                p->rule[2] = 196;
                 closure_i32(p, c, node);
             }
         }
@@ -3611,7 +3621,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[6]) {
                 p->cost[6] = c;
-                p->rule[6] = 282;
+                p->rule[6] = 283;
                 closure_ref(p, c, node);
             }
         }
@@ -3623,7 +3633,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[5]) {
                 p->cost[5] = c;
-                p->rule[5] = 181;
+                p->rule[5] = 182;
                 closure_f64(p, c, node);
             }
         }
@@ -3677,7 +3687,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[2]) {
                 p->cost[2] = c;
-                p->rule[2] = 183;
+                p->rule[2] = 184;
                 closure_i32(p, c, node);
             }
         }
@@ -3689,7 +3699,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[3]) {
                 p->cost[3] = c;
-                p->rule[3] = 189;
+                p->rule[3] = 190;
                 closure_i64(p, c, node);
             }
         }
@@ -3701,7 +3711,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[5]) {
                 p->cost[5] = c;
-                p->rule[5] = 191;
+                p->rule[5] = 192;
                 closure_f64(p, c, node);
             }
         }
@@ -3713,7 +3723,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[5]) {
                 p->cost[5] = c;
-                p->rule[5] = 192;
+                p->rule[5] = 193;
                 closure_f64(p, c, node);
             }
         }
@@ -3725,7 +3735,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 209;
+                p->rule[1] = 210;
             }
         }
         if (p->child_count >= 1 && p->children[0]->rule[3]) {
@@ -3734,7 +3744,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 210;
+                p->rule[1] = 211;
             }
         }
         if (p->child_count >= 1 && p->children[0]->rule[4]) {
@@ -3743,7 +3753,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 211;
+                p->rule[1] = 212;
             }
         }
         if (p->child_count >= 1 && p->children[0]->rule[5]) {
@@ -3752,7 +3762,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 212;
+                p->rule[1] = 213;
             }
         }
         if (p->child_count >= 1 && p->children[0]->rule[6]) {
@@ -3761,7 +3771,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 213;
+                p->rule[1] = 214;
             }
         }
         if (p->child_count >= 1 && p->children[0]->rule[7]) {
@@ -3770,7 +3780,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 214;
+                p->rule[1] = 215;
             }
         }
         break;
@@ -3781,7 +3791,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[2]) {
                 p->cost[2] = c;
-                p->rule[2] = 197;
+                p->rule[2] = 198;
                 closure_i32(p, c, node);
             }
         }
@@ -3793,7 +3803,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[2]) {
                 p->cost[2] = c;
-                p->rule[2] = 198;
+                p->rule[2] = 199;
                 closure_i32(p, c, node);
             }
         }
@@ -3805,7 +3815,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[2]) {
                 p->cost[2] = c;
-                p->rule[2] = 199;
+                p->rule[2] = 200;
                 closure_i32(p, c, node);
             }
         }
@@ -3817,7 +3827,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[2]) {
                 p->cost[2] = c;
-                p->rule[2] = 339;
+                p->rule[2] = 340;
                 closure_i32(p, c, node);
             }
         }
@@ -3827,7 +3837,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[3]) {
                 p->cost[3] = c;
-                p->rule[3] = 340;
+                p->rule[3] = 341;
                 closure_i64(p, c, node);
             }
         }
@@ -3837,7 +3847,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[4]) {
                 p->cost[4] = c;
-                p->rule[4] = 341;
+                p->rule[4] = 342;
                 closure_f32(p, c, node);
             }
         }
@@ -3847,7 +3857,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[5]) {
                 p->cost[5] = c;
-                p->rule[5] = 342;
+                p->rule[5] = 343;
                 closure_f64(p, c, node);
             }
         }
@@ -3857,7 +3867,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[6]) {
                 p->cost[6] = c;
-                p->rule[6] = 343;
+                p->rule[6] = 344;
                 closure_ref(p, c, node);
             }
         }
@@ -3867,7 +3877,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[7]) {
                 p->cost[7] = c;
-                p->rule[7] = 344;
+                p->rule[7] = 345;
                 closure_v128(p, c, node);
             }
         }
@@ -3877,7 +3887,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[10]) {
                 p->cost[10] = c;
-                p->rule[10] = 363;
+                p->rule[10] = 364;
             }
         }
         break;
@@ -3888,7 +3898,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[5]) {
                 p->cost[5] = c;
-                p->rule[5] = 239;
+                p->rule[5] = 240;
                 closure_f64(p, c, node);
             }
         }
@@ -3898,7 +3908,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[5]) {
                 p->cost[5] = c;
-                p->rule[5] = 240;
+                p->rule[5] = 241;
                 closure_f64(p, c, node);
             }
         }
@@ -3910,7 +3920,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 208;
+                p->rule[1] = 209;
             }
         }
         break;
@@ -3921,7 +3931,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[4]) {
                 p->cost[4] = c;
-                p->rule[4] = 188;
+                p->rule[4] = 189;
                 closure_f32(p, c, node);
             }
         }
@@ -3933,7 +3943,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[7]) {
                 p->cost[7] = c;
-                p->rule[7] = 217;
+                p->rule[7] = 218;
                 closure_v128(p, c, node);
             }
         }
@@ -3943,7 +3953,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[7]) {
                 p->cost[7] = c;
-                p->rule[7] = 218;
+                p->rule[7] = 219;
                 closure_v128(p, c, node);
             }
         }
@@ -4968,21 +4978,21 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         }
         break;
     }
-    case 115: { // i64: Shl(i64, LoadLongConst)
+    case 115: { // i64: Shl(i64, I2L(LoadConst))
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 3, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
         break;
     }
-    case 116: { // i64: Shr(i64, LoadLongConst)
+    case 116: { // i64: Shr(i64, I2L(LoadConst))
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 3, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
         break;
     }
-    case 117: { // i64: Ushr(i64, LoadLongConst)
+    case 117: { // i64: Ushr(i64, I2L(LoadConst))
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 3, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -5115,25 +5125,25 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_I64_CONST); ew_i64(E, LV(KID(node,0)) ^ LV(KID(node,1)));
         break;
     }
-    case 136: { // i64: Shl(LoadLongConst, LoadLongConst)
+    case 136: { // i64: Shl(LoadLongConst, I2L(LoadConst))
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        ew_emit(E, WOP_I64_CONST); ew_i64(E, jf_shl64(LV(KID(node,0)), LV(KID(node,1))));
+        ew_emit(E, WOP_I64_CONST); ew_i64(E, jf_shl64(LV(KID(node,0)), (int64_t)CV(KID(KID(node,1),0))));
         break;
     }
-    case 137: { // i64: Shr(LoadLongConst, LoadLongConst)
+    case 137: { // i64: Shr(LoadLongConst, I2L(LoadConst))
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        ew_emit(E, WOP_I64_CONST); ew_i64(E, jf_shr64(LV(KID(node,0)), LV(KID(node,1))));
+        ew_emit(E, WOP_I64_CONST); ew_i64(E, jf_shr64(LV(KID(node,0)), (int64_t)CV(KID(KID(node,1),0))));
         break;
     }
-    case 138: { // i64: Ushr(LoadLongConst, LoadLongConst)
+    case 138: { // i64: Ushr(LoadLongConst, I2L(LoadConst))
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        ew_emit(E, WOP_I64_CONST); ew_i64(E, jf_ushr64(LV(KID(node,0)), LV(KID(node,1))));
+        ew_emit(E, WOP_I64_CONST); ew_i64(E, jf_ushr64(LV(KID(node,0)), (int64_t)CV(KID(KID(node,1),0))));
         break;
     }
     case 139: { // i64: Neg(LoadLongConst)
@@ -5416,7 +5426,14 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_I64_EXTEND_I32_S);
         break;
     }
-    case 176: { // f32: I2F(i32)
+    case 176: { // i64: I2L(LoadConst)
+        for (int _ci = 1; _ci < state->child_count; _ci++) {
+            burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
+        }
+        ew_emit(E, WOP_I64_CONST); ew_i64(E, (int64_t)CV(KID(node,0)));
+        break;
+    }
+    case 177: { // f32: I2F(i32)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -5424,7 +5441,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_F32_CONVERT_I32_S);
         break;
     }
-    case 177: { // f64: I2D(i32)
+    case 178: { // f64: I2D(i32)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -5432,7 +5449,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_F64_CONVERT_I32_S);
         break;
     }
-    case 178: { // i32: L2I(i64)
+    case 179: { // i32: L2I(i64)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 3, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -5440,7 +5457,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_I32_WRAP_I64);
         break;
     }
-    case 179: { // f32: L2F(i64)
+    case 180: { // f32: L2F(i64)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 3, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -5448,7 +5465,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_F32_CONVERT_I64_S);
         break;
     }
-    case 180: { // f64: L2D(i64)
+    case 181: { // f64: L2D(i64)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 3, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -5456,7 +5473,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_F64_CONVERT_I64_S);
         break;
     }
-    case 181: { // f64: F2D(f32)
+    case 182: { // f64: F2D(f32)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 4, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -5464,7 +5481,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_F64_PROMOTE_F32);
         break;
     }
-    case 182: { // f32: D2F(f64)
+    case 183: { // f32: D2F(f64)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 5, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -5472,7 +5489,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_F32_DEMOTE_F64);
         break;
     }
-    case 183: { // i32: F2I(f32)
+    case 184: { // i32: F2I(f32)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 4, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -5480,7 +5497,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_I32_TRUNC_SAT_F32_S);
         break;
     }
-    case 184: { // i32: D2I(f64)
+    case 185: { // i32: D2I(f64)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 5, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -5488,7 +5505,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_I32_TRUNC_SAT_F64_S);
         break;
     }
-    case 185: { // i64: F2L(f32)
+    case 186: { // i64: F2L(f32)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 4, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -5496,7 +5513,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_I64_TRUNC_SAT_F32_S);
         break;
     }
-    case 186: { // i64: D2L(f64)
+    case 187: { // i64: D2L(f64)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 5, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -5504,7 +5521,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_I64_TRUNC_SAT_F64_S);
         break;
     }
-    case 187: { // i32: MoveF2I(f32)
+    case 188: { // i32: MoveF2I(f32)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 4, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -5512,7 +5529,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_I32_REINTERPRET_F32);
         break;
     }
-    case 188: { // f32: MoveI2F(i32)
+    case 189: { // f32: MoveI2F(i32)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -5520,7 +5537,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_F32_REINTERPRET_I32);
         break;
     }
-    case 189: { // i64: MoveD2L(f64)
+    case 190: { // i64: MoveD2L(f64)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 5, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -5528,7 +5545,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_I64_REINTERPRET_F64);
         break;
     }
-    case 190: { // f64: MoveL2D(i64)
+    case 191: { // f64: MoveL2D(i64)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 3, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -5536,7 +5553,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_F64_REINTERPRET_I64);
         break;
     }
-    case 191: { // f64: F64Sqrt(f64)
+    case 192: { // f64: F64Sqrt(f64)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 5, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -5544,7 +5561,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_F64_SQRT);
         break;
     }
-    case 192: { // f64: F64Floor(f64)
+    case 193: { // f64: F64Floor(f64)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 5, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -5552,7 +5569,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_F64_FLOOR);
         break;
     }
-    case 193: { // f64: F64Ceil(f64)
+    case 194: { // f64: F64Ceil(f64)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 5, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -5560,7 +5577,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_F64_CEIL);
         break;
     }
-    case 194: { // f64: F64Nearest(f64)
+    case 195: { // f64: F64Nearest(f64)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 5, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -5568,7 +5585,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_F64_NEAREST);
         break;
     }
-    case 195: { // i32: I2B(i32)
+    case 196: { // i32: I2B(i32)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -5576,7 +5593,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_I32_EXTEND8_S);
         break;
     }
-    case 196: { // i32: I2S(i32)
+    case 197: { // i32: I2S(i32)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -5584,7 +5601,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_I32_EXTEND16_S);
         break;
     }
-    case 197: { // i32: I2C(i32)
+    case 198: { // i32: I2C(i32)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -5592,7 +5609,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_I32_CONST); ew_i32(E, 0xFFFF); ew_emit(E, WOP_I32_AND);
         break;
     }
-    case 198: { // i32: S2B(i32)
+    case 199: { // i32: S2B(i32)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -5600,7 +5617,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_I32_EXTEND8_S);
         break;
     }
-    case 199: { // i32: S2I(i32)
+    case 200: { // i32: S2I(i32)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -5608,7 +5625,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         /* short→int: both i32, no-op (the operand already an i32) */
         break;
     }
-    case 200: { // stmt: Return(i32)
+    case 201: { // stmt: Return(i32)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -5616,7 +5633,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_RETURN);
         break;
     }
-    case 201: { // stmt: Return(i64)
+    case 202: { // stmt: Return(i64)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 3, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -5624,7 +5641,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_RETURN);
         break;
     }
-    case 202: { // stmt: Return(f32)
+    case 203: { // stmt: Return(f32)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 4, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -5632,7 +5649,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_RETURN);
         break;
     }
-    case 203: { // stmt: Return(f64)
+    case 204: { // stmt: Return(f64)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 5, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -5640,7 +5657,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_RETURN);
         break;
     }
-    case 204: { // stmt: Return(ref)
+    case 205: { // stmt: Return(ref)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -5648,7 +5665,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_RETURN);
         break;
     }
-    case 205: { // stmt: Return(v128)
+    case 206: { // stmt: Return(v128)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 7, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -5656,14 +5673,14 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_RETURN);
         break;
     }
-    case 206: { // stmt: ReturnVoid
+    case 207: { // stmt: ReturnVoid
         for (int _ci = 0; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
         ew_emit(E, WOP_RETURN);
         break;
     }
-    case 207: { // stmt: Return(tail)
+    case 208: { // stmt: Return(tail)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 10, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -5671,7 +5688,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         /* the tail invoke already emitted return_call* and returned */
         break;
     }
-    case 208: { // stmt: Throw(ref)
+    case 209: { // stmt: Throw(ref)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -5679,7 +5696,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_THROW); ew_u32(E, 0);
         break;
     }
-    case 209: { // stmt: StoreLocal(i32)
+    case 210: { // stmt: StoreLocal(i32)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -5687,7 +5704,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_LOCAL_SET); ew_u32(E, node->store_local.slot); cg_jump(E, node);
         break;
     }
-    case 210: { // stmt: StoreLocal(i64)
+    case 211: { // stmt: StoreLocal(i64)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 3, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -5695,7 +5712,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_LOCAL_SET); ew_u32(E, node->store_local.slot); cg_jump(E, node);
         break;
     }
-    case 211: { // stmt: StoreLocal(f32)
+    case 212: { // stmt: StoreLocal(f32)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 4, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -5703,7 +5720,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_LOCAL_SET); ew_u32(E, node->store_local.slot); cg_jump(E, node);
         break;
     }
-    case 212: { // stmt: StoreLocal(f64)
+    case 213: { // stmt: StoreLocal(f64)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 5, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -5711,7 +5728,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_LOCAL_SET); ew_u32(E, node->store_local.slot); cg_jump(E, node);
         break;
     }
-    case 213: { // stmt: StoreLocal(ref)
+    case 214: { // stmt: StoreLocal(ref)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -5719,21 +5736,12 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_LOCAL_SET); ew_u32(E, node->store_local.slot); cg_jump(E, node);
         break;
     }
-    case 214: { // stmt: StoreLocal(v128)
+    case 215: { // stmt: StoreLocal(v128)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 7, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
         ew_emit(E, WOP_LOCAL_SET); ew_u32(E, node->store_local.slot); cg_jump(E, node);
-        break;
-    }
-    case 215: { // v128: SimdBin(v128, v128)
-        burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 7, ctx);
-        burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 7, ctx);
-        for (int _ci = 2; _ci < state->child_count; _ci++) {
-            burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
-        }
-        ew_emit(E, (wasm_op_t)node->simd_bin.op);
         break;
     }
     case 216: { // v128: SimdBin(v128, v128)
@@ -5745,12 +5753,13 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, (wasm_op_t)node->simd_bin.op);
         break;
     }
-    case 217: { // v128: SimdUn(v128)
+    case 217: { // v128: SimdBin(v128, v128)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 7, ctx);
-        for (int _ci = 1; _ci < state->child_count; _ci++) {
+        burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 7, ctx);
+        for (int _ci = 2; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        ew_emit(E, (wasm_op_t)node->simd_un.op);
+        ew_emit(E, (wasm_op_t)node->simd_bin.op);
         break;
     }
     case 218: { // v128: SimdUn(v128)
@@ -5761,13 +5770,12 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, (wasm_op_t)node->simd_un.op);
         break;
     }
-    case 219: { // v128: SimdShift(v128, i32)
+    case 219: { // v128: SimdUn(v128)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 7, ctx);
-        burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
-        for (int _ci = 2; _ci < state->child_count; _ci++) {
+        for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        ew_emit(E, (wasm_op_t)node->simd_shift.op);
+        ew_emit(E, (wasm_op_t)node->simd_un.op);
         break;
     }
     case 220: { // v128: SimdShift(v128, i32)
@@ -5779,14 +5787,13 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, (wasm_op_t)node->simd_shift.op);
         break;
     }
-    case 221: { // v128: SimdTern(v128, v128, v128)
+    case 221: { // v128: SimdShift(v128, i32)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 7, ctx);
-        burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 7, ctx);
-        burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 7, ctx);
-        for (int _ci = 3; _ci < state->child_count; _ci++) {
+        burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
+        for (int _ci = 2; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        ew_emit(E, (wasm_op_t)node->simd_tern.op);
+        ew_emit(E, (wasm_op_t)node->simd_shift.op);
         break;
     }
     case 222: { // v128: SimdTern(v128, v128, v128)
@@ -5799,12 +5806,14 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, (wasm_op_t)node->simd_tern.op);
         break;
     }
-    case 223: { // i32: SimdTestI(v128)
+    case 223: { // v128: SimdTern(v128, v128, v128)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 7, ctx);
-        for (int _ci = 1; _ci < state->child_count; _ci++) {
+        burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 7, ctx);
+        burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 7, ctx);
+        for (int _ci = 3; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        ew_emit(E, (wasm_op_t)node->simd_test_i.op);
+        ew_emit(E, (wasm_op_t)node->simd_tern.op);
         break;
     }
     case 224: { // i32: SimdTestI(v128)
@@ -5815,12 +5824,12 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, (wasm_op_t)node->simd_test_i.op);
         break;
     }
-    case 225: { // v128: SimdSplatI(i32)
-        burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
+    case 225: { // i32: SimdTestI(v128)
+        burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 7, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        ew_emit(E, (wasm_op_t)node->simd_splat_i.op);
+        ew_emit(E, (wasm_op_t)node->simd_test_i.op);
         break;
     }
     case 226: { // v128: SimdSplatI(i32)
@@ -5831,12 +5840,12 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, (wasm_op_t)node->simd_splat_i.op);
         break;
     }
-    case 227: { // v128: SimdSplatL(i64)
-        burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 3, ctx);
+    case 227: { // v128: SimdSplatI(i32)
+        burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        ew_emit(E, (wasm_op_t)node->simd_splat_l.op);
+        ew_emit(E, (wasm_op_t)node->simd_splat_i.op);
         break;
     }
     case 228: { // v128: SimdSplatL(i64)
@@ -5847,12 +5856,12 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, (wasm_op_t)node->simd_splat_l.op);
         break;
     }
-    case 229: { // v128: SimdSplatF(f32)
-        burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 4, ctx);
+    case 229: { // v128: SimdSplatL(i64)
+        burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 3, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        ew_emit(E, (wasm_op_t)node->simd_splat_f.op);
+        ew_emit(E, (wasm_op_t)node->simd_splat_l.op);
         break;
     }
     case 230: { // v128: SimdSplatF(f32)
@@ -5863,12 +5872,12 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, (wasm_op_t)node->simd_splat_f.op);
         break;
     }
-    case 231: { // v128: SimdSplatD(f64)
-        burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 5, ctx);
+    case 231: { // v128: SimdSplatF(f32)
+        burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 4, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        ew_emit(E, (wasm_op_t)node->simd_splat_d.op);
+        ew_emit(E, (wasm_op_t)node->simd_splat_f.op);
         break;
     }
     case 232: { // v128: SimdSplatD(f64)
@@ -5879,12 +5888,12 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, (wasm_op_t)node->simd_splat_d.op);
         break;
     }
-    case 233: { // i32: SimdExtractI(v128)
-        burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 7, ctx);
+    case 233: { // v128: SimdSplatD(f64)
+        burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 5, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        ew_emit(E, (wasm_op_t)node->simd_extract_i.op); ew_byte(E, (uint8_t)node->simd_extract_i.lane);
+        ew_emit(E, (wasm_op_t)node->simd_splat_d.op);
         break;
     }
     case 234: { // i32: SimdExtractI(v128)
@@ -5895,12 +5904,12 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, (wasm_op_t)node->simd_extract_i.op); ew_byte(E, (uint8_t)node->simd_extract_i.lane);
         break;
     }
-    case 235: { // i64: SimdExtractL(v128)
+    case 235: { // i32: SimdExtractI(v128)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 7, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        ew_emit(E, (wasm_op_t)node->simd_extract_l.op); ew_byte(E, (uint8_t)node->simd_extract_l.lane);
+        ew_emit(E, (wasm_op_t)node->simd_extract_i.op); ew_byte(E, (uint8_t)node->simd_extract_i.lane);
         break;
     }
     case 236: { // i64: SimdExtractL(v128)
@@ -5911,12 +5920,12 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, (wasm_op_t)node->simd_extract_l.op); ew_byte(E, (uint8_t)node->simd_extract_l.lane);
         break;
     }
-    case 237: { // f32: SimdExtractF(v128)
+    case 237: { // i64: SimdExtractL(v128)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 7, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        ew_emit(E, (wasm_op_t)node->simd_extract_f.op); ew_byte(E, (uint8_t)node->simd_extract_f.lane);
+        ew_emit(E, (wasm_op_t)node->simd_extract_l.op); ew_byte(E, (uint8_t)node->simd_extract_l.lane);
         break;
     }
     case 238: { // f32: SimdExtractF(v128)
@@ -5927,12 +5936,12 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, (wasm_op_t)node->simd_extract_f.op); ew_byte(E, (uint8_t)node->simd_extract_f.lane);
         break;
     }
-    case 239: { // f64: SimdExtractD(v128)
+    case 239: { // f32: SimdExtractF(v128)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 7, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        ew_emit(E, (wasm_op_t)node->simd_extract_d.op); ew_byte(E, (uint8_t)node->simd_extract_d.lane);
+        ew_emit(E, (wasm_op_t)node->simd_extract_f.op); ew_byte(E, (uint8_t)node->simd_extract_f.lane);
         break;
     }
     case 240: { // f64: SimdExtractD(v128)
@@ -5943,13 +5952,12 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, (wasm_op_t)node->simd_extract_d.op); ew_byte(E, (uint8_t)node->simd_extract_d.lane);
         break;
     }
-    case 241: { // v128: SimdReplaceI(v128, i32)
+    case 241: { // f64: SimdExtractD(v128)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 7, ctx);
-        burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
-        for (int _ci = 2; _ci < state->child_count; _ci++) {
+        for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        ew_emit(E, (wasm_op_t)node->simd_replace_i.op); ew_byte(E, (uint8_t)node->simd_replace_i.lane);
+        ew_emit(E, (wasm_op_t)node->simd_extract_d.op); ew_byte(E, (uint8_t)node->simd_extract_d.lane);
         break;
     }
     case 242: { // v128: SimdReplaceI(v128, i32)
@@ -5961,13 +5969,13 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, (wasm_op_t)node->simd_replace_i.op); ew_byte(E, (uint8_t)node->simd_replace_i.lane);
         break;
     }
-    case 243: { // v128: SimdReplaceL(v128, i64)
+    case 243: { // v128: SimdReplaceI(v128, i32)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 7, ctx);
-        burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 3, ctx);
+        burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        ew_emit(E, (wasm_op_t)node->simd_replace_l.op); ew_byte(E, (uint8_t)node->simd_replace_l.lane);
+        ew_emit(E, (wasm_op_t)node->simd_replace_i.op); ew_byte(E, (uint8_t)node->simd_replace_i.lane);
         break;
     }
     case 244: { // v128: SimdReplaceL(v128, i64)
@@ -5979,13 +5987,13 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, (wasm_op_t)node->simd_replace_l.op); ew_byte(E, (uint8_t)node->simd_replace_l.lane);
         break;
     }
-    case 245: { // v128: SimdReplaceF(v128, f32)
+    case 245: { // v128: SimdReplaceL(v128, i64)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 7, ctx);
-        burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 4, ctx);
+        burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 3, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        ew_emit(E, (wasm_op_t)node->simd_replace_f.op); ew_byte(E, (uint8_t)node->simd_replace_f.lane);
+        ew_emit(E, (wasm_op_t)node->simd_replace_l.op); ew_byte(E, (uint8_t)node->simd_replace_l.lane);
         break;
     }
     case 246: { // v128: SimdReplaceF(v128, f32)
@@ -5997,13 +6005,13 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, (wasm_op_t)node->simd_replace_f.op); ew_byte(E, (uint8_t)node->simd_replace_f.lane);
         break;
     }
-    case 247: { // v128: SimdReplaceD(v128, f64)
+    case 247: { // v128: SimdReplaceF(v128, f32)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 7, ctx);
-        burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 5, ctx);
+        burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 4, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        ew_emit(E, (wasm_op_t)node->simd_replace_d.op); ew_byte(E, (uint8_t)node->simd_replace_d.lane);
+        ew_emit(E, (wasm_op_t)node->simd_replace_f.op); ew_byte(E, (uint8_t)node->simd_replace_f.lane);
         break;
     }
     case 248: { // v128: SimdReplaceD(v128, f64)
@@ -6015,7 +6023,16 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, (wasm_op_t)node->simd_replace_d.op); ew_byte(E, (uint8_t)node->simd_replace_d.lane);
         break;
     }
-    case 249: { // v128: SimdConst
+    case 249: { // v128: SimdReplaceD(v128, f64)
+        burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 7, ctx);
+        burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 5, ctx);
+        for (int _ci = 2; _ci < state->child_count; _ci++) {
+            burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
+        }
+        ew_emit(E, (wasm_op_t)node->simd_replace_d.op); ew_byte(E, (uint8_t)node->simd_replace_d.lane);
+        break;
+    }
+    case 250: { // v128: SimdConst
         for (int _ci = 0; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
@@ -6024,7 +6041,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
                       for (int b = 0; b < 8; b++) ew_byte(E, (uint8_t)((uint64_t)node->simd_const.hi >> (8*b)));
         break;
     }
-    case 250: { // v128: SimdShuffle(v128, v128)
+    case 251: { // v128: SimdShuffle(v128, v128)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 7, ctx);
         burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 7, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -6035,14 +6052,6 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
                       for (int b = 0; b < 8; b++) ew_byte(E, (uint8_t)((uint64_t)node->simd_shuffle.hi >> (8*b)));
         break;
     }
-    case 251: { // v128: SimdMemLoad(i32)
-        burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
-        for (int _ci = 1; _ci < state->child_count; _ci++) {
-            burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
-        }
-        ew_emit(E, (wasm_op_t)node->simd_mem_load.op); ew_u32(E, (uint32_t)node->simd_mem_load.align); ew_u32(E, 0);
-        break;
-    }
     case 252: { // v128: SimdMemLoad(i32)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
@@ -6051,13 +6060,12 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, (wasm_op_t)node->simd_mem_load.op); ew_u32(E, (uint32_t)node->simd_mem_load.align); ew_u32(E, 0);
         break;
     }
-    case 253: { // v128: SimdMemLoadLane(i32, v128)
+    case 253: { // v128: SimdMemLoad(i32)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
-        burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 7, ctx);
-        for (int _ci = 2; _ci < state->child_count; _ci++) {
+        for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        ew_emit(E, (wasm_op_t)node->simd_mem_load_lane.op); ew_u32(E, (uint32_t)node->simd_mem_load_lane.align); ew_u32(E, 0); ew_byte(E, (uint8_t)node->simd_mem_load_lane.lane);
+        ew_emit(E, (wasm_op_t)node->simd_mem_load.op); ew_u32(E, (uint32_t)node->simd_mem_load.align); ew_u32(E, 0);
         break;
     }
     case 254: { // v128: SimdMemLoadLane(i32, v128)
@@ -6069,7 +6077,16 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, (wasm_op_t)node->simd_mem_load_lane.op); ew_u32(E, (uint32_t)node->simd_mem_load_lane.align); ew_u32(E, 0); ew_byte(E, (uint8_t)node->simd_mem_load_lane.lane);
         break;
     }
-    case 255: { // i32: MemLoadI(i32)
+    case 255: { // v128: SimdMemLoadLane(i32, v128)
+        burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
+        burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 7, ctx);
+        for (int _ci = 2; _ci < state->child_count; _ci++) {
+            burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
+        }
+        ew_emit(E, (wasm_op_t)node->simd_mem_load_lane.op); ew_u32(E, (uint32_t)node->simd_mem_load_lane.align); ew_u32(E, 0); ew_byte(E, (uint8_t)node->simd_mem_load_lane.lane);
+        break;
+    }
+    case 256: { // i32: MemLoadI(i32)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -6077,7 +6094,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, (wasm_op_t)node->mem_load_i.op); ew_u32(E, (uint32_t)node->mem_load_i.align); ew_u32(E, 0);
         break;
     }
-    case 256: { // i64: MemLoadL(i32)
+    case 257: { // i64: MemLoadL(i32)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -6085,7 +6102,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, (wasm_op_t)node->mem_load_l.op); ew_u32(E, (uint32_t)node->mem_load_l.align); ew_u32(E, 0);
         break;
     }
-    case 257: { // f32: MemLoadF(i32)
+    case 258: { // f32: MemLoadF(i32)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -6093,7 +6110,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, (wasm_op_t)node->mem_load_f.op); ew_u32(E, (uint32_t)node->mem_load_f.align); ew_u32(E, 0);
         break;
     }
-    case 258: { // f64: MemLoadD(i32)
+    case 259: { // f64: MemLoadD(i32)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -6101,27 +6118,19 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, (wasm_op_t)node->mem_load_d.op); ew_u32(E, (uint32_t)node->mem_load_d.align); ew_u32(E, 0);
         break;
     }
-    case 259: { // i32: MemSize
+    case 260: { // i32: MemSize
         for (int _ci = 0; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
         ew_emit(E, WOP_MEMORY_SIZE); ew_u32(E, 0);
         break;
     }
-    case 260: { // i32: MemGrow(i32)
+    case 261: { // i32: MemGrow(i32)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
         ew_emit(E, WOP_MEMORY_GROW); ew_u32(E, 0);
-        break;
-    }
-    case 261: { // stmt: Inc(i32)
-        burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
-        for (int _ci = 1; _ci < state->child_count; _ci++) {
-            burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
-        }
-        ew_emit(E, WOP_I32_CONST); ew_i32(E, node->inc.delta); ew_emit(E, WOP_I32_ADD); CG_NARROW(E, node->inc.data_type); ew_emit(E, WOP_LOCAL_SET); ew_u32(E, node->inc.slot); cg_jump(E, node);
         break;
     }
     case 262: { // stmt: Inc(i32)
@@ -6140,7 +6149,15 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_I32_CONST); ew_i32(E, node->inc.delta); ew_emit(E, WOP_I32_ADD); CG_NARROW(E, node->inc.data_type); ew_emit(E, WOP_LOCAL_SET); ew_u32(E, node->inc.slot); cg_jump(E, node);
         break;
     }
-    case 264: { // stmt: Inc(i64)
+    case 264: { // stmt: Inc(i32)
+        burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
+        for (int _ci = 1; _ci < state->child_count; _ci++) {
+            burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
+        }
+        ew_emit(E, WOP_I32_CONST); ew_i32(E, node->inc.delta); ew_emit(E, WOP_I32_ADD); CG_NARROW(E, node->inc.data_type); ew_emit(E, WOP_LOCAL_SET); ew_u32(E, node->inc.slot); cg_jump(E, node);
+        break;
+    }
+    case 265: { // stmt: Inc(i64)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 3, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -6148,7 +6165,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_I64_CONST); ew_i64(E, (int64_t)node->inc.delta); ew_emit(E, WOP_I64_ADD); ew_emit(E, WOP_LOCAL_SET); ew_u32(E, node->inc.slot); cg_jump(E, node);
         break;
     }
-    case 265: { // stmt: Inc(f32)
+    case 266: { // stmt: Inc(f32)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 4, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -6156,7 +6173,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_F32_CONST); ew_f32(E, (float)node->inc.delta); ew_emit(E, WOP_F32_ADD); ew_emit(E, WOP_LOCAL_SET); ew_u32(E, node->inc.slot); cg_jump(E, node);
         break;
     }
-    case 266: { // stmt: Inc(f64)
+    case 267: { // stmt: Inc(f64)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 5, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -6164,7 +6181,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_F64_CONST); ew_f64(E, (double)node->inc.delta); ew_emit(E, WOP_F64_ADD); ew_emit(E, WOP_LOCAL_SET); ew_u32(E, node->inc.slot); cg_jump(E, node);
         break;
     }
-    case 267: { // stmt: ExprEffect(i32)
+    case 268: { // stmt: ExprEffect(i32)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -6172,7 +6189,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         cg_jump(E, node);
         break;
     }
-    case 268: { // stmt: ExprEffect(i64)
+    case 269: { // stmt: ExprEffect(i64)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 3, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -6180,7 +6197,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         cg_jump(E, node);
         break;
     }
-    case 269: { // stmt: ExprEffect(f32)
+    case 270: { // stmt: ExprEffect(f32)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 4, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -6188,7 +6205,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         cg_jump(E, node);
         break;
     }
-    case 270: { // stmt: ExprEffect(f64)
+    case 271: { // stmt: ExprEffect(f64)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 5, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -6196,7 +6213,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         cg_jump(E, node);
         break;
     }
-    case 271: { // stmt: ExprEffect(ref)
+    case 272: { // stmt: ExprEffect(ref)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -6204,7 +6221,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         cg_jump(E, node);
         break;
     }
-    case 272: { // stmt: ExprEffect(v128)
+    case 273: { // stmt: ExprEffect(v128)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 7, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -6212,7 +6229,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         cg_jump(E, node);
         break;
     }
-    case 273: { // stmt: ExprEffect(i32)
+    case 274: { // stmt: ExprEffect(i32)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -6220,7 +6237,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_DROP); cg_jump(E, node);
         break;
     }
-    case 274: { // stmt: ExprEffect(i64)
+    case 275: { // stmt: ExprEffect(i64)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 3, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -6228,7 +6245,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_DROP); cg_jump(E, node);
         break;
     }
-    case 275: { // stmt: ExprEffect(f32)
+    case 276: { // stmt: ExprEffect(f32)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 4, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -6236,7 +6253,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_DROP); cg_jump(E, node);
         break;
     }
-    case 276: { // stmt: ExprEffect(f64)
+    case 277: { // stmt: ExprEffect(f64)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 5, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -6244,7 +6261,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_DROP); cg_jump(E, node);
         break;
     }
-    case 277: { // stmt: ExprEffect(ref)
+    case 278: { // stmt: ExprEffect(ref)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -6252,7 +6269,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_DROP); cg_jump(E, node);
         break;
     }
-    case 278: { // stmt: ExprEffect(v128)
+    case 279: { // stmt: ExprEffect(v128)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 7, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -6260,14 +6277,14 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_DROP); cg_jump(E, node);
         break;
     }
-    case 279: { // ref: New
+    case 280: { // ref: New
         for (int _ci = 0; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
         wasm_types_emit_new(ctx->types, E, node->new_.class_id);
         break;
     }
-    case 280: { // i32: ClassInstantiable(ref)
+    case 281: { // i32: ClassInstantiable(ref)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -6278,7 +6295,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
     ew_emit(E, WOP_I32_EQZ);
         break;
     }
-    case 281: { // ref: ClassConstruct(ref)
+    case 282: { // ref: ClassConstruct(ref)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -6289,19 +6306,11 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
     ew_emit(E, WOP_CALL_REF);    ew_u32(E, (uint32_t)wasm_factory_functype_idx(ctx->types));
         break;
     }
-    case 282: { // ref: CloneCopy
+    case 283: { // ref: CloneCopy
         for (int _ci = 0; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
         wasm_types_emit_clone_copy(ctx->types, E, node->clone_copy.class_id);
-        break;
-    }
-    case 283: { // i32: GetField(ref)
-        burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
-        for (int _ci = 1; _ci < state->child_count; _ci++) {
-            burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
-        }
-        ew_emit(E, WOP_STRUCT_GET);   ew_u32(E, struct_idx(node->get_field.class_id)); ew_u32(E, field_abs(node->get_field.class_id, node->get_field.field_idx));
         break;
     }
     case 284: { // i32: GetField(ref)
@@ -6309,7 +6318,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        ew_emit(E, WOP_STRUCT_GET_S); ew_u32(E, struct_idx(node->get_field.class_id)); ew_u32(E, field_abs(node->get_field.class_id, node->get_field.field_idx));
+        ew_emit(E, WOP_STRUCT_GET);   ew_u32(E, struct_idx(node->get_field.class_id)); ew_u32(E, field_abs(node->get_field.class_id, node->get_field.field_idx));
         break;
     }
     case 285: { // i32: GetField(ref)
@@ -6317,10 +6326,18 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
+        ew_emit(E, WOP_STRUCT_GET_S); ew_u32(E, struct_idx(node->get_field.class_id)); ew_u32(E, field_abs(node->get_field.class_id, node->get_field.field_idx));
+        break;
+    }
+    case 286: { // i32: GetField(ref)
+        burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
+        for (int _ci = 1; _ci < state->child_count; _ci++) {
+            burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
+        }
         ew_emit(E, WOP_STRUCT_GET_U); ew_u32(E, struct_idx(node->get_field.class_id)); ew_u32(E, field_abs(node->get_field.class_id, node->get_field.field_idx));
         break;
     }
-    case 286: { // i64: GetField(ref)
+    case 287: { // i64: GetField(ref)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -6328,7 +6345,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_STRUCT_GET); ew_u32(E, struct_idx(node->get_field.class_id)); ew_u32(E, field_abs(node->get_field.class_id, node->get_field.field_idx));
         break;
     }
-    case 287: { // f32: GetField(ref)
+    case 288: { // f32: GetField(ref)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -6336,7 +6353,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_STRUCT_GET); ew_u32(E, struct_idx(node->get_field.class_id)); ew_u32(E, field_abs(node->get_field.class_id, node->get_field.field_idx));
         break;
     }
-    case 288: { // f64: GetField(ref)
+    case 289: { // f64: GetField(ref)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -6344,7 +6361,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_STRUCT_GET); ew_u32(E, struct_idx(node->get_field.class_id)); ew_u32(E, field_abs(node->get_field.class_id, node->get_field.field_idx));
         break;
     }
-    case 289: { // ref: GetField(ref)
+    case 290: { // ref: GetField(ref)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -6352,7 +6369,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_STRUCT_GET); ew_u32(E, struct_idx(node->get_field.class_id)); ew_u32(E, field_abs(node->get_field.class_id, node->get_field.field_idx));
         break;
     }
-    case 290: { // v128: GetField(ref)
+    case 291: { // v128: GetField(ref)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -6360,7 +6377,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_STRUCT_GET); ew_u32(E, struct_idx(node->get_field.class_id)); ew_u32(E, field_abs(node->get_field.class_id, node->get_field.field_idx));
         break;
     }
-    case 291: { // stmt: PutField(ref, i32)
+    case 292: { // stmt: PutField(ref, i32)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -6369,7 +6386,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_STRUCT_SET); ew_u32(E, struct_idx(node->put_field.class_id)); ew_u32(E, field_abs(node->put_field.class_id, node->put_field.field_idx)); cg_jump(E, node);
         break;
     }
-    case 292: { // stmt: PutField(ref, i64)
+    case 293: { // stmt: PutField(ref, i64)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 3, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -6378,7 +6395,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_STRUCT_SET); ew_u32(E, struct_idx(node->put_field.class_id)); ew_u32(E, field_abs(node->put_field.class_id, node->put_field.field_idx)); cg_jump(E, node);
         break;
     }
-    case 293: { // stmt: PutField(ref, f32)
+    case 294: { // stmt: PutField(ref, f32)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 4, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -6387,7 +6404,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_STRUCT_SET); ew_u32(E, struct_idx(node->put_field.class_id)); ew_u32(E, field_abs(node->put_field.class_id, node->put_field.field_idx)); cg_jump(E, node);
         break;
     }
-    case 294: { // stmt: PutField(ref, f64)
+    case 295: { // stmt: PutField(ref, f64)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 5, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -6396,7 +6413,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_STRUCT_SET); ew_u32(E, struct_idx(node->put_field.class_id)); ew_u32(E, field_abs(node->put_field.class_id, node->put_field.field_idx)); cg_jump(E, node);
         break;
     }
-    case 295: { // stmt: PutField(ref, ref)
+    case 296: { // stmt: PutField(ref, ref)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 6, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -6405,7 +6422,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_STRUCT_SET); ew_u32(E, struct_idx(node->put_field.class_id)); ew_u32(E, field_abs(node->put_field.class_id, node->put_field.field_idx)); cg_jump(E, node);
         break;
     }
-    case 296: { // stmt: PutField(ref, v128)
+    case 297: { // stmt: PutField(ref, v128)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 7, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -6414,7 +6431,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_STRUCT_SET); ew_u32(E, struct_idx(node->put_field.class_id)); ew_u32(E, field_abs(node->put_field.class_id, node->put_field.field_idx)); cg_jump(E, node);
         break;
     }
-    case 297: { // stmt: SetHeader(ref, ref)
+    case 298: { // stmt: SetHeader(ref, ref)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 6, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -6423,49 +6440,49 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_STRUCT_SET); ew_u32(E, struct_idx(node->set_header.struct_class_id)); ew_u32(E, 0); cg_jump(E, node);
         break;
     }
-    case 298: { // i32: GetStatic
+    case 299: { // i32: GetStatic
         for (int _ci = 0; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
         ew_emit(E, WOP_GLOBAL_GET); ew_u32(E, global_abs(node->get_static.class_id, node->get_static.field_idx));
         break;
     }
-    case 299: { // i64: GetStatic
+    case 300: { // i64: GetStatic
         for (int _ci = 0; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
         ew_emit(E, WOP_GLOBAL_GET); ew_u32(E, global_abs(node->get_static.class_id, node->get_static.field_idx));
         break;
     }
-    case 300: { // f32: GetStatic
+    case 301: { // f32: GetStatic
         for (int _ci = 0; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
         ew_emit(E, WOP_GLOBAL_GET); ew_u32(E, global_abs(node->get_static.class_id, node->get_static.field_idx));
         break;
     }
-    case 301: { // f64: GetStatic
+    case 302: { // f64: GetStatic
         for (int _ci = 0; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
         ew_emit(E, WOP_GLOBAL_GET); ew_u32(E, global_abs(node->get_static.class_id, node->get_static.field_idx));
         break;
     }
-    case 302: { // ref: GetStatic
+    case 303: { // ref: GetStatic
         for (int _ci = 0; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
         ew_emit(E, WOP_GLOBAL_GET); ew_u32(E, global_abs(node->get_static.class_id, node->get_static.field_idx));
         break;
     }
-    case 303: { // v128: GetStatic
+    case 304: { // v128: GetStatic
         for (int _ci = 0; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
         ew_emit(E, WOP_GLOBAL_GET); ew_u32(E, global_abs(node->get_static.class_id, node->get_static.field_idx));
         break;
     }
-    case 304: { // stmt: PutStatic(i32)
+    case 305: { // stmt: PutStatic(i32)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -6473,7 +6490,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_GLOBAL_SET); ew_u32(E, global_abs(node->put_static.class_id, node->put_static.field_idx)); cg_jump(E, node);
         break;
     }
-    case 305: { // stmt: PutStatic(i64)
+    case 306: { // stmt: PutStatic(i64)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 3, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -6481,7 +6498,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_GLOBAL_SET); ew_u32(E, global_abs(node->put_static.class_id, node->put_static.field_idx)); cg_jump(E, node);
         break;
     }
-    case 306: { // stmt: PutStatic(f32)
+    case 307: { // stmt: PutStatic(f32)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 4, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -6489,7 +6506,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_GLOBAL_SET); ew_u32(E, global_abs(node->put_static.class_id, node->put_static.field_idx)); cg_jump(E, node);
         break;
     }
-    case 307: { // stmt: PutStatic(f64)
+    case 308: { // stmt: PutStatic(f64)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 5, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -6497,7 +6514,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_GLOBAL_SET); ew_u32(E, global_abs(node->put_static.class_id, node->put_static.field_idx)); cg_jump(E, node);
         break;
     }
-    case 308: { // stmt: PutStatic(ref)
+    case 309: { // stmt: PutStatic(ref)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -6505,21 +6522,12 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_GLOBAL_SET); ew_u32(E, global_abs(node->put_static.class_id, node->put_static.field_idx)); cg_jump(E, node);
         break;
     }
-    case 309: { // stmt: PutStatic(v128)
+    case 310: { // stmt: PutStatic(v128)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 7, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
         ew_emit(E, WOP_GLOBAL_SET); ew_u32(E, global_abs(node->put_static.class_id, node->put_static.field_idx)); cg_jump(E, node);
-        break;
-    }
-    case 310: { // stmt: SimdMemStore(i32, v128)
-        burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
-        burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 7, ctx);
-        for (int _ci = 2; _ci < state->child_count; _ci++) {
-            burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
-        }
-        ew_emit(E, (wasm_op_t)node->simd_mem_store.op); ew_u32(E, (uint32_t)node->simd_mem_store.align); ew_u32(E, 0); cg_jump(E, node);
         break;
     }
     case 311: { // stmt: SimdMemStore(i32, v128)
@@ -6531,13 +6539,13 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, (wasm_op_t)node->simd_mem_store.op); ew_u32(E, (uint32_t)node->simd_mem_store.align); ew_u32(E, 0); cg_jump(E, node);
         break;
     }
-    case 312: { // stmt: SimdMemStoreLane(i32, v128)
+    case 312: { // stmt: SimdMemStore(i32, v128)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 7, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        ew_emit(E, (wasm_op_t)node->simd_mem_store_lane.op); ew_u32(E, (uint32_t)node->simd_mem_store_lane.align); ew_u32(E, 0); ew_byte(E, (uint8_t)node->simd_mem_store_lane.lane); cg_jump(E, node);
+        ew_emit(E, (wasm_op_t)node->simd_mem_store.op); ew_u32(E, (uint32_t)node->simd_mem_store.align); ew_u32(E, 0); cg_jump(E, node);
         break;
     }
     case 313: { // stmt: SimdMemStoreLane(i32, v128)
@@ -6549,7 +6557,16 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, (wasm_op_t)node->simd_mem_store_lane.op); ew_u32(E, (uint32_t)node->simd_mem_store_lane.align); ew_u32(E, 0); ew_byte(E, (uint8_t)node->simd_mem_store_lane.lane); cg_jump(E, node);
         break;
     }
-    case 314: { // stmt: MemStoreI(i32, i32)
+    case 314: { // stmt: SimdMemStoreLane(i32, v128)
+        burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
+        burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 7, ctx);
+        for (int _ci = 2; _ci < state->child_count; _ci++) {
+            burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
+        }
+        ew_emit(E, (wasm_op_t)node->simd_mem_store_lane.op); ew_u32(E, (uint32_t)node->simd_mem_store_lane.align); ew_u32(E, 0); ew_byte(E, (uint8_t)node->simd_mem_store_lane.lane); cg_jump(E, node);
+        break;
+    }
+    case 315: { // stmt: MemStoreI(i32, i32)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -6558,7 +6575,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, (wasm_op_t)node->mem_store_i.op); ew_u32(E, (uint32_t)node->mem_store_i.align); ew_u32(E, 0); cg_jump(E, node);
         break;
     }
-    case 315: { // stmt: MemStoreL(i32, i64)
+    case 316: { // stmt: MemStoreL(i32, i64)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 3, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -6567,7 +6584,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, (wasm_op_t)node->mem_store_l.op); ew_u32(E, (uint32_t)node->mem_store_l.align); ew_u32(E, 0); cg_jump(E, node);
         break;
     }
-    case 316: { // stmt: MemStoreF(i32, f32)
+    case 317: { // stmt: MemStoreF(i32, f32)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 4, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -6576,7 +6593,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, (wasm_op_t)node->mem_store_f.op); ew_u32(E, (uint32_t)node->mem_store_f.align); ew_u32(E, 0); cg_jump(E, node);
         break;
     }
-    case 317: { // stmt: MemStoreD(i32, f64)
+    case 318: { // stmt: MemStoreD(i32, f64)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 5, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -6585,7 +6602,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, (wasm_op_t)node->mem_store_d.op); ew_u32(E, (uint32_t)node->mem_store_d.align); ew_u32(E, 0); cg_jump(E, node);
         break;
     }
-    case 318: { // stmt: MemFill(i32, i32, i32)
+    case 319: { // stmt: MemFill(i32, i32, i32)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 2, ctx);
@@ -6595,7 +6612,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_MEMORY_FILL); ew_u32(E, 0); cg_jump(E, node);
         break;
     }
-    case 319: { // stmt: MemCopy(i32, i32, i32)
+    case 320: { // stmt: MemCopy(i32, i32, i32)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 2, ctx);
@@ -6605,7 +6622,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_MEMORY_COPY); ew_u32(E, 0); ew_u32(E, 0); cg_jump(E, node);
         break;
     }
-    case 320: { // ref: NewArray(i32)
+    case 321: { // ref: NewArray(i32)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -6613,7 +6630,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_ARRAY_NEW_DEFAULT); ew_u32(E, wasm_types_array_for_atype(ctx->types, node->new_array.elem_type));
         break;
     }
-    case 321: { // ref: ArrayNewData
+    case 322: { // ref: ArrayNewData
         for (int _ci = 0; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
@@ -6624,7 +6641,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
                             ew_u32(E, (uint32_t)node->array_new_data.seg);
         break;
     }
-    case 322: { // i32: ArrayLoad(ref, i32)
+    case 323: { // i32: ArrayLoad(ref, i32)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -6633,7 +6650,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_ARRAY_GET);   ew_u32(E, wasm_types_array_for_dt(ctx->types, node->array_load.data_type));
         break;
     }
-    case 323: { // i32: ArrayLoad(ref, i32)
+    case 324: { // i32: ArrayLoad(ref, i32)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -6642,7 +6659,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_ARRAY_GET_S); ew_u32(E, wasm_types_array_for_dt(ctx->types, node->array_load.data_type));
         break;
     }
-    case 324: { // i32: ArrayLoad(ref, i32)
+    case 325: { // i32: ArrayLoad(ref, i32)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -6651,7 +6668,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_ARRAY_GET_U); ew_u32(E, wasm_types_array_for_dt(ctx->types, node->array_load.data_type));
         break;
     }
-    case 325: { // i64: ArrayLoad(ref, i32)
+    case 326: { // i64: ArrayLoad(ref, i32)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -6660,7 +6677,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_ARRAY_GET); ew_u32(E, wasm_types_array_for_dt(ctx->types, node->array_load.data_type));
         break;
     }
-    case 326: { // f32: ArrayLoad(ref, i32)
+    case 327: { // f32: ArrayLoad(ref, i32)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -6669,7 +6686,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_ARRAY_GET); ew_u32(E, wasm_types_array_for_dt(ctx->types, node->array_load.data_type));
         break;
     }
-    case 327: { // f64: ArrayLoad(ref, i32)
+    case 328: { // f64: ArrayLoad(ref, i32)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -6678,7 +6695,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_ARRAY_GET); ew_u32(E, wasm_types_array_for_dt(ctx->types, node->array_load.data_type));
         break;
     }
-    case 328: { // v128: ArrayLoad(ref, i32)
+    case 329: { // v128: ArrayLoad(ref, i32)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -6687,7 +6704,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_ARRAY_GET); ew_u32(E, wasm_types_array_for_dt(ctx->types, node->array_load.data_type));
         break;
     }
-    case 329: { // stmt: ArrayStore(ref, i32, i32)
+    case 330: { // stmt: ArrayStore(ref, i32, i32)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 2, ctx);
@@ -6697,7 +6714,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_ARRAY_SET); ew_u32(E, wasm_types_array_for_dt(ctx->types, node->array_store.data_type)); cg_jump(E, node);
         break;
     }
-    case 330: { // stmt: ArrayStore(ref, i32, i64)
+    case 331: { // stmt: ArrayStore(ref, i32, i64)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 3, ctx);
@@ -6707,7 +6724,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_ARRAY_SET); ew_u32(E, wasm_types_array_for_dt(ctx->types, node->array_store.data_type)); cg_jump(E, node);
         break;
     }
-    case 331: { // stmt: ArrayStore(ref, i32, f32)
+    case 332: { // stmt: ArrayStore(ref, i32, f32)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 4, ctx);
@@ -6717,7 +6734,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_ARRAY_SET); ew_u32(E, wasm_types_array_for_dt(ctx->types, node->array_store.data_type)); cg_jump(E, node);
         break;
     }
-    case 332: { // stmt: ArrayStore(ref, i32, f64)
+    case 333: { // stmt: ArrayStore(ref, i32, f64)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 5, ctx);
@@ -6727,7 +6744,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_ARRAY_SET); ew_u32(E, wasm_types_array_for_dt(ctx->types, node->array_store.data_type)); cg_jump(E, node);
         break;
     }
-    case 333: { // stmt: ArrayStore(ref, i32, v128)
+    case 334: { // stmt: ArrayStore(ref, i32, v128)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 7, ctx);
@@ -6737,7 +6754,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_ARRAY_SET); ew_u32(E, wasm_types_array_for_dt(ctx->types, node->array_store.data_type)); cg_jump(E, node);
         break;
     }
-    case 334: { // i32: ArrayLength(ref)
+    case 335: { // i32: ArrayLength(ref)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -6745,7 +6762,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_ARRAY_LEN);
         break;
     }
-    case 335: { // ref: NewRefArray(i32)
+    case 336: { // ref: NewRefArray(i32)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -6753,7 +6770,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_ARRAY_NEW_DEFAULT); ew_u32(E, wasm_types_array_for_dt(ctx->types, SIR_DTREF));
         break;
     }
-    case 336: { // ref: ArrayLoad(ref, i32)
+    case 337: { // ref: ArrayLoad(ref, i32)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -6762,7 +6779,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_ARRAY_GET); ew_u32(E, wasm_types_array_for_dt(ctx->types, SIR_DTREF)); ew_emit(E, WOP_REF_CAST_NULL); ew_i32(E, wasm_types_ref_typeidx(ctx->types, node->array_load.elem_ref));
         break;
     }
-    case 337: { // stmt: ArrayStore(ref, i32, ref)
+    case 338: { // stmt: ArrayStore(ref, i32, ref)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 6, ctx);
@@ -6772,7 +6789,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_ARRAY_SET); ew_u32(E, wasm_types_array_for_dt(ctx->types, SIR_DTREF)); cg_jump(E, node);
         break;
     }
-    case 338: { // stmt: ArrayCopy(ref, i32, ref, i32, i32)
+    case 339: { // stmt: ArrayCopy(ref, i32, ref, i32, i32)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 6, ctx);
@@ -6784,49 +6801,49 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_ARRAY_COPY); ew_u32(E, wasm_types_array_for_dt(ctx->types, node->array_copy.width)); ew_u32(E, wasm_types_array_for_dt(ctx->types, node->array_copy.width)); cg_jump(E, node);
         break;
     }
-    case 339: { // i32: InvokeStatic
+    case 340: { // i32: InvokeStatic
         for (int _ci = 0; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
         ew_emit(E, WOP_CALL); ew_u32(E, wasm_func_index(ctx->types, node->invoke_static.class_id, node->invoke_static.method_idx));
         break;
     }
-    case 340: { // i64: InvokeStatic
+    case 341: { // i64: InvokeStatic
         for (int _ci = 0; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
         ew_emit(E, WOP_CALL); ew_u32(E, wasm_func_index(ctx->types, node->invoke_static.class_id, node->invoke_static.method_idx));
         break;
     }
-    case 341: { // f32: InvokeStatic
+    case 342: { // f32: InvokeStatic
         for (int _ci = 0; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
         ew_emit(E, WOP_CALL); ew_u32(E, wasm_func_index(ctx->types, node->invoke_static.class_id, node->invoke_static.method_idx));
         break;
     }
-    case 342: { // f64: InvokeStatic
+    case 343: { // f64: InvokeStatic
         for (int _ci = 0; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
         ew_emit(E, WOP_CALL); ew_u32(E, wasm_func_index(ctx->types, node->invoke_static.class_id, node->invoke_static.method_idx));
         break;
     }
-    case 343: { // ref: InvokeStatic
+    case 344: { // ref: InvokeStatic
         for (int _ci = 0; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
         ew_emit(E, WOP_CALL); ew_u32(E, wasm_func_index(ctx->types, node->invoke_static.class_id, node->invoke_static.method_idx));
         break;
     }
-    case 344: { // v128: InvokeStatic
+    case 345: { // v128: InvokeStatic
         for (int _ci = 0; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
         ew_emit(E, WOP_CALL); ew_u32(E, wasm_func_index(ctx->types, node->invoke_static.class_id, node->invoke_static.method_idx));
         break;
     }
-    case 345: { // i32: InvokeSpecial(ref)
+    case 346: { // i32: InvokeSpecial(ref)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -6834,7 +6851,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_CALL); ew_u32(E, wasm_func_index(ctx->types, node->invoke_special.class_id, node->invoke_special.method_idx));
         break;
     }
-    case 346: { // i64: InvokeSpecial(ref)
+    case 347: { // i64: InvokeSpecial(ref)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -6842,7 +6859,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_CALL); ew_u32(E, wasm_func_index(ctx->types, node->invoke_special.class_id, node->invoke_special.method_idx));
         break;
     }
-    case 347: { // f32: InvokeSpecial(ref)
+    case 348: { // f32: InvokeSpecial(ref)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -6850,7 +6867,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_CALL); ew_u32(E, wasm_func_index(ctx->types, node->invoke_special.class_id, node->invoke_special.method_idx));
         break;
     }
-    case 348: { // f64: InvokeSpecial(ref)
+    case 349: { // f64: InvokeSpecial(ref)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -6858,7 +6875,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_CALL); ew_u32(E, wasm_func_index(ctx->types, node->invoke_special.class_id, node->invoke_special.method_idx));
         break;
     }
-    case 349: { // ref: InvokeSpecial(ref)
+    case 350: { // ref: InvokeSpecial(ref)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -6866,7 +6883,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_CALL); ew_u32(E, wasm_func_index(ctx->types, node->invoke_special.class_id, node->invoke_special.method_idx));
         break;
     }
-    case 350: { // v128: InvokeSpecial(ref)
+    case 351: { // v128: InvokeSpecial(ref)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -6874,7 +6891,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_CALL); ew_u32(E, wasm_func_index(ctx->types, node->invoke_special.class_id, node->invoke_special.method_idx));
         break;
     }
-    case 351: { // i32: InvokeVirtual(ref)
+    case 352: { // i32: InvokeVirtual(ref)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -6882,7 +6899,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         VCALL(node->invoke_virtual.obj, node->invoke_virtual.class_id, node->invoke_virtual.method_idx);
         break;
     }
-    case 352: { // i64: InvokeVirtual(ref)
+    case 353: { // i64: InvokeVirtual(ref)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -6890,7 +6907,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         VCALL(node->invoke_virtual.obj, node->invoke_virtual.class_id, node->invoke_virtual.method_idx);
         break;
     }
-    case 353: { // f32: InvokeVirtual(ref)
+    case 354: { // f32: InvokeVirtual(ref)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -6898,7 +6915,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         VCALL(node->invoke_virtual.obj, node->invoke_virtual.class_id, node->invoke_virtual.method_idx);
         break;
     }
-    case 354: { // f64: InvokeVirtual(ref)
+    case 355: { // f64: InvokeVirtual(ref)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -6906,7 +6923,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         VCALL(node->invoke_virtual.obj, node->invoke_virtual.class_id, node->invoke_virtual.method_idx);
         break;
     }
-    case 355: { // ref: InvokeVirtual(ref)
+    case 356: { // ref: InvokeVirtual(ref)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -6914,7 +6931,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         VCALL(node->invoke_virtual.obj, node->invoke_virtual.class_id, node->invoke_virtual.method_idx);
         break;
     }
-    case 356: { // v128: InvokeVirtual(ref)
+    case 357: { // v128: InvokeVirtual(ref)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -6922,7 +6939,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         VCALL(node->invoke_virtual.obj, node->invoke_virtual.class_id, node->invoke_virtual.method_idx);
         break;
     }
-    case 357: { // i32: InvokeInterface(ref)
+    case 358: { // i32: InvokeInterface(ref)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -6930,7 +6947,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         IVCALL(node->invoke_interface.obj, node->invoke_interface.class_id, node->invoke_interface.method_idx);
         break;
     }
-    case 358: { // i64: InvokeInterface(ref)
+    case 359: { // i64: InvokeInterface(ref)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -6938,7 +6955,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         IVCALL(node->invoke_interface.obj, node->invoke_interface.class_id, node->invoke_interface.method_idx);
         break;
     }
-    case 359: { // f32: InvokeInterface(ref)
+    case 360: { // f32: InvokeInterface(ref)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -6946,7 +6963,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         IVCALL(node->invoke_interface.obj, node->invoke_interface.class_id, node->invoke_interface.method_idx);
         break;
     }
-    case 360: { // f64: InvokeInterface(ref)
+    case 361: { // f64: InvokeInterface(ref)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -6954,7 +6971,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         IVCALL(node->invoke_interface.obj, node->invoke_interface.class_id, node->invoke_interface.method_idx);
         break;
     }
-    case 361: { // ref: InvokeInterface(ref)
+    case 362: { // ref: InvokeInterface(ref)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -6962,7 +6979,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         IVCALL(node->invoke_interface.obj, node->invoke_interface.class_id, node->invoke_interface.method_idx);
         break;
     }
-    case 362: { // v128: InvokeInterface(ref)
+    case 363: { // v128: InvokeInterface(ref)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -6970,14 +6987,14 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         IVCALL(node->invoke_interface.obj, node->invoke_interface.class_id, node->invoke_interface.method_idx);
         break;
     }
-    case 363: { // tail: InvokeStatic
+    case 364: { // tail: InvokeStatic
         for (int _ci = 0; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
         ew_emit(E, WOP_RETURN_CALL); ew_u32(E, wasm_func_index(ctx->types, node->invoke_static.class_id, node->invoke_static.method_idx));
         break;
     }
-    case 364: { // tail: InvokeSpecial(ref)
+    case 365: { // tail: InvokeSpecial(ref)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -6985,7 +7002,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         ew_emit(E, WOP_RETURN_CALL); ew_u32(E, wasm_func_index(ctx->types, node->invoke_special.class_id, node->invoke_special.method_idx));
         break;
     }
-    case 365: { // tail: InvokeVirtual(ref)
+    case 366: { // tail: InvokeVirtual(ref)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -6993,7 +7010,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         TVCALL(node->invoke_virtual.obj, node->invoke_virtual.class_id, node->invoke_virtual.method_idx);
         break;
     }
-    case 366: { // tail: InvokeInterface(ref)
+    case 367: { // tail: InvokeInterface(ref)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -7001,7 +7018,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
         TIVCALL(node->invoke_interface.obj, node->invoke_interface.class_id, node->invoke_interface.method_idx);
         break;
     }
-    case 367: { // i32: InstanceOf(ref)
+    case 368: { // i32: InstanceOf(ref)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -7015,7 +7032,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
     }
         break;
     }
-    case 368: { // ref: CheckCast(ref)
+    case 369: { // ref: CheckCast(ref)
         burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -7025,7 +7042,7 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
     ew_emit(E, WOP_REF_CAST_NULL); ew_i32(E, struct_idx(_to));
         break;
     }
-    case 369: { // stmt: ExceptionEntry
+    case 370: { // stmt: ExceptionEntry
         for (int _ci = 0; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
@@ -7033,34 +7050,34 @@ void burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, burg_ctx_
     cg_jump(E, node);
         break;
     }
-    case 370: { // stmt: Nop
+    case 371: { // stmt: Nop
         for (int _ci = 0; _ci < state->child_count; _ci++) {
             burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
         /* label anchor — structurer owns the scope */
         break;
     }
-    case 371: { // stmt: i32
+    case 372: { // stmt: i32
         burg_reduce(node, state, 2, ctx);
         break;
     }
-    case 372: { // stmt: i64
+    case 373: { // stmt: i64
         burg_reduce(node, state, 3, ctx);
         break;
     }
-    case 373: { // stmt: f32
+    case 374: { // stmt: f32
         burg_reduce(node, state, 4, ctx);
         break;
     }
-    case 374: { // stmt: f64
+    case 375: { // stmt: f64
         burg_reduce(node, state, 5, ctx);
         break;
     }
-    case 375: { // stmt: ref
+    case 376: { // stmt: ref
         burg_reduce(node, state, 6, ctx);
         break;
     }
-    case 376: { // stmt: v128
+    case 377: { // stmt: v128
         burg_reduce(node, state, 7, ctx);
         break;
     }
@@ -7253,9 +7270,9 @@ static const struct burg_pat_node_t burg_pat_111[] = {{1, (int)BURG_Xor, 2}, {0,
 static const struct burg_pat_node_t burg_pat_112[] = {{1, (int)BURG_Xor, 2}, {1, (int)BURG_LoadLongConst, 0}, {0, (int)3, 0}};
 static const struct burg_pat_node_t burg_pat_113[] = {{1, (int)BURG_And, 2}, {0, (int)3, 0}, {1, (int)BURG_LoadLongConst, 0}};
 static const struct burg_pat_node_t burg_pat_114[] = {{1, (int)BURG_And, 2}, {1, (int)BURG_LoadLongConst, 0}, {0, (int)3, 0}};
-static const struct burg_pat_node_t burg_pat_115[] = {{1, (int)BURG_Shl, 2}, {0, (int)3, 0}, {1, (int)BURG_LoadLongConst, 0}};
-static const struct burg_pat_node_t burg_pat_116[] = {{1, (int)BURG_Shr, 2}, {0, (int)3, 0}, {1, (int)BURG_LoadLongConst, 0}};
-static const struct burg_pat_node_t burg_pat_117[] = {{1, (int)BURG_Ushr, 2}, {0, (int)3, 0}, {1, (int)BURG_LoadLongConst, 0}};
+static const struct burg_pat_node_t burg_pat_115[] = {{1, (int)BURG_Shl, 2}, {0, (int)3, 0}, {1, (int)BURG_I2L, 1}, {1, (int)BURG_LoadConst, 0}};
+static const struct burg_pat_node_t burg_pat_116[] = {{1, (int)BURG_Shr, 2}, {0, (int)3, 0}, {1, (int)BURG_I2L, 1}, {1, (int)BURG_LoadConst, 0}};
+static const struct burg_pat_node_t burg_pat_117[] = {{1, (int)BURG_Ushr, 2}, {0, (int)3, 0}, {1, (int)BURG_I2L, 1}, {1, (int)BURG_LoadConst, 0}};
 static const struct burg_pat_node_t burg_pat_118[] = {{1, (int)BURG_Add, 2}, {1, (int)BURG_LoadConst, 0}, {1, (int)BURG_LoadConst, 0}};
 static const struct burg_pat_node_t burg_pat_119[] = {{1, (int)BURG_Sub, 2}, {1, (int)BURG_LoadConst, 0}, {1, (int)BURG_LoadConst, 0}};
 static const struct burg_pat_node_t burg_pat_120[] = {{1, (int)BURG_Mul, 2}, {1, (int)BURG_LoadConst, 0}, {1, (int)BURG_LoadConst, 0}};
@@ -7274,9 +7291,9 @@ static const struct burg_pat_node_t burg_pat_132[] = {{1, (int)BURG_Mul, 2}, {1,
 static const struct burg_pat_node_t burg_pat_133[] = {{1, (int)BURG_And, 2}, {1, (int)BURG_LoadLongConst, 0}, {1, (int)BURG_LoadLongConst, 0}};
 static const struct burg_pat_node_t burg_pat_134[] = {{1, (int)BURG_Or, 2}, {1, (int)BURG_LoadLongConst, 0}, {1, (int)BURG_LoadLongConst, 0}};
 static const struct burg_pat_node_t burg_pat_135[] = {{1, (int)BURG_Xor, 2}, {1, (int)BURG_LoadLongConst, 0}, {1, (int)BURG_LoadLongConst, 0}};
-static const struct burg_pat_node_t burg_pat_136[] = {{1, (int)BURG_Shl, 2}, {1, (int)BURG_LoadLongConst, 0}, {1, (int)BURG_LoadLongConst, 0}};
-static const struct burg_pat_node_t burg_pat_137[] = {{1, (int)BURG_Shr, 2}, {1, (int)BURG_LoadLongConst, 0}, {1, (int)BURG_LoadLongConst, 0}};
-static const struct burg_pat_node_t burg_pat_138[] = {{1, (int)BURG_Ushr, 2}, {1, (int)BURG_LoadLongConst, 0}, {1, (int)BURG_LoadLongConst, 0}};
+static const struct burg_pat_node_t burg_pat_136[] = {{1, (int)BURG_Shl, 2}, {1, (int)BURG_LoadLongConst, 0}, {1, (int)BURG_I2L, 1}, {1, (int)BURG_LoadConst, 0}};
+static const struct burg_pat_node_t burg_pat_137[] = {{1, (int)BURG_Shr, 2}, {1, (int)BURG_LoadLongConst, 0}, {1, (int)BURG_I2L, 1}, {1, (int)BURG_LoadConst, 0}};
+static const struct burg_pat_node_t burg_pat_138[] = {{1, (int)BURG_Ushr, 2}, {1, (int)BURG_LoadLongConst, 0}, {1, (int)BURG_I2L, 1}, {1, (int)BURG_LoadConst, 0}};
 static const struct burg_pat_node_t burg_pat_139[] = {{1, (int)BURG_Neg, 1}, {1, (int)BURG_LoadLongConst, 0}};
 static const struct burg_pat_node_t burg_pat_140[] = {{1, (int)BURG_Div, 2}, {1, (int)BURG_LoadLongConst, 0}, {1, (int)BURG_LoadLongConst, 0}};
 static const struct burg_pat_node_t burg_pat_141[] = {{1, (int)BURG_Rem, 2}, {1, (int)BURG_LoadLongConst, 0}, {1, (int)BURG_LoadLongConst, 0}};
@@ -7314,114 +7331,114 @@ static const struct burg_pat_node_t burg_pat_172[] = {{1, (int)BURG_Ne, 2}, {1, 
 static const struct burg_pat_node_t burg_pat_173[] = {{1, (int)BURG_Ne, 2}, {0, (int)6, 0}, {1, (int)BURG_LoadNull, 0}};
 static const struct burg_pat_node_t burg_pat_174[] = {{1, (int)BURG_Ne, 2}, {1, (int)BURG_LoadNull, 0}, {0, (int)6, 0}};
 static const struct burg_pat_node_t burg_pat_175[] = {{1, (int)BURG_I2L, 1}, {0, (int)2, 0}};
-static const struct burg_pat_node_t burg_pat_176[] = {{1, (int)BURG_I2F, 1}, {0, (int)2, 0}};
-static const struct burg_pat_node_t burg_pat_177[] = {{1, (int)BURG_I2D, 1}, {0, (int)2, 0}};
-static const struct burg_pat_node_t burg_pat_178[] = {{1, (int)BURG_L2I, 1}, {0, (int)3, 0}};
-static const struct burg_pat_node_t burg_pat_179[] = {{1, (int)BURG_L2F, 1}, {0, (int)3, 0}};
-static const struct burg_pat_node_t burg_pat_180[] = {{1, (int)BURG_L2D, 1}, {0, (int)3, 0}};
-static const struct burg_pat_node_t burg_pat_181[] = {{1, (int)BURG_F2D, 1}, {0, (int)4, 0}};
-static const struct burg_pat_node_t burg_pat_182[] = {{1, (int)BURG_D2F, 1}, {0, (int)5, 0}};
-static const struct burg_pat_node_t burg_pat_183[] = {{1, (int)BURG_F2I, 1}, {0, (int)4, 0}};
-static const struct burg_pat_node_t burg_pat_184[] = {{1, (int)BURG_D2I, 1}, {0, (int)5, 0}};
-static const struct burg_pat_node_t burg_pat_185[] = {{1, (int)BURG_F2L, 1}, {0, (int)4, 0}};
-static const struct burg_pat_node_t burg_pat_186[] = {{1, (int)BURG_D2L, 1}, {0, (int)5, 0}};
-static const struct burg_pat_node_t burg_pat_187[] = {{1, (int)BURG_MoveF2I, 1}, {0, (int)4, 0}};
-static const struct burg_pat_node_t burg_pat_188[] = {{1, (int)BURG_MoveI2F, 1}, {0, (int)2, 0}};
-static const struct burg_pat_node_t burg_pat_189[] = {{1, (int)BURG_MoveD2L, 1}, {0, (int)5, 0}};
-static const struct burg_pat_node_t burg_pat_190[] = {{1, (int)BURG_MoveL2D, 1}, {0, (int)3, 0}};
-static const struct burg_pat_node_t burg_pat_191[] = {{1, (int)BURG_F64Sqrt, 1}, {0, (int)5, 0}};
-static const struct burg_pat_node_t burg_pat_192[] = {{1, (int)BURG_F64Floor, 1}, {0, (int)5, 0}};
-static const struct burg_pat_node_t burg_pat_193[] = {{1, (int)BURG_F64Ceil, 1}, {0, (int)5, 0}};
-static const struct burg_pat_node_t burg_pat_194[] = {{1, (int)BURG_F64Nearest, 1}, {0, (int)5, 0}};
-static const struct burg_pat_node_t burg_pat_195[] = {{1, (int)BURG_I2B, 1}, {0, (int)2, 0}};
-static const struct burg_pat_node_t burg_pat_196[] = {{1, (int)BURG_I2S, 1}, {0, (int)2, 0}};
-static const struct burg_pat_node_t burg_pat_197[] = {{1, (int)BURG_I2C, 1}, {0, (int)2, 0}};
-static const struct burg_pat_node_t burg_pat_198[] = {{1, (int)BURG_S2B, 1}, {0, (int)2, 0}};
-static const struct burg_pat_node_t burg_pat_199[] = {{1, (int)BURG_S2I, 1}, {0, (int)2, 0}};
-static const struct burg_pat_node_t burg_pat_200[] = {{1, (int)BURG_Return, 1}, {0, (int)2, 0}};
-static const struct burg_pat_node_t burg_pat_201[] = {{1, (int)BURG_Return, 1}, {0, (int)3, 0}};
-static const struct burg_pat_node_t burg_pat_202[] = {{1, (int)BURG_Return, 1}, {0, (int)4, 0}};
-static const struct burg_pat_node_t burg_pat_203[] = {{1, (int)BURG_Return, 1}, {0, (int)5, 0}};
-static const struct burg_pat_node_t burg_pat_204[] = {{1, (int)BURG_Return, 1}, {0, (int)6, 0}};
-static const struct burg_pat_node_t burg_pat_205[] = {{1, (int)BURG_Return, 1}, {0, (int)7, 0}};
-static const struct burg_pat_node_t burg_pat_206[] = {{1, (int)BURG_ReturnVoid, 0}};
-static const struct burg_pat_node_t burg_pat_207[] = {{1, (int)BURG_Return, 1}, {0, (int)10, 0}};
-static const struct burg_pat_node_t burg_pat_208[] = {{1, (int)BURG_Throw, 1}, {0, (int)6, 0}};
-static const struct burg_pat_node_t burg_pat_209[] = {{1, (int)BURG_StoreLocal, 1}, {0, (int)2, 0}};
-static const struct burg_pat_node_t burg_pat_210[] = {{1, (int)BURG_StoreLocal, 1}, {0, (int)3, 0}};
-static const struct burg_pat_node_t burg_pat_211[] = {{1, (int)BURG_StoreLocal, 1}, {0, (int)4, 0}};
-static const struct burg_pat_node_t burg_pat_212[] = {{1, (int)BURG_StoreLocal, 1}, {0, (int)5, 0}};
-static const struct burg_pat_node_t burg_pat_213[] = {{1, (int)BURG_StoreLocal, 1}, {0, (int)6, 0}};
-static const struct burg_pat_node_t burg_pat_214[] = {{1, (int)BURG_StoreLocal, 1}, {0, (int)7, 0}};
-static const struct burg_pat_node_t burg_pat_215[] = {{1, (int)BURG_SimdBin, 2}, {0, (int)7, 0}, {0, (int)7, 0}};
+static const struct burg_pat_node_t burg_pat_176[] = {{1, (int)BURG_I2L, 1}, {1, (int)BURG_LoadConst, 0}};
+static const struct burg_pat_node_t burg_pat_177[] = {{1, (int)BURG_I2F, 1}, {0, (int)2, 0}};
+static const struct burg_pat_node_t burg_pat_178[] = {{1, (int)BURG_I2D, 1}, {0, (int)2, 0}};
+static const struct burg_pat_node_t burg_pat_179[] = {{1, (int)BURG_L2I, 1}, {0, (int)3, 0}};
+static const struct burg_pat_node_t burg_pat_180[] = {{1, (int)BURG_L2F, 1}, {0, (int)3, 0}};
+static const struct burg_pat_node_t burg_pat_181[] = {{1, (int)BURG_L2D, 1}, {0, (int)3, 0}};
+static const struct burg_pat_node_t burg_pat_182[] = {{1, (int)BURG_F2D, 1}, {0, (int)4, 0}};
+static const struct burg_pat_node_t burg_pat_183[] = {{1, (int)BURG_D2F, 1}, {0, (int)5, 0}};
+static const struct burg_pat_node_t burg_pat_184[] = {{1, (int)BURG_F2I, 1}, {0, (int)4, 0}};
+static const struct burg_pat_node_t burg_pat_185[] = {{1, (int)BURG_D2I, 1}, {0, (int)5, 0}};
+static const struct burg_pat_node_t burg_pat_186[] = {{1, (int)BURG_F2L, 1}, {0, (int)4, 0}};
+static const struct burg_pat_node_t burg_pat_187[] = {{1, (int)BURG_D2L, 1}, {0, (int)5, 0}};
+static const struct burg_pat_node_t burg_pat_188[] = {{1, (int)BURG_MoveF2I, 1}, {0, (int)4, 0}};
+static const struct burg_pat_node_t burg_pat_189[] = {{1, (int)BURG_MoveI2F, 1}, {0, (int)2, 0}};
+static const struct burg_pat_node_t burg_pat_190[] = {{1, (int)BURG_MoveD2L, 1}, {0, (int)5, 0}};
+static const struct burg_pat_node_t burg_pat_191[] = {{1, (int)BURG_MoveL2D, 1}, {0, (int)3, 0}};
+static const struct burg_pat_node_t burg_pat_192[] = {{1, (int)BURG_F64Sqrt, 1}, {0, (int)5, 0}};
+static const struct burg_pat_node_t burg_pat_193[] = {{1, (int)BURG_F64Floor, 1}, {0, (int)5, 0}};
+static const struct burg_pat_node_t burg_pat_194[] = {{1, (int)BURG_F64Ceil, 1}, {0, (int)5, 0}};
+static const struct burg_pat_node_t burg_pat_195[] = {{1, (int)BURG_F64Nearest, 1}, {0, (int)5, 0}};
+static const struct burg_pat_node_t burg_pat_196[] = {{1, (int)BURG_I2B, 1}, {0, (int)2, 0}};
+static const struct burg_pat_node_t burg_pat_197[] = {{1, (int)BURG_I2S, 1}, {0, (int)2, 0}};
+static const struct burg_pat_node_t burg_pat_198[] = {{1, (int)BURG_I2C, 1}, {0, (int)2, 0}};
+static const struct burg_pat_node_t burg_pat_199[] = {{1, (int)BURG_S2B, 1}, {0, (int)2, 0}};
+static const struct burg_pat_node_t burg_pat_200[] = {{1, (int)BURG_S2I, 1}, {0, (int)2, 0}};
+static const struct burg_pat_node_t burg_pat_201[] = {{1, (int)BURG_Return, 1}, {0, (int)2, 0}};
+static const struct burg_pat_node_t burg_pat_202[] = {{1, (int)BURG_Return, 1}, {0, (int)3, 0}};
+static const struct burg_pat_node_t burg_pat_203[] = {{1, (int)BURG_Return, 1}, {0, (int)4, 0}};
+static const struct burg_pat_node_t burg_pat_204[] = {{1, (int)BURG_Return, 1}, {0, (int)5, 0}};
+static const struct burg_pat_node_t burg_pat_205[] = {{1, (int)BURG_Return, 1}, {0, (int)6, 0}};
+static const struct burg_pat_node_t burg_pat_206[] = {{1, (int)BURG_Return, 1}, {0, (int)7, 0}};
+static const struct burg_pat_node_t burg_pat_207[] = {{1, (int)BURG_ReturnVoid, 0}};
+static const struct burg_pat_node_t burg_pat_208[] = {{1, (int)BURG_Return, 1}, {0, (int)10, 0}};
+static const struct burg_pat_node_t burg_pat_209[] = {{1, (int)BURG_Throw, 1}, {0, (int)6, 0}};
+static const struct burg_pat_node_t burg_pat_210[] = {{1, (int)BURG_StoreLocal, 1}, {0, (int)2, 0}};
+static const struct burg_pat_node_t burg_pat_211[] = {{1, (int)BURG_StoreLocal, 1}, {0, (int)3, 0}};
+static const struct burg_pat_node_t burg_pat_212[] = {{1, (int)BURG_StoreLocal, 1}, {0, (int)4, 0}};
+static const struct burg_pat_node_t burg_pat_213[] = {{1, (int)BURG_StoreLocal, 1}, {0, (int)5, 0}};
+static const struct burg_pat_node_t burg_pat_214[] = {{1, (int)BURG_StoreLocal, 1}, {0, (int)6, 0}};
+static const struct burg_pat_node_t burg_pat_215[] = {{1, (int)BURG_StoreLocal, 1}, {0, (int)7, 0}};
 static const struct burg_pat_node_t burg_pat_216[] = {{1, (int)BURG_SimdBin, 2}, {0, (int)7, 0}, {0, (int)7, 0}};
-static const struct burg_pat_node_t burg_pat_217[] = {{1, (int)BURG_SimdUn, 1}, {0, (int)7, 0}};
+static const struct burg_pat_node_t burg_pat_217[] = {{1, (int)BURG_SimdBin, 2}, {0, (int)7, 0}, {0, (int)7, 0}};
 static const struct burg_pat_node_t burg_pat_218[] = {{1, (int)BURG_SimdUn, 1}, {0, (int)7, 0}};
-static const struct burg_pat_node_t burg_pat_219[] = {{1, (int)BURG_SimdShift, 2}, {0, (int)7, 0}, {0, (int)2, 0}};
+static const struct burg_pat_node_t burg_pat_219[] = {{1, (int)BURG_SimdUn, 1}, {0, (int)7, 0}};
 static const struct burg_pat_node_t burg_pat_220[] = {{1, (int)BURG_SimdShift, 2}, {0, (int)7, 0}, {0, (int)2, 0}};
-static const struct burg_pat_node_t burg_pat_221[] = {{1, (int)BURG_SimdTern, 3}, {0, (int)7, 0}, {0, (int)7, 0}, {0, (int)7, 0}};
+static const struct burg_pat_node_t burg_pat_221[] = {{1, (int)BURG_SimdShift, 2}, {0, (int)7, 0}, {0, (int)2, 0}};
 static const struct burg_pat_node_t burg_pat_222[] = {{1, (int)BURG_SimdTern, 3}, {0, (int)7, 0}, {0, (int)7, 0}, {0, (int)7, 0}};
-static const struct burg_pat_node_t burg_pat_223[] = {{1, (int)BURG_SimdTestI, 1}, {0, (int)7, 0}};
+static const struct burg_pat_node_t burg_pat_223[] = {{1, (int)BURG_SimdTern, 3}, {0, (int)7, 0}, {0, (int)7, 0}, {0, (int)7, 0}};
 static const struct burg_pat_node_t burg_pat_224[] = {{1, (int)BURG_SimdTestI, 1}, {0, (int)7, 0}};
-static const struct burg_pat_node_t burg_pat_225[] = {{1, (int)BURG_SimdSplatI, 1}, {0, (int)2, 0}};
+static const struct burg_pat_node_t burg_pat_225[] = {{1, (int)BURG_SimdTestI, 1}, {0, (int)7, 0}};
 static const struct burg_pat_node_t burg_pat_226[] = {{1, (int)BURG_SimdSplatI, 1}, {0, (int)2, 0}};
-static const struct burg_pat_node_t burg_pat_227[] = {{1, (int)BURG_SimdSplatL, 1}, {0, (int)3, 0}};
+static const struct burg_pat_node_t burg_pat_227[] = {{1, (int)BURG_SimdSplatI, 1}, {0, (int)2, 0}};
 static const struct burg_pat_node_t burg_pat_228[] = {{1, (int)BURG_SimdSplatL, 1}, {0, (int)3, 0}};
-static const struct burg_pat_node_t burg_pat_229[] = {{1, (int)BURG_SimdSplatF, 1}, {0, (int)4, 0}};
+static const struct burg_pat_node_t burg_pat_229[] = {{1, (int)BURG_SimdSplatL, 1}, {0, (int)3, 0}};
 static const struct burg_pat_node_t burg_pat_230[] = {{1, (int)BURG_SimdSplatF, 1}, {0, (int)4, 0}};
-static const struct burg_pat_node_t burg_pat_231[] = {{1, (int)BURG_SimdSplatD, 1}, {0, (int)5, 0}};
+static const struct burg_pat_node_t burg_pat_231[] = {{1, (int)BURG_SimdSplatF, 1}, {0, (int)4, 0}};
 static const struct burg_pat_node_t burg_pat_232[] = {{1, (int)BURG_SimdSplatD, 1}, {0, (int)5, 0}};
-static const struct burg_pat_node_t burg_pat_233[] = {{1, (int)BURG_SimdExtractI, 1}, {0, (int)7, 0}};
+static const struct burg_pat_node_t burg_pat_233[] = {{1, (int)BURG_SimdSplatD, 1}, {0, (int)5, 0}};
 static const struct burg_pat_node_t burg_pat_234[] = {{1, (int)BURG_SimdExtractI, 1}, {0, (int)7, 0}};
-static const struct burg_pat_node_t burg_pat_235[] = {{1, (int)BURG_SimdExtractL, 1}, {0, (int)7, 0}};
+static const struct burg_pat_node_t burg_pat_235[] = {{1, (int)BURG_SimdExtractI, 1}, {0, (int)7, 0}};
 static const struct burg_pat_node_t burg_pat_236[] = {{1, (int)BURG_SimdExtractL, 1}, {0, (int)7, 0}};
-static const struct burg_pat_node_t burg_pat_237[] = {{1, (int)BURG_SimdExtractF, 1}, {0, (int)7, 0}};
+static const struct burg_pat_node_t burg_pat_237[] = {{1, (int)BURG_SimdExtractL, 1}, {0, (int)7, 0}};
 static const struct burg_pat_node_t burg_pat_238[] = {{1, (int)BURG_SimdExtractF, 1}, {0, (int)7, 0}};
-static const struct burg_pat_node_t burg_pat_239[] = {{1, (int)BURG_SimdExtractD, 1}, {0, (int)7, 0}};
+static const struct burg_pat_node_t burg_pat_239[] = {{1, (int)BURG_SimdExtractF, 1}, {0, (int)7, 0}};
 static const struct burg_pat_node_t burg_pat_240[] = {{1, (int)BURG_SimdExtractD, 1}, {0, (int)7, 0}};
-static const struct burg_pat_node_t burg_pat_241[] = {{1, (int)BURG_SimdReplaceI, 2}, {0, (int)7, 0}, {0, (int)2, 0}};
+static const struct burg_pat_node_t burg_pat_241[] = {{1, (int)BURG_SimdExtractD, 1}, {0, (int)7, 0}};
 static const struct burg_pat_node_t burg_pat_242[] = {{1, (int)BURG_SimdReplaceI, 2}, {0, (int)7, 0}, {0, (int)2, 0}};
-static const struct burg_pat_node_t burg_pat_243[] = {{1, (int)BURG_SimdReplaceL, 2}, {0, (int)7, 0}, {0, (int)3, 0}};
+static const struct burg_pat_node_t burg_pat_243[] = {{1, (int)BURG_SimdReplaceI, 2}, {0, (int)7, 0}, {0, (int)2, 0}};
 static const struct burg_pat_node_t burg_pat_244[] = {{1, (int)BURG_SimdReplaceL, 2}, {0, (int)7, 0}, {0, (int)3, 0}};
-static const struct burg_pat_node_t burg_pat_245[] = {{1, (int)BURG_SimdReplaceF, 2}, {0, (int)7, 0}, {0, (int)4, 0}};
+static const struct burg_pat_node_t burg_pat_245[] = {{1, (int)BURG_SimdReplaceL, 2}, {0, (int)7, 0}, {0, (int)3, 0}};
 static const struct burg_pat_node_t burg_pat_246[] = {{1, (int)BURG_SimdReplaceF, 2}, {0, (int)7, 0}, {0, (int)4, 0}};
-static const struct burg_pat_node_t burg_pat_247[] = {{1, (int)BURG_SimdReplaceD, 2}, {0, (int)7, 0}, {0, (int)5, 0}};
+static const struct burg_pat_node_t burg_pat_247[] = {{1, (int)BURG_SimdReplaceF, 2}, {0, (int)7, 0}, {0, (int)4, 0}};
 static const struct burg_pat_node_t burg_pat_248[] = {{1, (int)BURG_SimdReplaceD, 2}, {0, (int)7, 0}, {0, (int)5, 0}};
-static const struct burg_pat_node_t burg_pat_249[] = {{1, (int)BURG_SimdConst, 0}};
-static const struct burg_pat_node_t burg_pat_250[] = {{1, (int)BURG_SimdShuffle, 2}, {0, (int)7, 0}, {0, (int)7, 0}};
-static const struct burg_pat_node_t burg_pat_251[] = {{1, (int)BURG_SimdMemLoad, 1}, {0, (int)2, 0}};
+static const struct burg_pat_node_t burg_pat_249[] = {{1, (int)BURG_SimdReplaceD, 2}, {0, (int)7, 0}, {0, (int)5, 0}};
+static const struct burg_pat_node_t burg_pat_250[] = {{1, (int)BURG_SimdConst, 0}};
+static const struct burg_pat_node_t burg_pat_251[] = {{1, (int)BURG_SimdShuffle, 2}, {0, (int)7, 0}, {0, (int)7, 0}};
 static const struct burg_pat_node_t burg_pat_252[] = {{1, (int)BURG_SimdMemLoad, 1}, {0, (int)2, 0}};
-static const struct burg_pat_node_t burg_pat_253[] = {{1, (int)BURG_SimdMemLoadLane, 2}, {0, (int)2, 0}, {0, (int)7, 0}};
+static const struct burg_pat_node_t burg_pat_253[] = {{1, (int)BURG_SimdMemLoad, 1}, {0, (int)2, 0}};
 static const struct burg_pat_node_t burg_pat_254[] = {{1, (int)BURG_SimdMemLoadLane, 2}, {0, (int)2, 0}, {0, (int)7, 0}};
-static const struct burg_pat_node_t burg_pat_255[] = {{1, (int)BURG_MemLoadI, 1}, {0, (int)2, 0}};
-static const struct burg_pat_node_t burg_pat_256[] = {{1, (int)BURG_MemLoadL, 1}, {0, (int)2, 0}};
-static const struct burg_pat_node_t burg_pat_257[] = {{1, (int)BURG_MemLoadF, 1}, {0, (int)2, 0}};
-static const struct burg_pat_node_t burg_pat_258[] = {{1, (int)BURG_MemLoadD, 1}, {0, (int)2, 0}};
-static const struct burg_pat_node_t burg_pat_259[] = {{1, (int)BURG_MemSize, 0}};
-static const struct burg_pat_node_t burg_pat_260[] = {{1, (int)BURG_MemGrow, 1}, {0, (int)2, 0}};
-static const struct burg_pat_node_t burg_pat_261[] = {{1, (int)BURG_Inc, 1}, {0, (int)2, 0}};
+static const struct burg_pat_node_t burg_pat_255[] = {{1, (int)BURG_SimdMemLoadLane, 2}, {0, (int)2, 0}, {0, (int)7, 0}};
+static const struct burg_pat_node_t burg_pat_256[] = {{1, (int)BURG_MemLoadI, 1}, {0, (int)2, 0}};
+static const struct burg_pat_node_t burg_pat_257[] = {{1, (int)BURG_MemLoadL, 1}, {0, (int)2, 0}};
+static const struct burg_pat_node_t burg_pat_258[] = {{1, (int)BURG_MemLoadF, 1}, {0, (int)2, 0}};
+static const struct burg_pat_node_t burg_pat_259[] = {{1, (int)BURG_MemLoadD, 1}, {0, (int)2, 0}};
+static const struct burg_pat_node_t burg_pat_260[] = {{1, (int)BURG_MemSize, 0}};
+static const struct burg_pat_node_t burg_pat_261[] = {{1, (int)BURG_MemGrow, 1}, {0, (int)2, 0}};
 static const struct burg_pat_node_t burg_pat_262[] = {{1, (int)BURG_Inc, 1}, {0, (int)2, 0}};
 static const struct burg_pat_node_t burg_pat_263[] = {{1, (int)BURG_Inc, 1}, {0, (int)2, 0}};
-static const struct burg_pat_node_t burg_pat_264[] = {{1, (int)BURG_Inc, 1}, {0, (int)3, 0}};
-static const struct burg_pat_node_t burg_pat_265[] = {{1, (int)BURG_Inc, 1}, {0, (int)4, 0}};
-static const struct burg_pat_node_t burg_pat_266[] = {{1, (int)BURG_Inc, 1}, {0, (int)5, 0}};
-static const struct burg_pat_node_t burg_pat_267[] = {{1, (int)BURG_ExprEffect, 1}, {0, (int)2, 0}};
-static const struct burg_pat_node_t burg_pat_268[] = {{1, (int)BURG_ExprEffect, 1}, {0, (int)3, 0}};
-static const struct burg_pat_node_t burg_pat_269[] = {{1, (int)BURG_ExprEffect, 1}, {0, (int)4, 0}};
-static const struct burg_pat_node_t burg_pat_270[] = {{1, (int)BURG_ExprEffect, 1}, {0, (int)5, 0}};
-static const struct burg_pat_node_t burg_pat_271[] = {{1, (int)BURG_ExprEffect, 1}, {0, (int)6, 0}};
-static const struct burg_pat_node_t burg_pat_272[] = {{1, (int)BURG_ExprEffect, 1}, {0, (int)7, 0}};
-static const struct burg_pat_node_t burg_pat_273[] = {{1, (int)BURG_ExprEffect, 1}, {0, (int)2, 0}};
-static const struct burg_pat_node_t burg_pat_274[] = {{1, (int)BURG_ExprEffect, 1}, {0, (int)3, 0}};
-static const struct burg_pat_node_t burg_pat_275[] = {{1, (int)BURG_ExprEffect, 1}, {0, (int)4, 0}};
-static const struct burg_pat_node_t burg_pat_276[] = {{1, (int)BURG_ExprEffect, 1}, {0, (int)5, 0}};
-static const struct burg_pat_node_t burg_pat_277[] = {{1, (int)BURG_ExprEffect, 1}, {0, (int)6, 0}};
-static const struct burg_pat_node_t burg_pat_278[] = {{1, (int)BURG_ExprEffect, 1}, {0, (int)7, 0}};
-static const struct burg_pat_node_t burg_pat_279[] = {{1, (int)BURG_New, 0}};
-static const struct burg_pat_node_t burg_pat_280[] = {{1, (int)BURG_ClassInstantiable, 1}, {0, (int)6, 0}};
-static const struct burg_pat_node_t burg_pat_281[] = {{1, (int)BURG_ClassConstruct, 1}, {0, (int)6, 0}};
-static const struct burg_pat_node_t burg_pat_282[] = {{1, (int)BURG_CloneCopy, 0}};
-static const struct burg_pat_node_t burg_pat_283[] = {{1, (int)BURG_GetField, 1}, {0, (int)6, 0}};
+static const struct burg_pat_node_t burg_pat_264[] = {{1, (int)BURG_Inc, 1}, {0, (int)2, 0}};
+static const struct burg_pat_node_t burg_pat_265[] = {{1, (int)BURG_Inc, 1}, {0, (int)3, 0}};
+static const struct burg_pat_node_t burg_pat_266[] = {{1, (int)BURG_Inc, 1}, {0, (int)4, 0}};
+static const struct burg_pat_node_t burg_pat_267[] = {{1, (int)BURG_Inc, 1}, {0, (int)5, 0}};
+static const struct burg_pat_node_t burg_pat_268[] = {{1, (int)BURG_ExprEffect, 1}, {0, (int)2, 0}};
+static const struct burg_pat_node_t burg_pat_269[] = {{1, (int)BURG_ExprEffect, 1}, {0, (int)3, 0}};
+static const struct burg_pat_node_t burg_pat_270[] = {{1, (int)BURG_ExprEffect, 1}, {0, (int)4, 0}};
+static const struct burg_pat_node_t burg_pat_271[] = {{1, (int)BURG_ExprEffect, 1}, {0, (int)5, 0}};
+static const struct burg_pat_node_t burg_pat_272[] = {{1, (int)BURG_ExprEffect, 1}, {0, (int)6, 0}};
+static const struct burg_pat_node_t burg_pat_273[] = {{1, (int)BURG_ExprEffect, 1}, {0, (int)7, 0}};
+static const struct burg_pat_node_t burg_pat_274[] = {{1, (int)BURG_ExprEffect, 1}, {0, (int)2, 0}};
+static const struct burg_pat_node_t burg_pat_275[] = {{1, (int)BURG_ExprEffect, 1}, {0, (int)3, 0}};
+static const struct burg_pat_node_t burg_pat_276[] = {{1, (int)BURG_ExprEffect, 1}, {0, (int)4, 0}};
+static const struct burg_pat_node_t burg_pat_277[] = {{1, (int)BURG_ExprEffect, 1}, {0, (int)5, 0}};
+static const struct burg_pat_node_t burg_pat_278[] = {{1, (int)BURG_ExprEffect, 1}, {0, (int)6, 0}};
+static const struct burg_pat_node_t burg_pat_279[] = {{1, (int)BURG_ExprEffect, 1}, {0, (int)7, 0}};
+static const struct burg_pat_node_t burg_pat_280[] = {{1, (int)BURG_New, 0}};
+static const struct burg_pat_node_t burg_pat_281[] = {{1, (int)BURG_ClassInstantiable, 1}, {0, (int)6, 0}};
+static const struct burg_pat_node_t burg_pat_282[] = {{1, (int)BURG_ClassConstruct, 1}, {0, (int)6, 0}};
+static const struct burg_pat_node_t burg_pat_283[] = {{1, (int)BURG_CloneCopy, 0}};
 static const struct burg_pat_node_t burg_pat_284[] = {{1, (int)BURG_GetField, 1}, {0, (int)6, 0}};
 static const struct burg_pat_node_t burg_pat_285[] = {{1, (int)BURG_GetField, 1}, {0, (int)6, 0}};
 static const struct burg_pat_node_t burg_pat_286[] = {{1, (int)BURG_GetField, 1}, {0, (int)6, 0}};
@@ -7429,92 +7446,93 @@ static const struct burg_pat_node_t burg_pat_287[] = {{1, (int)BURG_GetField, 1}
 static const struct burg_pat_node_t burg_pat_288[] = {{1, (int)BURG_GetField, 1}, {0, (int)6, 0}};
 static const struct burg_pat_node_t burg_pat_289[] = {{1, (int)BURG_GetField, 1}, {0, (int)6, 0}};
 static const struct burg_pat_node_t burg_pat_290[] = {{1, (int)BURG_GetField, 1}, {0, (int)6, 0}};
-static const struct burg_pat_node_t burg_pat_291[] = {{1, (int)BURG_PutField, 2}, {0, (int)6, 0}, {0, (int)2, 0}};
-static const struct burg_pat_node_t burg_pat_292[] = {{1, (int)BURG_PutField, 2}, {0, (int)6, 0}, {0, (int)3, 0}};
-static const struct burg_pat_node_t burg_pat_293[] = {{1, (int)BURG_PutField, 2}, {0, (int)6, 0}, {0, (int)4, 0}};
-static const struct burg_pat_node_t burg_pat_294[] = {{1, (int)BURG_PutField, 2}, {0, (int)6, 0}, {0, (int)5, 0}};
-static const struct burg_pat_node_t burg_pat_295[] = {{1, (int)BURG_PutField, 2}, {0, (int)6, 0}, {0, (int)6, 0}};
-static const struct burg_pat_node_t burg_pat_296[] = {{1, (int)BURG_PutField, 2}, {0, (int)6, 0}, {0, (int)7, 0}};
-static const struct burg_pat_node_t burg_pat_297[] = {{1, (int)BURG_SetHeader, 2}, {0, (int)6, 0}, {0, (int)6, 0}};
-static const struct burg_pat_node_t burg_pat_298[] = {{1, (int)BURG_GetStatic, 0}};
+static const struct burg_pat_node_t burg_pat_291[] = {{1, (int)BURG_GetField, 1}, {0, (int)6, 0}};
+static const struct burg_pat_node_t burg_pat_292[] = {{1, (int)BURG_PutField, 2}, {0, (int)6, 0}, {0, (int)2, 0}};
+static const struct burg_pat_node_t burg_pat_293[] = {{1, (int)BURG_PutField, 2}, {0, (int)6, 0}, {0, (int)3, 0}};
+static const struct burg_pat_node_t burg_pat_294[] = {{1, (int)BURG_PutField, 2}, {0, (int)6, 0}, {0, (int)4, 0}};
+static const struct burg_pat_node_t burg_pat_295[] = {{1, (int)BURG_PutField, 2}, {0, (int)6, 0}, {0, (int)5, 0}};
+static const struct burg_pat_node_t burg_pat_296[] = {{1, (int)BURG_PutField, 2}, {0, (int)6, 0}, {0, (int)6, 0}};
+static const struct burg_pat_node_t burg_pat_297[] = {{1, (int)BURG_PutField, 2}, {0, (int)6, 0}, {0, (int)7, 0}};
+static const struct burg_pat_node_t burg_pat_298[] = {{1, (int)BURG_SetHeader, 2}, {0, (int)6, 0}, {0, (int)6, 0}};
 static const struct burg_pat_node_t burg_pat_299[] = {{1, (int)BURG_GetStatic, 0}};
 static const struct burg_pat_node_t burg_pat_300[] = {{1, (int)BURG_GetStatic, 0}};
 static const struct burg_pat_node_t burg_pat_301[] = {{1, (int)BURG_GetStatic, 0}};
 static const struct burg_pat_node_t burg_pat_302[] = {{1, (int)BURG_GetStatic, 0}};
 static const struct burg_pat_node_t burg_pat_303[] = {{1, (int)BURG_GetStatic, 0}};
-static const struct burg_pat_node_t burg_pat_304[] = {{1, (int)BURG_PutStatic, 1}, {0, (int)2, 0}};
-static const struct burg_pat_node_t burg_pat_305[] = {{1, (int)BURG_PutStatic, 1}, {0, (int)3, 0}};
-static const struct burg_pat_node_t burg_pat_306[] = {{1, (int)BURG_PutStatic, 1}, {0, (int)4, 0}};
-static const struct burg_pat_node_t burg_pat_307[] = {{1, (int)BURG_PutStatic, 1}, {0, (int)5, 0}};
-static const struct burg_pat_node_t burg_pat_308[] = {{1, (int)BURG_PutStatic, 1}, {0, (int)6, 0}};
-static const struct burg_pat_node_t burg_pat_309[] = {{1, (int)BURG_PutStatic, 1}, {0, (int)7, 0}};
-static const struct burg_pat_node_t burg_pat_310[] = {{1, (int)BURG_SimdMemStore, 2}, {0, (int)2, 0}, {0, (int)7, 0}};
+static const struct burg_pat_node_t burg_pat_304[] = {{1, (int)BURG_GetStatic, 0}};
+static const struct burg_pat_node_t burg_pat_305[] = {{1, (int)BURG_PutStatic, 1}, {0, (int)2, 0}};
+static const struct burg_pat_node_t burg_pat_306[] = {{1, (int)BURG_PutStatic, 1}, {0, (int)3, 0}};
+static const struct burg_pat_node_t burg_pat_307[] = {{1, (int)BURG_PutStatic, 1}, {0, (int)4, 0}};
+static const struct burg_pat_node_t burg_pat_308[] = {{1, (int)BURG_PutStatic, 1}, {0, (int)5, 0}};
+static const struct burg_pat_node_t burg_pat_309[] = {{1, (int)BURG_PutStatic, 1}, {0, (int)6, 0}};
+static const struct burg_pat_node_t burg_pat_310[] = {{1, (int)BURG_PutStatic, 1}, {0, (int)7, 0}};
 static const struct burg_pat_node_t burg_pat_311[] = {{1, (int)BURG_SimdMemStore, 2}, {0, (int)2, 0}, {0, (int)7, 0}};
-static const struct burg_pat_node_t burg_pat_312[] = {{1, (int)BURG_SimdMemStoreLane, 2}, {0, (int)2, 0}, {0, (int)7, 0}};
+static const struct burg_pat_node_t burg_pat_312[] = {{1, (int)BURG_SimdMemStore, 2}, {0, (int)2, 0}, {0, (int)7, 0}};
 static const struct burg_pat_node_t burg_pat_313[] = {{1, (int)BURG_SimdMemStoreLane, 2}, {0, (int)2, 0}, {0, (int)7, 0}};
-static const struct burg_pat_node_t burg_pat_314[] = {{1, (int)BURG_MemStoreI, 2}, {0, (int)2, 0}, {0, (int)2, 0}};
-static const struct burg_pat_node_t burg_pat_315[] = {{1, (int)BURG_MemStoreL, 2}, {0, (int)2, 0}, {0, (int)3, 0}};
-static const struct burg_pat_node_t burg_pat_316[] = {{1, (int)BURG_MemStoreF, 2}, {0, (int)2, 0}, {0, (int)4, 0}};
-static const struct burg_pat_node_t burg_pat_317[] = {{1, (int)BURG_MemStoreD, 2}, {0, (int)2, 0}, {0, (int)5, 0}};
-static const struct burg_pat_node_t burg_pat_318[] = {{1, (int)BURG_MemFill, 3}, {0, (int)2, 0}, {0, (int)2, 0}, {0, (int)2, 0}};
-static const struct burg_pat_node_t burg_pat_319[] = {{1, (int)BURG_MemCopy, 3}, {0, (int)2, 0}, {0, (int)2, 0}, {0, (int)2, 0}};
-static const struct burg_pat_node_t burg_pat_320[] = {{1, (int)BURG_NewArray, 1}, {0, (int)2, 0}};
-static const struct burg_pat_node_t burg_pat_321[] = {{1, (int)BURG_ArrayNewData, 0}};
-static const struct burg_pat_node_t burg_pat_322[] = {{1, (int)BURG_ArrayLoad, 2}, {0, (int)6, 0}, {0, (int)2, 0}};
+static const struct burg_pat_node_t burg_pat_314[] = {{1, (int)BURG_SimdMemStoreLane, 2}, {0, (int)2, 0}, {0, (int)7, 0}};
+static const struct burg_pat_node_t burg_pat_315[] = {{1, (int)BURG_MemStoreI, 2}, {0, (int)2, 0}, {0, (int)2, 0}};
+static const struct burg_pat_node_t burg_pat_316[] = {{1, (int)BURG_MemStoreL, 2}, {0, (int)2, 0}, {0, (int)3, 0}};
+static const struct burg_pat_node_t burg_pat_317[] = {{1, (int)BURG_MemStoreF, 2}, {0, (int)2, 0}, {0, (int)4, 0}};
+static const struct burg_pat_node_t burg_pat_318[] = {{1, (int)BURG_MemStoreD, 2}, {0, (int)2, 0}, {0, (int)5, 0}};
+static const struct burg_pat_node_t burg_pat_319[] = {{1, (int)BURG_MemFill, 3}, {0, (int)2, 0}, {0, (int)2, 0}, {0, (int)2, 0}};
+static const struct burg_pat_node_t burg_pat_320[] = {{1, (int)BURG_MemCopy, 3}, {0, (int)2, 0}, {0, (int)2, 0}, {0, (int)2, 0}};
+static const struct burg_pat_node_t burg_pat_321[] = {{1, (int)BURG_NewArray, 1}, {0, (int)2, 0}};
+static const struct burg_pat_node_t burg_pat_322[] = {{1, (int)BURG_ArrayNewData, 0}};
 static const struct burg_pat_node_t burg_pat_323[] = {{1, (int)BURG_ArrayLoad, 2}, {0, (int)6, 0}, {0, (int)2, 0}};
 static const struct burg_pat_node_t burg_pat_324[] = {{1, (int)BURG_ArrayLoad, 2}, {0, (int)6, 0}, {0, (int)2, 0}};
 static const struct burg_pat_node_t burg_pat_325[] = {{1, (int)BURG_ArrayLoad, 2}, {0, (int)6, 0}, {0, (int)2, 0}};
 static const struct burg_pat_node_t burg_pat_326[] = {{1, (int)BURG_ArrayLoad, 2}, {0, (int)6, 0}, {0, (int)2, 0}};
 static const struct burg_pat_node_t burg_pat_327[] = {{1, (int)BURG_ArrayLoad, 2}, {0, (int)6, 0}, {0, (int)2, 0}};
 static const struct burg_pat_node_t burg_pat_328[] = {{1, (int)BURG_ArrayLoad, 2}, {0, (int)6, 0}, {0, (int)2, 0}};
-static const struct burg_pat_node_t burg_pat_329[] = {{1, (int)BURG_ArrayStore, 3}, {0, (int)6, 0}, {0, (int)2, 0}, {0, (int)2, 0}};
-static const struct burg_pat_node_t burg_pat_330[] = {{1, (int)BURG_ArrayStore, 3}, {0, (int)6, 0}, {0, (int)2, 0}, {0, (int)3, 0}};
-static const struct burg_pat_node_t burg_pat_331[] = {{1, (int)BURG_ArrayStore, 3}, {0, (int)6, 0}, {0, (int)2, 0}, {0, (int)4, 0}};
-static const struct burg_pat_node_t burg_pat_332[] = {{1, (int)BURG_ArrayStore, 3}, {0, (int)6, 0}, {0, (int)2, 0}, {0, (int)5, 0}};
-static const struct burg_pat_node_t burg_pat_333[] = {{1, (int)BURG_ArrayStore, 3}, {0, (int)6, 0}, {0, (int)2, 0}, {0, (int)7, 0}};
-static const struct burg_pat_node_t burg_pat_334[] = {{1, (int)BURG_ArrayLength, 1}, {0, (int)6, 0}};
-static const struct burg_pat_node_t burg_pat_335[] = {{1, (int)BURG_NewRefArray, 1}, {0, (int)2, 0}};
-static const struct burg_pat_node_t burg_pat_336[] = {{1, (int)BURG_ArrayLoad, 2}, {0, (int)6, 0}, {0, (int)2, 0}};
-static const struct burg_pat_node_t burg_pat_337[] = {{1, (int)BURG_ArrayStore, 3}, {0, (int)6, 0}, {0, (int)2, 0}, {0, (int)6, 0}};
-static const struct burg_pat_node_t burg_pat_338[] = {{1, (int)BURG_ArrayCopy, 5}, {0, (int)6, 0}, {0, (int)2, 0}, {0, (int)6, 0}, {0, (int)2, 0}, {0, (int)2, 0}};
-static const struct burg_pat_node_t burg_pat_339[] = {{1, (int)BURG_InvokeStatic, 0}};
+static const struct burg_pat_node_t burg_pat_329[] = {{1, (int)BURG_ArrayLoad, 2}, {0, (int)6, 0}, {0, (int)2, 0}};
+static const struct burg_pat_node_t burg_pat_330[] = {{1, (int)BURG_ArrayStore, 3}, {0, (int)6, 0}, {0, (int)2, 0}, {0, (int)2, 0}};
+static const struct burg_pat_node_t burg_pat_331[] = {{1, (int)BURG_ArrayStore, 3}, {0, (int)6, 0}, {0, (int)2, 0}, {0, (int)3, 0}};
+static const struct burg_pat_node_t burg_pat_332[] = {{1, (int)BURG_ArrayStore, 3}, {0, (int)6, 0}, {0, (int)2, 0}, {0, (int)4, 0}};
+static const struct burg_pat_node_t burg_pat_333[] = {{1, (int)BURG_ArrayStore, 3}, {0, (int)6, 0}, {0, (int)2, 0}, {0, (int)5, 0}};
+static const struct burg_pat_node_t burg_pat_334[] = {{1, (int)BURG_ArrayStore, 3}, {0, (int)6, 0}, {0, (int)2, 0}, {0, (int)7, 0}};
+static const struct burg_pat_node_t burg_pat_335[] = {{1, (int)BURG_ArrayLength, 1}, {0, (int)6, 0}};
+static const struct burg_pat_node_t burg_pat_336[] = {{1, (int)BURG_NewRefArray, 1}, {0, (int)2, 0}};
+static const struct burg_pat_node_t burg_pat_337[] = {{1, (int)BURG_ArrayLoad, 2}, {0, (int)6, 0}, {0, (int)2, 0}};
+static const struct burg_pat_node_t burg_pat_338[] = {{1, (int)BURG_ArrayStore, 3}, {0, (int)6, 0}, {0, (int)2, 0}, {0, (int)6, 0}};
+static const struct burg_pat_node_t burg_pat_339[] = {{1, (int)BURG_ArrayCopy, 5}, {0, (int)6, 0}, {0, (int)2, 0}, {0, (int)6, 0}, {0, (int)2, 0}, {0, (int)2, 0}};
 static const struct burg_pat_node_t burg_pat_340[] = {{1, (int)BURG_InvokeStatic, 0}};
 static const struct burg_pat_node_t burg_pat_341[] = {{1, (int)BURG_InvokeStatic, 0}};
 static const struct burg_pat_node_t burg_pat_342[] = {{1, (int)BURG_InvokeStatic, 0}};
 static const struct burg_pat_node_t burg_pat_343[] = {{1, (int)BURG_InvokeStatic, 0}};
 static const struct burg_pat_node_t burg_pat_344[] = {{1, (int)BURG_InvokeStatic, 0}};
-static const struct burg_pat_node_t burg_pat_345[] = {{1, (int)BURG_InvokeSpecial, 1}, {0, (int)6, 0}};
+static const struct burg_pat_node_t burg_pat_345[] = {{1, (int)BURG_InvokeStatic, 0}};
 static const struct burg_pat_node_t burg_pat_346[] = {{1, (int)BURG_InvokeSpecial, 1}, {0, (int)6, 0}};
 static const struct burg_pat_node_t burg_pat_347[] = {{1, (int)BURG_InvokeSpecial, 1}, {0, (int)6, 0}};
 static const struct burg_pat_node_t burg_pat_348[] = {{1, (int)BURG_InvokeSpecial, 1}, {0, (int)6, 0}};
 static const struct burg_pat_node_t burg_pat_349[] = {{1, (int)BURG_InvokeSpecial, 1}, {0, (int)6, 0}};
 static const struct burg_pat_node_t burg_pat_350[] = {{1, (int)BURG_InvokeSpecial, 1}, {0, (int)6, 0}};
-static const struct burg_pat_node_t burg_pat_351[] = {{1, (int)BURG_InvokeVirtual, 1}, {0, (int)6, 0}};
+static const struct burg_pat_node_t burg_pat_351[] = {{1, (int)BURG_InvokeSpecial, 1}, {0, (int)6, 0}};
 static const struct burg_pat_node_t burg_pat_352[] = {{1, (int)BURG_InvokeVirtual, 1}, {0, (int)6, 0}};
 static const struct burg_pat_node_t burg_pat_353[] = {{1, (int)BURG_InvokeVirtual, 1}, {0, (int)6, 0}};
 static const struct burg_pat_node_t burg_pat_354[] = {{1, (int)BURG_InvokeVirtual, 1}, {0, (int)6, 0}};
 static const struct burg_pat_node_t burg_pat_355[] = {{1, (int)BURG_InvokeVirtual, 1}, {0, (int)6, 0}};
 static const struct burg_pat_node_t burg_pat_356[] = {{1, (int)BURG_InvokeVirtual, 1}, {0, (int)6, 0}};
-static const struct burg_pat_node_t burg_pat_357[] = {{1, (int)BURG_InvokeInterface, 1}, {0, (int)6, 0}};
+static const struct burg_pat_node_t burg_pat_357[] = {{1, (int)BURG_InvokeVirtual, 1}, {0, (int)6, 0}};
 static const struct burg_pat_node_t burg_pat_358[] = {{1, (int)BURG_InvokeInterface, 1}, {0, (int)6, 0}};
 static const struct burg_pat_node_t burg_pat_359[] = {{1, (int)BURG_InvokeInterface, 1}, {0, (int)6, 0}};
 static const struct burg_pat_node_t burg_pat_360[] = {{1, (int)BURG_InvokeInterface, 1}, {0, (int)6, 0}};
 static const struct burg_pat_node_t burg_pat_361[] = {{1, (int)BURG_InvokeInterface, 1}, {0, (int)6, 0}};
 static const struct burg_pat_node_t burg_pat_362[] = {{1, (int)BURG_InvokeInterface, 1}, {0, (int)6, 0}};
-static const struct burg_pat_node_t burg_pat_363[] = {{1, (int)BURG_InvokeStatic, 0}};
-static const struct burg_pat_node_t burg_pat_364[] = {{1, (int)BURG_InvokeSpecial, 1}, {0, (int)6, 0}};
-static const struct burg_pat_node_t burg_pat_365[] = {{1, (int)BURG_InvokeVirtual, 1}, {0, (int)6, 0}};
-static const struct burg_pat_node_t burg_pat_366[] = {{1, (int)BURG_InvokeInterface, 1}, {0, (int)6, 0}};
-static const struct burg_pat_node_t burg_pat_367[] = {{1, (int)BURG_InstanceOf, 1}, {0, (int)6, 0}};
-static const struct burg_pat_node_t burg_pat_368[] = {{1, (int)BURG_CheckCast, 1}, {0, (int)6, 0}};
-static const struct burg_pat_node_t burg_pat_369[] = {{1, (int)BURG_ExceptionEntry, 0}};
-static const struct burg_pat_node_t burg_pat_370[] = {{1, (int)BURG_Nop, 0}};
-static const struct burg_pat_node_t burg_pat_371[] = {{0, (int)2, 0}};
-static const struct burg_pat_node_t burg_pat_372[] = {{0, (int)3, 0}};
-static const struct burg_pat_node_t burg_pat_373[] = {{0, (int)4, 0}};
-static const struct burg_pat_node_t burg_pat_374[] = {{0, (int)5, 0}};
-static const struct burg_pat_node_t burg_pat_375[] = {{0, (int)6, 0}};
-static const struct burg_pat_node_t burg_pat_376[] = {{0, (int)7, 0}};
+static const struct burg_pat_node_t burg_pat_363[] = {{1, (int)BURG_InvokeInterface, 1}, {0, (int)6, 0}};
+static const struct burg_pat_node_t burg_pat_364[] = {{1, (int)BURG_InvokeStatic, 0}};
+static const struct burg_pat_node_t burg_pat_365[] = {{1, (int)BURG_InvokeSpecial, 1}, {0, (int)6, 0}};
+static const struct burg_pat_node_t burg_pat_366[] = {{1, (int)BURG_InvokeVirtual, 1}, {0, (int)6, 0}};
+static const struct burg_pat_node_t burg_pat_367[] = {{1, (int)BURG_InvokeInterface, 1}, {0, (int)6, 0}};
+static const struct burg_pat_node_t burg_pat_368[] = {{1, (int)BURG_InstanceOf, 1}, {0, (int)6, 0}};
+static const struct burg_pat_node_t burg_pat_369[] = {{1, (int)BURG_CheckCast, 1}, {0, (int)6, 0}};
+static const struct burg_pat_node_t burg_pat_370[] = {{1, (int)BURG_ExceptionEntry, 0}};
+static const struct burg_pat_node_t burg_pat_371[] = {{1, (int)BURG_Nop, 0}};
+static const struct burg_pat_node_t burg_pat_372[] = {{0, (int)2, 0}};
+static const struct burg_pat_node_t burg_pat_373[] = {{0, (int)3, 0}};
+static const struct burg_pat_node_t burg_pat_374[] = {{0, (int)4, 0}};
+static const struct burg_pat_node_t burg_pat_375[] = {{0, (int)5, 0}};
+static const struct burg_pat_node_t burg_pat_376[] = {{0, (int)6, 0}};
+static const struct burg_pat_node_t burg_pat_377[] = {{0, (int)7, 0}};
 
 const struct burg_rule_row_t burg_rule_table[] = {
     {1, 2, 2, 1, burg_pat_1, 0},  /* i32: LoadConst */
@@ -7631,9 +7649,9 @@ const struct burg_rule_row_t burg_rule_table[] = {
     {112, 3, 0, 3, burg_pat_112, 1},  /* i64: Xor(LoadLongConst, i64) */
     {113, 3, 0, 3, burg_pat_113, 1},  /* i64: And(i64, LoadLongConst) */
     {114, 3, 0, 3, burg_pat_114, 1},  /* i64: And(LoadLongConst, i64) */
-    {115, 3, 0, 3, burg_pat_115, 1},  /* i64: Shl(i64, LoadLongConst) */
-    {116, 3, 0, 3, burg_pat_116, 1},  /* i64: Shr(i64, LoadLongConst) */
-    {117, 3, 0, 3, burg_pat_117, 1},  /* i64: Ushr(i64, LoadLongConst) */
+    {115, 3, 0, 4, burg_pat_115, 1},  /* i64: Shl(i64, I2L(LoadConst)) */
+    {116, 3, 0, 4, burg_pat_116, 1},  /* i64: Shr(i64, I2L(LoadConst)) */
+    {117, 3, 0, 4, burg_pat_117, 1},  /* i64: Ushr(i64, I2L(LoadConst)) */
     {118, 2, 2, 3, burg_pat_118, 0},  /* i32: Add(LoadConst, LoadConst) */
     {119, 2, 2, 3, burg_pat_119, 0},  /* i32: Sub(LoadConst, LoadConst) */
     {120, 2, 2, 3, burg_pat_120, 0},  /* i32: Mul(LoadConst, LoadConst) */
@@ -7652,9 +7670,9 @@ const struct burg_rule_row_t burg_rule_table[] = {
     {133, 3, 2, 3, burg_pat_133, 0},  /* i64: And(LoadLongConst, LoadLongConst) */
     {134, 3, 2, 3, burg_pat_134, 0},  /* i64: Or(LoadLongConst, LoadLongConst) */
     {135, 3, 2, 3, burg_pat_135, 0},  /* i64: Xor(LoadLongConst, LoadLongConst) */
-    {136, 3, 2, 3, burg_pat_136, 0},  /* i64: Shl(LoadLongConst, LoadLongConst) */
-    {137, 3, 2, 3, burg_pat_137, 0},  /* i64: Shr(LoadLongConst, LoadLongConst) */
-    {138, 3, 2, 3, burg_pat_138, 0},  /* i64: Ushr(LoadLongConst, LoadLongConst) */
+    {136, 3, 2, 4, burg_pat_136, 0},  /* i64: Shl(LoadLongConst, I2L(LoadConst)) */
+    {137, 3, 2, 4, burg_pat_137, 0},  /* i64: Shr(LoadLongConst, I2L(LoadConst)) */
+    {138, 3, 2, 4, burg_pat_138, 0},  /* i64: Ushr(LoadLongConst, I2L(LoadConst)) */
     {139, 3, 2, 2, burg_pat_139, 0},  /* i64: Neg(LoadLongConst) */
     {140, 3, 2, 3, burg_pat_140, 1},  /* i64: Div(LoadLongConst, LoadLongConst) */
     {141, 3, 2, 3, burg_pat_141, 1},  /* i64: Rem(LoadLongConst, LoadLongConst) */
@@ -7692,209 +7710,210 @@ const struct burg_rule_row_t burg_rule_table[] = {
     {173, 9, 1, 3, burg_pat_173, 0},  /* ncond: Ne(ref, LoadNull) */
     {174, 9, 1, 3, burg_pat_174, 0},  /* ncond: Ne(LoadNull, ref) */
     {175, 3, 1, 2, burg_pat_175, 0},  /* i64: I2L(i32) */
-    {176, 4, 1, 2, burg_pat_176, 0},  /* f32: I2F(i32) */
-    {177, 5, 1, 2, burg_pat_177, 0},  /* f64: I2D(i32) */
-    {178, 2, 1, 2, burg_pat_178, 0},  /* i32: L2I(i64) */
-    {179, 4, 1, 2, burg_pat_179, 0},  /* f32: L2F(i64) */
-    {180, 5, 1, 2, burg_pat_180, 0},  /* f64: L2D(i64) */
-    {181, 5, 1, 2, burg_pat_181, 0},  /* f64: F2D(f32) */
-    {182, 4, 1, 2, burg_pat_182, 0},  /* f32: D2F(f64) */
-    {183, 2, 2, 2, burg_pat_183, 0},  /* i32: F2I(f32) */
-    {184, 2, 2, 2, burg_pat_184, 0},  /* i32: D2I(f64) */
-    {185, 3, 2, 2, burg_pat_185, 0},  /* i64: F2L(f32) */
-    {186, 3, 2, 2, burg_pat_186, 0},  /* i64: D2L(f64) */
-    {187, 2, 1, 2, burg_pat_187, 0},  /* i32: MoveF2I(f32) */
-    {188, 4, 1, 2, burg_pat_188, 0},  /* f32: MoveI2F(i32) */
-    {189, 3, 1, 2, burg_pat_189, 0},  /* i64: MoveD2L(f64) */
-    {190, 5, 1, 2, burg_pat_190, 0},  /* f64: MoveL2D(i64) */
-    {191, 5, 1, 2, burg_pat_191, 0},  /* f64: F64Sqrt(f64) */
-    {192, 5, 1, 2, burg_pat_192, 0},  /* f64: F64Floor(f64) */
-    {193, 5, 1, 2, burg_pat_193, 0},  /* f64: F64Ceil(f64) */
-    {194, 5, 1, 2, burg_pat_194, 0},  /* f64: F64Nearest(f64) */
-    {195, 2, 1, 2, burg_pat_195, 0},  /* i32: I2B(i32) */
-    {196, 2, 1, 2, burg_pat_196, 0},  /* i32: I2S(i32) */
-    {197, 2, 5, 2, burg_pat_197, 0},  /* i32: I2C(i32) */
-    {198, 2, 1, 2, burg_pat_198, 0},  /* i32: S2B(i32) */
-    {199, 2, 0, 2, burg_pat_199, 0},  /* i32: S2I(i32) */
-    {200, 1, 1, 2, burg_pat_200, 0},  /* stmt: Return(i32) */
-    {201, 1, 1, 2, burg_pat_201, 0},  /* stmt: Return(i64) */
-    {202, 1, 1, 2, burg_pat_202, 0},  /* stmt: Return(f32) */
-    {203, 1, 1, 2, burg_pat_203, 0},  /* stmt: Return(f64) */
-    {204, 1, 1, 2, burg_pat_204, 0},  /* stmt: Return(ref) */
-    {205, 1, 1, 2, burg_pat_205, 0},  /* stmt: Return(v128) */
-    {206, 1, 1, 1, burg_pat_206, 0},  /* stmt: ReturnVoid */
-    {207, 1, 0, 2, burg_pat_207, 0},  /* stmt: Return(tail) */
-    {208, 1, 2, 2, burg_pat_208, 0},  /* stmt: Throw(ref) */
-    {209, 1, 2, 2, burg_pat_209, 0},  /* stmt: StoreLocal(i32) */
-    {210, 1, 2, 2, burg_pat_210, 0},  /* stmt: StoreLocal(i64) */
-    {211, 1, 2, 2, burg_pat_211, 0},  /* stmt: StoreLocal(f32) */
-    {212, 1, 2, 2, burg_pat_212, 0},  /* stmt: StoreLocal(f64) */
-    {213, 1, 2, 2, burg_pat_213, 0},  /* stmt: StoreLocal(ref) */
-    {214, 1, 2, 2, burg_pat_214, 0},  /* stmt: StoreLocal(v128) */
-    {215, 7, 2, 3, burg_pat_215, 1},  /* v128: SimdBin(v128, v128) */
-    {216, 7, 3, 3, burg_pat_216, 1},  /* v128: SimdBin(v128, v128) */
-    {217, 7, 2, 2, burg_pat_217, 1},  /* v128: SimdUn(v128) */
-    {218, 7, 3, 2, burg_pat_218, 1},  /* v128: SimdUn(v128) */
-    {219, 7, 2, 3, burg_pat_219, 1},  /* v128: SimdShift(v128, i32) */
-    {220, 7, 3, 3, burg_pat_220, 1},  /* v128: SimdShift(v128, i32) */
-    {221, 7, 2, 4, burg_pat_221, 1},  /* v128: SimdTern(v128, v128, v128) */
-    {222, 7, 3, 4, burg_pat_222, 1},  /* v128: SimdTern(v128, v128, v128) */
-    {223, 2, 2, 2, burg_pat_223, 1},  /* i32: SimdTestI(v128) */
-    {224, 2, 3, 2, burg_pat_224, 1},  /* i32: SimdTestI(v128) */
-    {225, 7, 2, 2, burg_pat_225, 1},  /* v128: SimdSplatI(i32) */
-    {226, 7, 3, 2, burg_pat_226, 1},  /* v128: SimdSplatI(i32) */
-    {227, 7, 2, 2, burg_pat_227, 1},  /* v128: SimdSplatL(i64) */
-    {228, 7, 3, 2, burg_pat_228, 1},  /* v128: SimdSplatL(i64) */
-    {229, 7, 2, 2, burg_pat_229, 1},  /* v128: SimdSplatF(f32) */
-    {230, 7, 3, 2, burg_pat_230, 1},  /* v128: SimdSplatF(f32) */
-    {231, 7, 2, 2, burg_pat_231, 1},  /* v128: SimdSplatD(f64) */
-    {232, 7, 3, 2, burg_pat_232, 1},  /* v128: SimdSplatD(f64) */
-    {233, 2, 3, 2, burg_pat_233, 1},  /* i32: SimdExtractI(v128) */
-    {234, 2, 4, 2, burg_pat_234, 1},  /* i32: SimdExtractI(v128) */
-    {235, 3, 3, 2, burg_pat_235, 1},  /* i64: SimdExtractL(v128) */
-    {236, 3, 4, 2, burg_pat_236, 1},  /* i64: SimdExtractL(v128) */
-    {237, 4, 3, 2, burg_pat_237, 1},  /* f32: SimdExtractF(v128) */
-    {238, 4, 4, 2, burg_pat_238, 1},  /* f32: SimdExtractF(v128) */
-    {239, 5, 3, 2, burg_pat_239, 1},  /* f64: SimdExtractD(v128) */
-    {240, 5, 4, 2, burg_pat_240, 1},  /* f64: SimdExtractD(v128) */
-    {241, 7, 3, 3, burg_pat_241, 1},  /* v128: SimdReplaceI(v128, i32) */
-    {242, 7, 4, 3, burg_pat_242, 1},  /* v128: SimdReplaceI(v128, i32) */
-    {243, 7, 3, 3, burg_pat_243, 1},  /* v128: SimdReplaceL(v128, i64) */
-    {244, 7, 4, 3, burg_pat_244, 1},  /* v128: SimdReplaceL(v128, i64) */
-    {245, 7, 3, 3, burg_pat_245, 1},  /* v128: SimdReplaceF(v128, f32) */
-    {246, 7, 4, 3, burg_pat_246, 1},  /* v128: SimdReplaceF(v128, f32) */
-    {247, 7, 3, 3, burg_pat_247, 1},  /* v128: SimdReplaceD(v128, f64) */
-    {248, 7, 4, 3, burg_pat_248, 1},  /* v128: SimdReplaceD(v128, f64) */
-    {249, 7, 18, 1, burg_pat_249, 0},  /* v128: SimdConst */
-    {250, 7, 18, 3, burg_pat_250, 0},  /* v128: SimdShuffle(v128, v128) */
-    {251, 7, 4, 2, burg_pat_251, 1},  /* v128: SimdMemLoad(i32) */
-    {252, 7, 5, 2, burg_pat_252, 1},  /* v128: SimdMemLoad(i32) */
-    {253, 7, 5, 3, burg_pat_253, 1},  /* v128: SimdMemLoadLane(i32, v128) */
-    {254, 7, 6, 3, burg_pat_254, 1},  /* v128: SimdMemLoadLane(i32, v128) */
-    {255, 2, 3, 2, burg_pat_255, 0},  /* i32: MemLoadI(i32) */
-    {256, 3, 3, 2, burg_pat_256, 0},  /* i64: MemLoadL(i32) */
-    {257, 4, 3, 2, burg_pat_257, 0},  /* f32: MemLoadF(i32) */
-    {258, 5, 3, 2, burg_pat_258, 0},  /* f64: MemLoadD(i32) */
-    {259, 2, 2, 1, burg_pat_259, 0},  /* i32: MemSize */
-    {260, 2, 2, 2, burg_pat_260, 0},  /* i32: MemGrow(i32) */
-    {261, 1, 5, 2, burg_pat_261, 1},  /* stmt: Inc(i32) */
-    {262, 1, 6, 2, burg_pat_262, 1},  /* stmt: Inc(i32) */
-    {263, 1, 10, 2, burg_pat_263, 1},  /* stmt: Inc(i32) */
-    {264, 1, 5, 2, burg_pat_264, 0},  /* stmt: Inc(i64) */
-    {265, 1, 8, 2, burg_pat_265, 0},  /* stmt: Inc(f32) */
-    {266, 1, 12, 2, burg_pat_266, 0},  /* stmt: Inc(f64) */
-    {267, 1, 0, 2, burg_pat_267, 1},  /* stmt: ExprEffect(i32) */
-    {268, 1, 0, 2, burg_pat_268, 1},  /* stmt: ExprEffect(i64) */
-    {269, 1, 0, 2, burg_pat_269, 1},  /* stmt: ExprEffect(f32) */
-    {270, 1, 0, 2, burg_pat_270, 1},  /* stmt: ExprEffect(f64) */
-    {271, 1, 0, 2, burg_pat_271, 1},  /* stmt: ExprEffect(ref) */
-    {272, 1, 0, 2, burg_pat_272, 1},  /* stmt: ExprEffect(v128) */
-    {273, 1, 1, 2, burg_pat_273, 1},  /* stmt: ExprEffect(i32) */
-    {274, 1, 1, 2, burg_pat_274, 1},  /* stmt: ExprEffect(i64) */
-    {275, 1, 1, 2, burg_pat_275, 1},  /* stmt: ExprEffect(f32) */
-    {276, 1, 1, 2, burg_pat_276, 1},  /* stmt: ExprEffect(f64) */
-    {277, 1, 1, 2, burg_pat_277, 1},  /* stmt: ExprEffect(ref) */
-    {278, 1, 1, 2, burg_pat_278, 1},  /* stmt: ExprEffect(v128) */
-    {279, 6, 5, 1, burg_pat_279, 0},  /* ref: New */
-    {280, 2, 6, 2, burg_pat_280, 0},  /* i32: ClassInstantiable(ref) */
-    {281, 6, 9, 2, burg_pat_281, 0},  /* ref: ClassConstruct(ref) */
-    {282, 6, 3, 1, burg_pat_282, 0},  /* ref: CloneCopy */
-    {283, 2, 4, 2, burg_pat_283, 1},  /* i32: GetField(ref) */
+    {176, 3, 2, 2, burg_pat_176, 0},  /* i64: I2L(LoadConst) */
+    {177, 4, 1, 2, burg_pat_177, 0},  /* f32: I2F(i32) */
+    {178, 5, 1, 2, burg_pat_178, 0},  /* f64: I2D(i32) */
+    {179, 2, 1, 2, burg_pat_179, 0},  /* i32: L2I(i64) */
+    {180, 4, 1, 2, burg_pat_180, 0},  /* f32: L2F(i64) */
+    {181, 5, 1, 2, burg_pat_181, 0},  /* f64: L2D(i64) */
+    {182, 5, 1, 2, burg_pat_182, 0},  /* f64: F2D(f32) */
+    {183, 4, 1, 2, burg_pat_183, 0},  /* f32: D2F(f64) */
+    {184, 2, 2, 2, burg_pat_184, 0},  /* i32: F2I(f32) */
+    {185, 2, 2, 2, burg_pat_185, 0},  /* i32: D2I(f64) */
+    {186, 3, 2, 2, burg_pat_186, 0},  /* i64: F2L(f32) */
+    {187, 3, 2, 2, burg_pat_187, 0},  /* i64: D2L(f64) */
+    {188, 2, 1, 2, burg_pat_188, 0},  /* i32: MoveF2I(f32) */
+    {189, 4, 1, 2, burg_pat_189, 0},  /* f32: MoveI2F(i32) */
+    {190, 3, 1, 2, burg_pat_190, 0},  /* i64: MoveD2L(f64) */
+    {191, 5, 1, 2, burg_pat_191, 0},  /* f64: MoveL2D(i64) */
+    {192, 5, 1, 2, burg_pat_192, 0},  /* f64: F64Sqrt(f64) */
+    {193, 5, 1, 2, burg_pat_193, 0},  /* f64: F64Floor(f64) */
+    {194, 5, 1, 2, burg_pat_194, 0},  /* f64: F64Ceil(f64) */
+    {195, 5, 1, 2, burg_pat_195, 0},  /* f64: F64Nearest(f64) */
+    {196, 2, 1, 2, burg_pat_196, 0},  /* i32: I2B(i32) */
+    {197, 2, 1, 2, burg_pat_197, 0},  /* i32: I2S(i32) */
+    {198, 2, 5, 2, burg_pat_198, 0},  /* i32: I2C(i32) */
+    {199, 2, 1, 2, burg_pat_199, 0},  /* i32: S2B(i32) */
+    {200, 2, 0, 2, burg_pat_200, 0},  /* i32: S2I(i32) */
+    {201, 1, 1, 2, burg_pat_201, 0},  /* stmt: Return(i32) */
+    {202, 1, 1, 2, burg_pat_202, 0},  /* stmt: Return(i64) */
+    {203, 1, 1, 2, burg_pat_203, 0},  /* stmt: Return(f32) */
+    {204, 1, 1, 2, burg_pat_204, 0},  /* stmt: Return(f64) */
+    {205, 1, 1, 2, burg_pat_205, 0},  /* stmt: Return(ref) */
+    {206, 1, 1, 2, burg_pat_206, 0},  /* stmt: Return(v128) */
+    {207, 1, 1, 1, burg_pat_207, 0},  /* stmt: ReturnVoid */
+    {208, 1, 0, 2, burg_pat_208, 0},  /* stmt: Return(tail) */
+    {209, 1, 2, 2, burg_pat_209, 0},  /* stmt: Throw(ref) */
+    {210, 1, 2, 2, burg_pat_210, 0},  /* stmt: StoreLocal(i32) */
+    {211, 1, 2, 2, burg_pat_211, 0},  /* stmt: StoreLocal(i64) */
+    {212, 1, 2, 2, burg_pat_212, 0},  /* stmt: StoreLocal(f32) */
+    {213, 1, 2, 2, burg_pat_213, 0},  /* stmt: StoreLocal(f64) */
+    {214, 1, 2, 2, burg_pat_214, 0},  /* stmt: StoreLocal(ref) */
+    {215, 1, 2, 2, burg_pat_215, 0},  /* stmt: StoreLocal(v128) */
+    {216, 7, 2, 3, burg_pat_216, 1},  /* v128: SimdBin(v128, v128) */
+    {217, 7, 3, 3, burg_pat_217, 1},  /* v128: SimdBin(v128, v128) */
+    {218, 7, 2, 2, burg_pat_218, 1},  /* v128: SimdUn(v128) */
+    {219, 7, 3, 2, burg_pat_219, 1},  /* v128: SimdUn(v128) */
+    {220, 7, 2, 3, burg_pat_220, 1},  /* v128: SimdShift(v128, i32) */
+    {221, 7, 3, 3, burg_pat_221, 1},  /* v128: SimdShift(v128, i32) */
+    {222, 7, 2, 4, burg_pat_222, 1},  /* v128: SimdTern(v128, v128, v128) */
+    {223, 7, 3, 4, burg_pat_223, 1},  /* v128: SimdTern(v128, v128, v128) */
+    {224, 2, 2, 2, burg_pat_224, 1},  /* i32: SimdTestI(v128) */
+    {225, 2, 3, 2, burg_pat_225, 1},  /* i32: SimdTestI(v128) */
+    {226, 7, 2, 2, burg_pat_226, 1},  /* v128: SimdSplatI(i32) */
+    {227, 7, 3, 2, burg_pat_227, 1},  /* v128: SimdSplatI(i32) */
+    {228, 7, 2, 2, burg_pat_228, 1},  /* v128: SimdSplatL(i64) */
+    {229, 7, 3, 2, burg_pat_229, 1},  /* v128: SimdSplatL(i64) */
+    {230, 7, 2, 2, burg_pat_230, 1},  /* v128: SimdSplatF(f32) */
+    {231, 7, 3, 2, burg_pat_231, 1},  /* v128: SimdSplatF(f32) */
+    {232, 7, 2, 2, burg_pat_232, 1},  /* v128: SimdSplatD(f64) */
+    {233, 7, 3, 2, burg_pat_233, 1},  /* v128: SimdSplatD(f64) */
+    {234, 2, 3, 2, burg_pat_234, 1},  /* i32: SimdExtractI(v128) */
+    {235, 2, 4, 2, burg_pat_235, 1},  /* i32: SimdExtractI(v128) */
+    {236, 3, 3, 2, burg_pat_236, 1},  /* i64: SimdExtractL(v128) */
+    {237, 3, 4, 2, burg_pat_237, 1},  /* i64: SimdExtractL(v128) */
+    {238, 4, 3, 2, burg_pat_238, 1},  /* f32: SimdExtractF(v128) */
+    {239, 4, 4, 2, burg_pat_239, 1},  /* f32: SimdExtractF(v128) */
+    {240, 5, 3, 2, burg_pat_240, 1},  /* f64: SimdExtractD(v128) */
+    {241, 5, 4, 2, burg_pat_241, 1},  /* f64: SimdExtractD(v128) */
+    {242, 7, 3, 3, burg_pat_242, 1},  /* v128: SimdReplaceI(v128, i32) */
+    {243, 7, 4, 3, burg_pat_243, 1},  /* v128: SimdReplaceI(v128, i32) */
+    {244, 7, 3, 3, burg_pat_244, 1},  /* v128: SimdReplaceL(v128, i64) */
+    {245, 7, 4, 3, burg_pat_245, 1},  /* v128: SimdReplaceL(v128, i64) */
+    {246, 7, 3, 3, burg_pat_246, 1},  /* v128: SimdReplaceF(v128, f32) */
+    {247, 7, 4, 3, burg_pat_247, 1},  /* v128: SimdReplaceF(v128, f32) */
+    {248, 7, 3, 3, burg_pat_248, 1},  /* v128: SimdReplaceD(v128, f64) */
+    {249, 7, 4, 3, burg_pat_249, 1},  /* v128: SimdReplaceD(v128, f64) */
+    {250, 7, 18, 1, burg_pat_250, 0},  /* v128: SimdConst */
+    {251, 7, 18, 3, burg_pat_251, 0},  /* v128: SimdShuffle(v128, v128) */
+    {252, 7, 4, 2, burg_pat_252, 1},  /* v128: SimdMemLoad(i32) */
+    {253, 7, 5, 2, burg_pat_253, 1},  /* v128: SimdMemLoad(i32) */
+    {254, 7, 5, 3, burg_pat_254, 1},  /* v128: SimdMemLoadLane(i32, v128) */
+    {255, 7, 6, 3, burg_pat_255, 1},  /* v128: SimdMemLoadLane(i32, v128) */
+    {256, 2, 3, 2, burg_pat_256, 0},  /* i32: MemLoadI(i32) */
+    {257, 3, 3, 2, burg_pat_257, 0},  /* i64: MemLoadL(i32) */
+    {258, 4, 3, 2, burg_pat_258, 0},  /* f32: MemLoadF(i32) */
+    {259, 5, 3, 2, burg_pat_259, 0},  /* f64: MemLoadD(i32) */
+    {260, 2, 2, 1, burg_pat_260, 0},  /* i32: MemSize */
+    {261, 2, 2, 2, burg_pat_261, 0},  /* i32: MemGrow(i32) */
+    {262, 1, 5, 2, burg_pat_262, 1},  /* stmt: Inc(i32) */
+    {263, 1, 6, 2, burg_pat_263, 1},  /* stmt: Inc(i32) */
+    {264, 1, 10, 2, burg_pat_264, 1},  /* stmt: Inc(i32) */
+    {265, 1, 5, 2, burg_pat_265, 0},  /* stmt: Inc(i64) */
+    {266, 1, 8, 2, burg_pat_266, 0},  /* stmt: Inc(f32) */
+    {267, 1, 12, 2, burg_pat_267, 0},  /* stmt: Inc(f64) */
+    {268, 1, 0, 2, burg_pat_268, 1},  /* stmt: ExprEffect(i32) */
+    {269, 1, 0, 2, burg_pat_269, 1},  /* stmt: ExprEffect(i64) */
+    {270, 1, 0, 2, burg_pat_270, 1},  /* stmt: ExprEffect(f32) */
+    {271, 1, 0, 2, burg_pat_271, 1},  /* stmt: ExprEffect(f64) */
+    {272, 1, 0, 2, burg_pat_272, 1},  /* stmt: ExprEffect(ref) */
+    {273, 1, 0, 2, burg_pat_273, 1},  /* stmt: ExprEffect(v128) */
+    {274, 1, 1, 2, burg_pat_274, 1},  /* stmt: ExprEffect(i32) */
+    {275, 1, 1, 2, burg_pat_275, 1},  /* stmt: ExprEffect(i64) */
+    {276, 1, 1, 2, burg_pat_276, 1},  /* stmt: ExprEffect(f32) */
+    {277, 1, 1, 2, burg_pat_277, 1},  /* stmt: ExprEffect(f64) */
+    {278, 1, 1, 2, burg_pat_278, 1},  /* stmt: ExprEffect(ref) */
+    {279, 1, 1, 2, burg_pat_279, 1},  /* stmt: ExprEffect(v128) */
+    {280, 6, 5, 1, burg_pat_280, 0},  /* ref: New */
+    {281, 2, 6, 2, burg_pat_281, 0},  /* i32: ClassInstantiable(ref) */
+    {282, 6, 9, 2, burg_pat_282, 0},  /* ref: ClassConstruct(ref) */
+    {283, 6, 3, 1, burg_pat_283, 0},  /* ref: CloneCopy */
     {284, 2, 4, 2, burg_pat_284, 1},  /* i32: GetField(ref) */
     {285, 2, 4, 2, burg_pat_285, 1},  /* i32: GetField(ref) */
-    {286, 3, 4, 2, burg_pat_286, 1},  /* i64: GetField(ref) */
-    {287, 4, 4, 2, burg_pat_287, 1},  /* f32: GetField(ref) */
-    {288, 5, 4, 2, burg_pat_288, 1},  /* f64: GetField(ref) */
-    {289, 6, 4, 2, burg_pat_289, 1},  /* ref: GetField(ref) */
-    {290, 7, 4, 2, burg_pat_290, 1},  /* v128: GetField(ref) */
-    {291, 1, 4, 3, burg_pat_291, 0},  /* stmt: PutField(ref, i32) */
-    {292, 1, 4, 3, burg_pat_292, 0},  /* stmt: PutField(ref, i64) */
-    {293, 1, 4, 3, burg_pat_293, 0},  /* stmt: PutField(ref, f32) */
-    {294, 1, 4, 3, burg_pat_294, 0},  /* stmt: PutField(ref, f64) */
-    {295, 1, 4, 3, burg_pat_295, 0},  /* stmt: PutField(ref, ref) */
-    {296, 1, 4, 3, burg_pat_296, 0},  /* stmt: PutField(ref, v128) */
-    {297, 1, 4, 3, burg_pat_297, 0},  /* stmt: SetHeader(ref, ref) */
-    {298, 2, 2, 1, burg_pat_298, 1},  /* i32: GetStatic */
-    {299, 3, 2, 1, burg_pat_299, 1},  /* i64: GetStatic */
-    {300, 4, 2, 1, burg_pat_300, 1},  /* f32: GetStatic */
-    {301, 5, 2, 1, burg_pat_301, 1},  /* f64: GetStatic */
-    {302, 6, 2, 1, burg_pat_302, 1},  /* ref: GetStatic */
-    {303, 7, 2, 1, burg_pat_303, 1},  /* v128: GetStatic */
-    {304, 1, 2, 2, burg_pat_304, 0},  /* stmt: PutStatic(i32) */
-    {305, 1, 2, 2, burg_pat_305, 0},  /* stmt: PutStatic(i64) */
-    {306, 1, 2, 2, burg_pat_306, 0},  /* stmt: PutStatic(f32) */
-    {307, 1, 2, 2, burg_pat_307, 0},  /* stmt: PutStatic(f64) */
-    {308, 1, 2, 2, burg_pat_308, 0},  /* stmt: PutStatic(ref) */
-    {309, 1, 2, 2, burg_pat_309, 0},  /* stmt: PutStatic(v128) */
-    {310, 1, 4, 3, burg_pat_310, 1},  /* stmt: SimdMemStore(i32, v128) */
-    {311, 1, 5, 3, burg_pat_311, 1},  /* stmt: SimdMemStore(i32, v128) */
-    {312, 1, 5, 3, burg_pat_312, 1},  /* stmt: SimdMemStoreLane(i32, v128) */
-    {313, 1, 6, 3, burg_pat_313, 1},  /* stmt: SimdMemStoreLane(i32, v128) */
-    {314, 1, 3, 3, burg_pat_314, 0},  /* stmt: MemStoreI(i32, i32) */
-    {315, 1, 3, 3, burg_pat_315, 0},  /* stmt: MemStoreL(i32, i64) */
-    {316, 1, 3, 3, burg_pat_316, 0},  /* stmt: MemStoreF(i32, f32) */
-    {317, 1, 3, 3, burg_pat_317, 0},  /* stmt: MemStoreD(i32, f64) */
-    {318, 1, 3, 4, burg_pat_318, 0},  /* stmt: MemFill(i32, i32, i32) */
-    {319, 1, 4, 4, burg_pat_319, 0},  /* stmt: MemCopy(i32, i32, i32) */
-    {320, 6, 3, 2, burg_pat_320, 0},  /* ref: NewArray(i32) */
-    {321, 6, 8, 1, burg_pat_321, 0},  /* ref: ArrayNewData */
-    {322, 2, 3, 3, burg_pat_322, 1},  /* i32: ArrayLoad(ref, i32) */
+    {286, 2, 4, 2, burg_pat_286, 1},  /* i32: GetField(ref) */
+    {287, 3, 4, 2, burg_pat_287, 1},  /* i64: GetField(ref) */
+    {288, 4, 4, 2, burg_pat_288, 1},  /* f32: GetField(ref) */
+    {289, 5, 4, 2, burg_pat_289, 1},  /* f64: GetField(ref) */
+    {290, 6, 4, 2, burg_pat_290, 1},  /* ref: GetField(ref) */
+    {291, 7, 4, 2, burg_pat_291, 1},  /* v128: GetField(ref) */
+    {292, 1, 4, 3, burg_pat_292, 0},  /* stmt: PutField(ref, i32) */
+    {293, 1, 4, 3, burg_pat_293, 0},  /* stmt: PutField(ref, i64) */
+    {294, 1, 4, 3, burg_pat_294, 0},  /* stmt: PutField(ref, f32) */
+    {295, 1, 4, 3, burg_pat_295, 0},  /* stmt: PutField(ref, f64) */
+    {296, 1, 4, 3, burg_pat_296, 0},  /* stmt: PutField(ref, ref) */
+    {297, 1, 4, 3, burg_pat_297, 0},  /* stmt: PutField(ref, v128) */
+    {298, 1, 4, 3, burg_pat_298, 0},  /* stmt: SetHeader(ref, ref) */
+    {299, 2, 2, 1, burg_pat_299, 1},  /* i32: GetStatic */
+    {300, 3, 2, 1, burg_pat_300, 1},  /* i64: GetStatic */
+    {301, 4, 2, 1, burg_pat_301, 1},  /* f32: GetStatic */
+    {302, 5, 2, 1, burg_pat_302, 1},  /* f64: GetStatic */
+    {303, 6, 2, 1, burg_pat_303, 1},  /* ref: GetStatic */
+    {304, 7, 2, 1, burg_pat_304, 1},  /* v128: GetStatic */
+    {305, 1, 2, 2, burg_pat_305, 0},  /* stmt: PutStatic(i32) */
+    {306, 1, 2, 2, burg_pat_306, 0},  /* stmt: PutStatic(i64) */
+    {307, 1, 2, 2, burg_pat_307, 0},  /* stmt: PutStatic(f32) */
+    {308, 1, 2, 2, burg_pat_308, 0},  /* stmt: PutStatic(f64) */
+    {309, 1, 2, 2, burg_pat_309, 0},  /* stmt: PutStatic(ref) */
+    {310, 1, 2, 2, burg_pat_310, 0},  /* stmt: PutStatic(v128) */
+    {311, 1, 4, 3, burg_pat_311, 1},  /* stmt: SimdMemStore(i32, v128) */
+    {312, 1, 5, 3, burg_pat_312, 1},  /* stmt: SimdMemStore(i32, v128) */
+    {313, 1, 5, 3, burg_pat_313, 1},  /* stmt: SimdMemStoreLane(i32, v128) */
+    {314, 1, 6, 3, burg_pat_314, 1},  /* stmt: SimdMemStoreLane(i32, v128) */
+    {315, 1, 3, 3, burg_pat_315, 0},  /* stmt: MemStoreI(i32, i32) */
+    {316, 1, 3, 3, burg_pat_316, 0},  /* stmt: MemStoreL(i32, i64) */
+    {317, 1, 3, 3, burg_pat_317, 0},  /* stmt: MemStoreF(i32, f32) */
+    {318, 1, 3, 3, burg_pat_318, 0},  /* stmt: MemStoreD(i32, f64) */
+    {319, 1, 3, 4, burg_pat_319, 0},  /* stmt: MemFill(i32, i32, i32) */
+    {320, 1, 4, 4, burg_pat_320, 0},  /* stmt: MemCopy(i32, i32, i32) */
+    {321, 6, 3, 2, burg_pat_321, 0},  /* ref: NewArray(i32) */
+    {322, 6, 8, 1, burg_pat_322, 0},  /* ref: ArrayNewData */
     {323, 2, 3, 3, burg_pat_323, 1},  /* i32: ArrayLoad(ref, i32) */
     {324, 2, 3, 3, burg_pat_324, 1},  /* i32: ArrayLoad(ref, i32) */
-    {325, 3, 3, 3, burg_pat_325, 1},  /* i64: ArrayLoad(ref, i32) */
-    {326, 4, 3, 3, burg_pat_326, 1},  /* f32: ArrayLoad(ref, i32) */
-    {327, 5, 3, 3, burg_pat_327, 1},  /* f64: ArrayLoad(ref, i32) */
-    {328, 7, 3, 3, burg_pat_328, 1},  /* v128: ArrayLoad(ref, i32) */
-    {329, 1, 3, 4, burg_pat_329, 0},  /* stmt: ArrayStore(ref, i32, i32) */
-    {330, 1, 3, 4, burg_pat_330, 0},  /* stmt: ArrayStore(ref, i32, i64) */
-    {331, 1, 3, 4, burg_pat_331, 0},  /* stmt: ArrayStore(ref, i32, f32) */
-    {332, 1, 3, 4, burg_pat_332, 0},  /* stmt: ArrayStore(ref, i32, f64) */
-    {333, 1, 3, 4, burg_pat_333, 0},  /* stmt: ArrayStore(ref, i32, v128) */
-    {334, 2, 2, 2, burg_pat_334, 0},  /* i32: ArrayLength(ref) */
-    {335, 6, 3, 2, burg_pat_335, 0},  /* ref: NewRefArray(i32) */
-    {336, 6, 6, 3, burg_pat_336, 1},  /* ref: ArrayLoad(ref, i32) */
-    {337, 1, 3, 4, burg_pat_337, 0},  /* stmt: ArrayStore(ref, i32, ref) */
-    {338, 1, 4, 6, burg_pat_338, 0},  /* stmt: ArrayCopy(ref, i32, ref, i32, i32) */
-    {339, 2, 2, 1, burg_pat_339, 1},  /* i32: InvokeStatic */
-    {340, 3, 2, 1, burg_pat_340, 1},  /* i64: InvokeStatic */
-    {341, 4, 2, 1, burg_pat_341, 1},  /* f32: InvokeStatic */
-    {342, 5, 2, 1, burg_pat_342, 1},  /* f64: InvokeStatic */
-    {343, 6, 2, 1, burg_pat_343, 1},  /* ref: InvokeStatic */
-    {344, 7, 2, 1, burg_pat_344, 1},  /* v128: InvokeStatic */
-    {345, 2, 2, 2, burg_pat_345, 1},  /* i32: InvokeSpecial(ref) */
-    {346, 3, 2, 2, burg_pat_346, 1},  /* i64: InvokeSpecial(ref) */
-    {347, 4, 2, 2, burg_pat_347, 1},  /* f32: InvokeSpecial(ref) */
-    {348, 5, 2, 2, burg_pat_348, 1},  /* f64: InvokeSpecial(ref) */
-    {349, 6, 2, 2, burg_pat_349, 1},  /* ref: InvokeSpecial(ref) */
-    {350, 7, 2, 2, burg_pat_350, 1},  /* v128: InvokeSpecial(ref) */
-    {351, 2, 20, 2, burg_pat_351, 1},  /* i32: InvokeVirtual(ref) */
-    {352, 3, 20, 2, burg_pat_352, 1},  /* i64: InvokeVirtual(ref) */
-    {353, 4, 20, 2, burg_pat_353, 1},  /* f32: InvokeVirtual(ref) */
-    {354, 5, 20, 2, burg_pat_354, 1},  /* f64: InvokeVirtual(ref) */
-    {355, 6, 20, 2, burg_pat_355, 1},  /* ref: InvokeVirtual(ref) */
-    {356, 7, 20, 2, burg_pat_356, 1},  /* v128: InvokeVirtual(ref) */
-    {357, 2, 23, 2, burg_pat_357, 1},  /* i32: InvokeInterface(ref) */
-    {358, 3, 23, 2, burg_pat_358, 1},  /* i64: InvokeInterface(ref) */
-    {359, 4, 23, 2, burg_pat_359, 1},  /* f32: InvokeInterface(ref) */
-    {360, 5, 23, 2, burg_pat_360, 1},  /* f64: InvokeInterface(ref) */
-    {361, 6, 23, 2, burg_pat_361, 1},  /* ref: InvokeInterface(ref) */
-    {362, 7, 23, 2, burg_pat_362, 1},  /* v128: InvokeInterface(ref) */
-    {363, 10, 2, 1, burg_pat_363, 0},  /* tail: InvokeStatic */
-    {364, 10, 2, 2, burg_pat_364, 0},  /* tail: InvokeSpecial(ref) */
-    {365, 10, 20, 2, burg_pat_365, 0},  /* tail: InvokeVirtual(ref) */
-    {366, 10, 23, 2, burg_pat_366, 0},  /* tail: InvokeInterface(ref) */
-    {367, 2, 3, 2, burg_pat_367, 0},  /* i32: InstanceOf(ref) */
-    {368, 6, 3, 2, burg_pat_368, 0},  /* ref: CheckCast(ref) */
-    {369, 1, 2, 1, burg_pat_369, 0},  /* stmt: ExceptionEntry */
-    {370, 1, 0, 1, burg_pat_370, 0},  /* stmt: Nop */
-    {371, 1, 0, 1, burg_pat_371, 0},  /* stmt: i32 */
-    {372, 1, 0, 1, burg_pat_372, 0},  /* stmt: i64 */
-    {373, 1, 0, 1, burg_pat_373, 0},  /* stmt: f32 */
-    {374, 1, 0, 1, burg_pat_374, 0},  /* stmt: f64 */
-    {375, 1, 0, 1, burg_pat_375, 0},  /* stmt: ref */
-    {376, 1, 0, 1, burg_pat_376, 0},  /* stmt: v128 */
+    {325, 2, 3, 3, burg_pat_325, 1},  /* i32: ArrayLoad(ref, i32) */
+    {326, 3, 3, 3, burg_pat_326, 1},  /* i64: ArrayLoad(ref, i32) */
+    {327, 4, 3, 3, burg_pat_327, 1},  /* f32: ArrayLoad(ref, i32) */
+    {328, 5, 3, 3, burg_pat_328, 1},  /* f64: ArrayLoad(ref, i32) */
+    {329, 7, 3, 3, burg_pat_329, 1},  /* v128: ArrayLoad(ref, i32) */
+    {330, 1, 3, 4, burg_pat_330, 0},  /* stmt: ArrayStore(ref, i32, i32) */
+    {331, 1, 3, 4, burg_pat_331, 0},  /* stmt: ArrayStore(ref, i32, i64) */
+    {332, 1, 3, 4, burg_pat_332, 0},  /* stmt: ArrayStore(ref, i32, f32) */
+    {333, 1, 3, 4, burg_pat_333, 0},  /* stmt: ArrayStore(ref, i32, f64) */
+    {334, 1, 3, 4, burg_pat_334, 0},  /* stmt: ArrayStore(ref, i32, v128) */
+    {335, 2, 2, 2, burg_pat_335, 0},  /* i32: ArrayLength(ref) */
+    {336, 6, 3, 2, burg_pat_336, 0},  /* ref: NewRefArray(i32) */
+    {337, 6, 6, 3, burg_pat_337, 1},  /* ref: ArrayLoad(ref, i32) */
+    {338, 1, 3, 4, burg_pat_338, 0},  /* stmt: ArrayStore(ref, i32, ref) */
+    {339, 1, 4, 6, burg_pat_339, 0},  /* stmt: ArrayCopy(ref, i32, ref, i32, i32) */
+    {340, 2, 2, 1, burg_pat_340, 1},  /* i32: InvokeStatic */
+    {341, 3, 2, 1, burg_pat_341, 1},  /* i64: InvokeStatic */
+    {342, 4, 2, 1, burg_pat_342, 1},  /* f32: InvokeStatic */
+    {343, 5, 2, 1, burg_pat_343, 1},  /* f64: InvokeStatic */
+    {344, 6, 2, 1, burg_pat_344, 1},  /* ref: InvokeStatic */
+    {345, 7, 2, 1, burg_pat_345, 1},  /* v128: InvokeStatic */
+    {346, 2, 2, 2, burg_pat_346, 1},  /* i32: InvokeSpecial(ref) */
+    {347, 3, 2, 2, burg_pat_347, 1},  /* i64: InvokeSpecial(ref) */
+    {348, 4, 2, 2, burg_pat_348, 1},  /* f32: InvokeSpecial(ref) */
+    {349, 5, 2, 2, burg_pat_349, 1},  /* f64: InvokeSpecial(ref) */
+    {350, 6, 2, 2, burg_pat_350, 1},  /* ref: InvokeSpecial(ref) */
+    {351, 7, 2, 2, burg_pat_351, 1},  /* v128: InvokeSpecial(ref) */
+    {352, 2, 20, 2, burg_pat_352, 1},  /* i32: InvokeVirtual(ref) */
+    {353, 3, 20, 2, burg_pat_353, 1},  /* i64: InvokeVirtual(ref) */
+    {354, 4, 20, 2, burg_pat_354, 1},  /* f32: InvokeVirtual(ref) */
+    {355, 5, 20, 2, burg_pat_355, 1},  /* f64: InvokeVirtual(ref) */
+    {356, 6, 20, 2, burg_pat_356, 1},  /* ref: InvokeVirtual(ref) */
+    {357, 7, 20, 2, burg_pat_357, 1},  /* v128: InvokeVirtual(ref) */
+    {358, 2, 23, 2, burg_pat_358, 1},  /* i32: InvokeInterface(ref) */
+    {359, 3, 23, 2, burg_pat_359, 1},  /* i64: InvokeInterface(ref) */
+    {360, 4, 23, 2, burg_pat_360, 1},  /* f32: InvokeInterface(ref) */
+    {361, 5, 23, 2, burg_pat_361, 1},  /* f64: InvokeInterface(ref) */
+    {362, 6, 23, 2, burg_pat_362, 1},  /* ref: InvokeInterface(ref) */
+    {363, 7, 23, 2, burg_pat_363, 1},  /* v128: InvokeInterface(ref) */
+    {364, 10, 2, 1, burg_pat_364, 0},  /* tail: InvokeStatic */
+    {365, 10, 2, 2, burg_pat_365, 0},  /* tail: InvokeSpecial(ref) */
+    {366, 10, 20, 2, burg_pat_366, 0},  /* tail: InvokeVirtual(ref) */
+    {367, 10, 23, 2, burg_pat_367, 0},  /* tail: InvokeInterface(ref) */
+    {368, 2, 3, 2, burg_pat_368, 0},  /* i32: InstanceOf(ref) */
+    {369, 6, 3, 2, burg_pat_369, 0},  /* ref: CheckCast(ref) */
+    {370, 1, 2, 1, burg_pat_370, 0},  /* stmt: ExceptionEntry */
+    {371, 1, 0, 1, burg_pat_371, 0},  /* stmt: Nop */
+    {372, 1, 0, 1, burg_pat_372, 0},  /* stmt: i32 */
+    {373, 1, 0, 1, burg_pat_373, 0},  /* stmt: i64 */
+    {374, 1, 0, 1, burg_pat_374, 0},  /* stmt: f32 */
+    {375, 1, 0, 1, burg_pat_375, 0},  /* stmt: f64 */
+    {376, 1, 0, 1, burg_pat_376, 0},  /* stmt: ref */
+    {377, 1, 0, 1, burg_pat_377, 0},  /* stmt: v128 */
 };
-const int burg_rule_table_len = 376;
+const int burg_rule_table_len = 377;
 
 int burg_rule_guard(int rule, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
     (void)node;
@@ -7941,9 +7960,9 @@ int burg_rule_guard(int rule, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
     case 112: return (LV(KID(node,0)) == 0) ? 1 : 0;
     case 113: return (LV(KID(node,1)) == -1) ? 1 : 0;
     case 114: return (LV(KID(node,0)) == -1) ? 1 : 0;
-    case 115: return (LV(KID(node,1)) == 0) ? 1 : 0;
-    case 116: return (LV(KID(node,1)) == 0) ? 1 : 0;
-    case 117: return (LV(KID(node,1)) == 0) ? 1 : 0;
+    case 115: return (CV(KID(KID(node,1),0)) == 0) ? 1 : 0;
+    case 116: return (CV(KID(KID(node,1),0)) == 0) ? 1 : 0;
+    case 117: return (CV(KID(KID(node,1),0)) == 0) ? 1 : 0;
     case 128: return (JF_DIVOK32(CV(KID(node,0)), CV(KID(node,1)))) ? 1 : 0;
     case 129: return (JF_DIVOK32(CV(KID(node,0)), CV(KID(node,1)))) ? 1 : 0;
     case 140: return (JF_DIVOK64(LV(KID(node,0)), LV(KID(node,1)))) ? 1 : 0;
@@ -7970,109 +7989,109 @@ int burg_rule_guard(int rule, BURG_NODE_TYPE node, burg_ctx_t* ctx) {
     case 164: return (LV(KID(node,0)) == 0) ? 1 : 0;
     case 165: return (LV(KID(node,1)) == 0) ? 1 : 0;
     case 166: return (LV(KID(node,0)) == 0) ? 1 : 0;
-    case 215: return (ew_op_width((wasm_op_t)node->simd_bin.op) == 2) ? 1 : 0;
-    case 216: return (ew_op_width((wasm_op_t)node->simd_bin.op) == 3) ? 1 : 0;
-    case 217: return (ew_op_width((wasm_op_t)node->simd_un.op) == 2) ? 1 : 0;
-    case 218: return (ew_op_width((wasm_op_t)node->simd_un.op) == 3) ? 1 : 0;
-    case 219: return (ew_op_width((wasm_op_t)node->simd_shift.op) == 2) ? 1 : 0;
-    case 220: return (ew_op_width((wasm_op_t)node->simd_shift.op) == 3) ? 1 : 0;
-    case 221: return (ew_op_width((wasm_op_t)node->simd_tern.op) == 2) ? 1 : 0;
-    case 222: return (ew_op_width((wasm_op_t)node->simd_tern.op) == 3) ? 1 : 0;
-    case 223: return (ew_op_width((wasm_op_t)node->simd_test_i.op) == 2) ? 1 : 0;
-    case 224: return (ew_op_width((wasm_op_t)node->simd_test_i.op) == 3) ? 1 : 0;
-    case 225: return (ew_op_width((wasm_op_t)node->simd_splat_i.op) == 2) ? 1 : 0;
-    case 226: return (ew_op_width((wasm_op_t)node->simd_splat_i.op) == 3) ? 1 : 0;
-    case 227: return (ew_op_width((wasm_op_t)node->simd_splat_l.op) == 2) ? 1 : 0;
-    case 228: return (ew_op_width((wasm_op_t)node->simd_splat_l.op) == 3) ? 1 : 0;
-    case 229: return (ew_op_width((wasm_op_t)node->simd_splat_f.op) == 2) ? 1 : 0;
-    case 230: return (ew_op_width((wasm_op_t)node->simd_splat_f.op) == 3) ? 1 : 0;
-    case 231: return (ew_op_width((wasm_op_t)node->simd_splat_d.op) == 2) ? 1 : 0;
-    case 232: return (ew_op_width((wasm_op_t)node->simd_splat_d.op) == 3) ? 1 : 0;
-    case 233: return (ew_op_width((wasm_op_t)node->simd_extract_i.op) == 2) ? 1 : 0;
-    case 234: return (ew_op_width((wasm_op_t)node->simd_extract_i.op) == 3) ? 1 : 0;
-    case 235: return (ew_op_width((wasm_op_t)node->simd_extract_l.op) == 2) ? 1 : 0;
-    case 236: return (ew_op_width((wasm_op_t)node->simd_extract_l.op) == 3) ? 1 : 0;
-    case 237: return (ew_op_width((wasm_op_t)node->simd_extract_f.op) == 2) ? 1 : 0;
-    case 238: return (ew_op_width((wasm_op_t)node->simd_extract_f.op) == 3) ? 1 : 0;
-    case 239: return (ew_op_width((wasm_op_t)node->simd_extract_d.op) == 2) ? 1 : 0;
-    case 240: return (ew_op_width((wasm_op_t)node->simd_extract_d.op) == 3) ? 1 : 0;
-    case 241: return (ew_op_width((wasm_op_t)node->simd_replace_i.op) == 2) ? 1 : 0;
-    case 242: return (ew_op_width((wasm_op_t)node->simd_replace_i.op) == 3) ? 1 : 0;
-    case 243: return (ew_op_width((wasm_op_t)node->simd_replace_l.op) == 2) ? 1 : 0;
-    case 244: return (ew_op_width((wasm_op_t)node->simd_replace_l.op) == 3) ? 1 : 0;
-    case 245: return (ew_op_width((wasm_op_t)node->simd_replace_f.op) == 2) ? 1 : 0;
-    case 246: return (ew_op_width((wasm_op_t)node->simd_replace_f.op) == 3) ? 1 : 0;
-    case 247: return (ew_op_width((wasm_op_t)node->simd_replace_d.op) == 2) ? 1 : 0;
-    case 248: return (ew_op_width((wasm_op_t)node->simd_replace_d.op) == 3) ? 1 : 0;
-    case 251: return (ew_op_width((wasm_op_t)node->simd_mem_load.op) == 2) ? 1 : 0;
-    case 252: return (ew_op_width((wasm_op_t)node->simd_mem_load.op) == 3) ? 1 : 0;
-    case 253: return (ew_op_width((wasm_op_t)node->simd_mem_load_lane.op) == 2) ? 1 : 0;
-    case 254: return (ew_op_width((wasm_op_t)node->simd_mem_load_lane.op) == 3) ? 1 : 0;
-    case 261: return (node->inc.data_type == SIR_DTINT) ? 1 : 0;
-    case 262: return (node->inc.data_type == SIR_DTBYTE || node->inc.data_type == SIR_DTSHORT) ? 1 : 0;
-    case 263: return (node->inc.data_type == SIR_DTCHAR) ? 1 : 0;
-    case 267: return (node->expr_effect.is_void) ? 1 : 0;
+    case 216: return (ew_op_width((wasm_op_t)node->simd_bin.op) == 2) ? 1 : 0;
+    case 217: return (ew_op_width((wasm_op_t)node->simd_bin.op) == 3) ? 1 : 0;
+    case 218: return (ew_op_width((wasm_op_t)node->simd_un.op) == 2) ? 1 : 0;
+    case 219: return (ew_op_width((wasm_op_t)node->simd_un.op) == 3) ? 1 : 0;
+    case 220: return (ew_op_width((wasm_op_t)node->simd_shift.op) == 2) ? 1 : 0;
+    case 221: return (ew_op_width((wasm_op_t)node->simd_shift.op) == 3) ? 1 : 0;
+    case 222: return (ew_op_width((wasm_op_t)node->simd_tern.op) == 2) ? 1 : 0;
+    case 223: return (ew_op_width((wasm_op_t)node->simd_tern.op) == 3) ? 1 : 0;
+    case 224: return (ew_op_width((wasm_op_t)node->simd_test_i.op) == 2) ? 1 : 0;
+    case 225: return (ew_op_width((wasm_op_t)node->simd_test_i.op) == 3) ? 1 : 0;
+    case 226: return (ew_op_width((wasm_op_t)node->simd_splat_i.op) == 2) ? 1 : 0;
+    case 227: return (ew_op_width((wasm_op_t)node->simd_splat_i.op) == 3) ? 1 : 0;
+    case 228: return (ew_op_width((wasm_op_t)node->simd_splat_l.op) == 2) ? 1 : 0;
+    case 229: return (ew_op_width((wasm_op_t)node->simd_splat_l.op) == 3) ? 1 : 0;
+    case 230: return (ew_op_width((wasm_op_t)node->simd_splat_f.op) == 2) ? 1 : 0;
+    case 231: return (ew_op_width((wasm_op_t)node->simd_splat_f.op) == 3) ? 1 : 0;
+    case 232: return (ew_op_width((wasm_op_t)node->simd_splat_d.op) == 2) ? 1 : 0;
+    case 233: return (ew_op_width((wasm_op_t)node->simd_splat_d.op) == 3) ? 1 : 0;
+    case 234: return (ew_op_width((wasm_op_t)node->simd_extract_i.op) == 2) ? 1 : 0;
+    case 235: return (ew_op_width((wasm_op_t)node->simd_extract_i.op) == 3) ? 1 : 0;
+    case 236: return (ew_op_width((wasm_op_t)node->simd_extract_l.op) == 2) ? 1 : 0;
+    case 237: return (ew_op_width((wasm_op_t)node->simd_extract_l.op) == 3) ? 1 : 0;
+    case 238: return (ew_op_width((wasm_op_t)node->simd_extract_f.op) == 2) ? 1 : 0;
+    case 239: return (ew_op_width((wasm_op_t)node->simd_extract_f.op) == 3) ? 1 : 0;
+    case 240: return (ew_op_width((wasm_op_t)node->simd_extract_d.op) == 2) ? 1 : 0;
+    case 241: return (ew_op_width((wasm_op_t)node->simd_extract_d.op) == 3) ? 1 : 0;
+    case 242: return (ew_op_width((wasm_op_t)node->simd_replace_i.op) == 2) ? 1 : 0;
+    case 243: return (ew_op_width((wasm_op_t)node->simd_replace_i.op) == 3) ? 1 : 0;
+    case 244: return (ew_op_width((wasm_op_t)node->simd_replace_l.op) == 2) ? 1 : 0;
+    case 245: return (ew_op_width((wasm_op_t)node->simd_replace_l.op) == 3) ? 1 : 0;
+    case 246: return (ew_op_width((wasm_op_t)node->simd_replace_f.op) == 2) ? 1 : 0;
+    case 247: return (ew_op_width((wasm_op_t)node->simd_replace_f.op) == 3) ? 1 : 0;
+    case 248: return (ew_op_width((wasm_op_t)node->simd_replace_d.op) == 2) ? 1 : 0;
+    case 249: return (ew_op_width((wasm_op_t)node->simd_replace_d.op) == 3) ? 1 : 0;
+    case 252: return (ew_op_width((wasm_op_t)node->simd_mem_load.op) == 2) ? 1 : 0;
+    case 253: return (ew_op_width((wasm_op_t)node->simd_mem_load.op) == 3) ? 1 : 0;
+    case 254: return (ew_op_width((wasm_op_t)node->simd_mem_load_lane.op) == 2) ? 1 : 0;
+    case 255: return (ew_op_width((wasm_op_t)node->simd_mem_load_lane.op) == 3) ? 1 : 0;
+    case 262: return (node->inc.data_type == SIR_DTINT) ? 1 : 0;
+    case 263: return (node->inc.data_type == SIR_DTBYTE || node->inc.data_type == SIR_DTSHORT) ? 1 : 0;
+    case 264: return (node->inc.data_type == SIR_DTCHAR) ? 1 : 0;
     case 268: return (node->expr_effect.is_void) ? 1 : 0;
     case 269: return (node->expr_effect.is_void) ? 1 : 0;
     case 270: return (node->expr_effect.is_void) ? 1 : 0;
     case 271: return (node->expr_effect.is_void) ? 1 : 0;
     case 272: return (node->expr_effect.is_void) ? 1 : 0;
-    case 273: return (!node->expr_effect.is_void) ? 1 : 0;
+    case 273: return (node->expr_effect.is_void) ? 1 : 0;
     case 274: return (!node->expr_effect.is_void) ? 1 : 0;
     case 275: return (!node->expr_effect.is_void) ? 1 : 0;
     case 276: return (!node->expr_effect.is_void) ? 1 : 0;
     case 277: return (!node->expr_effect.is_void) ? 1 : 0;
     case 278: return (!node->expr_effect.is_void) ? 1 : 0;
-    case 283: return (node->get_field.data_type == SIR_DTINT) ? 1 : 0;
-    case 284: return (node->get_field.data_type == SIR_DTBYTE || node->get_field.data_type == SIR_DTSHORT) ? 1 : 0;
-    case 285: return (node->get_field.data_type == SIR_DTCHAR) ? 1 : 0;
-    case 286: return (node->get_field.data_type == SIR_DTLONG) ? 1 : 0;
-    case 287: return (node->get_field.data_type == SIR_DTFLOAT) ? 1 : 0;
-    case 288: return (node->get_field.data_type == SIR_DTDOUBLE) ? 1 : 0;
-    case 289: return (node->get_field.data_type == SIR_DTREF) ? 1 : 0;
-    case 290: return (node->get_field.data_type == SIR_DTV128) ? 1 : 0;
-    case 298: return (DT_IS_I32(node->get_static.data_type)) ? 1 : 0;
-    case 299: return (node->get_static.data_type == SIR_DTLONG) ? 1 : 0;
-    case 300: return (node->get_static.data_type == SIR_DTFLOAT) ? 1 : 0;
-    case 301: return (node->get_static.data_type == SIR_DTDOUBLE) ? 1 : 0;
-    case 302: return (node->get_static.data_type == SIR_DTREF) ? 1 : 0;
-    case 303: return (node->get_static.data_type == SIR_DTV128) ? 1 : 0;
-    case 310: return (ew_op_width((wasm_op_t)node->simd_mem_store.op) == 2) ? 1 : 0;
-    case 311: return (ew_op_width((wasm_op_t)node->simd_mem_store.op) == 3) ? 1 : 0;
-    case 312: return (ew_op_width((wasm_op_t)node->simd_mem_store_lane.op) == 2) ? 1 : 0;
-    case 313: return (ew_op_width((wasm_op_t)node->simd_mem_store_lane.op) == 3) ? 1 : 0;
-    case 322: return (node->array_load.data_type == SIR_DTINT) ? 1 : 0;
-    case 323: return (node->array_load.data_type == SIR_DTBYTE || node->array_load.data_type == SIR_DTSHORT) ? 1 : 0;
-    case 324: return (node->array_load.data_type == SIR_DTCHAR) ? 1 : 0;
-    case 325: return (node->array_load.data_type == SIR_DTLONG) ? 1 : 0;
-    case 326: return (node->array_load.data_type == SIR_DTFLOAT) ? 1 : 0;
-    case 327: return (node->array_load.data_type == SIR_DTDOUBLE) ? 1 : 0;
-    case 328: return (node->array_load.data_type == SIR_DTV128) ? 1 : 0;
-    case 336: return (node->array_load.data_type == SIR_DTREF) ? 1 : 0;
-    case 339: return (DT_IS_I32(node->invoke_static.return_type)) ? 1 : 0;
-    case 340: return (node->invoke_static.return_type == SIR_DTLONG) ? 1 : 0;
-    case 341: return (node->invoke_static.return_type == SIR_DTFLOAT) ? 1 : 0;
-    case 342: return (node->invoke_static.return_type == SIR_DTDOUBLE) ? 1 : 0;
-    case 343: return (node->invoke_static.return_type == SIR_DTREF) ? 1 : 0;
-    case 344: return (node->invoke_static.return_type == SIR_DTV128) ? 1 : 0;
-    case 345: return (DT_IS_I32(node->invoke_special.return_type)) ? 1 : 0;
-    case 346: return (node->invoke_special.return_type == SIR_DTLONG) ? 1 : 0;
-    case 347: return (node->invoke_special.return_type == SIR_DTFLOAT) ? 1 : 0;
-    case 348: return (node->invoke_special.return_type == SIR_DTDOUBLE) ? 1 : 0;
-    case 349: return (node->invoke_special.return_type == SIR_DTREF) ? 1 : 0;
-    case 350: return (node->invoke_special.return_type == SIR_DTV128) ? 1 : 0;
-    case 351: return (DT_IS_I32(node->invoke_virtual.return_type)) ? 1 : 0;
-    case 352: return (node->invoke_virtual.return_type == SIR_DTLONG) ? 1 : 0;
-    case 353: return (node->invoke_virtual.return_type == SIR_DTFLOAT) ? 1 : 0;
-    case 354: return (node->invoke_virtual.return_type == SIR_DTDOUBLE) ? 1 : 0;
-    case 355: return (node->invoke_virtual.return_type == SIR_DTREF) ? 1 : 0;
-    case 356: return (node->invoke_virtual.return_type == SIR_DTV128) ? 1 : 0;
-    case 357: return (DT_IS_I32(node->invoke_interface.return_type)) ? 1 : 0;
-    case 358: return (node->invoke_interface.return_type == SIR_DTLONG) ? 1 : 0;
-    case 359: return (node->invoke_interface.return_type == SIR_DTFLOAT) ? 1 : 0;
-    case 360: return (node->invoke_interface.return_type == SIR_DTDOUBLE) ? 1 : 0;
-    case 361: return (node->invoke_interface.return_type == SIR_DTREF) ? 1 : 0;
-    case 362: return (node->invoke_interface.return_type == SIR_DTV128) ? 1 : 0;
+    case 279: return (!node->expr_effect.is_void) ? 1 : 0;
+    case 284: return (node->get_field.data_type == SIR_DTINT) ? 1 : 0;
+    case 285: return (node->get_field.data_type == SIR_DTBYTE || node->get_field.data_type == SIR_DTSHORT) ? 1 : 0;
+    case 286: return (node->get_field.data_type == SIR_DTCHAR) ? 1 : 0;
+    case 287: return (node->get_field.data_type == SIR_DTLONG) ? 1 : 0;
+    case 288: return (node->get_field.data_type == SIR_DTFLOAT) ? 1 : 0;
+    case 289: return (node->get_field.data_type == SIR_DTDOUBLE) ? 1 : 0;
+    case 290: return (node->get_field.data_type == SIR_DTREF) ? 1 : 0;
+    case 291: return (node->get_field.data_type == SIR_DTV128) ? 1 : 0;
+    case 299: return (DT_IS_I32(node->get_static.data_type)) ? 1 : 0;
+    case 300: return (node->get_static.data_type == SIR_DTLONG) ? 1 : 0;
+    case 301: return (node->get_static.data_type == SIR_DTFLOAT) ? 1 : 0;
+    case 302: return (node->get_static.data_type == SIR_DTDOUBLE) ? 1 : 0;
+    case 303: return (node->get_static.data_type == SIR_DTREF) ? 1 : 0;
+    case 304: return (node->get_static.data_type == SIR_DTV128) ? 1 : 0;
+    case 311: return (ew_op_width((wasm_op_t)node->simd_mem_store.op) == 2) ? 1 : 0;
+    case 312: return (ew_op_width((wasm_op_t)node->simd_mem_store.op) == 3) ? 1 : 0;
+    case 313: return (ew_op_width((wasm_op_t)node->simd_mem_store_lane.op) == 2) ? 1 : 0;
+    case 314: return (ew_op_width((wasm_op_t)node->simd_mem_store_lane.op) == 3) ? 1 : 0;
+    case 323: return (node->array_load.data_type == SIR_DTINT) ? 1 : 0;
+    case 324: return (node->array_load.data_type == SIR_DTBYTE || node->array_load.data_type == SIR_DTSHORT) ? 1 : 0;
+    case 325: return (node->array_load.data_type == SIR_DTCHAR) ? 1 : 0;
+    case 326: return (node->array_load.data_type == SIR_DTLONG) ? 1 : 0;
+    case 327: return (node->array_load.data_type == SIR_DTFLOAT) ? 1 : 0;
+    case 328: return (node->array_load.data_type == SIR_DTDOUBLE) ? 1 : 0;
+    case 329: return (node->array_load.data_type == SIR_DTV128) ? 1 : 0;
+    case 337: return (node->array_load.data_type == SIR_DTREF) ? 1 : 0;
+    case 340: return (DT_IS_I32(node->invoke_static.return_type)) ? 1 : 0;
+    case 341: return (node->invoke_static.return_type == SIR_DTLONG) ? 1 : 0;
+    case 342: return (node->invoke_static.return_type == SIR_DTFLOAT) ? 1 : 0;
+    case 343: return (node->invoke_static.return_type == SIR_DTDOUBLE) ? 1 : 0;
+    case 344: return (node->invoke_static.return_type == SIR_DTREF) ? 1 : 0;
+    case 345: return (node->invoke_static.return_type == SIR_DTV128) ? 1 : 0;
+    case 346: return (DT_IS_I32(node->invoke_special.return_type)) ? 1 : 0;
+    case 347: return (node->invoke_special.return_type == SIR_DTLONG) ? 1 : 0;
+    case 348: return (node->invoke_special.return_type == SIR_DTFLOAT) ? 1 : 0;
+    case 349: return (node->invoke_special.return_type == SIR_DTDOUBLE) ? 1 : 0;
+    case 350: return (node->invoke_special.return_type == SIR_DTREF) ? 1 : 0;
+    case 351: return (node->invoke_special.return_type == SIR_DTV128) ? 1 : 0;
+    case 352: return (DT_IS_I32(node->invoke_virtual.return_type)) ? 1 : 0;
+    case 353: return (node->invoke_virtual.return_type == SIR_DTLONG) ? 1 : 0;
+    case 354: return (node->invoke_virtual.return_type == SIR_DTFLOAT) ? 1 : 0;
+    case 355: return (node->invoke_virtual.return_type == SIR_DTDOUBLE) ? 1 : 0;
+    case 356: return (node->invoke_virtual.return_type == SIR_DTREF) ? 1 : 0;
+    case 357: return (node->invoke_virtual.return_type == SIR_DTV128) ? 1 : 0;
+    case 358: return (DT_IS_I32(node->invoke_interface.return_type)) ? 1 : 0;
+    case 359: return (node->invoke_interface.return_type == SIR_DTLONG) ? 1 : 0;
+    case 360: return (node->invoke_interface.return_type == SIR_DTFLOAT) ? 1 : 0;
+    case 361: return (node->invoke_interface.return_type == SIR_DTDOUBLE) ? 1 : 0;
+    case 362: return (node->invoke_interface.return_type == SIR_DTREF) ? 1 : 0;
+    case 363: return (node->invoke_interface.return_type == SIR_DTV128) ? 1 : 0;
     default: return 1;   /* unguarded */
     }
 }

@@ -403,7 +403,26 @@ int main(void) {
     TILE(RL(sir_add(a,SIR_DTLONG,L0,Z64)),  "l + 0 → l",  0x20,0, 0x0F);
     TILE(RL(sir_mul(a,SIR_DTLONG,L0,LONE)), "l * 1 → l",  0x20,0, 0x0F);
     TILE(RL(sir_and(a,SIR_DTLONG,L0,KL(-1))), "l & -1 → l", 0x20,0, 0x0F);
-    TILE(RL(sir_shl(a,SIR_DTLONG,L0,Z64)),  "l << 0 → l", 0x20,0, 0x0F);
+
+    /* §15.19 types a shift COUNT as int at every operand width, and cg_promote
+     * widens it, so a long shift's count is I2L(LoadConst) — NEVER a
+     * LoadLongConst. The first fixture here used to build the long-const shape
+     * by hand, which kept a pattern-dead grammar rule green while shipped code
+     * carried `>>> 0` to the wasm (found by tier-3's rule counters:
+     * shru64_zero fired on RandomAccessFile's byte ladders while shru32_zero
+     * stayed silent). These pin the shape the frontend actually builds. */
+    TILE(RL(sir_shl (a,SIR_DTLONG,L0,sir_i2_l(a,Z))), "l << I2L(0) → l",  0x20,0, 0x0F);
+    TILE(RL(sir_shr (a,SIR_DTLONG,L0,sir_i2_l(a,Z))), "l >> I2L(0) → l",  0x20,0, 0x0F);
+    TILE(RL(sir_ushr(a,SIR_DTLONG,L0,sir_i2_l(a,Z))), "l >>> I2L(0) → l", 0x20,0, 0x0F);
+    /* …and a widened CONSTANT is one i64.const, not a const plus an extend. */
+    TILE(RL(sir_i2_l(a,K(5))),  "i2l(const 5) → i64.const 5",   0x42,0x05, 0x0F);
+    TILE(RL(sir_i2_l(a,K(-1))), "i2l(const -1) sign-extends",   0x42,0x7F, 0x0F);
+    /* A nonzero count keeps its shift — the identity must not overreach. */
+    TILE(RL(sir_shl(a,SIR_DTLONG,L0,sir_i2_l(a,K(1)))), "l << I2L(1) keeps its shift",
+         0x20,0, 0x42,0x01, 0x86, 0x0F);
+    /* Both sides known: the answer, through the I2L-wrapped count shape. */
+    TILE(RL(sir_ushr(a,SIR_DTLONG,KL(5),sir_i2_l(a,K(1)))), "5L >>> I2L(1) → const 2",
+         0x42,0x02, 0x0F);
 
     /* …and the orders that are NOT identities keep their operator. Without these
      * a rule written for the commutative case would quietly break subtraction. */
@@ -433,7 +452,7 @@ int main(void) {
      * too. `1 << 32` is 1, not 0 — a fold that used C's shift directly would be
      * undefined here and would disagree with the engine either way. */
     TILE(RI(sir_shl(a,SIR_DTINT,K(1),K(32))),  "1 << 32 → const 1 (count masked)", 0x41,0x01, 0x0F);
-    TILE(RL(sir_shl(a,SIR_DTLONG,KL(1),KL(64))),"1L << 64 → const 1L (masked)",    0x42,0x01, 0x0F);
+    TILE(RL(sir_shl(a,SIR_DTLONG,KL(1),sir_i2_l(a,K(64)))),"1L << 64 → const 1L (masked)", 0x42,0x01, 0x0F);
 
     /* §15.17.2/§15.17.3: division by zero THROWS at run time, and MIN/-1 overflows
      * rather than trapping. Folding either would move a runtime exception to
