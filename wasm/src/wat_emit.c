@@ -111,8 +111,10 @@ static uint32_t flat_w(we_t* e, const wat_tnode_t* n) {
             for (uint32_t i = 0; i < n->nr1; i++)
                 w += 1 + flat_w(e, e->f->roots[n->r1 + i]);
             break;
-        case 'E':   /* optional: " (else" + contents + ")" */
-            if (n->nr2) {
+        case 'E':   /* " (else" + contents + ")" — present even when empty:
+                     * §5 encodes an empty else arm distinctly from no else,
+                     * and `(else)` is how the text keeps that byte. */
+            if (n->r2 != WAT_TNODE_NONE) {
                 w += (first ? 0 : 1) + 6;
                 first = 0;
                 for (uint32_t i = 0; i < n->nr2; i++)
@@ -187,7 +189,7 @@ static const char* last_render_slot(const wat_tnode_t* n, const wat_render_row_t
         case 'r': nonempty = n->nr1 > 0; break;
         case 's': nonempty = n->nr2 > 0; break;
         case 'T': nonempty = 1; break;
-        case 'E': nonempty = n->nr2 > 0; break;
+        case 'E': nonempty = n->r2 != WAT_TNODE_NONE; break;
         default: break;
         }
         if (nonempty) last = s;
@@ -279,7 +281,7 @@ static void pr_group(we_t* e, const wat_tnode_t* n, int indent, int reserve) {
             break;
         }
         case 'E': {
-            if (!n->nr2) break;
+            if (n->r2 == WAT_TNODE_NONE) break;
             pr_sep(e, broken, inner, &first);
             puts_(e, "(else");
             for (uint32_t i = 0; i < n->nr2; i++) {

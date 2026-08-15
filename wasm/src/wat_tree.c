@@ -118,6 +118,10 @@ static wat_tnode_t* node_new(wb_t* w, uint16_t tag) {
     memset(n, 0, sizeof *n);
     n->tag = tag;
     n->ptxt = WAT_TNODE_NONE;
+    /* r2 distinguishes ABSENT from present-but-empty: §5 encodes an empty
+     * else arm (`05 0b`) distinctly from no else at all, and `(else)` is how
+     * the text keeps that byte. span_commit overwrites on presence. */
+    n->r2 = WAT_TNODE_NONE;
     return n;
 }
 
@@ -579,16 +583,20 @@ static wat_tnode_t* build_comptype(wb_t* w, const jav_comp_type_t* c, uint32_t t
     }
 }
 
-/* §6.4.7. `sub final` with no supertypes is elided (W_sub, the bare
- * comptype); anything else spells itself (W_subx). Supertype indices are
- * type-space uses, so they carry §7.7.1 ids like every other type index. */
-static wat_tnode_t* build_subtype(wb_t* w, int is_final, const uint32_t* supers,
-                                  size_t nsupers, const jav_comp_type_t* c,
-                                  uint32_t tyidx) {
+/* §6.4.7. The bare-comptype shorthand (W_sub) renders ONLY what the binary
+ * encoded bare (heads 0x5E/0x5F/0x60): the abbreviation is semantically
+ * equivalent to `sub final` with no supertypes, but the two ENCODINGS
+ * differ, and byte identity makes an abbreviation admissible only where its
+ * expansion reproduces the module's own bytes. An explicit 0x4F/0x50 spells
+ * itself (W_subx), supers or not. Supertype indices are type-space uses, so
+ * they carry §7.7.1 ids like every other type index. */
+static wat_tnode_t* build_subtype(wb_t* w, int explicit_sub, int is_final,
+                                  const uint32_t* supers, size_t nsupers,
+                                  const jav_comp_type_t* c, uint32_t tyidx) {
     wat_tnode_t* comp = build_comptype(w, c, tyidx);
     uint32_t ci = root_push(w, comp);
     wat_tnode_t* n;
-    if (is_final && nsupers == 0) {
+    if (!explicit_sub) {
         n = node_new(w, WAT_TT_W_SUB);
     } else {
         n = node_new(w, WAT_TT_W_SUBX);
@@ -610,19 +618,19 @@ static wat_tnode_t* build_type_entry(wb_t* w, const jav_rec_member_t* mem,
     wat_tnode_t* sub = NULL;
     if (mem) {
         switch (mem->head) {
-        case 0x4f: sub = build_subtype(w, 1, mem->body.u.case_0.supers.items,
+        case 0x4f: sub = build_subtype(w, 1, 1, mem->body.u.case_0.supers.items,
                                        mem->body.u.case_0.supers.count, &mem->body.u.case_0.body, tyidx); break;
-        case 0x50: sub = build_subtype(w, 0, mem->body.u.case_1.supers.items,
+        case 0x50: sub = build_subtype(w, 1, 0, mem->body.u.case_1.supers.items,
                                        mem->body.u.case_1.supers.count, &mem->body.u.case_1.body, tyidx); break;
-        default:   sub = build_subtype(w, 1, NULL, 0, member_comp(mem, tmp), tyidx); break;
+        default:   sub = build_subtype(w, 0, 1, NULL, 0, member_comp(mem, tmp), tyidx); break;
         }
     } else {
         switch (rec->head) {
-        case 0x4f: sub = build_subtype(w, 1, rec->body.u.case_1.supers.items,
+        case 0x4f: sub = build_subtype(w, 1, 1, rec->body.u.case_1.supers.items,
                                        rec->body.u.case_1.supers.count, &rec->body.u.case_1.body, tyidx); break;
-        case 0x50: sub = build_subtype(w, 0, rec->body.u.case_2.supers.items,
+        case 0x50: sub = build_subtype(w, 1, 0, rec->body.u.case_2.supers.items,
                                        rec->body.u.case_2.supers.count, &rec->body.u.case_2.body, tyidx); break;
-        default:   sub = build_subtype(w, 1, NULL, 0, rectype_comp(rec, tmp), tyidx); break;
+        default:   sub = build_subtype(w, 0, 1, NULL, 0, rectype_comp(rec, tmp), tyidx); break;
         }
     }
     wat_tnode_t* n = node_new(w, WAT_TT_W_TYPE);
@@ -1129,6 +1137,10 @@ static void build_funcs(wb_t* w, const jav_function_section_t* fs) {
         n->av = (uint32_t)bbq_vec_len(w->atoms);
         for (size_t L = 0; L < body->locals.count; L++) {
             const jav_locals_t* loc = &body->locals.items[L];
+            /* A zero-count run binds nothing and its TYPE byte is
+             * §6-inexpressible — `(local)` names no type — so it has no
+             * rendering; the round-trip reference normalizes it away. */
+            if (loc->count == 0) continue;
             sc(w, "(local");
             if (loc->count == 1) {
                 const jnm_n_name_t* nm = map_id(w->cur_locals, lidx);

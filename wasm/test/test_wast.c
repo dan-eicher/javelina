@@ -348,6 +348,30 @@ static void a5_body(const jav_modidx_t *vmod, jav_tctx_t *tcx, bbq_arena *ta,
 static int g_wat76_ok, g_wat76_bad;
 static int g_emit_ok, g_emit_fail;
 static int g_reread_ok, g_reread_fail;
+static int g_rt_ok, g_rt_bad, g_rt_noncanon, g_rt_empty;
+
+// §5.5.17: "All sections can be empty" — but §6 has no way to SPELL a
+// present-but-empty section (no items, no text; even §7.7.3's placement
+// vocabulary requires its anchor to be "non-empty in the binary encoding").
+// The round-trip reference therefore drops them, and counts each on its own
+// printed line rather than absorbing the erasure silently.
+static int section_is_empty(const jav_section_t *s) {
+    switch (s->id) {
+    case 1:  return s->body.u.case_1.types.count == 0;
+    case 2:  return s->body.u.case_2.imports.count == 0;
+    case 3:  return s->body.u.case_3.type_indices.count == 0;
+    case 4:  return s->body.u.case_4.tables.count == 0;
+    case 5:  return s->body.u.case_5.mems.count == 0;
+    case 6:  return s->body.u.case_6.globals.count == 0;
+    case 7:  return s->body.u.case_7.exports.count == 0;
+    case 9:  return s->body.u.case_9.elems.count == 0;
+    case 10: return s->body.u.case_10.entries.count == 0;
+    case 11: return s->body.u.case_11.datas.count == 0;
+    case 12: return s->body.u.case_12.count == 0;
+    case 13: return s->body.u.case_13.tags.count == 0;
+    default: return 0;   /* custom (0) and start (8) are never empty */
+    }
+}
 static void run_module_wat76(const uint8_t *bytes, int n, int vm_accepted, jav_err_t vm_err) {
     bbq_ctx_t c; bbq_ctx_init(&c, bytes, (size_t)n);
     jav_module_t mod; memset(&mod, 0, sizeof mod);
@@ -425,7 +449,82 @@ static void run_module_wat76(const uint8_t *bytes, int n, int vm_accepted, jav_e
             // byte identity will differ); either way it cannot hide.
             int rl = 0, rc = 0;
             jav_module_t *rt = wat_assemble(txt, (int)tlen, &rl, &rc);
-            if (rt) { jav_module_free(rt); free(rt); g_reread_ok++; }
+            if (rt) {
+                g_reread_ok++;
+                // PIN F-1: the whole trip, byte-exact. The reference is the
+                // CANONICALIZED original — write(read(orig)) — because §5
+                // permits padded LEBs a canonical writer never reproduces;
+                // both sides go through the same writer, so encoding freedom
+                // cancels and any loss in the TEXT trip still shows. An
+                // original the writer re-encodes differently is counted on
+                // its own line, never silently skipped.
+                bbq_write_ctx_t wa, wb;
+                bbq_write_ctx_init_growable(&wa, (size_t)n + 64);
+                bbq_write_set_endian(&wa, true);
+                bbq_write_ctx_init_growable(&wb, (size_t)n + 64);
+                bbq_write_set_endian(&wb, true);
+                jav_module_t ref = mod;   /* shallow: the filtered section view */
+                jav_section_t refsecs[64];
+                size_t nref = 0;
+                for (size_t si = 0; si < mod.sections.count && nref < 64; si++) {
+                    if (section_is_empty(&mod.sections.items[si])) { g_rt_empty++; continue; }
+                    refsecs[nref++] = mod.sections.items[si];
+                }
+                ref.sections.items = refsecs;
+                ref.sections.count = nref;
+                // The other §6-inexpressible encoding: a zero-count locals
+                // run carries a TYPE byte `(local)` cannot spell. Compact
+                // them out of the reference in place (mod is this walk's
+                // own copy, freed below; the allocation is untouched).
+                for (size_t si = 0; si < nref; si++) {
+                    if (refsecs[si].id != 10) continue;
+                    jav_code_section_t *cs = &refsecs[si].body.u.case_10;
+                    for (size_t k = 0; k < cs->entries.count; k++) {
+                        jav_func_body_t *fb = &cs->entries.items[k].body;
+                        size_t at = 0;
+                        for (size_t L = 0; L < fb->locals.count; L++) {
+                            if (fb->locals.items[L].count == 0) { g_rt_empty++; continue; }
+                            fb->locals.items[at++] = fb->locals.items[L];
+                        }
+                        if (at != fb->locals.count) {
+                            fb->locals.count = at;
+                            fb->local_count = (uint32_t)at;
+                        }
+                    }
+                }
+                if (jav_module_write(&wa, &ref) && jav_module_write(&wb, rt)) {
+                    if (wa.pos != (size_t)n || memcmp(wa.data, bytes, (size_t)n) != 0)
+                        g_rt_noncanon++;
+                    if (wa.pos == wb.pos && memcmp(wa.data, wb.data, wa.pos) == 0)
+                        g_rt_ok++;
+                    else {
+                        g_rt_bad++;
+                        if (getenv("WAST_VV")) {
+                            fprintf(stderr, "  wat ROUNDTRIP DIFFERS: %s (%zu vs %zu bytes)\n",
+                                    g_curfile, wa.pos, wb.pos);
+                            const char *dump = getenv("WAST_RT_DUMP");
+                            if (dump) {
+                                char pb[512];
+                                snprintf(pb, sizeof pb, "%s.a", dump);
+                                FILE *df = fopen(pb, "wb");
+                                if (df) { fwrite(wa.data, 1, wa.pos, df); fclose(df); }
+                                snprintf(pb, sizeof pb, "%s.b", dump);
+                                df = fopen(pb, "wb");
+                                if (df) { fwrite(wb.data, 1, wb.pos, df); fclose(df); }
+                                snprintf(pb, sizeof pb, "%s.wat", dump);
+                                df = fopen(pb, "w");
+                                if (df) { fwrite(txt, 1, tlen, df); fclose(df); }
+                            }
+                        }
+                    }
+                } else {
+                    g_rt_bad++;
+                }
+                bbq_write_ctx_free(&wa);
+                bbq_write_ctx_free(&wb);
+                jav_module_free(rt);
+                free(rt);
+            }
             else {
                 g_reread_fail++;
                 if (getenv("WAST_VV")) {
@@ -782,6 +881,13 @@ int main(int argc, char **argv) {
         // a position no word expresses is counted, never silently misplaced.
         fprintf(sum, "wast custom placement: %llu inexpressible\n",
                 (unsigned long long)ws.custom_unplaceable);
+        // PIN F-1. The whole trip, wasm → wat → wasm, byte-exact against the
+        // canonicalized original. `non-canonical originals` counts modules
+        // whose own bytes carry padded LEBs the writer re-encodes — encoding
+        // freedom §5 permits, surfaced rather than silently absorbed.
+        fprintf(sum, "wast wat round-trip (wasm -> wat -> wasm): %d ok, %d differ; "
+                     "%d non-canonical originals, %d empty sections erased\n",
+                g_rt_ok, g_rt_bad, g_rt_noncanon, g_rt_empty);
     }
     int eok = 0, ebad = 0, eexcl = 0;
     if (g_store_ready && !sweep) {
@@ -983,6 +1089,7 @@ int main(int argc, char **argv) {
             || g_emit_fail || ws_gate.width_mismatches || ws_gate.long_lines
             || (g_emit_ok == 0) || g_reread_fail || (g_reread_ok == 0)
             || ws_gate.custom_unplaceable
+            || g_rt_bad || (g_rt_ok == 0)
             || ebad || (!sweep && wast_exec_trap_msgbad())
             /* The tree and tiling meters belong to TIER-2: tier-1 compiles with no
              * tiling context, so no tree is built and there is nothing for them to
