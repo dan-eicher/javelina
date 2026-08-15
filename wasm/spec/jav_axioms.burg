@@ -19,10 +19,10 @@
 //     land;
 //   - `=>` only: a bidirectional axiom is two rules.
 //
-// ZERO RULES is this file's Part C' state, and it is load-bearing: the
-// emitted round matches nothing, saturation is vacuous, and tier-3 must
-// equal tier-2 STRUCTURALLY (PIN B-1's identity). The axioms arrive in
-// Part C, each with its citation.
+// This file EMPTY of rules is a load-bearing state, not a stub: the emitted
+// round matches nothing, saturation is vacuous, and tier-3 must then equal
+// tier-2 byte for byte — the identity the suite's tier-3 gates hold. Every
+// axiom below carries its citation and has a fixture that fails without it.
 
 COMPILER jav_axioms
 
@@ -56,12 +56,94 @@ TERM I64ShrS = OP_I64_SHR_S
 TERM I64ShrU = OP_I64_SHR_U
 TERM I64Eqz  = OP_I64_EQZ
 
+// width moves (§4.3.4 Conversions — total, no partiality)
+TERM I32WrapI64    = OP_I32_WRAP_I64
+TERM I64ExtendI32S = OP_I64_EXTEND_I32_S
+TERM I64ExtendI32U = OP_I64_EXTEND_I32_U
+
+// ── the 0xFD vector families (C5/C6). Keys are the generated
+// JAV_EQ_OP_* composites; the integer-lane ops are §4.3.2's operators
+// "lifted to input sequences by applying the operator element-wise"
+// (printed 91), so every scalar equality below holds lane by lane; the
+// v128 bitwise set is the ibits operators at width 128.
+TERM V128Const     = JAV_EQ_OP_V128_CONST
+TERM I8x16Shuffle  = JAV_EQ_OP_I8X16_SHUFFLE
+TERM V128Not       = JAV_EQ_OP_V128_NOT
+TERM V128And       = JAV_EQ_OP_V128_AND
+TERM V128AndNot    = JAV_EQ_OP_V128_ANDNOT
+TERM V128Or        = JAV_EQ_OP_V128_OR
+TERM V128Xor       = JAV_EQ_OP_V128_XOR
+TERM V128Bitselect = JAV_EQ_OP_V128_BITSELECT
+TERM I8x16Add  = JAV_EQ_OP_I8X16_ADD
+TERM I8x16Sub  = JAV_EQ_OP_I8X16_SUB
+TERM I16x8Add  = JAV_EQ_OP_I16X8_ADD
+TERM I16x8Sub  = JAV_EQ_OP_I16X8_SUB
+TERM I16x8Mul  = JAV_EQ_OP_I16X8_MUL
+TERM I32x4Add  = JAV_EQ_OP_I32X4_ADD
+TERM I32x4Sub  = JAV_EQ_OP_I32X4_SUB
+TERM I32x4Mul  = JAV_EQ_OP_I32X4_MUL
+TERM I64x2Add  = JAV_EQ_OP_I64X2_ADD
+TERM I64x2Sub  = JAV_EQ_OP_I64X2_SUB
+TERM I64x2Mul  = JAV_EQ_OP_I64X2_MUL
+TERM I8x16Shl  = JAV_EQ_OP_I8X16_SHL
+TERM I8x16ShrS = JAV_EQ_OP_I8X16_SHR_S
+TERM I8x16ShrU = JAV_EQ_OP_I8X16_SHR_U
+TERM I16x8Shl  = JAV_EQ_OP_I16X8_SHL
+TERM I16x8ShrS = JAV_EQ_OP_I16X8_SHR_S
+TERM I16x8ShrU = JAV_EQ_OP_I16X8_SHR_U
+TERM I32x4Shl  = JAV_EQ_OP_I32X4_SHL
+TERM I32x4ShrS = JAV_EQ_OP_I32X4_SHR_S
+TERM I32x4ShrU = JAV_EQ_OP_I32X4_SHR_U
+TERM I64x2Shl  = JAV_EQ_OP_I64X2_SHL
+TERM I64x2ShrS = JAV_EQ_OP_I64X2_SHR_S
+TERM I64x2ShrU = JAV_EQ_OP_I64X2_SHR_U
+
+// relational (§4.3.2 printed 97/98 — result is an i32 bool at either width)
+TERM I32Eq  = OP_I32_EQ
+TERM I32Ne  = OP_I32_NE
+TERM I32LtS = OP_I32_LT_S
+TERM I32LtU = OP_I32_LT_U
+TERM I32GtS = OP_I32_GT_S
+TERM I32GtU = OP_I32_GT_U
+TERM I32LeS = OP_I32_LE_S
+TERM I32LeU = OP_I32_LE_U
+TERM I32GeS = OP_I32_GE_S
+TERM I32GeU = OP_I32_GE_U
+TERM I64Eq  = OP_I64_EQ
+TERM I64Ne  = OP_I64_NE
+TERM I64LtS = OP_I64_LT_S
+TERM I64LtU = OP_I64_LT_U
+TERM I64GtS = OP_I64_GT_S
+TERM I64GtU = OP_I64_GT_U
+TERM I64LeS = OP_I64_LE_S
+TERM I64LeU = OP_I64_LE_U
+TERM I64GeS = OP_I64_GE_S
+TERM I64GeU = OP_I64_GE_U
+
 AUXILIARIES
   // Each takes the classes its binders matched and returns the class of its
   // result. The zero-likes give the self-erasing identities their constant:
   // §4.3.2's isub/ixor at i1 = i2 are exactly 0, at either width.
   jav_eq_zero32 : (class) -> class
   jav_eq_zero64 : (class) -> class
+  jav_eq_one32  : (class) -> class
+  jav_eq_zero_v128 : (class) -> class
+  jav_eq_log2_32   : (class) -> class
+  jav_eq_log2_64   : (class) -> class
+  jav_eq_v128_log2 : (class) -> class
+  // One fold per operator (the analog's law): each reads its two operands'
+  // const facts and returns the folded constant's class, at the §4.3.2
+  // equation of ITS op and width. Guarded call sites only.
+  jav_eq_refold_add32 : (class, class) -> class
+  jav_eq_refold_mul32 : (class, class) -> class
+  jav_eq_refold_and32 : (class, class) -> class
+  jav_eq_refold_or32  : (class, class) -> class
+  jav_eq_refold_xor32 : (class, class) -> class
+  jav_eq_refold_add64 : (class, class) -> class
+  jav_eq_refold_mul64 : (class, class) -> class
+  jav_eq_refold_and64 : (class, class) -> class
+  jav_eq_refold_or64  : (class, class) -> class
+  jav_eq_refold_xor64 : (class, class) -> class
 
 REWRITE {
   // The domain beside the rules (egg §4.1): constant-ness. `make` folds a
@@ -92,11 +174,72 @@ REWRITE {
   or64_comm:  I64Or($a, $b)  => I64Or($b, $a);
   xor64_comm: I64Xor($a, $b) => I64Xor($b, $a);
 
-  // ── ASSOCIATIVITY (right-lean, so the analysis can refold constants
-  // that source order separated). §4.3.2 printed 94: iadd is addition
-  // mod 2^N, and (a+b)+c ≡ a+(b+c) holds in Z, hence mod 2^N.
-  add32_assoc: I32Add(I32Add($a, $b), $c) => I32Add($a, I32Add($b, $c));
-  add64_assoc: I64Add(I64Add($a, $b), $c) => I64Add($a, I64Add($b, $c));
+  // ── REASSOCIATE-AND-REFOLD, fold-guarded. §4.3.2 printed 94: iadd and
+  // imul associate in Z, hence mod 2^N; printed 95/96: the bit ops are
+  // pointwise and associate bit by bit. The rule fires ONLY when both
+  // right-hand operands carry const facts, and the template hands back the
+  // ALREADY-FOLDED constant — a strictly smaller term, one new node.
+  // The unguarded form (Op(Op(a,b),c) => Op(a,Op(b,c)) with commutativity
+  // beside it) is the classic e-graph blowup: one class reached 17k nodes
+  // inside a single round on a five-node fixture. Comm supplies the
+  // operand-position variants, so the guarded form loses no refold.
+  add32_refold: I32Add(I32Add($a, $b), $c) => I32Add($a, jav_eq_refold_add32($b, $c))
+      where (. jav_eq_has_const32(g, $b) && jav_eq_has_const32(g, $c) .);
+  mul32_refold: I32Mul(I32Mul($a, $b), $c) => I32Mul($a, jav_eq_refold_mul32($b, $c))
+      where (. jav_eq_has_const32(g, $b) && jav_eq_has_const32(g, $c) .);
+  and32_refold: I32And(I32And($a, $b), $c) => I32And($a, jav_eq_refold_and32($b, $c))
+      where (. jav_eq_has_const32(g, $b) && jav_eq_has_const32(g, $c) .);
+  or32_refold:  I32Or(I32Or($a, $b), $c)   => I32Or($a, jav_eq_refold_or32($b, $c))
+      where (. jav_eq_has_const32(g, $b) && jav_eq_has_const32(g, $c) .);
+  xor32_refold: I32Xor(I32Xor($a, $b), $c) => I32Xor($a, jav_eq_refold_xor32($b, $c))
+      where (. jav_eq_has_const32(g, $b) && jav_eq_has_const32(g, $c) .);
+  add64_refold: I64Add(I64Add($a, $b), $c) => I64Add($a, jav_eq_refold_add64($b, $c))
+      where (. jav_eq_has_const64(g, $b) && jav_eq_has_const64(g, $c) .);
+  mul64_refold: I64Mul(I64Mul($a, $b), $c) => I64Mul($a, jav_eq_refold_mul64($b, $c))
+      where (. jav_eq_has_const64(g, $b) && jav_eq_has_const64(g, $c) .);
+  and64_refold: I64And(I64And($a, $b), $c) => I64And($a, jav_eq_refold_and64($b, $c))
+      where (. jav_eq_has_const64(g, $b) && jav_eq_has_const64(g, $c) .);
+  or64_refold:  I64Or(I64Or($a, $b), $c)   => I64Or($a, jav_eq_refold_or64($b, $c))
+      where (. jav_eq_has_const64(g, $b) && jav_eq_has_const64(g, $c) .);
+  xor64_refold: I64Xor(I64Xor($a, $b), $c) => I64Xor($a, jav_eq_refold_xor64($b, $c))
+      where (. jav_eq_has_const64(g, $b) && jav_eq_has_const64(g, $c) .);
+
+  // ── WIDTH-MOVE CANCELLATIONS. §4.3.4 Conversions, printed 110, verbatim:
+  // "extend_u_{M,N}(i) = i" (the Note: "unsigned extension just reinterprets
+  // the same value"); "extend_s_{M,N}(i) = signed⁻¹_N(signed_M(i))";
+  // "wrap_{M,N}(i) = i mod 2^N". So wrap∘extend_u is i mod 2^32 = i (i is a
+  // 32-bit value by representation), and wrap∘extend_s takes the low 32 bits
+  // of the sign extension, which ARE i — both identities at every value.
+  wrap_exts: I32WrapI64(I64ExtendI32S($x)) => $x;
+  wrap_extu: I32WrapI64(I64ExtendI32U($x)) => $x;
+
+  // ── SELF-COMPARISON. §4.3.2 printed 97/98: "ieq_N(i1,i2) = bool(i1=i2)",
+  // "ine = bool(i1≠i2)", "ilt_u = bool(i1<i2)", "ile_u = bool(i1≤i2)",
+  // "ige_u = bool(i1≥i2)", and the _s forms through one signed
+  // interpretation applied to BOTH operands — so at i1 = i2 every one of
+  // them is decided: eq/le/ge are 1, ne/lt/gt are 0, at either width
+  // (integers have no NaN — reflexivity is total). Same e-class IS same
+  // value; eg_find asks exactly that.
+  eq32_self:  I32Eq($x, $y)  => jav_eq_one32($$)  where (. eg_find(g, $x) == eg_find(g, $y) .);
+  ne32_self:  I32Ne($x, $y)  => jav_eq_zero32($$) where (. eg_find(g, $x) == eg_find(g, $y) .);
+  lts32_self: I32LtS($x, $y) => jav_eq_zero32($$) where (. eg_find(g, $x) == eg_find(g, $y) .);
+  ltu32_self: I32LtU($x, $y) => jav_eq_zero32($$) where (. eg_find(g, $x) == eg_find(g, $y) .);
+  gts32_self: I32GtS($x, $y) => jav_eq_zero32($$) where (. eg_find(g, $x) == eg_find(g, $y) .);
+  gtu32_self: I32GtU($x, $y) => jav_eq_zero32($$) where (. eg_find(g, $x) == eg_find(g, $y) .);
+  les32_self: I32LeS($x, $y) => jav_eq_one32($$)  where (. eg_find(g, $x) == eg_find(g, $y) .);
+  leu32_self: I32LeU($x, $y) => jav_eq_one32($$)  where (. eg_find(g, $x) == eg_find(g, $y) .);
+  ges32_self: I32GeS($x, $y) => jav_eq_one32($$)  where (. eg_find(g, $x) == eg_find(g, $y) .);
+  geu32_self: I32GeU($x, $y) => jav_eq_one32($$)  where (. eg_find(g, $x) == eg_find(g, $y) .);
+  eq64_self:  I64Eq($x, $y)  => jav_eq_one32($$)  where (. eg_find(g, $x) == eg_find(g, $y) .);
+  ne64_self:  I64Ne($x, $y)  => jav_eq_zero32($$) where (. eg_find(g, $x) == eg_find(g, $y) .);
+  lts64_self: I64LtS($x, $y) => jav_eq_zero32($$) where (. eg_find(g, $x) == eg_find(g, $y) .);
+  ltu64_self: I64LtU($x, $y) => jav_eq_zero32($$) where (. eg_find(g, $x) == eg_find(g, $y) .);
+  gts64_self: I64GtS($x, $y) => jav_eq_zero32($$) where (. eg_find(g, $x) == eg_find(g, $y) .);
+  gtu64_self: I64GtU($x, $y) => jav_eq_zero32($$) where (. eg_find(g, $x) == eg_find(g, $y) .);
+  les64_self: I64LeS($x, $y) => jav_eq_one32($$)  where (. eg_find(g, $x) == eg_find(g, $y) .);
+  leu64_self: I64LeU($x, $y) => jav_eq_one32($$)  where (. eg_find(g, $x) == eg_find(g, $y) .);
+  ges64_self: I64GeS($x, $y) => jav_eq_one32($$)  where (. eg_find(g, $x) == eg_find(g, $y) .);
+  geu64_self: I64GeU($x, $y) => jav_eq_one32($$)  where (. eg_find(g, $x) == eg_find(g, $y) .);
 
   // ── ADDITIVE IDENTITIES. §4.3.2 printed 94: "iadd_N(i1,i2) =
   // (i1 + i2) mod 2^N" — i + 0 mod 2^N = i, since 0 ≤ i < 2^N by
@@ -157,13 +300,124 @@ REWRITE {
   shrs64_zero: I64ShrS($x, $z) => $x where (. jav_eq_is_const64(g, $z, 0) .);
   shru64_zero: I64ShrU($x, $z) => $x where (. jav_eq_is_const64(g, $z, 0) .);
 
-  // EXCLUDED from v1, each a decision with its §4.3 reason recorded in the
-  // plan: strength ×2^k → <<k (byte-equal under the size-first cost, so it
-  // can never change an extraction and no fixture can go red for it);
-  // div/rem/trunc anything (partial — printed 94: "the result is
-  // undefined … This operator is partial"); every float rule (§4.3
-  // preamble: operators returning "one of several possible results" — NaN
-  // nondeterminism makes syntactic equality weaker than value equality).
+  // ── THE VECTOR FAMILIES. §4.3's lifting (printed 91): "Numeric
+  // operators are lifted to input sequences by applying the operator
+  // element-wise" — so iadd/isub/imul's mod-2^N equalities hold per lane,
+  // and the v128 bitwise set is iand/ior/ixor/inot at width 128. Every
+  // rule here RETURNS AN OPERAND (or spells v128.not, which carries no
+  // immediate); the self-erasing forms that manufacture a zero VECTOR sit
+  // further down with the synth channel that stamps one.
+  //
+  // commutativity, per lane / per bit
+  vand_comm: V128And($a, $b) => V128And($b, $a);
+  vor_comm:  V128Or($a, $b)  => V128Or($b, $a);
+  vxor_comm: V128Xor($a, $b) => V128Xor($b, $a);
+  add8_comm:  I8x16Add($a, $b) => I8x16Add($b, $a);
+  add16_comm: I16x8Add($a, $b) => I16x8Add($b, $a);
+  add32x4_comm: I32x4Add($a, $b) => I32x4Add($b, $a);
+  add64x2_comm: I64x2Add($a, $b) => I64x2Add($b, $a);
+  mul16_comm: I16x8Mul($a, $b) => I16x8Mul($b, $a);
+  mul32x4_comm: I32x4Mul($a, $b) => I32x4Mul($b, $a);
+  mul64x2_comm: I64x2Mul($a, $b) => I64x2Mul($b, $a);
+  // bitwise identities, absorbers, self — iand/ior/ixor pointwise
+  vand_self: V128And($x, $y) => $x where (. eg_find(g, $x) == eg_find(g, $y) .);
+  vand_zero: V128And($x, $z) => $z where (. jav_eq_is_v128_zero(g, $z) .);
+  vand_ones: V128And($x, $o) => $x where (. jav_eq_is_v128_ones(g, $o) .);
+  vor_self:  V128Or($x, $y)  => $x where (. eg_find(g, $x) == eg_find(g, $y) .);
+  vor_zero:  V128Or($x, $z)  => $x where (. jav_eq_is_v128_zero(g, $z) .);
+  vor_ones:  V128Or($x, $o)  => $o where (. jav_eq_is_v128_ones(g, $o) .);
+  vxor_zero: V128Xor($x, $z) => $x where (. jav_eq_is_v128_zero(g, $z) .);
+  // x ⊻ 1..1 = ¬x — inot is ixor with all ones, stated the other way
+  vxor_ones: V128Xor($x, $o) => V128Not($x) where (. jav_eq_is_v128_ones(g, $o) .);
+  vnot_not:  V128Not(V128Not($x)) => $x;
+  // andnot(i1,i2) = iand(i1, inot(i2)) — printed 95; at i2 = 0 it is i1
+  vandnot_zero: V128AndNot($x, $z) => $x where (. jav_eq_is_v128_zero(g, $z) .);
+  // ibitselect(i1,i2,i3) = ior(iand(i1,i3), iand(i2,inot(i3))) — printed 98:
+  // an all-ones mask selects i1 whole, an all-zeros mask i2 whole
+  vbitsel_ones: V128Bitselect($a, $b, $m) => $a where (. jav_eq_is_v128_ones(g, $m) .);
+  vbitsel_zero: V128Bitselect($a, $b, $m) => $b where (. jav_eq_is_v128_zero(g, $m) .);
+  // additive identity per lane: iadd_N(i, 0) = i at every lane width
+  add8_zero:  I8x16Add($x, $z) => $x where (. jav_eq_is_v128_zero(g, $z) .);
+  add16_zero: I16x8Add($x, $z) => $x where (. jav_eq_is_v128_zero(g, $z) .);
+  add32x4_zero: I32x4Add($x, $z) => $x where (. jav_eq_is_v128_zero(g, $z) .);
+  add64x2_zero: I64x2Add($x, $z) => $x where (. jav_eq_is_v128_zero(g, $z) .);
+  sub8_zero:  I8x16Sub($x, $z) => $x where (. jav_eq_is_v128_zero(g, $z) .);
+  sub16_zero: I16x8Sub($x, $z) => $x where (. jav_eq_is_v128_zero(g, $z) .);
+  sub32x4_zero: I32x4Sub($x, $z) => $x where (. jav_eq_is_v128_zero(g, $z) .);
+  sub64x2_zero: I64x2Sub($x, $z) => $x where (. jav_eq_is_v128_zero(g, $z) .);
+  // multiplicative identity and absorber per lane, at the lane's own width
+  mul16_one:  I16x8Mul($x, $o) => $x where (. jav_eq_is_v128_lane1(g, $o, 2) .);
+  mul32x4_one: I32x4Mul($x, $o) => $x where (. jav_eq_is_v128_lane1(g, $o, 4) .);
+  mul64x2_one: I64x2Mul($x, $o) => $x where (. jav_eq_is_v128_lane1(g, $o, 8) .);
+  mul16_zero:  I16x8Mul($x, $z) => $z where (. jav_eq_is_v128_zero(g, $z) .);
+  mul32x4_zero: I32x4Mul($x, $z) => $z where (. jav_eq_is_v128_zero(g, $z) .);
+  mul64x2_zero: I64x2Mul($x, $z) => $z where (. jav_eq_is_v128_zero(g, $z) .);
+  // shift by zero, at every lane width — "Let k be i2 modulo N": k = 0
+  // moves nothing (the shift DISTANCE is the scalar i32 operand)
+  shl8_zero:   I8x16Shl($x, $z)  => $x where (. jav_eq_is_const32(g, $z, 0) .);
+  shrs8_zero:  I8x16ShrS($x, $z) => $x where (. jav_eq_is_const32(g, $z, 0) .);
+  shru8_zero:  I8x16ShrU($x, $z) => $x where (. jav_eq_is_const32(g, $z, 0) .);
+  shl16_zero:  I16x8Shl($x, $z)  => $x where (. jav_eq_is_const32(g, $z, 0) .);
+  shrs16_zero: I16x8ShrS($x, $z) => $x where (. jav_eq_is_const32(g, $z, 0) .);
+  shru16_zero: I16x8ShrU($x, $z) => $x where (. jav_eq_is_const32(g, $z, 0) .);
+  shl32_vzero:  I32x4Shl($x, $z)  => $x where (. jav_eq_is_const32(g, $z, 0) .);
+  shrs32_vzero: I32x4ShrS($x, $z) => $x where (. jav_eq_is_const32(g, $z, 0) .);
+  shru32_vzero: I32x4ShrU($x, $z) => $x where (. jav_eq_is_const32(g, $z, 0) .);
+  shl64_vzero:  I64x2Shl($x, $z)  => $x where (. jav_eq_is_const32(g, $z, 0) .);
+  shrs64_vzero: I64x2ShrS($x, $z) => $x where (. jav_eq_is_const32(g, $z, 0) .);
+  shru64_vzero: I64x2ShrU($x, $z) => $x where (. jav_eq_is_const32(g, $z, 0) .);
+  // a shuffle whose pattern is lanes 0..15 IS its first operand; 16..31
+  // its second — the pattern rides the region's blob table
+  shuf_id_a: I8x16Shuffle($a, $b) => $a where (. jav_eq_shuffle_is_id(g, $$, 0) .);
+  shuf_id_b: I8x16Shuffle($a, $b) => $b where (. jav_eq_shuffle_is_id(g, $$, 1) .);
+
+  // ── the lane-wise SELF-ERASERS: isub/ixor at i1 = i2 are exactly 0 in
+  // every lane, and the all-zero bit pattern spells lane-zero at every
+  // width at once — one manufactured vector serves all five rules.
+  vxor_self: V128Xor($x, $y) => jav_eq_zero_v128($$)
+      where (. eg_find(g, $x) == eg_find(g, $y) .);
+  sub8_self:  I8x16Sub($x, $y) => jav_eq_zero_v128($$)
+      where (. eg_find(g, $x) == eg_find(g, $y) .);
+  sub16_self: I16x8Sub($x, $y) => jav_eq_zero_v128($$)
+      where (. eg_find(g, $x) == eg_find(g, $y) .);
+  sub32x4_self: I32x4Sub($x, $y) => jav_eq_zero_v128($$)
+      where (. eg_find(g, $x) == eg_find(g, $y) .);
+  sub64x2_self: I64x2Sub($x, $y) => jav_eq_zero_v128($$)
+      where (. eg_find(g, $x) == eg_find(g, $y) .);
+
+  // ── STRENGTH: ×2^k rewrites to the shift. §4.3.2 printed 94/96:
+  // "imul_N(i1,i2) = (i1·i2) mod 2^N" and "ishl_N(i1,i2) = ibits⁻¹(d2^{N−k}
+  // 0^k)" — multiplying by 2^k IS shifting k zeros in, exactly, at every
+  // value. The two forms are one stencil each; the win is the stencil
+  // BODY (a multiplier's latency exceeds a shifter's on every shipping
+  // core), which the extraction cost's micro weight carries.
+  mul32_pow2: I32Mul($x, $p) => I32Shl($x, jav_eq_log2_32($p))
+      where (. jav_eq_is_pow2_32(g, $p) .);
+  mul64_pow2: I64Mul($x, $p) => I64Shl($x, jav_eq_log2_64($p))
+      where (. jav_eq_is_pow2_64(g, $p) .);
+  vmul16_pow2: I16x8Mul($x, $p) => I16x8Shl($x, jav_eq_v128_log2($p))
+      where (. jav_eq_is_v128_splat_pow2(g, $p, 2) .);
+  vmul32_pow2: I32x4Mul($x, $p) => I32x4Shl($x, jav_eq_v128_log2($p))
+      where (. jav_eq_is_v128_splat_pow2(g, $p, 4) .);
+  vmul64_pow2: I64x2Mul($x, $p) => I64x2Shl($x, jav_eq_v128_log2($p))
+      where (. jav_eq_is_v128_splat_pow2(g, $p, 8) .);
+
+  // EXCLUDED, each with its reason stated here because here is what ships:
+  // strength ×2^k → <<k — on a copy-and-patch engine both forms are ONE
+  //   stencil, one dispatch, so they are cost-equal in the engine's own
+  //   cycles (Ertl §2.6's units, which extraction prices in); sub-dispatch
+  //   latency differences are below this model's resolution, so the rule
+  //   could never change an extraction and no fixture can go red for it;
+  // div/rem/trunc anything — partial (printed 94: "the result is
+  //   undefined … This operator is partial"): a trap is an effect, and
+  //   moving or deleting one changes meaning;
+  // every float rule and every float LANE family — §4.3's preamble allows
+  //   operators to return "one of several possible results" (NaN payloads),
+  //   so syntactic equality is weaker than value equality there;
+  // the manufactured-constant vector forms (xor_self/sub_self → a zero
+  //   vector) — a synthesized 16-byte immediate has no stamp channel yet;
+  //   rules that RETURN an existing operand cover the rest, and a rule
+  //   selecting an existing vector constant splices the original tree.
 }
 
 RULES

@@ -5,8 +5,7 @@
  * spec/instructions.toml, never hand-listed in jav_eqsat.c. Emits
  * src/gen/jav_eqsat_ops.h.
  *
- * The predicate, from the plan's D2 ("traps == [] plus the shape/family
- * facts already in the toml"):
+ * The predicate — the spec table's own facts, nothing hand-judged:
  *
  *   admitted  <=>  the opcode is a plain byte (the prefixed families are
  *                  outside the v1 vocabulary)
@@ -58,35 +57,68 @@ int main(int argc, char** argv) {
 
     uint8_t pure[256] = {0};
     char why[256][40] = {{0}};
-    int npure = 0;
+    uint8_t pure_fd[256] = {0};
+    char why_fd[256][40] = {{0}};
+    int npure = 0, nfd = 0;
     for (int i = 0; i < n; i++) {
         const toml_tbl_t* t = toml_val_as_table(toml_val_array_at(instrs, i));
         if (!t) continue;
-        const toml_val_t* opv = toml_tbl_get(t, "opcode");
-        int64_t op;
-        if (!toml_val_as_int(opv, &op)) continue;      /* [prefix, sub]: out of v1 */
-        if (op < 0 || op > 255) {
-            fprintf(stderr, "gen_eqsat_ops: opcode %lld out of byte range\n",
-                    (long long)op);
-            return 1;
-        }
         const char* name;
         if (!toml_val_as_string(toml_tbl_get(t, "name"), &name)) continue;
         const toml_val_t* traps = toml_tbl_get(t, "traps");
         if (traps && toml_val_array_count(traps) > 0) continue;
-        if (strncmp(name, "i32.", 4) != 0 && strncmp(name, "i64.", 4) != 0) continue;
-        if (pure[op]) {
-            fprintf(stderr, "gen_eqsat_ops: opcode 0x%02x listed twice (%s, %s)\n",
-                    (unsigned)op, why[op], name);
+        const toml_val_t* opv = toml_tbl_get(t, "opcode");
+        int64_t op;
+        if (toml_val_as_int(opv, &op)) {
+            /* an unprefixed byte: the scalar integer families */
+            if (op < 0 || op > 255) {
+                fprintf(stderr, "gen_eqsat_ops: opcode %lld out of byte range\n",
+                        (long long)op);
+                return 1;
+            }
+            if (strncmp(name, "i32.", 4) != 0 && strncmp(name, "i64.", 4) != 0)
+                continue;
+            if (pure[op]) {
+                fprintf(stderr, "gen_eqsat_ops: opcode 0x%02x listed twice (%s, %s)\n",
+                        (unsigned)op, why[op], name);
+                return 1;
+            }
+            pure[op] = 1;
+            snprintf(why[op], sizeof why[op], "%s", name);
+            npure++;
+            continue;
+        }
+        /* [prefix, sub]: only the 0xFD vector family enters, and only its
+         * VALUE ops — integer lanes and the v128 bitwise/const/shuffle set.
+         * Float-lane arithmetic stays out for the same NaN ground as scalar
+         * floats (§4.3's non-deterministic results); anything "relaxed" is
+         * non-deterministic BY DESIGN; loads and stores are state and carry
+         * traps anyway (belt and suspenders: the traps check above already
+         * dropped them). */
+        int cnt = toml_val_array_count(opv);
+        if (cnt != 2) continue;
+        int64_t pfx, sub;
+        if (!toml_val_as_int(toml_val_array_at(opv, 0), &pfx)) continue;
+        if (!toml_val_as_int(toml_val_array_at(opv, 1), &sub)) continue;
+        if (pfx != 0xFD || sub < 0 || sub > 255) continue;
+        if (strstr(name, "relaxed")) continue;
+        if (strstr(name, "load") || strstr(name, "store")) continue;
+        if (strncmp(name, "v128.", 5) != 0 && strncmp(name, "i8x16.", 6) != 0
+            && strncmp(name, "i16x8.", 6) != 0 && strncmp(name, "i32x4.", 6) != 0
+            && strncmp(name, "i64x2.", 6) != 0) continue;
+        if (pure_fd[sub]) {
+            fprintf(stderr, "gen_eqsat_ops: 0xFD %lld listed twice (%s, %s)\n",
+                    (long long)sub, why_fd[sub], name);
             return 1;
         }
-        pure[op] = 1;
-        snprintf(why[op], sizeof why[op], "%s", name);
-        npure++;
+        pure_fd[sub] = 1;
+        snprintf(why_fd[sub], sizeof why_fd[sub], "%s", name);
+        nfd++;
     }
-    if (npure == 0) {
-        fprintf(stderr, "gen_eqsat_ops: the fence admitted nothing — the predicate "
-                        "or the table is broken\n");
+    if (npure == 0 || nfd == 0) {
+        fprintf(stderr, "gen_eqsat_ops: the fence admitted nothing (%d scalar, "
+                        "%d vector) — the predicate or the table is broken\n",
+                npure, nfd);
         return 1;
     }
 
@@ -105,15 +137,41 @@ int main(int argc, char** argv) {
         if (pure[op]) fprintf(o, "    [0x%02x] = 1,  /* %s */\n", op, why[op]);
     fprintf(o,
         "};\n\n"
-        "/* Synthetic e-node operators, disjoint from every opcode byte.\n"
-        " * A local.get interns as (JAV_EQ_OP_LOCAL, data = slot | version<<32)\n"
-        " * — the plan's D3a versioned leaf — and an unadmitted subtree as\n"
-        " * (JAV_EQ_OP_OPAQUE, data = the jav_tnode_t address): its own\n"
-        " * congruence class, no inputs, the tree keeps its place. */\n"
+        "/* …and the 0xFD vector family's admitted SUB-opcodes (%d). The e-node\n"
+        " * key for a prefixed op is JAV_EQ_OP_FD(sub) — above every byte and\n"
+        " * every synthetic, so the two vocabularies cannot collide. */\n"
+        "static const uint8_t jav_eqsat_pure_fd[256] = {\n", nfd);
+    for (int s = 0; s < 256; s++)
+        if (pure_fd[s]) fprintf(o, "    [0x%02x] = 1,  /* %s */\n", s, why_fd[s]);
+    fprintf(o,
+        "};\n\n"
+        "#define JAV_EQ_OP_FD(sub) (0x10000 | (sub))\n\n"
+        "/* One named key per admitted vector op, so the axiom file's TERMs and\n"
+        " * the consumer's switch arms restate no number. */\n");
+    for (int s = 0; s < 256; s++) {
+        if (!pure_fd[s]) continue;
+        char mac[48]; size_t mo = 0;
+        for (const char* p = why_fd[s]; *p && mo + 1 < sizeof mac; p++) {
+            char ch = *p;
+            if (ch >= 'a' && ch <= 'z') ch = (char)(ch - 'a' + 'A');
+            else if (!(ch >= '0' && ch <= '9') && !(ch >= 'A' && ch <= 'Z')) ch = '_';
+            mac[mo++] = ch;
+        }
+        mac[mo] = 0;
+        fprintf(o, "#define JAV_EQ_OP_%s JAV_EQ_OP_FD(0x%02x)\n", mac, s);
+    }
+    fprintf(o,
+        "\n/* Synthetic e-node operators, disjoint from every opcode byte and\n"
+        " * every JAV_EQ_OP_FD key. A local.get interns as (JAV_EQ_OP_LOCAL,\n"
+        " * data = slot | version<<32; versions thread the region so a load\n"
+        " * resolves against the store order it really saw) — and an\n"
+        " * unadmitted subtree as (JAV_EQ_OP_OPAQUE, data = the jav_tnode_t\n"
+        " * address): its own congruence class, no inputs, the tree keeps its\n"
+        " * place. */\n"
         "#define JAV_EQ_OP_LOCAL  0x100\n"
         "#define JAV_EQ_OP_OPAQUE 0x101\n"
         "\n#endif /* JAV_EQSAT_OPS_H */\n");
     fclose(o);
-    fprintf(stderr, "gen_eqsat_ops: %d pure opcode(s)\n", npure);
+    fprintf(stderr, "gen_eqsat_ops: %d scalar + %d vector opcode(s)\n", npure, nfd);
     return 0;
 }

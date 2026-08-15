@@ -1,14 +1,15 @@
 /* jav_eqsat.h — tier-3: equality saturation over the tier-2 tree.
  *
  * Tier-3 IS tier-2 with this pass inserted between jav_ttree_build and the
- * burg reduce (the plan's D1): per region, the pure subtrees intern into an
- * e-graph, the generated rule set saturates it (src/gen/jav_rewrite.h, from
+ * burg reduce: per region, the pure subtrees intern into an e-graph, the
+ * generated rule set saturates it (src/gen/jav_rewrite.h, from
  * spec/jav_axioms.burg), and each root extracts the cheapest equal term.
  * An extraction identical to the original keeps the ORIGINAL subtree,
  * pointer and all, so with zero rules tier-3 is tier-2 STRUCTURALLY — the
- * same trees, the same reduce, the same code (PIN B-1).
+ * same trees, the same reduce, the same code, which the suite gates as a
+ * byte-for-byte identity rather than trusting the construction.
  *
- * Fail closed, engine aborts never (D7): any refusal — caps, an intern the
+ * Fail closed, engine aborts never: any refusal — caps, an intern the
  * fence rejects, an extraction that cannot be verified — keeps the original
  * for that region and is COUNTED. A tier-3 decline is correct and therefore
  * silent and therefore metered.
@@ -40,10 +41,19 @@ typedef struct {
 const jav_eqsat_stats_t* jav_eqsat_stats(void);
 void                     jav_eqsat_stats_reset(void);
 
-/* A synthesized node's stamp record: the emitter reads (op, imm) from here
- * when a node has no pc. One immediate is the whole v1 vocabulary — a const
- * carries its value, an extracted local its slot, pure arithmetic nothing. */
-typedef struct { uint8_t op; int64_t imm; } jav_synth_t;
+/* A synthesized node's stamp record: the emitter reads it when a node has no
+ * pc. Two immediates cover the whole vocabulary — a scalar const carries its
+ * value, an extracted local its slot, a lane op its lane, and a 16-byte
+ * vector immediate (v128.const, i8x16.shuffle) rides both halves exactly as
+ * the byte decode feeds the stencil's two raw-8-byte holes. `prefixed` says
+ * op is 0xFD and `sub` the sub-opcode. */
+typedef struct {
+    uint8_t  op;
+    uint8_t  prefixed;
+    uint32_t sub;
+    int64_t  imm;
+    int64_t  imm2;
+} jav_synth_t;
 
 /* Run the pass over one body's tree, IN PLACE: a root whose extraction is
  * cheaper and rebuildable is replaced (tree->nnodes adjusted so the picks

@@ -76,8 +76,8 @@ const jav_ttree_stats_t* jav_ttree_stats(void) { return &g_stats; }
 void jav_ttree_stats_reset(void) { memset(&g_stats, 0, sizeof g_stats); }
 
 /* The offset-keyed tile map lived here: `jav_tile_pick` recorded a cache state
- * per byte offset and the byte-driven stamping walk read it back. It retired with
- * cosmic Amendment #16 — the rule action IS the stamp now (`jav_t2_stamp`, in the
+ * per byte offset and the byte-driven stamping walk read it back. It retired
+ * when the rule action became the stamp itself (`jav_t2_stamp`, in the
  * driver that owns the emission context), so there is nothing to record and
  * nothing to join. The byte walk survives as tier-1 and the decline fallback,
  * where every stencil is the plain form and no state exists to look up. */

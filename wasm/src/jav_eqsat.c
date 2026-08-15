@@ -1,7 +1,8 @@
 /* jav_eqsat.c — tier-3's equality saturation over the tier-2 tree.
  *
- * Per region (a region is one e-graph; values do not flow across cuts —
- * Part F threads region-entry facts later, as a PART, not a deferral):
+ * Per region (a region is one e-graph; a value that crosses a cut arrives
+ * as a carried leaf, and only its proven CONSTANT-ness follows it — the
+ * producer-link fact channel below):
  *
  *   intern    pure subtrees become e-nodes keyed by the plain opcode byte;
  *             `i32.const`/`i64.const` carry their decoded value as `data`
@@ -17,9 +18,9 @@
  *   extract   per root, cheapest term (cost below); an extraction IDENTICAL
  *             to the original keeps the ORIGINAL subtree, pointer and all —
  *             with zero rules that is every root, and tier-3 is tier-2
- *             structurally (PIN B-1). A differing extraction is Part C3's
- *             rebuild; until it lands, differing keeps the original too
- *             (D7: fail closed, counted).
+ *             structurally. A differing extraction goes through the rebuild
+ *             and its fences; any refusal keeps the original, counted —
+ *             fail closed, the engine never aborts.
  */
 #include "jav_eqsat.h"
 
@@ -29,6 +30,7 @@
 #include "opcodes.h"
 #include "bbq_hmap.h"
 #include "jav_eqsat_ops.h"
+#include "jav_jit_meta.h"    /* the 0xFD sub-table's operand kinds (lane immediates) */
 #include "egraph.h"
 
 /* ── the e-class analysis (egg §4.1): constant-ness ─────────
@@ -121,11 +123,37 @@ void jav_eq_make(egraph* g, int op, int64_t data,
     case OP_I64_SHL:   if (k2) { f->kind = 2; f->v = f_shl64(a64, b64); } return;
     case OP_I64_SHR_S: if (k2) { f->kind = 2; f->v = f_shrs64(a64, b64); } return;
     case OP_I64_SHR_U: if (k2) { f->kind = 2; f->v = f_shru64(a64, b64); } return;
-    /* §4.3.6 conversions with no partiality: wrap discards the upper half
-     * (the value mod 2^32); the extends embed exactly. */
+    /* §4.3.4 Conversions, printed 110: "wrap_{M,N}(i) = i mod 2^N";
+     * "extend_u_{M,N}(i) = i"; extend_s through the signed interpretation —
+     * total, no partiality. */
     case OP_I32_WRAP_I64:   if (a->kind == 2) { f->kind = 1; f->v = (int64_t)(int32_t)a->v; } return;
     case OP_I64_EXTEND_I32_S: if (a->kind == 1) { f->kind = 2; f->v = a->v; } return;
     case OP_I64_EXTEND_I32_U: if (a->kind == 1) { f->kind = 2; f->v = (int64_t)(uint32_t)a->v; } return;
+    /* §4.3.2 relational operators, printed 97/98 — every result is an i32
+     * bool: "ieq_N(i1,i2) = bool(i1 = i2)" · "ine" bool(i1 ≠ i2) ·
+     * "ilt_u = bool(i1 < i2)" and ilt_s/igt/ile/ige through the signed
+     * interpretation where the suffix says so. The unsigned forms compare
+     * the representation values, which is what the uint casts spell. */
+    case OP_I32_EQ:   if (k1) { f->kind = 1; f->v = a32 == b32; } return;
+    case OP_I32_NE:   if (k1) { f->kind = 1; f->v = a32 != b32; } return;
+    case OP_I32_LT_S: if (k1) { f->kind = 1; f->v = a32 < b32; }  return;
+    case OP_I32_LT_U: if (k1) { f->kind = 1; f->v = (uint32_t)a32 < (uint32_t)b32; } return;
+    case OP_I32_GT_S: if (k1) { f->kind = 1; f->v = a32 > b32; }  return;
+    case OP_I32_GT_U: if (k1) { f->kind = 1; f->v = (uint32_t)a32 > (uint32_t)b32; } return;
+    case OP_I32_LE_S: if (k1) { f->kind = 1; f->v = a32 <= b32; } return;
+    case OP_I32_LE_U: if (k1) { f->kind = 1; f->v = (uint32_t)a32 <= (uint32_t)b32; } return;
+    case OP_I32_GE_S: if (k1) { f->kind = 1; f->v = a32 >= b32; } return;
+    case OP_I32_GE_U: if (k1) { f->kind = 1; f->v = (uint32_t)a32 >= (uint32_t)b32; } return;
+    case OP_I64_EQ:   if (k2) { f->kind = 1; f->v = a64 == b64; } return;
+    case OP_I64_NE:   if (k2) { f->kind = 1; f->v = a64 != b64; } return;
+    case OP_I64_LT_S: if (k2) { f->kind = 1; f->v = a64 < b64; }  return;
+    case OP_I64_LT_U: if (k2) { f->kind = 1; f->v = (uint64_t)a64 < (uint64_t)b64; } return;
+    case OP_I64_GT_S: if (k2) { f->kind = 1; f->v = a64 > b64; }  return;
+    case OP_I64_GT_U: if (k2) { f->kind = 1; f->v = (uint64_t)a64 > (uint64_t)b64; } return;
+    case OP_I64_LE_S: if (k2) { f->kind = 1; f->v = a64 <= b64; } return;
+    case OP_I64_LE_U: if (k2) { f->kind = 1; f->v = (uint64_t)a64 <= (uint64_t)b64; } return;
+    case OP_I64_GE_S: if (k2) { f->kind = 1; f->v = a64 >= b64; } return;
+    case OP_I64_GE_U: if (k2) { f->kind = 1; f->v = (uint64_t)a64 >= (uint64_t)b64; } return;
     default: return;
     }
 }
@@ -157,7 +185,7 @@ void jav_eq_join(const void* a, const void* b, void* out, void* user) {
 void jav_eq_modify(egraph* g, eg_id c, const void* d, void* user) {
     (void)user;
     const jav_eq_fact_t* f = (const jav_eq_fact_t*)d;
-    if (!f->kind) return;
+    if (f->kind != 1 && f->kind != 2) return;   /* only the scalar consts intern */
     int held_pure = 0, n = eg_class_nodes(g, c);
     for (int i = 0; i < n && !held_pure; i++)
         if (eg_class_node_op(g, c, i) <= 255) held_pure = 1;
@@ -171,6 +199,15 @@ void jav_eq_modify(egraph* g, eg_id c, const void* d, void* user) {
  * reads the ANALYSIS fact — the value vocabulary rules discriminate on. */
 static int jav_eq_is_const32(egraph* g, eg_id c, int32_t v);
 static int jav_eq_is_const64(egraph* g, eg_id c, int64_t v);
+static int jav_eq_has_const32(egraph* g, eg_id c);
+static int jav_eq_has_const64(egraph* g, eg_id c);
+static int jav_eq_is_v128_zero(egraph* g, eg_id c);
+static int jav_eq_is_v128_ones(egraph* g, eg_id c);
+static int jav_eq_is_v128_lane1(egraph* g, eg_id c, int lanebytes);
+static int jav_eq_shuffle_is_id(egraph* g, eg_id c, int which);
+static int jav_eq_is_pow2_32(egraph* g, eg_id c);
+static int jav_eq_is_pow2_64(egraph* g, eg_id c);
+static int jav_eq_is_v128_splat_pow2(egraph* g, eg_id c, int lanebytes);
 
 #include "jav_rewrite.h"   /* the generated matchers + installer; ONE TU only */
 
@@ -181,6 +218,14 @@ static int jav_eq_is_const32(egraph* g, eg_id c, int32_t v) {
 static int jav_eq_is_const64(egraph* g, eg_id c, int64_t v) {
     const jav_eq_fact_t* f = (const jav_eq_fact_t*)eg_class_data(g, c);
     return f && f->kind == 2 && f->v == v;
+}
+static int jav_eq_has_const32(egraph* g, eg_id c) {
+    const jav_eq_fact_t* f = (const jav_eq_fact_t*)eg_class_data(g, c);
+    return f && f->kind == 1;
+}
+static int jav_eq_has_const64(egraph* g, eg_id c) {
+    const jav_eq_fact_t* f = (const jav_eq_fact_t*)eg_class_data(g, c);
+    return f && f->kind == 2;
 }
 
 /* Template auxiliaries (AUXILIARIES in jav_axioms.burg): each takes classes,
@@ -194,6 +239,47 @@ eg_id jav_eq_zero64(egraph* g, eg_id self) {
     (void)self;
     return eg_add(g, OP_I64_CONST, 0, NULL, 0);
 }
+/* bool(true) for the self-compare identities — a comparison's result is an
+ * i32 whatever its operands' width (§4.3.2 Boolean Interpretation). */
+eg_id jav_eq_one32(egraph* g, eg_id self) {
+    (void)self;
+    return eg_add(g, OP_I32_CONST, 1, NULL, 0);
+}
+/* (the vector auxiliaries — zero_v128, the log2s — live below the region
+ * context they read; the generated header declares them extern, so the
+ * definition site is free) */
+
+/* The refold auxiliaries: called only under has_const guards, each returns
+ * the folded constant's class at its OWN op's §4.3.2 equation — one per
+ * operator, the analog's law, so an opcode is never read back out of a
+ * class. A guard raced false would fall back to unknown facts; folding 0s
+ * then would still be an equality nothing asserted, so fail closed to the
+ * left operand's class (a no-op merge). */
+#define REFOLD32(name, fn) \
+    eg_id name(egraph* g, eg_id b, eg_id c) { \
+        const jav_eq_fact_t* fb = (const jav_eq_fact_t*)eg_class_data(g, b); \
+        const jav_eq_fact_t* fc = (const jav_eq_fact_t*)eg_class_data(g, c); \
+        if (!fb || !fc || fb->kind != 1 || fc->kind != 1) return b; \
+        return eg_add(g, OP_I32_CONST, \
+                      (int64_t)fn((int32_t)fb->v, (int32_t)fc->v), NULL, 0); \
+    }
+#define REFOLD64(name, fn) \
+    eg_id name(egraph* g, eg_id b, eg_id c) { \
+        const jav_eq_fact_t* fb = (const jav_eq_fact_t*)eg_class_data(g, b); \
+        const jav_eq_fact_t* fc = (const jav_eq_fact_t*)eg_class_data(g, c); \
+        if (!fb || !fc || fb->kind != 2 || fc->kind != 2) return b; \
+        return eg_add(g, OP_I64_CONST, fn(fb->v, fc->v), NULL, 0); \
+    }
+REFOLD32(jav_eq_refold_add32, f_add32)
+REFOLD32(jav_eq_refold_mul32, f_mul32)
+REFOLD32(jav_eq_refold_and32, f_and32)
+REFOLD32(jav_eq_refold_or32,  f_or32)
+REFOLD32(jav_eq_refold_xor32, f_xor32)
+REFOLD64(jav_eq_refold_add64, f_add64)
+REFOLD64(jav_eq_refold_mul64, f_mul64)
+REFOLD64(jav_eq_refold_and64, f_and64)
+REFOLD64(jav_eq_refold_or64,  f_or64)
+REFOLD64(jav_eq_refold_xor64, f_xor64)
 
 /* ── caps (D5: the analog's, until measured on this corpus) ── */
 enum { EQ_ROUNDS = 12, EQ_NODE_BUDGET = 8192 };
@@ -216,13 +302,153 @@ typedef struct {
     /* rebuild inputs */
     const jav_tctx_t* tcx;
     bbq_hmap*      synth;       /* the emitter's sidecar: node -> jav_synth_t* */
-    bbq_hmap*      facts;       /* Part F: producer node -> jav_eq_fact_t* (body-wide) */
+    bbq_hmap*      facts;       /* cross-region: producer node -> jav_eq_fact_t* (body-wide) */
     const uint32_t* snap;       /* version snapshot at the CURRENT root's entry */
     /* kept original subtrees, in the new tree's postorder — the order fence */
     const jav_tnode_t* kept[64];
     int            nkept;
     int            refuse;      /* a fence fired mid-rebuild */
+    const jav_tnode_t* rb_old;  /* the root being rebuilt: the pool an
+                                 * extraction's unspellable leaf (a 16-byte
+                                 * const, a shuffle) is recovered from — the
+                                 * ORIGINAL subtree that interned as it */
+    /* 16-byte immediates (v128.const values, shuffle lane patterns), deduped
+     * by CONTENT so a blob index equality IS value equality within the
+     * region — the discriminant `data` carries the index. */
+    uint8_t      (*blobs)[16];
+    uint32_t       nblobs, blobcap;
 } ictx_t;
+
+/* The region currently saturating, for the guard auxiliaries: a `where`
+ * clause receives classes and the graph, and the 16-byte immediates it needs
+ * to inspect live here. Single-threaded like the emitter's own context. */
+static ictx_t* g_cur;
+
+static int64_t blob_intern(ictx_t* c, const uint8_t* p) {
+    for (uint32_t i = 0; i < c->nblobs; i++)
+        if (memcmp(c->blobs[i], p, 16) == 0) return (int64_t)i;
+    if (c->nblobs == c->blobcap) {
+        uint32_t ncap = c->blobcap ? c->blobcap * 2 : 8;
+        uint8_t (*nb)[16] = (uint8_t(*)[16])bbq_arena_alloc(c->arena, (size_t)ncap * 16);
+        if (!nb) return -1;
+        if (c->nblobs) memcpy(nb, c->blobs, (size_t)c->nblobs * 16);
+        c->blobs = nb; c->blobcap = ncap;
+    }
+    memcpy(c->blobs[c->nblobs], p, 16);
+    return (int64_t)c->nblobs++;
+}
+
+/* Class-inspection guards for the vector rules: iterate the class's own
+ * e-nodes for a v128.const / shuffle and test its blob. Direct reads of the
+ * graph — no analysis domain carries 16-byte facts in v1. */
+static int v128_const_blob(egraph* g, eg_id c, const uint8_t** out) {
+    int n = eg_class_nodes(g, c);
+    for (int i = 0; i < n; i++)
+        if (eg_class_node_op(g, c, i) == (int)JAV_EQ_OP_V128_CONST) {
+            int64_t bi = eg_class_node_data(g, c, i);
+            if (g_cur && bi >= 0 && (uint32_t)bi < g_cur->nblobs) {
+                *out = g_cur->blobs[bi];
+                return 1;
+            }
+        }
+    return 0;
+}
+static int jav_eq_is_v128_zero(egraph* g, eg_id c) {
+    const uint8_t* b;
+    if (!v128_const_blob(g, c, &b)) return 0;
+    for (int i = 0; i < 16; i++) if (b[i] != 0x00) return 0;
+    return 1;
+}
+static int jav_eq_is_v128_ones(egraph* g, eg_id c) {
+    const uint8_t* b;
+    if (!v128_const_blob(g, c, &b)) return 0;
+    for (int i = 0; i < 16; i++) if (b[i] != 0xff) return 0;
+    return 1;
+}
+/* A one in every lane of the given byte width — imul's identity vector. */
+static int jav_eq_is_v128_lane1(egraph* g, eg_id c, int lanebytes) {
+    const uint8_t* b;
+    if (!v128_const_blob(g, c, &b)) return 0;
+    for (int i = 0; i < 16; i++)
+        if (b[i] != (i % lanebytes == 0 ? 0x01 : 0x00)) return 0;
+    return 1;
+}
+/* Does the MATCHED class hold a shuffle whose pattern is the identity over
+ * operand `which` (0: lanes 0..15, 1: lanes 16..31)? Sound whatever else the
+ * class holds: the class's value IS that shuffle's value, which is that
+ * operand. */
+static int jav_eq_shuffle_is_id(egraph* g, eg_id c, int which) {
+    int n = eg_class_nodes(g, c);
+    for (int i = 0; i < n; i++) {
+        if (eg_class_node_op(g, c, i) != (int)JAV_EQ_OP_I8X16_SHUFFLE) continue;
+        int64_t bi = eg_class_node_data(g, c, i);
+        if (!g_cur || bi < 0 || (uint32_t)bi >= g_cur->nblobs) continue;
+        const uint8_t* b = g_cur->blobs[bi];
+        int base = which ? 16 : 0, ok = 1;
+        for (int k = 0; k < 16 && ok; k++) if (b[k] != base + k) ok = 0;
+        if (ok) return 1;
+    }
+    return 0;
+}
+
+/* The all-zero vector, for the lane-wise self-erasers: isub/ixor at i1 = i2
+ * are exactly 0 in every lane, and all-zero BITS spell lane-zero at every
+ * lane width at once. Interned through the region's blob table so it keys
+ * like any other v128 immediate. */
+eg_id jav_eq_zero_v128(egraph* g, eg_id self) {
+    (void)self;
+    static const uint8_t zeros[16] = {0};
+    if (!g_cur) return self;              /* no region context: change nothing */
+    int64_t bi = blob_intern(g_cur, zeros);
+    if (bi < 0) return self;
+    return eg_add(g, (int)JAV_EQ_OP_V128_CONST, bi, NULL, 0);
+}
+/* Strength reduction's shift distances: log2 of a known power-of-two
+ * constant, as the shift op's own distance type (the scalar shifts take
+ * their own width; the vector shifts all take an i32). Guarded call sites
+ * only — a raced guard falls back to the matched operand, a merge that
+ * changes nothing. */
+static int ilog2_u64(uint64_t v) { int k = 0; while (v >>= 1) k++; return k; }
+eg_id jav_eq_log2_32(egraph* g, eg_id p) {
+    const jav_eq_fact_t* f = (const jav_eq_fact_t*)eg_class_data(g, p);
+    if (!f || f->kind != 1) return p;
+    return eg_add(g, OP_I32_CONST, ilog2_u64((uint64_t)(uint32_t)f->v), NULL, 0);
+}
+eg_id jav_eq_log2_64(egraph* g, eg_id p) {
+    const jav_eq_fact_t* f = (const jav_eq_fact_t*)eg_class_data(g, p);
+    if (!f || f->kind != 2) return p;
+    return eg_add(g, OP_I64_CONST, ilog2_u64((uint64_t)f->v), NULL, 0);
+}
+eg_id jav_eq_v128_log2(egraph* g, eg_id p) {
+    const uint8_t* b;
+    if (!v128_const_blob(g, p, &b)) return p;
+    uint64_t lane0;
+    memcpy(&lane0, b, 8);
+    return eg_add(g, OP_I32_CONST, ilog2_u64(lane0 ? lane0 : 1), NULL, 0);
+}
+
+/* Power-of-two guards for the strength rules: a known constant ≥ 2 whose
+ * bit pattern has one set bit. The vector form additionally demands every
+ * lane EQUAL (a splat) so one shift distance serves all lanes. */
+static int is_pow2_u64(uint64_t v) { return v >= 2 && (v & (v - 1)) == 0; }
+static int jav_eq_is_pow2_32(egraph* g, eg_id c) {
+    const jav_eq_fact_t* f = (const jav_eq_fact_t*)eg_class_data(g, c);
+    return f && f->kind == 1 && is_pow2_u64((uint64_t)(uint32_t)f->v);
+}
+static int jav_eq_is_pow2_64(egraph* g, eg_id c) {
+    const jav_eq_fact_t* f = (const jav_eq_fact_t*)eg_class_data(g, c);
+    return f && f->kind == 2 && is_pow2_u64((uint64_t)f->v);
+}
+static int jav_eq_is_v128_splat_pow2(egraph* g, eg_id c, int lanebytes) {
+    const uint8_t* b;
+    if (!v128_const_blob(g, c, &b)) return 0;
+    uint64_t lane0 = 0;
+    memcpy(&lane0, b, (size_t)lanebytes);
+    if (!is_pow2_u64(lane0)) return 0;
+    for (int i = lanebytes; i < 16; i += lanebytes)
+        if (memcmp(b, b + i, (size_t)lanebytes) != 0) return 0;
+    return 1;
+}
 
 static eq_rec_t* rec_of(ictx_t* c, const jav_tnode_t* n) {
     return (eq_rec_t*)bbq_hmap_get(c->recs, (uint64_t)(uintptr_t)n);
@@ -254,7 +480,7 @@ static eg_id intern_node(ictx_t* c, jav_tnode_t* n) {
 
     /* A carried leaf has no instruction (pc == NULL): a stack slot the
      * region opened on, opaque by identity — which keeps it undroppable (the
-     * pop it stands for is owed). Part F: the builder linked it to its
+     * pop it stands for is owed). The builder linked it to its
      * PRODUCER (kids[0], dead storage at nkids 0), and if the producer's
      * region proved its class constant, the leaf's class merges with that
      * constant — the fact crosses the cut. Extraction still prefers the
@@ -305,7 +531,33 @@ static eg_id intern_node(ictx_t* c, jav_tnode_t* n) {
         } else if (!bbq_read_sleb128_i64(&ic, &v)) { c->failed = 1; return 0; }
         return intern_as(c, n, op, v, NULL, 0);
     }
-    if (jav_eqsat_pure[op])
+    /* The 0xFD vector family: the e-node key is the composite
+     * JAV_EQ_OP_FD(sub), disjoint from every byte. v128.const and
+     * i8x16.shuffle carry a 16-byte immediate — content-deduped into the
+     * region's blob table, index as `data`, so equal vectors share a class
+     * and unequal ones cannot collide. A lane op's one-byte immediate rides
+     * `data` directly, read by the op's own meta. Anything the fence does
+     * not admit falls through to opaque. */
+    if (op == 0xFD) {
+        bbq_ctx_t ic; bbq_ctx_init(&ic, n->pc + 1, 5);
+        uint32_t sub = 0;
+        if (bbq_read_uleb128_u32(&ic, &sub) && sub <= 255 && jav_eqsat_pure_fd[sub]) {
+            const uint8_t* imm = n->pc + 1 + ic.pos;
+            if (sub == 0x0c || sub == 0x0d) {          /* v128.const / shuffle */
+                int64_t bi = blob_intern(c, imm);
+                if (bi < 0) { c->failed = 1; return 0; }
+                return intern_as(c, n, (int)JAV_EQ_OP_FD(sub), bi, kids, nkids);
+            }
+            const jav_jit_meta_t* fm = jav_jit_meta_sub[0xFD]
+                                     ? &jav_jit_meta_sub[0xFD][sub] : NULL;
+            if (fm && fm->operand_count == 0)
+                return intern_as(c, n, (int)JAV_EQ_OP_FD(sub), 0, kids, nkids);
+            if (fm && fm->operand_count == 1 && fm->operands[0].kind == JOP_U8)
+                return intern_as(c, n, (int)JAV_EQ_OP_FD(sub), imm[0], kids, nkids);
+            /* an immediate shape v1 does not carry: opaque below */
+        }
+    }
+    if (op != 0xFD && jav_eqsat_pure[op])
         return intern_as(c, n, op, 0, kids, nkids);
 
     /* Unadmitted: opaque by identity — the tree keeps its place. */
@@ -314,7 +566,8 @@ static eg_id intern_node(ictx_t* c, jav_tnode_t* n) {
 
 /* ── the rebuild (C3): a differing extraction becomes a tree ─────
  *
- * Three fences, each a refusal that keeps the original (D7), each counted:
+ * Three fences, each a refusal that keeps the original (fail closed — the
+ * engine never aborts and never guesses), each counted:
  *
  *   splice version   an extracted LOCAL must carry the version current at
  *                    THIS root's entry — the analog's law: "only the version
@@ -343,6 +596,23 @@ static const jav_tnode_t* rb_original(ictx_t* c, int64_t data) {
     return n;
 }
 
+/* An original subtree of the root being rebuilt whose intern record is
+ * exactly (op, data) — how an extraction leaf with no synth spelling (a
+ * 16-byte constant, a shuffle pattern) is recovered as the concrete tree it
+ * came from. Matching the RECORD is what makes this safe: the record's data
+ * is a content-deduped blob index, so an equal record is an equal value. */
+static const jav_tnode_t* rb_find_original(ictx_t* c, const jav_tnode_t* n,
+                                           int op, int64_t data) {
+    if (!n) return NULL;
+    const eq_rec_t* rec = rec_of(c, n);
+    if (rec && rec->op == op && rec->data == data) return n;
+    for (int i = 0; i < n->nkids; i++) {
+        const jav_tnode_t* hit = rb_find_original(c, n->kids[i], op, data);
+        if (hit) return hit;
+    }
+    return NULL;
+}
+
 /* The final signature an extracted local.get resolves to: the declared row's
  * resolution list, filtered to the slot's class — the same answer the
  * builder's resolve gives, read from the same generated table. */
@@ -356,7 +626,8 @@ static int rb_local_sig(const ictx_t* c, uint32_t slot) {
     return -1;
 }
 
-static jav_tnode_t* rb_synth(ictx_t* c, uint8_t op, int64_t imm, int sig,
+static jav_tnode_t* rb_synth(ictx_t* c, uint8_t op, uint32_t sub, int prefixed,
+                             int64_t imm, int64_t imm2, int sig,
                              jav_tnode_t** kids, int nkids) {
     if (sig < 0 || nkids > JAV_SIG_MAX_KIDS) { c->refuse = 1; return NULL; }
     jav_tnode_t* n = (jav_tnode_t*)bbq_arena_alloc(c->arena, sizeof *n);
@@ -385,7 +656,8 @@ static jav_tnode_t* rb_synth(ictx_t* c, uint8_t op, int64_t imm, int sig,
         n->need = peak > 255 ? 255 : (uint8_t)peak;
     }
     for (int i = 0; i < nkids; i++) n->kids[i] = kids[i];
-    sr->op = op; sr->imm = imm;
+    sr->op = op; sr->prefixed = (uint8_t)prefixed; sr->sub = sub;
+    sr->imm = imm; sr->imm2 = imm2;
     bbq_hmap_put(c->synth, (uint64_t)(uintptr_t)n, sr);
     return n;
 }
@@ -400,10 +672,11 @@ static jav_tnode_t* rb_node(ictx_t* c, const eg_extract_result* r, int xi) {
         uint32_t slot = (uint32_t)(data & 0xffffffff);
         uint32_t ver  = (uint32_t)((uint64_t)data >> 32);
         if (slot >= c->nlocals || ver != c->snap[slot]) { c->refuse = 1; return NULL; }
-        return rb_synth(c, OP_LOCAL_GET, (int64_t)slot, rb_local_sig(c, slot), NULL, 0);
+        return rb_synth(c, OP_LOCAL_GET, 0, 0, (int64_t)slot, 0,
+                        rb_local_sig(c, slot), NULL, 0);
     }
     if (op == OP_I32_CONST || op == OP_I64_CONST)
-        return rb_synth(c, (uint8_t)op, data, jav_opcode_sig[op].sig, NULL, 0);
+        return rb_synth(c, (uint8_t)op, 0, 0, data, 0, jav_opcode_sig[op].sig, NULL, 0);
     if (op <= 255 && jav_eqsat_pure[op]) {
         jav_tnode_t* kids[JAV_SIG_MAX_KIDS];
         int nk = r->nkids[xi];
@@ -412,7 +685,53 @@ static jav_tnode_t* rb_node(ictx_t* c, const eg_extract_result* r, int xi) {
             kids[i] = rb_node(c, r, r->kids[r->kid_off[xi] + i]);
             if (c->refuse) return NULL;
         }
-        return rb_synth(c, (uint8_t)op, 0, jav_opcode_sig[op].sig, kids, nk);
+        return rb_synth(c, (uint8_t)op, 0, 0, 0, 0, jav_opcode_sig[op].sig, kids, nk);
+    }
+    /* A prefixed vector op: spelled through the sub-table's own signature
+     * when its immediate fits the record. A 16-byte immediate (v128.const,
+     * i8x16.shuffle) has no synth channel — but the extraction usually wants
+     * one because a RULE selected that very operand, and the operand exists
+     * as an ORIGINAL subtree under the root being rebuilt: recover it by its
+     * intern record and splice the original. Only a genuinely synthesized
+     * 16-byte immediate (nothing in the old root interned as it) refuses. */
+    if (op >= 0x10000) {
+        uint32_t sub = (uint32_t)(op & 0xffff);
+        if (sub > 255 || !jav_eqsat_pure_fd[sub]) { c->refuse = 1; return NULL; }
+        if (sub == 0x0c || sub == 0x0d) {
+            /* Prefer splicing the original tree the immediate came from;
+             * a genuinely manufactured 16-byte immediate (a rule's zero
+             * vector) stamps through the record's two raw-8-byte halves,
+             * little-endian exactly as the byte decode feeds the holes. */
+            const jav_tnode_t* orig = rb_find_original(c, c->rb_old, op, data);
+            if (orig)
+                return (jav_tnode_t*)(uintptr_t)rb_original(c, (int64_t)(uintptr_t)orig);
+            if (data < 0 || (uint32_t)data >= c->nblobs) { c->refuse = 1; return NULL; }
+            const uint8_t* b = c->blobs[data];
+            int64_t lo, hi;
+            memcpy(&lo, b, 8); memcpy(&hi, b + 8, 8);
+            const jav_opcode_sig_t* crow = jav_opcode_sig_sub[0xFD]
+                ? &jav_opcode_sig_sub[0xFD][sub] : NULL;
+            if (!crow || !crow->present) { c->refuse = 1; return NULL; }
+            jav_tnode_t* kids[JAV_SIG_MAX_KIDS];
+            int nk = r->nkids[xi];
+            if (nk > JAV_SIG_MAX_KIDS) { c->refuse = 1; return NULL; }
+            for (int i = 0; i < nk; i++) {
+                kids[i] = rb_node(c, r, r->kids[r->kid_off[xi] + i]);
+                if (c->refuse) return NULL;
+            }
+            return rb_synth(c, 0xFD, sub, 1, lo, hi, crow->sig, kids, nk);
+        }
+        const jav_opcode_sig_t* row = jav_opcode_sig_sub[0xFD]
+            ? &jav_opcode_sig_sub[0xFD][sub] : NULL;
+        if (!row || !row->present) { c->refuse = 1; return NULL; }
+        jav_tnode_t* kids[JAV_SIG_MAX_KIDS];
+        int nk = r->nkids[xi];
+        if (nk > JAV_SIG_MAX_KIDS) { c->refuse = 1; return NULL; }
+        for (int i = 0; i < nk; i++) {
+            kids[i] = rb_node(c, r, r->kids[r->kid_off[xi] + i]);
+            if (c->refuse) return NULL;
+        }
+        return rb_synth(c, 0xFD, sub, 1, data, 0, row->sig, kids, nk);
     }
     c->refuse = 1;                            /* an op the rebuild cannot spell */
     return NULL;
@@ -444,7 +763,7 @@ static uint32_t rb_count(const jav_tnode_t* n) {
  * so the picks identity (unpicked == carried) stays an identity. */
 static jav_tnode_t* rb_root(ictx_t* c, const eg_extract_result* r,
                             const jav_tnode_t* old, int32_t* dnodes) {
-    c->nkept = 0; c->refuse = 0;
+    c->nkept = 0; c->refuse = 0; c->rb_old = old;
     jav_tnode_t* nu = rb_node(c, r, r->root);
     if (c->refuse || !nu) return NULL;
     if (!rb_drops_pure(c, old)) return NULL;
@@ -474,11 +793,18 @@ static int same_term(ictx_t* c, const eg_extract_result* r, int xi,
     return 1;
 }
 
-/* D4's shape: 256·bytes + 1 per node (size first, AST count as tiebreak).
- * Exact where the choice can exist — a const's LEB width varies by value, a
- * local re-encodes as get+index — and immaterial where it cannot: an OPAQUE
- * node is the only member of its class by construction (its data is its own
- * address, which nothing else can equal), so its price never decides. */
+/* Extraction prices in the ENGINE'S units — Ertl's cycles (§2.6, printed
+ * 36: loads, stores, moves and sp updates cost one; dispatches four), the
+ * same constants the tiling grammar already prices its rules in. On a
+ * copy-and-patch tier every e-node the extraction picks becomes one stencil,
+ * hence one dispatch; where its operands live (register or memory) is the
+ * COVER's decision made after this pass, so pricing traffic here would
+ * count it twice. A size-first model (the JCVM analog's, where bytecode
+ * bytes are the artifact) crept in here once and mispriced a v128.const at
+ * one byte-unit; encoded size is only the TIEBREAK now, scaled under one
+ * dispatch so bytes can never outvote a cycle. An opaque node's price never
+ * decides anything — its address-keyed data makes it the sole member of its
+ * class. */
 static int leb_len_u(uint64_t v) { int n = 1; while (v >>= 7) n++; return n; }
 static int sleb_len(int64_t v) {
     int n = 0;
@@ -492,10 +818,21 @@ static int sleb_len(int64_t v) {
 static int eq_cost(int op, int64_t data, void* user) {
     (void)user;
     int bytes;
+    /* Sub-dispatch stencil-body weight: an integer multiply's latency
+     * exceeds a shift's on every shipping micro-architecture, and a loop
+     * body runs millions of times — without this the model calls
+     * `x * 2^k` and `x << k` equal and strength reduction can never win. */
+    int micro = (op == OP_I32_MUL || op == OP_I64_MUL
+                 || op == (int)JAV_EQ_OP_I16X8_MUL
+                 || op == (int)JAV_EQ_OP_I32X4_MUL
+                 || op == (int)JAV_EQ_OP_I64X2_MUL) ? 2 : 0;
     if (op == OP_I32_CONST || op == OP_I64_CONST) bytes = 1 + sleb_len(data);
     else if (op == JAV_EQ_OP_LOCAL) bytes = 1 + leb_len_u((uint64_t)(uint32_t)data);
-    else bytes = 1;
-    return 256 * bytes + 1;
+    else if (op >= 0x10000) {
+        uint32_t sub = (uint32_t)(op & 0xffff);
+        bytes = 2 + (sub > 127 ? 1 : 0) + ((sub == 0x0c || sub == 0x0d) ? 16 : 0);
+    } else bytes = 1;
+    return JAV_COST_DISPATCH * 256 + micro * 32 + bytes;
 }
 
 static void eqsat_region(jav_ttree_t* tree, jav_tregion_t* reg,
@@ -507,10 +844,13 @@ static void eqsat_region(jav_ttree_t* tree, jav_tregion_t* reg,
     bbq_hmap recs; bbq_hmap_init(&recs, 0);
     uint32_t nlocals = tcx ? tcx->nlocals : 0;
     uint32_t* version = NULL;
-    uint32_t* snaps = NULL;               /* per-root version snapshot (D3a splice) */
+    uint32_t* snaps = NULL;               /* per-root local-version snapshot: the
+                                           * splice check compares an extracted
+                                           * local against the version live HERE */
     ictx_t c = {0};
     c.g = &g; c.arena = a; c.recs = &recs; c.nlocals = nlocals;
     c.tcx = tcx; c.synth = synth; c.facts = facts;
+    g_cur = &c;                    /* the guards' window onto this region's blobs */
     if (nlocals) {
         /* A region can be EMPTY (zero roots — a cut immediately followed by
          * another); bbq_arena_alloc(0) is NULL by contract, which is not a
@@ -531,7 +871,8 @@ static void eqsat_region(jav_ttree_t* tree, jav_tregion_t* reg,
     }
 
     if (c.failed || eg_node_count(&g) > EQ_NODE_BUDGET) {
-        g_eq.cap_refusals++;              /* originals stand, counted (D7) */
+        g_eq.cap_refusals++;              /* originals stand, counted, never guessed */
+        g_cur = NULL;
         bbq_hmap_free(&recs); eg_free(&g);
         return;
     }
@@ -579,12 +920,13 @@ static void eqsat_region(jav_ttree_t* tree, jav_tregion_t* reg,
                 tree->nnodes = (uint32_t)((int64_t)tree->nnodes + dn);
                 g_eq.rewritten++;
             } else {
-                g_eq.rebuild_refusals++;  /* original stands, counted (D7) */
+                g_eq.rebuild_refusals++;  /* original stands, counted, never guessed */
             }
         }
         eg_extract_free(&ex);
     }
 
+    g_cur = NULL;
     bbq_hmap_free(&recs);
     eg_free(&g);
 }

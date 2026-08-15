@@ -13,6 +13,7 @@
  * and the returned i32 is the process exit code. */
 #include "host_io.h"
 #include "version.h"
+#include "jav_eqsat.h"   /* tier-3's counters, for --jit-stats at --tier 3 */
 #include <stdbool.h>
 #include <time.h>
 
@@ -418,6 +419,28 @@ out:
                 (unsigned long long)occ,
                 (unsigned long long)trans, (unsigned long long)spill,
                 (unsigned long long)fill, (unsigned long long)mem);
+        /* The tier-3 rewrite's own accounting, same static caveat: what the
+         * MODULES contained for it, not what execution touched. */
+        if (want_tier >= 3) {
+            const jav_eqsat_stats_t* es = jav_eqsat_stats();
+            fprintf(stderr,
+                "  eqsat: %llu bodies, %llu regions, %llu roots; "
+                "%llu rewritten, %llu rebuild-refused, %llu cap-refused, "
+                "%llu identity failure(s), %llu e-node peak\n",
+                (unsigned long long)es->bodies, (unsigned long long)es->regions,
+                (unsigned long long)es->roots, (unsigned long long)es->rewritten,
+                (unsigned long long)es->rebuild_refusals,
+                (unsigned long long)es->cap_refusals,
+                (unsigned long long)es->identity_fails,
+                (unsigned long long)es->enodes_peak);
+            const char* const* rn; const unsigned long long* rf;
+            int nr = jav_eqsat_rule_stats(&rn, &rf);
+            fprintf(stderr, "  rules:");
+            int any = 0;
+            for (int k = 0; k < nr; k++)
+                if (rf[k]) { fprintf(stderr, " %s=%llu", rn[k], rf[k]); any = 1; }
+            fprintf(stderr, "%s\n", any ? "" : " (none fired)");
+        }
     }
     free(jbytes); free(pbytes);
     return rc;

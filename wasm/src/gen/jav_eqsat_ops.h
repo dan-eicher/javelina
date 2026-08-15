@@ -73,11 +73,344 @@ static const uint8_t jav_eqsat_pure[256] = {
     [0xc4] = 1,  /* i64.extend32_s */
 };
 
-/* Synthetic e-node operators, disjoint from every opcode byte.
- * A local.get interns as (JAV_EQ_OP_LOCAL, data = slot | version<<32)
- * — the plan's D3a versioned leaf — and an unadmitted subtree as
- * (JAV_EQ_OP_OPAQUE, data = the jav_tnode_t address): its own
- * congruence class, no inputs, the tree keeps its place. */
+/* …and the 0xFD vector family's admitted SUB-opcodes (160). The e-node
+ * key for a prefixed op is JAV_EQ_OP_FD(sub) — above every byte and
+ * every synthetic, so the two vocabularies cannot collide. */
+static const uint8_t jav_eqsat_pure_fd[256] = {
+    [0x0c] = 1,  /* v128.const */
+    [0x0d] = 1,  /* i8x16.shuffle */
+    [0x0e] = 1,  /* i8x16.swizzle */
+    [0x0f] = 1,  /* i8x16.splat */
+    [0x10] = 1,  /* i16x8.splat */
+    [0x11] = 1,  /* i32x4.splat */
+    [0x12] = 1,  /* i64x2.splat */
+    [0x15] = 1,  /* i8x16.extract_lane_s */
+    [0x16] = 1,  /* i8x16.extract_lane_u */
+    [0x17] = 1,  /* i8x16.replace_lane */
+    [0x18] = 1,  /* i16x8.extract_lane_s */
+    [0x19] = 1,  /* i16x8.extract_lane_u */
+    [0x1a] = 1,  /* i16x8.replace_lane */
+    [0x1b] = 1,  /* i32x4.extract_lane */
+    [0x1c] = 1,  /* i32x4.replace_lane */
+    [0x1d] = 1,  /* i64x2.extract_lane */
+    [0x1e] = 1,  /* i64x2.replace_lane */
+    [0x23] = 1,  /* i8x16.eq */
+    [0x24] = 1,  /* i8x16.ne */
+    [0x25] = 1,  /* i8x16.lt_s */
+    [0x26] = 1,  /* i8x16.lt_u */
+    [0x27] = 1,  /* i8x16.gt_s */
+    [0x28] = 1,  /* i8x16.gt_u */
+    [0x29] = 1,  /* i8x16.le_s */
+    [0x2a] = 1,  /* i8x16.le_u */
+    [0x2b] = 1,  /* i8x16.ge_s */
+    [0x2c] = 1,  /* i8x16.ge_u */
+    [0x2d] = 1,  /* i16x8.eq */
+    [0x2e] = 1,  /* i16x8.ne */
+    [0x2f] = 1,  /* i16x8.lt_s */
+    [0x30] = 1,  /* i16x8.lt_u */
+    [0x31] = 1,  /* i16x8.gt_s */
+    [0x32] = 1,  /* i16x8.gt_u */
+    [0x33] = 1,  /* i16x8.le_s */
+    [0x34] = 1,  /* i16x8.le_u */
+    [0x35] = 1,  /* i16x8.ge_s */
+    [0x36] = 1,  /* i16x8.ge_u */
+    [0x37] = 1,  /* i32x4.eq */
+    [0x38] = 1,  /* i32x4.ne */
+    [0x39] = 1,  /* i32x4.lt_s */
+    [0x3a] = 1,  /* i32x4.lt_u */
+    [0x3b] = 1,  /* i32x4.gt_s */
+    [0x3c] = 1,  /* i32x4.gt_u */
+    [0x3d] = 1,  /* i32x4.le_s */
+    [0x3e] = 1,  /* i32x4.le_u */
+    [0x3f] = 1,  /* i32x4.ge_s */
+    [0x40] = 1,  /* i32x4.ge_u */
+    [0x4d] = 1,  /* v128.not */
+    [0x4e] = 1,  /* v128.and */
+    [0x4f] = 1,  /* v128.andnot */
+    [0x50] = 1,  /* v128.or */
+    [0x51] = 1,  /* v128.xor */
+    [0x52] = 1,  /* v128.bitselect */
+    [0x53] = 1,  /* v128.any_true */
+    [0x60] = 1,  /* i8x16.abs */
+    [0x61] = 1,  /* i8x16.neg */
+    [0x62] = 1,  /* i8x16.popcnt */
+    [0x63] = 1,  /* i8x16.all_true */
+    [0x64] = 1,  /* i8x16.bitmask */
+    [0x65] = 1,  /* i8x16.narrow_i16x8_s */
+    [0x66] = 1,  /* i8x16.narrow_i16x8_u */
+    [0x6b] = 1,  /* i8x16.shl */
+    [0x6c] = 1,  /* i8x16.shr_s */
+    [0x6d] = 1,  /* i8x16.shr_u */
+    [0x6e] = 1,  /* i8x16.add */
+    [0x6f] = 1,  /* i8x16.add_sat_s */
+    [0x70] = 1,  /* i8x16.add_sat_u */
+    [0x71] = 1,  /* i8x16.sub */
+    [0x72] = 1,  /* i8x16.sub_sat_s */
+    [0x73] = 1,  /* i8x16.sub_sat_u */
+    [0x76] = 1,  /* i8x16.min_s */
+    [0x77] = 1,  /* i8x16.min_u */
+    [0x78] = 1,  /* i8x16.max_s */
+    [0x79] = 1,  /* i8x16.max_u */
+    [0x7b] = 1,  /* i8x16.avgr_u */
+    [0x7c] = 1,  /* i16x8.extadd_pairwise_i8x16_s */
+    [0x7d] = 1,  /* i16x8.extadd_pairwise_i8x16_u */
+    [0x7e] = 1,  /* i32x4.extadd_pairwise_i16x8_s */
+    [0x7f] = 1,  /* i32x4.extadd_pairwise_i16x8_u */
+    [0x80] = 1,  /* i16x8.abs */
+    [0x81] = 1,  /* i16x8.neg */
+    [0x82] = 1,  /* i16x8.q15mulr_sat_s */
+    [0x83] = 1,  /* i16x8.all_true */
+    [0x84] = 1,  /* i16x8.bitmask */
+    [0x85] = 1,  /* i16x8.narrow_i32x4_s */
+    [0x86] = 1,  /* i16x8.narrow_i32x4_u */
+    [0x87] = 1,  /* i16x8.extend_low_i8x16_s */
+    [0x88] = 1,  /* i16x8.extend_high_i8x16_s */
+    [0x89] = 1,  /* i16x8.extend_low_i8x16_u */
+    [0x8a] = 1,  /* i16x8.extend_high_i8x16_u */
+    [0x8b] = 1,  /* i16x8.shl */
+    [0x8c] = 1,  /* i16x8.shr_s */
+    [0x8d] = 1,  /* i16x8.shr_u */
+    [0x8e] = 1,  /* i16x8.add */
+    [0x8f] = 1,  /* i16x8.add_sat_s */
+    [0x90] = 1,  /* i16x8.add_sat_u */
+    [0x91] = 1,  /* i16x8.sub */
+    [0x92] = 1,  /* i16x8.sub_sat_s */
+    [0x93] = 1,  /* i16x8.sub_sat_u */
+    [0x95] = 1,  /* i16x8.mul */
+    [0x96] = 1,  /* i16x8.min_s */
+    [0x97] = 1,  /* i16x8.min_u */
+    [0x98] = 1,  /* i16x8.max_s */
+    [0x99] = 1,  /* i16x8.max_u */
+    [0x9b] = 1,  /* i16x8.avgr_u */
+    [0x9c] = 1,  /* i16x8.extmul_low_i8x16_s */
+    [0x9d] = 1,  /* i16x8.extmul_high_i8x16_s */
+    [0x9e] = 1,  /* i16x8.extmul_low_i8x16_u */
+    [0x9f] = 1,  /* i16x8.extmul_high_i8x16_u */
+    [0xa0] = 1,  /* i32x4.abs */
+    [0xa1] = 1,  /* i32x4.neg */
+    [0xa3] = 1,  /* i32x4.all_true */
+    [0xa4] = 1,  /* i32x4.bitmask */
+    [0xa7] = 1,  /* i32x4.extend_low_i16x8_s */
+    [0xa8] = 1,  /* i32x4.extend_high_i16x8_s */
+    [0xa9] = 1,  /* i32x4.extend_low_i16x8_u */
+    [0xaa] = 1,  /* i32x4.extend_high_i16x8_u */
+    [0xab] = 1,  /* i32x4.shl */
+    [0xac] = 1,  /* i32x4.shr_s */
+    [0xad] = 1,  /* i32x4.shr_u */
+    [0xae] = 1,  /* i32x4.add */
+    [0xb1] = 1,  /* i32x4.sub */
+    [0xb5] = 1,  /* i32x4.mul */
+    [0xb6] = 1,  /* i32x4.min_s */
+    [0xb7] = 1,  /* i32x4.min_u */
+    [0xb8] = 1,  /* i32x4.max_s */
+    [0xb9] = 1,  /* i32x4.max_u */
+    [0xba] = 1,  /* i32x4.dot_i16x8_s */
+    [0xbc] = 1,  /* i32x4.extmul_low_i16x8_s */
+    [0xbd] = 1,  /* i32x4.extmul_high_i16x8_s */
+    [0xbe] = 1,  /* i32x4.extmul_low_i16x8_u */
+    [0xbf] = 1,  /* i32x4.extmul_high_i16x8_u */
+    [0xc0] = 1,  /* i64x2.abs */
+    [0xc1] = 1,  /* i64x2.neg */
+    [0xc3] = 1,  /* i64x2.all_true */
+    [0xc4] = 1,  /* i64x2.bitmask */
+    [0xc7] = 1,  /* i64x2.extend_low_i32x4_s */
+    [0xc8] = 1,  /* i64x2.extend_high_i32x4_s */
+    [0xc9] = 1,  /* i64x2.extend_low_i32x4_u */
+    [0xca] = 1,  /* i64x2.extend_high_i32x4_u */
+    [0xcb] = 1,  /* i64x2.shl */
+    [0xcc] = 1,  /* i64x2.shr_s */
+    [0xcd] = 1,  /* i64x2.shr_u */
+    [0xce] = 1,  /* i64x2.add */
+    [0xd1] = 1,  /* i64x2.sub */
+    [0xd5] = 1,  /* i64x2.mul */
+    [0xd6] = 1,  /* i64x2.eq */
+    [0xd7] = 1,  /* i64x2.ne */
+    [0xd8] = 1,  /* i64x2.lt_s */
+    [0xd9] = 1,  /* i64x2.gt_s */
+    [0xda] = 1,  /* i64x2.le_s */
+    [0xdb] = 1,  /* i64x2.ge_s */
+    [0xdc] = 1,  /* i64x2.extmul_low_i32x4_s */
+    [0xdd] = 1,  /* i64x2.extmul_high_i32x4_s */
+    [0xde] = 1,  /* i64x2.extmul_low_i32x4_u */
+    [0xdf] = 1,  /* i64x2.extmul_high_i32x4_u */
+    [0xf8] = 1,  /* i32x4.trunc_sat_f32x4_s */
+    [0xf9] = 1,  /* i32x4.trunc_sat_f32x4_u */
+    [0xfc] = 1,  /* i32x4.trunc_sat_f64x2_s_zero */
+    [0xfd] = 1,  /* i32x4.trunc_sat_f64x2_u_zero */
+};
+
+#define JAV_EQ_OP_FD(sub) (0x10000 | (sub))
+
+/* One named key per admitted vector op, so the axiom file's TERMs and
+ * the consumer's switch arms restate no number. */
+#define JAV_EQ_OP_V128_CONST JAV_EQ_OP_FD(0x0c)
+#define JAV_EQ_OP_I8X16_SHUFFLE JAV_EQ_OP_FD(0x0d)
+#define JAV_EQ_OP_I8X16_SWIZZLE JAV_EQ_OP_FD(0x0e)
+#define JAV_EQ_OP_I8X16_SPLAT JAV_EQ_OP_FD(0x0f)
+#define JAV_EQ_OP_I16X8_SPLAT JAV_EQ_OP_FD(0x10)
+#define JAV_EQ_OP_I32X4_SPLAT JAV_EQ_OP_FD(0x11)
+#define JAV_EQ_OP_I64X2_SPLAT JAV_EQ_OP_FD(0x12)
+#define JAV_EQ_OP_I8X16_EXTRACT_LANE_S JAV_EQ_OP_FD(0x15)
+#define JAV_EQ_OP_I8X16_EXTRACT_LANE_U JAV_EQ_OP_FD(0x16)
+#define JAV_EQ_OP_I8X16_REPLACE_LANE JAV_EQ_OP_FD(0x17)
+#define JAV_EQ_OP_I16X8_EXTRACT_LANE_S JAV_EQ_OP_FD(0x18)
+#define JAV_EQ_OP_I16X8_EXTRACT_LANE_U JAV_EQ_OP_FD(0x19)
+#define JAV_EQ_OP_I16X8_REPLACE_LANE JAV_EQ_OP_FD(0x1a)
+#define JAV_EQ_OP_I32X4_EXTRACT_LANE JAV_EQ_OP_FD(0x1b)
+#define JAV_EQ_OP_I32X4_REPLACE_LANE JAV_EQ_OP_FD(0x1c)
+#define JAV_EQ_OP_I64X2_EXTRACT_LANE JAV_EQ_OP_FD(0x1d)
+#define JAV_EQ_OP_I64X2_REPLACE_LANE JAV_EQ_OP_FD(0x1e)
+#define JAV_EQ_OP_I8X16_EQ JAV_EQ_OP_FD(0x23)
+#define JAV_EQ_OP_I8X16_NE JAV_EQ_OP_FD(0x24)
+#define JAV_EQ_OP_I8X16_LT_S JAV_EQ_OP_FD(0x25)
+#define JAV_EQ_OP_I8X16_LT_U JAV_EQ_OP_FD(0x26)
+#define JAV_EQ_OP_I8X16_GT_S JAV_EQ_OP_FD(0x27)
+#define JAV_EQ_OP_I8X16_GT_U JAV_EQ_OP_FD(0x28)
+#define JAV_EQ_OP_I8X16_LE_S JAV_EQ_OP_FD(0x29)
+#define JAV_EQ_OP_I8X16_LE_U JAV_EQ_OP_FD(0x2a)
+#define JAV_EQ_OP_I8X16_GE_S JAV_EQ_OP_FD(0x2b)
+#define JAV_EQ_OP_I8X16_GE_U JAV_EQ_OP_FD(0x2c)
+#define JAV_EQ_OP_I16X8_EQ JAV_EQ_OP_FD(0x2d)
+#define JAV_EQ_OP_I16X8_NE JAV_EQ_OP_FD(0x2e)
+#define JAV_EQ_OP_I16X8_LT_S JAV_EQ_OP_FD(0x2f)
+#define JAV_EQ_OP_I16X8_LT_U JAV_EQ_OP_FD(0x30)
+#define JAV_EQ_OP_I16X8_GT_S JAV_EQ_OP_FD(0x31)
+#define JAV_EQ_OP_I16X8_GT_U JAV_EQ_OP_FD(0x32)
+#define JAV_EQ_OP_I16X8_LE_S JAV_EQ_OP_FD(0x33)
+#define JAV_EQ_OP_I16X8_LE_U JAV_EQ_OP_FD(0x34)
+#define JAV_EQ_OP_I16X8_GE_S JAV_EQ_OP_FD(0x35)
+#define JAV_EQ_OP_I16X8_GE_U JAV_EQ_OP_FD(0x36)
+#define JAV_EQ_OP_I32X4_EQ JAV_EQ_OP_FD(0x37)
+#define JAV_EQ_OP_I32X4_NE JAV_EQ_OP_FD(0x38)
+#define JAV_EQ_OP_I32X4_LT_S JAV_EQ_OP_FD(0x39)
+#define JAV_EQ_OP_I32X4_LT_U JAV_EQ_OP_FD(0x3a)
+#define JAV_EQ_OP_I32X4_GT_S JAV_EQ_OP_FD(0x3b)
+#define JAV_EQ_OP_I32X4_GT_U JAV_EQ_OP_FD(0x3c)
+#define JAV_EQ_OP_I32X4_LE_S JAV_EQ_OP_FD(0x3d)
+#define JAV_EQ_OP_I32X4_LE_U JAV_EQ_OP_FD(0x3e)
+#define JAV_EQ_OP_I32X4_GE_S JAV_EQ_OP_FD(0x3f)
+#define JAV_EQ_OP_I32X4_GE_U JAV_EQ_OP_FD(0x40)
+#define JAV_EQ_OP_V128_NOT JAV_EQ_OP_FD(0x4d)
+#define JAV_EQ_OP_V128_AND JAV_EQ_OP_FD(0x4e)
+#define JAV_EQ_OP_V128_ANDNOT JAV_EQ_OP_FD(0x4f)
+#define JAV_EQ_OP_V128_OR JAV_EQ_OP_FD(0x50)
+#define JAV_EQ_OP_V128_XOR JAV_EQ_OP_FD(0x51)
+#define JAV_EQ_OP_V128_BITSELECT JAV_EQ_OP_FD(0x52)
+#define JAV_EQ_OP_V128_ANY_TRUE JAV_EQ_OP_FD(0x53)
+#define JAV_EQ_OP_I8X16_ABS JAV_EQ_OP_FD(0x60)
+#define JAV_EQ_OP_I8X16_NEG JAV_EQ_OP_FD(0x61)
+#define JAV_EQ_OP_I8X16_POPCNT JAV_EQ_OP_FD(0x62)
+#define JAV_EQ_OP_I8X16_ALL_TRUE JAV_EQ_OP_FD(0x63)
+#define JAV_EQ_OP_I8X16_BITMASK JAV_EQ_OP_FD(0x64)
+#define JAV_EQ_OP_I8X16_NARROW_I16X8_S JAV_EQ_OP_FD(0x65)
+#define JAV_EQ_OP_I8X16_NARROW_I16X8_U JAV_EQ_OP_FD(0x66)
+#define JAV_EQ_OP_I8X16_SHL JAV_EQ_OP_FD(0x6b)
+#define JAV_EQ_OP_I8X16_SHR_S JAV_EQ_OP_FD(0x6c)
+#define JAV_EQ_OP_I8X16_SHR_U JAV_EQ_OP_FD(0x6d)
+#define JAV_EQ_OP_I8X16_ADD JAV_EQ_OP_FD(0x6e)
+#define JAV_EQ_OP_I8X16_ADD_SAT_S JAV_EQ_OP_FD(0x6f)
+#define JAV_EQ_OP_I8X16_ADD_SAT_U JAV_EQ_OP_FD(0x70)
+#define JAV_EQ_OP_I8X16_SUB JAV_EQ_OP_FD(0x71)
+#define JAV_EQ_OP_I8X16_SUB_SAT_S JAV_EQ_OP_FD(0x72)
+#define JAV_EQ_OP_I8X16_SUB_SAT_U JAV_EQ_OP_FD(0x73)
+#define JAV_EQ_OP_I8X16_MIN_S JAV_EQ_OP_FD(0x76)
+#define JAV_EQ_OP_I8X16_MIN_U JAV_EQ_OP_FD(0x77)
+#define JAV_EQ_OP_I8X16_MAX_S JAV_EQ_OP_FD(0x78)
+#define JAV_EQ_OP_I8X16_MAX_U JAV_EQ_OP_FD(0x79)
+#define JAV_EQ_OP_I8X16_AVGR_U JAV_EQ_OP_FD(0x7b)
+#define JAV_EQ_OP_I16X8_EXTADD_PAIRWISE_I8X16_S JAV_EQ_OP_FD(0x7c)
+#define JAV_EQ_OP_I16X8_EXTADD_PAIRWISE_I8X16_U JAV_EQ_OP_FD(0x7d)
+#define JAV_EQ_OP_I32X4_EXTADD_PAIRWISE_I16X8_S JAV_EQ_OP_FD(0x7e)
+#define JAV_EQ_OP_I32X4_EXTADD_PAIRWISE_I16X8_U JAV_EQ_OP_FD(0x7f)
+#define JAV_EQ_OP_I16X8_ABS JAV_EQ_OP_FD(0x80)
+#define JAV_EQ_OP_I16X8_NEG JAV_EQ_OP_FD(0x81)
+#define JAV_EQ_OP_I16X8_Q15MULR_SAT_S JAV_EQ_OP_FD(0x82)
+#define JAV_EQ_OP_I16X8_ALL_TRUE JAV_EQ_OP_FD(0x83)
+#define JAV_EQ_OP_I16X8_BITMASK JAV_EQ_OP_FD(0x84)
+#define JAV_EQ_OP_I16X8_NARROW_I32X4_S JAV_EQ_OP_FD(0x85)
+#define JAV_EQ_OP_I16X8_NARROW_I32X4_U JAV_EQ_OP_FD(0x86)
+#define JAV_EQ_OP_I16X8_EXTEND_LOW_I8X16_S JAV_EQ_OP_FD(0x87)
+#define JAV_EQ_OP_I16X8_EXTEND_HIGH_I8X16_S JAV_EQ_OP_FD(0x88)
+#define JAV_EQ_OP_I16X8_EXTEND_LOW_I8X16_U JAV_EQ_OP_FD(0x89)
+#define JAV_EQ_OP_I16X8_EXTEND_HIGH_I8X16_U JAV_EQ_OP_FD(0x8a)
+#define JAV_EQ_OP_I16X8_SHL JAV_EQ_OP_FD(0x8b)
+#define JAV_EQ_OP_I16X8_SHR_S JAV_EQ_OP_FD(0x8c)
+#define JAV_EQ_OP_I16X8_SHR_U JAV_EQ_OP_FD(0x8d)
+#define JAV_EQ_OP_I16X8_ADD JAV_EQ_OP_FD(0x8e)
+#define JAV_EQ_OP_I16X8_ADD_SAT_S JAV_EQ_OP_FD(0x8f)
+#define JAV_EQ_OP_I16X8_ADD_SAT_U JAV_EQ_OP_FD(0x90)
+#define JAV_EQ_OP_I16X8_SUB JAV_EQ_OP_FD(0x91)
+#define JAV_EQ_OP_I16X8_SUB_SAT_S JAV_EQ_OP_FD(0x92)
+#define JAV_EQ_OP_I16X8_SUB_SAT_U JAV_EQ_OP_FD(0x93)
+#define JAV_EQ_OP_I16X8_MUL JAV_EQ_OP_FD(0x95)
+#define JAV_EQ_OP_I16X8_MIN_S JAV_EQ_OP_FD(0x96)
+#define JAV_EQ_OP_I16X8_MIN_U JAV_EQ_OP_FD(0x97)
+#define JAV_EQ_OP_I16X8_MAX_S JAV_EQ_OP_FD(0x98)
+#define JAV_EQ_OP_I16X8_MAX_U JAV_EQ_OP_FD(0x99)
+#define JAV_EQ_OP_I16X8_AVGR_U JAV_EQ_OP_FD(0x9b)
+#define JAV_EQ_OP_I16X8_EXTMUL_LOW_I8X16_S JAV_EQ_OP_FD(0x9c)
+#define JAV_EQ_OP_I16X8_EXTMUL_HIGH_I8X16_S JAV_EQ_OP_FD(0x9d)
+#define JAV_EQ_OP_I16X8_EXTMUL_LOW_I8X16_U JAV_EQ_OP_FD(0x9e)
+#define JAV_EQ_OP_I16X8_EXTMUL_HIGH_I8X16_U JAV_EQ_OP_FD(0x9f)
+#define JAV_EQ_OP_I32X4_ABS JAV_EQ_OP_FD(0xa0)
+#define JAV_EQ_OP_I32X4_NEG JAV_EQ_OP_FD(0xa1)
+#define JAV_EQ_OP_I32X4_ALL_TRUE JAV_EQ_OP_FD(0xa3)
+#define JAV_EQ_OP_I32X4_BITMASK JAV_EQ_OP_FD(0xa4)
+#define JAV_EQ_OP_I32X4_EXTEND_LOW_I16X8_S JAV_EQ_OP_FD(0xa7)
+#define JAV_EQ_OP_I32X4_EXTEND_HIGH_I16X8_S JAV_EQ_OP_FD(0xa8)
+#define JAV_EQ_OP_I32X4_EXTEND_LOW_I16X8_U JAV_EQ_OP_FD(0xa9)
+#define JAV_EQ_OP_I32X4_EXTEND_HIGH_I16X8_U JAV_EQ_OP_FD(0xaa)
+#define JAV_EQ_OP_I32X4_SHL JAV_EQ_OP_FD(0xab)
+#define JAV_EQ_OP_I32X4_SHR_S JAV_EQ_OP_FD(0xac)
+#define JAV_EQ_OP_I32X4_SHR_U JAV_EQ_OP_FD(0xad)
+#define JAV_EQ_OP_I32X4_ADD JAV_EQ_OP_FD(0xae)
+#define JAV_EQ_OP_I32X4_SUB JAV_EQ_OP_FD(0xb1)
+#define JAV_EQ_OP_I32X4_MUL JAV_EQ_OP_FD(0xb5)
+#define JAV_EQ_OP_I32X4_MIN_S JAV_EQ_OP_FD(0xb6)
+#define JAV_EQ_OP_I32X4_MIN_U JAV_EQ_OP_FD(0xb7)
+#define JAV_EQ_OP_I32X4_MAX_S JAV_EQ_OP_FD(0xb8)
+#define JAV_EQ_OP_I32X4_MAX_U JAV_EQ_OP_FD(0xb9)
+#define JAV_EQ_OP_I32X4_DOT_I16X8_S JAV_EQ_OP_FD(0xba)
+#define JAV_EQ_OP_I32X4_EXTMUL_LOW_I16X8_S JAV_EQ_OP_FD(0xbc)
+#define JAV_EQ_OP_I32X4_EXTMUL_HIGH_I16X8_S JAV_EQ_OP_FD(0xbd)
+#define JAV_EQ_OP_I32X4_EXTMUL_LOW_I16X8_U JAV_EQ_OP_FD(0xbe)
+#define JAV_EQ_OP_I32X4_EXTMUL_HIGH_I16X8_U JAV_EQ_OP_FD(0xbf)
+#define JAV_EQ_OP_I64X2_ABS JAV_EQ_OP_FD(0xc0)
+#define JAV_EQ_OP_I64X2_NEG JAV_EQ_OP_FD(0xc1)
+#define JAV_EQ_OP_I64X2_ALL_TRUE JAV_EQ_OP_FD(0xc3)
+#define JAV_EQ_OP_I64X2_BITMASK JAV_EQ_OP_FD(0xc4)
+#define JAV_EQ_OP_I64X2_EXTEND_LOW_I32X4_S JAV_EQ_OP_FD(0xc7)
+#define JAV_EQ_OP_I64X2_EXTEND_HIGH_I32X4_S JAV_EQ_OP_FD(0xc8)
+#define JAV_EQ_OP_I64X2_EXTEND_LOW_I32X4_U JAV_EQ_OP_FD(0xc9)
+#define JAV_EQ_OP_I64X2_EXTEND_HIGH_I32X4_U JAV_EQ_OP_FD(0xca)
+#define JAV_EQ_OP_I64X2_SHL JAV_EQ_OP_FD(0xcb)
+#define JAV_EQ_OP_I64X2_SHR_S JAV_EQ_OP_FD(0xcc)
+#define JAV_EQ_OP_I64X2_SHR_U JAV_EQ_OP_FD(0xcd)
+#define JAV_EQ_OP_I64X2_ADD JAV_EQ_OP_FD(0xce)
+#define JAV_EQ_OP_I64X2_SUB JAV_EQ_OP_FD(0xd1)
+#define JAV_EQ_OP_I64X2_MUL JAV_EQ_OP_FD(0xd5)
+#define JAV_EQ_OP_I64X2_EQ JAV_EQ_OP_FD(0xd6)
+#define JAV_EQ_OP_I64X2_NE JAV_EQ_OP_FD(0xd7)
+#define JAV_EQ_OP_I64X2_LT_S JAV_EQ_OP_FD(0xd8)
+#define JAV_EQ_OP_I64X2_GT_S JAV_EQ_OP_FD(0xd9)
+#define JAV_EQ_OP_I64X2_LE_S JAV_EQ_OP_FD(0xda)
+#define JAV_EQ_OP_I64X2_GE_S JAV_EQ_OP_FD(0xdb)
+#define JAV_EQ_OP_I64X2_EXTMUL_LOW_I32X4_S JAV_EQ_OP_FD(0xdc)
+#define JAV_EQ_OP_I64X2_EXTMUL_HIGH_I32X4_S JAV_EQ_OP_FD(0xdd)
+#define JAV_EQ_OP_I64X2_EXTMUL_LOW_I32X4_U JAV_EQ_OP_FD(0xde)
+#define JAV_EQ_OP_I64X2_EXTMUL_HIGH_I32X4_U JAV_EQ_OP_FD(0xdf)
+#define JAV_EQ_OP_I32X4_TRUNC_SAT_F32X4_S JAV_EQ_OP_FD(0xf8)
+#define JAV_EQ_OP_I32X4_TRUNC_SAT_F32X4_U JAV_EQ_OP_FD(0xf9)
+#define JAV_EQ_OP_I32X4_TRUNC_SAT_F64X2_S_ZERO JAV_EQ_OP_FD(0xfc)
+#define JAV_EQ_OP_I32X4_TRUNC_SAT_F64X2_U_ZERO JAV_EQ_OP_FD(0xfd)
+
+/* Synthetic e-node operators, disjoint from every opcode byte and
+ * every JAV_EQ_OP_FD key. A local.get interns as (JAV_EQ_OP_LOCAL,
+ * data = slot | version<<32; versions thread the region so a load
+ * resolves against the store order it really saw) — and an
+ * unadmitted subtree as (JAV_EQ_OP_OPAQUE, data = the jav_tnode_t
+ * address): its own congruence class, no inputs, the tree keeps its
+ * place. */
 #define JAV_EQ_OP_LOCAL  0x100
 #define JAV_EQ_OP_OPAQUE 0x101
 
