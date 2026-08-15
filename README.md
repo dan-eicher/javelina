@@ -4,11 +4,19 @@ A WebAssembly engine and a Java compiler that targets it, in pure C11 with no
 runtime dependencies (the engine links only `libm`).
 
 - **The engine** (`wasm/`) runs WebAssembly Core 3.0. One declarative opcode
-  spec generates both execution tiers: an in-place interpreter and a
-  copy-and-patch JIT that share the same handlers. It has an Immix garbage
-  collector, a single-pass §7.6 validator, exception handling, tail calls, the
-  GC proposal (struct/array/i31/ref types), and SIMD (v128). The embedding
-  surface is the standard [WebAssembly C API](https://github.com/WebAssembly/wasm-c-api)
+  spec generates every execution form — the in-place interpreter and all of
+  the copy-and-patch JIT's stencils, register-cached variants included — so
+  every tier runs identical opcode semantics by construction. Execution is a
+  LEVEL chosen per engine at runtime (`jav_config_set_jit`, 0–3), all four in
+  one binary: **0** interprets; **1** compiles copy-and-patch, every operand
+  through the stack; **2** adds BURG-tiled static stack caching, so operands
+  ride a register file between instructions (Ertl's scheme, cache size fixed
+  at build); **3** runs an e-graph equality-saturation rewrite over each
+  region before the same tiling — an engine-side optimizer for wasm the
+  producer never cleaned up. It has an Immix garbage collector, a single-pass
+  §7.6 validator, exception handling, tail calls, the GC proposal
+  (struct/array/i31/ref types), and SIMD (v128). The embedding surface is the
+  standard [WebAssembly C API](https://github.com/WebAssembly/wasm-c-api)
   (`wasm.h`).
 
 - **The converter** (`water`, in `wasm/`) goes both ways between the §6 text
@@ -30,8 +38,8 @@ runtime dependencies (the engine links only `libm`).
 ## Conformance
 
 Executed against the official [WebAssembly test suite](https://github.com/WebAssembly/testsuite)
-(pinned at `0dc0343`), all tiers (interpreter, JIT, and the eq-sat tier), on
-2026-08-15:
+(pinned at `0dc0343`), at every execution level — the interpreter and all
+three JIT tiers — on 2026-08-15:
 
 | gate | result |
 |---|---|
@@ -41,14 +49,15 @@ Executed against the official [WebAssembly test suite](https://github.com/WebAss
 | binary modules (260 files) | 810 ok, 0 mismatched |
 | §7 differential (water vs engine) | 5270 modules, 0 verdicts differ |
 | §7.6 producer edges (water vs JIT tree) | 19695 edges, 0 differ, 0 unaligned |
-| wat rendering (width / re-read / placement) | 2522 rendered, 0 mismatches, 0 unreadable |
+| wat round-trip (wasm → wat → wasm) | **2522 modules, 0 bytes differ** |
 
 The three excluded cases are non-core-3.0 text-format fixtures; every executable
 assertion in the suite runs and agrees. The last three rows are the converter's:
 water re-implements §7 from the spec and must agree with the engine on every
-module in both directions, its folded renderings must match their computed
-widths byte-for-byte and re-read through the real text reader. Reproduce with
-`make conformance`.
+module in both directions, and every accepted module must survive the full trip
+through folded text byte-identically — with the rendering's width accounting,
+re-readability and custom-section placement each exit-coded in the same run.
+Reproduce with `make conformance`.
 
 ## Build
 
@@ -76,7 +85,7 @@ decodes, validates, instantiates, and calls a module:
 make lib                        # -> wasm/build/libjavelina.a
 cc wasm/examples/embed.c -Iwasm/include wasm/build/libjavelina.a -lm -o embed
 
-make -C wasm water              # the .wat assembler, to make a test module
+make -C wasm water              # the .wat <-> .wasm converter, to make a test module
 printf '(module
   (func (export "add") (param i32 i32) (result i32)
     local.get 0 local.get 1 i32.add))' | wasm/build/water - > add.wasm
@@ -103,7 +112,8 @@ compiler/      Java 1.0 -> wasm-GC
   grammar/     the Java grammar and the AST->SIR / codegen specs
   lib/         the Java runtime library, compiled to wasm
   docs/        design specs (combined-analysis-spec.md, sema-contract.md, ...)
-docs/          host-abi.md — the imports an embedder must supply
+docs/          host-abi.md (the imports an embedder must supply),
+               water.md (WATER(1)), test-baseline.md
 BBQ/           the code-generation toolchain (submodule)
 testsuite/     the official WebAssembly conformance suite (submodule)
 ```
