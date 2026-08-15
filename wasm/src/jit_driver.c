@@ -162,8 +162,8 @@ struct jit_func_s { jit_codebuf_t buf; size_t entry_off; jit_addr_t* offmap; };
  * operand` for an `i32.add` the cover placed entirely in memory — a rule that
  * does depend on the state — and the carried state there would select the
  * both-operands-in-registers variant for values that are on the stack. */
-static int state_agnostic(const jav_jit_meta_t* m, int tile_st) {
-    return tile_st >= m->pop_slots;
+static int state_agnostic(int tile_st, int a_slots) {
+    return tile_st >= a_slots;
 }
 
 /* …and whether the family can still land the result WHERE THE RULE ASKED if this
@@ -171,13 +171,14 @@ static int state_agnostic(const jav_jit_meta_t* m, int tile_st) {
  * rule is mem-or-reg0 for its result — `out0` is the rule's slot-0 out class, and
  * JSC_COUNT there means the rule reduced at `X_mem` — and reading the machine's
  * state must not quietly overturn it: at state 0 the memory form is the plain
- * stencil and always exists, but above it that form is D7s' `__sKm`, which a
- * state need not have. */
-static int agnostic_entry_ok(const jav_jit_meta_t* m, int out0, int st) {
+ * stencil and always exists, but above it that form is the memory-result
+ * stencil (`__sKm`), which a state need not have. */
+static int agnostic_entry_ok(const jav_jit_meta_t* m, int out0, int st, int pw) {
     if (st == 0) return 1;
     if (m->push && out0 >= (int)(JAV_SCLASS_FINAL - 1))
-        return jav_variant_m[m->stencil][st] >= 0;
-    return jav_variant[m->stencil][st] >= 0 && jav_variant_fs[m->stencil][st] >= 0;
+        return (pw ? jav_variant_pw_m : jav_variant_m)[m->stencil][st] >= 0;
+    return (pw ? jav_variant_pw : jav_variant)[m->stencil][st] >= 0
+        && (pw ? jav_variant_pw_fs : jav_variant_fs)[m->stencil][st] >= 0;
 }
 
 /* ── the emission context ────────────────────────────────────
@@ -243,9 +244,15 @@ static void emit_reset_live(void) {
  * entered instruction's preparation (a call resumes through the offmap at the IP
  * after it, and the fill must be what that arrival runs) while a spill disposes
  * of what the previous one produced. */
+/* `rs` is the node's RESOLVED signature, NULL on the plain byte walk. Its `pw`
+ * bit selects the poly-wide stencil family and the slot arithmetic that goes
+ * with it: the meta's pop/push_slots count DECLARED widths (a `word` is one),
+ * while the `__sK_pw` family moves that word as a two-register v128 — so a pw
+ * node's counts come from the resolved classes, the same source the grammar
+ * priced its rules from. */
 static void stamp_instr(bbq_ctx_t* cur, int entry_req,
                         uint32_t in_pack, uint32_t out_pack,
-                        const jav_synth_t* syn) {
+                        const jav_synth_t* syn, const jav_sig_t* rs) {
     if (g_e.status != JAV_RETURN) return;
     /* Room for this instruction and every transition it can imply — the same
      * bound the buffer was sized with, checked so an argument that stops holding
@@ -263,7 +270,10 @@ static void stamp_instr(bbq_ctx_t* cur, int entry_req,
     }
     jav_jit_meta_t m;
     uint32_t sub = 0;
-    if (!syn && jav_jit_meta_sub[op]) {
+    if (syn && syn->prefixed) {
+        sub = syn->sub;
+        m = jav_jit_meta_sub[op] ? jav_jit_meta_sub[op][sub] : jav_jit_meta[op];
+    } else if (!syn && jav_jit_meta_sub[op]) {
         bbq_read_uleb128_u32(cur, &sub);
         m = jav_jit_meta_sub[op][sub];
     } else m = jav_jit_meta[op];
@@ -272,6 +282,15 @@ static void stamp_instr(bbq_ctx_t* cur, int entry_req,
         g_e.status = JAV_TRAP; return;
     }
 
+    int pw = rs && rs->pw;
+    int a_slots = m.pop_slots, r_slots = m.push_slots;
+    if (pw) {
+        a_slots = 0;
+        for (int i = 0; i < rs->nparams; i++)
+            if (rs->params[i] < JAV_SCLASS_FINAL - 1)
+                a_slots += jav_class_width[rs->params[i]];
+        r_slots = rs->nresults ? jav_class_width[rs->results[0]] : 0;
+    }
     int entry = 0, plain = 1, chosen = m.stencil, ntrans = 0;
     if (g_e.tiled) {
         entry = entry_req;
@@ -281,14 +300,14 @@ static void stamp_instr(bbq_ctx_t* cur, int entry_req,
          * machine may be deeper. Run at the deepest state the family still has a
          * form for — Ertl's minimal overflow (§2.3): the gap left, if any, costs
          * one spill below rather than a flush. */
-        if (state_agnostic(&m, entry) && g_e.live_st > entry) {
+        if (state_agnostic(entry, a_slots) && g_e.live_st > entry) {
             int st = g_e.live_st;
-            while (st > entry && !agnostic_entry_ok(&m, out0, st)) st--;
+            while (st > entry && !agnostic_entry_ok(&m, out0, st, pw)) st--;
             entry = st;
         }
         /* The family is per OPCODE and a rule is per SIGNATURE, so a member need
          * not offer every form its terminal's rule named — and the grammar's own
-         * contract (gen_tile_burg's C5 note) is that the emitter "reaches its
+         * contract (gen_tile_burg's omission note, Ertl §2.5) is that the emitter "reaches its
          * state by transition". Descend to the nearest state this member
          * provides: the bridge below spills the operands the rule wanted cached,
          * and the lower form reads them from memory, values intact. State 0 is
@@ -299,14 +318,16 @@ static void stamp_instr(bbq_ctx_t* cur, int entry_req,
          * tier-1, 1,545 bodies of this corpus. */
         while (entry > 0) {
             int ok = out0mem
-                   ? jav_variant_m[m.stencil][entry] >= 0
-                   : (jav_variant[m.stencil][entry] >= 0
-                      && jav_variant_fs[m.stencil][entry] >= 0);
+                   ? (pw ? jav_variant_pw_m : jav_variant_m)[m.stencil][entry] >= 0
+                   : ((pw ? jav_variant_pw : jav_variant)[m.stencil][entry] >= 0
+                      && (pw ? jav_variant_pw_fs : jav_variant_fs)[m.stencil][entry] >= 0);
             if (ok) break;
             entry--;
         }
         /* Below the rule's ask (a lift only ever raises), so the bridge is about
-         * to spill slots the cover never priced — B3's metered quantity. */
+         * to spill slots the cover never priced — the descend meter counts
+         * exactly this residue of a per-signature grammar over a per-opcode
+         * stencil family. */
         if (entry < entry_req) jav_ttree_note_descend(op, sub, entry_req, entry);
         /* The bridge. A cache state is a property of a program point: where the
          * previous instruction left the cache and where this one expects it are
@@ -356,13 +377,15 @@ static void stamp_instr(bbq_ctx_t* cur, int entry_req,
             g_e.status = JAV_TRAP; return;
         }
         plain = 0;
-        chosen = jav_variant[m.stencil][entry];
+        chosen = (pw ? jav_variant_pw : jav_variant)[m.stencil][entry];
         /* …unless the rule asked for the result in MEMORY. A variant caches what
          * it produces; for a class with no *_reg0 rule that is not what the rule
          * reduced at. At entry 0 the memory form is the plain stencil; above it,
-         * D7s' `__sKm` — same cached operands, result pushed inline. */
+         * the memory-result stencil `__sKm` — same cached operands, result
+         * pushed inline. */
         if (out0mem) {
-            int mv = entry == 0 ? m.stencil : jav_variant_m[m.stencil][entry];
+            int mv = entry == 0 ? m.stencil
+                                : (pw ? jav_variant_pw_m : jav_variant_m)[m.stencil][entry];
             if (mv >= 0) { chosen = mv; plain = 1; }
         }
         if (chosen < 0) {
@@ -390,11 +413,12 @@ static void stamp_instr(bbq_ctx_t* cur, int entry_req,
         }
         /* JOP_CONST is a synthesized constant (e.g. a guard's range bound):
          * its value rides in the meta — no bytecode, no cursor advance.
-         * A tier-3 record's one immediate stands in for the byte read the
-         * same way — the v1 rebuild vocabulary has at most one operand. */
+         * A tier-3 record's immediates stand in for the byte reads the same
+         * way; two of them cover everything, a v128.const's pair of raw
+         * 8-byte holes included. */
         uint64_t imm = (m.operands[k].kind == JOP_CONST)
                      ? m.operands[k].value
-                     : syn ? (uint64_t)syn->imm
+                     : syn ? (uint64_t)(k == 0 ? syn->imm : syn->imm2)
                            : decode_operand(cur, m.operands[k].kind);
         int h = find_hole(def, m.operands[k].hole);
         if (h >= 0) vals[h] = imm;
@@ -444,17 +468,17 @@ static void stamp_instr(bbq_ctx_t* cur, int entry_req,
     /* Move the slot classes the way the stencil moved the values, and count the
      * operand-stack traffic this form actually performs — the one place that
      * knows which form was stamped. */
-    int exit_st = plain ? 0 : jav_variant_fs[m.stencil][entry];
+    int exit_st = plain ? 0 : (pw ? jav_variant_pw_fs : jav_variant_fs)[m.stencil][entry];
     if (exit_st < 0) {
         g_e.fail_why = 5; g_e.fail_op = op; g_e.fail_bpos = (uint32_t)bpos;
         g_e.fail_entry = entry;
         g_e.status = JAV_TRAP; return;
     }
     {
-        int a = m.pop_slots;
+        int a = a_slots;
         int left = entry > a ? entry - a : 0;
-        int r = exit_st > left ? m.push_slots : 0;
-        jav_ttree_note_mem((a > entry ? a - entry : 0) + (r ? 0 : m.push_slots));
+        int r = exit_st > left ? r_slots : 0;
+        jav_ttree_note_mem((a > entry ? a - entry : 0) + (r ? 0 : r_slots));
         for (int j = 0; j < left; j++) g_e.live_cls[r + j] = g_e.live_cls[a + j];
         for (int j = 0; j < r; j++)
             g_e.live_cls[j] = (int)((out_pack >> (j * JAV_TILE_CLS_BITS))
@@ -468,7 +492,8 @@ static void stamp_instr(bbq_ctx_t* cur, int entry_req,
 
 /* THE generated rule action: burg matched this node, the rule said which state
  * it runs in and where its operands and result sit, and this is where the
- * stencil is stamped — the reduce IS the emitter (#16). */
+ * stencil is stamped — the reduce IS the emitter; no offset-keyed map joins
+ * a cover to a separate stamping walk anymore. */
 void jav_t2_stamp(const jav_tnode_t* n, int state, uint32_t in_pack, uint32_t out_pack) {
     if (!g_e.active || !g_e.tiled || g_e.status != JAV_RETURN) return;
     /* A node with no pc is a carried leaf — nothing to stamp — unless tier-3
@@ -504,7 +529,7 @@ void jav_t2_stamp(const jav_tnode_t* n, int state, uint32_t in_pack, uint32_t ou
         if (wide) jav_ttree_note_wide();
     }
     g_e.stamped++;
-    stamp_instr(&cur, state, in_pack, out_pack, syn);
+    stamp_instr(&cur, state, in_pack, out_pack, syn, &jav_sigtab[n->sig]);
 }
 
 /* The per-body prologue: the entry stencil, the one resync stencil (its offmap
@@ -539,7 +564,7 @@ static void begin_body(jit_addr_t* offmap, size_t code_len,
 }
 
 /* The plain byte walk: tier-1, and the fallback for a body the cover or the
- * bridge declined (D8). Every stencil is the plain form the meta names — with no
+ * bridge declined. Every stencil is the plain form the meta names — with no
  * tiling behind it, a variant that cached its result would leave a register
  * nothing ever spills or reads. Dead code is stamped here like anything else,
  * which is exactly right for it: it is unreachable, and tier-1 is its form. */
@@ -557,7 +582,7 @@ static void byte_walk(void) {
             g_e.sids[g_e.n] = STENCIL_GEN_ST_HALT; g_e.n++;
             return;
         }
-        stamp_instr(&cur, 0, 0, 0, NULL);
+        stamp_instr(&cur, 0, 0, 0, NULL, NULL);
     }
 }
 
@@ -621,7 +646,7 @@ jit_func_t* jit_compile(bbq_ctx_t code, const jav_tctx_t* tcx) {
     /* Tier-2: build the tree and let the reduce stamp it. A no-cover, an
      * unbridgeable gap or a capacity miss is a decline, not a failure — tier-2 is
      * an optimization on top of tier-1, so the body falls to the plain byte walk
-     * below rather than off the JIT (D8). Giving up outright once left a function
+     * below rather than off the JIT. Giving up outright once left a function
      * interpreted that tier-1 had compiled for the whole life of the JIT. */
     if (tcx) {
         bbq_arena ta; bbq_arena_init(&ta, 16 * 1024);
@@ -629,11 +654,12 @@ jit_func_t* jit_compile(bbq_ctx_t code, const jav_tctx_t* tcx) {
         jav_ttree_t tree;
         if (jav_ttree_build(code, tcx, &ta, &tree)) {
             /* Tier-3 = this same pipeline with the saturation pass between
-             * build and reduce (D1). Zero rules leave every subtree the
-             * original pointer, so the reduce below consumes the identical
-             * tree — the structural identity PIN B-1 gates. A rebuilt root's
-             * synthesized nodes stamp through the sidecar; any refusal
-             * inside keeps originals and is counted in its own meters. */
+             * build and reduce. An unchanged extraction keeps the original
+             * subtree pointer, so the reduce below consumes the identical
+             * tree and tier-3 with no firing rule is tier-2 byte for byte —
+             * which the suite gates. A rebuilt root's synthesized nodes
+             * stamp through the sidecar; any refusal inside keeps originals
+             * and is counted in its own meters. */
             if (tcx->tier >= 3) {
                 jav_eqsat_body(&tree, tcx, &ta, &synth);
                 g_e.synth = &synth;

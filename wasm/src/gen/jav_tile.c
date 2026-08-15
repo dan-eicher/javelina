@@ -880,7 +880,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 944;
+                p->rule[1] = 994;
             }
         }
         if (p->child_count >= 2 && p->children[0]->rule[3] && p->children[1]->rule[40]) {
@@ -889,7 +889,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 945;
+                p->rule[1] = 995;
             }
         }
         if (p->child_count >= 2 && p->children[0]->rule[18] && p->children[1]->rule[40] && (JAV_TNEED(node,1) <= 7)) {
@@ -898,7 +898,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 946;
+                p->rule[1] = 996;
             }
         }
         if (p->child_count >= 2 && p->children[0]->rule[18] && p->children[1]->rule[40] && (JAV_TNEED(node,1) <= 6)) {
@@ -907,7 +907,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 947;
+                p->rule[1] = 997;
             }
         }
         if (p->child_count >= 2 && p->children[0]->rule[18] && p->children[1]->rule[40] && (JAV_TNEED(node,1) <= 5)) {
@@ -916,7 +916,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 948;
+                p->rule[1] = 998;
             }
         }
         if (p->child_count >= 2 && p->children[0]->rule[18] && p->children[1]->rule[40] && (JAV_TNEED(node,1) <= 4)) {
@@ -925,7 +925,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 949;
+                p->rule[1] = 999;
             }
         }
         if (p->child_count >= 2 && p->children[0]->rule[18] && p->children[1]->rule[40] && (JAV_TNEED(node,1) <= 3)) {
@@ -934,7 +934,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 950;
+                p->rule[1] = 1000;
             }
         }
         if (p->child_count >= 2 && p->children[0]->rule[18] && p->children[1]->rule[40] && (JAV_TNEED(node,1) <= 2)) {
@@ -943,81 +943,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 951;
-            }
-        }
-        break;
-    case BURG_Sig_i32_v128_to_void:
-        if (p->child_count >= 2 && p->children[0]->rule[2] && p->children[1]->rule[6]) {
-            int c = p->children[0]->cost[2] + p->children[1]->cost[6] + 4;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[1]) {
-                p->cost[1] = c;
-                p->rule[1] = 936;
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[2] && p->children[1]->rule[40]) {
-            int c = p->children[0]->cost[2] + p->children[1]->cost[40] + 2;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[1]) {
-                p->cost[1] = c;
-                p->rule[1] = 937;
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[10] && p->children[1]->rule[40] && (JAV_TNEED(node,1) <= 7)) {
-            int c = p->children[0]->cost[10] + p->children[1]->cost[40] + 0;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[1]) {
-                p->cost[1] = c;
-                p->rule[1] = 938;
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[10] && p->children[1]->rule[40] && (JAV_TNEED(node,1) <= 6)) {
-            int c = p->children[0]->cost[10] + p->children[1]->cost[40] + 0;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[1]) {
-                p->cost[1] = c;
-                p->rule[1] = 939;
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[10] && p->children[1]->rule[40] && (JAV_TNEED(node,1) <= 5)) {
-            int c = p->children[0]->cost[10] + p->children[1]->cost[40] + 0;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[1]) {
-                p->cost[1] = c;
-                p->rule[1] = 940;
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[10] && p->children[1]->rule[40] && (JAV_TNEED(node,1) <= 4)) {
-            int c = p->children[0]->cost[10] + p->children[1]->cost[40] + 0;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[1]) {
-                p->cost[1] = c;
-                p->rule[1] = 941;
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[10] && p->children[1]->rule[40] && (JAV_TNEED(node,1) <= 3)) {
-            int c = p->children[0]->cost[10] + p->children[1]->cost[40] + 0;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[1]) {
-                p->cost[1] = c;
-                p->rule[1] = 942;
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[10] && p->children[1]->rule[40] && (JAV_TNEED(node,1) <= 2)) {
-            int c = p->children[0]->cost[10] + p->children[1]->cost[40] + 0;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[1]) {
-                p->cost[1] = c;
-                p->rule[1] = 943;
+                p->rule[1] = 1001;
             }
         }
         break;
@@ -1028,18 +954,18 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 935;
+                p->rule[1] = 985;
             }
         }
         break;
-    case BURG_Sig_i32_v128_to_void_pw:
+    case BURG_Sig_i32_v128_to_void_aw:
         if (p->child_count >= 2 && p->children[0]->rule[2] && p->children[1]->rule[6]) {
             int c = p->children[0]->cost[2] + p->children[1]->cost[6] + 4;
             for (int _ci = 2; _ci < p->child_count; _ci++)
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 932;
+                p->rule[1] = 982;
             }
         }
         break;
@@ -1050,7 +976,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 929;
+                p->rule[1] = 979;
             }
         }
         if (p->child_count >= 5 && p->children[0]->rule[7] && p->children[1]->rule[2] && p->children[2]->rule[7] && p->children[3]->rule[2] && p->children[4]->rule[8]) {
@@ -1059,7 +985,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 930;
+                p->rule[1] = 980;
             }
         }
         if (p->child_count >= 5 && p->children[0]->rule[7] && p->children[1]->rule[2] && p->children[2]->rule[7] && p->children[3]->rule[9] && p->children[4]->rule[8] && (JAV_TNEED(node,4) <= 7)) {
@@ -1068,7 +994,27 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 931;
+                p->rule[1] = 981;
+            }
+        }
+        break;
+    case BURG_Sig_ref_i32_v128_i32_to_void_aw:
+        if (p->child_count >= 4 && p->children[0]->rule[7] && p->children[1]->rule[2] && p->children[2]->rule[6] && p->children[3]->rule[2]) {
+            int c = p->children[0]->cost[7] + p->children[1]->cost[2] + p->children[2]->cost[6] + p->children[3]->cost[2] + 6;
+            for (int _ci = 4; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[1]) {
+                p->cost[1] = c;
+                p->rule[1] = 975;
+            }
+        }
+        if (p->child_count >= 4 && p->children[0]->rule[7] && p->children[1]->rule[2] && p->children[2]->rule[6] && p->children[3]->rule[8]) {
+            int c = p->children[0]->cost[7] + p->children[1]->cost[2] + p->children[2]->cost[6] + p->children[3]->cost[8] + 5;
+            for (int _ci = 4; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[1]) {
+                p->cost[1] = c;
+                p->rule[1] = 976;
             }
         }
         break;
@@ -1079,7 +1025,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 923;
+                p->rule[1] = 973;
             }
         }
         if (p->child_count >= 4 && p->children[0]->rule[7] && p->children[1]->rule[2] && p->children[2]->rule[5] && p->children[3]->rule[8]) {
@@ -1088,18 +1034,18 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 924;
+                p->rule[1] = 974;
             }
         }
         break;
-    case BURG_Sig_ref_i32_v128_to_void_pw:
+    case BURG_Sig_ref_i32_v128_to_void_aw:
         if (p->child_count >= 3 && p->children[0]->rule[7] && p->children[1]->rule[2] && p->children[2]->rule[6]) {
             int c = p->children[0]->cost[7] + p->children[1]->cost[2] + p->children[2]->cost[6] + 5;
             for (int _ci = 3; _ci < p->child_count; _ci++)
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 913;
+                p->rule[1] = 963;
             }
         }
         break;
@@ -1110,18 +1056,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 912;
-            }
-        }
-        break;
-    case BURG_Sig_ref_i32_f32_to_void:
-        if (p->child_count >= 3 && p->children[0]->rule[7] && p->children[1]->rule[2] && p->children[2]->rule[4]) {
-            int c = p->children[0]->cost[7] + p->children[1]->cost[2] + p->children[2]->cost[4] + 4;
-            for (int _ci = 3; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[1]) {
-                p->cost[1] = c;
-                p->rule[1] = 911;
+                p->rule[1] = 962;
             }
         }
         break;
@@ -1132,7 +1067,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 910;
+                p->rule[1] = 960;
             }
         }
         break;
@@ -1143,7 +1078,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 919;
+                p->rule[1] = 969;
             }
         }
         if (p->child_count >= 4 && p->children[0]->rule[7] && p->children[1]->rule[2] && p->children[2]->rule[3] && p->children[3]->rule[8]) {
@@ -1152,7 +1087,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 920;
+                p->rule[1] = 970;
             }
         }
         break;
@@ -1163,7 +1098,18 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 909;
+                p->rule[1] = 959;
+            }
+        }
+        break;
+    case BURG_Sig_ref_v128_to_void_aw:
+        if (p->child_count >= 2 && p->children[0]->rule[7] && p->children[1]->rule[6]) {
+            int c = p->children[0]->cost[7] + p->children[1]->cost[6] + 4;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[1]) {
+                p->cost[1] = c;
+                p->rule[1] = 957;
             }
         }
         break;
@@ -1174,7 +1120,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 933;
+                p->rule[1] = 983;
             }
         }
         break;
@@ -1185,18 +1131,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 906;
-            }
-        }
-        break;
-    case BURG_Sig_ref_i64_to_void:
-        if (p->child_count >= 2 && p->children[0]->rule[7] && p->children[1]->rule[3]) {
-            int c = p->children[0]->cost[7] + p->children[1]->cost[3] + 3;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[1]) {
-                p->cost[1] = c;
-                p->rule[1] = 904;
+                p->rule[1] = 956;
             }
         }
         break;
@@ -1207,7 +1142,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 903;
+                p->rule[1] = 953;
             }
         }
         break;
@@ -1218,7 +1153,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 902;
+                p->rule[1] = 952;
             }
         }
         break;
@@ -1229,7 +1164,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 897;
+                p->rule[1] = 947;
             }
         }
         if (p->child_count >= 1 && p->children[0]->rule[16]) {
@@ -1238,7 +1173,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 898;
+                p->rule[1] = 948;
             }
         }
         break;
@@ -1249,7 +1184,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 895;
+                p->rule[1] = 945;
             }
         }
         if (p->child_count >= 1 && p->children[0]->rule[8]) {
@@ -1258,7 +1193,18 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 896;
+                p->rule[1] = 946;
+            }
+        }
+        break;
+    case BURG_Sig_v128_to_void_aw:
+        if (p->child_count >= 1 && p->children[0]->rule[6]) {
+            int c = p->children[0]->cost[6] + 3;
+            for (int _ci = 1; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[1]) {
+                p->cost[1] = c;
+                p->rule[1] = 944;
             }
         }
         break;
@@ -1269,27 +1215,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 894;
-            }
-        }
-        break;
-    case BURG_Sig_i64_v128_i64_to_void_pw:
-        if (p->child_count >= 3 && p->children[0]->rule[3] && p->children[1]->rule[6] && p->children[2]->rule[3]) {
-            int c = p->children[0]->cost[3] + p->children[1]->cost[6] + p->children[2]->cost[3] + 5;
-            for (int _ci = 3; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[1]) {
-                p->cost[1] = c;
-                p->rule[1] = 890;
-            }
-        }
-        if (p->child_count >= 3 && p->children[0]->rule[3] && p->children[1]->rule[6] && p->children[2]->rule[16]) {
-            int c = p->children[0]->cost[3] + p->children[1]->cost[6] + p->children[2]->cost[16] + 4;
-            for (int _ci = 3; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[1]) {
-                p->cost[1] = c;
-                p->rule[1] = 891;
+                p->rule[1] = 943;
             }
         }
         break;
@@ -1300,7 +1226,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 888;
+                p->rule[1] = 937;
             }
         }
         if (p->child_count >= 3 && p->children[0]->rule[3] && p->children[1]->rule[5] && p->children[2]->rule[16]) {
@@ -1309,7 +1235,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 889;
+                p->rule[1] = 938;
             }
         }
         break;
@@ -1320,7 +1246,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 886;
+                p->rule[1] = 935;
             }
         }
         if (p->child_count >= 3 && p->children[0]->rule[3] && p->children[1]->rule[4] && p->children[2]->rule[16]) {
@@ -1329,18 +1255,18 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 887;
+                p->rule[1] = 936;
             }
         }
         break;
-    case BURG_Sig_i32_v128_i32_to_void_pw:
+    case BURG_Sig_i32_v128_i32_to_void_aw:
         if (p->child_count >= 3 && p->children[0]->rule[2] && p->children[1]->rule[6] && p->children[2]->rule[2]) {
             int c = p->children[0]->cost[2] + p->children[1]->cost[6] + p->children[2]->cost[2] + 5;
             for (int _ci = 3; _ci < p->child_count; _ci++)
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 882;
+                p->rule[1] = 931;
             }
         }
         if (p->child_count >= 3 && p->children[0]->rule[2] && p->children[1]->rule[6] && p->children[2]->rule[8]) {
@@ -1349,7 +1275,27 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 883;
+                p->rule[1] = 932;
+            }
+        }
+        break;
+    case BURG_Sig_i32_f64_i32_to_void:
+        if (p->child_count >= 3 && p->children[0]->rule[2] && p->children[1]->rule[5] && p->children[2]->rule[2]) {
+            int c = p->children[0]->cost[2] + p->children[1]->cost[5] + p->children[2]->cost[2] + 4;
+            for (int _ci = 3; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[1]) {
+                p->cost[1] = c;
+                p->rule[1] = 929;
+            }
+        }
+        if (p->child_count >= 3 && p->children[0]->rule[2] && p->children[1]->rule[5] && p->children[2]->rule[8]) {
+            int c = p->children[0]->cost[2] + p->children[1]->cost[5] + p->children[2]->cost[8] + 3;
+            for (int _ci = 3; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[1]) {
+                p->cost[1] = c;
+                p->rule[1] = 930;
             }
         }
         break;
@@ -1360,7 +1306,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 868;
+                p->rule[1] = 917;
             }
         }
         if (p->child_count >= 3 && p->children[0]->rule[3] && p->children[1]->rule[3] && p->children[2]->rule[16]) {
@@ -1369,7 +1315,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 869;
+                p->rule[1] = 918;
             }
         }
         if (p->child_count >= 3 && p->children[0]->rule[3] && p->children[1]->rule[17] && p->children[2]->rule[16] && (JAV_TNEED(node,2) <= 7)) {
@@ -1378,7 +1324,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 870;
+                p->rule[1] = 919;
             }
         }
         if (p->child_count >= 3 && p->children[0]->rule[18] && p->children[1]->rule[17] && p->children[2]->rule[16] && (JAV_TNEED(node,1) <= 7 && JAV_TNEED(node,2) <= 6)) {
@@ -1387,7 +1333,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 871;
+                p->rule[1] = 920;
             }
         }
         if (p->child_count >= 3 && p->children[0]->rule[18] && p->children[1]->rule[17] && p->children[2]->rule[16] && (JAV_TNEED(node,1) <= 6 && JAV_TNEED(node,2) <= 5)) {
@@ -1396,7 +1342,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 872;
+                p->rule[1] = 921;
             }
         }
         if (p->child_count >= 3 && p->children[0]->rule[18] && p->children[1]->rule[17] && p->children[2]->rule[16] && (JAV_TNEED(node,1) <= 5 && JAV_TNEED(node,2) <= 4)) {
@@ -1405,7 +1351,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 873;
+                p->rule[1] = 922;
             }
         }
         if (p->child_count >= 3 && p->children[0]->rule[18] && p->children[1]->rule[17] && p->children[2]->rule[16] && (JAV_TNEED(node,1) <= 4 && JAV_TNEED(node,2) <= 3)) {
@@ -1414,7 +1360,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 874;
+                p->rule[1] = 923;
             }
         }
         if (p->child_count >= 3 && p->children[0]->rule[18] && p->children[1]->rule[17] && p->children[2]->rule[16] && (JAV_TNEED(node,1) <= 3 && JAV_TNEED(node,2) <= 2)) {
@@ -1423,7 +1369,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 875;
+                p->rule[1] = 924;
             }
         }
         if (p->child_count >= 3 && p->children[0]->rule[18] && p->children[1]->rule[17] && p->children[2]->rule[16] && (JAV_TNEED(node,1) <= 2 && JAV_TNEED(node,2) <= 1)) {
@@ -1432,7 +1378,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 876;
+                p->rule[1] = 925;
             }
         }
         break;
@@ -1443,7 +1389,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 841;
+                p->rule[1] = 890;
             }
         }
         if (p->child_count >= 3 && p->children[0]->rule[3] && p->children[1]->rule[2] && p->children[2]->rule[16]) {
@@ -1452,7 +1398,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 842;
+                p->rule[1] = 891;
             }
         }
         if (p->child_count >= 3 && p->children[0]->rule[3] && p->children[1]->rule[9] && p->children[2]->rule[16] && (JAV_TNEED(node,2) <= 7)) {
@@ -1461,7 +1407,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 843;
+                p->rule[1] = 892;
             }
         }
         if (p->child_count >= 3 && p->children[0]->rule[18] && p->children[1]->rule[9] && p->children[2]->rule[16] && (JAV_TNEED(node,1) <= 7 && JAV_TNEED(node,2) <= 6)) {
@@ -1470,7 +1416,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 844;
+                p->rule[1] = 893;
             }
         }
         if (p->child_count >= 3 && p->children[0]->rule[18] && p->children[1]->rule[9] && p->children[2]->rule[16] && (JAV_TNEED(node,1) <= 6 && JAV_TNEED(node,2) <= 5)) {
@@ -1479,7 +1425,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 845;
+                p->rule[1] = 894;
             }
         }
         if (p->child_count >= 3 && p->children[0]->rule[18] && p->children[1]->rule[9] && p->children[2]->rule[16] && (JAV_TNEED(node,1) <= 5 && JAV_TNEED(node,2) <= 4)) {
@@ -1488,7 +1434,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 846;
+                p->rule[1] = 895;
             }
         }
         if (p->child_count >= 3 && p->children[0]->rule[18] && p->children[1]->rule[9] && p->children[2]->rule[16] && (JAV_TNEED(node,1) <= 4 && JAV_TNEED(node,2) <= 3)) {
@@ -1497,7 +1443,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 847;
+                p->rule[1] = 896;
             }
         }
         if (p->child_count >= 3 && p->children[0]->rule[18] && p->children[1]->rule[9] && p->children[2]->rule[16] && (JAV_TNEED(node,1) <= 3 && JAV_TNEED(node,2) <= 2)) {
@@ -1506,7 +1452,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 848;
+                p->rule[1] = 897;
             }
         }
         if (p->child_count >= 3 && p->children[0]->rule[18] && p->children[1]->rule[9] && p->children[2]->rule[16] && (JAV_TNEED(node,1) <= 2 && JAV_TNEED(node,2) <= 1)) {
@@ -1515,90 +1461,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 849;
-            }
-        }
-        break;
-    case BURG_Sig_i32_i32_i32_to_void:
-        if (p->child_count >= 3 && p->children[0]->rule[2] && p->children[1]->rule[2] && p->children[2]->rule[2]) {
-            int c = p->children[0]->cost[2] + p->children[1]->cost[2] + p->children[2]->cost[2] + 4;
-            for (int _ci = 3; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[1]) {
-                p->cost[1] = c;
-                p->rule[1] = 832;
-            }
-        }
-        if (p->child_count >= 3 && p->children[0]->rule[2] && p->children[1]->rule[2] && p->children[2]->rule[8]) {
-            int c = p->children[0]->cost[2] + p->children[1]->cost[2] + p->children[2]->cost[8] + 3;
-            for (int _ci = 3; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[1]) {
-                p->cost[1] = c;
-                p->rule[1] = 833;
-            }
-        }
-        if (p->child_count >= 3 && p->children[0]->rule[2] && p->children[1]->rule[9] && p->children[2]->rule[8] && (JAV_TNEED(node,2) <= 7)) {
-            int c = p->children[0]->cost[2] + p->children[1]->cost[9] + p->children[2]->cost[8] + 2;
-            for (int _ci = 3; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[1]) {
-                p->cost[1] = c;
-                p->rule[1] = 834;
-            }
-        }
-        if (p->child_count >= 3 && p->children[0]->rule[10] && p->children[1]->rule[9] && p->children[2]->rule[8] && (JAV_TNEED(node,1) <= 7 && JAV_TNEED(node,2) <= 6)) {
-            int c = p->children[0]->cost[10] + p->children[1]->cost[9] + p->children[2]->cost[8] + 0;
-            for (int _ci = 3; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[1]) {
-                p->cost[1] = c;
-                p->rule[1] = 835;
-            }
-        }
-        if (p->child_count >= 3 && p->children[0]->rule[10] && p->children[1]->rule[9] && p->children[2]->rule[8] && (JAV_TNEED(node,1) <= 6 && JAV_TNEED(node,2) <= 5)) {
-            int c = p->children[0]->cost[10] + p->children[1]->cost[9] + p->children[2]->cost[8] + 0;
-            for (int _ci = 3; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[1]) {
-                p->cost[1] = c;
-                p->rule[1] = 836;
-            }
-        }
-        if (p->child_count >= 3 && p->children[0]->rule[10] && p->children[1]->rule[9] && p->children[2]->rule[8] && (JAV_TNEED(node,1) <= 5 && JAV_TNEED(node,2) <= 4)) {
-            int c = p->children[0]->cost[10] + p->children[1]->cost[9] + p->children[2]->cost[8] + 0;
-            for (int _ci = 3; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[1]) {
-                p->cost[1] = c;
-                p->rule[1] = 837;
-            }
-        }
-        if (p->child_count >= 3 && p->children[0]->rule[10] && p->children[1]->rule[9] && p->children[2]->rule[8] && (JAV_TNEED(node,1) <= 4 && JAV_TNEED(node,2) <= 3)) {
-            int c = p->children[0]->cost[10] + p->children[1]->cost[9] + p->children[2]->cost[8] + 0;
-            for (int _ci = 3; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[1]) {
-                p->cost[1] = c;
-                p->rule[1] = 838;
-            }
-        }
-        if (p->child_count >= 3 && p->children[0]->rule[10] && p->children[1]->rule[9] && p->children[2]->rule[8] && (JAV_TNEED(node,1) <= 3 && JAV_TNEED(node,2) <= 2)) {
-            int c = p->children[0]->cost[10] + p->children[1]->cost[9] + p->children[2]->cost[8] + 0;
-            for (int _ci = 3; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[1]) {
-                p->cost[1] = c;
-                p->rule[1] = 839;
-            }
-        }
-        if (p->child_count >= 3 && p->children[0]->rule[10] && p->children[1]->rule[9] && p->children[2]->rule[8] && (JAV_TNEED(node,1) <= 2 && JAV_TNEED(node,2) <= 1)) {
-            int c = p->children[0]->cost[10] + p->children[1]->cost[9] + p->children[2]->cost[8] + 0;
-            for (int _ci = 3; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[1]) {
-                p->cost[1] = c;
-                p->rule[1] = 840;
+                p->rule[1] = 898;
             }
         }
         break;
@@ -1609,7 +1472,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 823;
+                p->rule[1] = 872;
             }
         }
         if (p->child_count >= 2 && p->children[0]->rule[3] && p->children[1]->rule[32]) {
@@ -1618,7 +1481,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 824;
+                p->rule[1] = 873;
             }
         }
         if (p->child_count >= 2 && p->children[0]->rule[17] && p->children[1]->rule[32] && (JAV_TNEED(node,1) <= 7)) {
@@ -1627,7 +1490,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 825;
+                p->rule[1] = 874;
             }
         }
         if (p->child_count >= 2 && p->children[0]->rule[17] && p->children[1]->rule[32] && (JAV_TNEED(node,1) <= 6)) {
@@ -1636,7 +1499,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 826;
+                p->rule[1] = 875;
             }
         }
         if (p->child_count >= 2 && p->children[0]->rule[17] && p->children[1]->rule[32] && (JAV_TNEED(node,1) <= 5)) {
@@ -1645,7 +1508,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 827;
+                p->rule[1] = 876;
             }
         }
         if (p->child_count >= 2 && p->children[0]->rule[17] && p->children[1]->rule[32] && (JAV_TNEED(node,1) <= 4)) {
@@ -1654,7 +1517,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 828;
+                p->rule[1] = 877;
             }
         }
         if (p->child_count >= 2 && p->children[0]->rule[17] && p->children[1]->rule[32] && (JAV_TNEED(node,1) <= 3)) {
@@ -1663,7 +1526,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 829;
+                p->rule[1] = 878;
             }
         }
         if (p->child_count >= 2 && p->children[0]->rule[17] && p->children[1]->rule[32] && (JAV_TNEED(node,1) <= 2)) {
@@ -1672,7 +1535,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 830;
+                p->rule[1] = 879;
             }
         }
         if (p->child_count >= 2 && p->children[0]->rule[17] && p->children[1]->rule[32] && (JAV_TNEED(node,1) <= 1)) {
@@ -1681,7 +1544,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 831;
+                p->rule[1] = 880;
             }
         }
         break;
@@ -1692,7 +1555,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 814;
+                p->rule[1] = 863;
             }
         }
         if (p->child_count >= 2 && p->children[0]->rule[2] && p->children[1]->rule[32]) {
@@ -1701,7 +1564,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 815;
+                p->rule[1] = 864;
             }
         }
         if (p->child_count >= 2 && p->children[0]->rule[9] && p->children[1]->rule[32] && (JAV_TNEED(node,1) <= 7)) {
@@ -1710,7 +1573,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 816;
+                p->rule[1] = 865;
             }
         }
         if (p->child_count >= 2 && p->children[0]->rule[9] && p->children[1]->rule[32] && (JAV_TNEED(node,1) <= 6)) {
@@ -1719,7 +1582,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 817;
+                p->rule[1] = 866;
             }
         }
         if (p->child_count >= 2 && p->children[0]->rule[9] && p->children[1]->rule[32] && (JAV_TNEED(node,1) <= 5)) {
@@ -1728,7 +1591,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 818;
+                p->rule[1] = 867;
             }
         }
         if (p->child_count >= 2 && p->children[0]->rule[9] && p->children[1]->rule[32] && (JAV_TNEED(node,1) <= 4)) {
@@ -1737,7 +1600,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 819;
+                p->rule[1] = 868;
             }
         }
         if (p->child_count >= 2 && p->children[0]->rule[9] && p->children[1]->rule[32] && (JAV_TNEED(node,1) <= 3)) {
@@ -1746,7 +1609,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 820;
+                p->rule[1] = 869;
             }
         }
         if (p->child_count >= 2 && p->children[0]->rule[9] && p->children[1]->rule[32] && (JAV_TNEED(node,1) <= 2)) {
@@ -1755,7 +1618,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 821;
+                p->rule[1] = 870;
             }
         }
         if (p->child_count >= 2 && p->children[0]->rule[9] && p->children[1]->rule[32] && (JAV_TNEED(node,1) <= 1)) {
@@ -1764,7 +1627,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 822;
+                p->rule[1] = 871;
             }
         }
         break;
@@ -1775,7 +1638,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 805;
+                p->rule[1] = 854;
             }
         }
         if (p->child_count >= 2 && p->children[0]->rule[3] && p->children[1]->rule[24]) {
@@ -1784,7 +1647,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 806;
+                p->rule[1] = 855;
             }
         }
         if (p->child_count >= 2 && p->children[0]->rule[17] && p->children[1]->rule[24] && (JAV_TNEED(node,1) <= 7)) {
@@ -1793,7 +1656,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 807;
+                p->rule[1] = 856;
             }
         }
         if (p->child_count >= 2 && p->children[0]->rule[17] && p->children[1]->rule[24] && (JAV_TNEED(node,1) <= 6)) {
@@ -1802,7 +1665,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 808;
+                p->rule[1] = 857;
             }
         }
         if (p->child_count >= 2 && p->children[0]->rule[17] && p->children[1]->rule[24] && (JAV_TNEED(node,1) <= 5)) {
@@ -1811,7 +1674,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 809;
+                p->rule[1] = 858;
             }
         }
         if (p->child_count >= 2 && p->children[0]->rule[17] && p->children[1]->rule[24] && (JAV_TNEED(node,1) <= 4)) {
@@ -1820,7 +1683,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 810;
+                p->rule[1] = 859;
             }
         }
         if (p->child_count >= 2 && p->children[0]->rule[17] && p->children[1]->rule[24] && (JAV_TNEED(node,1) <= 3)) {
@@ -1829,7 +1692,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 811;
+                p->rule[1] = 860;
             }
         }
         if (p->child_count >= 2 && p->children[0]->rule[17] && p->children[1]->rule[24] && (JAV_TNEED(node,1) <= 2)) {
@@ -1838,7 +1701,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 812;
+                p->rule[1] = 861;
             }
         }
         if (p->child_count >= 2 && p->children[0]->rule[17] && p->children[1]->rule[24] && (JAV_TNEED(node,1) <= 1)) {
@@ -1847,7 +1710,90 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 813;
+                p->rule[1] = 862;
+            }
+        }
+        break;
+    case BURG_Sig_i64_i64_to_void:
+        if (p->child_count >= 2 && p->children[0]->rule[3] && p->children[1]->rule[3]) {
+            int c = p->children[0]->cost[3] + p->children[1]->cost[3] + 3;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[1]) {
+                p->cost[1] = c;
+                p->rule[1] = 836;
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[3] && p->children[1]->rule[16]) {
+            int c = p->children[0]->cost[3] + p->children[1]->cost[16] + 2;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[1]) {
+                p->cost[1] = c;
+                p->rule[1] = 837;
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[17] && p->children[1]->rule[16] && (JAV_TNEED(node,1) <= 7)) {
+            int c = p->children[0]->cost[17] + p->children[1]->cost[16] + 0;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[1]) {
+                p->cost[1] = c;
+                p->rule[1] = 838;
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[17] && p->children[1]->rule[16] && (JAV_TNEED(node,1) <= 6)) {
+            int c = p->children[0]->cost[17] + p->children[1]->cost[16] + 0;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[1]) {
+                p->cost[1] = c;
+                p->rule[1] = 839;
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[17] && p->children[1]->rule[16] && (JAV_TNEED(node,1) <= 5)) {
+            int c = p->children[0]->cost[17] + p->children[1]->cost[16] + 0;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[1]) {
+                p->cost[1] = c;
+                p->rule[1] = 840;
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[17] && p->children[1]->rule[16] && (JAV_TNEED(node,1) <= 4)) {
+            int c = p->children[0]->cost[17] + p->children[1]->cost[16] + 0;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[1]) {
+                p->cost[1] = c;
+                p->rule[1] = 841;
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[17] && p->children[1]->rule[16] && (JAV_TNEED(node,1) <= 3)) {
+            int c = p->children[0]->cost[17] + p->children[1]->cost[16] + 0;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[1]) {
+                p->cost[1] = c;
+                p->rule[1] = 842;
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[17] && p->children[1]->rule[16] && (JAV_TNEED(node,1) <= 2)) {
+            int c = p->children[0]->cost[17] + p->children[1]->cost[16] + 0;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[1]) {
+                p->cost[1] = c;
+                p->rule[1] = 843;
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[17] && p->children[1]->rule[16] && (JAV_TNEED(node,1) <= 1)) {
+            int c = p->children[0]->cost[17] + p->children[1]->cost[16] + 0;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[1]) {
+                p->cost[1] = c;
+                p->rule[1] = 844;
             }
         }
         break;
@@ -1858,7 +1804,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 778;
+                p->rule[1] = 827;
             }
         }
         if (p->child_count >= 2 && p->children[0]->rule[2] && p->children[1]->rule[16]) {
@@ -1867,7 +1813,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 779;
+                p->rule[1] = 828;
             }
         }
         if (p->child_count >= 2 && p->children[0]->rule[9] && p->children[1]->rule[16] && (JAV_TNEED(node,1) <= 7)) {
@@ -1876,7 +1822,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 780;
+                p->rule[1] = 829;
             }
         }
         if (p->child_count >= 2 && p->children[0]->rule[9] && p->children[1]->rule[16] && (JAV_TNEED(node,1) <= 6)) {
@@ -1885,7 +1831,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 781;
+                p->rule[1] = 830;
             }
         }
         if (p->child_count >= 2 && p->children[0]->rule[9] && p->children[1]->rule[16] && (JAV_TNEED(node,1) <= 5)) {
@@ -1894,7 +1840,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 782;
+                p->rule[1] = 831;
             }
         }
         if (p->child_count >= 2 && p->children[0]->rule[9] && p->children[1]->rule[16] && (JAV_TNEED(node,1) <= 4)) {
@@ -1903,7 +1849,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 783;
+                p->rule[1] = 832;
             }
         }
         if (p->child_count >= 2 && p->children[0]->rule[9] && p->children[1]->rule[16] && (JAV_TNEED(node,1) <= 3)) {
@@ -1912,7 +1858,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 784;
+                p->rule[1] = 833;
             }
         }
         if (p->child_count >= 2 && p->children[0]->rule[9] && p->children[1]->rule[16] && (JAV_TNEED(node,1) <= 2)) {
@@ -1921,7 +1867,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 785;
+                p->rule[1] = 834;
             }
         }
         if (p->child_count >= 2 && p->children[0]->rule[9] && p->children[1]->rule[16] && (JAV_TNEED(node,1) <= 1)) {
@@ -1930,7 +1876,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 786;
+                p->rule[1] = 835;
             }
         }
         break;
@@ -1941,7 +1887,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 769;
+                p->rule[1] = 818;
             }
         }
         if (p->child_count >= 2 && p->children[0]->rule[3] && p->children[1]->rule[8]) {
@@ -1950,7 +1896,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 770;
+                p->rule[1] = 819;
             }
         }
         if (p->child_count >= 2 && p->children[0]->rule[17] && p->children[1]->rule[8] && (JAV_TNEED(node,1) <= 7)) {
@@ -1959,7 +1905,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 771;
+                p->rule[1] = 820;
             }
         }
         if (p->child_count >= 2 && p->children[0]->rule[17] && p->children[1]->rule[8] && (JAV_TNEED(node,1) <= 6)) {
@@ -1968,7 +1914,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 772;
+                p->rule[1] = 821;
             }
         }
         if (p->child_count >= 2 && p->children[0]->rule[17] && p->children[1]->rule[8] && (JAV_TNEED(node,1) <= 5)) {
@@ -1977,7 +1923,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 773;
+                p->rule[1] = 822;
             }
         }
         if (p->child_count >= 2 && p->children[0]->rule[17] && p->children[1]->rule[8] && (JAV_TNEED(node,1) <= 4)) {
@@ -1986,7 +1932,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 774;
+                p->rule[1] = 823;
             }
         }
         if (p->child_count >= 2 && p->children[0]->rule[17] && p->children[1]->rule[8] && (JAV_TNEED(node,1) <= 3)) {
@@ -1995,7 +1941,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 775;
+                p->rule[1] = 824;
             }
         }
         if (p->child_count >= 2 && p->children[0]->rule[17] && p->children[1]->rule[8] && (JAV_TNEED(node,1) <= 2)) {
@@ -2004,7 +1950,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 776;
+                p->rule[1] = 825;
             }
         }
         if (p->child_count >= 2 && p->children[0]->rule[17] && p->children[1]->rule[8] && (JAV_TNEED(node,1) <= 1)) {
@@ -2013,18 +1959,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 777;
-            }
-        }
-        break;
-    case BURG_Sig_ref_v128_to_void_pw:
-        if (p->child_count >= 2 && p->children[0]->rule[7] && p->children[1]->rule[6]) {
-            int c = p->children[0]->cost[7] + p->children[1]->cost[6] + 4;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[1]) {
-                p->cost[1] = c;
-                p->rule[1] = 907;
+                p->rule[1] = 826;
             }
         }
         break;
@@ -2035,18 +1970,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 759;
-            }
-        }
-        break;
-    case BURG_Sig_v128_to_void_pw:
-        if (p->child_count >= 1 && p->children[0]->rule[6]) {
-            int c = p->children[0]->cost[6] + 3;
-            for (int _ci = 1; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[1]) {
-                p->cost[1] = c;
-                p->rule[1] = 758;
+                p->rule[1] = 808;
             }
         }
         break;
@@ -2057,7 +1981,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 752;
+                p->rule[1] = 800;
             }
         }
         if (p->child_count >= 1 && p->children[0]->rule[16]) {
@@ -2066,7 +1990,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 753;
+                p->rule[1] = 801;
             }
         }
         break;
@@ -2077,7 +2001,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 750;
+                p->rule[1] = 798;
             }
         }
         if (p->child_count >= 1 && p->children[0]->rule[8]) {
@@ -2086,7 +2010,19 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 751;
+                p->rule[1] = 799;
+            }
+        }
+        break;
+    case BURG_Sig_stk_to_ref:
+        {
+            int c = 0 + 2;
+            for (int _ci = 0; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[7]) {
+                p->cost[7] = c;
+                p->rule[7] = 797;
+                closure_ref_mem(p, c, node);
             }
         }
         break;
@@ -2097,7 +2033,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[7]) {
                 p->cost[7] = c;
-                p->rule[7] = 747;
+                p->rule[7] = 795;
                 closure_ref_mem(p, c, node);
             }
         }
@@ -2107,7 +2043,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[7]) {
                 p->cost[7] = c;
-                p->rule[7] = 748;
+                p->rule[7] = 796;
                 closure_ref_mem(p, c, node);
             }
         }
@@ -2119,7 +2055,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[7]) {
                 p->cost[7] = c;
-                p->rule[7] = 745;
+                p->rule[7] = 793;
                 closure_ref_mem(p, c, node);
             }
         }
@@ -2129,19 +2065,19 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[7]) {
                 p->cost[7] = c;
-                p->rule[7] = 746;
+                p->rule[7] = 794;
                 closure_ref_mem(p, c, node);
             }
         }
         break;
-    case BURG_Sig_v128_i64_to_ref_pw:
+    case BURG_Sig_v128_i64_to_ref_aw:
         if (p->child_count >= 2 && p->children[0]->rule[6] && p->children[1]->rule[3]) {
             int c = p->children[0]->cost[6] + p->children[1]->cost[3] + 5;
             for (int _ci = 2; _ci < p->child_count; _ci++)
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[7]) {
                 p->cost[7] = c;
-                p->rule[7] = 743;
+                p->rule[7] = 791;
                 closure_ref_mem(p, c, node);
             }
         }
@@ -2151,7 +2087,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[7]) {
                 p->cost[7] = c;
-                p->rule[7] = 744;
+                p->rule[7] = 792;
                 closure_ref_mem(p, c, node);
             }
         }
@@ -2163,7 +2099,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[7]) {
                 p->cost[7] = c;
-                p->rule[7] = 741;
+                p->rule[7] = 789;
                 closure_ref_mem(p, c, node);
             }
         }
@@ -2173,29 +2109,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[7]) {
                 p->cost[7] = c;
-                p->rule[7] = 742;
-                closure_ref_mem(p, c, node);
-            }
-        }
-        break;
-    case BURG_Sig_f32_i64_to_ref:
-        if (p->child_count >= 2 && p->children[0]->rule[4] && p->children[1]->rule[3]) {
-            int c = p->children[0]->cost[4] + p->children[1]->cost[3] + 4;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[7]) {
-                p->cost[7] = c;
-                p->rule[7] = 739;
-                closure_ref_mem(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[4] && p->children[1]->rule[16]) {
-            int c = p->children[0]->cost[4] + p->children[1]->cost[16] + 3;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[7]) {
-                p->cost[7] = c;
-                p->rule[7] = 740;
+                p->rule[7] = 790;
                 closure_ref_mem(p, c, node);
             }
         }
@@ -2207,7 +2121,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[7]) {
                 p->cost[7] = c;
-                p->rule[7] = 737;
+                p->rule[7] = 785;
                 closure_ref_mem(p, c, node);
             }
         }
@@ -2217,7 +2131,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[7]) {
                 p->cost[7] = c;
-                p->rule[7] = 738;
+                p->rule[7] = 786;
                 closure_ref_mem(p, c, node);
             }
         }
@@ -2229,7 +2143,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[7]) {
                 p->cost[7] = c;
-                p->rule[7] = 733;
+                p->rule[7] = 781;
                 closure_ref_mem(p, c, node);
             }
         }
@@ -2239,7 +2153,49 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[7]) {
                 p->cost[7] = c;
-                p->rule[7] = 734;
+                p->rule[7] = 782;
+                closure_ref_mem(p, c, node);
+            }
+        }
+        break;
+    case BURG_Sig_v128_to_void_pw:
+        if (p->child_count >= 1 && p->children[0]->rule[6]) {
+            int c = p->children[0]->cost[6] + 3;
+            for (int _ci = 1; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[1]) {
+                p->cost[1] = c;
+                p->rule[1] = 806;
+            }
+        }
+        if (p->child_count >= 1 && p->children[0]->rule[40]) {
+            int c = p->children[0]->cost[40] + 0;
+            for (int _ci = 1; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[1]) {
+                p->cost[1] = c;
+                p->rule[1] = 807;
+            }
+        }
+        break;
+    case BURG_Sig_v128_i32_to_ref_aw:
+        if (p->child_count >= 2 && p->children[0]->rule[6] && p->children[1]->rule[2]) {
+            int c = p->children[0]->cost[6] + p->children[1]->cost[2] + 5;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[7]) {
+                p->cost[7] = c;
+                p->rule[7] = 779;
+                closure_ref_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[6] && p->children[1]->rule[8]) {
+            int c = p->children[0]->cost[6] + p->children[1]->cost[8] + 4;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[7]) {
+                p->cost[7] = c;
+                p->rule[7] = 780;
                 closure_ref_mem(p, c, node);
             }
         }
@@ -2251,7 +2207,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[7]) {
                 p->cost[7] = c;
-                p->rule[7] = 727;
+                p->rule[7] = 775;
                 closure_ref_mem(p, c, node);
             }
         }
@@ -2261,39 +2217,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[7]) {
                 p->cost[7] = c;
-                p->rule[7] = 728;
-                closure_ref_mem(p, c, node);
-            }
-        }
-        break;
-    case BURG_Sig_i32_i32_to_ref:
-        if (p->child_count >= 2 && p->children[0]->rule[2] && p->children[1]->rule[2]) {
-            int c = p->children[0]->cost[2] + p->children[1]->cost[2] + 4;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[7]) {
-                p->cost[7] = c;
-                p->rule[7] = 722;
-                closure_ref_mem(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[2] && p->children[1]->rule[8]) {
-            int c = p->children[0]->cost[2] + p->children[1]->cost[8] + 3;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[7]) {
-                p->cost[7] = c;
-                p->rule[7] = 723;
-                closure_ref_mem(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[9] && p->children[1]->rule[8] && (JAV_TNEED(node,1) <= 7)) {
-            int c = p->children[0]->cost[9] + p->children[1]->cost[8] + 2;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[7]) {
-                p->cost[7] = c;
-                p->rule[7] = 724;
+                p->rule[7] = 776;
                 closure_ref_mem(p, c, node);
             }
         }
@@ -2305,7 +2229,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[7]) {
                 p->cost[7] = c;
-                p->rule[7] = 720;
+                p->rule[7] = 768;
                 closure_ref_mem(p, c, node);
             }
         }
@@ -2315,7 +2239,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[7]) {
                 p->cost[7] = c;
-                p->rule[7] = 721;
+                p->rule[7] = 769;
                 closure_ref_mem(p, c, node);
             }
         }
@@ -2327,7 +2251,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[7]) {
                 p->cost[7] = c;
-                p->rule[7] = 717;
+                p->rule[7] = 765;
                 closure_ref_mem(p, c, node);
             }
         }
@@ -2339,7 +2263,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[7]) {
                 p->cost[7] = c;
-                p->rule[7] = 716;
+                p->rule[7] = 764;
                 closure_ref_mem(p, c, node);
             }
         }
@@ -2351,7 +2275,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[6]) {
                 p->cost[6] = c;
-                p->rule[6] = 695;
+                p->rule[6] = 743;
                 closure_v128_mem(p, c, node);
             }
         }
@@ -2361,7 +2285,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[40]) {
                 p->cost[40] = c;
-                p->rule[40] = 696;
+                p->rule[40] = 744;
                 closure_v128_reg0(p, c, node);
             }
         }
@@ -2371,7 +2295,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[6]) {
                 p->cost[6] = c;
-                p->rule[6] = 697;
+                p->rule[6] = 745;
                 closure_v128_mem(p, c, node);
             }
         }
@@ -2381,7 +2305,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[40]) {
                 p->cost[40] = c;
-                p->rule[40] = 698;
+                p->rule[40] = 746;
                 closure_v128_reg0(p, c, node);
             }
         }
@@ -2391,7 +2315,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[6]) {
                 p->cost[6] = c;
-                p->rule[6] = 699;
+                p->rule[6] = 747;
                 closure_v128_mem(p, c, node);
             }
         }
@@ -2401,7 +2325,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[40]) {
                 p->cost[40] = c;
-                p->rule[40] = 700;
+                p->rule[40] = 748;
                 closure_v128_reg0(p, c, node);
             }
         }
@@ -2411,7 +2335,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[40]) {
                 p->cost[40] = c;
-                p->rule[40] = 701;
+                p->rule[40] = 749;
                 closure_v128_reg0(p, c, node);
             }
         }
@@ -2421,7 +2345,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[40]) {
                 p->cost[40] = c;
-                p->rule[40] = 702;
+                p->rule[40] = 750;
                 closure_v128_reg0(p, c, node);
             }
         }
@@ -2431,7 +2355,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[40]) {
                 p->cost[40] = c;
-                p->rule[40] = 703;
+                p->rule[40] = 751;
                 closure_v128_reg0(p, c, node);
             }
         }
@@ -2441,7 +2365,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[40]) {
                 p->cost[40] = c;
-                p->rule[40] = 704;
+                p->rule[40] = 752;
                 closure_v128_reg0(p, c, node);
             }
         }
@@ -2451,8 +2375,470 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[40]) {
                 p->cost[40] = c;
+                p->rule[40] = 753;
+                closure_v128_reg0(p, c, node);
+            }
+        }
+        break;
+    case BURG_Sig_v128_v128_v128_to_v128:
+        if (p->child_count >= 3 && p->children[0]->rule[6] && p->children[1]->rule[6] && p->children[2]->rule[6]) {
+            int c = p->children[0]->cost[6] + p->children[1]->cost[6] + p->children[2]->cost[6] + 9;
+            for (int _ci = 3; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[6]) {
+                p->cost[6] = c;
+                p->rule[6] = 754;
+                closure_v128_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 3 && p->children[0]->rule[6] && p->children[1]->rule[6] && p->children[2]->rule[6]) {
+            int c = p->children[0]->cost[6] + p->children[1]->cost[6] + p->children[2]->cost[6] + 7;
+            for (int _ci = 3; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[40]) {
+                p->cost[40] = c;
+                p->rule[40] = 755;
+                closure_v128_reg0(p, c, node);
+            }
+        }
+        if (p->child_count >= 3 && p->children[0]->rule[6] && p->children[1]->rule[6] && p->children[2]->rule[40]) {
+            int c = p->children[0]->cost[6] + p->children[1]->cost[6] + p->children[2]->cost[40] + 7;
+            for (int _ci = 3; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[6]) {
+                p->cost[6] = c;
+                p->rule[6] = 756;
+                closure_v128_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 3 && p->children[0]->rule[6] && p->children[1]->rule[6] && p->children[2]->rule[40]) {
+            int c = p->children[0]->cost[6] + p->children[1]->cost[6] + p->children[2]->cost[40] + 5;
+            for (int _ci = 3; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[40]) {
+                p->cost[40] = c;
+                p->rule[40] = 757;
+                closure_v128_reg0(p, c, node);
+            }
+        }
+        if (p->child_count >= 3 && p->children[0]->rule[6] && p->children[1]->rule[42] && p->children[2]->rule[40] && (JAV_TNEED(node,2) <= 6)) {
+            int c = p->children[0]->cost[6] + p->children[1]->cost[42] + p->children[2]->cost[40] + 5;
+            for (int _ci = 3; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[6]) {
+                p->cost[6] = c;
+                p->rule[6] = 758;
+                closure_v128_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 3 && p->children[0]->rule[6] && p->children[1]->rule[42] && p->children[2]->rule[40] && (JAV_TNEED(node,2) <= 6)) {
+            int c = p->children[0]->cost[6] + p->children[1]->cost[42] + p->children[2]->cost[40] + 3;
+            for (int _ci = 3; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[40]) {
+                p->cost[40] = c;
+                p->rule[40] = 759;
+                closure_v128_reg0(p, c, node);
+            }
+        }
+        if (p->child_count >= 3 && p->children[0]->rule[44] && p->children[1]->rule[42] && p->children[2]->rule[40] && (JAV_TNEED(node,1) <= 6 && JAV_TNEED(node,2) <= 4)) {
+            int c = p->children[0]->cost[44] + p->children[1]->cost[42] + p->children[2]->cost[40] + 3;
+            for (int _ci = 3; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[6]) {
+                p->cost[6] = c;
+                p->rule[6] = 760;
+                closure_v128_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 3 && p->children[0]->rule[44] && p->children[1]->rule[42] && p->children[2]->rule[40] && (JAV_TNEED(node,1) <= 6 && JAV_TNEED(node,2) <= 4)) {
+            int c = p->children[0]->cost[44] + p->children[1]->cost[42] + p->children[2]->cost[40] + 0;
+            for (int _ci = 3; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[40]) {
+                p->cost[40] = c;
+                p->rule[40] = 761;
+                closure_v128_reg0(p, c, node);
+            }
+        }
+        if (p->child_count >= 3 && p->children[0]->rule[44] && p->children[1]->rule[42] && p->children[2]->rule[40] && (JAV_TNEED(node,1) <= 5 && JAV_TNEED(node,2) <= 3)) {
+            int c = p->children[0]->cost[44] + p->children[1]->cost[42] + p->children[2]->cost[40] + 0;
+            for (int _ci = 3; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[40]) {
+                p->cost[40] = c;
+                p->rule[40] = 762;
+                closure_v128_reg0(p, c, node);
+            }
+        }
+        if (p->child_count >= 3 && p->children[0]->rule[44] && p->children[1]->rule[42] && p->children[2]->rule[40] && (JAV_TNEED(node,1) <= 4 && JAV_TNEED(node,2) <= 2)) {
+            int c = p->children[0]->cost[44] + p->children[1]->cost[42] + p->children[2]->cost[40] + 0;
+            for (int _ci = 3; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[40]) {
+                p->cost[40] = c;
+                p->rule[40] = 763;
+                closure_v128_reg0(p, c, node);
+            }
+        }
+        break;
+    case BURG_Sig_v128_f32_to_v128:
+        if (p->child_count >= 2 && p->children[0]->rule[6] && p->children[1]->rule[4]) {
+            int c = p->children[0]->cost[6] + p->children[1]->cost[4] + 6;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[6]) {
+                p->cost[6] = c;
+                p->rule[6] = 732;
+                closure_v128_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[6] && p->children[1]->rule[4]) {
+            int c = p->children[0]->cost[6] + p->children[1]->cost[4] + 4;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[40]) {
+                p->cost[40] = c;
+                p->rule[40] = 733;
+                closure_v128_reg0(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[6] && p->children[1]->rule[24]) {
+            int c = p->children[0]->cost[6] + p->children[1]->cost[24] + 5;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[6]) {
+                p->cost[6] = c;
+                p->rule[6] = 734;
+                closure_v128_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[6] && p->children[1]->rule[24]) {
+            int c = p->children[0]->cost[6] + p->children[1]->cost[24] + 3;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[40]) {
+                p->cost[40] = c;
+                p->rule[40] = 735;
+                closure_v128_reg0(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[41] && p->children[1]->rule[24] && (JAV_TNEED(node,1) <= 6)) {
+            int c = p->children[0]->cost[41] + p->children[1]->cost[24] + 3;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[6]) {
+                p->cost[6] = c;
+                p->rule[6] = 736;
+                closure_v128_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[41] && p->children[1]->rule[24] && (JAV_TNEED(node,1) <= 6)) {
+            int c = p->children[0]->cost[41] + p->children[1]->cost[24] + 0;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[40]) {
+                p->cost[40] = c;
+                p->rule[40] = 737;
+                closure_v128_reg0(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[41] && p->children[1]->rule[24] && (JAV_TNEED(node,1) <= 5)) {
+            int c = p->children[0]->cost[41] + p->children[1]->cost[24] + 0;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[40]) {
+                p->cost[40] = c;
+                p->rule[40] = 738;
+                closure_v128_reg0(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[41] && p->children[1]->rule[24] && (JAV_TNEED(node,1) <= 4)) {
+            int c = p->children[0]->cost[41] + p->children[1]->cost[24] + 0;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[40]) {
+                p->cost[40] = c;
+                p->rule[40] = 739;
+                closure_v128_reg0(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[41] && p->children[1]->rule[24] && (JAV_TNEED(node,1) <= 3)) {
+            int c = p->children[0]->cost[41] + p->children[1]->cost[24] + 0;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[40]) {
+                p->cost[40] = c;
+                p->rule[40] = 740;
+                closure_v128_reg0(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[41] && p->children[1]->rule[24] && (JAV_TNEED(node,1) <= 2)) {
+            int c = p->children[0]->cost[41] + p->children[1]->cost[24] + 0;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[40]) {
+                p->cost[40] = c;
+                p->rule[40] = 741;
+                closure_v128_reg0(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[41] && p->children[1]->rule[24] && (JAV_TNEED(node,1) <= 1)) {
+            int c = p->children[0]->cost[41] + p->children[1]->cost[24] + 0;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[40]) {
+                p->cost[40] = c;
+                p->rule[40] = 742;
+                closure_v128_reg0(p, c, node);
+            }
+        }
+        break;
+    case BURG_Sig_v128_to_v128:
+        if (p->child_count >= 1 && p->children[0]->rule[6]) {
+            int c = p->children[0]->cost[6] + 5;
+            for (int _ci = 1; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[6]) {
+                p->cost[6] = c;
+                p->rule[6] = 706;
+                closure_v128_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 1 && p->children[0]->rule[6]) {
+            int c = p->children[0]->cost[6] + 3;
+            for (int _ci = 1; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[40]) {
+                p->cost[40] = c;
+                p->rule[40] = 707;
+                closure_v128_reg0(p, c, node);
+            }
+        }
+        if (p->child_count >= 1 && p->children[0]->rule[40]) {
+            int c = p->children[0]->cost[40] + 3;
+            for (int _ci = 1; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[6]) {
+                p->cost[6] = c;
+                p->rule[6] = 708;
+                closure_v128_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 1 && p->children[0]->rule[40]) {
+            int c = p->children[0]->cost[40] + 0;
+            for (int _ci = 1; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[40]) {
+                p->cost[40] = c;
+                p->rule[40] = 709;
+                closure_v128_reg0(p, c, node);
+            }
+        }
+        break;
+    case BURG_Sig_f64_to_v128:
+        if (p->child_count >= 1 && p->children[0]->rule[5]) {
+            int c = p->children[0]->cost[5] + 4;
+            for (int _ci = 1; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[6]) {
+                p->cost[6] = c;
+                p->rule[6] = 702;
+                closure_v128_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 1 && p->children[0]->rule[5]) {
+            int c = p->children[0]->cost[5] + 2;
+            for (int _ci = 1; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[40]) {
+                p->cost[40] = c;
+                p->rule[40] = 703;
+                closure_v128_reg0(p, c, node);
+            }
+        }
+        if (p->child_count >= 1 && p->children[0]->rule[32]) {
+            int c = p->children[0]->cost[32] + 3;
+            for (int _ci = 1; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[6]) {
+                p->cost[6] = c;
+                p->rule[6] = 704;
+                closure_v128_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 1 && p->children[0]->rule[32]) {
+            int c = p->children[0]->cost[32] + 0;
+            for (int _ci = 1; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[40]) {
+                p->cost[40] = c;
                 p->rule[40] = 705;
                 closure_v128_reg0(p, c, node);
+            }
+        }
+        break;
+    case BURG_Sig_f32_to_v128:
+        if (p->child_count >= 1 && p->children[0]->rule[4]) {
+            int c = p->children[0]->cost[4] + 4;
+            for (int _ci = 1; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[6]) {
+                p->cost[6] = c;
+                p->rule[6] = 698;
+                closure_v128_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 1 && p->children[0]->rule[4]) {
+            int c = p->children[0]->cost[4] + 2;
+            for (int _ci = 1; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[40]) {
+                p->cost[40] = c;
+                p->rule[40] = 699;
+                closure_v128_reg0(p, c, node);
+            }
+        }
+        if (p->child_count >= 1 && p->children[0]->rule[24]) {
+            int c = p->children[0]->cost[24] + 3;
+            for (int _ci = 1; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[6]) {
+                p->cost[6] = c;
+                p->rule[6] = 700;
+                closure_v128_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 1 && p->children[0]->rule[24]) {
+            int c = p->children[0]->cost[24] + 0;
+            for (int _ci = 1; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[40]) {
+                p->cost[40] = c;
+                p->rule[40] = 701;
+                closure_v128_reg0(p, c, node);
+            }
+        }
+        break;
+    case BURG_Sig_i32_i32_to_f32:
+        if (p->child_count >= 2 && p->children[0]->rule[2] && p->children[1]->rule[2]) {
+            int c = p->children[0]->cost[2] + p->children[1]->cost[2] + 4;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[4]) {
+                p->cost[4] = c;
+                p->rule[4] = 373;
+                closure_f32_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[2] && p->children[1]->rule[2]) {
+            int c = p->children[0]->cost[2] + p->children[1]->cost[2] + 3;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[24]) {
+                p->cost[24] = c;
+                p->rule[24] = 374;
+                closure_f32_reg0(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[2] && p->children[1]->rule[8]) {
+            int c = p->children[0]->cost[2] + p->children[1]->cost[8] + 3;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[4]) {
+                p->cost[4] = c;
+                p->rule[4] = 375;
+                closure_f32_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[2] && p->children[1]->rule[8]) {
+            int c = p->children[0]->cost[2] + p->children[1]->cost[8] + 2;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[24]) {
+                p->cost[24] = c;
+                p->rule[24] = 376;
+                closure_f32_reg0(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[9] && p->children[1]->rule[8] && (JAV_TNEED(node,1) <= 7)) {
+            int c = p->children[0]->cost[9] + p->children[1]->cost[8] + 2;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[4]) {
+                p->cost[4] = c;
+                p->rule[4] = 377;
+                closure_f32_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[9] && p->children[1]->rule[8] && (JAV_TNEED(node,1) <= 7)) {
+            int c = p->children[0]->cost[9] + p->children[1]->cost[8] + 0;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[24]) {
+                p->cost[24] = c;
+                p->rule[24] = 378;
+                closure_f32_reg0(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[9] && p->children[1]->rule[8] && (JAV_TNEED(node,1) <= 6)) {
+            int c = p->children[0]->cost[9] + p->children[1]->cost[8] + 0;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[24]) {
+                p->cost[24] = c;
+                p->rule[24] = 379;
+                closure_f32_reg0(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[9] && p->children[1]->rule[8] && (JAV_TNEED(node,1) <= 5)) {
+            int c = p->children[0]->cost[9] + p->children[1]->cost[8] + 0;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[24]) {
+                p->cost[24] = c;
+                p->rule[24] = 380;
+                closure_f32_reg0(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[9] && p->children[1]->rule[8] && (JAV_TNEED(node,1) <= 4)) {
+            int c = p->children[0]->cost[9] + p->children[1]->cost[8] + 0;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[24]) {
+                p->cost[24] = c;
+                p->rule[24] = 381;
+                closure_f32_reg0(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[9] && p->children[1]->rule[8] && (JAV_TNEED(node,1) <= 3)) {
+            int c = p->children[0]->cost[9] + p->children[1]->cost[8] + 0;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[24]) {
+                p->cost[24] = c;
+                p->rule[24] = 382;
+                closure_f32_reg0(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[9] && p->children[1]->rule[8] && (JAV_TNEED(node,1) <= 2)) {
+            int c = p->children[0]->cost[9] + p->children[1]->cost[8] + 0;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[24]) {
+                p->cost[24] = c;
+                p->rule[24] = 383;
+                closure_f32_reg0(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[9] && p->children[1]->rule[8] && (JAV_TNEED(node,1) <= 1)) {
+            int c = p->children[0]->cost[9] + p->children[1]->cost[8] + 0;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[24]) {
+                p->cost[24] = c;
+                p->rule[24] = 384;
+                closure_f32_reg0(p, c, node);
             }
         }
         break;
@@ -2463,7 +2849,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 908;
+                p->rule[1] = 958;
             }
         }
         break;
@@ -2558,7 +2944,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 914;
+                p->rule[1] = 964;
             }
         }
         break;
@@ -2668,28 +3054,6 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
             }
         }
         break;
-    case BURG_Sig_v128_to_i32_pw:
-        if (p->child_count >= 1 && p->children[0]->rule[6]) {
-            int c = p->children[0]->cost[6] + 4;
-            for (int _ci = 1; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[2]) {
-                p->cost[2] = c;
-                p->rule[2] = 250;
-                closure_i32_mem(p, c, node);
-            }
-        }
-        if (p->child_count >= 1 && p->children[0]->rule[6]) {
-            int c = p->children[0]->cost[6] + 3;
-            for (int _ci = 1; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[8]) {
-                p->cost[8] = c;
-                p->rule[8] = 251;
-                closure_i32_reg0(p, c, node);
-            }
-        }
-        break;
     case BURG_Sig_f32_to_i64:
         if (p->child_count >= 1 && p->children[0]->rule[4]) {
             int c = p->children[0]->cost[4] + 3;
@@ -2739,8 +3103,18 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[6]) {
                 p->cost[6] = c;
-                p->rule[6] = 602;
+                p->rule[6] = 627;
                 closure_v128_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[7] && p->children[1]->rule[3]) {
+            int c = p->children[0]->cost[7] + p->children[1]->cost[3] + 3;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[40]) {
+                p->cost[40] = c;
+                p->rule[40] = 628;
+                closure_v128_reg0(p, c, node);
             }
         }
         if (p->child_count >= 2 && p->children[0]->rule[7] && p->children[1]->rule[16]) {
@@ -2749,8 +3123,196 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[6]) {
                 p->cost[6] = c;
-                p->rule[6] = 603;
+                p->rule[6] = 629;
                 closure_v128_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[7] && p->children[1]->rule[16]) {
+            int c = p->children[0]->cost[7] + p->children[1]->cost[16] + 2;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[40]) {
+                p->cost[40] = c;
+                p->rule[40] = 630;
+                closure_v128_reg0(p, c, node);
+            }
+        }
+        break;
+    case BURG_Sig_i32_i32_to_v128_pw:
+        if (p->child_count >= 2 && p->children[0]->rule[2] && p->children[1]->rule[2]) {
+            int c = p->children[0]->cost[2] + p->children[1]->cost[2] + 5;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[6]) {
+                p->cost[6] = c;
+                p->rule[6] = 587;
+                closure_v128_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[2] && p->children[1]->rule[2]) {
+            int c = p->children[0]->cost[2] + p->children[1]->cost[2] + 3;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[40]) {
+                p->cost[40] = c;
+                p->rule[40] = 588;
+                closure_v128_reg0(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[2] && p->children[1]->rule[8]) {
+            int c = p->children[0]->cost[2] + p->children[1]->cost[8] + 4;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[6]) {
+                p->cost[6] = c;
+                p->rule[6] = 589;
+                closure_v128_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[2] && p->children[1]->rule[8]) {
+            int c = p->children[0]->cost[2] + p->children[1]->cost[8] + 2;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[40]) {
+                p->cost[40] = c;
+                p->rule[40] = 590;
+                closure_v128_reg0(p, c, node);
+            }
+        }
+        break;
+    case BURG_Sig_stk_f32_to_void:
+        if (p->child_count >= 1 && p->children[0]->rule[4]) {
+            int c = p->children[0]->cost[4] + 2;
+            for (int _ci = 1; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[1]) {
+                p->cost[1] = c;
+                p->rule[1] = 949;
+            }
+        }
+        break;
+    case BURG_Sig_i32_i32_to_void:
+        if (p->child_count >= 2 && p->children[0]->rule[2] && p->children[1]->rule[2]) {
+            int c = p->children[0]->cost[2] + p->children[1]->cost[2] + 3;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[1]) {
+                p->cost[1] = c;
+                p->rule[1] = 809;
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[2] && p->children[1]->rule[8]) {
+            int c = p->children[0]->cost[2] + p->children[1]->cost[8] + 2;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[1]) {
+                p->cost[1] = c;
+                p->rule[1] = 810;
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[9] && p->children[1]->rule[8] && (JAV_TNEED(node,1) <= 7)) {
+            int c = p->children[0]->cost[9] + p->children[1]->cost[8] + 0;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[1]) {
+                p->cost[1] = c;
+                p->rule[1] = 811;
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[9] && p->children[1]->rule[8] && (JAV_TNEED(node,1) <= 6)) {
+            int c = p->children[0]->cost[9] + p->children[1]->cost[8] + 0;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[1]) {
+                p->cost[1] = c;
+                p->rule[1] = 812;
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[9] && p->children[1]->rule[8] && (JAV_TNEED(node,1) <= 5)) {
+            int c = p->children[0]->cost[9] + p->children[1]->cost[8] + 0;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[1]) {
+                p->cost[1] = c;
+                p->rule[1] = 813;
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[9] && p->children[1]->rule[8] && (JAV_TNEED(node,1) <= 4)) {
+            int c = p->children[0]->cost[9] + p->children[1]->cost[8] + 0;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[1]) {
+                p->cost[1] = c;
+                p->rule[1] = 814;
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[9] && p->children[1]->rule[8] && (JAV_TNEED(node,1) <= 3)) {
+            int c = p->children[0]->cost[9] + p->children[1]->cost[8] + 0;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[1]) {
+                p->cost[1] = c;
+                p->rule[1] = 815;
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[9] && p->children[1]->rule[8] && (JAV_TNEED(node,1) <= 2)) {
+            int c = p->children[0]->cost[9] + p->children[1]->cost[8] + 0;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[1]) {
+                p->cost[1] = c;
+                p->rule[1] = 816;
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[9] && p->children[1]->rule[8] && (JAV_TNEED(node,1) <= 1)) {
+            int c = p->children[0]->cost[9] + p->children[1]->cost[8] + 0;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[1]) {
+                p->cost[1] = c;
+                p->rule[1] = 817;
+            }
+        }
+        break;
+    case BURG_Sig_i32_i64_to_i32:
+        if (p->child_count >= 2 && p->children[0]->rule[2] && p->children[1]->rule[3]) {
+            int c = p->children[0]->cost[2] + p->children[1]->cost[3] + 4;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[2]) {
+                p->cost[2] = c;
+                p->rule[2] = 167;
+                closure_i32_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[2] && p->children[1]->rule[3]) {
+            int c = p->children[0]->cost[2] + p->children[1]->cost[3] + 3;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[8]) {
+                p->cost[8] = c;
+                p->rule[8] = 168;
+                closure_i32_reg0(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[2] && p->children[1]->rule[16]) {
+            int c = p->children[0]->cost[2] + p->children[1]->cost[16] + 3;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[2]) {
+                p->cost[2] = c;
+                p->rule[2] = 169;
+                closure_i32_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[2] && p->children[1]->rule[16]) {
+            int c = p->children[0]->cost[2] + p->children[1]->cost[16] + 2;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[8]) {
+                p->cost[8] = c;
+                p->rule[8] = 170;
+                closure_i32_reg0(p, c, node);
             }
         }
         break;
@@ -2792,6 +3354,186 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
             if (c < p->cost[16]) {
                 p->cost[16] = c;
                 p->rule[16] = 329;
+                closure_i64_reg0(p, c, node);
+            }
+        }
+        break;
+    case BURG_Sig_i32_v128_to_void:
+        if (p->child_count >= 2 && p->children[0]->rule[2] && p->children[1]->rule[6]) {
+            int c = p->children[0]->cost[2] + p->children[1]->cost[6] + 4;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[1]) {
+                p->cost[1] = c;
+                p->rule[1] = 986;
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[2] && p->children[1]->rule[40]) {
+            int c = p->children[0]->cost[2] + p->children[1]->cost[40] + 2;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[1]) {
+                p->cost[1] = c;
+                p->rule[1] = 987;
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[10] && p->children[1]->rule[40] && (JAV_TNEED(node,1) <= 7)) {
+            int c = p->children[0]->cost[10] + p->children[1]->cost[40] + 0;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[1]) {
+                p->cost[1] = c;
+                p->rule[1] = 988;
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[10] && p->children[1]->rule[40] && (JAV_TNEED(node,1) <= 6)) {
+            int c = p->children[0]->cost[10] + p->children[1]->cost[40] + 0;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[1]) {
+                p->cost[1] = c;
+                p->rule[1] = 989;
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[10] && p->children[1]->rule[40] && (JAV_TNEED(node,1) <= 5)) {
+            int c = p->children[0]->cost[10] + p->children[1]->cost[40] + 0;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[1]) {
+                p->cost[1] = c;
+                p->rule[1] = 990;
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[10] && p->children[1]->rule[40] && (JAV_TNEED(node,1) <= 4)) {
+            int c = p->children[0]->cost[10] + p->children[1]->cost[40] + 0;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[1]) {
+                p->cost[1] = c;
+                p->rule[1] = 991;
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[10] && p->children[1]->rule[40] && (JAV_TNEED(node,1) <= 3)) {
+            int c = p->children[0]->cost[10] + p->children[1]->cost[40] + 0;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[1]) {
+                p->cost[1] = c;
+                p->rule[1] = 992;
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[10] && p->children[1]->rule[40] && (JAV_TNEED(node,1) <= 2)) {
+            int c = p->children[0]->cost[10] + p->children[1]->cost[40] + 0;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[1]) {
+                p->cost[1] = c;
+                p->rule[1] = 993;
+            }
+        }
+        break;
+    case BURG_Sig_v128_i64_to_i32_aw:
+        if (p->child_count >= 2 && p->children[0]->rule[6] && p->children[1]->rule[3]) {
+            int c = p->children[0]->cost[6] + p->children[1]->cost[3] + 5;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[2]) {
+                p->cost[2] = c;
+                p->rule[2] = 191;
+                closure_i32_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[6] && p->children[1]->rule[3]) {
+            int c = p->children[0]->cost[6] + p->children[1]->cost[3] + 4;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[8]) {
+                p->cost[8] = c;
+                p->rule[8] = 192;
+                closure_i32_reg0(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[6] && p->children[1]->rule[16]) {
+            int c = p->children[0]->cost[6] + p->children[1]->cost[16] + 4;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[2]) {
+                p->cost[2] = c;
+                p->rule[2] = 193;
+                closure_i32_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[6] && p->children[1]->rule[16]) {
+            int c = p->children[0]->cost[6] + p->children[1]->cost[16] + 3;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[8]) {
+                p->cost[8] = c;
+                p->rule[8] = 194;
+                closure_i32_reg0(p, c, node);
+            }
+        }
+        break;
+    case BURG_Sig_f32_i64_to_ref:
+        if (p->child_count >= 2 && p->children[0]->rule[4] && p->children[1]->rule[3]) {
+            int c = p->children[0]->cost[4] + p->children[1]->cost[3] + 4;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[7]) {
+                p->cost[7] = c;
+                p->rule[7] = 787;
+                closure_ref_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[4] && p->children[1]->rule[16]) {
+            int c = p->children[0]->cost[4] + p->children[1]->cost[16] + 3;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[7]) {
+                p->cost[7] = c;
+                p->rule[7] = 788;
+                closure_ref_mem(p, c, node);
+            }
+        }
+        break;
+    case BURG_Sig_v128_i32_to_i64_aw:
+        if (p->child_count >= 2 && p->children[0]->rule[6] && p->children[1]->rule[2]) {
+            int c = p->children[0]->cost[6] + p->children[1]->cost[2] + 5;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[3]) {
+                p->cost[3] = c;
+                p->rule[3] = 290;
+                closure_i64_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[6] && p->children[1]->rule[2]) {
+            int c = p->children[0]->cost[6] + p->children[1]->cost[2] + 4;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[16]) {
+                p->cost[16] = c;
+                p->rule[16] = 291;
+                closure_i64_reg0(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[6] && p->children[1]->rule[8]) {
+            int c = p->children[0]->cost[6] + p->children[1]->cost[8] + 4;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[3]) {
+                p->cost[3] = c;
+                p->rule[3] = 292;
+                closure_i64_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[6] && p->children[1]->rule[8]) {
+            int c = p->children[0]->cost[6] + p->children[1]->cost[8] + 3;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[16]) {
+                p->cost[16] = c;
+                p->rule[16] = 293;
                 closure_i64_reg0(p, c, node);
             }
         }
@@ -2880,6 +3622,18 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
             }
         }
         break;
+    case BURG_Sig_v128_to_v128_aw:
+        if (p->child_count >= 1 && p->children[0]->rule[6]) {
+            int c = p->children[0]->cost[6] + 5;
+            for (int _ci = 1; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[6]) {
+                p->cost[6] = c;
+                p->rule[6] = 642;
+                closure_v128_mem(p, c, node);
+            }
+        }
+        break;
     case BURG_Sig_stk_to_v128_pw:
         {
             int c = 0 + 3;
@@ -2887,8 +3641,18 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[6]) {
                 p->cost[6] = c;
-                p->rule[6] = 606;
+                p->rule[6] = 643;
                 closure_v128_mem(p, c, node);
+            }
+        }
+        {
+            int c = 0 + 0;
+            for (int _ci = 0; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[40]) {
+                p->cost[40] = c;
+                p->rule[40] = 644;
+                closure_v128_reg0(p, c, node);
             }
         }
         break;
@@ -2931,17 +3695,6 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 p->cost[24] = c;
                 p->rule[24] = 392;
                 closure_f32_reg0(p, c, node);
-            }
-        }
-        break;
-    case BURG_Sig_i64_v128_to_void_pw:
-        if (p->child_count >= 2 && p->children[0]->rule[3] && p->children[1]->rule[6]) {
-            int c = p->children[0]->cost[3] + p->children[1]->cost[6] + 4;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[1]) {
-                p->cost[1] = c;
-                p->rule[1] = 934;
             }
         }
         break;
@@ -3009,6 +3762,60 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
             }
         }
         break;
+    case BURG_Carried_i64:
+        {
+            int c = 0 + 0;
+            for (int _ci = 0; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[3]) {
+                p->cost[3] = c;
+                p->rule[3] = 8;
+                closure_i64_mem(p, c, node);
+            }
+        }
+        break;
+    case BURG_Sig_i64_to_v128:
+        if (p->child_count >= 1 && p->children[0]->rule[3]) {
+            int c = p->children[0]->cost[3] + 4;
+            for (int _ci = 1; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[6]) {
+                p->cost[6] = c;
+                p->rule[6] = 660;
+                closure_v128_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 1 && p->children[0]->rule[3]) {
+            int c = p->children[0]->cost[3] + 2;
+            for (int _ci = 1; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[40]) {
+                p->cost[40] = c;
+                p->rule[40] = 661;
+                closure_v128_reg0(p, c, node);
+            }
+        }
+        if (p->child_count >= 1 && p->children[0]->rule[16]) {
+            int c = p->children[0]->cost[16] + 3;
+            for (int _ci = 1; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[6]) {
+                p->cost[6] = c;
+                p->rule[6] = 662;
+                closure_v128_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 1 && p->children[0]->rule[16]) {
+            int c = p->children[0]->cost[16] + 0;
+            for (int _ci = 1; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[40]) {
+                p->cost[40] = c;
+                p->rule[40] = 663;
+                closure_v128_reg0(p, c, node);
+            }
+        }
+        break;
     case BURG_Sig_i64_i32_to_ref:
         if (p->child_count >= 2 && p->children[0]->rule[3] && p->children[1]->rule[2]) {
             int c = p->children[0]->cost[3] + p->children[1]->cost[2] + 4;
@@ -3016,7 +3823,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[7]) {
                 p->cost[7] = c;
-                p->rule[7] = 725;
+                p->rule[7] = 773;
                 closure_ref_mem(p, c, node);
             }
         }
@@ -3026,7 +3833,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[7]) {
                 p->cost[7] = c;
-                p->rule[7] = 726;
+                p->rule[7] = 774;
                 closure_ref_mem(p, c, node);
             }
         }
@@ -3165,6 +3972,48 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
             }
         }
         break;
+    case BURG_Sig_v128_i32_to_i32_aw:
+        if (p->child_count >= 2 && p->children[0]->rule[6] && p->children[1]->rule[2]) {
+            int c = p->children[0]->cost[6] + p->children[1]->cost[2] + 5;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[2]) {
+                p->cost[2] = c;
+                p->rule[2] = 159;
+                closure_i32_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[6] && p->children[1]->rule[2]) {
+            int c = p->children[0]->cost[6] + p->children[1]->cost[2] + 4;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[8]) {
+                p->cost[8] = c;
+                p->rule[8] = 160;
+                closure_i32_reg0(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[6] && p->children[1]->rule[8]) {
+            int c = p->children[0]->cost[6] + p->children[1]->cost[8] + 4;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[2]) {
+                p->cost[2] = c;
+                p->rule[2] = 161;
+                closure_i32_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[6] && p->children[1]->rule[8]) {
+            int c = p->children[0]->cost[6] + p->children[1]->cost[8] + 3;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[8]) {
+                p->cost[8] = c;
+                p->rule[8] = 162;
+                closure_i32_reg0(p, c, node);
+            }
+        }
+        break;
     case BURG_Sig_v128_to_i32:
         if (p->child_count >= 1 && p->children[0]->rule[6]) {
             int c = p->children[0]->cost[6] + 4;
@@ -3248,7 +4097,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[6]) {
                 p->cost[6] = c;
-                p->rule[6] = 628;
+                p->rule[6] = 676;
                 closure_v128_mem(p, c, node);
             }
         }
@@ -3258,7 +4107,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[40]) {
                 p->cost[40] = c;
-                p->rule[40] = 629;
+                p->rule[40] = 677;
                 closure_v128_reg0(p, c, node);
             }
         }
@@ -3268,7 +4117,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[6]) {
                 p->cost[6] = c;
-                p->rule[6] = 630;
+                p->rule[6] = 678;
                 closure_v128_mem(p, c, node);
             }
         }
@@ -3278,7 +4127,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[40]) {
                 p->cost[40] = c;
-                p->rule[40] = 631;
+                p->rule[40] = 679;
                 closure_v128_reg0(p, c, node);
             }
         }
@@ -3288,7 +4137,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[6]) {
                 p->cost[6] = c;
-                p->rule[6] = 632;
+                p->rule[6] = 680;
                 closure_v128_mem(p, c, node);
             }
         }
@@ -3298,7 +4147,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[40]) {
                 p->cost[40] = c;
-                p->rule[40] = 633;
+                p->rule[40] = 681;
                 closure_v128_reg0(p, c, node);
             }
         }
@@ -3308,7 +4157,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[40]) {
                 p->cost[40] = c;
-                p->rule[40] = 634;
+                p->rule[40] = 682;
                 closure_v128_reg0(p, c, node);
             }
         }
@@ -3318,7 +4167,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[40]) {
                 p->cost[40] = c;
-                p->rule[40] = 635;
+                p->rule[40] = 683;
                 closure_v128_reg0(p, c, node);
             }
         }
@@ -3328,7 +4177,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[40]) {
                 p->cost[40] = c;
-                p->rule[40] = 636;
+                p->rule[40] = 684;
                 closure_v128_reg0(p, c, node);
             }
         }
@@ -3338,7 +4187,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[40]) {
                 p->cost[40] = c;
-                p->rule[40] = 637;
+                p->rule[40] = 685;
                 closure_v128_reg0(p, c, node);
             }
         }
@@ -3348,193 +4197,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[40]) {
                 p->cost[40] = c;
-                p->rule[40] = 638;
-                closure_v128_reg0(p, c, node);
-            }
-        }
-        break;
-    case BURG_Sig_i64_i64_i32_to_i64:
-        if (p->child_count >= 3 && p->children[0]->rule[3] && p->children[1]->rule[3] && p->children[2]->rule[2]) {
-            int c = p->children[0]->cost[3] + p->children[1]->cost[3] + p->children[2]->cost[2] + 5;
-            for (int _ci = 3; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[3]) {
-                p->cost[3] = c;
-                p->rule[3] = 338;
-                closure_i64_mem(p, c, node);
-            }
-        }
-        if (p->child_count >= 3 && p->children[0]->rule[3] && p->children[1]->rule[3] && p->children[2]->rule[2]) {
-            int c = p->children[0]->cost[3] + p->children[1]->cost[3] + p->children[2]->cost[2] + 4;
-            for (int _ci = 3; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[16]) {
-                p->cost[16] = c;
-                p->rule[16] = 339;
-                closure_i64_reg0(p, c, node);
-            }
-        }
-        if (p->child_count >= 3 && p->children[0]->rule[3] && p->children[1]->rule[3] && p->children[2]->rule[8]) {
-            int c = p->children[0]->cost[3] + p->children[1]->cost[3] + p->children[2]->cost[8] + 4;
-            for (int _ci = 3; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[3]) {
-                p->cost[3] = c;
-                p->rule[3] = 340;
-                closure_i64_mem(p, c, node);
-            }
-        }
-        if (p->child_count >= 3 && p->children[0]->rule[3] && p->children[1]->rule[3] && p->children[2]->rule[8]) {
-            int c = p->children[0]->cost[3] + p->children[1]->cost[3] + p->children[2]->cost[8] + 3;
-            for (int _ci = 3; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[16]) {
-                p->cost[16] = c;
-                p->rule[16] = 341;
-                closure_i64_reg0(p, c, node);
-            }
-        }
-        if (p->child_count >= 3 && p->children[0]->rule[3] && p->children[1]->rule[17] && p->children[2]->rule[8] && (JAV_TNEED(node,2) <= 7)) {
-            int c = p->children[0]->cost[3] + p->children[1]->cost[17] + p->children[2]->cost[8] + 3;
-            for (int _ci = 3; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[3]) {
-                p->cost[3] = c;
-                p->rule[3] = 342;
-                closure_i64_mem(p, c, node);
-            }
-        }
-        if (p->child_count >= 3 && p->children[0]->rule[3] && p->children[1]->rule[17] && p->children[2]->rule[8] && (JAV_TNEED(node,2) <= 7)) {
-            int c = p->children[0]->cost[3] + p->children[1]->cost[17] + p->children[2]->cost[8] + 2;
-            for (int _ci = 3; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[16]) {
-                p->cost[16] = c;
-                p->rule[16] = 343;
-                closure_i64_reg0(p, c, node);
-            }
-        }
-        if (p->child_count >= 3 && p->children[0]->rule[18] && p->children[1]->rule[17] && p->children[2]->rule[8] && (JAV_TNEED(node,1) <= 7 && JAV_TNEED(node,2) <= 6)) {
-            int c = p->children[0]->cost[18] + p->children[1]->cost[17] + p->children[2]->cost[8] + 2;
-            for (int _ci = 3; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[3]) {
-                p->cost[3] = c;
-                p->rule[3] = 344;
-                closure_i64_mem(p, c, node);
-            }
-        }
-        if (p->child_count >= 3 && p->children[0]->rule[18] && p->children[1]->rule[17] && p->children[2]->rule[8] && (JAV_TNEED(node,1) <= 7 && JAV_TNEED(node,2) <= 6)) {
-            int c = p->children[0]->cost[18] + p->children[1]->cost[17] + p->children[2]->cost[8] + 0;
-            for (int _ci = 3; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[16]) {
-                p->cost[16] = c;
-                p->rule[16] = 345;
-                closure_i64_reg0(p, c, node);
-            }
-        }
-        if (p->child_count >= 3 && p->children[0]->rule[18] && p->children[1]->rule[17] && p->children[2]->rule[8] && (JAV_TNEED(node,1) <= 6 && JAV_TNEED(node,2) <= 5)) {
-            int c = p->children[0]->cost[18] + p->children[1]->cost[17] + p->children[2]->cost[8] + 0;
-            for (int _ci = 3; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[16]) {
-                p->cost[16] = c;
-                p->rule[16] = 346;
-                closure_i64_reg0(p, c, node);
-            }
-        }
-        if (p->child_count >= 3 && p->children[0]->rule[18] && p->children[1]->rule[17] && p->children[2]->rule[8] && (JAV_TNEED(node,1) <= 5 && JAV_TNEED(node,2) <= 4)) {
-            int c = p->children[0]->cost[18] + p->children[1]->cost[17] + p->children[2]->cost[8] + 0;
-            for (int _ci = 3; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[16]) {
-                p->cost[16] = c;
-                p->rule[16] = 347;
-                closure_i64_reg0(p, c, node);
-            }
-        }
-        if (p->child_count >= 3 && p->children[0]->rule[18] && p->children[1]->rule[17] && p->children[2]->rule[8] && (JAV_TNEED(node,1) <= 4 && JAV_TNEED(node,2) <= 3)) {
-            int c = p->children[0]->cost[18] + p->children[1]->cost[17] + p->children[2]->cost[8] + 0;
-            for (int _ci = 3; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[16]) {
-                p->cost[16] = c;
-                p->rule[16] = 348;
-                closure_i64_reg0(p, c, node);
-            }
-        }
-        if (p->child_count >= 3 && p->children[0]->rule[18] && p->children[1]->rule[17] && p->children[2]->rule[8] && (JAV_TNEED(node,1) <= 3 && JAV_TNEED(node,2) <= 2)) {
-            int c = p->children[0]->cost[18] + p->children[1]->cost[17] + p->children[2]->cost[8] + 0;
-            for (int _ci = 3; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[16]) {
-                p->cost[16] = c;
-                p->rule[16] = 349;
-                closure_i64_reg0(p, c, node);
-            }
-        }
-        if (p->child_count >= 3 && p->children[0]->rule[18] && p->children[1]->rule[17] && p->children[2]->rule[8] && (JAV_TNEED(node,1) <= 2 && JAV_TNEED(node,2) <= 1)) {
-            int c = p->children[0]->cost[18] + p->children[1]->cost[17] + p->children[2]->cost[8] + 0;
-            for (int _ci = 3; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[16]) {
-                p->cost[16] = c;
-                p->rule[16] = 350;
-                closure_i64_reg0(p, c, node);
-            }
-        }
-        break;
-    case BURG_Carried_i64:
-        {
-            int c = 0 + 0;
-            for (int _ci = 0; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[3]) {
-                p->cost[3] = c;
-                p->rule[3] = 8;
-                closure_i64_mem(p, c, node);
-            }
-        }
-        break;
-    case BURG_Sig_i64_to_v128:
-        if (p->child_count >= 1 && p->children[0]->rule[3]) {
-            int c = p->children[0]->cost[3] + 4;
-            for (int _ci = 1; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[6]) {
-                p->cost[6] = c;
-                p->rule[6] = 612;
-                closure_v128_mem(p, c, node);
-            }
-        }
-        if (p->child_count >= 1 && p->children[0]->rule[3]) {
-            int c = p->children[0]->cost[3] + 2;
-            for (int _ci = 1; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[40]) {
-                p->cost[40] = c;
-                p->rule[40] = 613;
-                closure_v128_reg0(p, c, node);
-            }
-        }
-        if (p->child_count >= 1 && p->children[0]->rule[16]) {
-            int c = p->children[0]->cost[16] + 3;
-            for (int _ci = 1; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[6]) {
-                p->cost[6] = c;
-                p->rule[6] = 614;
-                closure_v128_mem(p, c, node);
-            }
-        }
-        if (p->child_count >= 1 && p->children[0]->rule[16]) {
-            int c = p->children[0]->cost[16] + 0;
-            for (int _ci = 1; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[40]) {
-                p->cost[40] = c;
-                p->rule[40] = 615;
+                p->rule[40] = 686;
                 closure_v128_reg0(p, c, node);
             }
         }
@@ -3581,48 +4244,6 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
             }
         }
         break;
-    case BURG_Sig_f64_i64_to_i32:
-        if (p->child_count >= 2 && p->children[0]->rule[5] && p->children[1]->rule[3]) {
-            int c = p->children[0]->cost[5] + p->children[1]->cost[3] + 4;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[2]) {
-                p->cost[2] = c;
-                p->rule[2] = 187;
-                closure_i32_mem(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[5] && p->children[1]->rule[3]) {
-            int c = p->children[0]->cost[5] + p->children[1]->cost[3] + 3;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[8]) {
-                p->cost[8] = c;
-                p->rule[8] = 188;
-                closure_i32_reg0(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[5] && p->children[1]->rule[16]) {
-            int c = p->children[0]->cost[5] + p->children[1]->cost[16] + 3;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[2]) {
-                p->cost[2] = c;
-                p->rule[2] = 189;
-                closure_i32_mem(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[5] && p->children[1]->rule[16]) {
-            int c = p->children[0]->cost[5] + p->children[1]->cost[16] + 2;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[8]) {
-                p->cost[8] = c;
-                p->rule[8] = 190;
-                closure_i32_reg0(p, c, node);
-            }
-        }
-        break;
     case BURG_Sig_f64_to_void:
         if (p->child_count >= 1 && p->children[0]->rule[5]) {
             int c = p->children[0]->cost[5] + 2;
@@ -3630,7 +4251,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 756;
+                p->rule[1] = 804;
             }
         }
         if (p->child_count >= 1 && p->children[0]->rule[32]) {
@@ -3639,7 +4260,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 757;
+                p->rule[1] = 805;
             }
         }
         break;
@@ -3692,8 +4313,18 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[6]) {
                 p->cost[6] = c;
-                p->rule[6] = 596;
+                p->rule[6] = 617;
                 closure_v128_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[4] && p->children[1]->rule[3]) {
+            int c = p->children[0]->cost[4] + p->children[1]->cost[3] + 3;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[40]) {
+                p->cost[40] = c;
+                p->rule[40] = 618;
+                closure_v128_reg0(p, c, node);
             }
         }
         if (p->child_count >= 2 && p->children[0]->rule[4] && p->children[1]->rule[16]) {
@@ -3702,8 +4333,18 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[6]) {
                 p->cost[6] = c;
-                p->rule[6] = 597;
+                p->rule[6] = 619;
                 closure_v128_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[4] && p->children[1]->rule[16]) {
+            int c = p->children[0]->cost[4] + p->children[1]->cost[16] + 2;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[40]) {
+                p->cost[40] = c;
+                p->rule[40] = 620;
+                closure_v128_reg0(p, c, node);
             }
         }
         break;
@@ -3714,8 +4355,18 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[6]) {
                 p->cost[6] = c;
-                p->rule[6] = 604;
+                p->rule[6] = 631;
                 closure_v128_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 3 && p->children[0]->rule[6] && p->children[1]->rule[6] && p->children[2]->rule[2]) {
+            int c = p->children[0]->cost[6] + p->children[1]->cost[6] + p->children[2]->cost[2] + 6;
+            for (int _ci = 3; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[40]) {
+                p->cost[40] = c;
+                p->rule[40] = 632;
+                closure_v128_reg0(p, c, node);
             }
         }
         if (p->child_count >= 3 && p->children[0]->rule[6] && p->children[1]->rule[6] && p->children[2]->rule[8]) {
@@ -3724,8 +4375,88 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[6]) {
                 p->cost[6] = c;
-                p->rule[6] = 605;
+                p->rule[6] = 633;
                 closure_v128_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 3 && p->children[0]->rule[6] && p->children[1]->rule[6] && p->children[2]->rule[8]) {
+            int c = p->children[0]->cost[6] + p->children[1]->cost[6] + p->children[2]->cost[8] + 5;
+            for (int _ci = 3; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[40]) {
+                p->cost[40] = c;
+                p->rule[40] = 634;
+                closure_v128_reg0(p, c, node);
+            }
+        }
+        if (p->child_count >= 3 && p->children[0]->rule[6] && p->children[1]->rule[41] && p->children[2]->rule[8] && (JAV_TNEED(node,2) <= 6)) {
+            int c = p->children[0]->cost[6] + p->children[1]->cost[41] + p->children[2]->cost[8] + 5;
+            for (int _ci = 3; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[6]) {
+                p->cost[6] = c;
+                p->rule[6] = 635;
+                closure_v128_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 3 && p->children[0]->rule[6] && p->children[1]->rule[41] && p->children[2]->rule[8] && (JAV_TNEED(node,2) <= 6)) {
+            int c = p->children[0]->cost[6] + p->children[1]->cost[41] + p->children[2]->cost[8] + 3;
+            for (int _ci = 3; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[40]) {
+                p->cost[40] = c;
+                p->rule[40] = 636;
+                closure_v128_reg0(p, c, node);
+            }
+        }
+        if (p->child_count >= 3 && p->children[0]->rule[43] && p->children[1]->rule[41] && p->children[2]->rule[8] && (JAV_TNEED(node,1) <= 6 && JAV_TNEED(node,2) <= 4)) {
+            int c = p->children[0]->cost[43] + p->children[1]->cost[41] + p->children[2]->cost[8] + 3;
+            for (int _ci = 3; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[6]) {
+                p->cost[6] = c;
+                p->rule[6] = 637;
+                closure_v128_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 3 && p->children[0]->rule[43] && p->children[1]->rule[41] && p->children[2]->rule[8] && (JAV_TNEED(node,1) <= 6 && JAV_TNEED(node,2) <= 4)) {
+            int c = p->children[0]->cost[43] + p->children[1]->cost[41] + p->children[2]->cost[8] + 0;
+            for (int _ci = 3; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[40]) {
+                p->cost[40] = c;
+                p->rule[40] = 638;
+                closure_v128_reg0(p, c, node);
+            }
+        }
+        if (p->child_count >= 3 && p->children[0]->rule[43] && p->children[1]->rule[41] && p->children[2]->rule[8] && (JAV_TNEED(node,1) <= 5 && JAV_TNEED(node,2) <= 3)) {
+            int c = p->children[0]->cost[43] + p->children[1]->cost[41] + p->children[2]->cost[8] + 0;
+            for (int _ci = 3; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[40]) {
+                p->cost[40] = c;
+                p->rule[40] = 639;
+                closure_v128_reg0(p, c, node);
+            }
+        }
+        if (p->child_count >= 3 && p->children[0]->rule[43] && p->children[1]->rule[41] && p->children[2]->rule[8] && (JAV_TNEED(node,1) <= 4 && JAV_TNEED(node,2) <= 2)) {
+            int c = p->children[0]->cost[43] + p->children[1]->cost[41] + p->children[2]->cost[8] + 0;
+            for (int _ci = 3; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[40]) {
+                p->cost[40] = c;
+                p->rule[40] = 640;
+                closure_v128_reg0(p, c, node);
+            }
+        }
+        if (p->child_count >= 3 && p->children[0]->rule[43] && p->children[1]->rule[41] && p->children[2]->rule[8] && (JAV_TNEED(node,1) <= 3 && JAV_TNEED(node,2) <= 1)) {
+            int c = p->children[0]->cost[43] + p->children[1]->cost[41] + p->children[2]->cost[8] + 0;
+            for (int _ci = 3; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[40]) {
+                p->cost[40] = c;
+                p->rule[40] = 641;
+                closure_v128_reg0(p, c, node);
             }
         }
         break;
@@ -3736,7 +4467,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 754;
+                p->rule[1] = 802;
             }
         }
         if (p->child_count >= 1 && p->children[0]->rule[24]) {
@@ -3745,7 +4476,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 755;
+                p->rule[1] = 803;
             }
         }
         break;
@@ -4012,7 +4743,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 796;
+                p->rule[1] = 845;
             }
         }
         if (p->child_count >= 2 && p->children[0]->rule[2] && p->children[1]->rule[24]) {
@@ -4021,7 +4752,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 797;
+                p->rule[1] = 846;
             }
         }
         if (p->child_count >= 2 && p->children[0]->rule[9] && p->children[1]->rule[24] && (JAV_TNEED(node,1) <= 7)) {
@@ -4030,7 +4761,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 798;
+                p->rule[1] = 847;
             }
         }
         if (p->child_count >= 2 && p->children[0]->rule[9] && p->children[1]->rule[24] && (JAV_TNEED(node,1) <= 6)) {
@@ -4039,7 +4770,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 799;
+                p->rule[1] = 848;
             }
         }
         if (p->child_count >= 2 && p->children[0]->rule[9] && p->children[1]->rule[24] && (JAV_TNEED(node,1) <= 5)) {
@@ -4048,7 +4779,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 800;
+                p->rule[1] = 849;
             }
         }
         if (p->child_count >= 2 && p->children[0]->rule[9] && p->children[1]->rule[24] && (JAV_TNEED(node,1) <= 4)) {
@@ -4057,7 +4788,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 801;
+                p->rule[1] = 850;
             }
         }
         if (p->child_count >= 2 && p->children[0]->rule[9] && p->children[1]->rule[24] && (JAV_TNEED(node,1) <= 3)) {
@@ -4066,7 +4797,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 802;
+                p->rule[1] = 851;
             }
         }
         if (p->child_count >= 2 && p->children[0]->rule[9] && p->children[1]->rule[24] && (JAV_TNEED(node,1) <= 2)) {
@@ -4075,7 +4806,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 803;
+                p->rule[1] = 852;
             }
         }
         if (p->child_count >= 2 && p->children[0]->rule[9] && p->children[1]->rule[24] && (JAV_TNEED(node,1) <= 1)) {
@@ -4084,7 +4815,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 804;
+                p->rule[1] = 853;
             }
         }
         break;
@@ -4095,8 +4826,18 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[6]) {
                 p->cost[6] = c;
-                p->rule[6] = 598;
+                p->rule[6] = 621;
                 closure_v128_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[5] && p->children[1]->rule[3]) {
+            int c = p->children[0]->cost[5] + p->children[1]->cost[3] + 3;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[40]) {
+                p->cost[40] = c;
+                p->rule[40] = 622;
+                closure_v128_reg0(p, c, node);
             }
         }
         if (p->child_count >= 2 && p->children[0]->rule[5] && p->children[1]->rule[16]) {
@@ -4105,8 +4846,18 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[6]) {
                 p->cost[6] = c;
-                p->rule[6] = 599;
+                p->rule[6] = 623;
                 closure_v128_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[5] && p->children[1]->rule[16]) {
+            int c = p->children[0]->cost[5] + p->children[1]->cost[16] + 2;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[40]) {
+                p->cost[40] = c;
+                p->rule[40] = 624;
+                closure_v128_reg0(p, c, node);
             }
         }
         break;
@@ -4174,6 +4925,160 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
             }
         }
         break;
+    case BURG_Sig_i64_i64_i32_to_i64:
+        if (p->child_count >= 3 && p->children[0]->rule[3] && p->children[1]->rule[3] && p->children[2]->rule[2]) {
+            int c = p->children[0]->cost[3] + p->children[1]->cost[3] + p->children[2]->cost[2] + 5;
+            for (int _ci = 3; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[3]) {
+                p->cost[3] = c;
+                p->rule[3] = 338;
+                closure_i64_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 3 && p->children[0]->rule[3] && p->children[1]->rule[3] && p->children[2]->rule[2]) {
+            int c = p->children[0]->cost[3] + p->children[1]->cost[3] + p->children[2]->cost[2] + 4;
+            for (int _ci = 3; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[16]) {
+                p->cost[16] = c;
+                p->rule[16] = 339;
+                closure_i64_reg0(p, c, node);
+            }
+        }
+        if (p->child_count >= 3 && p->children[0]->rule[3] && p->children[1]->rule[3] && p->children[2]->rule[8]) {
+            int c = p->children[0]->cost[3] + p->children[1]->cost[3] + p->children[2]->cost[8] + 4;
+            for (int _ci = 3; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[3]) {
+                p->cost[3] = c;
+                p->rule[3] = 340;
+                closure_i64_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 3 && p->children[0]->rule[3] && p->children[1]->rule[3] && p->children[2]->rule[8]) {
+            int c = p->children[0]->cost[3] + p->children[1]->cost[3] + p->children[2]->cost[8] + 3;
+            for (int _ci = 3; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[16]) {
+                p->cost[16] = c;
+                p->rule[16] = 341;
+                closure_i64_reg0(p, c, node);
+            }
+        }
+        if (p->child_count >= 3 && p->children[0]->rule[3] && p->children[1]->rule[17] && p->children[2]->rule[8] && (JAV_TNEED(node,2) <= 7)) {
+            int c = p->children[0]->cost[3] + p->children[1]->cost[17] + p->children[2]->cost[8] + 3;
+            for (int _ci = 3; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[3]) {
+                p->cost[3] = c;
+                p->rule[3] = 342;
+                closure_i64_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 3 && p->children[0]->rule[3] && p->children[1]->rule[17] && p->children[2]->rule[8] && (JAV_TNEED(node,2) <= 7)) {
+            int c = p->children[0]->cost[3] + p->children[1]->cost[17] + p->children[2]->cost[8] + 2;
+            for (int _ci = 3; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[16]) {
+                p->cost[16] = c;
+                p->rule[16] = 343;
+                closure_i64_reg0(p, c, node);
+            }
+        }
+        if (p->child_count >= 3 && p->children[0]->rule[18] && p->children[1]->rule[17] && p->children[2]->rule[8] && (JAV_TNEED(node,1) <= 7 && JAV_TNEED(node,2) <= 6)) {
+            int c = p->children[0]->cost[18] + p->children[1]->cost[17] + p->children[2]->cost[8] + 2;
+            for (int _ci = 3; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[3]) {
+                p->cost[3] = c;
+                p->rule[3] = 344;
+                closure_i64_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 3 && p->children[0]->rule[18] && p->children[1]->rule[17] && p->children[2]->rule[8] && (JAV_TNEED(node,1) <= 7 && JAV_TNEED(node,2) <= 6)) {
+            int c = p->children[0]->cost[18] + p->children[1]->cost[17] + p->children[2]->cost[8] + 0;
+            for (int _ci = 3; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[16]) {
+                p->cost[16] = c;
+                p->rule[16] = 345;
+                closure_i64_reg0(p, c, node);
+            }
+        }
+        if (p->child_count >= 3 && p->children[0]->rule[18] && p->children[1]->rule[17] && p->children[2]->rule[8] && (JAV_TNEED(node,1) <= 6 && JAV_TNEED(node,2) <= 5)) {
+            int c = p->children[0]->cost[18] + p->children[1]->cost[17] + p->children[2]->cost[8] + 0;
+            for (int _ci = 3; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[16]) {
+                p->cost[16] = c;
+                p->rule[16] = 346;
+                closure_i64_reg0(p, c, node);
+            }
+        }
+        if (p->child_count >= 3 && p->children[0]->rule[18] && p->children[1]->rule[17] && p->children[2]->rule[8] && (JAV_TNEED(node,1) <= 5 && JAV_TNEED(node,2) <= 4)) {
+            int c = p->children[0]->cost[18] + p->children[1]->cost[17] + p->children[2]->cost[8] + 0;
+            for (int _ci = 3; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[16]) {
+                p->cost[16] = c;
+                p->rule[16] = 347;
+                closure_i64_reg0(p, c, node);
+            }
+        }
+        if (p->child_count >= 3 && p->children[0]->rule[18] && p->children[1]->rule[17] && p->children[2]->rule[8] && (JAV_TNEED(node,1) <= 4 && JAV_TNEED(node,2) <= 3)) {
+            int c = p->children[0]->cost[18] + p->children[1]->cost[17] + p->children[2]->cost[8] + 0;
+            for (int _ci = 3; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[16]) {
+                p->cost[16] = c;
+                p->rule[16] = 348;
+                closure_i64_reg0(p, c, node);
+            }
+        }
+        if (p->child_count >= 3 && p->children[0]->rule[18] && p->children[1]->rule[17] && p->children[2]->rule[8] && (JAV_TNEED(node,1) <= 3 && JAV_TNEED(node,2) <= 2)) {
+            int c = p->children[0]->cost[18] + p->children[1]->cost[17] + p->children[2]->cost[8] + 0;
+            for (int _ci = 3; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[16]) {
+                p->cost[16] = c;
+                p->rule[16] = 349;
+                closure_i64_reg0(p, c, node);
+            }
+        }
+        if (p->child_count >= 3 && p->children[0]->rule[18] && p->children[1]->rule[17] && p->children[2]->rule[8] && (JAV_TNEED(node,1) <= 2 && JAV_TNEED(node,2) <= 1)) {
+            int c = p->children[0]->cost[18] + p->children[1]->cost[17] + p->children[2]->cost[8] + 0;
+            for (int _ci = 3; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[16]) {
+                p->cost[16] = c;
+                p->rule[16] = 350;
+                closure_i64_reg0(p, c, node);
+            }
+        }
+        break;
+    case BURG_Sig_i32_to_v128_aw:
+        if (p->child_count >= 1 && p->children[0]->rule[2]) {
+            int c = p->children[0]->cost[2] + 4;
+            for (int _ci = 1; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[6]) {
+                p->cost[6] = c;
+                p->rule[6] = 649;
+                closure_v128_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 1 && p->children[0]->rule[8]) {
+            int c = p->children[0]->cost[8] + 3;
+            for (int _ci = 1; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[6]) {
+                p->cost[6] = c;
+                p->rule[6] = 650;
+                closure_v128_mem(p, c, node);
+            }
+        }
+        break;
     case BURG_Sig_i32_to_i32:
         if (p->child_count >= 1 && p->children[0]->rule[2]) {
             int c = p->children[0]->cost[2] + 3;
@@ -4228,48 +5133,6 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
             }
         }
         break;
-    case BURG_Sig_v128_to_v128:
-        if (p->child_count >= 1 && p->children[0]->rule[6]) {
-            int c = p->children[0]->cost[6] + 5;
-            for (int _ci = 1; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[6]) {
-                p->cost[6] = c;
-                p->rule[6] = 658;
-                closure_v128_mem(p, c, node);
-            }
-        }
-        if (p->child_count >= 1 && p->children[0]->rule[6]) {
-            int c = p->children[0]->cost[6] + 3;
-            for (int _ci = 1; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[40]) {
-                p->cost[40] = c;
-                p->rule[40] = 659;
-                closure_v128_reg0(p, c, node);
-            }
-        }
-        if (p->child_count >= 1 && p->children[0]->rule[40]) {
-            int c = p->children[0]->cost[40] + 3;
-            for (int _ci = 1; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[6]) {
-                p->cost[6] = c;
-                p->rule[6] = 660;
-                closure_v128_mem(p, c, node);
-            }
-        }
-        if (p->child_count >= 1 && p->children[0]->rule[40]) {
-            int c = p->children[0]->cost[40] + 0;
-            for (int _ci = 1; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[40]) {
-                p->cost[40] = c;
-                p->rule[40] = 661;
-                closure_v128_reg0(p, c, node);
-            }
-        }
-        break;
     case BURG_Sig_f64_i32_to_i32:
         if (p->child_count >= 2 && p->children[0]->rule[5] && p->children[1]->rule[2]) {
             int c = p->children[0]->cost[5] + p->children[1]->cost[2] + 4;
@@ -4308,6 +5171,28 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
             if (c < p->cost[8]) {
                 p->cost[8] = c;
                 p->rule[8] = 158;
+                closure_i32_reg0(p, c, node);
+            }
+        }
+        break;
+    case BURG_Sig_v128_to_i32_aw:
+        if (p->child_count >= 1 && p->children[0]->rule[6]) {
+            int c = p->children[0]->cost[6] + 4;
+            for (int _ci = 1; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[2]) {
+                p->cost[2] = c;
+                p->rule[2] = 250;
+                closure_i32_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 1 && p->children[0]->rule[6]) {
+            int c = p->children[0]->cost[6] + 3;
+            for (int _ci = 1; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[8]) {
+                p->cost[8] = c;
+                p->rule[8] = 251;
                 closure_i32_reg0(p, c, node);
             }
         }
@@ -4398,6 +5283,48 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
             }
         }
         break;
+    case BURG_Sig_f32_i32_to_i64:
+        if (p->child_count >= 2 && p->children[0]->rule[4] && p->children[1]->rule[2]) {
+            int c = p->children[0]->cost[4] + p->children[1]->cost[2] + 4;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[3]) {
+                p->cost[3] = c;
+                p->rule[3] = 282;
+                closure_i64_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[4] && p->children[1]->rule[2]) {
+            int c = p->children[0]->cost[4] + p->children[1]->cost[2] + 3;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[16]) {
+                p->cost[16] = c;
+                p->rule[16] = 283;
+                closure_i64_reg0(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[4] && p->children[1]->rule[8]) {
+            int c = p->children[0]->cost[4] + p->children[1]->cost[8] + 3;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[3]) {
+                p->cost[3] = c;
+                p->rule[3] = 284;
+                closure_i64_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[4] && p->children[1]->rule[8]) {
+            int c = p->children[0]->cost[4] + p->children[1]->cost[8] + 2;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[16]) {
+                p->cost[16] = c;
+                p->rule[16] = 285;
+                closure_i64_reg0(p, c, node);
+            }
+        }
+        break;
     case BURG_Sig_ref_i64_to_i32:
         if (p->child_count >= 2 && p->children[0]->rule[7] && p->children[1]->rule[3]) {
             int c = p->children[0]->cost[7] + p->children[1]->cost[3] + 4;
@@ -4462,6 +5389,26 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
             }
         }
         break;
+    case BURG_Sig_i64_v128_i64_to_void_aw:
+        if (p->child_count >= 3 && p->children[0]->rule[3] && p->children[1]->rule[6] && p->children[2]->rule[3]) {
+            int c = p->children[0]->cost[3] + p->children[1]->cost[6] + p->children[2]->cost[3] + 5;
+            for (int _ci = 3; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[1]) {
+                p->cost[1] = c;
+                p->rule[1] = 939;
+            }
+        }
+        if (p->child_count >= 3 && p->children[0]->rule[3] && p->children[1]->rule[6] && p->children[2]->rule[16]) {
+            int c = p->children[0]->cost[3] + p->children[1]->cost[6] + p->children[2]->cost[16] + 4;
+            for (int _ci = 3; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[1]) {
+                p->cost[1] = c;
+                p->rule[1] = 940;
+            }
+        }
+        break;
     case BURG_Sig_i64_i32_i32_to_void:
         if (p->child_count >= 3 && p->children[0]->rule[3] && p->children[1]->rule[2] && p->children[2]->rule[2]) {
             int c = p->children[0]->cost[3] + p->children[1]->cost[2] + p->children[2]->cost[2] + 4;
@@ -4469,7 +5416,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 850;
+                p->rule[1] = 899;
             }
         }
         if (p->child_count >= 3 && p->children[0]->rule[3] && p->children[1]->rule[2] && p->children[2]->rule[8]) {
@@ -4478,7 +5425,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 851;
+                p->rule[1] = 900;
             }
         }
         if (p->child_count >= 3 && p->children[0]->rule[3] && p->children[1]->rule[9] && p->children[2]->rule[8] && (JAV_TNEED(node,2) <= 7)) {
@@ -4487,7 +5434,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 852;
+                p->rule[1] = 901;
             }
         }
         if (p->child_count >= 3 && p->children[0]->rule[18] && p->children[1]->rule[9] && p->children[2]->rule[8] && (JAV_TNEED(node,1) <= 7 && JAV_TNEED(node,2) <= 6)) {
@@ -4496,7 +5443,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 853;
+                p->rule[1] = 902;
             }
         }
         if (p->child_count >= 3 && p->children[0]->rule[18] && p->children[1]->rule[9] && p->children[2]->rule[8] && (JAV_TNEED(node,1) <= 6 && JAV_TNEED(node,2) <= 5)) {
@@ -4505,7 +5452,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 854;
+                p->rule[1] = 903;
             }
         }
         if (p->child_count >= 3 && p->children[0]->rule[18] && p->children[1]->rule[9] && p->children[2]->rule[8] && (JAV_TNEED(node,1) <= 5 && JAV_TNEED(node,2) <= 4)) {
@@ -4514,7 +5461,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 855;
+                p->rule[1] = 904;
             }
         }
         if (p->child_count >= 3 && p->children[0]->rule[18] && p->children[1]->rule[9] && p->children[2]->rule[8] && (JAV_TNEED(node,1) <= 4 && JAV_TNEED(node,2) <= 3)) {
@@ -4523,7 +5470,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 856;
+                p->rule[1] = 905;
             }
         }
         if (p->child_count >= 3 && p->children[0]->rule[18] && p->children[1]->rule[9] && p->children[2]->rule[8] && (JAV_TNEED(node,1) <= 3 && JAV_TNEED(node,2) <= 2)) {
@@ -4532,7 +5479,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 857;
+                p->rule[1] = 906;
             }
         }
         if (p->child_count >= 3 && p->children[0]->rule[18] && p->children[1]->rule[9] && p->children[2]->rule[8] && (JAV_TNEED(node,1) <= 2 && JAV_TNEED(node,2) <= 1)) {
@@ -4541,7 +5488,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 858;
+                p->rule[1] = 907;
             }
         }
         break;
@@ -4667,48 +5614,6 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
             }
         }
         break;
-    case BURG_Sig_v128_i32_to_i64_pw:
-        if (p->child_count >= 2 && p->children[0]->rule[6] && p->children[1]->rule[2]) {
-            int c = p->children[0]->cost[6] + p->children[1]->cost[2] + 5;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[3]) {
-                p->cost[3] = c;
-                p->rule[3] = 290;
-                closure_i64_mem(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[6] && p->children[1]->rule[2]) {
-            int c = p->children[0]->cost[6] + p->children[1]->cost[2] + 4;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[16]) {
-                p->cost[16] = c;
-                p->rule[16] = 291;
-                closure_i64_reg0(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[6] && p->children[1]->rule[8]) {
-            int c = p->children[0]->cost[6] + p->children[1]->cost[8] + 4;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[3]) {
-                p->cost[3] = c;
-                p->rule[3] = 292;
-                closure_i64_mem(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[6] && p->children[1]->rule[8]) {
-            int c = p->children[0]->cost[6] + p->children[1]->cost[8] + 3;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[16]) {
-                p->cost[16] = c;
-                p->rule[16] = 293;
-                closure_i64_reg0(p, c, node);
-            }
-        }
-        break;
     case BURG_Sig_ref_to_f32:
         if (p->child_count >= 1 && p->children[0]->rule[7]) {
             int c = p->children[0]->cost[7] + 3;
@@ -4728,208 +5633,6 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 p->cost[24] = c;
                 p->rule[24] = 461;
                 closure_f32_reg0(p, c, node);
-            }
-        }
-        break;
-    case BURG_Sig_f32_i32_to_i64:
-        if (p->child_count >= 2 && p->children[0]->rule[4] && p->children[1]->rule[2]) {
-            int c = p->children[0]->cost[4] + p->children[1]->cost[2] + 4;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[3]) {
-                p->cost[3] = c;
-                p->rule[3] = 282;
-                closure_i64_mem(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[4] && p->children[1]->rule[2]) {
-            int c = p->children[0]->cost[4] + p->children[1]->cost[2] + 3;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[16]) {
-                p->cost[16] = c;
-                p->rule[16] = 283;
-                closure_i64_reg0(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[4] && p->children[1]->rule[8]) {
-            int c = p->children[0]->cost[4] + p->children[1]->cost[8] + 3;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[3]) {
-                p->cost[3] = c;
-                p->rule[3] = 284;
-                closure_i64_mem(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[4] && p->children[1]->rule[8]) {
-            int c = p->children[0]->cost[4] + p->children[1]->cost[8] + 2;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[16]) {
-                p->cost[16] = c;
-                p->rule[16] = 285;
-                closure_i64_reg0(p, c, node);
-            }
-        }
-        break;
-    case BURG_Sig_v128_i32_to_i32_pw:
-        if (p->child_count >= 2 && p->children[0]->rule[6] && p->children[1]->rule[2]) {
-            int c = p->children[0]->cost[6] + p->children[1]->cost[2] + 5;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[2]) {
-                p->cost[2] = c;
-                p->rule[2] = 159;
-                closure_i32_mem(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[6] && p->children[1]->rule[2]) {
-            int c = p->children[0]->cost[6] + p->children[1]->cost[2] + 4;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[8]) {
-                p->cost[8] = c;
-                p->rule[8] = 160;
-                closure_i32_reg0(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[6] && p->children[1]->rule[8]) {
-            int c = p->children[0]->cost[6] + p->children[1]->cost[8] + 4;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[2]) {
-                p->cost[2] = c;
-                p->rule[2] = 161;
-                closure_i32_mem(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[6] && p->children[1]->rule[8]) {
-            int c = p->children[0]->cost[6] + p->children[1]->cost[8] + 3;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[8]) {
-                p->cost[8] = c;
-                p->rule[8] = 162;
-                closure_i32_reg0(p, c, node);
-            }
-        }
-        break;
-    case BURG_Sig_to_v128_pw:
-        {
-            int c = 0 + 3;
-            for (int _ci = 0; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[6]) {
-                p->cost[6] = c;
-                p->rule[6] = 573;
-                closure_v128_mem(p, c, node);
-            }
-        }
-        break;
-    case BURG_Sig_v128_to_f64:
-        if (p->child_count >= 1 && p->children[0]->rule[6]) {
-            int c = p->children[0]->cost[6] + 4;
-            for (int _ci = 1; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[5]) {
-                p->cost[5] = c;
-                p->rule[5] = 569;
-                closure_f64_mem(p, c, node);
-            }
-        }
-        if (p->child_count >= 1 && p->children[0]->rule[6]) {
-            int c = p->children[0]->cost[6] + 3;
-            for (int _ci = 1; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[32]) {
-                p->cost[32] = c;
-                p->rule[32] = 570;
-                closure_f64_reg0(p, c, node);
-            }
-        }
-        if (p->child_count >= 1 && p->children[0]->rule[40]) {
-            int c = p->children[0]->cost[40] + 2;
-            for (int _ci = 1; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[5]) {
-                p->cost[5] = c;
-                p->rule[5] = 571;
-                closure_f64_mem(p, c, node);
-            }
-        }
-        if (p->child_count >= 1 && p->children[0]->rule[40]) {
-            int c = p->children[0]->cost[40] + 0;
-            for (int _ci = 1; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[32]) {
-                p->cost[32] = c;
-                p->rule[32] = 572;
-                closure_f64_reg0(p, c, node);
-            }
-        }
-        break;
-    case BURG_Sig_i32_i64_to_i64:
-        if (p->child_count >= 2 && p->children[0]->rule[2] && p->children[1]->rule[3]) {
-            int c = p->children[0]->cost[2] + p->children[1]->cost[3] + 4;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[3]) {
-                p->cost[3] = c;
-                p->rule[3] = 298;
-                closure_i64_mem(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[2] && p->children[1]->rule[3]) {
-            int c = p->children[0]->cost[2] + p->children[1]->cost[3] + 3;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[16]) {
-                p->cost[16] = c;
-                p->rule[16] = 299;
-                closure_i64_reg0(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[2] && p->children[1]->rule[16]) {
-            int c = p->children[0]->cost[2] + p->children[1]->cost[16] + 3;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[3]) {
-                p->cost[3] = c;
-                p->rule[3] = 300;
-                closure_i64_mem(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[2] && p->children[1]->rule[16]) {
-            int c = p->children[0]->cost[2] + p->children[1]->cost[16] + 2;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[16]) {
-                p->cost[16] = c;
-                p->rule[16] = 301;
-                closure_i64_reg0(p, c, node);
-            }
-        }
-        break;
-    case BURG_Sig_i32_i64_to_v128_pw:
-        if (p->child_count >= 2 && p->children[0]->rule[2] && p->children[1]->rule[3]) {
-            int c = p->children[0]->cost[2] + p->children[1]->cost[3] + 5;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[6]) {
-                p->cost[6] = c;
-                p->rule[6] = 592;
-                closure_v128_mem(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[2] && p->children[1]->rule[16]) {
-            int c = p->children[0]->cost[2] + p->children[1]->cost[16] + 4;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[6]) {
-                p->cost[6] = c;
-                p->rule[6] = 593;
-                closure_v128_mem(p, c, node);
             }
         }
         break;
@@ -5065,28 +5768,6 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
             }
         }
         break;
-    case BURG_Sig_v128_i64_to_v128_pw:
-        if (p->child_count >= 2 && p->children[0]->rule[6] && p->children[1]->rule[3]) {
-            int c = p->children[0]->cost[6] + p->children[1]->cost[3] + 6;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[6]) {
-                p->cost[6] = c;
-                p->rule[6] = 600;
-                closure_v128_mem(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[6] && p->children[1]->rule[16]) {
-            int c = p->children[0]->cost[6] + p->children[1]->cost[16] + 5;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[6]) {
-                p->cost[6] = c;
-                p->rule[6] = 601;
-                closure_v128_mem(p, c, node);
-            }
-        }
-        break;
     case BURG_Sig_ref_i32_to_i32:
         if (p->child_count >= 2 && p->children[0]->rule[7] && p->children[1]->rule[2]) {
             int c = p->children[0]->cost[7] + p->children[1]->cost[2] + 4;
@@ -5178,8 +5859,18 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[6]) {
                 p->cost[6] = c;
-                p->rule[6] = 577;
+                p->rule[6] = 583;
                 closure_v128_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 1 && p->children[0]->rule[3]) {
+            int c = p->children[0]->cost[3] + 2;
+            for (int _ci = 1; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[40]) {
+                p->cost[40] = c;
+                p->rule[40] = 584;
+                closure_v128_reg0(p, c, node);
             }
         }
         if (p->child_count >= 1 && p->children[0]->rule[16]) {
@@ -5188,8 +5879,18 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[6]) {
                 p->cost[6] = c;
-                p->rule[6] = 578;
+                p->rule[6] = 585;
                 closure_v128_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 1 && p->children[0]->rule[16]) {
+            int c = p->children[0]->cost[16] + 0;
+            for (int _ci = 1; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[40]) {
+                p->cost[40] = c;
+                p->rule[40] = 586;
+                closure_v128_reg0(p, c, node);
             }
         }
         break;
@@ -5235,6 +5936,90 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
             }
         }
         break;
+    case BURG_Sig_f32_to_i32:
+        if (p->child_count >= 1 && p->children[0]->rule[4]) {
+            int c = p->children[0]->cost[4] + 3;
+            for (int _ci = 1; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[2]) {
+                p->cost[2] = c;
+                p->rule[2] = 223;
+                closure_i32_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 1 && p->children[0]->rule[4]) {
+            int c = p->children[0]->cost[4] + 2;
+            for (int _ci = 1; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[8]) {
+                p->cost[8] = c;
+                p->rule[8] = 224;
+                closure_i32_reg0(p, c, node);
+            }
+        }
+        if (p->child_count >= 1 && p->children[0]->rule[24]) {
+            int c = p->children[0]->cost[24] + 2;
+            for (int _ci = 1; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[2]) {
+                p->cost[2] = c;
+                p->rule[2] = 225;
+                closure_i32_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 1 && p->children[0]->rule[24]) {
+            int c = p->children[0]->cost[24] + 0;
+            for (int _ci = 1; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[8]) {
+                p->cost[8] = c;
+                p->rule[8] = 226;
+                closure_i32_reg0(p, c, node);
+            }
+        }
+        break;
+    case BURG_Sig_f64_i32_to_v128_pw:
+        if (p->child_count >= 2 && p->children[0]->rule[5] && p->children[1]->rule[2]) {
+            int c = p->children[0]->cost[5] + p->children[1]->cost[2] + 5;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[6]) {
+                p->cost[6] = c;
+                p->rule[6] = 599;
+                closure_v128_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[5] && p->children[1]->rule[2]) {
+            int c = p->children[0]->cost[5] + p->children[1]->cost[2] + 3;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[40]) {
+                p->cost[40] = c;
+                p->rule[40] = 600;
+                closure_v128_reg0(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[5] && p->children[1]->rule[8]) {
+            int c = p->children[0]->cost[5] + p->children[1]->cost[8] + 4;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[6]) {
+                p->cost[6] = c;
+                p->rule[6] = 601;
+                closure_v128_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[5] && p->children[1]->rule[8]) {
+            int c = p->children[0]->cost[5] + p->children[1]->cost[8] + 2;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[40]) {
+                p->cost[40] = c;
+                p->rule[40] = 602;
+                closure_v128_reg0(p, c, node);
+            }
+        }
+        break;
     case BURG_Sig_ref_i32_ref_i32_to_void:
         if (p->child_count >= 4 && p->children[0]->rule[7] && p->children[1]->rule[2] && p->children[2]->rule[7] && p->children[3]->rule[2]) {
             int c = p->children[0]->cost[7] + p->children[1]->cost[2] + p->children[2]->cost[7] + p->children[3]->cost[2] + 5;
@@ -5242,7 +6027,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 927;
+                p->rule[1] = 977;
             }
         }
         if (p->child_count >= 4 && p->children[0]->rule[7] && p->children[1]->rule[2] && p->children[2]->rule[7] && p->children[3]->rule[8]) {
@@ -5251,7 +6036,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 928;
+                p->rule[1] = 978;
             }
         }
         break;
@@ -5381,17 +6166,6 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
             }
         }
         break;
-    case BURG_Sig_stk_v128_to_void_pw:
-        if (p->child_count >= 1 && p->children[0]->rule[6]) {
-            int c = p->children[0]->cost[6] + 3;
-            for (int _ci = 1; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[1]) {
-                p->cost[1] = c;
-                p->rule[1] = 901;
-            }
-        }
-        break;
     case BURG_Sig_i64_i32_to_v128_pw:
         if (p->child_count >= 2 && p->children[0]->rule[3] && p->children[1]->rule[2]) {
             int c = p->children[0]->cost[3] + p->children[1]->cost[2] + 5;
@@ -5399,8 +6173,18 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[6]) {
                 p->cost[6] = c;
-                p->rule[6] = 582;
+                p->rule[6] = 591;
                 closure_v128_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[3] && p->children[1]->rule[2]) {
+            int c = p->children[0]->cost[3] + p->children[1]->cost[2] + 3;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[40]) {
+                p->cost[40] = c;
+                p->rule[40] = 592;
+                closure_v128_reg0(p, c, node);
             }
         }
         if (p->child_count >= 2 && p->children[0]->rule[3] && p->children[1]->rule[8]) {
@@ -5409,8 +6193,18 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[6]) {
                 p->cost[6] = c;
-                p->rule[6] = 583;
+                p->rule[6] = 593;
                 closure_v128_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[3] && p->children[1]->rule[8]) {
+            int c = p->children[0]->cost[3] + p->children[1]->cost[8] + 2;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[40]) {
+                p->cost[40] = c;
+                p->rule[40] = 594;
+                closure_v128_reg0(p, c, node);
             }
         }
         break;
@@ -5421,7 +6215,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 915;
+                p->rule[1] = 965;
             }
         }
         if (p->child_count >= 4 && p->children[0]->rule[7] && p->children[1]->rule[2] && p->children[2]->rule[2] && p->children[3]->rule[8]) {
@@ -5430,7 +6224,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 916;
+                p->rule[1] = 966;
             }
         }
         if (p->child_count >= 4 && p->children[0]->rule[7] && p->children[1]->rule[2] && p->children[2]->rule[9] && p->children[3]->rule[8] && (JAV_TNEED(node,3) <= 7)) {
@@ -5439,7 +6233,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 917;
+                p->rule[1] = 967;
             }
         }
         if (p->child_count >= 4 && p->children[0]->rule[7] && p->children[1]->rule[10] && p->children[2]->rule[9] && p->children[3]->rule[8] && (JAV_TNEED(node,2) <= 7 && JAV_TNEED(node,3) <= 6)) {
@@ -5448,7 +6242,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 918;
+                p->rule[1] = 968;
             }
         }
         break;
@@ -5956,102 +6750,6 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
             }
         }
         break;
-    case BURG_Sig_f64_i32_to_v128_pw:
-        if (p->child_count >= 2 && p->children[0]->rule[5] && p->children[1]->rule[2]) {
-            int c = p->children[0]->cost[5] + p->children[1]->cost[2] + 5;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[6]) {
-                p->cost[6] = c;
-                p->rule[6] = 586;
-                closure_v128_mem(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[5] && p->children[1]->rule[8]) {
-            int c = p->children[0]->cost[5] + p->children[1]->cost[8] + 4;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[6]) {
-                p->cost[6] = c;
-                p->rule[6] = 587;
-                closure_v128_mem(p, c, node);
-            }
-        }
-        break;
-    case BURG_Sig_f32_to_i32:
-        if (p->child_count >= 1 && p->children[0]->rule[4]) {
-            int c = p->children[0]->cost[4] + 3;
-            for (int _ci = 1; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[2]) {
-                p->cost[2] = c;
-                p->rule[2] = 223;
-                closure_i32_mem(p, c, node);
-            }
-        }
-        if (p->child_count >= 1 && p->children[0]->rule[4]) {
-            int c = p->children[0]->cost[4] + 2;
-            for (int _ci = 1; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[8]) {
-                p->cost[8] = c;
-                p->rule[8] = 224;
-                closure_i32_reg0(p, c, node);
-            }
-        }
-        if (p->child_count >= 1 && p->children[0]->rule[24]) {
-            int c = p->children[0]->cost[24] + 2;
-            for (int _ci = 1; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[2]) {
-                p->cost[2] = c;
-                p->rule[2] = 225;
-                closure_i32_mem(p, c, node);
-            }
-        }
-        if (p->child_count >= 1 && p->children[0]->rule[24]) {
-            int c = p->children[0]->cost[24] + 0;
-            for (int _ci = 1; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[8]) {
-                p->cost[8] = c;
-                p->rule[8] = 226;
-                closure_i32_reg0(p, c, node);
-            }
-        }
-        break;
-    case BURG_Sig_i32_i32_to_v128_pw:
-        if (p->child_count >= 2 && p->children[0]->rule[2] && p->children[1]->rule[2]) {
-            int c = p->children[0]->cost[2] + p->children[1]->cost[2] + 5;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[6]) {
-                p->cost[6] = c;
-                p->rule[6] = 579;
-                closure_v128_mem(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[2] && p->children[1]->rule[8]) {
-            int c = p->children[0]->cost[2] + p->children[1]->cost[8] + 4;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[6]) {
-                p->cost[6] = c;
-                p->rule[6] = 580;
-                closure_v128_mem(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[9] && p->children[1]->rule[8] && (JAV_TNEED(node,1) <= 7)) {
-            int c = p->children[0]->cost[9] + p->children[1]->cost[8] + 3;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[6]) {
-                p->cost[6] = c;
-                p->rule[6] = 581;
-                closure_v128_mem(p, c, node);
-            }
-        }
-        break;
     case BURG_Sig_i32_ref_i32_to_void:
         if (p->child_count >= 3 && p->children[0]->rule[2] && p->children[1]->rule[7] && p->children[2]->rule[2]) {
             int c = p->children[0]->cost[2] + p->children[1]->cost[7] + p->children[2]->cost[2] + 4;
@@ -6059,7 +6757,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 884;
+                p->rule[1] = 933;
             }
         }
         if (p->child_count >= 3 && p->children[0]->rule[2] && p->children[1]->rule[7] && p->children[2]->rule[8]) {
@@ -6068,7 +6766,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 885;
+                p->rule[1] = 934;
             }
         }
         break;
@@ -6136,19 +6834,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
             }
         }
         break;
-    case BURG_Sig_stk_to_ref:
-        {
-            int c = 0 + 2;
-            for (int _ci = 0; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[7]) {
-                p->cost[7] = c;
-                p->rule[7] = 749;
-                closure_ref_mem(p, c, node);
-            }
-        }
-        break;
-    case BURG_Sig_v128_i32_to_f32_pw:
+    case BURG_Sig_v128_i32_to_f32_aw:
         if (p->child_count >= 2 && p->children[0]->rule[6] && p->children[1]->rule[2]) {
             int c = p->children[0]->cost[6] + p->children[1]->cost[2] + 5;
             for (int _ci = 2; _ci < p->child_count; _ci++)
@@ -6186,68 +6872,6 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
             if (c < p->cost[24]) {
                 p->cost[24] = c;
                 p->rule[24] = 400;
-                closure_f32_reg0(p, c, node);
-            }
-        }
-        break;
-    case BURG_Sig_i32_f32_i32_to_void:
-        if (p->child_count >= 3 && p->children[0]->rule[2] && p->children[1]->rule[4] && p->children[2]->rule[2]) {
-            int c = p->children[0]->cost[2] + p->children[1]->cost[4] + p->children[2]->cost[2] + 4;
-            for (int _ci = 3; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[1]) {
-                p->cost[1] = c;
-                p->rule[1] = 878;
-            }
-        }
-        if (p->child_count >= 3 && p->children[0]->rule[2] && p->children[1]->rule[4] && p->children[2]->rule[8]) {
-            int c = p->children[0]->cost[2] + p->children[1]->cost[4] + p->children[2]->cost[8] + 3;
-            for (int _ci = 3; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[1]) {
-                p->cost[1] = c;
-                p->rule[1] = 879;
-            }
-        }
-        break;
-    case BURG_Sig_ref_i32_to_f32:
-        if (p->child_count >= 2 && p->children[0]->rule[7] && p->children[1]->rule[2]) {
-            int c = p->children[0]->cost[7] + p->children[1]->cost[2] + 4;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[4]) {
-                p->cost[4] = c;
-                p->rule[4] = 401;
-                closure_f32_mem(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[7] && p->children[1]->rule[2]) {
-            int c = p->children[0]->cost[7] + p->children[1]->cost[2] + 3;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[24]) {
-                p->cost[24] = c;
-                p->rule[24] = 402;
-                closure_f32_reg0(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[7] && p->children[1]->rule[8]) {
-            int c = p->children[0]->cost[7] + p->children[1]->cost[8] + 3;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[4]) {
-                p->cost[4] = c;
-                p->rule[4] = 403;
-                closure_f32_mem(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[7] && p->children[1]->rule[8]) {
-            int c = p->children[0]->cost[7] + p->children[1]->cost[8] + 2;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[24]) {
-                p->cost[24] = c;
-                p->rule[24] = 404;
                 closure_f32_reg0(p, c, node);
             }
         }
@@ -6294,26 +6918,6 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
             }
         }
         break;
-    case BURG_Sig_ref_i32_v128_i32_to_void_pw:
-        if (p->child_count >= 4 && p->children[0]->rule[7] && p->children[1]->rule[2] && p->children[2]->rule[6] && p->children[3]->rule[2]) {
-            int c = p->children[0]->cost[7] + p->children[1]->cost[2] + p->children[2]->cost[6] + p->children[3]->cost[2] + 6;
-            for (int _ci = 4; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[1]) {
-                p->cost[1] = c;
-                p->rule[1] = 925;
-            }
-        }
-        if (p->child_count >= 4 && p->children[0]->rule[7] && p->children[1]->rule[2] && p->children[2]->rule[6] && p->children[3]->rule[8]) {
-            int c = p->children[0]->cost[7] + p->children[1]->cost[2] + p->children[2]->cost[6] + p->children[3]->cost[8] + 5;
-            for (int _ci = 4; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[1]) {
-                p->cost[1] = c;
-                p->rule[1] = 926;
-            }
-        }
-        break;
     case BURG_Sig_i64_i32_to_f64:
         if (p->child_count >= 2 && p->children[0]->rule[3] && p->children[1]->rule[2]) {
             int c = p->children[0]->cost[3] + p->children[1]->cost[2] + 4;
@@ -6356,25 +6960,14 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
             }
         }
         break;
-    case BURG_Sig_v128_i32_to_v128_pw:
-        if (p->child_count >= 2 && p->children[0]->rule[6] && p->children[1]->rule[2]) {
-            int c = p->children[0]->cost[6] + p->children[1]->cost[2] + 6;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
+    case BURG_Sig_stk_v128_to_void_aw:
+        if (p->child_count >= 1 && p->children[0]->rule[6]) {
+            int c = p->children[0]->cost[6] + 3;
+            for (int _ci = 1; _ci < p->child_count; _ci++)
                 c += p->children[_ci]->cost[1];
-            if (c < p->cost[6]) {
-                p->cost[6] = c;
-                p->rule[6] = 588;
-                closure_v128_mem(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[6] && p->children[1]->rule[8]) {
-            int c = p->children[0]->cost[6] + p->children[1]->cost[8] + 5;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[6]) {
-                p->cost[6] = c;
-                p->rule[6] = 589;
-                closure_v128_mem(p, c, node);
+            if (c < p->cost[1]) {
+                p->cost[1] = c;
+                p->rule[1] = 951;
             }
         }
         break;
@@ -6504,143 +7097,91 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
             }
         }
         break;
-    case BURG_Sig_stk_f32_to_void:
-        if (p->child_count >= 1 && p->children[0]->rule[4]) {
-            int c = p->children[0]->cost[4] + 2;
+    case BURG_Sig_i64_to_v128_aw:
+        if (p->child_count >= 1 && p->children[0]->rule[3]) {
+            int c = p->children[0]->cost[3] + 4;
             for (int _ci = 1; _ci < p->child_count; _ci++)
                 c += p->children[_ci]->cost[1];
-            if (c < p->cost[1]) {
-                p->cost[1] = c;
-                p->rule[1] = 899;
+            if (c < p->cost[6]) {
+                p->cost[6] = c;
+                p->rule[6] = 654;
+                closure_v128_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 1 && p->children[0]->rule[16]) {
+            int c = p->children[0]->cost[16] + 3;
+            for (int _ci = 1; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[6]) {
+                p->cost[6] = c;
+                p->rule[6] = 655;
+                closure_v128_mem(p, c, node);
             }
         }
         break;
-    case BURG_Sig_i32_i32_to_void:
-        if (p->child_count >= 2 && p->children[0]->rule[2] && p->children[1]->rule[2]) {
-            int c = p->children[0]->cost[2] + p->children[1]->cost[2] + 3;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
+    case BURG_Sig_i32_f32_i32_to_void:
+        if (p->child_count >= 3 && p->children[0]->rule[2] && p->children[1]->rule[4] && p->children[2]->rule[2]) {
+            int c = p->children[0]->cost[2] + p->children[1]->cost[4] + p->children[2]->cost[2] + 4;
+            for (int _ci = 3; _ci < p->child_count; _ci++)
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 760;
+                p->rule[1] = 927;
             }
         }
-        if (p->child_count >= 2 && p->children[0]->rule[2] && p->children[1]->rule[8]) {
-            int c = p->children[0]->cost[2] + p->children[1]->cost[8] + 2;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
+        if (p->child_count >= 3 && p->children[0]->rule[2] && p->children[1]->rule[4] && p->children[2]->rule[8]) {
+            int c = p->children[0]->cost[2] + p->children[1]->cost[4] + p->children[2]->cost[8] + 3;
+            for (int _ci = 3; _ci < p->child_count; _ci++)
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 761;
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[9] && p->children[1]->rule[8] && (JAV_TNEED(node,1) <= 7)) {
-            int c = p->children[0]->cost[9] + p->children[1]->cost[8] + 0;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[1]) {
-                p->cost[1] = c;
-                p->rule[1] = 762;
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[9] && p->children[1]->rule[8] && (JAV_TNEED(node,1) <= 6)) {
-            int c = p->children[0]->cost[9] + p->children[1]->cost[8] + 0;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[1]) {
-                p->cost[1] = c;
-                p->rule[1] = 763;
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[9] && p->children[1]->rule[8] && (JAV_TNEED(node,1) <= 5)) {
-            int c = p->children[0]->cost[9] + p->children[1]->cost[8] + 0;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[1]) {
-                p->cost[1] = c;
-                p->rule[1] = 764;
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[9] && p->children[1]->rule[8] && (JAV_TNEED(node,1) <= 4)) {
-            int c = p->children[0]->cost[9] + p->children[1]->cost[8] + 0;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[1]) {
-                p->cost[1] = c;
-                p->rule[1] = 765;
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[9] && p->children[1]->rule[8] && (JAV_TNEED(node,1) <= 3)) {
-            int c = p->children[0]->cost[9] + p->children[1]->cost[8] + 0;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[1]) {
-                p->cost[1] = c;
-                p->rule[1] = 766;
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[9] && p->children[1]->rule[8] && (JAV_TNEED(node,1) <= 2)) {
-            int c = p->children[0]->cost[9] + p->children[1]->cost[8] + 0;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[1]) {
-                p->cost[1] = c;
-                p->rule[1] = 767;
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[9] && p->children[1]->rule[8] && (JAV_TNEED(node,1) <= 1)) {
-            int c = p->children[0]->cost[9] + p->children[1]->cost[8] + 0;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[1]) {
-                p->cost[1] = c;
-                p->rule[1] = 768;
+                p->rule[1] = 928;
             }
         }
         break;
-    case BURG_Sig_i32_i64_to_i32:
-        if (p->child_count >= 2 && p->children[0]->rule[2] && p->children[1]->rule[3]) {
-            int c = p->children[0]->cost[2] + p->children[1]->cost[3] + 4;
+    case BURG_Sig_ref_i32_to_f32:
+        if (p->child_count >= 2 && p->children[0]->rule[7] && p->children[1]->rule[2]) {
+            int c = p->children[0]->cost[7] + p->children[1]->cost[2] + 4;
             for (int _ci = 2; _ci < p->child_count; _ci++)
                 c += p->children[_ci]->cost[1];
-            if (c < p->cost[2]) {
-                p->cost[2] = c;
-                p->rule[2] = 167;
-                closure_i32_mem(p, c, node);
+            if (c < p->cost[4]) {
+                p->cost[4] = c;
+                p->rule[4] = 401;
+                closure_f32_mem(p, c, node);
             }
         }
-        if (p->child_count >= 2 && p->children[0]->rule[2] && p->children[1]->rule[3]) {
-            int c = p->children[0]->cost[2] + p->children[1]->cost[3] + 3;
+        if (p->child_count >= 2 && p->children[0]->rule[7] && p->children[1]->rule[2]) {
+            int c = p->children[0]->cost[7] + p->children[1]->cost[2] + 3;
             for (int _ci = 2; _ci < p->child_count; _ci++)
                 c += p->children[_ci]->cost[1];
-            if (c < p->cost[8]) {
-                p->cost[8] = c;
-                p->rule[8] = 168;
-                closure_i32_reg0(p, c, node);
+            if (c < p->cost[24]) {
+                p->cost[24] = c;
+                p->rule[24] = 402;
+                closure_f32_reg0(p, c, node);
             }
         }
-        if (p->child_count >= 2 && p->children[0]->rule[2] && p->children[1]->rule[16]) {
-            int c = p->children[0]->cost[2] + p->children[1]->cost[16] + 3;
+        if (p->child_count >= 2 && p->children[0]->rule[7] && p->children[1]->rule[8]) {
+            int c = p->children[0]->cost[7] + p->children[1]->cost[8] + 3;
             for (int _ci = 2; _ci < p->child_count; _ci++)
                 c += p->children[_ci]->cost[1];
-            if (c < p->cost[2]) {
-                p->cost[2] = c;
-                p->rule[2] = 169;
-                closure_i32_mem(p, c, node);
+            if (c < p->cost[4]) {
+                p->cost[4] = c;
+                p->rule[4] = 403;
+                closure_f32_mem(p, c, node);
             }
         }
-        if (p->child_count >= 2 && p->children[0]->rule[2] && p->children[1]->rule[16]) {
-            int c = p->children[0]->cost[2] + p->children[1]->cost[16] + 2;
+        if (p->child_count >= 2 && p->children[0]->rule[7] && p->children[1]->rule[8]) {
+            int c = p->children[0]->cost[7] + p->children[1]->cost[8] + 2;
             for (int _ci = 2; _ci < p->child_count; _ci++)
                 c += p->children[_ci]->cost[1];
-            if (c < p->cost[8]) {
-                p->cost[8] = c;
-                p->rule[8] = 170;
-                closure_i32_reg0(p, c, node);
+            if (c < p->cost[24]) {
+                p->cost[24] = c;
+                p->rule[24] = 404;
+                closure_f32_reg0(p, c, node);
             }
         }
         break;
-    case BURG_Sig_v128_i64_to_f32_pw:
+    case BURG_Sig_v128_i64_to_f32_aw:
         if (p->child_count >= 2 && p->children[0]->rule[6] && p->children[1]->rule[3]) {
             int c = p->children[0]->cost[6] + p->children[1]->cost[3] + 5;
             for (int _ci = 2; _ci < p->child_count; _ci++)
@@ -6724,7 +7265,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
             }
         }
         break;
-    case BURG_Sig_v128_i64_to_i64_pw:
+    case BURG_Sig_v128_i64_to_i64_aw:
         if (p->child_count >= 2 && p->children[0]->rule[6] && p->children[1]->rule[3]) {
             int c = p->children[0]->cost[6] + p->children[1]->cost[3] + 5;
             for (int _ci = 2; _ci < p->child_count; _ci++)
@@ -6805,48 +7346,6 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 p->cost[24] = c;
                 p->rule[24] = 428;
                 closure_f32_reg0(p, c, node);
-            }
-        }
-        break;
-    case BURG_Sig_f64_to_v128:
-        if (p->child_count >= 1 && p->children[0]->rule[5]) {
-            int c = p->children[0]->cost[5] + 4;
-            for (int _ci = 1; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[6]) {
-                p->cost[6] = c;
-                p->rule[6] = 654;
-                closure_v128_mem(p, c, node);
-            }
-        }
-        if (p->child_count >= 1 && p->children[0]->rule[5]) {
-            int c = p->children[0]->cost[5] + 2;
-            for (int _ci = 1; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[40]) {
-                p->cost[40] = c;
-                p->rule[40] = 655;
-                closure_v128_reg0(p, c, node);
-            }
-        }
-        if (p->child_count >= 1 && p->children[0]->rule[32]) {
-            int c = p->children[0]->cost[32] + 3;
-            for (int _ci = 1; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[6]) {
-                p->cost[6] = c;
-                p->rule[6] = 656;
-                closure_v128_mem(p, c, node);
-            }
-        }
-        if (p->child_count >= 1 && p->children[0]->rule[32]) {
-            int c = p->children[0]->cost[32] + 0;
-            for (int _ci = 1; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[40]) {
-                p->cost[40] = c;
-                p->rule[40] = 657;
-                closure_v128_reg0(p, c, node);
             }
         }
         break;
@@ -7031,7 +7530,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[7]) {
                 p->cost[7] = c;
-                p->rule[7] = 729;
+                p->rule[7] = 777;
                 closure_ref_mem(p, c, node);
             }
         }
@@ -7041,7 +7540,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[7]) {
                 p->cost[7] = c;
-                p->rule[7] = 730;
+                p->rule[7] = 778;
                 closure_ref_mem(p, c, node);
             }
         }
@@ -7075,7 +7574,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[7]) {
                 p->cost[7] = c;
-                p->rule[7] = 718;
+                p->rule[7] = 766;
                 closure_ref_mem(p, c, node);
             }
         }
@@ -7085,7 +7584,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[7]) {
                 p->cost[7] = c;
-                p->rule[7] = 719;
+                p->rule[7] = 767;
                 closure_ref_mem(p, c, node);
             }
         }
@@ -7097,7 +7596,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[6]) {
                 p->cost[6] = c;
-                p->rule[6] = 673;
+                p->rule[6] = 721;
                 closure_v128_mem(p, c, node);
             }
         }
@@ -7107,7 +7606,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[40]) {
                 p->cost[40] = c;
-                p->rule[40] = 674;
+                p->rule[40] = 722;
                 closure_v128_reg0(p, c, node);
             }
         }
@@ -7117,7 +7616,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[6]) {
                 p->cost[6] = c;
-                p->rule[6] = 675;
+                p->rule[6] = 723;
                 closure_v128_mem(p, c, node);
             }
         }
@@ -7127,7 +7626,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[40]) {
                 p->cost[40] = c;
-                p->rule[40] = 676;
+                p->rule[40] = 724;
                 closure_v128_reg0(p, c, node);
             }
         }
@@ -7137,7 +7636,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[6]) {
                 p->cost[6] = c;
-                p->rule[6] = 677;
+                p->rule[6] = 725;
                 closure_v128_mem(p, c, node);
             }
         }
@@ -7147,7 +7646,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[40]) {
                 p->cost[40] = c;
-                p->rule[40] = 678;
+                p->rule[40] = 726;
                 closure_v128_reg0(p, c, node);
             }
         }
@@ -7157,7 +7656,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[40]) {
                 p->cost[40] = c;
-                p->rule[40] = 679;
+                p->rule[40] = 727;
                 closure_v128_reg0(p, c, node);
             }
         }
@@ -7167,7 +7666,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[40]) {
                 p->cost[40] = c;
-                p->rule[40] = 680;
+                p->rule[40] = 728;
                 closure_v128_reg0(p, c, node);
             }
         }
@@ -7177,7 +7676,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[40]) {
                 p->cost[40] = c;
-                p->rule[40] = 681;
+                p->rule[40] = 729;
                 closure_v128_reg0(p, c, node);
             }
         }
@@ -7187,7 +7686,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[40]) {
                 p->cost[40] = c;
-                p->rule[40] = 682;
+                p->rule[40] = 730;
                 closure_v128_reg0(p, c, node);
             }
         }
@@ -7197,7 +7696,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[40]) {
                 p->cost[40] = c;
-                p->rule[40] = 683;
+                p->rule[40] = 731;
                 closure_v128_reg0(p, c, node);
             }
         }
@@ -7331,8 +7830,18 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[6]) {
                 p->cost[6] = c;
-                p->rule[6] = 584;
+                p->rule[6] = 595;
                 closure_v128_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[4] && p->children[1]->rule[2]) {
+            int c = p->children[0]->cost[4] + p->children[1]->cost[2] + 3;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[40]) {
+                p->cost[40] = c;
+                p->rule[40] = 596;
+                closure_v128_reg0(p, c, node);
             }
         }
         if (p->child_count >= 2 && p->children[0]->rule[4] && p->children[1]->rule[8]) {
@@ -7341,8 +7850,18 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[6]) {
                 p->cost[6] = c;
-                p->rule[6] = 585;
+                p->rule[6] = 597;
                 closure_v128_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[4] && p->children[1]->rule[8]) {
+            int c = p->children[0]->cost[4] + p->children[1]->cost[8] + 2;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[40]) {
+                p->cost[40] = c;
+                p->rule[40] = 598;
+                closure_v128_reg0(p, c, node);
             }
         }
         break;
@@ -7501,7 +8020,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 921;
+                p->rule[1] = 971;
             }
         }
         if (p->child_count >= 4 && p->children[0]->rule[7] && p->children[1]->rule[2] && p->children[2]->rule[4] && p->children[3]->rule[8]) {
@@ -7510,7 +8029,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 922;
+                p->rule[1] = 972;
             }
         }
         break;
@@ -7521,8 +8040,18 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[6]) {
                 p->cost[6] = c;
-                p->rule[6] = 594;
+                p->rule[6] = 613;
                 closure_v128_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[3] && p->children[1]->rule[3]) {
+            int c = p->children[0]->cost[3] + p->children[1]->cost[3] + 3;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[40]) {
+                p->cost[40] = c;
+                p->rule[40] = 614;
+                closure_v128_reg0(p, c, node);
             }
         }
         if (p->child_count >= 2 && p->children[0]->rule[3] && p->children[1]->rule[16]) {
@@ -7531,8 +8060,18 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[6]) {
                 p->cost[6] = c;
-                p->rule[6] = 595;
+                p->rule[6] = 615;
                 closure_v128_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[3] && p->children[1]->rule[16]) {
+            int c = p->children[0]->cost[3] + p->children[1]->cost[16] + 2;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[40]) {
+                p->cost[40] = c;
+                p->rule[40] = 616;
+                closure_v128_reg0(p, c, node);
             }
         }
         break;
@@ -7574,331 +8113,6 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
             if (c < p->cost[32]) {
                 p->cost[32] = c;
                 p->rule[32] = 479;
-                closure_f64_reg0(p, c, node);
-            }
-        }
-        break;
-    case BURG_Sig_f32_i32_to_f64:
-        if (p->child_count >= 2 && p->children[0]->rule[4] && p->children[1]->rule[2]) {
-            int c = p->children[0]->cost[4] + p->children[1]->cost[2] + 4;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[5]) {
-                p->cost[5] = c;
-                p->rule[5] = 496;
-                closure_f64_mem(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[4] && p->children[1]->rule[2]) {
-            int c = p->children[0]->cost[4] + p->children[1]->cost[2] + 3;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[32]) {
-                p->cost[32] = c;
-                p->rule[32] = 497;
-                closure_f64_reg0(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[4] && p->children[1]->rule[8]) {
-            int c = p->children[0]->cost[4] + p->children[1]->cost[8] + 3;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[5]) {
-                p->cost[5] = c;
-                p->rule[5] = 498;
-                closure_f64_mem(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[4] && p->children[1]->rule[8]) {
-            int c = p->children[0]->cost[4] + p->children[1]->cost[8] + 2;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[32]) {
-                p->cost[32] = c;
-                p->rule[32] = 499;
-                closure_f64_reg0(p, c, node);
-            }
-        }
-        break;
-    case BURG_Sig_i64_ref_i64_to_void:
-        if (p->child_count >= 3 && p->children[0]->rule[3] && p->children[1]->rule[7] && p->children[2]->rule[3]) {
-            int c = p->children[0]->cost[3] + p->children[1]->cost[7] + p->children[2]->cost[3] + 4;
-            for (int _ci = 3; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[1]) {
-                p->cost[1] = c;
-                p->rule[1] = 892;
-            }
-        }
-        if (p->child_count >= 3 && p->children[0]->rule[3] && p->children[1]->rule[7] && p->children[2]->rule[16]) {
-            int c = p->children[0]->cost[3] + p->children[1]->cost[7] + p->children[2]->cost[16] + 3;
-            for (int _ci = 3; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[1]) {
-                p->cost[1] = c;
-                p->rule[1] = 893;
-            }
-        }
-        break;
-    case BURG_Sig_f64_i32_to_f64:
-        if (p->child_count >= 2 && p->children[0]->rule[5] && p->children[1]->rule[2]) {
-            int c = p->children[0]->cost[5] + p->children[1]->cost[2] + 4;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[5]) {
-                p->cost[5] = c;
-                p->rule[5] = 500;
-                closure_f64_mem(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[5] && p->children[1]->rule[2]) {
-            int c = p->children[0]->cost[5] + p->children[1]->cost[2] + 3;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[32]) {
-                p->cost[32] = c;
-                p->rule[32] = 501;
-                closure_f64_reg0(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[5] && p->children[1]->rule[8]) {
-            int c = p->children[0]->cost[5] + p->children[1]->cost[8] + 3;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[5]) {
-                p->cost[5] = c;
-                p->rule[5] = 502;
-                closure_f64_mem(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[5] && p->children[1]->rule[8]) {
-            int c = p->children[0]->cost[5] + p->children[1]->cost[8] + 2;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[32]) {
-                p->cost[32] = c;
-                p->rule[32] = 503;
-                closure_f64_reg0(p, c, node);
-            }
-        }
-        break;
-    case BURG_Sig_i32_f64_i32_to_void:
-        if (p->child_count >= 3 && p->children[0]->rule[2] && p->children[1]->rule[5] && p->children[2]->rule[2]) {
-            int c = p->children[0]->cost[2] + p->children[1]->cost[5] + p->children[2]->cost[2] + 4;
-            for (int _ci = 3; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[1]) {
-                p->cost[1] = c;
-                p->rule[1] = 880;
-            }
-        }
-        if (p->child_count >= 3 && p->children[0]->rule[2] && p->children[1]->rule[5] && p->children[2]->rule[8]) {
-            int c = p->children[0]->cost[2] + p->children[1]->cost[5] + p->children[2]->cost[8] + 3;
-            for (int _ci = 3; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[1]) {
-                p->cost[1] = c;
-                p->rule[1] = 881;
-            }
-        }
-        break;
-    case BURG_Sig_v128_i32_to_f64_pw:
-        if (p->child_count >= 2 && p->children[0]->rule[6] && p->children[1]->rule[2]) {
-            int c = p->children[0]->cost[6] + p->children[1]->cost[2] + 5;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[5]) {
-                p->cost[5] = c;
-                p->rule[5] = 504;
-                closure_f64_mem(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[6] && p->children[1]->rule[2]) {
-            int c = p->children[0]->cost[6] + p->children[1]->cost[2] + 4;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[32]) {
-                p->cost[32] = c;
-                p->rule[32] = 505;
-                closure_f64_reg0(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[6] && p->children[1]->rule[8]) {
-            int c = p->children[0]->cost[6] + p->children[1]->cost[8] + 4;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[5]) {
-                p->cost[5] = c;
-                p->rule[5] = 506;
-                closure_f64_mem(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[6] && p->children[1]->rule[8]) {
-            int c = p->children[0]->cost[6] + p->children[1]->cost[8] + 3;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[32]) {
-                p->cost[32] = c;
-                p->rule[32] = 507;
-                closure_f64_reg0(p, c, node);
-            }
-        }
-        break;
-    case BURG_Sig_to_void:
-        {
-            int c = 0 + 0;
-            for (int _ci = 0; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[1]) {
-                p->cost[1] = c;
-                p->rule[1] = 877;
-            }
-        }
-        break;
-    case BURG_Sig_i32_i64_to_f64:
-        if (p->child_count >= 2 && p->children[0]->rule[2] && p->children[1]->rule[3]) {
-            int c = p->children[0]->cost[2] + p->children[1]->cost[3] + 4;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[5]) {
-                p->cost[5] = c;
-                p->rule[5] = 512;
-                closure_f64_mem(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[2] && p->children[1]->rule[3]) {
-            int c = p->children[0]->cost[2] + p->children[1]->cost[3] + 3;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[32]) {
-                p->cost[32] = c;
-                p->rule[32] = 513;
-                closure_f64_reg0(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[2] && p->children[1]->rule[16]) {
-            int c = p->children[0]->cost[2] + p->children[1]->cost[16] + 3;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[5]) {
-                p->cost[5] = c;
-                p->rule[5] = 514;
-                closure_f64_mem(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[2] && p->children[1]->rule[16]) {
-            int c = p->children[0]->cost[2] + p->children[1]->cost[16] + 2;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[32]) {
-                p->cost[32] = c;
-                p->rule[32] = 515;
-                closure_f64_reg0(p, c, node);
-            }
-        }
-        break;
-    case BURG_Sig_v128_i32_to_ref_pw:
-        if (p->child_count >= 2 && p->children[0]->rule[6] && p->children[1]->rule[2]) {
-            int c = p->children[0]->cost[6] + p->children[1]->cost[2] + 5;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[7]) {
-                p->cost[7] = c;
-                p->rule[7] = 731;
-                closure_ref_mem(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[6] && p->children[1]->rule[8]) {
-            int c = p->children[0]->cost[6] + p->children[1]->cost[8] + 4;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[7]) {
-                p->cost[7] = c;
-                p->rule[7] = 732;
-                closure_ref_mem(p, c, node);
-            }
-        }
-        break;
-    case BURG_Sig_i64_i64_to_f64:
-        if (p->child_count >= 2 && p->children[0]->rule[3] && p->children[1]->rule[3]) {
-            int c = p->children[0]->cost[3] + p->children[1]->cost[3] + 4;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[5]) {
-                p->cost[5] = c;
-                p->rule[5] = 516;
-                closure_f64_mem(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[3] && p->children[1]->rule[3]) {
-            int c = p->children[0]->cost[3] + p->children[1]->cost[3] + 3;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[32]) {
-                p->cost[32] = c;
-                p->rule[32] = 517;
-                closure_f64_reg0(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[3] && p->children[1]->rule[16]) {
-            int c = p->children[0]->cost[3] + p->children[1]->cost[16] + 3;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[5]) {
-                p->cost[5] = c;
-                p->rule[5] = 518;
-                closure_f64_mem(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[3] && p->children[1]->rule[16]) {
-            int c = p->children[0]->cost[3] + p->children[1]->cost[16] + 2;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[32]) {
-                p->cost[32] = c;
-                p->rule[32] = 519;
-                closure_f64_reg0(p, c, node);
-            }
-        }
-        break;
-    case BURG_Sig_f32_i64_to_f64:
-        if (p->child_count >= 2 && p->children[0]->rule[4] && p->children[1]->rule[3]) {
-            int c = p->children[0]->cost[4] + p->children[1]->cost[3] + 4;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[5]) {
-                p->cost[5] = c;
-                p->rule[5] = 520;
-                closure_f64_mem(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[4] && p->children[1]->rule[3]) {
-            int c = p->children[0]->cost[4] + p->children[1]->cost[3] + 3;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[32]) {
-                p->cost[32] = c;
-                p->rule[32] = 521;
-                closure_f64_reg0(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[4] && p->children[1]->rule[16]) {
-            int c = p->children[0]->cost[4] + p->children[1]->cost[16] + 3;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[5]) {
-                p->cost[5] = c;
-                p->rule[5] = 522;
-                closure_f64_mem(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[4] && p->children[1]->rule[16]) {
-            int c = p->children[0]->cost[4] + p->children[1]->cost[16] + 2;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[32]) {
-                p->cost[32] = c;
-                p->rule[32] = 523;
                 closure_f64_reg0(p, c, node);
             }
         }
@@ -8025,7 +8239,312 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
             }
         }
         break;
-    case BURG_Sig_v128_i64_to_f64_pw:
+    case BURG_Sig_f32_i32_to_f64:
+        if (p->child_count >= 2 && p->children[0]->rule[4] && p->children[1]->rule[2]) {
+            int c = p->children[0]->cost[4] + p->children[1]->cost[2] + 4;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[5]) {
+                p->cost[5] = c;
+                p->rule[5] = 496;
+                closure_f64_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[4] && p->children[1]->rule[2]) {
+            int c = p->children[0]->cost[4] + p->children[1]->cost[2] + 3;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[32]) {
+                p->cost[32] = c;
+                p->rule[32] = 497;
+                closure_f64_reg0(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[4] && p->children[1]->rule[8]) {
+            int c = p->children[0]->cost[4] + p->children[1]->cost[8] + 3;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[5]) {
+                p->cost[5] = c;
+                p->rule[5] = 498;
+                closure_f64_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[4] && p->children[1]->rule[8]) {
+            int c = p->children[0]->cost[4] + p->children[1]->cost[8] + 2;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[32]) {
+                p->cost[32] = c;
+                p->rule[32] = 499;
+                closure_f64_reg0(p, c, node);
+            }
+        }
+        break;
+    case BURG_Sig_i64_ref_i64_to_void:
+        if (p->child_count >= 3 && p->children[0]->rule[3] && p->children[1]->rule[7] && p->children[2]->rule[3]) {
+            int c = p->children[0]->cost[3] + p->children[1]->cost[7] + p->children[2]->cost[3] + 4;
+            for (int _ci = 3; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[1]) {
+                p->cost[1] = c;
+                p->rule[1] = 941;
+            }
+        }
+        if (p->child_count >= 3 && p->children[0]->rule[3] && p->children[1]->rule[7] && p->children[2]->rule[16]) {
+            int c = p->children[0]->cost[3] + p->children[1]->cost[7] + p->children[2]->cost[16] + 3;
+            for (int _ci = 3; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[1]) {
+                p->cost[1] = c;
+                p->rule[1] = 942;
+            }
+        }
+        break;
+    case BURG_Sig_f64_i32_to_f64:
+        if (p->child_count >= 2 && p->children[0]->rule[5] && p->children[1]->rule[2]) {
+            int c = p->children[0]->cost[5] + p->children[1]->cost[2] + 4;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[5]) {
+                p->cost[5] = c;
+                p->rule[5] = 500;
+                closure_f64_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[5] && p->children[1]->rule[2]) {
+            int c = p->children[0]->cost[5] + p->children[1]->cost[2] + 3;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[32]) {
+                p->cost[32] = c;
+                p->rule[32] = 501;
+                closure_f64_reg0(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[5] && p->children[1]->rule[8]) {
+            int c = p->children[0]->cost[5] + p->children[1]->cost[8] + 3;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[5]) {
+                p->cost[5] = c;
+                p->rule[5] = 502;
+                closure_f64_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[5] && p->children[1]->rule[8]) {
+            int c = p->children[0]->cost[5] + p->children[1]->cost[8] + 2;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[32]) {
+                p->cost[32] = c;
+                p->rule[32] = 503;
+                closure_f64_reg0(p, c, node);
+            }
+        }
+        break;
+    case BURG_Sig_v128_i32_to_f64_aw:
+        if (p->child_count >= 2 && p->children[0]->rule[6] && p->children[1]->rule[2]) {
+            int c = p->children[0]->cost[6] + p->children[1]->cost[2] + 5;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[5]) {
+                p->cost[5] = c;
+                p->rule[5] = 504;
+                closure_f64_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[6] && p->children[1]->rule[2]) {
+            int c = p->children[0]->cost[6] + p->children[1]->cost[2] + 4;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[32]) {
+                p->cost[32] = c;
+                p->rule[32] = 505;
+                closure_f64_reg0(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[6] && p->children[1]->rule[8]) {
+            int c = p->children[0]->cost[6] + p->children[1]->cost[8] + 4;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[5]) {
+                p->cost[5] = c;
+                p->rule[5] = 506;
+                closure_f64_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[6] && p->children[1]->rule[8]) {
+            int c = p->children[0]->cost[6] + p->children[1]->cost[8] + 3;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[32]) {
+                p->cost[32] = c;
+                p->rule[32] = 507;
+                closure_f64_reg0(p, c, node);
+            }
+        }
+        break;
+    case BURG_Sig_i64_v128_to_void_aw:
+        if (p->child_count >= 2 && p->children[0]->rule[3] && p->children[1]->rule[6]) {
+            int c = p->children[0]->cost[3] + p->children[1]->cost[6] + 4;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[1]) {
+                p->cost[1] = c;
+                p->rule[1] = 984;
+            }
+        }
+        break;
+    case BURG_Sig_to_void:
+        {
+            int c = 0 + 0;
+            for (int _ci = 0; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[1]) {
+                p->cost[1] = c;
+                p->rule[1] = 926;
+            }
+        }
+        break;
+    case BURG_Sig_i32_i64_to_f64:
+        if (p->child_count >= 2 && p->children[0]->rule[2] && p->children[1]->rule[3]) {
+            int c = p->children[0]->cost[2] + p->children[1]->cost[3] + 4;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[5]) {
+                p->cost[5] = c;
+                p->rule[5] = 512;
+                closure_f64_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[2] && p->children[1]->rule[3]) {
+            int c = p->children[0]->cost[2] + p->children[1]->cost[3] + 3;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[32]) {
+                p->cost[32] = c;
+                p->rule[32] = 513;
+                closure_f64_reg0(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[2] && p->children[1]->rule[16]) {
+            int c = p->children[0]->cost[2] + p->children[1]->cost[16] + 3;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[5]) {
+                p->cost[5] = c;
+                p->rule[5] = 514;
+                closure_f64_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[2] && p->children[1]->rule[16]) {
+            int c = p->children[0]->cost[2] + p->children[1]->cost[16] + 2;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[32]) {
+                p->cost[32] = c;
+                p->rule[32] = 515;
+                closure_f64_reg0(p, c, node);
+            }
+        }
+        break;
+    case BURG_Sig_i64_i64_to_f64:
+        if (p->child_count >= 2 && p->children[0]->rule[3] && p->children[1]->rule[3]) {
+            int c = p->children[0]->cost[3] + p->children[1]->cost[3] + 4;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[5]) {
+                p->cost[5] = c;
+                p->rule[5] = 516;
+                closure_f64_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[3] && p->children[1]->rule[3]) {
+            int c = p->children[0]->cost[3] + p->children[1]->cost[3] + 3;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[32]) {
+                p->cost[32] = c;
+                p->rule[32] = 517;
+                closure_f64_reg0(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[3] && p->children[1]->rule[16]) {
+            int c = p->children[0]->cost[3] + p->children[1]->cost[16] + 3;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[5]) {
+                p->cost[5] = c;
+                p->rule[5] = 518;
+                closure_f64_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[3] && p->children[1]->rule[16]) {
+            int c = p->children[0]->cost[3] + p->children[1]->cost[16] + 2;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[32]) {
+                p->cost[32] = c;
+                p->rule[32] = 519;
+                closure_f64_reg0(p, c, node);
+            }
+        }
+        break;
+    case BURG_Sig_f32_i64_to_f64:
+        if (p->child_count >= 2 && p->children[0]->rule[4] && p->children[1]->rule[3]) {
+            int c = p->children[0]->cost[4] + p->children[1]->cost[3] + 4;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[5]) {
+                p->cost[5] = c;
+                p->rule[5] = 520;
+                closure_f64_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[4] && p->children[1]->rule[3]) {
+            int c = p->children[0]->cost[4] + p->children[1]->cost[3] + 3;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[32]) {
+                p->cost[32] = c;
+                p->rule[32] = 521;
+                closure_f64_reg0(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[4] && p->children[1]->rule[16]) {
+            int c = p->children[0]->cost[4] + p->children[1]->cost[16] + 3;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[5]) {
+                p->cost[5] = c;
+                p->rule[5] = 522;
+                closure_f64_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[4] && p->children[1]->rule[16]) {
+            int c = p->children[0]->cost[4] + p->children[1]->cost[16] + 2;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[32]) {
+                p->cost[32] = c;
+                p->rule[32] = 523;
+                closure_f64_reg0(p, c, node);
+            }
+        }
+        break;
+    case BURG_Sig_ref_i32_f32_to_void:
+        if (p->child_count >= 3 && p->children[0]->rule[7] && p->children[1]->rule[2] && p->children[2]->rule[4]) {
+            int c = p->children[0]->cost[7] + p->children[1]->cost[2] + p->children[2]->cost[4] + 4;
+            for (int _ci = 3; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[1]) {
+                p->cost[1] = c;
+                p->rule[1] = 961;
+            }
+        }
+        break;
+    case BURG_Sig_v128_i64_to_f64_aw:
         if (p->child_count >= 2 && p->children[0]->rule[6] && p->children[1]->rule[3]) {
             int c = p->children[0]->cost[6] + p->children[1]->cost[3] + 5;
             for (int _ci = 2; _ci < p->child_count; _ci++)
@@ -8074,7 +8593,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 905;
+                p->rule[1] = 955;
             }
         }
         break;
@@ -8127,8 +8646,38 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[6]) {
                 p->cost[6] = c;
-                p->rule[6] = 574;
+                p->rule[6] = 575;
                 closure_v128_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 1 && p->children[0]->rule[6]) {
+            int c = p->children[0]->cost[6] + 3;
+            for (int _ci = 1; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[40]) {
+                p->cost[40] = c;
+                p->rule[40] = 576;
+                closure_v128_reg0(p, c, node);
+            }
+        }
+        if (p->child_count >= 1 && p->children[0]->rule[40]) {
+            int c = p->children[0]->cost[40] + 3;
+            for (int _ci = 1; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[6]) {
+                p->cost[6] = c;
+                p->rule[6] = 577;
+                closure_v128_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 1 && p->children[0]->rule[40]) {
+            int c = p->children[0]->cost[40] + 0;
+            for (int _ci = 1; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[40]) {
+                p->cost[40] = c;
+                p->rule[40] = 578;
+                closure_v128_reg0(p, c, node);
             }
         }
         break;
@@ -8328,6 +8877,154 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
             }
         }
         break;
+    case BURG_Sig_to_v128_pw:
+        {
+            int c = 0 + 3;
+            for (int _ci = 0; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[6]) {
+                p->cost[6] = c;
+                p->rule[6] = 573;
+                closure_v128_mem(p, c, node);
+            }
+        }
+        {
+            int c = 0 + 0;
+            for (int _ci = 0; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[40]) {
+                p->cost[40] = c;
+                p->rule[40] = 574;
+                closure_v128_reg0(p, c, node);
+            }
+        }
+        break;
+    case BURG_Sig_v128_to_f64:
+        if (p->child_count >= 1 && p->children[0]->rule[6]) {
+            int c = p->children[0]->cost[6] + 4;
+            for (int _ci = 1; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[5]) {
+                p->cost[5] = c;
+                p->rule[5] = 569;
+                closure_f64_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 1 && p->children[0]->rule[6]) {
+            int c = p->children[0]->cost[6] + 3;
+            for (int _ci = 1; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[32]) {
+                p->cost[32] = c;
+                p->rule[32] = 570;
+                closure_f64_reg0(p, c, node);
+            }
+        }
+        if (p->child_count >= 1 && p->children[0]->rule[40]) {
+            int c = p->children[0]->cost[40] + 2;
+            for (int _ci = 1; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[5]) {
+                p->cost[5] = c;
+                p->rule[5] = 571;
+                closure_f64_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 1 && p->children[0]->rule[40]) {
+            int c = p->children[0]->cost[40] + 0;
+            for (int _ci = 1; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[32]) {
+                p->cost[32] = c;
+                p->rule[32] = 572;
+                closure_f64_reg0(p, c, node);
+            }
+        }
+        break;
+    case BURG_Sig_i32_i64_to_i64:
+        if (p->child_count >= 2 && p->children[0]->rule[2] && p->children[1]->rule[3]) {
+            int c = p->children[0]->cost[2] + p->children[1]->cost[3] + 4;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[3]) {
+                p->cost[3] = c;
+                p->rule[3] = 298;
+                closure_i64_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[2] && p->children[1]->rule[3]) {
+            int c = p->children[0]->cost[2] + p->children[1]->cost[3] + 3;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[16]) {
+                p->cost[16] = c;
+                p->rule[16] = 299;
+                closure_i64_reg0(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[2] && p->children[1]->rule[16]) {
+            int c = p->children[0]->cost[2] + p->children[1]->cost[16] + 3;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[3]) {
+                p->cost[3] = c;
+                p->rule[3] = 300;
+                closure_i64_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[2] && p->children[1]->rule[16]) {
+            int c = p->children[0]->cost[2] + p->children[1]->cost[16] + 2;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[16]) {
+                p->cost[16] = c;
+                p->rule[16] = 301;
+                closure_i64_reg0(p, c, node);
+            }
+        }
+        break;
+    case BURG_Sig_i32_i64_to_v128_pw:
+        if (p->child_count >= 2 && p->children[0]->rule[2] && p->children[1]->rule[3]) {
+            int c = p->children[0]->cost[2] + p->children[1]->cost[3] + 5;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[6]) {
+                p->cost[6] = c;
+                p->rule[6] = 609;
+                closure_v128_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[2] && p->children[1]->rule[3]) {
+            int c = p->children[0]->cost[2] + p->children[1]->cost[3] + 3;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[40]) {
+                p->cost[40] = c;
+                p->rule[40] = 610;
+                closure_v128_reg0(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[2] && p->children[1]->rule[16]) {
+            int c = p->children[0]->cost[2] + p->children[1]->cost[16] + 4;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[6]) {
+                p->cost[6] = c;
+                p->rule[6] = 611;
+                closure_v128_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[2] && p->children[1]->rule[16]) {
+            int c = p->children[0]->cost[2] + p->children[1]->cost[16] + 2;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[40]) {
+                p->cost[40] = c;
+                p->rule[40] = 612;
+                closure_v128_reg0(p, c, node);
+            }
+        }
+        break;
     case BURG_Sig_i32_to_v128_pw:
         if (p->child_count >= 1 && p->children[0]->rule[2]) {
             int c = p->children[0]->cost[2] + 4;
@@ -8335,8 +9032,18 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[6]) {
                 p->cost[6] = c;
-                p->rule[6] = 575;
+                p->rule[6] = 579;
                 closure_v128_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 1 && p->children[0]->rule[2]) {
+            int c = p->children[0]->cost[2] + 2;
+            for (int _ci = 1; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[40]) {
+                p->cost[40] = c;
+                p->rule[40] = 580;
+                closure_v128_reg0(p, c, node);
             }
         }
         if (p->child_count >= 1 && p->children[0]->rule[8]) {
@@ -8345,50 +9052,40 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[6]) {
                 p->cost[6] = c;
-                p->rule[6] = 576;
+                p->rule[6] = 581;
                 closure_v128_mem(p, c, node);
             }
         }
+        if (p->child_count >= 1 && p->children[0]->rule[8]) {
+            int c = p->children[0]->cost[8] + 0;
+            for (int _ci = 1; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[40]) {
+                p->cost[40] = c;
+                p->rule[40] = 582;
+                closure_v128_reg0(p, c, node);
+            }
+        }
         break;
-    case BURG_Sig_v128_i64_to_i32_pw:
-        if (p->child_count >= 2 && p->children[0]->rule[6] && p->children[1]->rule[3]) {
-            int c = p->children[0]->cost[6] + p->children[1]->cost[3] + 5;
+    case BURG_Sig_v128_i32_to_v128_pw_aw:
+        if (p->child_count >= 2 && p->children[0]->rule[6] && p->children[1]->rule[2]) {
+            int c = p->children[0]->cost[6] + p->children[1]->cost[2] + 6;
             for (int _ci = 2; _ci < p->child_count; _ci++)
                 c += p->children[_ci]->cost[1];
-            if (c < p->cost[2]) {
-                p->cost[2] = c;
-                p->rule[2] = 191;
-                closure_i32_mem(p, c, node);
+            if (c < p->cost[6]) {
+                p->cost[6] = c;
+                p->rule[6] = 603;
+                closure_v128_mem(p, c, node);
             }
         }
-        if (p->child_count >= 2 && p->children[0]->rule[6] && p->children[1]->rule[3]) {
-            int c = p->children[0]->cost[6] + p->children[1]->cost[3] + 4;
+        if (p->child_count >= 2 && p->children[0]->rule[6] && p->children[1]->rule[8]) {
+            int c = p->children[0]->cost[6] + p->children[1]->cost[8] + 5;
             for (int _ci = 2; _ci < p->child_count; _ci++)
                 c += p->children[_ci]->cost[1];
-            if (c < p->cost[8]) {
-                p->cost[8] = c;
-                p->rule[8] = 192;
-                closure_i32_reg0(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[6] && p->children[1]->rule[16]) {
-            int c = p->children[0]->cost[6] + p->children[1]->cost[16] + 4;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[2]) {
-                p->cost[2] = c;
-                p->rule[2] = 193;
-                closure_i32_mem(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[6] && p->children[1]->rule[16]) {
-            int c = p->children[0]->cost[6] + p->children[1]->cost[16] + 3;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[8]) {
-                p->cost[8] = c;
-                p->rule[8] = 194;
-                closure_i32_reg0(p, c, node);
+            if (c < p->cost[6]) {
+                p->cost[6] = c;
+                p->rule[6] = 604;
+                closure_v128_mem(p, c, node);
             }
         }
         break;
@@ -8399,7 +9096,208 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[6]) {
                 p->cost[6] = c;
-                p->rule[6] = 590;
+                p->rule[6] = 605;
+                closure_v128_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[7] && p->children[1]->rule[2]) {
+            int c = p->children[0]->cost[7] + p->children[1]->cost[2] + 3;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[40]) {
+                p->cost[40] = c;
+                p->rule[40] = 606;
+                closure_v128_reg0(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[7] && p->children[1]->rule[8]) {
+            int c = p->children[0]->cost[7] + p->children[1]->cost[8] + 4;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[6]) {
+                p->cost[6] = c;
+                p->rule[6] = 607;
+                closure_v128_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[7] && p->children[1]->rule[8]) {
+            int c = p->children[0]->cost[7] + p->children[1]->cost[8] + 2;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[40]) {
+                p->cost[40] = c;
+                p->rule[40] = 608;
+                closure_v128_reg0(p, c, node);
+            }
+        }
+        break;
+    case BURG_Sig_f64_i64_to_i32:
+        if (p->child_count >= 2 && p->children[0]->rule[5] && p->children[1]->rule[3]) {
+            int c = p->children[0]->cost[5] + p->children[1]->cost[3] + 4;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[2]) {
+                p->cost[2] = c;
+                p->rule[2] = 187;
+                closure_i32_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[5] && p->children[1]->rule[3]) {
+            int c = p->children[0]->cost[5] + p->children[1]->cost[3] + 3;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[8]) {
+                p->cost[8] = c;
+                p->rule[8] = 188;
+                closure_i32_reg0(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[5] && p->children[1]->rule[16]) {
+            int c = p->children[0]->cost[5] + p->children[1]->cost[16] + 3;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[2]) {
+                p->cost[2] = c;
+                p->rule[2] = 189;
+                closure_i32_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[5] && p->children[1]->rule[16]) {
+            int c = p->children[0]->cost[5] + p->children[1]->cost[16] + 2;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[8]) {
+                p->cost[8] = c;
+                p->rule[8] = 190;
+                closure_i32_reg0(p, c, node);
+            }
+        }
+        break;
+    case BURG_Sig_v128_i64_to_v128_pw_aw:
+        if (p->child_count >= 2 && p->children[0]->rule[6] && p->children[1]->rule[3]) {
+            int c = p->children[0]->cost[6] + p->children[1]->cost[3] + 6;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[6]) {
+                p->cost[6] = c;
+                p->rule[6] = 625;
+                closure_v128_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[6] && p->children[1]->rule[16]) {
+            int c = p->children[0]->cost[6] + p->children[1]->cost[16] + 5;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[6]) {
+                p->cost[6] = c;
+                p->rule[6] = 626;
+                closure_v128_mem(p, c, node);
+            }
+        }
+        break;
+    case BURG_Sig_i32_i32_i32_to_void:
+        if (p->child_count >= 3 && p->children[0]->rule[2] && p->children[1]->rule[2] && p->children[2]->rule[2]) {
+            int c = p->children[0]->cost[2] + p->children[1]->cost[2] + p->children[2]->cost[2] + 4;
+            for (int _ci = 3; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[1]) {
+                p->cost[1] = c;
+                p->rule[1] = 881;
+            }
+        }
+        if (p->child_count >= 3 && p->children[0]->rule[2] && p->children[1]->rule[2] && p->children[2]->rule[8]) {
+            int c = p->children[0]->cost[2] + p->children[1]->cost[2] + p->children[2]->cost[8] + 3;
+            for (int _ci = 3; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[1]) {
+                p->cost[1] = c;
+                p->rule[1] = 882;
+            }
+        }
+        if (p->child_count >= 3 && p->children[0]->rule[2] && p->children[1]->rule[9] && p->children[2]->rule[8] && (JAV_TNEED(node,2) <= 7)) {
+            int c = p->children[0]->cost[2] + p->children[1]->cost[9] + p->children[2]->cost[8] + 2;
+            for (int _ci = 3; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[1]) {
+                p->cost[1] = c;
+                p->rule[1] = 883;
+            }
+        }
+        if (p->child_count >= 3 && p->children[0]->rule[10] && p->children[1]->rule[9] && p->children[2]->rule[8] && (JAV_TNEED(node,1) <= 7 && JAV_TNEED(node,2) <= 6)) {
+            int c = p->children[0]->cost[10] + p->children[1]->cost[9] + p->children[2]->cost[8] + 0;
+            for (int _ci = 3; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[1]) {
+                p->cost[1] = c;
+                p->rule[1] = 884;
+            }
+        }
+        if (p->child_count >= 3 && p->children[0]->rule[10] && p->children[1]->rule[9] && p->children[2]->rule[8] && (JAV_TNEED(node,1) <= 6 && JAV_TNEED(node,2) <= 5)) {
+            int c = p->children[0]->cost[10] + p->children[1]->cost[9] + p->children[2]->cost[8] + 0;
+            for (int _ci = 3; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[1]) {
+                p->cost[1] = c;
+                p->rule[1] = 885;
+            }
+        }
+        if (p->child_count >= 3 && p->children[0]->rule[10] && p->children[1]->rule[9] && p->children[2]->rule[8] && (JAV_TNEED(node,1) <= 5 && JAV_TNEED(node,2) <= 4)) {
+            int c = p->children[0]->cost[10] + p->children[1]->cost[9] + p->children[2]->cost[8] + 0;
+            for (int _ci = 3; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[1]) {
+                p->cost[1] = c;
+                p->rule[1] = 886;
+            }
+        }
+        if (p->child_count >= 3 && p->children[0]->rule[10] && p->children[1]->rule[9] && p->children[2]->rule[8] && (JAV_TNEED(node,1) <= 4 && JAV_TNEED(node,2) <= 3)) {
+            int c = p->children[0]->cost[10] + p->children[1]->cost[9] + p->children[2]->cost[8] + 0;
+            for (int _ci = 3; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[1]) {
+                p->cost[1] = c;
+                p->rule[1] = 887;
+            }
+        }
+        if (p->child_count >= 3 && p->children[0]->rule[10] && p->children[1]->rule[9] && p->children[2]->rule[8] && (JAV_TNEED(node,1) <= 3 && JAV_TNEED(node,2) <= 2)) {
+            int c = p->children[0]->cost[10] + p->children[1]->cost[9] + p->children[2]->cost[8] + 0;
+            for (int _ci = 3; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[1]) {
+                p->cost[1] = c;
+                p->rule[1] = 888;
+            }
+        }
+        if (p->child_count >= 3 && p->children[0]->rule[10] && p->children[1]->rule[9] && p->children[2]->rule[8] && (JAV_TNEED(node,1) <= 2 && JAV_TNEED(node,2) <= 1)) {
+            int c = p->children[0]->cost[10] + p->children[1]->cost[9] + p->children[2]->cost[8] + 0;
+            for (int _ci = 3; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[1]) {
+                p->cost[1] = c;
+                p->rule[1] = 889;
+            }
+        }
+        break;
+    case BURG_Sig_ref_to_v128_aw:
+        if (p->child_count >= 1 && p->children[0]->rule[7]) {
+            int c = p->children[0]->cost[7] + 4;
+            for (int _ci = 1; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[6]) {
+                p->cost[6] = c;
+                p->rule[6] = 645;
+                closure_v128_mem(p, c, node);
+            }
+        }
+        break;
+    case BURG_Sig_ref_i32_to_v128_aw:
+        if (p->child_count >= 2 && p->children[0]->rule[7] && p->children[1]->rule[2]) {
+            int c = p->children[0]->cost[7] + p->children[1]->cost[2] + 5;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[6]) {
+                p->cost[6] = c;
+                p->rule[6] = 646;
                 closure_v128_mem(p, c, node);
             }
         }
@@ -8409,102 +9307,94 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[6]) {
                 p->cost[6] = c;
-                p->rule[6] = 591;
+                p->rule[6] = 647;
                 closure_v128_mem(p, c, node);
             }
         }
         break;
-    case BURG_Sig_i64_i64_to_void:
-        if (p->child_count >= 2 && p->children[0]->rule[3] && p->children[1]->rule[3]) {
-            int c = p->children[0]->cost[3] + p->children[1]->cost[3] + 3;
+    case BURG_Sig_ref_i64_to_void:
+        if (p->child_count >= 2 && p->children[0]->rule[7] && p->children[1]->rule[3]) {
+            int c = p->children[0]->cost[7] + p->children[1]->cost[3] + 3;
             for (int _ci = 2; _ci < p->child_count; _ci++)
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 787;
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[3] && p->children[1]->rule[16]) {
-            int c = p->children[0]->cost[3] + p->children[1]->cost[16] + 2;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[1]) {
-                p->cost[1] = c;
-                p->rule[1] = 788;
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[17] && p->children[1]->rule[16] && (JAV_TNEED(node,1) <= 7)) {
-            int c = p->children[0]->cost[17] + p->children[1]->cost[16] + 0;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[1]) {
-                p->cost[1] = c;
-                p->rule[1] = 789;
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[17] && p->children[1]->rule[16] && (JAV_TNEED(node,1) <= 6)) {
-            int c = p->children[0]->cost[17] + p->children[1]->cost[16] + 0;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[1]) {
-                p->cost[1] = c;
-                p->rule[1] = 790;
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[17] && p->children[1]->rule[16] && (JAV_TNEED(node,1) <= 5)) {
-            int c = p->children[0]->cost[17] + p->children[1]->cost[16] + 0;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[1]) {
-                p->cost[1] = c;
-                p->rule[1] = 791;
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[17] && p->children[1]->rule[16] && (JAV_TNEED(node,1) <= 4)) {
-            int c = p->children[0]->cost[17] + p->children[1]->cost[16] + 0;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[1]) {
-                p->cost[1] = c;
-                p->rule[1] = 792;
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[17] && p->children[1]->rule[16] && (JAV_TNEED(node,1) <= 3)) {
-            int c = p->children[0]->cost[17] + p->children[1]->cost[16] + 0;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[1]) {
-                p->cost[1] = c;
-                p->rule[1] = 793;
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[17] && p->children[1]->rule[16] && (JAV_TNEED(node,1) <= 2)) {
-            int c = p->children[0]->cost[17] + p->children[1]->cost[16] + 0;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[1]) {
-                p->cost[1] = c;
-                p->rule[1] = 794;
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[17] && p->children[1]->rule[16] && (JAV_TNEED(node,1) <= 1)) {
-            int c = p->children[0]->cost[17] + p->children[1]->cost[16] + 0;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[1]) {
-                p->cost[1] = c;
-                p->rule[1] = 795;
+                p->rule[1] = 954;
             }
         }
         break;
-    case BURG_Sig_ref_to_v128_pw:
-        if (p->child_count >= 1 && p->children[0]->rule[7]) {
-            int c = p->children[0]->cost[7] + 4;
-            for (int _ci = 1; _ci < p->child_count; _ci++)
+    case BURG_Sig_to_v128_aw:
+        {
+            int c = 0 + 3;
+            for (int _ci = 0; _ci < p->child_count; _ci++)
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[6]) {
                 p->cost[6] = c;
-                p->rule[6] = 607;
+                p->rule[6] = 648;
+                closure_v128_mem(p, c, node);
+            }
+        }
+        break;
+    case BURG_Sig_i32_i32_to_ref:
+        if (p->child_count >= 2 && p->children[0]->rule[2] && p->children[1]->rule[2]) {
+            int c = p->children[0]->cost[2] + p->children[1]->cost[2] + 4;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[7]) {
+                p->cost[7] = c;
+                p->rule[7] = 770;
+                closure_ref_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[2] && p->children[1]->rule[8]) {
+            int c = p->children[0]->cost[2] + p->children[1]->cost[8] + 3;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[7]) {
+                p->cost[7] = c;
+                p->rule[7] = 771;
+                closure_ref_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[9] && p->children[1]->rule[8] && (JAV_TNEED(node,1) <= 7)) {
+            int c = p->children[0]->cost[9] + p->children[1]->cost[8] + 2;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[7]) {
+                p->cost[7] = c;
+                p->rule[7] = 772;
+                closure_ref_mem(p, c, node);
+            }
+        }
+        break;
+    case BURG_Sig_i32_i32_to_v128_aw:
+        if (p->child_count >= 2 && p->children[0]->rule[2] && p->children[1]->rule[2]) {
+            int c = p->children[0]->cost[2] + p->children[1]->cost[2] + 5;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[6]) {
+                p->cost[6] = c;
+                p->rule[6] = 651;
+                closure_v128_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[2] && p->children[1]->rule[8]) {
+            int c = p->children[0]->cost[2] + p->children[1]->cost[8] + 4;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[6]) {
+                p->cost[6] = c;
+                p->rule[6] = 652;
+                closure_v128_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[9] && p->children[1]->rule[8] && (JAV_TNEED(node,1) <= 7)) {
+            int c = p->children[0]->cost[9] + p->children[1]->cost[8] + 3;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[6]) {
+                p->cost[6] = c;
+                p->rule[6] = 653;
                 closure_v128_mem(p, c, node);
             }
         }
@@ -8516,7 +9406,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[6]) {
                 p->cost[6] = c;
-                p->rule[6] = 608;
+                p->rule[6] = 656;
                 closure_v128_mem(p, c, node);
             }
         }
@@ -8526,7 +9416,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[40]) {
                 p->cost[40] = c;
-                p->rule[40] = 609;
+                p->rule[40] = 657;
                 closure_v128_reg0(p, c, node);
             }
         }
@@ -8536,7 +9426,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[6]) {
                 p->cost[6] = c;
-                p->rule[6] = 610;
+                p->rule[6] = 658;
                 closure_v128_mem(p, c, node);
             }
         }
@@ -8546,7 +9436,224 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[40]) {
                 p->cost[40] = c;
-                p->rule[40] = 611;
+                p->rule[40] = 659;
+                closure_v128_reg0(p, c, node);
+            }
+        }
+        break;
+    case BURG_Sig_i32_i64_i32_to_void:
+        if (p->child_count >= 3 && p->children[0]->rule[2] && p->children[1]->rule[3] && p->children[2]->rule[2]) {
+            int c = p->children[0]->cost[2] + p->children[1]->cost[3] + p->children[2]->cost[2] + 4;
+            for (int _ci = 3; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[1]) {
+                p->cost[1] = c;
+                p->rule[1] = 908;
+            }
+        }
+        if (p->child_count >= 3 && p->children[0]->rule[2] && p->children[1]->rule[3] && p->children[2]->rule[8]) {
+            int c = p->children[0]->cost[2] + p->children[1]->cost[3] + p->children[2]->cost[8] + 3;
+            for (int _ci = 3; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[1]) {
+                p->cost[1] = c;
+                p->rule[1] = 909;
+            }
+        }
+        if (p->child_count >= 3 && p->children[0]->rule[2] && p->children[1]->rule[17] && p->children[2]->rule[8] && (JAV_TNEED(node,2) <= 7)) {
+            int c = p->children[0]->cost[2] + p->children[1]->cost[17] + p->children[2]->cost[8] + 2;
+            for (int _ci = 3; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[1]) {
+                p->cost[1] = c;
+                p->rule[1] = 910;
+            }
+        }
+        if (p->child_count >= 3 && p->children[0]->rule[10] && p->children[1]->rule[17] && p->children[2]->rule[8] && (JAV_TNEED(node,1) <= 7 && JAV_TNEED(node,2) <= 6)) {
+            int c = p->children[0]->cost[10] + p->children[1]->cost[17] + p->children[2]->cost[8] + 0;
+            for (int _ci = 3; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[1]) {
+                p->cost[1] = c;
+                p->rule[1] = 911;
+            }
+        }
+        if (p->child_count >= 3 && p->children[0]->rule[10] && p->children[1]->rule[17] && p->children[2]->rule[8] && (JAV_TNEED(node,1) <= 6 && JAV_TNEED(node,2) <= 5)) {
+            int c = p->children[0]->cost[10] + p->children[1]->cost[17] + p->children[2]->cost[8] + 0;
+            for (int _ci = 3; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[1]) {
+                p->cost[1] = c;
+                p->rule[1] = 912;
+            }
+        }
+        if (p->child_count >= 3 && p->children[0]->rule[10] && p->children[1]->rule[17] && p->children[2]->rule[8] && (JAV_TNEED(node,1) <= 5 && JAV_TNEED(node,2) <= 4)) {
+            int c = p->children[0]->cost[10] + p->children[1]->cost[17] + p->children[2]->cost[8] + 0;
+            for (int _ci = 3; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[1]) {
+                p->cost[1] = c;
+                p->rule[1] = 913;
+            }
+        }
+        if (p->child_count >= 3 && p->children[0]->rule[10] && p->children[1]->rule[17] && p->children[2]->rule[8] && (JAV_TNEED(node,1) <= 4 && JAV_TNEED(node,2) <= 3)) {
+            int c = p->children[0]->cost[10] + p->children[1]->cost[17] + p->children[2]->cost[8] + 0;
+            for (int _ci = 3; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[1]) {
+                p->cost[1] = c;
+                p->rule[1] = 914;
+            }
+        }
+        if (p->child_count >= 3 && p->children[0]->rule[10] && p->children[1]->rule[17] && p->children[2]->rule[8] && (JAV_TNEED(node,1) <= 3 && JAV_TNEED(node,2) <= 2)) {
+            int c = p->children[0]->cost[10] + p->children[1]->cost[17] + p->children[2]->cost[8] + 0;
+            for (int _ci = 3; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[1]) {
+                p->cost[1] = c;
+                p->rule[1] = 915;
+            }
+        }
+        if (p->child_count >= 3 && p->children[0]->rule[10] && p->children[1]->rule[17] && p->children[2]->rule[8] && (JAV_TNEED(node,1) <= 2 && JAV_TNEED(node,2) <= 1)) {
+            int c = p->children[0]->cost[10] + p->children[1]->cost[17] + p->children[2]->cost[8] + 0;
+            for (int _ci = 3; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[1]) {
+                p->cost[1] = c;
+                p->rule[1] = 916;
+            }
+        }
+        break;
+    case BURG_Sig_v128_i32_to_v128:
+        if (p->child_count >= 2 && p->children[0]->rule[6] && p->children[1]->rule[2]) {
+            int c = p->children[0]->cost[6] + p->children[1]->cost[2] + 6;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[6]) {
+                p->cost[6] = c;
+                p->rule[6] = 710;
+                closure_v128_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[6] && p->children[1]->rule[2]) {
+            int c = p->children[0]->cost[6] + p->children[1]->cost[2] + 4;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[40]) {
+                p->cost[40] = c;
+                p->rule[40] = 711;
+                closure_v128_reg0(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[6] && p->children[1]->rule[8]) {
+            int c = p->children[0]->cost[6] + p->children[1]->cost[8] + 5;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[6]) {
+                p->cost[6] = c;
+                p->rule[6] = 712;
+                closure_v128_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[6] && p->children[1]->rule[8]) {
+            int c = p->children[0]->cost[6] + p->children[1]->cost[8] + 3;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[40]) {
+                p->cost[40] = c;
+                p->rule[40] = 713;
+                closure_v128_reg0(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[41] && p->children[1]->rule[8] && (JAV_TNEED(node,1) <= 6)) {
+            int c = p->children[0]->cost[41] + p->children[1]->cost[8] + 3;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[6]) {
+                p->cost[6] = c;
+                p->rule[6] = 714;
+                closure_v128_mem(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[41] && p->children[1]->rule[8] && (JAV_TNEED(node,1) <= 6)) {
+            int c = p->children[0]->cost[41] + p->children[1]->cost[8] + 0;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[40]) {
+                p->cost[40] = c;
+                p->rule[40] = 715;
+                closure_v128_reg0(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[41] && p->children[1]->rule[8] && (JAV_TNEED(node,1) <= 5)) {
+            int c = p->children[0]->cost[41] + p->children[1]->cost[8] + 0;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[40]) {
+                p->cost[40] = c;
+                p->rule[40] = 716;
+                closure_v128_reg0(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[41] && p->children[1]->rule[8] && (JAV_TNEED(node,1) <= 4)) {
+            int c = p->children[0]->cost[41] + p->children[1]->cost[8] + 0;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[40]) {
+                p->cost[40] = c;
+                p->rule[40] = 717;
+                closure_v128_reg0(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[41] && p->children[1]->rule[8] && (JAV_TNEED(node,1) <= 3)) {
+            int c = p->children[0]->cost[41] + p->children[1]->cost[8] + 0;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[40]) {
+                p->cost[40] = c;
+                p->rule[40] = 718;
+                closure_v128_reg0(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[41] && p->children[1]->rule[8] && (JAV_TNEED(node,1) <= 2)) {
+            int c = p->children[0]->cost[41] + p->children[1]->cost[8] + 0;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[40]) {
+                p->cost[40] = c;
+                p->rule[40] = 719;
+                closure_v128_reg0(p, c, node);
+            }
+        }
+        if (p->child_count >= 2 && p->children[0]->rule[41] && p->children[1]->rule[8] && (JAV_TNEED(node,1) <= 1)) {
+            int c = p->children[0]->cost[41] + p->children[1]->cost[8] + 0;
+            for (int _ci = 2; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[40]) {
+                p->cost[40] = c;
+                p->rule[40] = 720;
+                closure_v128_reg0(p, c, node);
+            }
+        }
+        break;
+    case BURG_Sig_to_v128:
+        {
+            int c = 0 + 3;
+            for (int _ci = 0; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[6]) {
+                p->cost[6] = c;
+                p->rule[6] = 664;
+                closure_v128_mem(p, c, node);
+            }
+        }
+        {
+            int c = 0 + 0;
+            for (int _ci = 0; _ci < p->child_count; _ci++)
+                c += p->children[_ci]->cost[1];
+            if (c < p->cost[40]) {
+                p->cost[40] = c;
+                p->rule[40] = 665;
                 closure_v128_reg0(p, c, node);
             }
         }
@@ -8558,7 +9665,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[1]) {
                 p->cost[1] = c;
-                p->rule[1] = 900;
+                p->rule[1] = 950;
             }
         }
         break;
@@ -8591,7 +9698,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[6]) {
                 p->cost[6] = c;
-                p->rule[6] = 618;
+                p->rule[6] = 666;
                 closure_v128_mem(p, c, node);
             }
         }
@@ -8601,7 +9708,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[40]) {
                 p->cost[40] = c;
-                p->rule[40] = 619;
+                p->rule[40] = 667;
                 closure_v128_reg0(p, c, node);
             }
         }
@@ -8611,7 +9718,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[6]) {
                 p->cost[6] = c;
-                p->rule[6] = 620;
+                p->rule[6] = 668;
                 closure_v128_mem(p, c, node);
             }
         }
@@ -8621,7 +9728,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[40]) {
                 p->cost[40] = c;
-                p->rule[40] = 621;
+                p->rule[40] = 669;
                 closure_v128_reg0(p, c, node);
             }
         }
@@ -8631,7 +9738,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[6]) {
                 p->cost[6] = c;
-                p->rule[6] = 622;
+                p->rule[6] = 670;
                 closure_v128_mem(p, c, node);
             }
         }
@@ -8641,7 +9748,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[40]) {
                 p->cost[40] = c;
-                p->rule[40] = 623;
+                p->rule[40] = 671;
                 closure_v128_reg0(p, c, node);
             }
         }
@@ -8651,7 +9758,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[40]) {
                 p->cost[40] = c;
-                p->rule[40] = 624;
+                p->rule[40] = 672;
                 closure_v128_reg0(p, c, node);
             }
         }
@@ -8661,7 +9768,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[40]) {
                 p->cost[40] = c;
-                p->rule[40] = 625;
+                p->rule[40] = 673;
                 closure_v128_reg0(p, c, node);
             }
         }
@@ -8671,7 +9778,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[40]) {
                 p->cost[40] = c;
-                p->rule[40] = 626;
+                p->rule[40] = 674;
                 closure_v128_reg0(p, c, node);
             }
         }
@@ -8681,7 +9788,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[40]) {
                 p->cost[40] = c;
-                p->rule[40] = 627;
+                p->rule[40] = 675;
                 closure_v128_reg0(p, c, node);
             }
         }
@@ -8693,7 +9800,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[7]) {
                 p->cost[7] = c;
-                p->rule[7] = 735;
+                p->rule[7] = 783;
                 closure_ref_mem(p, c, node);
             }
         }
@@ -8703,7 +9810,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[7]) {
                 p->cost[7] = c;
-                p->rule[7] = 736;
+                p->rule[7] = 784;
                 closure_ref_mem(p, c, node);
             }
         }
@@ -8715,7 +9822,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[6]) {
                 p->cost[6] = c;
-                p->rule[6] = 639;
+                p->rule[6] = 687;
                 closure_v128_mem(p, c, node);
             }
         }
@@ -8725,7 +9832,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[40]) {
                 p->cost[40] = c;
-                p->rule[40] = 640;
+                p->rule[40] = 688;
                 closure_v128_reg0(p, c, node);
             }
         }
@@ -8735,7 +9842,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[6]) {
                 p->cost[6] = c;
-                p->rule[6] = 641;
+                p->rule[6] = 689;
                 closure_v128_mem(p, c, node);
             }
         }
@@ -8745,7 +9852,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[40]) {
                 p->cost[40] = c;
-                p->rule[40] = 642;
+                p->rule[40] = 690;
                 closure_v128_reg0(p, c, node);
             }
         }
@@ -8755,7 +9862,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[6]) {
                 p->cost[6] = c;
-                p->rule[6] = 643;
+                p->rule[6] = 691;
                 closure_v128_mem(p, c, node);
             }
         }
@@ -8765,7 +9872,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[40]) {
                 p->cost[40] = c;
-                p->rule[40] = 644;
+                p->rule[40] = 692;
                 closure_v128_reg0(p, c, node);
             }
         }
@@ -8775,7 +9882,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[40]) {
                 p->cost[40] = c;
-                p->rule[40] = 645;
+                p->rule[40] = 693;
                 closure_v128_reg0(p, c, node);
             }
         }
@@ -8785,7 +9892,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[40]) {
                 p->cost[40] = c;
-                p->rule[40] = 646;
+                p->rule[40] = 694;
                 closure_v128_reg0(p, c, node);
             }
         }
@@ -8795,7 +9902,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[40]) {
                 p->cost[40] = c;
-                p->rule[40] = 647;
+                p->rule[40] = 695;
                 closure_v128_reg0(p, c, node);
             }
         }
@@ -8805,7 +9912,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[40]) {
                 p->cost[40] = c;
-                p->rule[40] = 648;
+                p->rule[40] = 696;
                 closure_v128_reg0(p, c, node);
             }
         }
@@ -8815,602 +9922,7 @@ static void burg_dp(burg_state_t* p, BURG_NODE_TYPE node, jav_tile_burg_ctx_t* c
                 c += p->children[_ci]->cost[1];
             if (c < p->cost[40]) {
                 p->cost[40] = c;
-                p->rule[40] = 649;
-                closure_v128_reg0(p, c, node);
-            }
-        }
-        break;
-    case BURG_Sig_i32_i32_to_f32:
-        if (p->child_count >= 2 && p->children[0]->rule[2] && p->children[1]->rule[2]) {
-            int c = p->children[0]->cost[2] + p->children[1]->cost[2] + 4;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[4]) {
-                p->cost[4] = c;
-                p->rule[4] = 373;
-                closure_f32_mem(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[2] && p->children[1]->rule[2]) {
-            int c = p->children[0]->cost[2] + p->children[1]->cost[2] + 3;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[24]) {
-                p->cost[24] = c;
-                p->rule[24] = 374;
-                closure_f32_reg0(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[2] && p->children[1]->rule[8]) {
-            int c = p->children[0]->cost[2] + p->children[1]->cost[8] + 3;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[4]) {
-                p->cost[4] = c;
-                p->rule[4] = 375;
-                closure_f32_mem(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[2] && p->children[1]->rule[8]) {
-            int c = p->children[0]->cost[2] + p->children[1]->cost[8] + 2;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[24]) {
-                p->cost[24] = c;
-                p->rule[24] = 376;
-                closure_f32_reg0(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[9] && p->children[1]->rule[8] && (JAV_TNEED(node,1) <= 7)) {
-            int c = p->children[0]->cost[9] + p->children[1]->cost[8] + 2;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[4]) {
-                p->cost[4] = c;
-                p->rule[4] = 377;
-                closure_f32_mem(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[9] && p->children[1]->rule[8] && (JAV_TNEED(node,1) <= 7)) {
-            int c = p->children[0]->cost[9] + p->children[1]->cost[8] + 0;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[24]) {
-                p->cost[24] = c;
-                p->rule[24] = 378;
-                closure_f32_reg0(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[9] && p->children[1]->rule[8] && (JAV_TNEED(node,1) <= 6)) {
-            int c = p->children[0]->cost[9] + p->children[1]->cost[8] + 0;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[24]) {
-                p->cost[24] = c;
-                p->rule[24] = 379;
-                closure_f32_reg0(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[9] && p->children[1]->rule[8] && (JAV_TNEED(node,1) <= 5)) {
-            int c = p->children[0]->cost[9] + p->children[1]->cost[8] + 0;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[24]) {
-                p->cost[24] = c;
-                p->rule[24] = 380;
-                closure_f32_reg0(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[9] && p->children[1]->rule[8] && (JAV_TNEED(node,1) <= 4)) {
-            int c = p->children[0]->cost[9] + p->children[1]->cost[8] + 0;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[24]) {
-                p->cost[24] = c;
-                p->rule[24] = 381;
-                closure_f32_reg0(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[9] && p->children[1]->rule[8] && (JAV_TNEED(node,1) <= 3)) {
-            int c = p->children[0]->cost[9] + p->children[1]->cost[8] + 0;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[24]) {
-                p->cost[24] = c;
-                p->rule[24] = 382;
-                closure_f32_reg0(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[9] && p->children[1]->rule[8] && (JAV_TNEED(node,1) <= 2)) {
-            int c = p->children[0]->cost[9] + p->children[1]->cost[8] + 0;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[24]) {
-                p->cost[24] = c;
-                p->rule[24] = 383;
-                closure_f32_reg0(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[9] && p->children[1]->rule[8] && (JAV_TNEED(node,1) <= 1)) {
-            int c = p->children[0]->cost[9] + p->children[1]->cost[8] + 0;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[24]) {
-                p->cost[24] = c;
-                p->rule[24] = 384;
-                closure_f32_reg0(p, c, node);
-            }
-        }
-        break;
-    case BURG_Sig_f32_to_v128:
-        if (p->child_count >= 1 && p->children[0]->rule[4]) {
-            int c = p->children[0]->cost[4] + 4;
-            for (int _ci = 1; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[6]) {
-                p->cost[6] = c;
-                p->rule[6] = 650;
-                closure_v128_mem(p, c, node);
-            }
-        }
-        if (p->child_count >= 1 && p->children[0]->rule[4]) {
-            int c = p->children[0]->cost[4] + 2;
-            for (int _ci = 1; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[40]) {
-                p->cost[40] = c;
-                p->rule[40] = 651;
-                closure_v128_reg0(p, c, node);
-            }
-        }
-        if (p->child_count >= 1 && p->children[0]->rule[24]) {
-            int c = p->children[0]->cost[24] + 3;
-            for (int _ci = 1; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[6]) {
-                p->cost[6] = c;
-                p->rule[6] = 652;
-                closure_v128_mem(p, c, node);
-            }
-        }
-        if (p->child_count >= 1 && p->children[0]->rule[24]) {
-            int c = p->children[0]->cost[24] + 0;
-            for (int _ci = 1; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[40]) {
-                p->cost[40] = c;
-                p->rule[40] = 653;
-                closure_v128_reg0(p, c, node);
-            }
-        }
-        break;
-    case BURG_Sig_i32_i64_i32_to_void:
-        if (p->child_count >= 3 && p->children[0]->rule[2] && p->children[1]->rule[3] && p->children[2]->rule[2]) {
-            int c = p->children[0]->cost[2] + p->children[1]->cost[3] + p->children[2]->cost[2] + 4;
-            for (int _ci = 3; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[1]) {
-                p->cost[1] = c;
-                p->rule[1] = 859;
-            }
-        }
-        if (p->child_count >= 3 && p->children[0]->rule[2] && p->children[1]->rule[3] && p->children[2]->rule[8]) {
-            int c = p->children[0]->cost[2] + p->children[1]->cost[3] + p->children[2]->cost[8] + 3;
-            for (int _ci = 3; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[1]) {
-                p->cost[1] = c;
-                p->rule[1] = 860;
-            }
-        }
-        if (p->child_count >= 3 && p->children[0]->rule[2] && p->children[1]->rule[17] && p->children[2]->rule[8] && (JAV_TNEED(node,2) <= 7)) {
-            int c = p->children[0]->cost[2] + p->children[1]->cost[17] + p->children[2]->cost[8] + 2;
-            for (int _ci = 3; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[1]) {
-                p->cost[1] = c;
-                p->rule[1] = 861;
-            }
-        }
-        if (p->child_count >= 3 && p->children[0]->rule[10] && p->children[1]->rule[17] && p->children[2]->rule[8] && (JAV_TNEED(node,1) <= 7 && JAV_TNEED(node,2) <= 6)) {
-            int c = p->children[0]->cost[10] + p->children[1]->cost[17] + p->children[2]->cost[8] + 0;
-            for (int _ci = 3; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[1]) {
-                p->cost[1] = c;
-                p->rule[1] = 862;
-            }
-        }
-        if (p->child_count >= 3 && p->children[0]->rule[10] && p->children[1]->rule[17] && p->children[2]->rule[8] && (JAV_TNEED(node,1) <= 6 && JAV_TNEED(node,2) <= 5)) {
-            int c = p->children[0]->cost[10] + p->children[1]->cost[17] + p->children[2]->cost[8] + 0;
-            for (int _ci = 3; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[1]) {
-                p->cost[1] = c;
-                p->rule[1] = 863;
-            }
-        }
-        if (p->child_count >= 3 && p->children[0]->rule[10] && p->children[1]->rule[17] && p->children[2]->rule[8] && (JAV_TNEED(node,1) <= 5 && JAV_TNEED(node,2) <= 4)) {
-            int c = p->children[0]->cost[10] + p->children[1]->cost[17] + p->children[2]->cost[8] + 0;
-            for (int _ci = 3; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[1]) {
-                p->cost[1] = c;
-                p->rule[1] = 864;
-            }
-        }
-        if (p->child_count >= 3 && p->children[0]->rule[10] && p->children[1]->rule[17] && p->children[2]->rule[8] && (JAV_TNEED(node,1) <= 4 && JAV_TNEED(node,2) <= 3)) {
-            int c = p->children[0]->cost[10] + p->children[1]->cost[17] + p->children[2]->cost[8] + 0;
-            for (int _ci = 3; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[1]) {
-                p->cost[1] = c;
-                p->rule[1] = 865;
-            }
-        }
-        if (p->child_count >= 3 && p->children[0]->rule[10] && p->children[1]->rule[17] && p->children[2]->rule[8] && (JAV_TNEED(node,1) <= 3 && JAV_TNEED(node,2) <= 2)) {
-            int c = p->children[0]->cost[10] + p->children[1]->cost[17] + p->children[2]->cost[8] + 0;
-            for (int _ci = 3; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[1]) {
-                p->cost[1] = c;
-                p->rule[1] = 866;
-            }
-        }
-        if (p->child_count >= 3 && p->children[0]->rule[10] && p->children[1]->rule[17] && p->children[2]->rule[8] && (JAV_TNEED(node,1) <= 2 && JAV_TNEED(node,2) <= 1)) {
-            int c = p->children[0]->cost[10] + p->children[1]->cost[17] + p->children[2]->cost[8] + 0;
-            for (int _ci = 3; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[1]) {
-                p->cost[1] = c;
-                p->rule[1] = 867;
-            }
-        }
-        break;
-    case BURG_Sig_to_v128:
-        {
-            int c = 0 + 3;
-            for (int _ci = 0; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[6]) {
-                p->cost[6] = c;
-                p->rule[6] = 616;
-                closure_v128_mem(p, c, node);
-            }
-        }
-        {
-            int c = 0 + 0;
-            for (int _ci = 0; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[40]) {
-                p->cost[40] = c;
-                p->rule[40] = 617;
-                closure_v128_reg0(p, c, node);
-            }
-        }
-        break;
-    case BURG_Sig_v128_i32_to_v128:
-        if (p->child_count >= 2 && p->children[0]->rule[6] && p->children[1]->rule[2]) {
-            int c = p->children[0]->cost[6] + p->children[1]->cost[2] + 6;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[6]) {
-                p->cost[6] = c;
-                p->rule[6] = 662;
-                closure_v128_mem(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[6] && p->children[1]->rule[2]) {
-            int c = p->children[0]->cost[6] + p->children[1]->cost[2] + 4;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[40]) {
-                p->cost[40] = c;
-                p->rule[40] = 663;
-                closure_v128_reg0(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[6] && p->children[1]->rule[8]) {
-            int c = p->children[0]->cost[6] + p->children[1]->cost[8] + 5;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[6]) {
-                p->cost[6] = c;
-                p->rule[6] = 664;
-                closure_v128_mem(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[6] && p->children[1]->rule[8]) {
-            int c = p->children[0]->cost[6] + p->children[1]->cost[8] + 3;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[40]) {
-                p->cost[40] = c;
-                p->rule[40] = 665;
-                closure_v128_reg0(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[41] && p->children[1]->rule[8] && (JAV_TNEED(node,1) <= 6)) {
-            int c = p->children[0]->cost[41] + p->children[1]->cost[8] + 3;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[6]) {
-                p->cost[6] = c;
-                p->rule[6] = 666;
-                closure_v128_mem(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[41] && p->children[1]->rule[8] && (JAV_TNEED(node,1) <= 6)) {
-            int c = p->children[0]->cost[41] + p->children[1]->cost[8] + 0;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[40]) {
-                p->cost[40] = c;
-                p->rule[40] = 667;
-                closure_v128_reg0(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[41] && p->children[1]->rule[8] && (JAV_TNEED(node,1) <= 5)) {
-            int c = p->children[0]->cost[41] + p->children[1]->cost[8] + 0;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[40]) {
-                p->cost[40] = c;
-                p->rule[40] = 668;
-                closure_v128_reg0(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[41] && p->children[1]->rule[8] && (JAV_TNEED(node,1) <= 4)) {
-            int c = p->children[0]->cost[41] + p->children[1]->cost[8] + 0;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[40]) {
-                p->cost[40] = c;
-                p->rule[40] = 669;
-                closure_v128_reg0(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[41] && p->children[1]->rule[8] && (JAV_TNEED(node,1) <= 3)) {
-            int c = p->children[0]->cost[41] + p->children[1]->cost[8] + 0;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[40]) {
-                p->cost[40] = c;
-                p->rule[40] = 670;
-                closure_v128_reg0(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[41] && p->children[1]->rule[8] && (JAV_TNEED(node,1) <= 2)) {
-            int c = p->children[0]->cost[41] + p->children[1]->cost[8] + 0;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[40]) {
-                p->cost[40] = c;
-                p->rule[40] = 671;
-                closure_v128_reg0(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[41] && p->children[1]->rule[8] && (JAV_TNEED(node,1) <= 1)) {
-            int c = p->children[0]->cost[41] + p->children[1]->cost[8] + 0;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[40]) {
-                p->cost[40] = c;
-                p->rule[40] = 672;
-                closure_v128_reg0(p, c, node);
-            }
-        }
-        break;
-    case BURG_Sig_v128_v128_v128_to_v128:
-        if (p->child_count >= 3 && p->children[0]->rule[6] && p->children[1]->rule[6] && p->children[2]->rule[6]) {
-            int c = p->children[0]->cost[6] + p->children[1]->cost[6] + p->children[2]->cost[6] + 9;
-            for (int _ci = 3; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[6]) {
-                p->cost[6] = c;
-                p->rule[6] = 706;
-                closure_v128_mem(p, c, node);
-            }
-        }
-        if (p->child_count >= 3 && p->children[0]->rule[6] && p->children[1]->rule[6] && p->children[2]->rule[6]) {
-            int c = p->children[0]->cost[6] + p->children[1]->cost[6] + p->children[2]->cost[6] + 7;
-            for (int _ci = 3; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[40]) {
-                p->cost[40] = c;
-                p->rule[40] = 707;
-                closure_v128_reg0(p, c, node);
-            }
-        }
-        if (p->child_count >= 3 && p->children[0]->rule[6] && p->children[1]->rule[6] && p->children[2]->rule[40]) {
-            int c = p->children[0]->cost[6] + p->children[1]->cost[6] + p->children[2]->cost[40] + 7;
-            for (int _ci = 3; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[6]) {
-                p->cost[6] = c;
-                p->rule[6] = 708;
-                closure_v128_mem(p, c, node);
-            }
-        }
-        if (p->child_count >= 3 && p->children[0]->rule[6] && p->children[1]->rule[6] && p->children[2]->rule[40]) {
-            int c = p->children[0]->cost[6] + p->children[1]->cost[6] + p->children[2]->cost[40] + 5;
-            for (int _ci = 3; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[40]) {
-                p->cost[40] = c;
-                p->rule[40] = 709;
-                closure_v128_reg0(p, c, node);
-            }
-        }
-        if (p->child_count >= 3 && p->children[0]->rule[6] && p->children[1]->rule[42] && p->children[2]->rule[40] && (JAV_TNEED(node,2) <= 6)) {
-            int c = p->children[0]->cost[6] + p->children[1]->cost[42] + p->children[2]->cost[40] + 5;
-            for (int _ci = 3; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[6]) {
-                p->cost[6] = c;
-                p->rule[6] = 710;
-                closure_v128_mem(p, c, node);
-            }
-        }
-        if (p->child_count >= 3 && p->children[0]->rule[6] && p->children[1]->rule[42] && p->children[2]->rule[40] && (JAV_TNEED(node,2) <= 6)) {
-            int c = p->children[0]->cost[6] + p->children[1]->cost[42] + p->children[2]->cost[40] + 3;
-            for (int _ci = 3; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[40]) {
-                p->cost[40] = c;
-                p->rule[40] = 711;
-                closure_v128_reg0(p, c, node);
-            }
-        }
-        if (p->child_count >= 3 && p->children[0]->rule[44] && p->children[1]->rule[42] && p->children[2]->rule[40] && (JAV_TNEED(node,1) <= 6 && JAV_TNEED(node,2) <= 4)) {
-            int c = p->children[0]->cost[44] + p->children[1]->cost[42] + p->children[2]->cost[40] + 3;
-            for (int _ci = 3; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[6]) {
-                p->cost[6] = c;
-                p->rule[6] = 712;
-                closure_v128_mem(p, c, node);
-            }
-        }
-        if (p->child_count >= 3 && p->children[0]->rule[44] && p->children[1]->rule[42] && p->children[2]->rule[40] && (JAV_TNEED(node,1) <= 6 && JAV_TNEED(node,2) <= 4)) {
-            int c = p->children[0]->cost[44] + p->children[1]->cost[42] + p->children[2]->cost[40] + 0;
-            for (int _ci = 3; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[40]) {
-                p->cost[40] = c;
-                p->rule[40] = 713;
-                closure_v128_reg0(p, c, node);
-            }
-        }
-        if (p->child_count >= 3 && p->children[0]->rule[44] && p->children[1]->rule[42] && p->children[2]->rule[40] && (JAV_TNEED(node,1) <= 5 && JAV_TNEED(node,2) <= 3)) {
-            int c = p->children[0]->cost[44] + p->children[1]->cost[42] + p->children[2]->cost[40] + 0;
-            for (int _ci = 3; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[40]) {
-                p->cost[40] = c;
-                p->rule[40] = 714;
-                closure_v128_reg0(p, c, node);
-            }
-        }
-        if (p->child_count >= 3 && p->children[0]->rule[44] && p->children[1]->rule[42] && p->children[2]->rule[40] && (JAV_TNEED(node,1) <= 4 && JAV_TNEED(node,2) <= 2)) {
-            int c = p->children[0]->cost[44] + p->children[1]->cost[42] + p->children[2]->cost[40] + 0;
-            for (int _ci = 3; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[40]) {
-                p->cost[40] = c;
-                p->rule[40] = 715;
-                closure_v128_reg0(p, c, node);
-            }
-        }
-        break;
-    case BURG_Sig_v128_f32_to_v128:
-        if (p->child_count >= 2 && p->children[0]->rule[6] && p->children[1]->rule[4]) {
-            int c = p->children[0]->cost[6] + p->children[1]->cost[4] + 6;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[6]) {
-                p->cost[6] = c;
-                p->rule[6] = 684;
-                closure_v128_mem(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[6] && p->children[1]->rule[4]) {
-            int c = p->children[0]->cost[6] + p->children[1]->cost[4] + 4;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[40]) {
-                p->cost[40] = c;
-                p->rule[40] = 685;
-                closure_v128_reg0(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[6] && p->children[1]->rule[24]) {
-            int c = p->children[0]->cost[6] + p->children[1]->cost[24] + 5;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[6]) {
-                p->cost[6] = c;
-                p->rule[6] = 686;
-                closure_v128_mem(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[6] && p->children[1]->rule[24]) {
-            int c = p->children[0]->cost[6] + p->children[1]->cost[24] + 3;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[40]) {
-                p->cost[40] = c;
-                p->rule[40] = 687;
-                closure_v128_reg0(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[41] && p->children[1]->rule[24] && (JAV_TNEED(node,1) <= 6)) {
-            int c = p->children[0]->cost[41] + p->children[1]->cost[24] + 3;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[6]) {
-                p->cost[6] = c;
-                p->rule[6] = 688;
-                closure_v128_mem(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[41] && p->children[1]->rule[24] && (JAV_TNEED(node,1) <= 6)) {
-            int c = p->children[0]->cost[41] + p->children[1]->cost[24] + 0;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[40]) {
-                p->cost[40] = c;
-                p->rule[40] = 689;
-                closure_v128_reg0(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[41] && p->children[1]->rule[24] && (JAV_TNEED(node,1) <= 5)) {
-            int c = p->children[0]->cost[41] + p->children[1]->cost[24] + 0;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[40]) {
-                p->cost[40] = c;
-                p->rule[40] = 690;
-                closure_v128_reg0(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[41] && p->children[1]->rule[24] && (JAV_TNEED(node,1) <= 4)) {
-            int c = p->children[0]->cost[41] + p->children[1]->cost[24] + 0;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[40]) {
-                p->cost[40] = c;
-                p->rule[40] = 691;
-                closure_v128_reg0(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[41] && p->children[1]->rule[24] && (JAV_TNEED(node,1) <= 3)) {
-            int c = p->children[0]->cost[41] + p->children[1]->cost[24] + 0;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[40]) {
-                p->cost[40] = c;
-                p->rule[40] = 692;
-                closure_v128_reg0(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[41] && p->children[1]->rule[24] && (JAV_TNEED(node,1) <= 2)) {
-            int c = p->children[0]->cost[41] + p->children[1]->cost[24] + 0;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[40]) {
-                p->cost[40] = c;
-                p->rule[40] = 693;
-                closure_v128_reg0(p, c, node);
-            }
-        }
-        if (p->child_count >= 2 && p->children[0]->rule[41] && p->children[1]->rule[24] && (JAV_TNEED(node,1) <= 1)) {
-            int c = p->children[0]->cost[41] + p->children[1]->cost[24] + 0;
-            for (int _ci = 2; _ci < p->child_count; _ci++)
-                c += p->children[_ci]->cost[1];
-            if (c < p->cost[40]) {
-                p->cost[40] = c;
-                p->rule[40] = 694;
+                p->rule[40] = 697;
                 closure_v128_reg0(p, c, node);
             }
         }
@@ -10344,7 +10856,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999990u, 0x99999990u);
         break;
     }
-    case 159: { // i32_mem: Sig_v128_i32_to_i32_pw(v128_mem, i32_mem)
+    case 159: { // i32_mem: Sig_v128_i32_to_i32_aw(v128_mem, i32_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -10353,7 +10865,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 160: { // i32_reg0: Sig_v128_i32_to_i32_pw(v128_mem, i32_mem)
+    case 160: { // i32_reg0: Sig_v128_i32_to_i32_aw(v128_mem, i32_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -10362,7 +10874,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999990u);
         break;
     }
-    case 161: { // i32_mem: Sig_v128_i32_to_i32_pw(v128_mem, i32_reg0)
+    case 161: { // i32_mem: Sig_v128_i32_to_i32_aw(v128_mem, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 8, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -10371,7 +10883,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
-    case 162: { // i32_reg0: Sig_v128_i32_to_i32_pw(v128_mem, i32_reg0)
+    case 162: { // i32_reg0: Sig_v128_i32_to_i32_aw(v128_mem, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 8, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -10632,7 +11144,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999991u, 0x99999990u);
         break;
     }
-    case 191: { // i32_mem: Sig_v128_i64_to_i32_pw(v128_mem, i64_mem)
+    case 191: { // i32_mem: Sig_v128_i64_to_i32_aw(v128_mem, i64_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 3, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -10641,7 +11153,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 192: { // i32_reg0: Sig_v128_i64_to_i32_pw(v128_mem, i64_mem)
+    case 192: { // i32_reg0: Sig_v128_i64_to_i32_aw(v128_mem, i64_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 3, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -10650,7 +11162,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999990u);
         break;
     }
-    case 193: { // i32_mem: Sig_v128_i64_to_i32_pw(v128_mem, i64_reg0)
+    case 193: { // i32_mem: Sig_v128_i64_to_i32_aw(v128_mem, i64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 16, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -10659,7 +11171,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999991u, 0x99999999u);
         break;
     }
-    case 194: { // i32_reg0: Sig_v128_i64_to_i32_pw(v128_mem, i64_reg0)
+    case 194: { // i32_reg0: Sig_v128_i64_to_i32_aw(v128_mem, i64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 16, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -11162,7 +11674,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999990u);
         break;
     }
-    case 250: { // i32_mem: Sig_v128_to_i32_pw(v128_mem)
+    case 250: { // i32_mem: Sig_v128_to_i32_aw(v128_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -11170,7 +11682,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 251: { // i32_reg0: Sig_v128_to_i32_pw(v128_mem)
+    case 251: { // i32_reg0: Sig_v128_to_i32_aw(v128_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -11504,7 +12016,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999990u, 0x99999991u);
         break;
     }
-    case 290: { // i64_mem: Sig_v128_i32_to_i64_pw(v128_mem, i32_mem)
+    case 290: { // i64_mem: Sig_v128_i32_to_i64_aw(v128_mem, i32_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -11513,7 +12025,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 291: { // i64_reg0: Sig_v128_i32_to_i64_pw(v128_mem, i32_mem)
+    case 291: { // i64_reg0: Sig_v128_i32_to_i64_aw(v128_mem, i32_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -11522,7 +12034,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999991u);
         break;
     }
-    case 292: { // i64_mem: Sig_v128_i32_to_i64_pw(v128_mem, i32_reg0)
+    case 292: { // i64_mem: Sig_v128_i32_to_i64_aw(v128_mem, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 8, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -11531,7 +12043,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
-    case 293: { // i64_reg0: Sig_v128_i32_to_i64_pw(v128_mem, i32_reg0)
+    case 293: { // i64_reg0: Sig_v128_i32_to_i64_aw(v128_mem, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 8, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -11792,7 +12304,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999991u, 0x99999991u);
         break;
     }
-    case 322: { // i64_mem: Sig_v128_i64_to_i64_pw(v128_mem, i64_mem)
+    case 322: { // i64_mem: Sig_v128_i64_to_i64_aw(v128_mem, i64_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 3, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -11801,7 +12313,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 323: { // i64_reg0: Sig_v128_i64_to_i64_pw(v128_mem, i64_mem)
+    case 323: { // i64_reg0: Sig_v128_i64_to_i64_aw(v128_mem, i64_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 3, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -11810,7 +12322,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999991u);
         break;
     }
-    case 324: { // i64_mem: Sig_v128_i64_to_i64_pw(v128_mem, i64_reg0)
+    case 324: { // i64_mem: Sig_v128_i64_to_i64_aw(v128_mem, i64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 16, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -11819,7 +12331,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999991u, 0x99999999u);
         break;
     }
-    case 325: { // i64_reg0: Sig_v128_i64_to_i64_pw(v128_mem, i64_reg0)
+    case 325: { // i64_reg0: Sig_v128_i64_to_i64_aw(v128_mem, i64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 16, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -12446,7 +12958,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999990u, 0x99999992u);
         break;
     }
-    case 397: { // f32_mem: Sig_v128_i32_to_f32_pw(v128_mem, i32_mem)
+    case 397: { // f32_mem: Sig_v128_i32_to_f32_aw(v128_mem, i32_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -12455,7 +12967,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 398: { // f32_reg0: Sig_v128_i32_to_f32_pw(v128_mem, i32_mem)
+    case 398: { // f32_reg0: Sig_v128_i32_to_f32_aw(v128_mem, i32_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -12464,7 +12976,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999992u);
         break;
     }
-    case 399: { // f32_mem: Sig_v128_i32_to_f32_pw(v128_mem, i32_reg0)
+    case 399: { // f32_mem: Sig_v128_i32_to_f32_aw(v128_mem, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 8, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -12473,7 +12985,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
-    case 400: { // f32_reg0: Sig_v128_i32_to_f32_pw(v128_mem, i32_reg0)
+    case 400: { // f32_reg0: Sig_v128_i32_to_f32_aw(v128_mem, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 8, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -12662,7 +13174,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999991u, 0x99999992u);
         break;
     }
-    case 421: { // f32_mem: Sig_v128_i64_to_f32_pw(v128_mem, i64_mem)
+    case 421: { // f32_mem: Sig_v128_i64_to_f32_aw(v128_mem, i64_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 3, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -12671,7 +13183,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 422: { // f32_reg0: Sig_v128_i64_to_f32_pw(v128_mem, i64_mem)
+    case 422: { // f32_reg0: Sig_v128_i64_to_f32_aw(v128_mem, i64_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 3, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -12680,7 +13192,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999992u);
         break;
     }
-    case 423: { // f32_mem: Sig_v128_i64_to_f32_pw(v128_mem, i64_reg0)
+    case 423: { // f32_mem: Sig_v128_i64_to_f32_aw(v128_mem, i64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 16, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -12689,7 +13201,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999991u, 0x99999999u);
         break;
     }
-    case 424: { // f32_reg0: Sig_v128_i64_to_f32_pw(v128_mem, i64_reg0)
+    case 424: { // f32_reg0: Sig_v128_i64_to_f32_aw(v128_mem, i64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 16, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -13392,7 +13904,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999990u, 0x99999993u);
         break;
     }
-    case 504: { // f64_mem: Sig_v128_i32_to_f64_pw(v128_mem, i32_mem)
+    case 504: { // f64_mem: Sig_v128_i32_to_f64_aw(v128_mem, i32_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -13401,7 +13913,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 505: { // f64_reg0: Sig_v128_i32_to_f64_pw(v128_mem, i32_mem)
+    case 505: { // f64_reg0: Sig_v128_i32_to_f64_aw(v128_mem, i32_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -13410,7 +13922,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999993u);
         break;
     }
-    case 506: { // f64_mem: Sig_v128_i32_to_f64_pw(v128_mem, i32_reg0)
+    case 506: { // f64_mem: Sig_v128_i32_to_f64_aw(v128_mem, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 8, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -13419,7 +13931,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
-    case 507: { // f64_reg0: Sig_v128_i32_to_f64_pw(v128_mem, i32_reg0)
+    case 507: { // f64_reg0: Sig_v128_i32_to_f64_aw(v128_mem, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 8, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -13608,7 +14120,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999991u, 0x99999993u);
         break;
     }
-    case 528: { // f64_mem: Sig_v128_i64_to_f64_pw(v128_mem, i64_mem)
+    case 528: { // f64_mem: Sig_v128_i64_to_f64_aw(v128_mem, i64_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 3, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -13617,7 +14129,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 529: { // f64_reg0: Sig_v128_i64_to_f64_pw(v128_mem, i64_mem)
+    case 529: { // f64_reg0: Sig_v128_i64_to_f64_aw(v128_mem, i64_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 3, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -13626,7 +14138,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999993u);
         break;
     }
-    case 530: { // f64_mem: Sig_v128_i64_to_f64_pw(v128_mem, i64_reg0)
+    case 530: { // f64_mem: Sig_v128_i64_to_f64_aw(v128_mem, i64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 16, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -13635,7 +14147,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999991u, 0x99999999u);
         break;
     }
-    case 531: { // f64_reg0: Sig_v128_i64_to_f64_pw(v128_mem, i64_reg0)
+    case 531: { // f64_reg0: Sig_v128_i64_to_f64_aw(v128_mem, i64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 16, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14019,7 +14531,14 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 574: { // v128_mem: Sig_v128_to_v128_pw(v128_mem)
+    case 574: { // v128_reg0: Sig_to_v128_pw
+        for (int _ci = 0; _ci < state->child_count; _ci++) {
+            jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
+        }
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999944u);
+        break;
+    }
+    case 575: { // v128_mem: Sig_v128_to_v128_pw(v128_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -14027,7 +14546,31 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 575: { // v128_mem: Sig_i32_to_v128_pw(i32_mem)
+    case 576: { // v128_reg0: Sig_v128_to_v128_pw(v128_mem)
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
+        for (int _ci = 1; _ci < state->child_count; _ci++) {
+            jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
+        }
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999944u);
+        break;
+    }
+    case 577: { // v128_mem: Sig_v128_to_v128_pw(v128_reg0)
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 40, ctx);
+        for (int _ci = 1; _ci < state->child_count; _ci++) {
+            jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
+        }
+        jav_t2_stamp(node, 2, 0x99999944u, 0x99999999u);
+        break;
+    }
+    case 578: { // v128_reg0: Sig_v128_to_v128_pw(v128_reg0)
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 40, ctx);
+        for (int _ci = 1; _ci < state->child_count; _ci++) {
+            jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
+        }
+        jav_t2_stamp(node, 2, 0x99999944u, 0x99999944u);
+        break;
+    }
+    case 579: { // v128_mem: Sig_i32_to_v128_pw(i32_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -14035,7 +14578,15 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 576: { // v128_mem: Sig_i32_to_v128_pw(i32_reg0)
+    case 580: { // v128_reg0: Sig_i32_to_v128_pw(i32_mem)
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
+        for (int _ci = 1; _ci < state->child_count; _ci++) {
+            jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
+        }
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999944u);
+        break;
+    }
+    case 581: { // v128_mem: Sig_i32_to_v128_pw(i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 8, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -14043,7 +14594,15 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
-    case 577: { // v128_mem: Sig_i64_to_v128_pw(i64_mem)
+    case 582: { // v128_reg0: Sig_i32_to_v128_pw(i32_reg0)
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 8, ctx);
+        for (int _ci = 1; _ci < state->child_count; _ci++) {
+            jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
+        }
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999944u);
+        break;
+    }
+    case 583: { // v128_mem: Sig_i64_to_v128_pw(i64_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 3, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -14051,7 +14610,15 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 578: { // v128_mem: Sig_i64_to_v128_pw(i64_reg0)
+    case 584: { // v128_reg0: Sig_i64_to_v128_pw(i64_mem)
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 3, ctx);
+        for (int _ci = 1; _ci < state->child_count; _ci++) {
+            jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
+        }
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999944u);
+        break;
+    }
+    case 585: { // v128_mem: Sig_i64_to_v128_pw(i64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 16, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -14059,7 +14626,15 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999991u, 0x99999999u);
         break;
     }
-    case 579: { // v128_mem: Sig_i32_i32_to_v128_pw(i32_mem, i32_mem)
+    case 586: { // v128_reg0: Sig_i64_to_v128_pw(i64_reg0)
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 16, ctx);
+        for (int _ci = 1; _ci < state->child_count; _ci++) {
+            jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
+        }
+        jav_t2_stamp(node, 1, 0x99999991u, 0x99999944u);
+        break;
+    }
+    case 587: { // v128_mem: Sig_i32_i32_to_v128_pw(i32_mem, i32_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14068,7 +14643,16 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 580: { // v128_mem: Sig_i32_i32_to_v128_pw(i32_mem, i32_reg0)
+    case 588: { // v128_reg0: Sig_i32_i32_to_v128_pw(i32_mem, i32_mem)
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
+        for (int _ci = 2; _ci < state->child_count; _ci++) {
+            jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
+        }
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999944u);
+        break;
+    }
+    case 589: { // v128_mem: Sig_i32_i32_to_v128_pw(i32_mem, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 8, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14077,16 +14661,16 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
-    case 581: { // v128_mem: Sig_i32_i32_to_v128_pw(i32_reg1, i32_reg0)
-        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 9, ctx);
+    case 590: { // v128_reg0: Sig_i32_i32_to_v128_pw(i32_mem, i32_reg0)
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 8, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_t2_stamp(node, 2, 0x99999900u, 0x99999999u);
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999944u);
         break;
     }
-    case 582: { // v128_mem: Sig_i64_i32_to_v128_pw(i64_mem, i32_mem)
+    case 591: { // v128_mem: Sig_i64_i32_to_v128_pw(i64_mem, i32_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 3, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14095,7 +14679,16 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 583: { // v128_mem: Sig_i64_i32_to_v128_pw(i64_mem, i32_reg0)
+    case 592: { // v128_reg0: Sig_i64_i32_to_v128_pw(i64_mem, i32_mem)
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 3, ctx);
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
+        for (int _ci = 2; _ci < state->child_count; _ci++) {
+            jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
+        }
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999944u);
+        break;
+    }
+    case 593: { // v128_mem: Sig_i64_i32_to_v128_pw(i64_mem, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 3, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 8, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14104,7 +14697,16 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
-    case 584: { // v128_mem: Sig_f32_i32_to_v128_pw(f32_mem, i32_mem)
+    case 594: { // v128_reg0: Sig_i64_i32_to_v128_pw(i64_mem, i32_reg0)
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 3, ctx);
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 8, ctx);
+        for (int _ci = 2; _ci < state->child_count; _ci++) {
+            jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
+        }
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999944u);
+        break;
+    }
+    case 595: { // v128_mem: Sig_f32_i32_to_v128_pw(f32_mem, i32_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 4, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14113,7 +14715,16 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 585: { // v128_mem: Sig_f32_i32_to_v128_pw(f32_mem, i32_reg0)
+    case 596: { // v128_reg0: Sig_f32_i32_to_v128_pw(f32_mem, i32_mem)
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 4, ctx);
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
+        for (int _ci = 2; _ci < state->child_count; _ci++) {
+            jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
+        }
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999944u);
+        break;
+    }
+    case 597: { // v128_mem: Sig_f32_i32_to_v128_pw(f32_mem, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 4, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 8, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14122,7 +14733,16 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
-    case 586: { // v128_mem: Sig_f64_i32_to_v128_pw(f64_mem, i32_mem)
+    case 598: { // v128_reg0: Sig_f32_i32_to_v128_pw(f32_mem, i32_reg0)
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 4, ctx);
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 8, ctx);
+        for (int _ci = 2; _ci < state->child_count; _ci++) {
+            jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
+        }
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999944u);
+        break;
+    }
+    case 599: { // v128_mem: Sig_f64_i32_to_v128_pw(f64_mem, i32_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 5, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14131,7 +14751,16 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 587: { // v128_mem: Sig_f64_i32_to_v128_pw(f64_mem, i32_reg0)
+    case 600: { // v128_reg0: Sig_f64_i32_to_v128_pw(f64_mem, i32_mem)
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 5, ctx);
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
+        for (int _ci = 2; _ci < state->child_count; _ci++) {
+            jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
+        }
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999944u);
+        break;
+    }
+    case 601: { // v128_mem: Sig_f64_i32_to_v128_pw(f64_mem, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 5, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 8, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14140,7 +14769,16 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
-    case 588: { // v128_mem: Sig_v128_i32_to_v128_pw(v128_mem, i32_mem)
+    case 602: { // v128_reg0: Sig_f64_i32_to_v128_pw(f64_mem, i32_reg0)
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 5, ctx);
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 8, ctx);
+        for (int _ci = 2; _ci < state->child_count; _ci++) {
+            jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
+        }
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999944u);
+        break;
+    }
+    case 603: { // v128_mem: Sig_v128_i32_to_v128_pw_aw(v128_mem, i32_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14149,7 +14787,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 589: { // v128_mem: Sig_v128_i32_to_v128_pw(v128_mem, i32_reg0)
+    case 604: { // v128_mem: Sig_v128_i32_to_v128_pw_aw(v128_mem, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 8, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14158,7 +14796,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
-    case 590: { // v128_mem: Sig_ref_i32_to_v128_pw(ref_mem, i32_mem)
+    case 605: { // v128_mem: Sig_ref_i32_to_v128_pw(ref_mem, i32_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 7, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14167,7 +14805,16 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 591: { // v128_mem: Sig_ref_i32_to_v128_pw(ref_mem, i32_reg0)
+    case 606: { // v128_reg0: Sig_ref_i32_to_v128_pw(ref_mem, i32_mem)
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 7, ctx);
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
+        for (int _ci = 2; _ci < state->child_count; _ci++) {
+            jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
+        }
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999944u);
+        break;
+    }
+    case 607: { // v128_mem: Sig_ref_i32_to_v128_pw(ref_mem, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 7, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 8, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14176,7 +14823,16 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
-    case 592: { // v128_mem: Sig_i32_i64_to_v128_pw(i32_mem, i64_mem)
+    case 608: { // v128_reg0: Sig_ref_i32_to_v128_pw(ref_mem, i32_reg0)
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 7, ctx);
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 8, ctx);
+        for (int _ci = 2; _ci < state->child_count; _ci++) {
+            jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
+        }
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999944u);
+        break;
+    }
+    case 609: { // v128_mem: Sig_i32_i64_to_v128_pw(i32_mem, i64_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 3, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14185,7 +14841,16 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 593: { // v128_mem: Sig_i32_i64_to_v128_pw(i32_mem, i64_reg0)
+    case 610: { // v128_reg0: Sig_i32_i64_to_v128_pw(i32_mem, i64_mem)
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 3, ctx);
+        for (int _ci = 2; _ci < state->child_count; _ci++) {
+            jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
+        }
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999944u);
+        break;
+    }
+    case 611: { // v128_mem: Sig_i32_i64_to_v128_pw(i32_mem, i64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 16, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14194,7 +14859,16 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999991u, 0x99999999u);
         break;
     }
-    case 594: { // v128_mem: Sig_i64_i64_to_v128_pw(i64_mem, i64_mem)
+    case 612: { // v128_reg0: Sig_i32_i64_to_v128_pw(i32_mem, i64_reg0)
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 16, ctx);
+        for (int _ci = 2; _ci < state->child_count; _ci++) {
+            jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
+        }
+        jav_t2_stamp(node, 1, 0x99999991u, 0x99999944u);
+        break;
+    }
+    case 613: { // v128_mem: Sig_i64_i64_to_v128_pw(i64_mem, i64_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 3, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 3, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14203,7 +14877,16 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 595: { // v128_mem: Sig_i64_i64_to_v128_pw(i64_mem, i64_reg0)
+    case 614: { // v128_reg0: Sig_i64_i64_to_v128_pw(i64_mem, i64_mem)
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 3, ctx);
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 3, ctx);
+        for (int _ci = 2; _ci < state->child_count; _ci++) {
+            jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
+        }
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999944u);
+        break;
+    }
+    case 615: { // v128_mem: Sig_i64_i64_to_v128_pw(i64_mem, i64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 3, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 16, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14212,7 +14895,16 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999991u, 0x99999999u);
         break;
     }
-    case 596: { // v128_mem: Sig_f32_i64_to_v128_pw(f32_mem, i64_mem)
+    case 616: { // v128_reg0: Sig_i64_i64_to_v128_pw(i64_mem, i64_reg0)
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 3, ctx);
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 16, ctx);
+        for (int _ci = 2; _ci < state->child_count; _ci++) {
+            jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
+        }
+        jav_t2_stamp(node, 1, 0x99999991u, 0x99999944u);
+        break;
+    }
+    case 617: { // v128_mem: Sig_f32_i64_to_v128_pw(f32_mem, i64_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 4, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 3, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14221,7 +14913,16 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 597: { // v128_mem: Sig_f32_i64_to_v128_pw(f32_mem, i64_reg0)
+    case 618: { // v128_reg0: Sig_f32_i64_to_v128_pw(f32_mem, i64_mem)
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 4, ctx);
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 3, ctx);
+        for (int _ci = 2; _ci < state->child_count; _ci++) {
+            jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
+        }
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999944u);
+        break;
+    }
+    case 619: { // v128_mem: Sig_f32_i64_to_v128_pw(f32_mem, i64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 4, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 16, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14230,7 +14931,16 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999991u, 0x99999999u);
         break;
     }
-    case 598: { // v128_mem: Sig_f64_i64_to_v128_pw(f64_mem, i64_mem)
+    case 620: { // v128_reg0: Sig_f32_i64_to_v128_pw(f32_mem, i64_reg0)
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 4, ctx);
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 16, ctx);
+        for (int _ci = 2; _ci < state->child_count; _ci++) {
+            jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
+        }
+        jav_t2_stamp(node, 1, 0x99999991u, 0x99999944u);
+        break;
+    }
+    case 621: { // v128_mem: Sig_f64_i64_to_v128_pw(f64_mem, i64_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 5, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 3, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14239,7 +14949,16 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 599: { // v128_mem: Sig_f64_i64_to_v128_pw(f64_mem, i64_reg0)
+    case 622: { // v128_reg0: Sig_f64_i64_to_v128_pw(f64_mem, i64_mem)
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 5, ctx);
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 3, ctx);
+        for (int _ci = 2; _ci < state->child_count; _ci++) {
+            jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
+        }
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999944u);
+        break;
+    }
+    case 623: { // v128_mem: Sig_f64_i64_to_v128_pw(f64_mem, i64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 5, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 16, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14248,7 +14967,16 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999991u, 0x99999999u);
         break;
     }
-    case 600: { // v128_mem: Sig_v128_i64_to_v128_pw(v128_mem, i64_mem)
+    case 624: { // v128_reg0: Sig_f64_i64_to_v128_pw(f64_mem, i64_reg0)
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 5, ctx);
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 16, ctx);
+        for (int _ci = 2; _ci < state->child_count; _ci++) {
+            jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
+        }
+        jav_t2_stamp(node, 1, 0x99999991u, 0x99999944u);
+        break;
+    }
+    case 625: { // v128_mem: Sig_v128_i64_to_v128_pw_aw(v128_mem, i64_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 3, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14257,7 +14985,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 601: { // v128_mem: Sig_v128_i64_to_v128_pw(v128_mem, i64_reg0)
+    case 626: { // v128_mem: Sig_v128_i64_to_v128_pw_aw(v128_mem, i64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 16, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14266,7 +14994,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999991u, 0x99999999u);
         break;
     }
-    case 602: { // v128_mem: Sig_ref_i64_to_v128_pw(ref_mem, i64_mem)
+    case 627: { // v128_mem: Sig_ref_i64_to_v128_pw(ref_mem, i64_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 7, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 3, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14275,7 +15003,16 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 603: { // v128_mem: Sig_ref_i64_to_v128_pw(ref_mem, i64_reg0)
+    case 628: { // v128_reg0: Sig_ref_i64_to_v128_pw(ref_mem, i64_mem)
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 7, ctx);
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 3, ctx);
+        for (int _ci = 2; _ci < state->child_count; _ci++) {
+            jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
+        }
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999944u);
+        break;
+    }
+    case 629: { // v128_mem: Sig_ref_i64_to_v128_pw(ref_mem, i64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 7, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 16, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14284,7 +15021,16 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999991u, 0x99999999u);
         break;
     }
-    case 604: { // v128_mem: Sig_v128_v128_i32_to_v128_pw(v128_mem, v128_mem, i32_mem)
+    case 630: { // v128_reg0: Sig_ref_i64_to_v128_pw(ref_mem, i64_reg0)
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 7, ctx);
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 16, ctx);
+        for (int _ci = 2; _ci < state->child_count; _ci++) {
+            jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
+        }
+        jav_t2_stamp(node, 1, 0x99999991u, 0x99999944u);
+        break;
+    }
+    case 631: { // v128_mem: Sig_v128_v128_i32_to_v128_pw(v128_mem, v128_mem, i32_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 2, ctx);
@@ -14294,7 +15040,17 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 605: { // v128_mem: Sig_v128_v128_i32_to_v128_pw(v128_mem, v128_mem, i32_reg0)
+    case 632: { // v128_reg0: Sig_v128_v128_i32_to_v128_pw(v128_mem, v128_mem, i32_mem)
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 6, ctx);
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 2, ctx);
+        for (int _ci = 3; _ci < state->child_count; _ci++) {
+            jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
+        }
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999944u);
+        break;
+    }
+    case 633: { // v128_mem: Sig_v128_v128_i32_to_v128_pw(v128_mem, v128_mem, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 8, ctx);
@@ -14304,14 +15060,109 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
-    case 606: { // v128_mem: Sig_stk_to_v128_pw
+    case 634: { // v128_reg0: Sig_v128_v128_i32_to_v128_pw(v128_mem, v128_mem, i32_reg0)
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 6, ctx);
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 8, ctx);
+        for (int _ci = 3; _ci < state->child_count; _ci++) {
+            jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
+        }
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999944u);
+        break;
+    }
+    case 635: { // v128_mem: Sig_v128_v128_i32_to_v128_pw(v128_mem, v128_reg1, i32_reg0)
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 41, ctx);
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 8, ctx);
+        for (int _ci = 3; _ci < state->child_count; _ci++) {
+            jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
+        }
+        jav_t2_stamp(node, 3, 0x99999440u, 0x99999999u);
+        break;
+    }
+    case 636: { // v128_reg0: Sig_v128_v128_i32_to_v128_pw(v128_mem, v128_reg1, i32_reg0)
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 41, ctx);
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 8, ctx);
+        for (int _ci = 3; _ci < state->child_count; _ci++) {
+            jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
+        }
+        jav_t2_stamp(node, 3, 0x99999440u, 0x99999944u);
+        break;
+    }
+    case 637: { // v128_mem: Sig_v128_v128_i32_to_v128_pw(v128_reg3, v128_reg1, i32_reg0)
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 43, ctx);
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 41, ctx);
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 8, ctx);
+        for (int _ci = 3; _ci < state->child_count; _ci++) {
+            jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
+        }
+        jav_t2_stamp(node, 5, 0x99944440u, 0x99999999u);
+        break;
+    }
+    case 638: { // v128_reg0: Sig_v128_v128_i32_to_v128_pw(v128_reg3, v128_reg1, i32_reg0)
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 43, ctx);
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 41, ctx);
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 8, ctx);
+        for (int _ci = 3; _ci < state->child_count; _ci++) {
+            jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
+        }
+        jav_t2_stamp(node, 5, 0x99944440u, 0x99999944u);
+        break;
+    }
+    case 639: { // v128_reg0: Sig_v128_v128_i32_to_v128_pw(v128_reg3, v128_reg1, i32_reg0)
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 43, ctx);
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 41, ctx);
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 8, ctx);
+        for (int _ci = 3; _ci < state->child_count; _ci++) {
+            jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
+        }
+        jav_t2_stamp(node, 6, 0x99944440u, 0x99999944u);
+        break;
+    }
+    case 640: { // v128_reg0: Sig_v128_v128_i32_to_v128_pw(v128_reg3, v128_reg1, i32_reg0)
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 43, ctx);
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 41, ctx);
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 8, ctx);
+        for (int _ci = 3; _ci < state->child_count; _ci++) {
+            jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
+        }
+        jav_t2_stamp(node, 7, 0x99944440u, 0x99999944u);
+        break;
+    }
+    case 641: { // v128_reg0: Sig_v128_v128_i32_to_v128_pw(v128_reg3, v128_reg1, i32_reg0)
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 43, ctx);
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 41, ctx);
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 8, ctx);
+        for (int _ci = 3; _ci < state->child_count; _ci++) {
+            jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
+        }
+        jav_t2_stamp(node, 8, 0x99944440u, 0x99999944u);
+        break;
+    }
+    case 642: { // v128_mem: Sig_v128_to_v128_aw(v128_mem)
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
+        for (int _ci = 1; _ci < state->child_count; _ci++) {
+            jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
+        }
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
+        break;
+    }
+    case 643: { // v128_mem: Sig_stk_to_v128_pw
         for (int _ci = 0; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 607: { // v128_mem: Sig_ref_to_v128_pw(ref_mem)
+    case 644: { // v128_reg0: Sig_stk_to_v128_pw
+        for (int _ci = 0; _ci < state->child_count; _ci++) {
+            jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
+        }
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999944u);
+        break;
+    }
+    case 645: { // v128_mem: Sig_ref_to_v128_aw(ref_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 7, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -14319,7 +15170,32 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 608: { // v128_mem: Sig_i32_to_v128(i32_mem)
+    case 646: { // v128_mem: Sig_ref_i32_to_v128_aw(ref_mem, i32_mem)
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 7, ctx);
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
+        for (int _ci = 2; _ci < state->child_count; _ci++) {
+            jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
+        }
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
+        break;
+    }
+    case 647: { // v128_mem: Sig_ref_i32_to_v128_aw(ref_mem, i32_reg0)
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 7, ctx);
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 8, ctx);
+        for (int _ci = 2; _ci < state->child_count; _ci++) {
+            jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
+        }
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
+        break;
+    }
+    case 648: { // v128_mem: Sig_to_v128_aw
+        for (int _ci = 0; _ci < state->child_count; _ci++) {
+            jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
+        }
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
+        break;
+    }
+    case 649: { // v128_mem: Sig_i32_to_v128_aw(i32_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -14327,15 +15203,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 609: { // v128_reg0: Sig_i32_to_v128(i32_mem)
-        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
-        for (int _ci = 1; _ci < state->child_count; _ci++) {
-            jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
-        }
-        jav_t2_stamp(node, 0, 0x99999999u, 0x99999944u);
-        break;
-    }
-    case 610: { // v128_mem: Sig_i32_to_v128(i32_reg0)
+    case 650: { // v128_mem: Sig_i32_to_v128_aw(i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 8, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -14343,15 +15211,34 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
-    case 611: { // v128_reg0: Sig_i32_to_v128(i32_reg0)
-        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 8, ctx);
-        for (int _ci = 1; _ci < state->child_count; _ci++) {
+    case 651: { // v128_mem: Sig_i32_i32_to_v128_aw(i32_mem, i32_mem)
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
+        for (int _ci = 2; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
-        jav_t2_stamp(node, 1, 0x99999990u, 0x99999944u);
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 612: { // v128_mem: Sig_i64_to_v128(i64_mem)
+    case 652: { // v128_mem: Sig_i32_i32_to_v128_aw(i32_mem, i32_reg0)
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 8, ctx);
+        for (int _ci = 2; _ci < state->child_count; _ci++) {
+            jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
+        }
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
+        break;
+    }
+    case 653: { // v128_mem: Sig_i32_i32_to_v128_aw(i32_reg1, i32_reg0)
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 9, ctx);
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 8, ctx);
+        for (int _ci = 2; _ci < state->child_count; _ci++) {
+            jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
+        }
+        jav_t2_stamp(node, 2, 0x99999900u, 0x99999999u);
+        break;
+    }
+    case 654: { // v128_mem: Sig_i64_to_v128_aw(i64_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 3, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -14359,15 +15246,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 613: { // v128_reg0: Sig_i64_to_v128(i64_mem)
-        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 3, ctx);
-        for (int _ci = 1; _ci < state->child_count; _ci++) {
-            jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
-        }
-        jav_t2_stamp(node, 0, 0x99999999u, 0x99999944u);
-        break;
-    }
-    case 614: { // v128_mem: Sig_i64_to_v128(i64_reg0)
+    case 655: { // v128_mem: Sig_i64_to_v128_aw(i64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 16, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -14375,7 +15254,63 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999991u, 0x99999999u);
         break;
     }
-    case 615: { // v128_reg0: Sig_i64_to_v128(i64_reg0)
+    case 656: { // v128_mem: Sig_i32_to_v128(i32_mem)
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
+        for (int _ci = 1; _ci < state->child_count; _ci++) {
+            jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
+        }
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
+        break;
+    }
+    case 657: { // v128_reg0: Sig_i32_to_v128(i32_mem)
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
+        for (int _ci = 1; _ci < state->child_count; _ci++) {
+            jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
+        }
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999944u);
+        break;
+    }
+    case 658: { // v128_mem: Sig_i32_to_v128(i32_reg0)
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 8, ctx);
+        for (int _ci = 1; _ci < state->child_count; _ci++) {
+            jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
+        }
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
+        break;
+    }
+    case 659: { // v128_reg0: Sig_i32_to_v128(i32_reg0)
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 8, ctx);
+        for (int _ci = 1; _ci < state->child_count; _ci++) {
+            jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
+        }
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999944u);
+        break;
+    }
+    case 660: { // v128_mem: Sig_i64_to_v128(i64_mem)
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 3, ctx);
+        for (int _ci = 1; _ci < state->child_count; _ci++) {
+            jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
+        }
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
+        break;
+    }
+    case 661: { // v128_reg0: Sig_i64_to_v128(i64_mem)
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 3, ctx);
+        for (int _ci = 1; _ci < state->child_count; _ci++) {
+            jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
+        }
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999944u);
+        break;
+    }
+    case 662: { // v128_mem: Sig_i64_to_v128(i64_reg0)
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 16, ctx);
+        for (int _ci = 1; _ci < state->child_count; _ci++) {
+            jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
+        }
+        jav_t2_stamp(node, 1, 0x99999991u, 0x99999999u);
+        break;
+    }
+    case 663: { // v128_reg0: Sig_i64_to_v128(i64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 16, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -14383,21 +15318,21 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999991u, 0x99999944u);
         break;
     }
-    case 616: { // v128_mem: Sig_to_v128
+    case 664: { // v128_mem: Sig_to_v128
         for (int _ci = 0; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 617: { // v128_reg0: Sig_to_v128
+    case 665: { // v128_reg0: Sig_to_v128
         for (int _ci = 0; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999944u);
         break;
     }
-    case 618: { // v128_mem: Sig_v128_v128_to_v128(v128_mem, v128_mem)
+    case 666: { // v128_mem: Sig_v128_v128_to_v128(v128_mem, v128_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 6, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14406,7 +15341,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 619: { // v128_reg0: Sig_v128_v128_to_v128(v128_mem, v128_mem)
+    case 667: { // v128_reg0: Sig_v128_v128_to_v128(v128_mem, v128_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 6, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14415,7 +15350,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999944u);
         break;
     }
-    case 620: { // v128_mem: Sig_v128_v128_to_v128(v128_mem, v128_reg0)
+    case 668: { // v128_mem: Sig_v128_v128_to_v128(v128_mem, v128_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 40, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14424,7 +15359,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 2, 0x99999944u, 0x99999999u);
         break;
     }
-    case 621: { // v128_reg0: Sig_v128_v128_to_v128(v128_mem, v128_reg0)
+    case 669: { // v128_reg0: Sig_v128_v128_to_v128(v128_mem, v128_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 40, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14433,7 +15368,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 2, 0x99999944u, 0x99999944u);
         break;
     }
-    case 622: { // v128_mem: Sig_v128_v128_to_v128(v128_reg2, v128_reg0)
+    case 670: { // v128_mem: Sig_v128_v128_to_v128(v128_reg2, v128_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 42, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 40, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14442,7 +15377,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 4, 0x99994444u, 0x99999999u);
         break;
     }
-    case 623: { // v128_reg0: Sig_v128_v128_to_v128(v128_reg2, v128_reg0)
+    case 671: { // v128_reg0: Sig_v128_v128_to_v128(v128_reg2, v128_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 42, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 40, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14451,7 +15386,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 4, 0x99994444u, 0x99999944u);
         break;
     }
-    case 624: { // v128_reg0: Sig_v128_v128_to_v128(v128_reg2, v128_reg0)
+    case 672: { // v128_reg0: Sig_v128_v128_to_v128(v128_reg2, v128_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 42, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 40, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14460,7 +15395,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 5, 0x99994444u, 0x99999944u);
         break;
     }
-    case 625: { // v128_reg0: Sig_v128_v128_to_v128(v128_reg2, v128_reg0)
+    case 673: { // v128_reg0: Sig_v128_v128_to_v128(v128_reg2, v128_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 42, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 40, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14469,7 +15404,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 6, 0x99994444u, 0x99999944u);
         break;
     }
-    case 626: { // v128_reg0: Sig_v128_v128_to_v128(v128_reg2, v128_reg0)
+    case 674: { // v128_reg0: Sig_v128_v128_to_v128(v128_reg2, v128_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 42, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 40, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14478,7 +15413,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 7, 0x99994444u, 0x99999944u);
         break;
     }
-    case 627: { // v128_reg0: Sig_v128_v128_to_v128(v128_reg2, v128_reg0)
+    case 675: { // v128_reg0: Sig_v128_v128_to_v128(v128_reg2, v128_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 42, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 40, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14487,7 +15422,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 8, 0x99994444u, 0x99999944u);
         break;
     }
-    case 628: { // v128_mem: Sig_i32_v128_to_v128(i32_mem, v128_mem)
+    case 676: { // v128_mem: Sig_i32_v128_to_v128(i32_mem, v128_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 6, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14496,7 +15431,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 629: { // v128_reg0: Sig_i32_v128_to_v128(i32_mem, v128_mem)
+    case 677: { // v128_reg0: Sig_i32_v128_to_v128(i32_mem, v128_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 6, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14505,7 +15440,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999944u);
         break;
     }
-    case 630: { // v128_mem: Sig_i32_v128_to_v128(i32_mem, v128_reg0)
+    case 678: { // v128_mem: Sig_i32_v128_to_v128(i32_mem, v128_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 40, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14514,7 +15449,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 2, 0x99999944u, 0x99999999u);
         break;
     }
-    case 631: { // v128_reg0: Sig_i32_v128_to_v128(i32_mem, v128_reg0)
+    case 679: { // v128_reg0: Sig_i32_v128_to_v128(i32_mem, v128_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 40, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14523,7 +15458,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 2, 0x99999944u, 0x99999944u);
         break;
     }
-    case 632: { // v128_mem: Sig_i32_v128_to_v128(i32_reg2, v128_reg0)
+    case 680: { // v128_mem: Sig_i32_v128_to_v128(i32_reg2, v128_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 10, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 40, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14532,7 +15467,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 3, 0x99999044u, 0x99999999u);
         break;
     }
-    case 633: { // v128_reg0: Sig_i32_v128_to_v128(i32_reg2, v128_reg0)
+    case 681: { // v128_reg0: Sig_i32_v128_to_v128(i32_reg2, v128_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 10, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 40, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14541,7 +15476,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 3, 0x99999044u, 0x99999944u);
         break;
     }
-    case 634: { // v128_reg0: Sig_i32_v128_to_v128(i32_reg2, v128_reg0)
+    case 682: { // v128_reg0: Sig_i32_v128_to_v128(i32_reg2, v128_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 10, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 40, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14550,7 +15485,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 4, 0x99999044u, 0x99999944u);
         break;
     }
-    case 635: { // v128_reg0: Sig_i32_v128_to_v128(i32_reg2, v128_reg0)
+    case 683: { // v128_reg0: Sig_i32_v128_to_v128(i32_reg2, v128_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 10, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 40, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14559,7 +15494,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 5, 0x99999044u, 0x99999944u);
         break;
     }
-    case 636: { // v128_reg0: Sig_i32_v128_to_v128(i32_reg2, v128_reg0)
+    case 684: { // v128_reg0: Sig_i32_v128_to_v128(i32_reg2, v128_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 10, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 40, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14568,7 +15503,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 6, 0x99999044u, 0x99999944u);
         break;
     }
-    case 637: { // v128_reg0: Sig_i32_v128_to_v128(i32_reg2, v128_reg0)
+    case 685: { // v128_reg0: Sig_i32_v128_to_v128(i32_reg2, v128_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 10, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 40, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14577,7 +15512,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 7, 0x99999044u, 0x99999944u);
         break;
     }
-    case 638: { // v128_reg0: Sig_i32_v128_to_v128(i32_reg2, v128_reg0)
+    case 686: { // v128_reg0: Sig_i32_v128_to_v128(i32_reg2, v128_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 10, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 40, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14586,7 +15521,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 8, 0x99999044u, 0x99999944u);
         break;
     }
-    case 639: { // v128_mem: Sig_i64_v128_to_v128(i64_mem, v128_mem)
+    case 687: { // v128_mem: Sig_i64_v128_to_v128(i64_mem, v128_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 3, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 6, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14595,7 +15530,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 640: { // v128_reg0: Sig_i64_v128_to_v128(i64_mem, v128_mem)
+    case 688: { // v128_reg0: Sig_i64_v128_to_v128(i64_mem, v128_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 3, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 6, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14604,7 +15539,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999944u);
         break;
     }
-    case 641: { // v128_mem: Sig_i64_v128_to_v128(i64_mem, v128_reg0)
+    case 689: { // v128_mem: Sig_i64_v128_to_v128(i64_mem, v128_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 3, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 40, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14613,7 +15548,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 2, 0x99999944u, 0x99999999u);
         break;
     }
-    case 642: { // v128_reg0: Sig_i64_v128_to_v128(i64_mem, v128_reg0)
+    case 690: { // v128_reg0: Sig_i64_v128_to_v128(i64_mem, v128_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 3, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 40, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14622,7 +15557,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 2, 0x99999944u, 0x99999944u);
         break;
     }
-    case 643: { // v128_mem: Sig_i64_v128_to_v128(i64_reg2, v128_reg0)
+    case 691: { // v128_mem: Sig_i64_v128_to_v128(i64_reg2, v128_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 18, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 40, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14631,7 +15566,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 3, 0x99999144u, 0x99999999u);
         break;
     }
-    case 644: { // v128_reg0: Sig_i64_v128_to_v128(i64_reg2, v128_reg0)
+    case 692: { // v128_reg0: Sig_i64_v128_to_v128(i64_reg2, v128_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 18, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 40, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14640,7 +15575,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 3, 0x99999144u, 0x99999944u);
         break;
     }
-    case 645: { // v128_reg0: Sig_i64_v128_to_v128(i64_reg2, v128_reg0)
+    case 693: { // v128_reg0: Sig_i64_v128_to_v128(i64_reg2, v128_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 18, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 40, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14649,7 +15584,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 4, 0x99999144u, 0x99999944u);
         break;
     }
-    case 646: { // v128_reg0: Sig_i64_v128_to_v128(i64_reg2, v128_reg0)
+    case 694: { // v128_reg0: Sig_i64_v128_to_v128(i64_reg2, v128_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 18, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 40, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14658,7 +15593,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 5, 0x99999144u, 0x99999944u);
         break;
     }
-    case 647: { // v128_reg0: Sig_i64_v128_to_v128(i64_reg2, v128_reg0)
+    case 695: { // v128_reg0: Sig_i64_v128_to_v128(i64_reg2, v128_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 18, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 40, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14667,7 +15602,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 6, 0x99999144u, 0x99999944u);
         break;
     }
-    case 648: { // v128_reg0: Sig_i64_v128_to_v128(i64_reg2, v128_reg0)
+    case 696: { // v128_reg0: Sig_i64_v128_to_v128(i64_reg2, v128_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 18, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 40, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14676,7 +15611,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 7, 0x99999144u, 0x99999944u);
         break;
     }
-    case 649: { // v128_reg0: Sig_i64_v128_to_v128(i64_reg2, v128_reg0)
+    case 697: { // v128_reg0: Sig_i64_v128_to_v128(i64_reg2, v128_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 18, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 40, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14685,7 +15620,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 8, 0x99999144u, 0x99999944u);
         break;
     }
-    case 650: { // v128_mem: Sig_f32_to_v128(f32_mem)
+    case 698: { // v128_mem: Sig_f32_to_v128(f32_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 4, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -14693,7 +15628,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 651: { // v128_reg0: Sig_f32_to_v128(f32_mem)
+    case 699: { // v128_reg0: Sig_f32_to_v128(f32_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 4, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -14701,7 +15636,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999944u);
         break;
     }
-    case 652: { // v128_mem: Sig_f32_to_v128(f32_reg0)
+    case 700: { // v128_mem: Sig_f32_to_v128(f32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 24, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -14709,7 +15644,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999992u, 0x99999999u);
         break;
     }
-    case 653: { // v128_reg0: Sig_f32_to_v128(f32_reg0)
+    case 701: { // v128_reg0: Sig_f32_to_v128(f32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 24, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -14717,7 +15652,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999992u, 0x99999944u);
         break;
     }
-    case 654: { // v128_mem: Sig_f64_to_v128(f64_mem)
+    case 702: { // v128_mem: Sig_f64_to_v128(f64_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 5, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -14725,7 +15660,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 655: { // v128_reg0: Sig_f64_to_v128(f64_mem)
+    case 703: { // v128_reg0: Sig_f64_to_v128(f64_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 5, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -14733,7 +15668,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999944u);
         break;
     }
-    case 656: { // v128_mem: Sig_f64_to_v128(f64_reg0)
+    case 704: { // v128_mem: Sig_f64_to_v128(f64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 32, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -14741,7 +15676,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999993u, 0x99999999u);
         break;
     }
-    case 657: { // v128_reg0: Sig_f64_to_v128(f64_reg0)
+    case 705: { // v128_reg0: Sig_f64_to_v128(f64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 32, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -14749,7 +15684,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999993u, 0x99999944u);
         break;
     }
-    case 658: { // v128_mem: Sig_v128_to_v128(v128_mem)
+    case 706: { // v128_mem: Sig_v128_to_v128(v128_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -14757,7 +15692,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 659: { // v128_reg0: Sig_v128_to_v128(v128_mem)
+    case 707: { // v128_reg0: Sig_v128_to_v128(v128_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -14765,7 +15700,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999944u);
         break;
     }
-    case 660: { // v128_mem: Sig_v128_to_v128(v128_reg0)
+    case 708: { // v128_mem: Sig_v128_to_v128(v128_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 40, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -14773,7 +15708,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 2, 0x99999944u, 0x99999999u);
         break;
     }
-    case 661: { // v128_reg0: Sig_v128_to_v128(v128_reg0)
+    case 709: { // v128_reg0: Sig_v128_to_v128(v128_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 40, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -14781,7 +15716,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 2, 0x99999944u, 0x99999944u);
         break;
     }
-    case 662: { // v128_mem: Sig_v128_i32_to_v128(v128_mem, i32_mem)
+    case 710: { // v128_mem: Sig_v128_i32_to_v128(v128_mem, i32_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14790,7 +15725,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 663: { // v128_reg0: Sig_v128_i32_to_v128(v128_mem, i32_mem)
+    case 711: { // v128_reg0: Sig_v128_i32_to_v128(v128_mem, i32_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14799,7 +15734,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999944u);
         break;
     }
-    case 664: { // v128_mem: Sig_v128_i32_to_v128(v128_mem, i32_reg0)
+    case 712: { // v128_mem: Sig_v128_i32_to_v128(v128_mem, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 8, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14808,7 +15743,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
-    case 665: { // v128_reg0: Sig_v128_i32_to_v128(v128_mem, i32_reg0)
+    case 713: { // v128_reg0: Sig_v128_i32_to_v128(v128_mem, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 8, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14817,7 +15752,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999990u, 0x99999944u);
         break;
     }
-    case 666: { // v128_mem: Sig_v128_i32_to_v128(v128_reg1, i32_reg0)
+    case 714: { // v128_mem: Sig_v128_i32_to_v128(v128_reg1, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 41, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 8, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14826,7 +15761,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 3, 0x99999440u, 0x99999999u);
         break;
     }
-    case 667: { // v128_reg0: Sig_v128_i32_to_v128(v128_reg1, i32_reg0)
+    case 715: { // v128_reg0: Sig_v128_i32_to_v128(v128_reg1, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 41, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 8, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14835,7 +15770,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 3, 0x99999440u, 0x99999944u);
         break;
     }
-    case 668: { // v128_reg0: Sig_v128_i32_to_v128(v128_reg1, i32_reg0)
+    case 716: { // v128_reg0: Sig_v128_i32_to_v128(v128_reg1, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 41, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 8, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14844,7 +15779,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 4, 0x99999440u, 0x99999944u);
         break;
     }
-    case 669: { // v128_reg0: Sig_v128_i32_to_v128(v128_reg1, i32_reg0)
+    case 717: { // v128_reg0: Sig_v128_i32_to_v128(v128_reg1, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 41, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 8, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14853,7 +15788,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 5, 0x99999440u, 0x99999944u);
         break;
     }
-    case 670: { // v128_reg0: Sig_v128_i32_to_v128(v128_reg1, i32_reg0)
+    case 718: { // v128_reg0: Sig_v128_i32_to_v128(v128_reg1, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 41, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 8, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14862,7 +15797,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 6, 0x99999440u, 0x99999944u);
         break;
     }
-    case 671: { // v128_reg0: Sig_v128_i32_to_v128(v128_reg1, i32_reg0)
+    case 719: { // v128_reg0: Sig_v128_i32_to_v128(v128_reg1, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 41, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 8, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14871,7 +15806,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 7, 0x99999440u, 0x99999944u);
         break;
     }
-    case 672: { // v128_reg0: Sig_v128_i32_to_v128(v128_reg1, i32_reg0)
+    case 720: { // v128_reg0: Sig_v128_i32_to_v128(v128_reg1, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 41, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 8, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14880,7 +15815,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 8, 0x99999440u, 0x99999944u);
         break;
     }
-    case 673: { // v128_mem: Sig_v128_i64_to_v128(v128_mem, i64_mem)
+    case 721: { // v128_mem: Sig_v128_i64_to_v128(v128_mem, i64_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 3, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14889,7 +15824,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 674: { // v128_reg0: Sig_v128_i64_to_v128(v128_mem, i64_mem)
+    case 722: { // v128_reg0: Sig_v128_i64_to_v128(v128_mem, i64_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 3, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14898,7 +15833,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999944u);
         break;
     }
-    case 675: { // v128_mem: Sig_v128_i64_to_v128(v128_mem, i64_reg0)
+    case 723: { // v128_mem: Sig_v128_i64_to_v128(v128_mem, i64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 16, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14907,7 +15842,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999991u, 0x99999999u);
         break;
     }
-    case 676: { // v128_reg0: Sig_v128_i64_to_v128(v128_mem, i64_reg0)
+    case 724: { // v128_reg0: Sig_v128_i64_to_v128(v128_mem, i64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 16, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14916,7 +15851,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999991u, 0x99999944u);
         break;
     }
-    case 677: { // v128_mem: Sig_v128_i64_to_v128(v128_reg1, i64_reg0)
+    case 725: { // v128_mem: Sig_v128_i64_to_v128(v128_reg1, i64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 41, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 16, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14925,7 +15860,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 3, 0x99999441u, 0x99999999u);
         break;
     }
-    case 678: { // v128_reg0: Sig_v128_i64_to_v128(v128_reg1, i64_reg0)
+    case 726: { // v128_reg0: Sig_v128_i64_to_v128(v128_reg1, i64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 41, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 16, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14934,7 +15869,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 3, 0x99999441u, 0x99999944u);
         break;
     }
-    case 679: { // v128_reg0: Sig_v128_i64_to_v128(v128_reg1, i64_reg0)
+    case 727: { // v128_reg0: Sig_v128_i64_to_v128(v128_reg1, i64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 41, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 16, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14943,7 +15878,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 4, 0x99999441u, 0x99999944u);
         break;
     }
-    case 680: { // v128_reg0: Sig_v128_i64_to_v128(v128_reg1, i64_reg0)
+    case 728: { // v128_reg0: Sig_v128_i64_to_v128(v128_reg1, i64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 41, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 16, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14952,7 +15887,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 5, 0x99999441u, 0x99999944u);
         break;
     }
-    case 681: { // v128_reg0: Sig_v128_i64_to_v128(v128_reg1, i64_reg0)
+    case 729: { // v128_reg0: Sig_v128_i64_to_v128(v128_reg1, i64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 41, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 16, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14961,7 +15896,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 6, 0x99999441u, 0x99999944u);
         break;
     }
-    case 682: { // v128_reg0: Sig_v128_i64_to_v128(v128_reg1, i64_reg0)
+    case 730: { // v128_reg0: Sig_v128_i64_to_v128(v128_reg1, i64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 41, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 16, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14970,7 +15905,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 7, 0x99999441u, 0x99999944u);
         break;
     }
-    case 683: { // v128_reg0: Sig_v128_i64_to_v128(v128_reg1, i64_reg0)
+    case 731: { // v128_reg0: Sig_v128_i64_to_v128(v128_reg1, i64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 41, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 16, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14979,7 +15914,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 8, 0x99999441u, 0x99999944u);
         break;
     }
-    case 684: { // v128_mem: Sig_v128_f32_to_v128(v128_mem, f32_mem)
+    case 732: { // v128_mem: Sig_v128_f32_to_v128(v128_mem, f32_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 4, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14988,7 +15923,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 685: { // v128_reg0: Sig_v128_f32_to_v128(v128_mem, f32_mem)
+    case 733: { // v128_reg0: Sig_v128_f32_to_v128(v128_mem, f32_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 4, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -14997,7 +15932,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999944u);
         break;
     }
-    case 686: { // v128_mem: Sig_v128_f32_to_v128(v128_mem, f32_reg0)
+    case 734: { // v128_mem: Sig_v128_f32_to_v128(v128_mem, f32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 24, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15006,7 +15941,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999992u, 0x99999999u);
         break;
     }
-    case 687: { // v128_reg0: Sig_v128_f32_to_v128(v128_mem, f32_reg0)
+    case 735: { // v128_reg0: Sig_v128_f32_to_v128(v128_mem, f32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 24, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15015,7 +15950,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999992u, 0x99999944u);
         break;
     }
-    case 688: { // v128_mem: Sig_v128_f32_to_v128(v128_reg1, f32_reg0)
+    case 736: { // v128_mem: Sig_v128_f32_to_v128(v128_reg1, f32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 41, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 24, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15024,7 +15959,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 3, 0x99999442u, 0x99999999u);
         break;
     }
-    case 689: { // v128_reg0: Sig_v128_f32_to_v128(v128_reg1, f32_reg0)
+    case 737: { // v128_reg0: Sig_v128_f32_to_v128(v128_reg1, f32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 41, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 24, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15033,7 +15968,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 3, 0x99999442u, 0x99999944u);
         break;
     }
-    case 690: { // v128_reg0: Sig_v128_f32_to_v128(v128_reg1, f32_reg0)
+    case 738: { // v128_reg0: Sig_v128_f32_to_v128(v128_reg1, f32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 41, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 24, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15042,7 +15977,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 4, 0x99999442u, 0x99999944u);
         break;
     }
-    case 691: { // v128_reg0: Sig_v128_f32_to_v128(v128_reg1, f32_reg0)
+    case 739: { // v128_reg0: Sig_v128_f32_to_v128(v128_reg1, f32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 41, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 24, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15051,7 +15986,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 5, 0x99999442u, 0x99999944u);
         break;
     }
-    case 692: { // v128_reg0: Sig_v128_f32_to_v128(v128_reg1, f32_reg0)
+    case 740: { // v128_reg0: Sig_v128_f32_to_v128(v128_reg1, f32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 41, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 24, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15060,7 +15995,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 6, 0x99999442u, 0x99999944u);
         break;
     }
-    case 693: { // v128_reg0: Sig_v128_f32_to_v128(v128_reg1, f32_reg0)
+    case 741: { // v128_reg0: Sig_v128_f32_to_v128(v128_reg1, f32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 41, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 24, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15069,7 +16004,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 7, 0x99999442u, 0x99999944u);
         break;
     }
-    case 694: { // v128_reg0: Sig_v128_f32_to_v128(v128_reg1, f32_reg0)
+    case 742: { // v128_reg0: Sig_v128_f32_to_v128(v128_reg1, f32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 41, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 24, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15078,7 +16013,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 8, 0x99999442u, 0x99999944u);
         break;
     }
-    case 695: { // v128_mem: Sig_v128_f64_to_v128(v128_mem, f64_mem)
+    case 743: { // v128_mem: Sig_v128_f64_to_v128(v128_mem, f64_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 5, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15087,7 +16022,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 696: { // v128_reg0: Sig_v128_f64_to_v128(v128_mem, f64_mem)
+    case 744: { // v128_reg0: Sig_v128_f64_to_v128(v128_mem, f64_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 5, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15096,7 +16031,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999944u);
         break;
     }
-    case 697: { // v128_mem: Sig_v128_f64_to_v128(v128_mem, f64_reg0)
+    case 745: { // v128_mem: Sig_v128_f64_to_v128(v128_mem, f64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 32, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15105,7 +16040,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999993u, 0x99999999u);
         break;
     }
-    case 698: { // v128_reg0: Sig_v128_f64_to_v128(v128_mem, f64_reg0)
+    case 746: { // v128_reg0: Sig_v128_f64_to_v128(v128_mem, f64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 32, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15114,7 +16049,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999993u, 0x99999944u);
         break;
     }
-    case 699: { // v128_mem: Sig_v128_f64_to_v128(v128_reg1, f64_reg0)
+    case 747: { // v128_mem: Sig_v128_f64_to_v128(v128_reg1, f64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 41, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 32, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15123,7 +16058,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 3, 0x99999443u, 0x99999999u);
         break;
     }
-    case 700: { // v128_reg0: Sig_v128_f64_to_v128(v128_reg1, f64_reg0)
+    case 748: { // v128_reg0: Sig_v128_f64_to_v128(v128_reg1, f64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 41, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 32, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15132,7 +16067,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 3, 0x99999443u, 0x99999944u);
         break;
     }
-    case 701: { // v128_reg0: Sig_v128_f64_to_v128(v128_reg1, f64_reg0)
+    case 749: { // v128_reg0: Sig_v128_f64_to_v128(v128_reg1, f64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 41, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 32, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15141,7 +16076,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 4, 0x99999443u, 0x99999944u);
         break;
     }
-    case 702: { // v128_reg0: Sig_v128_f64_to_v128(v128_reg1, f64_reg0)
+    case 750: { // v128_reg0: Sig_v128_f64_to_v128(v128_reg1, f64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 41, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 32, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15150,7 +16085,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 5, 0x99999443u, 0x99999944u);
         break;
     }
-    case 703: { // v128_reg0: Sig_v128_f64_to_v128(v128_reg1, f64_reg0)
+    case 751: { // v128_reg0: Sig_v128_f64_to_v128(v128_reg1, f64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 41, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 32, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15159,7 +16094,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 6, 0x99999443u, 0x99999944u);
         break;
     }
-    case 704: { // v128_reg0: Sig_v128_f64_to_v128(v128_reg1, f64_reg0)
+    case 752: { // v128_reg0: Sig_v128_f64_to_v128(v128_reg1, f64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 41, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 32, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15168,7 +16103,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 7, 0x99999443u, 0x99999944u);
         break;
     }
-    case 705: { // v128_reg0: Sig_v128_f64_to_v128(v128_reg1, f64_reg0)
+    case 753: { // v128_reg0: Sig_v128_f64_to_v128(v128_reg1, f64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 41, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 32, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15177,7 +16112,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 8, 0x99999443u, 0x99999944u);
         break;
     }
-    case 706: { // v128_mem: Sig_v128_v128_v128_to_v128(v128_mem, v128_mem, v128_mem)
+    case 754: { // v128_mem: Sig_v128_v128_v128_to_v128(v128_mem, v128_mem, v128_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 6, ctx);
@@ -15187,7 +16122,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 707: { // v128_reg0: Sig_v128_v128_v128_to_v128(v128_mem, v128_mem, v128_mem)
+    case 755: { // v128_reg0: Sig_v128_v128_v128_to_v128(v128_mem, v128_mem, v128_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 6, ctx);
@@ -15197,7 +16132,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999944u);
         break;
     }
-    case 708: { // v128_mem: Sig_v128_v128_v128_to_v128(v128_mem, v128_mem, v128_reg0)
+    case 756: { // v128_mem: Sig_v128_v128_v128_to_v128(v128_mem, v128_mem, v128_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 40, ctx);
@@ -15207,7 +16142,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 2, 0x99999944u, 0x99999999u);
         break;
     }
-    case 709: { // v128_reg0: Sig_v128_v128_v128_to_v128(v128_mem, v128_mem, v128_reg0)
+    case 757: { // v128_reg0: Sig_v128_v128_v128_to_v128(v128_mem, v128_mem, v128_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 40, ctx);
@@ -15217,7 +16152,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 2, 0x99999944u, 0x99999944u);
         break;
     }
-    case 710: { // v128_mem: Sig_v128_v128_v128_to_v128(v128_mem, v128_reg2, v128_reg0)
+    case 758: { // v128_mem: Sig_v128_v128_v128_to_v128(v128_mem, v128_reg2, v128_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 42, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 40, ctx);
@@ -15227,7 +16162,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 4, 0x99994444u, 0x99999999u);
         break;
     }
-    case 711: { // v128_reg0: Sig_v128_v128_v128_to_v128(v128_mem, v128_reg2, v128_reg0)
+    case 759: { // v128_reg0: Sig_v128_v128_v128_to_v128(v128_mem, v128_reg2, v128_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 42, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 40, ctx);
@@ -15237,7 +16172,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 4, 0x99994444u, 0x99999944u);
         break;
     }
-    case 712: { // v128_mem: Sig_v128_v128_v128_to_v128(v128_reg4, v128_reg2, v128_reg0)
+    case 760: { // v128_mem: Sig_v128_v128_v128_to_v128(v128_reg4, v128_reg2, v128_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 44, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 42, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 40, ctx);
@@ -15247,7 +16182,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 6, 0x99444444u, 0x99999999u);
         break;
     }
-    case 713: { // v128_reg0: Sig_v128_v128_v128_to_v128(v128_reg4, v128_reg2, v128_reg0)
+    case 761: { // v128_reg0: Sig_v128_v128_v128_to_v128(v128_reg4, v128_reg2, v128_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 44, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 42, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 40, ctx);
@@ -15257,7 +16192,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 6, 0x99444444u, 0x99999944u);
         break;
     }
-    case 714: { // v128_reg0: Sig_v128_v128_v128_to_v128(v128_reg4, v128_reg2, v128_reg0)
+    case 762: { // v128_reg0: Sig_v128_v128_v128_to_v128(v128_reg4, v128_reg2, v128_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 44, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 42, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 40, ctx);
@@ -15267,7 +16202,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 7, 0x99444444u, 0x99999944u);
         break;
     }
-    case 715: { // v128_reg0: Sig_v128_v128_v128_to_v128(v128_reg4, v128_reg2, v128_reg0)
+    case 763: { // v128_reg0: Sig_v128_v128_v128_to_v128(v128_reg4, v128_reg2, v128_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 44, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 42, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 40, ctx);
@@ -15277,14 +16212,14 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 8, 0x99444444u, 0x99999944u);
         break;
     }
-    case 716: { // ref_mem: Sig_to_ref
+    case 764: { // ref_mem: Sig_to_ref
         for (int _ci = 0; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 717: { // ref_mem: Sig_ref_to_ref(ref_mem)
+    case 765: { // ref_mem: Sig_ref_to_ref(ref_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 7, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -15292,7 +16227,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 718: { // ref_mem: Sig_i32_to_ref(i32_mem)
+    case 766: { // ref_mem: Sig_i32_to_ref(i32_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -15300,7 +16235,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 719: { // ref_mem: Sig_i32_to_ref(i32_reg0)
+    case 767: { // ref_mem: Sig_i32_to_ref(i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 8, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -15308,7 +16243,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
-    case 720: { // ref_mem: Sig_i64_to_ref(i64_mem)
+    case 768: { // ref_mem: Sig_i64_to_ref(i64_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 3, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -15316,7 +16251,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 721: { // ref_mem: Sig_i64_to_ref(i64_reg0)
+    case 769: { // ref_mem: Sig_i64_to_ref(i64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 16, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -15324,7 +16259,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999991u, 0x99999999u);
         break;
     }
-    case 722: { // ref_mem: Sig_i32_i32_to_ref(i32_mem, i32_mem)
+    case 770: { // ref_mem: Sig_i32_i32_to_ref(i32_mem, i32_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15333,7 +16268,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 723: { // ref_mem: Sig_i32_i32_to_ref(i32_mem, i32_reg0)
+    case 771: { // ref_mem: Sig_i32_i32_to_ref(i32_mem, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 8, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15342,7 +16277,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
-    case 724: { // ref_mem: Sig_i32_i32_to_ref(i32_reg1, i32_reg0)
+    case 772: { // ref_mem: Sig_i32_i32_to_ref(i32_reg1, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 9, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 8, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15351,7 +16286,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 2, 0x99999900u, 0x99999999u);
         break;
     }
-    case 725: { // ref_mem: Sig_i64_i32_to_ref(i64_mem, i32_mem)
+    case 773: { // ref_mem: Sig_i64_i32_to_ref(i64_mem, i32_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 3, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15360,7 +16295,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 726: { // ref_mem: Sig_i64_i32_to_ref(i64_mem, i32_reg0)
+    case 774: { // ref_mem: Sig_i64_i32_to_ref(i64_mem, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 3, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 8, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15369,7 +16304,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
-    case 727: { // ref_mem: Sig_f32_i32_to_ref(f32_mem, i32_mem)
+    case 775: { // ref_mem: Sig_f32_i32_to_ref(f32_mem, i32_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 4, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15378,7 +16313,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 728: { // ref_mem: Sig_f32_i32_to_ref(f32_mem, i32_reg0)
+    case 776: { // ref_mem: Sig_f32_i32_to_ref(f32_mem, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 4, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 8, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15387,7 +16322,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
-    case 729: { // ref_mem: Sig_f64_i32_to_ref(f64_mem, i32_mem)
+    case 777: { // ref_mem: Sig_f64_i32_to_ref(f64_mem, i32_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 5, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15396,7 +16331,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 730: { // ref_mem: Sig_f64_i32_to_ref(f64_mem, i32_reg0)
+    case 778: { // ref_mem: Sig_f64_i32_to_ref(f64_mem, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 5, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 8, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15405,7 +16340,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
-    case 731: { // ref_mem: Sig_v128_i32_to_ref_pw(v128_mem, i32_mem)
+    case 779: { // ref_mem: Sig_v128_i32_to_ref_aw(v128_mem, i32_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15414,7 +16349,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 732: { // ref_mem: Sig_v128_i32_to_ref_pw(v128_mem, i32_reg0)
+    case 780: { // ref_mem: Sig_v128_i32_to_ref_aw(v128_mem, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 8, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15423,7 +16358,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
-    case 733: { // ref_mem: Sig_ref_i32_to_ref(ref_mem, i32_mem)
+    case 781: { // ref_mem: Sig_ref_i32_to_ref(ref_mem, i32_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 7, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15432,7 +16367,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 734: { // ref_mem: Sig_ref_i32_to_ref(ref_mem, i32_reg0)
+    case 782: { // ref_mem: Sig_ref_i32_to_ref(ref_mem, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 7, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 8, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15441,7 +16376,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
-    case 735: { // ref_mem: Sig_i32_i64_to_ref(i32_mem, i64_mem)
+    case 783: { // ref_mem: Sig_i32_i64_to_ref(i32_mem, i64_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 3, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15450,7 +16385,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 736: { // ref_mem: Sig_i32_i64_to_ref(i32_mem, i64_reg0)
+    case 784: { // ref_mem: Sig_i32_i64_to_ref(i32_mem, i64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 16, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15459,7 +16394,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999991u, 0x99999999u);
         break;
     }
-    case 737: { // ref_mem: Sig_i64_i64_to_ref(i64_mem, i64_mem)
+    case 785: { // ref_mem: Sig_i64_i64_to_ref(i64_mem, i64_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 3, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 3, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15468,7 +16403,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 738: { // ref_mem: Sig_i64_i64_to_ref(i64_mem, i64_reg0)
+    case 786: { // ref_mem: Sig_i64_i64_to_ref(i64_mem, i64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 3, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 16, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15477,7 +16412,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999991u, 0x99999999u);
         break;
     }
-    case 739: { // ref_mem: Sig_f32_i64_to_ref(f32_mem, i64_mem)
+    case 787: { // ref_mem: Sig_f32_i64_to_ref(f32_mem, i64_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 4, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 3, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15486,7 +16421,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 740: { // ref_mem: Sig_f32_i64_to_ref(f32_mem, i64_reg0)
+    case 788: { // ref_mem: Sig_f32_i64_to_ref(f32_mem, i64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 4, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 16, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15495,7 +16430,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999991u, 0x99999999u);
         break;
     }
-    case 741: { // ref_mem: Sig_f64_i64_to_ref(f64_mem, i64_mem)
+    case 789: { // ref_mem: Sig_f64_i64_to_ref(f64_mem, i64_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 5, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 3, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15504,7 +16439,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 742: { // ref_mem: Sig_f64_i64_to_ref(f64_mem, i64_reg0)
+    case 790: { // ref_mem: Sig_f64_i64_to_ref(f64_mem, i64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 5, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 16, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15513,7 +16448,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999991u, 0x99999999u);
         break;
     }
-    case 743: { // ref_mem: Sig_v128_i64_to_ref_pw(v128_mem, i64_mem)
+    case 791: { // ref_mem: Sig_v128_i64_to_ref_aw(v128_mem, i64_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 3, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15522,7 +16457,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 744: { // ref_mem: Sig_v128_i64_to_ref_pw(v128_mem, i64_reg0)
+    case 792: { // ref_mem: Sig_v128_i64_to_ref_aw(v128_mem, i64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 16, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15531,7 +16466,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999991u, 0x99999999u);
         break;
     }
-    case 745: { // ref_mem: Sig_ref_i64_to_ref(ref_mem, i64_mem)
+    case 793: { // ref_mem: Sig_ref_i64_to_ref(ref_mem, i64_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 7, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 3, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15540,7 +16475,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 746: { // ref_mem: Sig_ref_i64_to_ref(ref_mem, i64_reg0)
+    case 794: { // ref_mem: Sig_ref_i64_to_ref(ref_mem, i64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 7, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 16, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15549,7 +16484,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999991u, 0x99999999u);
         break;
     }
-    case 747: { // ref_mem: Sig_ref_ref_i32_to_ref(ref_mem, ref_mem, i32_mem)
+    case 795: { // ref_mem: Sig_ref_ref_i32_to_ref(ref_mem, ref_mem, i32_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 7, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 7, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 2, ctx);
@@ -15559,7 +16494,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 748: { // ref_mem: Sig_ref_ref_i32_to_ref(ref_mem, ref_mem, i32_reg0)
+    case 796: { // ref_mem: Sig_ref_ref_i32_to_ref(ref_mem, ref_mem, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 7, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 7, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 8, ctx);
@@ -15569,14 +16504,14 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
-    case 749: { // ref_mem: Sig_stk_to_ref
+    case 797: { // ref_mem: Sig_stk_to_ref
         for (int _ci = 0; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 750: { // stmt: Sig_i32_to_void(i32_mem)
+    case 798: { // stmt: Sig_i32_to_void(i32_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -15584,7 +16519,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 751: { // stmt: Sig_i32_to_void(i32_reg0)
+    case 799: { // stmt: Sig_i32_to_void(i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 8, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -15592,7 +16527,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
-    case 752: { // stmt: Sig_i64_to_void(i64_mem)
+    case 800: { // stmt: Sig_i64_to_void(i64_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 3, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -15600,7 +16535,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 753: { // stmt: Sig_i64_to_void(i64_reg0)
+    case 801: { // stmt: Sig_i64_to_void(i64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 16, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -15608,7 +16543,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999991u, 0x99999999u);
         break;
     }
-    case 754: { // stmt: Sig_f32_to_void(f32_mem)
+    case 802: { // stmt: Sig_f32_to_void(f32_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 4, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -15616,7 +16551,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 755: { // stmt: Sig_f32_to_void(f32_reg0)
+    case 803: { // stmt: Sig_f32_to_void(f32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 24, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -15624,7 +16559,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999992u, 0x99999999u);
         break;
     }
-    case 756: { // stmt: Sig_f64_to_void(f64_mem)
+    case 804: { // stmt: Sig_f64_to_void(f64_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 5, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -15632,7 +16567,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 757: { // stmt: Sig_f64_to_void(f64_reg0)
+    case 805: { // stmt: Sig_f64_to_void(f64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 32, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -15640,7 +16575,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999993u, 0x99999999u);
         break;
     }
-    case 758: { // stmt: Sig_v128_to_void_pw(v128_mem)
+    case 806: { // stmt: Sig_v128_to_void_pw(v128_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -15648,7 +16583,15 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 759: { // stmt: Sig_ref_to_void(ref_mem)
+    case 807: { // stmt: Sig_v128_to_void_pw(v128_reg0)
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 40, ctx);
+        for (int _ci = 1; _ci < state->child_count; _ci++) {
+            jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
+        }
+        jav_t2_stamp(node, 2, 0x99999944u, 0x99999999u);
+        break;
+    }
+    case 808: { // stmt: Sig_ref_to_void(ref_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 7, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -15656,7 +16599,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 760: { // stmt: Sig_i32_i32_to_void(i32_mem, i32_mem)
+    case 809: { // stmt: Sig_i32_i32_to_void(i32_mem, i32_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15665,7 +16608,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 761: { // stmt: Sig_i32_i32_to_void(i32_mem, i32_reg0)
+    case 810: { // stmt: Sig_i32_i32_to_void(i32_mem, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 8, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15674,7 +16617,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
-    case 762: { // stmt: Sig_i32_i32_to_void(i32_reg1, i32_reg0)
+    case 811: { // stmt: Sig_i32_i32_to_void(i32_reg1, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 9, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 8, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15683,7 +16626,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 2, 0x99999900u, 0x99999999u);
         break;
     }
-    case 763: { // stmt: Sig_i32_i32_to_void(i32_reg1, i32_reg0)
+    case 812: { // stmt: Sig_i32_i32_to_void(i32_reg1, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 9, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 8, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15692,7 +16635,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 3, 0x99999900u, 0x99999999u);
         break;
     }
-    case 764: { // stmt: Sig_i32_i32_to_void(i32_reg1, i32_reg0)
+    case 813: { // stmt: Sig_i32_i32_to_void(i32_reg1, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 9, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 8, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15701,7 +16644,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 4, 0x99999900u, 0x99999999u);
         break;
     }
-    case 765: { // stmt: Sig_i32_i32_to_void(i32_reg1, i32_reg0)
+    case 814: { // stmt: Sig_i32_i32_to_void(i32_reg1, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 9, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 8, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15710,7 +16653,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 5, 0x99999900u, 0x99999999u);
         break;
     }
-    case 766: { // stmt: Sig_i32_i32_to_void(i32_reg1, i32_reg0)
+    case 815: { // stmt: Sig_i32_i32_to_void(i32_reg1, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 9, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 8, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15719,7 +16662,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 6, 0x99999900u, 0x99999999u);
         break;
     }
-    case 767: { // stmt: Sig_i32_i32_to_void(i32_reg1, i32_reg0)
+    case 816: { // stmt: Sig_i32_i32_to_void(i32_reg1, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 9, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 8, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15728,7 +16671,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 7, 0x99999900u, 0x99999999u);
         break;
     }
-    case 768: { // stmt: Sig_i32_i32_to_void(i32_reg1, i32_reg0)
+    case 817: { // stmt: Sig_i32_i32_to_void(i32_reg1, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 9, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 8, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15737,7 +16680,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 8, 0x99999900u, 0x99999999u);
         break;
     }
-    case 769: { // stmt: Sig_i64_i32_to_void(i64_mem, i32_mem)
+    case 818: { // stmt: Sig_i64_i32_to_void(i64_mem, i32_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 3, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15746,7 +16689,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 770: { // stmt: Sig_i64_i32_to_void(i64_mem, i32_reg0)
+    case 819: { // stmt: Sig_i64_i32_to_void(i64_mem, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 3, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 8, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15755,7 +16698,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
-    case 771: { // stmt: Sig_i64_i32_to_void(i64_reg1, i32_reg0)
+    case 820: { // stmt: Sig_i64_i32_to_void(i64_reg1, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 17, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 8, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15764,7 +16707,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 2, 0x99999910u, 0x99999999u);
         break;
     }
-    case 772: { // stmt: Sig_i64_i32_to_void(i64_reg1, i32_reg0)
+    case 821: { // stmt: Sig_i64_i32_to_void(i64_reg1, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 17, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 8, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15773,7 +16716,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 3, 0x99999910u, 0x99999999u);
         break;
     }
-    case 773: { // stmt: Sig_i64_i32_to_void(i64_reg1, i32_reg0)
+    case 822: { // stmt: Sig_i64_i32_to_void(i64_reg1, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 17, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 8, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15782,7 +16725,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 4, 0x99999910u, 0x99999999u);
         break;
     }
-    case 774: { // stmt: Sig_i64_i32_to_void(i64_reg1, i32_reg0)
+    case 823: { // stmt: Sig_i64_i32_to_void(i64_reg1, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 17, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 8, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15791,7 +16734,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 5, 0x99999910u, 0x99999999u);
         break;
     }
-    case 775: { // stmt: Sig_i64_i32_to_void(i64_reg1, i32_reg0)
+    case 824: { // stmt: Sig_i64_i32_to_void(i64_reg1, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 17, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 8, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15800,7 +16743,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 6, 0x99999910u, 0x99999999u);
         break;
     }
-    case 776: { // stmt: Sig_i64_i32_to_void(i64_reg1, i32_reg0)
+    case 825: { // stmt: Sig_i64_i32_to_void(i64_reg1, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 17, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 8, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15809,7 +16752,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 7, 0x99999910u, 0x99999999u);
         break;
     }
-    case 777: { // stmt: Sig_i64_i32_to_void(i64_reg1, i32_reg0)
+    case 826: { // stmt: Sig_i64_i32_to_void(i64_reg1, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 17, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 8, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15818,7 +16761,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 8, 0x99999910u, 0x99999999u);
         break;
     }
-    case 778: { // stmt: Sig_i32_i64_to_void(i32_mem, i64_mem)
+    case 827: { // stmt: Sig_i32_i64_to_void(i32_mem, i64_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 3, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15827,7 +16770,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 779: { // stmt: Sig_i32_i64_to_void(i32_mem, i64_reg0)
+    case 828: { // stmt: Sig_i32_i64_to_void(i32_mem, i64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 16, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15836,7 +16779,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999991u, 0x99999999u);
         break;
     }
-    case 780: { // stmt: Sig_i32_i64_to_void(i32_reg1, i64_reg0)
+    case 829: { // stmt: Sig_i32_i64_to_void(i32_reg1, i64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 9, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 16, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15845,7 +16788,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 2, 0x99999901u, 0x99999999u);
         break;
     }
-    case 781: { // stmt: Sig_i32_i64_to_void(i32_reg1, i64_reg0)
+    case 830: { // stmt: Sig_i32_i64_to_void(i32_reg1, i64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 9, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 16, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15854,7 +16797,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 3, 0x99999901u, 0x99999999u);
         break;
     }
-    case 782: { // stmt: Sig_i32_i64_to_void(i32_reg1, i64_reg0)
+    case 831: { // stmt: Sig_i32_i64_to_void(i32_reg1, i64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 9, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 16, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15863,7 +16806,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 4, 0x99999901u, 0x99999999u);
         break;
     }
-    case 783: { // stmt: Sig_i32_i64_to_void(i32_reg1, i64_reg0)
+    case 832: { // stmt: Sig_i32_i64_to_void(i32_reg1, i64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 9, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 16, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15872,7 +16815,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 5, 0x99999901u, 0x99999999u);
         break;
     }
-    case 784: { // stmt: Sig_i32_i64_to_void(i32_reg1, i64_reg0)
+    case 833: { // stmt: Sig_i32_i64_to_void(i32_reg1, i64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 9, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 16, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15881,7 +16824,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 6, 0x99999901u, 0x99999999u);
         break;
     }
-    case 785: { // stmt: Sig_i32_i64_to_void(i32_reg1, i64_reg0)
+    case 834: { // stmt: Sig_i32_i64_to_void(i32_reg1, i64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 9, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 16, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15890,7 +16833,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 7, 0x99999901u, 0x99999999u);
         break;
     }
-    case 786: { // stmt: Sig_i32_i64_to_void(i32_reg1, i64_reg0)
+    case 835: { // stmt: Sig_i32_i64_to_void(i32_reg1, i64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 9, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 16, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15899,7 +16842,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 8, 0x99999901u, 0x99999999u);
         break;
     }
-    case 787: { // stmt: Sig_i64_i64_to_void(i64_mem, i64_mem)
+    case 836: { // stmt: Sig_i64_i64_to_void(i64_mem, i64_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 3, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 3, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15908,7 +16851,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 788: { // stmt: Sig_i64_i64_to_void(i64_mem, i64_reg0)
+    case 837: { // stmt: Sig_i64_i64_to_void(i64_mem, i64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 3, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 16, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15917,7 +16860,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999991u, 0x99999999u);
         break;
     }
-    case 789: { // stmt: Sig_i64_i64_to_void(i64_reg1, i64_reg0)
+    case 838: { // stmt: Sig_i64_i64_to_void(i64_reg1, i64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 17, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 16, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15926,7 +16869,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 2, 0x99999911u, 0x99999999u);
         break;
     }
-    case 790: { // stmt: Sig_i64_i64_to_void(i64_reg1, i64_reg0)
+    case 839: { // stmt: Sig_i64_i64_to_void(i64_reg1, i64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 17, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 16, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15935,7 +16878,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 3, 0x99999911u, 0x99999999u);
         break;
     }
-    case 791: { // stmt: Sig_i64_i64_to_void(i64_reg1, i64_reg0)
+    case 840: { // stmt: Sig_i64_i64_to_void(i64_reg1, i64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 17, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 16, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15944,7 +16887,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 4, 0x99999911u, 0x99999999u);
         break;
     }
-    case 792: { // stmt: Sig_i64_i64_to_void(i64_reg1, i64_reg0)
+    case 841: { // stmt: Sig_i64_i64_to_void(i64_reg1, i64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 17, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 16, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15953,7 +16896,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 5, 0x99999911u, 0x99999999u);
         break;
     }
-    case 793: { // stmt: Sig_i64_i64_to_void(i64_reg1, i64_reg0)
+    case 842: { // stmt: Sig_i64_i64_to_void(i64_reg1, i64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 17, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 16, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15962,7 +16905,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 6, 0x99999911u, 0x99999999u);
         break;
     }
-    case 794: { // stmt: Sig_i64_i64_to_void(i64_reg1, i64_reg0)
+    case 843: { // stmt: Sig_i64_i64_to_void(i64_reg1, i64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 17, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 16, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15971,7 +16914,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 7, 0x99999911u, 0x99999999u);
         break;
     }
-    case 795: { // stmt: Sig_i64_i64_to_void(i64_reg1, i64_reg0)
+    case 844: { // stmt: Sig_i64_i64_to_void(i64_reg1, i64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 17, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 16, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15980,7 +16923,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 8, 0x99999911u, 0x99999999u);
         break;
     }
-    case 796: { // stmt: Sig_i32_f32_to_void(i32_mem, f32_mem)
+    case 845: { // stmt: Sig_i32_f32_to_void(i32_mem, f32_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 4, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15989,7 +16932,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 797: { // stmt: Sig_i32_f32_to_void(i32_mem, f32_reg0)
+    case 846: { // stmt: Sig_i32_f32_to_void(i32_mem, f32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 24, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -15998,7 +16941,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999992u, 0x99999999u);
         break;
     }
-    case 798: { // stmt: Sig_i32_f32_to_void(i32_reg1, f32_reg0)
+    case 847: { // stmt: Sig_i32_f32_to_void(i32_reg1, f32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 9, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 24, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -16007,7 +16950,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 2, 0x99999902u, 0x99999999u);
         break;
     }
-    case 799: { // stmt: Sig_i32_f32_to_void(i32_reg1, f32_reg0)
+    case 848: { // stmt: Sig_i32_f32_to_void(i32_reg1, f32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 9, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 24, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -16016,7 +16959,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 3, 0x99999902u, 0x99999999u);
         break;
     }
-    case 800: { // stmt: Sig_i32_f32_to_void(i32_reg1, f32_reg0)
+    case 849: { // stmt: Sig_i32_f32_to_void(i32_reg1, f32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 9, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 24, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -16025,7 +16968,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 4, 0x99999902u, 0x99999999u);
         break;
     }
-    case 801: { // stmt: Sig_i32_f32_to_void(i32_reg1, f32_reg0)
+    case 850: { // stmt: Sig_i32_f32_to_void(i32_reg1, f32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 9, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 24, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -16034,7 +16977,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 5, 0x99999902u, 0x99999999u);
         break;
     }
-    case 802: { // stmt: Sig_i32_f32_to_void(i32_reg1, f32_reg0)
+    case 851: { // stmt: Sig_i32_f32_to_void(i32_reg1, f32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 9, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 24, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -16043,7 +16986,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 6, 0x99999902u, 0x99999999u);
         break;
     }
-    case 803: { // stmt: Sig_i32_f32_to_void(i32_reg1, f32_reg0)
+    case 852: { // stmt: Sig_i32_f32_to_void(i32_reg1, f32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 9, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 24, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -16052,7 +16995,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 7, 0x99999902u, 0x99999999u);
         break;
     }
-    case 804: { // stmt: Sig_i32_f32_to_void(i32_reg1, f32_reg0)
+    case 853: { // stmt: Sig_i32_f32_to_void(i32_reg1, f32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 9, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 24, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -16061,7 +17004,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 8, 0x99999902u, 0x99999999u);
         break;
     }
-    case 805: { // stmt: Sig_i64_f32_to_void(i64_mem, f32_mem)
+    case 854: { // stmt: Sig_i64_f32_to_void(i64_mem, f32_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 3, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 4, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -16070,7 +17013,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 806: { // stmt: Sig_i64_f32_to_void(i64_mem, f32_reg0)
+    case 855: { // stmt: Sig_i64_f32_to_void(i64_mem, f32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 3, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 24, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -16079,7 +17022,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999992u, 0x99999999u);
         break;
     }
-    case 807: { // stmt: Sig_i64_f32_to_void(i64_reg1, f32_reg0)
+    case 856: { // stmt: Sig_i64_f32_to_void(i64_reg1, f32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 17, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 24, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -16088,7 +17031,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 2, 0x99999912u, 0x99999999u);
         break;
     }
-    case 808: { // stmt: Sig_i64_f32_to_void(i64_reg1, f32_reg0)
+    case 857: { // stmt: Sig_i64_f32_to_void(i64_reg1, f32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 17, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 24, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -16097,7 +17040,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 3, 0x99999912u, 0x99999999u);
         break;
     }
-    case 809: { // stmt: Sig_i64_f32_to_void(i64_reg1, f32_reg0)
+    case 858: { // stmt: Sig_i64_f32_to_void(i64_reg1, f32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 17, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 24, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -16106,7 +17049,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 4, 0x99999912u, 0x99999999u);
         break;
     }
-    case 810: { // stmt: Sig_i64_f32_to_void(i64_reg1, f32_reg0)
+    case 859: { // stmt: Sig_i64_f32_to_void(i64_reg1, f32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 17, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 24, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -16115,7 +17058,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 5, 0x99999912u, 0x99999999u);
         break;
     }
-    case 811: { // stmt: Sig_i64_f32_to_void(i64_reg1, f32_reg0)
+    case 860: { // stmt: Sig_i64_f32_to_void(i64_reg1, f32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 17, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 24, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -16124,7 +17067,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 6, 0x99999912u, 0x99999999u);
         break;
     }
-    case 812: { // stmt: Sig_i64_f32_to_void(i64_reg1, f32_reg0)
+    case 861: { // stmt: Sig_i64_f32_to_void(i64_reg1, f32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 17, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 24, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -16133,7 +17076,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 7, 0x99999912u, 0x99999999u);
         break;
     }
-    case 813: { // stmt: Sig_i64_f32_to_void(i64_reg1, f32_reg0)
+    case 862: { // stmt: Sig_i64_f32_to_void(i64_reg1, f32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 17, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 24, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -16142,7 +17085,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 8, 0x99999912u, 0x99999999u);
         break;
     }
-    case 814: { // stmt: Sig_i32_f64_to_void(i32_mem, f64_mem)
+    case 863: { // stmt: Sig_i32_f64_to_void(i32_mem, f64_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 5, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -16151,7 +17094,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 815: { // stmt: Sig_i32_f64_to_void(i32_mem, f64_reg0)
+    case 864: { // stmt: Sig_i32_f64_to_void(i32_mem, f64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 32, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -16160,7 +17103,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999993u, 0x99999999u);
         break;
     }
-    case 816: { // stmt: Sig_i32_f64_to_void(i32_reg1, f64_reg0)
+    case 865: { // stmt: Sig_i32_f64_to_void(i32_reg1, f64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 9, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 32, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -16169,7 +17112,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 2, 0x99999903u, 0x99999999u);
         break;
     }
-    case 817: { // stmt: Sig_i32_f64_to_void(i32_reg1, f64_reg0)
+    case 866: { // stmt: Sig_i32_f64_to_void(i32_reg1, f64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 9, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 32, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -16178,7 +17121,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 3, 0x99999903u, 0x99999999u);
         break;
     }
-    case 818: { // stmt: Sig_i32_f64_to_void(i32_reg1, f64_reg0)
+    case 867: { // stmt: Sig_i32_f64_to_void(i32_reg1, f64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 9, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 32, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -16187,7 +17130,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 4, 0x99999903u, 0x99999999u);
         break;
     }
-    case 819: { // stmt: Sig_i32_f64_to_void(i32_reg1, f64_reg0)
+    case 868: { // stmt: Sig_i32_f64_to_void(i32_reg1, f64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 9, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 32, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -16196,7 +17139,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 5, 0x99999903u, 0x99999999u);
         break;
     }
-    case 820: { // stmt: Sig_i32_f64_to_void(i32_reg1, f64_reg0)
+    case 869: { // stmt: Sig_i32_f64_to_void(i32_reg1, f64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 9, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 32, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -16205,7 +17148,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 6, 0x99999903u, 0x99999999u);
         break;
     }
-    case 821: { // stmt: Sig_i32_f64_to_void(i32_reg1, f64_reg0)
+    case 870: { // stmt: Sig_i32_f64_to_void(i32_reg1, f64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 9, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 32, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -16214,7 +17157,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 7, 0x99999903u, 0x99999999u);
         break;
     }
-    case 822: { // stmt: Sig_i32_f64_to_void(i32_reg1, f64_reg0)
+    case 871: { // stmt: Sig_i32_f64_to_void(i32_reg1, f64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 9, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 32, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -16223,7 +17166,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 8, 0x99999903u, 0x99999999u);
         break;
     }
-    case 823: { // stmt: Sig_i64_f64_to_void(i64_mem, f64_mem)
+    case 872: { // stmt: Sig_i64_f64_to_void(i64_mem, f64_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 3, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 5, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -16232,7 +17175,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 824: { // stmt: Sig_i64_f64_to_void(i64_mem, f64_reg0)
+    case 873: { // stmt: Sig_i64_f64_to_void(i64_mem, f64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 3, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 32, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -16241,7 +17184,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999993u, 0x99999999u);
         break;
     }
-    case 825: { // stmt: Sig_i64_f64_to_void(i64_reg1, f64_reg0)
+    case 874: { // stmt: Sig_i64_f64_to_void(i64_reg1, f64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 17, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 32, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -16250,7 +17193,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 2, 0x99999913u, 0x99999999u);
         break;
     }
-    case 826: { // stmt: Sig_i64_f64_to_void(i64_reg1, f64_reg0)
+    case 875: { // stmt: Sig_i64_f64_to_void(i64_reg1, f64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 17, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 32, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -16259,7 +17202,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 3, 0x99999913u, 0x99999999u);
         break;
     }
-    case 827: { // stmt: Sig_i64_f64_to_void(i64_reg1, f64_reg0)
+    case 876: { // stmt: Sig_i64_f64_to_void(i64_reg1, f64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 17, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 32, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -16268,7 +17211,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 4, 0x99999913u, 0x99999999u);
         break;
     }
-    case 828: { // stmt: Sig_i64_f64_to_void(i64_reg1, f64_reg0)
+    case 877: { // stmt: Sig_i64_f64_to_void(i64_reg1, f64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 17, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 32, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -16277,7 +17220,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 5, 0x99999913u, 0x99999999u);
         break;
     }
-    case 829: { // stmt: Sig_i64_f64_to_void(i64_reg1, f64_reg0)
+    case 878: { // stmt: Sig_i64_f64_to_void(i64_reg1, f64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 17, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 32, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -16286,7 +17229,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 6, 0x99999913u, 0x99999999u);
         break;
     }
-    case 830: { // stmt: Sig_i64_f64_to_void(i64_reg1, f64_reg0)
+    case 879: { // stmt: Sig_i64_f64_to_void(i64_reg1, f64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 17, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 32, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -16295,7 +17238,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 7, 0x99999913u, 0x99999999u);
         break;
     }
-    case 831: { // stmt: Sig_i64_f64_to_void(i64_reg1, f64_reg0)
+    case 880: { // stmt: Sig_i64_f64_to_void(i64_reg1, f64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 17, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 32, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -16304,7 +17247,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 8, 0x99999913u, 0x99999999u);
         break;
     }
-    case 832: { // stmt: Sig_i32_i32_i32_to_void(i32_mem, i32_mem, i32_mem)
+    case 881: { // stmt: Sig_i32_i32_i32_to_void(i32_mem, i32_mem, i32_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 2, ctx);
@@ -16314,7 +17257,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 833: { // stmt: Sig_i32_i32_i32_to_void(i32_mem, i32_mem, i32_reg0)
+    case 882: { // stmt: Sig_i32_i32_i32_to_void(i32_mem, i32_mem, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 8, ctx);
@@ -16324,7 +17267,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
-    case 834: { // stmt: Sig_i32_i32_i32_to_void(i32_mem, i32_reg1, i32_reg0)
+    case 883: { // stmt: Sig_i32_i32_i32_to_void(i32_mem, i32_reg1, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 9, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 8, ctx);
@@ -16334,7 +17277,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 2, 0x99999900u, 0x99999999u);
         break;
     }
-    case 835: { // stmt: Sig_i32_i32_i32_to_void(i32_reg2, i32_reg1, i32_reg0)
+    case 884: { // stmt: Sig_i32_i32_i32_to_void(i32_reg2, i32_reg1, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 10, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 9, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 8, ctx);
@@ -16344,7 +17287,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 3, 0x99999000u, 0x99999999u);
         break;
     }
-    case 836: { // stmt: Sig_i32_i32_i32_to_void(i32_reg2, i32_reg1, i32_reg0)
+    case 885: { // stmt: Sig_i32_i32_i32_to_void(i32_reg2, i32_reg1, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 10, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 9, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 8, ctx);
@@ -16354,7 +17297,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 4, 0x99999000u, 0x99999999u);
         break;
     }
-    case 837: { // stmt: Sig_i32_i32_i32_to_void(i32_reg2, i32_reg1, i32_reg0)
+    case 886: { // stmt: Sig_i32_i32_i32_to_void(i32_reg2, i32_reg1, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 10, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 9, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 8, ctx);
@@ -16364,7 +17307,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 5, 0x99999000u, 0x99999999u);
         break;
     }
-    case 838: { // stmt: Sig_i32_i32_i32_to_void(i32_reg2, i32_reg1, i32_reg0)
+    case 887: { // stmt: Sig_i32_i32_i32_to_void(i32_reg2, i32_reg1, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 10, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 9, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 8, ctx);
@@ -16374,7 +17317,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 6, 0x99999000u, 0x99999999u);
         break;
     }
-    case 839: { // stmt: Sig_i32_i32_i32_to_void(i32_reg2, i32_reg1, i32_reg0)
+    case 888: { // stmt: Sig_i32_i32_i32_to_void(i32_reg2, i32_reg1, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 10, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 9, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 8, ctx);
@@ -16384,7 +17327,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 7, 0x99999000u, 0x99999999u);
         break;
     }
-    case 840: { // stmt: Sig_i32_i32_i32_to_void(i32_reg2, i32_reg1, i32_reg0)
+    case 889: { // stmt: Sig_i32_i32_i32_to_void(i32_reg2, i32_reg1, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 10, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 9, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 8, ctx);
@@ -16394,7 +17337,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 8, 0x99999000u, 0x99999999u);
         break;
     }
-    case 841: { // stmt: Sig_i64_i32_i64_to_void(i64_mem, i32_mem, i64_mem)
+    case 890: { // stmt: Sig_i64_i32_i64_to_void(i64_mem, i32_mem, i64_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 3, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 3, ctx);
@@ -16404,7 +17347,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 842: { // stmt: Sig_i64_i32_i64_to_void(i64_mem, i32_mem, i64_reg0)
+    case 891: { // stmt: Sig_i64_i32_i64_to_void(i64_mem, i32_mem, i64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 3, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 16, ctx);
@@ -16414,7 +17357,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999991u, 0x99999999u);
         break;
     }
-    case 843: { // stmt: Sig_i64_i32_i64_to_void(i64_mem, i32_reg1, i64_reg0)
+    case 892: { // stmt: Sig_i64_i32_i64_to_void(i64_mem, i32_reg1, i64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 3, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 9, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 16, ctx);
@@ -16424,7 +17367,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 2, 0x99999901u, 0x99999999u);
         break;
     }
-    case 844: { // stmt: Sig_i64_i32_i64_to_void(i64_reg2, i32_reg1, i64_reg0)
+    case 893: { // stmt: Sig_i64_i32_i64_to_void(i64_reg2, i32_reg1, i64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 18, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 9, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 16, ctx);
@@ -16434,7 +17377,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 3, 0x99999101u, 0x99999999u);
         break;
     }
-    case 845: { // stmt: Sig_i64_i32_i64_to_void(i64_reg2, i32_reg1, i64_reg0)
+    case 894: { // stmt: Sig_i64_i32_i64_to_void(i64_reg2, i32_reg1, i64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 18, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 9, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 16, ctx);
@@ -16444,7 +17387,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 4, 0x99999101u, 0x99999999u);
         break;
     }
-    case 846: { // stmt: Sig_i64_i32_i64_to_void(i64_reg2, i32_reg1, i64_reg0)
+    case 895: { // stmt: Sig_i64_i32_i64_to_void(i64_reg2, i32_reg1, i64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 18, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 9, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 16, ctx);
@@ -16454,7 +17397,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 5, 0x99999101u, 0x99999999u);
         break;
     }
-    case 847: { // stmt: Sig_i64_i32_i64_to_void(i64_reg2, i32_reg1, i64_reg0)
+    case 896: { // stmt: Sig_i64_i32_i64_to_void(i64_reg2, i32_reg1, i64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 18, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 9, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 16, ctx);
@@ -16464,7 +17407,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 6, 0x99999101u, 0x99999999u);
         break;
     }
-    case 848: { // stmt: Sig_i64_i32_i64_to_void(i64_reg2, i32_reg1, i64_reg0)
+    case 897: { // stmt: Sig_i64_i32_i64_to_void(i64_reg2, i32_reg1, i64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 18, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 9, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 16, ctx);
@@ -16474,7 +17417,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 7, 0x99999101u, 0x99999999u);
         break;
     }
-    case 849: { // stmt: Sig_i64_i32_i64_to_void(i64_reg2, i32_reg1, i64_reg0)
+    case 898: { // stmt: Sig_i64_i32_i64_to_void(i64_reg2, i32_reg1, i64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 18, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 9, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 16, ctx);
@@ -16484,7 +17427,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 8, 0x99999101u, 0x99999999u);
         break;
     }
-    case 850: { // stmt: Sig_i64_i32_i32_to_void(i64_mem, i32_mem, i32_mem)
+    case 899: { // stmt: Sig_i64_i32_i32_to_void(i64_mem, i32_mem, i32_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 3, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 2, ctx);
@@ -16494,7 +17437,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 851: { // stmt: Sig_i64_i32_i32_to_void(i64_mem, i32_mem, i32_reg0)
+    case 900: { // stmt: Sig_i64_i32_i32_to_void(i64_mem, i32_mem, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 3, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 8, ctx);
@@ -16504,7 +17447,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
-    case 852: { // stmt: Sig_i64_i32_i32_to_void(i64_mem, i32_reg1, i32_reg0)
+    case 901: { // stmt: Sig_i64_i32_i32_to_void(i64_mem, i32_reg1, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 3, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 9, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 8, ctx);
@@ -16514,7 +17457,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 2, 0x99999900u, 0x99999999u);
         break;
     }
-    case 853: { // stmt: Sig_i64_i32_i32_to_void(i64_reg2, i32_reg1, i32_reg0)
+    case 902: { // stmt: Sig_i64_i32_i32_to_void(i64_reg2, i32_reg1, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 18, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 9, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 8, ctx);
@@ -16524,7 +17467,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 3, 0x99999100u, 0x99999999u);
         break;
     }
-    case 854: { // stmt: Sig_i64_i32_i32_to_void(i64_reg2, i32_reg1, i32_reg0)
+    case 903: { // stmt: Sig_i64_i32_i32_to_void(i64_reg2, i32_reg1, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 18, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 9, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 8, ctx);
@@ -16534,7 +17477,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 4, 0x99999100u, 0x99999999u);
         break;
     }
-    case 855: { // stmt: Sig_i64_i32_i32_to_void(i64_reg2, i32_reg1, i32_reg0)
+    case 904: { // stmt: Sig_i64_i32_i32_to_void(i64_reg2, i32_reg1, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 18, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 9, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 8, ctx);
@@ -16544,7 +17487,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 5, 0x99999100u, 0x99999999u);
         break;
     }
-    case 856: { // stmt: Sig_i64_i32_i32_to_void(i64_reg2, i32_reg1, i32_reg0)
+    case 905: { // stmt: Sig_i64_i32_i32_to_void(i64_reg2, i32_reg1, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 18, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 9, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 8, ctx);
@@ -16554,7 +17497,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 6, 0x99999100u, 0x99999999u);
         break;
     }
-    case 857: { // stmt: Sig_i64_i32_i32_to_void(i64_reg2, i32_reg1, i32_reg0)
+    case 906: { // stmt: Sig_i64_i32_i32_to_void(i64_reg2, i32_reg1, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 18, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 9, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 8, ctx);
@@ -16564,7 +17507,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 7, 0x99999100u, 0x99999999u);
         break;
     }
-    case 858: { // stmt: Sig_i64_i32_i32_to_void(i64_reg2, i32_reg1, i32_reg0)
+    case 907: { // stmt: Sig_i64_i32_i32_to_void(i64_reg2, i32_reg1, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 18, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 9, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 8, ctx);
@@ -16574,7 +17517,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 8, 0x99999100u, 0x99999999u);
         break;
     }
-    case 859: { // stmt: Sig_i32_i64_i32_to_void(i32_mem, i64_mem, i32_mem)
+    case 908: { // stmt: Sig_i32_i64_i32_to_void(i32_mem, i64_mem, i32_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 3, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 2, ctx);
@@ -16584,7 +17527,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 860: { // stmt: Sig_i32_i64_i32_to_void(i32_mem, i64_mem, i32_reg0)
+    case 909: { // stmt: Sig_i32_i64_i32_to_void(i32_mem, i64_mem, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 3, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 8, ctx);
@@ -16594,7 +17537,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
-    case 861: { // stmt: Sig_i32_i64_i32_to_void(i32_mem, i64_reg1, i32_reg0)
+    case 910: { // stmt: Sig_i32_i64_i32_to_void(i32_mem, i64_reg1, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 17, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 8, ctx);
@@ -16604,7 +17547,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 2, 0x99999910u, 0x99999999u);
         break;
     }
-    case 862: { // stmt: Sig_i32_i64_i32_to_void(i32_reg2, i64_reg1, i32_reg0)
+    case 911: { // stmt: Sig_i32_i64_i32_to_void(i32_reg2, i64_reg1, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 10, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 17, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 8, ctx);
@@ -16614,7 +17557,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 3, 0x99999010u, 0x99999999u);
         break;
     }
-    case 863: { // stmt: Sig_i32_i64_i32_to_void(i32_reg2, i64_reg1, i32_reg0)
+    case 912: { // stmt: Sig_i32_i64_i32_to_void(i32_reg2, i64_reg1, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 10, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 17, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 8, ctx);
@@ -16624,7 +17567,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 4, 0x99999010u, 0x99999999u);
         break;
     }
-    case 864: { // stmt: Sig_i32_i64_i32_to_void(i32_reg2, i64_reg1, i32_reg0)
+    case 913: { // stmt: Sig_i32_i64_i32_to_void(i32_reg2, i64_reg1, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 10, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 17, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 8, ctx);
@@ -16634,7 +17577,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 5, 0x99999010u, 0x99999999u);
         break;
     }
-    case 865: { // stmt: Sig_i32_i64_i32_to_void(i32_reg2, i64_reg1, i32_reg0)
+    case 914: { // stmt: Sig_i32_i64_i32_to_void(i32_reg2, i64_reg1, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 10, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 17, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 8, ctx);
@@ -16644,7 +17587,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 6, 0x99999010u, 0x99999999u);
         break;
     }
-    case 866: { // stmt: Sig_i32_i64_i32_to_void(i32_reg2, i64_reg1, i32_reg0)
+    case 915: { // stmt: Sig_i32_i64_i32_to_void(i32_reg2, i64_reg1, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 10, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 17, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 8, ctx);
@@ -16654,7 +17597,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 7, 0x99999010u, 0x99999999u);
         break;
     }
-    case 867: { // stmt: Sig_i32_i64_i32_to_void(i32_reg2, i64_reg1, i32_reg0)
+    case 916: { // stmt: Sig_i32_i64_i32_to_void(i32_reg2, i64_reg1, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 10, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 17, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 8, ctx);
@@ -16664,7 +17607,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 8, 0x99999010u, 0x99999999u);
         break;
     }
-    case 868: { // stmt: Sig_i64_i64_i64_to_void(i64_mem, i64_mem, i64_mem)
+    case 917: { // stmt: Sig_i64_i64_i64_to_void(i64_mem, i64_mem, i64_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 3, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 3, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 3, ctx);
@@ -16674,7 +17617,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 869: { // stmt: Sig_i64_i64_i64_to_void(i64_mem, i64_mem, i64_reg0)
+    case 918: { // stmt: Sig_i64_i64_i64_to_void(i64_mem, i64_mem, i64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 3, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 3, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 16, ctx);
@@ -16684,7 +17627,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999991u, 0x99999999u);
         break;
     }
-    case 870: { // stmt: Sig_i64_i64_i64_to_void(i64_mem, i64_reg1, i64_reg0)
+    case 919: { // stmt: Sig_i64_i64_i64_to_void(i64_mem, i64_reg1, i64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 3, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 17, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 16, ctx);
@@ -16694,7 +17637,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 2, 0x99999911u, 0x99999999u);
         break;
     }
-    case 871: { // stmt: Sig_i64_i64_i64_to_void(i64_reg2, i64_reg1, i64_reg0)
+    case 920: { // stmt: Sig_i64_i64_i64_to_void(i64_reg2, i64_reg1, i64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 18, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 17, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 16, ctx);
@@ -16704,7 +17647,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 3, 0x99999111u, 0x99999999u);
         break;
     }
-    case 872: { // stmt: Sig_i64_i64_i64_to_void(i64_reg2, i64_reg1, i64_reg0)
+    case 921: { // stmt: Sig_i64_i64_i64_to_void(i64_reg2, i64_reg1, i64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 18, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 17, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 16, ctx);
@@ -16714,7 +17657,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 4, 0x99999111u, 0x99999999u);
         break;
     }
-    case 873: { // stmt: Sig_i64_i64_i64_to_void(i64_reg2, i64_reg1, i64_reg0)
+    case 922: { // stmt: Sig_i64_i64_i64_to_void(i64_reg2, i64_reg1, i64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 18, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 17, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 16, ctx);
@@ -16724,7 +17667,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 5, 0x99999111u, 0x99999999u);
         break;
     }
-    case 874: { // stmt: Sig_i64_i64_i64_to_void(i64_reg2, i64_reg1, i64_reg0)
+    case 923: { // stmt: Sig_i64_i64_i64_to_void(i64_reg2, i64_reg1, i64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 18, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 17, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 16, ctx);
@@ -16734,7 +17677,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 6, 0x99999111u, 0x99999999u);
         break;
     }
-    case 875: { // stmt: Sig_i64_i64_i64_to_void(i64_reg2, i64_reg1, i64_reg0)
+    case 924: { // stmt: Sig_i64_i64_i64_to_void(i64_reg2, i64_reg1, i64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 18, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 17, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 16, ctx);
@@ -16744,7 +17687,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 7, 0x99999111u, 0x99999999u);
         break;
     }
-    case 876: { // stmt: Sig_i64_i64_i64_to_void(i64_reg2, i64_reg1, i64_reg0)
+    case 925: { // stmt: Sig_i64_i64_i64_to_void(i64_reg2, i64_reg1, i64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 18, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 17, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 16, ctx);
@@ -16754,14 +17697,14 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 8, 0x99999111u, 0x99999999u);
         break;
     }
-    case 877: { // stmt: Sig_to_void
+    case 926: { // stmt: Sig_to_void
         for (int _ci = 0; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 878: { // stmt: Sig_i32_f32_i32_to_void(i32_mem, f32_mem, i32_mem)
+    case 927: { // stmt: Sig_i32_f32_i32_to_void(i32_mem, f32_mem, i32_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 4, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 2, ctx);
@@ -16771,7 +17714,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 879: { // stmt: Sig_i32_f32_i32_to_void(i32_mem, f32_mem, i32_reg0)
+    case 928: { // stmt: Sig_i32_f32_i32_to_void(i32_mem, f32_mem, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 4, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 8, ctx);
@@ -16781,7 +17724,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
-    case 880: { // stmt: Sig_i32_f64_i32_to_void(i32_mem, f64_mem, i32_mem)
+    case 929: { // stmt: Sig_i32_f64_i32_to_void(i32_mem, f64_mem, i32_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 5, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 2, ctx);
@@ -16791,7 +17734,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 881: { // stmt: Sig_i32_f64_i32_to_void(i32_mem, f64_mem, i32_reg0)
+    case 930: { // stmt: Sig_i32_f64_i32_to_void(i32_mem, f64_mem, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 5, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 8, ctx);
@@ -16801,7 +17744,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
-    case 882: { // stmt: Sig_i32_v128_i32_to_void_pw(i32_mem, v128_mem, i32_mem)
+    case 931: { // stmt: Sig_i32_v128_i32_to_void_aw(i32_mem, v128_mem, i32_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 2, ctx);
@@ -16811,7 +17754,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 883: { // stmt: Sig_i32_v128_i32_to_void_pw(i32_mem, v128_mem, i32_reg0)
+    case 932: { // stmt: Sig_i32_v128_i32_to_void_aw(i32_mem, v128_mem, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 8, ctx);
@@ -16821,7 +17764,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
-    case 884: { // stmt: Sig_i32_ref_i32_to_void(i32_mem, ref_mem, i32_mem)
+    case 933: { // stmt: Sig_i32_ref_i32_to_void(i32_mem, ref_mem, i32_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 7, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 2, ctx);
@@ -16831,7 +17774,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 885: { // stmt: Sig_i32_ref_i32_to_void(i32_mem, ref_mem, i32_reg0)
+    case 934: { // stmt: Sig_i32_ref_i32_to_void(i32_mem, ref_mem, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 7, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 8, ctx);
@@ -16841,7 +17784,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
-    case 886: { // stmt: Sig_i64_f32_i64_to_void(i64_mem, f32_mem, i64_mem)
+    case 935: { // stmt: Sig_i64_f32_i64_to_void(i64_mem, f32_mem, i64_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 3, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 4, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 3, ctx);
@@ -16851,7 +17794,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 887: { // stmt: Sig_i64_f32_i64_to_void(i64_mem, f32_mem, i64_reg0)
+    case 936: { // stmt: Sig_i64_f32_i64_to_void(i64_mem, f32_mem, i64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 3, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 4, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 16, ctx);
@@ -16861,7 +17804,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999991u, 0x99999999u);
         break;
     }
-    case 888: { // stmt: Sig_i64_f64_i64_to_void(i64_mem, f64_mem, i64_mem)
+    case 937: { // stmt: Sig_i64_f64_i64_to_void(i64_mem, f64_mem, i64_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 3, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 5, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 3, ctx);
@@ -16871,7 +17814,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 889: { // stmt: Sig_i64_f64_i64_to_void(i64_mem, f64_mem, i64_reg0)
+    case 938: { // stmt: Sig_i64_f64_i64_to_void(i64_mem, f64_mem, i64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 3, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 5, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 16, ctx);
@@ -16881,7 +17824,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999991u, 0x99999999u);
         break;
     }
-    case 890: { // stmt: Sig_i64_v128_i64_to_void_pw(i64_mem, v128_mem, i64_mem)
+    case 939: { // stmt: Sig_i64_v128_i64_to_void_aw(i64_mem, v128_mem, i64_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 3, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 3, ctx);
@@ -16891,7 +17834,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 891: { // stmt: Sig_i64_v128_i64_to_void_pw(i64_mem, v128_mem, i64_reg0)
+    case 940: { // stmt: Sig_i64_v128_i64_to_void_aw(i64_mem, v128_mem, i64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 3, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 6, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 16, ctx);
@@ -16901,7 +17844,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999991u, 0x99999999u);
         break;
     }
-    case 892: { // stmt: Sig_i64_ref_i64_to_void(i64_mem, ref_mem, i64_mem)
+    case 941: { // stmt: Sig_i64_ref_i64_to_void(i64_mem, ref_mem, i64_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 3, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 7, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 3, ctx);
@@ -16911,7 +17854,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 893: { // stmt: Sig_i64_ref_i64_to_void(i64_mem, ref_mem, i64_reg0)
+    case 942: { // stmt: Sig_i64_ref_i64_to_void(i64_mem, ref_mem, i64_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 3, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 7, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 16, ctx);
@@ -16921,62 +17864,14 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999991u, 0x99999999u);
         break;
     }
-    case 894: { // stmt: Sig_stk_to_void
+    case 943: { // stmt: Sig_stk_to_void
         for (int _ci = 0; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
         }
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 895: { // stmt: Sig_stk_i32_to_void(i32_mem)
-        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
-        for (int _ci = 1; _ci < state->child_count; _ci++) {
-            jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
-        }
-        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
-        break;
-    }
-    case 896: { // stmt: Sig_stk_i32_to_void(i32_reg0)
-        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 8, ctx);
-        for (int _ci = 1; _ci < state->child_count; _ci++) {
-            jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
-        }
-        jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
-        break;
-    }
-    case 897: { // stmt: Sig_stk_i64_to_void(i64_mem)
-        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 3, ctx);
-        for (int _ci = 1; _ci < state->child_count; _ci++) {
-            jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
-        }
-        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
-        break;
-    }
-    case 898: { // stmt: Sig_stk_i64_to_void(i64_reg0)
-        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 16, ctx);
-        for (int _ci = 1; _ci < state->child_count; _ci++) {
-            jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
-        }
-        jav_t2_stamp(node, 1, 0x99999991u, 0x99999999u);
-        break;
-    }
-    case 899: { // stmt: Sig_stk_f32_to_void(f32_mem)
-        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 4, ctx);
-        for (int _ci = 1; _ci < state->child_count; _ci++) {
-            jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
-        }
-        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
-        break;
-    }
-    case 900: { // stmt: Sig_stk_f64_to_void(f64_mem)
-        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 5, ctx);
-        for (int _ci = 1; _ci < state->child_count; _ci++) {
-            jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
-        }
-        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
-        break;
-    }
-    case 901: { // stmt: Sig_stk_v128_to_void_pw(v128_mem)
+    case 944: { // stmt: Sig_v128_to_void_aw(v128_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -16984,7 +17879,63 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 902: { // stmt: Sig_stk_ref_to_void(ref_mem)
+    case 945: { // stmt: Sig_stk_i32_to_void(i32_mem)
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
+        for (int _ci = 1; _ci < state->child_count; _ci++) {
+            jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
+        }
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
+        break;
+    }
+    case 946: { // stmt: Sig_stk_i32_to_void(i32_reg0)
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 8, ctx);
+        for (int _ci = 1; _ci < state->child_count; _ci++) {
+            jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
+        }
+        jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
+        break;
+    }
+    case 947: { // stmt: Sig_stk_i64_to_void(i64_mem)
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 3, ctx);
+        for (int _ci = 1; _ci < state->child_count; _ci++) {
+            jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
+        }
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
+        break;
+    }
+    case 948: { // stmt: Sig_stk_i64_to_void(i64_reg0)
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 16, ctx);
+        for (int _ci = 1; _ci < state->child_count; _ci++) {
+            jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
+        }
+        jav_t2_stamp(node, 1, 0x99999991u, 0x99999999u);
+        break;
+    }
+    case 949: { // stmt: Sig_stk_f32_to_void(f32_mem)
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 4, ctx);
+        for (int _ci = 1; _ci < state->child_count; _ci++) {
+            jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
+        }
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
+        break;
+    }
+    case 950: { // stmt: Sig_stk_f64_to_void(f64_mem)
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 5, ctx);
+        for (int _ci = 1; _ci < state->child_count; _ci++) {
+            jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
+        }
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
+        break;
+    }
+    case 951: { // stmt: Sig_stk_v128_to_void_aw(v128_mem)
+        jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 6, ctx);
+        for (int _ci = 1; _ci < state->child_count; _ci++) {
+            jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
+        }
+        jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
+        break;
+    }
+    case 952: { // stmt: Sig_stk_ref_to_void(ref_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 7, ctx);
         for (int _ci = 1; _ci < state->child_count; _ci++) {
             jav_tile_burg_reduce(BURG_NODE_CHILD(node, _ci), state->children[_ci], 1, ctx);
@@ -16992,7 +17943,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 903: { // stmt: Sig_ref_i32_to_void(ref_mem, i32_mem)
+    case 953: { // stmt: Sig_ref_i32_to_void(ref_mem, i32_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 7, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -17001,7 +17952,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 904: { // stmt: Sig_ref_i64_to_void(ref_mem, i64_mem)
+    case 954: { // stmt: Sig_ref_i64_to_void(ref_mem, i64_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 7, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 3, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -17010,7 +17961,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 905: { // stmt: Sig_ref_f32_to_void(ref_mem, f32_mem)
+    case 955: { // stmt: Sig_ref_f32_to_void(ref_mem, f32_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 7, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 4, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -17019,7 +17970,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 906: { // stmt: Sig_ref_f64_to_void(ref_mem, f64_mem)
+    case 956: { // stmt: Sig_ref_f64_to_void(ref_mem, f64_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 7, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 5, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -17028,7 +17979,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 907: { // stmt: Sig_ref_v128_to_void_pw(ref_mem, v128_mem)
+    case 957: { // stmt: Sig_ref_v128_to_void_aw(ref_mem, v128_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 7, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 6, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -17037,7 +17988,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 908: { // stmt: Sig_ref_ref_to_void(ref_mem, ref_mem)
+    case 958: { // stmt: Sig_ref_ref_to_void(ref_mem, ref_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 7, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 7, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -17046,7 +17997,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 909: { // stmt: Sig_ref_i32_i32_to_void(ref_mem, i32_mem, i32_mem)
+    case 959: { // stmt: Sig_ref_i32_i32_to_void(ref_mem, i32_mem, i32_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 7, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 2, ctx);
@@ -17056,7 +18007,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 910: { // stmt: Sig_ref_i32_i64_to_void(ref_mem, i32_mem, i64_mem)
+    case 960: { // stmt: Sig_ref_i32_i64_to_void(ref_mem, i32_mem, i64_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 7, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 3, ctx);
@@ -17066,7 +18017,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 911: { // stmt: Sig_ref_i32_f32_to_void(ref_mem, i32_mem, f32_mem)
+    case 961: { // stmt: Sig_ref_i32_f32_to_void(ref_mem, i32_mem, f32_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 7, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 4, ctx);
@@ -17076,7 +18027,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 912: { // stmt: Sig_ref_i32_f64_to_void(ref_mem, i32_mem, f64_mem)
+    case 962: { // stmt: Sig_ref_i32_f64_to_void(ref_mem, i32_mem, f64_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 7, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 5, ctx);
@@ -17086,7 +18037,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 913: { // stmt: Sig_ref_i32_v128_to_void_pw(ref_mem, i32_mem, v128_mem)
+    case 963: { // stmt: Sig_ref_i32_v128_to_void_aw(ref_mem, i32_mem, v128_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 7, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 6, ctx);
@@ -17096,7 +18047,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 914: { // stmt: Sig_ref_i32_ref_to_void(ref_mem, i32_mem, ref_mem)
+    case 964: { // stmt: Sig_ref_i32_ref_to_void(ref_mem, i32_mem, ref_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 7, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 7, ctx);
@@ -17106,7 +18057,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 915: { // stmt: Sig_ref_i32_i32_i32_to_void(ref_mem, i32_mem, i32_mem, i32_mem)
+    case 965: { // stmt: Sig_ref_i32_i32_i32_to_void(ref_mem, i32_mem, i32_mem, i32_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 7, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 2, ctx);
@@ -17117,7 +18068,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 916: { // stmt: Sig_ref_i32_i32_i32_to_void(ref_mem, i32_mem, i32_mem, i32_reg0)
+    case 966: { // stmt: Sig_ref_i32_i32_i32_to_void(ref_mem, i32_mem, i32_mem, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 7, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 2, ctx);
@@ -17128,7 +18079,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
-    case 917: { // stmt: Sig_ref_i32_i32_i32_to_void(ref_mem, i32_mem, i32_reg1, i32_reg0)
+    case 967: { // stmt: Sig_ref_i32_i32_i32_to_void(ref_mem, i32_mem, i32_reg1, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 7, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 9, ctx);
@@ -17139,7 +18090,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 2, 0x99999900u, 0x99999999u);
         break;
     }
-    case 918: { // stmt: Sig_ref_i32_i32_i32_to_void(ref_mem, i32_reg2, i32_reg1, i32_reg0)
+    case 968: { // stmt: Sig_ref_i32_i32_i32_to_void(ref_mem, i32_reg2, i32_reg1, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 7, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 10, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 9, ctx);
@@ -17150,7 +18101,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 3, 0x99999000u, 0x99999999u);
         break;
     }
-    case 919: { // stmt: Sig_ref_i32_i64_i32_to_void(ref_mem, i32_mem, i64_mem, i32_mem)
+    case 969: { // stmt: Sig_ref_i32_i64_i32_to_void(ref_mem, i32_mem, i64_mem, i32_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 7, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 3, ctx);
@@ -17161,7 +18112,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 920: { // stmt: Sig_ref_i32_i64_i32_to_void(ref_mem, i32_mem, i64_mem, i32_reg0)
+    case 970: { // stmt: Sig_ref_i32_i64_i32_to_void(ref_mem, i32_mem, i64_mem, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 7, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 3, ctx);
@@ -17172,7 +18123,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
-    case 921: { // stmt: Sig_ref_i32_f32_i32_to_void(ref_mem, i32_mem, f32_mem, i32_mem)
+    case 971: { // stmt: Sig_ref_i32_f32_i32_to_void(ref_mem, i32_mem, f32_mem, i32_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 7, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 4, ctx);
@@ -17183,7 +18134,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 922: { // stmt: Sig_ref_i32_f32_i32_to_void(ref_mem, i32_mem, f32_mem, i32_reg0)
+    case 972: { // stmt: Sig_ref_i32_f32_i32_to_void(ref_mem, i32_mem, f32_mem, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 7, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 4, ctx);
@@ -17194,7 +18145,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
-    case 923: { // stmt: Sig_ref_i32_f64_i32_to_void(ref_mem, i32_mem, f64_mem, i32_mem)
+    case 973: { // stmt: Sig_ref_i32_f64_i32_to_void(ref_mem, i32_mem, f64_mem, i32_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 7, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 5, ctx);
@@ -17205,7 +18156,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 924: { // stmt: Sig_ref_i32_f64_i32_to_void(ref_mem, i32_mem, f64_mem, i32_reg0)
+    case 974: { // stmt: Sig_ref_i32_f64_i32_to_void(ref_mem, i32_mem, f64_mem, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 7, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 5, ctx);
@@ -17216,7 +18167,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
-    case 925: { // stmt: Sig_ref_i32_v128_i32_to_void_pw(ref_mem, i32_mem, v128_mem, i32_mem)
+    case 975: { // stmt: Sig_ref_i32_v128_i32_to_void_aw(ref_mem, i32_mem, v128_mem, i32_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 7, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 6, ctx);
@@ -17227,7 +18178,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 926: { // stmt: Sig_ref_i32_v128_i32_to_void_pw(ref_mem, i32_mem, v128_mem, i32_reg0)
+    case 976: { // stmt: Sig_ref_i32_v128_i32_to_void_aw(ref_mem, i32_mem, v128_mem, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 7, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 6, ctx);
@@ -17238,7 +18189,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
-    case 927: { // stmt: Sig_ref_i32_ref_i32_to_void(ref_mem, i32_mem, ref_mem, i32_mem)
+    case 977: { // stmt: Sig_ref_i32_ref_i32_to_void(ref_mem, i32_mem, ref_mem, i32_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 7, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 7, ctx);
@@ -17249,7 +18200,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 928: { // stmt: Sig_ref_i32_ref_i32_to_void(ref_mem, i32_mem, ref_mem, i32_reg0)
+    case 978: { // stmt: Sig_ref_i32_ref_i32_to_void(ref_mem, i32_mem, ref_mem, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 7, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 7, ctx);
@@ -17260,7 +18211,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
-    case 929: { // stmt: Sig_ref_i32_ref_i32_i32_to_void(ref_mem, i32_mem, ref_mem, i32_mem, i32_mem)
+    case 979: { // stmt: Sig_ref_i32_ref_i32_i32_to_void(ref_mem, i32_mem, ref_mem, i32_mem, i32_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 7, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 7, ctx);
@@ -17272,7 +18223,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 930: { // stmt: Sig_ref_i32_ref_i32_i32_to_void(ref_mem, i32_mem, ref_mem, i32_mem, i32_reg0)
+    case 980: { // stmt: Sig_ref_i32_ref_i32_i32_to_void(ref_mem, i32_mem, ref_mem, i32_mem, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 7, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 7, ctx);
@@ -17284,7 +18235,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 1, 0x99999990u, 0x99999999u);
         break;
     }
-    case 931: { // stmt: Sig_ref_i32_ref_i32_i32_to_void(ref_mem, i32_mem, ref_mem, i32_reg1, i32_reg0)
+    case 981: { // stmt: Sig_ref_i32_ref_i32_i32_to_void(ref_mem, i32_mem, ref_mem, i32_reg1, i32_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 7, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 2, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 2), state->children[2], 7, ctx);
@@ -17296,7 +18247,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 2, 0x99999900u, 0x99999999u);
         break;
     }
-    case 932: { // stmt: Sig_i32_v128_to_void_pw(i32_mem, v128_mem)
+    case 982: { // stmt: Sig_i32_v128_to_void_aw(i32_mem, v128_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 6, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -17305,7 +18256,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 933: { // stmt: Sig_i32_ref_to_void(i32_mem, ref_mem)
+    case 983: { // stmt: Sig_i32_ref_to_void(i32_mem, ref_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 7, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -17314,7 +18265,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 934: { // stmt: Sig_i64_v128_to_void_pw(i64_mem, v128_mem)
+    case 984: { // stmt: Sig_i64_v128_to_void_aw(i64_mem, v128_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 3, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 6, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -17323,7 +18274,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 935: { // stmt: Sig_i64_ref_to_void(i64_mem, ref_mem)
+    case 985: { // stmt: Sig_i64_ref_to_void(i64_mem, ref_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 3, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 7, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -17332,7 +18283,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 936: { // stmt: Sig_i32_v128_to_void(i32_mem, v128_mem)
+    case 986: { // stmt: Sig_i32_v128_to_void(i32_mem, v128_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 6, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -17341,7 +18292,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 937: { // stmt: Sig_i32_v128_to_void(i32_mem, v128_reg0)
+    case 987: { // stmt: Sig_i32_v128_to_void(i32_mem, v128_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 2, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 40, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -17350,7 +18301,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 2, 0x99999944u, 0x99999999u);
         break;
     }
-    case 938: { // stmt: Sig_i32_v128_to_void(i32_reg2, v128_reg0)
+    case 988: { // stmt: Sig_i32_v128_to_void(i32_reg2, v128_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 10, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 40, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -17359,7 +18310,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 3, 0x99999044u, 0x99999999u);
         break;
     }
-    case 939: { // stmt: Sig_i32_v128_to_void(i32_reg2, v128_reg0)
+    case 989: { // stmt: Sig_i32_v128_to_void(i32_reg2, v128_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 10, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 40, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -17368,7 +18319,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 4, 0x99999044u, 0x99999999u);
         break;
     }
-    case 940: { // stmt: Sig_i32_v128_to_void(i32_reg2, v128_reg0)
+    case 990: { // stmt: Sig_i32_v128_to_void(i32_reg2, v128_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 10, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 40, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -17377,7 +18328,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 5, 0x99999044u, 0x99999999u);
         break;
     }
-    case 941: { // stmt: Sig_i32_v128_to_void(i32_reg2, v128_reg0)
+    case 991: { // stmt: Sig_i32_v128_to_void(i32_reg2, v128_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 10, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 40, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -17386,7 +18337,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 6, 0x99999044u, 0x99999999u);
         break;
     }
-    case 942: { // stmt: Sig_i32_v128_to_void(i32_reg2, v128_reg0)
+    case 992: { // stmt: Sig_i32_v128_to_void(i32_reg2, v128_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 10, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 40, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -17395,7 +18346,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 7, 0x99999044u, 0x99999999u);
         break;
     }
-    case 943: { // stmt: Sig_i32_v128_to_void(i32_reg2, v128_reg0)
+    case 993: { // stmt: Sig_i32_v128_to_void(i32_reg2, v128_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 10, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 40, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -17404,7 +18355,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 8, 0x99999044u, 0x99999999u);
         break;
     }
-    case 944: { // stmt: Sig_i64_v128_to_void(i64_mem, v128_mem)
+    case 994: { // stmt: Sig_i64_v128_to_void(i64_mem, v128_mem)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 3, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 6, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -17413,7 +18364,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 0, 0x99999999u, 0x99999999u);
         break;
     }
-    case 945: { // stmt: Sig_i64_v128_to_void(i64_mem, v128_reg0)
+    case 995: { // stmt: Sig_i64_v128_to_void(i64_mem, v128_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 3, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 40, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -17422,7 +18373,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 2, 0x99999944u, 0x99999999u);
         break;
     }
-    case 946: { // stmt: Sig_i64_v128_to_void(i64_reg2, v128_reg0)
+    case 996: { // stmt: Sig_i64_v128_to_void(i64_reg2, v128_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 18, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 40, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -17431,7 +18382,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 3, 0x99999144u, 0x99999999u);
         break;
     }
-    case 947: { // stmt: Sig_i64_v128_to_void(i64_reg2, v128_reg0)
+    case 997: { // stmt: Sig_i64_v128_to_void(i64_reg2, v128_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 18, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 40, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -17440,7 +18391,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 4, 0x99999144u, 0x99999999u);
         break;
     }
-    case 948: { // stmt: Sig_i64_v128_to_void(i64_reg2, v128_reg0)
+    case 998: { // stmt: Sig_i64_v128_to_void(i64_reg2, v128_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 18, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 40, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -17449,7 +18400,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 5, 0x99999144u, 0x99999999u);
         break;
     }
-    case 949: { // stmt: Sig_i64_v128_to_void(i64_reg2, v128_reg0)
+    case 999: { // stmt: Sig_i64_v128_to_void(i64_reg2, v128_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 18, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 40, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -17458,7 +18409,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 6, 0x99999144u, 0x99999999u);
         break;
     }
-    case 950: { // stmt: Sig_i64_v128_to_void(i64_reg2, v128_reg0)
+    case 1000: { // stmt: Sig_i64_v128_to_void(i64_reg2, v128_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 18, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 40, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {
@@ -17467,7 +18418,7 @@ void jav_tile_burg_reduce(BURG_NODE_TYPE node, burg_state_t* state, int goalnt, 
         jav_t2_stamp(node, 7, 0x99999144u, 0x99999999u);
         break;
     }
-    case 951: { // stmt: Sig_i64_v128_to_void(i64_reg2, v128_reg0)
+    case 1001: { // stmt: Sig_i64_v128_to_void(i64_reg2, v128_reg0)
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 0), state->children[0], 18, ctx);
         jav_tile_burg_reduce(BURG_NODE_CHILD(node, 1), state->children[1], 40, ctx);
         for (int _ci = 2; _ci < state->child_count; _ci++) {

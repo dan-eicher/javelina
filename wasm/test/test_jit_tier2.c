@@ -469,6 +469,64 @@ static void state_claims(const body_t* b) {
                   "C-2: the cheaper cover did not win — nothing stamped at state 2");
         }
 
+        /* PIN B-2b PolyWidePairsRide. The inversion of B-2a's fence, and the
+         * fixtures are the SAME bodies: a v128 crossing local.tee/local.get,
+         * local.set/drop, global.set/global.get now rides the register cache as
+         * a PAIR through the `__sK_pw` stencil family, where B-2a kept it in
+         * memory because the scalar family's one-slot `word` could not hold it.
+         *
+         * The arithmetic, from the weights (JAV_COST_MEM per word moved): every
+         * pw hop the pair takes through memory costs 2 loads + 2 stores; riding
+         * the cache costs 0. So the winning cover touches memory exactly ONCE
+         * per fixture — the region result landing on the operand stack where
+         * the harness reads it — which is 2 slots and the one bridge spill:
+         *
+         *   mem_slots   == 2   the result pair, nothing else, ever
+         *   transitions == 0   no spill or fill stencil AT ALL: the last
+         *                      value-producing op takes D7s' memory-result form
+         *                      (`__sK_pwm` — operands from registers, result
+         *                      pushed inline), which lands the pair for free
+         *                      where a cached result would cost a whole extra
+         *                      spill dispatch. The first pin drafted here said
+         *                      `== 1`; the DP's cover is strictly cheaper.
+         *
+         * `wide_cached` counts stamps whose RULE names a v128 register on
+         * either side. A producer whose consumer is memory reduces at the plain
+         * memory form (caching it buys nothing and costs the spill), so the
+         * trailing local.get/global.get in pw.local_set and pw.global is NOT a
+         * wide stamp: const, tee, get, and for pw.local_tee (4); const A, set,
+         * const B, drop for pw.local_set (4); const, set for pw.global (2).
+         * Falsified by reverting the pw-table select in gen_tile_burg's
+         * mean_size to the plain tables: the fence returns, the pairs
+         * round-trip memory, and all three mem_slots claims go red. */
+        if (!strncmp(b->name, "pw.", 3) && JAV_TIER2_N >= 4) {
+            uint64_t mem = s->mem_slots   - s0.mem_slots;
+            uint64_t tr  = s->transitions - s0.transitions;
+            uint64_t wc  = s->wide_cached - s0.wide_cached;
+            CHECK(mem == 2, "B-2b %s: the pair touched memory (%llu slots, want 2 "
+                  "— the region result and nothing else)", b->name,
+                  (unsigned long long)mem);
+            CHECK(tr == 0, "B-2b %s: %llu transition(s) in a body whose winning "
+                  "cover needs none (the mem-result form lands the pair)",
+                  b->name, (unsigned long long)tr);
+            if (!strcmp(b->name, "pw.local_tee")) {
+                CHECK(wc == 4, "B-2b %s: %llu wide-cached stamp(s), want 4 "
+                      "(const, tee, get, and)", b->name, (unsigned long long)wc);
+                /* The and consumed BOTH pairs from registers: entry state 4,
+                 * which no scalar-family cover of this body can produce. */
+                CHECK(s->entry_state[4] - s0.entry_state[4] == 1,
+                      "B-2b %s: v128.and did not run at state 4 — the second "
+                      "pair never joined the first in the cache", b->name);
+            }
+            if (!strcmp(b->name, "pw.local_set"))
+                CHECK(wc == 4, "B-2b %s: %llu wide-cached stamp(s), want 4 "
+                      "(const A, set, const B, drop)", b->name,
+                      (unsigned long long)wc);
+            if (!strcmp(b->name, "pw.global"))
+                CHECK(wc == 2, "B-2b %s: %llu wide-cached stamp(s), want 2 "
+                      "(const, set)", b->name, (unsigned long long)wc);
+        }
+
         /* PIN D-2 NoSpUpdateWhenFullyCached. The plan's wording: "the fully-cached
          * i32.add variant contains no store to the frame's sp."
          *
@@ -1015,6 +1073,34 @@ int main(void) {
         CHECK((jav_variant[STENCIL_GEN_ST_GLOBAL_GET][1] >= 0) == (JAV_TIER2_N >= 2),
               "B-2a-t: global.get's state-1 variant should exist exactly when the "
               "cache has room for two items (n=%d)", JAV_TIER2_N);
+
+        /* PIN B-2b-t — PolyWideFormsExist. The same reads against the
+         * POLY-WIDE tables: every `word` slot is TWO registers there, so the
+         * state numbers double where B-2a-t's held one slot. Falsified by
+         * dropping the pw emission pass in vmemit (rows go -1) or by pointing
+         * these reads at the scalar tables (the widths disagree). */
+        if (JAV_TIER2_N >= 2) {
+            CHECK(jav_variant_pw[STENCIL_GEN_ST_LOCAL_SET][2] >= 0,
+                  "B-2b-t: local.set has no cached-pair form at state 2");
+            CHECK(jav_variant_pw[STENCIL_GEN_ST_LOCAL_TEE][2] >= 0,
+                  "B-2b-t: local.tee has no cached-pair form at state 2");
+            CHECK(jav_variant_pw[STENCIL_GEN_ST_DROP][2] >= 0,
+                  "B-2b-t: drop has no cached-pair form at state 2");
+            CHECK(jav_variant_pw_fs[STENCIL_GEN_ST_LOCAL_GET][0] == 2,
+                  "B-2b-t: local.get's pw result is not a cached PAIR at state 0 "
+                  "(fs=%d, want 2)", jav_variant_pw_fs[STENCIL_GEN_ST_LOCAL_GET][0]);
+            CHECK(jav_variant_pw_fs[STENCIL_GEN_ST_LOCAL_TEE][2] == 2,
+                  "B-2b-t: local.tee's pw pair does not stay cached through it");
+        }
+        /* Both v128 words and the i32 condition: 2 + 2 + 1. */
+        CHECK(JAV_TIER2_N < 5 || jav_variant_pw[STENCIL_GEN_ST_SELECT][5] >= 0,
+              "B-2b-t: select's all-operands-cached pw form at state 5 is missing");
+        /* An opcode with no `word` slot has no pw family — its row must refuse,
+         * not alias stencil 0, so a misrouted lookup declines loudly. */
+        CHECK(jav_variant_pw[STENCIL_GEN_ST_I32_ADD][1] == -1
+              && jav_variant_pw_fs[STENCIL_GEN_ST_I32_ADD][1] == -1,
+              "B-2b-t: i32.add has a poly-wide form — the pw tables must be -1 "
+              "for an opcode with no word slot");
     }
 
     for (size_t i = 0; i < sizeof bodies / sizeof bodies[0]; i++) {
@@ -1048,16 +1134,23 @@ int main(void) {
         state_claims(&b);
     }
 
-    /* ── PIN B-2a — the poly-operand axes, each pinned, none left to the
+    /* ── PIN B-2a/B-2b — the poly-operand axes, each pinned, none left to the
      * corpus. A `word` operand's SCALAR instances ride a register (one slot is
-     * the whole value); its v128 and ref instances must NOT — the one-register
-     * carrier drops a v128's lanes 8..15, and a ref in an untagged register is
-     * a root the collector cannot see. The fence is the GRAMMAR's `pw` flag
-     * plus jav_class_cacheable, not the stencil, so every op × instance-class
-     * pair is its own fixture and E-1's differential is the judge (16-byte
-     * compare for v128, handle compare for ref). Falsified by removing the
-     * fence arm in gen_tile_burg (pw bodies go red) and by re-refusing TyWord
-     * in vmemit's emits_variant (the family pins + meter pin go red). */
+     * the whole value). Its v128 instances ride TWO, through the poly-wide
+     * stencil family (`__sK_pw`) that the grammar's `pw` signatures select —
+     * B-2b inverted B-2a's fence for exactly this axis, and the meter claims
+     * in state_claims are the inversion's witness. Its ref instances still
+     * must NOT reach a slot — a ref in an untagged register is a root the
+     * collector cannot see — and a v128 that crossed an `any` slot (a struct
+     * or array field, a table initializer) stays in memory too: the any_t
+     * carrier moves its second half in `hi`, one slot at every width, so no
+     * stencil flavor widens it and the grammar's `aw` signatures keep the
+     * fence. Every op × instance-class pair is its own fixture and E-1's
+     * differential is the judge (16-byte compare for v128, handle compare for
+     * ref). Falsified by reverting mean_size's pw-table select (the B-2b
+     * meter claims go red), by removing the aw fence arm (the corpus's v128
+     * struct-field bodies go red at t2+), and by re-refusing TyWord in
+     * vmemit's emits_variant (the family pins + meter pin go red). */
     {
         /* v128.const A ; local.tee 0 ; local.get 0 ; v128.and ; end  → A.
          * THE collision shape: tee-pw's want-fs at state 2 EQUALS the scalar

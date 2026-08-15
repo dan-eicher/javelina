@@ -24,7 +24,12 @@
  * FINAL signatures, each a TERM at its own id and an ASDL constructor with
  * matching arity — and those hold across any count. */
 #define WANT_OPCODES       499
-#define WANT_TERMINALS     207   /* 198 + the POLY-resolved-to-v128 terminals */
+#define WANT_TERMINALS     214   /* 198 + the wide-resolved POLY terminals. B2b
+                                  * split the one PolyWide bucket by carrier —
+                                  * `_pw` (a word slot went v128; the __sK_pw
+                                  * family serves it) vs `_aw` (an any slot did;
+                                  * fenced) — un-fusing the 7 shapes a word-op
+                                  * and an any-op had shared (39 -> 17+27+2). */
 #define WANT_OPEN_SIGS      34   /* declared shapes with an ADDR or POLY slot */
 #define WANT_MULTI_RESULT    0
 #define WANT_MAX_ARITY       5
@@ -130,6 +135,31 @@ int main(void) {
     }
     CK("terminals with no name", unnamed, 0);
     CK("terminals sharing a name", dup_names, 0);
+
+    /* ── PIN A-3: WideMarksAreEarned ────────────────────────
+     * `pw` and `aw` are WIDTH claims, so a row wearing either must actually
+     * hold a v128 slot — a mark with no wide slot prices movements that do
+     * not exist. And the split is identity, not annotation: the (v128)->()
+     * shape must exist BOTH ways, because drop's word moves two registers
+     * through the poly-wide family while throw_ref's any moves one carrier
+     * slot, and one shared terminal carried rules wrong for one of them.
+     * Falsified by folding aw back into pw in sigemit's resolve(). */
+    long idle_marks = 0, split_pw = 0, split_aw = 0;
+    for (int i = 0; i < JAV_SIG_COUNT; i++) {
+        const jav_sig_t* s = &jav_sigtab[i];
+        if (!s->final || (!s->pw && !s->aw)) continue;
+        int wide = 0;
+        for (int k = 0; k < s->nparams; k++)  wide |= s->params[k]  == JSC_V128;
+        for (int k = 0; k < s->nresults; k++) wide |= s->results[k] == JSC_V128;
+        idle_marks += !wide;
+        if (s->nparams == 1 && s->params[0] == JSC_V128 && !s->nresults) {
+            if (s->pw && !s->aw) split_pw++;
+            if (s->aw && !s->pw) split_aw++;
+        }
+    }
+    CK("pw/aw rows with no v128 slot", idle_marks, 0);
+    CK("(v128)->() as a poly-wide terminal (drop's)", split_pw, 1);
+    CK("(v128)->() as an any-wide terminal (throw_ref's)", split_aw, 1);
 
     printf("%s\n", fails ? "  FAILED" : "  ok");
     return fails != 0;

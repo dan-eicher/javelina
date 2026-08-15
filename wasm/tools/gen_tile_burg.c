@@ -127,20 +127,20 @@ static uint32_t rule_cost(const jav_sig_t* s, int state, int cached_res) {
      * being a proxy the moment one is not. */
     int mem = (sig_operand_slots(s) - cached_slots)             /* operands loaded */
             + (s->nresults && !cached_res ? sig_result_slots(s) : 0);  /* stored */
-    /* D4s / §2.3: "the stack pointer need not be updated in instruction
+    /* §2.3: "the stack pointer need not be updated in instruction
      * implementations that can access all stack items in registers." */
     return (uint32_t)((mem + (mem ? 1 : 0)) * JAV_COST_MEM);
 }
 
-/* Whether the variant family PROVIDES this (terminal, state, exit state) — C2's
- * condition, and the whole of it: "one rule per (signature × operand/result
- * location assignment) that the Part D variant family provides."
+/* Whether the variant family PROVIDES this (terminal, state, exit state) — the
+ * rule-existence condition, and the whole of it: one rule per (signature ×
+ * operand/result location assignment) that the stencil variant family provides.
  *
  * The family is per OPCODE and a rule is per SIGNATURE, so "provides" is a claim
  * about every member. Two answers are possible and they are not the same thing:
  *
- *   no variant at this state  — C5's omission. That member is not offering this
- *                               form and the tiler reaches its state by
+ *   no variant at this state  — §2.5's omission. That member is not offering
+ *                               this form and the tiler reaches its state by
  *                               transition. Not a disagreement.
  *   a variant landing the result SOMEWHERE ELSE — the family does not provide
  *                               this rule. Emitting it anyway hands the tiling a
@@ -167,9 +167,16 @@ static int mean_size(int t, int state, int want_fs, uint32_t* out, int* nops) {
                 if (m.stencil < 0) continue;
                 /* The variant for this state, or none — in which case this opcode
                  * contributes nothing here and, if no opcode does, the rule does
-                 * not exist and the tiler transitions instead (§2.5 / C5). */
-                int sid = (state <= JAV_TIER2_N) ? jav_variant[m.stencil][state] : -1;
-                int fs  = (state <= JAV_TIER2_N) ? jav_variant_fs[m.stencil][state] : -1;
+                 * not exist and the tiler transitions instead (§2.5).
+                 * A pw terminal reads the POLY-WIDE family: same rows, same
+                 * entry-state axis, every `word` slot priced at two registers —
+                 * the arithmetic this rule loop already does with the resolved
+                 * v128 classes, so the two sides agree by construction. */
+                int pw = jav_sigtab[t].pw;
+                int sid = (state <= JAV_TIER2_N)
+                              ? (pw ? jav_variant_pw : jav_variant)[m.stencil][state] : -1;
+                int fs  = (state <= JAV_TIER2_N)
+                              ? (pw ? jav_variant_pw_fs : jav_variant_fs)[m.stencil][state] : -1;
                 /* The PLAIN stencil is the memory-result form: it reads its
                  * operands from memory and pushes its result there, which is
                  * exactly (entry 0, nothing cached on exit). Offering it here is
@@ -178,19 +185,19 @@ static int mean_size(int t, int state, int want_fs, uint32_t* out, int* nops) {
                  * (v128, ref) can ever use, so without it those terminals have no
                  * rule at all and every body containing one declines. */
                 if (state == 0 && want_fs == 0 && fs != 0) { sid = m.stencil; fs = 0; }
-                /* D7s: above state 0 the memory-result form is its own stencil —
+                /* Above state 0 the memory-result form is its own stencil —
                  * same cached operands, result pushed inline. It exits at `left`,
                  * which is 0 wherever the form exists, so it answers want_fs 0. */
                 if (state > 0 && want_fs == 0 && fs != 0
-                    && jav_variant_m[m.stencil][state] >= 0) {
-                    sid = jav_variant_m[m.stencil][state]; fs = 0;
+                    && (pw ? jav_variant_pw_m : jav_variant_m)[m.stencil][state] >= 0) {
+                    sid = (pw ? jav_variant_pw_m : jav_variant_m)[m.stencil][state]; fs = 0;
                 }
                 /* No variant at this state is not a disagreement: that opcode is
-                 * not offering this form, and D5s already says the tiler reaches
+                 * not offering this form, and the omission rule already says the tiler reaches
                  * such a state by transition. What cannot stand is two opcodes
                  * that BOTH answer and answer differently.
                  *
-                 * B3 tried to PRICE the transition here — the worst member's
+                 * An earlier build PRICED the transition here — the worst member's
                  * descend deficit added to the rule — and the corpus refuted it:
                  * one exotic non-provider (struct.new's variadic form has no
                  * variant at any state) taxed every rule its terminal shares,
@@ -350,27 +357,26 @@ int main(int argc, char** argv) {
              * the register file. Without it the grammar offers `ref_reg0` and the
              * collector loses a root it cannot see or relocate. */
             if (cached_res && !jav_class_cacheable[s->results[0]]) continue;
-            /* The POLY fence. The variant family's slot arithmetic is
-             * DECLARED-width — a `word` is one slot there — so a rule may pair
-             * this terminal with a variant only where every slot the state's
-             * window touches is one the family moves the way the RESOLUTION
-             * says. Two resolutions break that and pin the state below
-             * themselves: a pw terminal's v128 (two registers here, one
-             * declared word there — the fs arithmetic happens to refuse most
-             * such pairings, but local_tee-shaped signatures COLLIDE: consumed 2
-             * + cached 2 equals declared left 1 + result 1) and any
-             * non-cacheable class (ref: the value is in memory wherever the
-             * window claims it). Cached pw results are refused for the same
-             * width reason. */
+            /* The non-cacheable fence: a class that never enters a slot (ref —
+             * the collector must see and relocate it in memory) pins the state
+             * below itself; a rule whose window touches one names a register no
+             * stencil fills. A pw terminal's v128 slots are NOT fenced: the
+             * poly-wide stencil family (`__sK_pw`) moves them two registers
+             * wide, the same widths this loop's resolved-class arithmetic
+             * prices, so the pairing mean_size makes below is exact. An `aw`
+             * terminal's v128 IS fenced — that wide value crossed an `any`
+             * slot, whose carrier no stencil flavor widens (any_t moves its
+             * second half in `hi`, one slot at every width), so a cached form
+             * would read half a value and a cached result would truncate one. */
             {
                 int fenced = 0;
                 for (int i = 0; i < s->nkids && !fenced; i++) {
                     uint8_t c = kid_class(s, i);
                     if (operand_slot_of(s, i) < state
                         && (c >= 6 || !jav_class_cacheable[c]
-                            || (s->pw && c == JSC_V128))) fenced = 1;
+                            || (s->aw && c == JSC_V128))) fenced = 1;
                 }
-                if (cached_res && s->pw && s->results[0] == JSC_V128) fenced = 1;
+                if (cached_res && s->aw && s->results[0] == JSC_V128) fenced = 1;
                 if (fenced) continue;
             }
             if (!mean_size(t, state, fs, &cost, &nops)) continue;
@@ -472,7 +478,7 @@ int main(int argc, char** argv) {
             }
             // The action IS the emitter: a rule is a (signature, cache state) pair,
             // and firing it stamps this node's stencil variant for that state —
-            // burg matches the tree and emits from the reduce (#16). The driver
+            // burg matches the tree and emits from the reduce. The driver
             // owns the emission context the reduce runs inside and bridges the
             // machine's carried state to this rule's before stamping.
             fprintf(o, " = %u (. jav_t2_stamp(node, %d, 0x%xu, 0x%xu); .);\n",

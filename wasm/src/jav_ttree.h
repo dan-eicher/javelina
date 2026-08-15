@@ -128,7 +128,8 @@ typedef struct {
      * would leave the tier reporting a coverage it did not deliver). */
     uint64_t states_cached, transitions, bridge_fails;
     /* …split by kind and by whether any rule had a say. Inside a region the cover
-     * can push inline instead of caching and spilling (D7s), and the DP prices
+     * can push inline instead of caching and spilling (the memory-result
+     * stencils), and the DP prices
      * both, so a spill there is one it chose. A transition at a REGION BOUNDARY
      * is chosen by nothing: the next instruction belongs to another tree or to
      * none (a branch target, a resync after a call, dead code), and the stitcher
@@ -203,7 +204,7 @@ typedef struct {
     uint32_t first_fallback_bpos;
     int      first_fallback_entry, first_fallback_why;
     /* Stamps whose OPCODE provided no form at the rule's state, so the stitcher
-     * descended to the nearest one it does provide (the C5 contract) and the
+     * descended to the nearest one it does provide (§2.5's omission) and the
      * bridge spilled the difference — slots the cover never priced.
      * `descend_slots` is that summed deficit, the exact unpriced quantity; the
      * first one is named because a count is a total, not a work list. A descend
@@ -244,7 +245,7 @@ void jav_ttree_note_cover(int covered, int sig);
  * header states ("label a tree, then … drive burg_reduce toward a goal").
  * There is no offset-keyed map between the cover and the emitter anymore — the
  * map existed to join a tree cover to a byte-driven stamping walk, and the walk
- * that consumed it survives only as tier-1 and as the decline fallback (D8),
+ * that consumed it survives only as tier-1 and as the decline fallback,
  * where every stencil is the plain form and no state exists to record. */
 /* ── what a cover costs (Ertl §2.6, printed 36) ─────────────
  *
@@ -323,7 +324,7 @@ void jav_ttree_note_code(uint64_t bytes);
 void jav_ttree_note_stitch(int entry, int transitions, int bridge_failed);
 /* One stamp whose rule put a v128 in a register (either pack names JSC_V128). */
 void jav_ttree_note_wide(void);
-/* A body whose reduce-driven walk failed and re-stamped plain (D8). */
+/* A body whose reduce-driven walk failed and re-stamped plain. */
 void jav_ttree_note_fallback(uint8_t op, uint32_t bpos, int entry, int why);
 /* A region's first stamp, with the cache state the machine carried in. */
 void jav_ttree_note_region_entry(int live_state);

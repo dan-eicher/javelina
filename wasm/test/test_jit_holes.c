@@ -89,6 +89,14 @@ static void note_meta(const jav_jit_meta_t *m, int n) {
              * counterpart of — a green that was counting the wrong forms. */
             int vm = jav_variant_m[base][st];
             if (vm >= 0 && vm != base) note_one(&m[i], vm);
+            /* …and the POLY-WIDE family, selected by the same driver from the
+             * same operand list when the tile resolved a pw signature
+             * (jit_driver.c: rs->pw). Same lesson as `__sKm` above: a family
+             * the walk does not know reads as 71 stencils nothing patches. */
+            int vp = jav_variant_pw[base][st];
+            if (vp >= 0 && vp != base) note_one(&m[i], vp);
+            int vpm = jav_variant_pw_m[base][st];
+            if (vpm >= 0 && vpm != base) note_one(&m[i], vpm);
         }
     }
 }

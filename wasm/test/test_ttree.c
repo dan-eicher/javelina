@@ -274,28 +274,37 @@ static void the_node_is_the_schema(void) {
     CK("sizeof(jav_tnode_t)", (long)sizeof(jav_tnode_t),
        8 + (long)sizeof(void*) * (JAV_SIG_MAX_KIDS + 1));
 
-    /* PIN B-2a-s — the `pw` flag IS the `_pw` name. The flag is gen_tile_burg's
-     * fence selector: a pw terminal's v128 slots never enter a cached window,
-     * because the variant family moves them as one declared word. The name
-     * suffix and the flag are printed from the same SigKind by sigemit, so this
-     * is the drift guard between the fence's selector and the vocabulary every
-     * other artifact keys on — and a pw terminal must actually carry the v128
-     * the flag speaks for. */
+    /* PIN B-2a-s/B-2b-s — the wide flags ARE the name. `pw` selects the
+     * poly-wide stencil family (a word slot resolved v128, moved as a pair);
+     * `aw` selects gen_tile_burg's fence (an any slot did, and its carrier no
+     * flavor widens). Both are printed from the same Sig by sigemit and both
+     * are identity, so the name must end with exactly the marks the flags
+     * claim — "_pw", "_aw", or "_pw_aw" — and a marked terminal must actually
+     * carry the v128 the marks speak for. This is the drift guard between the
+     * consumers' selectors and the vocabulary every artifact keys on. */
     long pw_name_bad = 0, pw_without_v128 = 0;
     for (int i = 0; i < JAV_TT_TAG_COUNT; i++) {
         const jav_sig_t* s = &jav_sigtab[i];
-        size_t len = strlen(s->name);
-        int suffixed = len > 3 && strcmp(s->name + len - 3, "_pw") == 0;
-        if ((s->pw != 0) != suffixed) pw_name_bad++;
-        if (s->pw) {
+        char want[8] = "";
+        if (s->pw) strcat(want, "_pw");
+        if (s->aw) strcat(want, "_aw");
+        size_t len = strlen(s->name), wlen = strlen(want);
+        int suffixed = wlen ? (len > wlen && !strcmp(s->name + len - wlen, want))
+                            : 1;
+        /* An unmarked name must carry NO mark (…_pw with pw=0 is drift too). */
+        if (!wlen && len > 3 && (!strcmp(s->name + len - 3, "_pw")
+                                 || !strcmp(s->name + len - 3, "_aw")))
+            suffixed = 0;
+        if (!suffixed) pw_name_bad++;
+        if (s->pw || s->aw) {
             int wide = 0;
             for (int p = 0; p < s->nparams; p++) if (s->params[p] == JSC_V128) wide = 1;
             for (int r = 0; r < s->nresults; r++) if (s->results[r] == JSC_V128) wide = 1;
             if (!wide) pw_without_v128++;
         }
     }
-    CK("finals whose pw flag disagrees with the _pw suffix", pw_name_bad, 0);
-    CK("pw finals with no v128 slot to speak for", pw_without_v128, 0);
+    CK("finals whose pw/aw flags disagree with the name's marks", pw_name_bad, 0);
+    CK("wide-marked finals with no v128 slot to speak for", pw_without_v128, 0);
 }
 
 int main(void) {
