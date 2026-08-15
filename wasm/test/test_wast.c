@@ -22,6 +22,7 @@
 #include "jav_ttree.h"           // PIN B-4: the tier-2 sweep's counters
 #include "jav_eqsat.h"           // PIN B-1 (tier-3): the eqsat pass's counters
 #include "wat_check.h"           // PIN A-4: water's own §7.6, against the engine's
+#include "wat_driver.h"          // PIN C-2's corpus leg: the rendering must re-read
 #include "wat_emit.h"            // PIN B-5: the emitter's width honesty, exit-coded
 #include "jav_view_nav.h"        // PIN A-5: the span index that aligns the two walks
 #include "jav_module_index.h"    // PIN A-5: jav_module_index / jav_module_tctx
@@ -58,6 +59,7 @@ static void free_parse_vecs(wat_ctx_t *c) {
         free(c->xtypes[i].params.items); free(c->xtypes[i].results.items);
     }
     bbq_vec_free(c->xtypes);
+    bbq_vec_free(c->xtype_rec);
     wat_type_fields_free(c);                // §6.6.2 per-type struct field-name space
     for (int i = 0; i < (int)bbq_vec_len(c->locals); i++) free(c->locals[i]);
     bbq_vec_free(c->locals);
@@ -345,6 +347,7 @@ static void a5_body(const jav_modidx_t *vmod, jav_tctx_t *tcx, bbq_arena *ta,
 
 static int g_wat76_ok, g_wat76_bad;
 static int g_emit_ok, g_emit_fail;
+static int g_reread_ok, g_reread_fail;
 static void run_module_wat76(const uint8_t *bytes, int n, int vm_accepted, jav_err_t vm_err) {
     bbq_ctx_t c; bbq_ctx_init(&c, bytes, (size_t)n);
     jav_module_t mod; memset(&mod, 0, sizeof mod);
@@ -415,7 +418,27 @@ static void run_module_wat76(const uint8_t *bytes, int n, int vm_accepted, jav_e
     // accumulates into wat_emit_stats, printed and exit-coded with the rest.
     if (wat_accepted && vm_accepted && wcx) {
         const char *txt = NULL; size_t tlen = 0;
-        if (wat_emit_module(&mod, wcx, 100, &a, &txt, &tlen) && tlen > 0) g_emit_ok++;
+        if (wat_emit_module(&mod, wcx, 100, &a, &txt, &tlen) && tlen > 0) {
+            g_emit_ok++;
+            // §6.2.2 at corpus scale: the rendering must READ. A missing
+            // separator merges tokens and the reader refuses (or Part F's
+            // byte identity will differ); either way it cannot hide.
+            int rl = 0, rc = 0;
+            jav_module_t *rt = wat_assemble(txt, (int)tlen, &rl, &rc);
+            if (rt) { jav_module_free(rt); free(rt); g_reread_ok++; }
+            else {
+                g_reread_fail++;
+                if (getenv("WAST_VV")) {
+                    fprintf(stderr, "  wat REREAD FAILED: %s at %d:%d\n",
+                            g_curfile, rl, rc);
+                    const char *dump = getenv("WAST_REREAD_DUMP");
+                    if (dump) {
+                        FILE *df = fopen(dump, "w");
+                        if (df) { fwrite(txt, 1, tlen, df); fclose(df); }
+                    }
+                }
+            }
+        }
         else {
             g_emit_fail++;
             if (getenv("WAST_VV")) {
@@ -753,6 +776,8 @@ int main(int argc, char **argv) {
                 (unsigned long long)ws.width_mismatches,
                 (unsigned long long)ws.long_lines,
                 (unsigned long long)ws.atom_overflows);
+        fprintf(sum, "wast wat re-read (rendering through the .wat reader): "
+                     "%d ok, %d failed\n", g_reread_ok, g_reread_fail);
     }
     int eok = 0, ebad = 0, eexcl = 0;
     if (g_store_ready && !sweep) {
@@ -952,7 +977,7 @@ int main(int argc, char **argv) {
     return (g_bad || g_wat_bad || g_val_bad || g_tval_bad || g_val_msgbad
             || g_wat76_bad || g_a5_bad || g_a5_unaligned || g_a5_bodies == 0
             || g_emit_fail || ws_gate.width_mismatches || ws_gate.long_lines
-            || (g_emit_ok == 0)
+            || (g_emit_ok == 0) || g_reread_fail || (g_reread_ok == 0)
             || ebad || (!sweep && wast_exec_trap_msgbad())
             /* The tree and tiling meters belong to TIER-2: tier-1 compiles with no
              * tiling context, so no tree is built and there is nothing for them to

@@ -142,12 +142,17 @@ $(B)/wat_tree.o:  src/wat_tree.c src/wat_tree.h $(GEN)/wat_tnode.h $(GEN)/wat_re
 $(B)/wat_layout.o: $(GEN)/wat_layout.c $(GEN)/wat_layout.h src/wat_layout_burg.h $(GEN)/wat_tnode.h | $(B)
 	$(CC) $(CFLAGS) -Wno-unused-function -c $< -o $@
 
-WATOUT_TESTS := test_wat_check test_wat_fold test_wat_emit test_wat_layout
+WATOUT_TESTS := test_wat_check test_wat_fold test_wat_layout
 $(WATOUT_TESTS:%=$(B)/%): $(B)/%: test/%.c $(WATOUT_OBJS) | $(B)
 	$(CC) $(CFLAGS) -Wno-unused-function $(LINK) -lm -o $@
 # The layout gates compare the generated artifacts against each other and the
 # peg inventory, so they rebuild when any of those move.
 $(B)/test_wat_layout: $(GEN)/wat_tnode.h $(GEN)/wat_render.h $(GEN)/wat_layout.burg spec/wat.peg
+# test_wat_emit additionally REREADS its own renderings through the .wat
+# assembler (the token-separation and float-exactness gates are real round
+# trips), so it links both directions — as the shipped water does.
+$(B)/test_wat_emit: test/test_wat_emit.c $(WATOUT_OBJS) $(WAT_OBJS) $(B)/jav_writer.o | $(B)
+	$(CC) $(CFLAGS) -Wno-unused-function -Iinclude -I$(PEGRT) $(LINK) -lm -o $@
 
 # The conformance runner: the official testsuite, executed.
 $(B)/test_wast: test/test_wast.c test/wast_exec.c $(B)/wasm_capi.o $(WAT_OBJS) \
@@ -206,7 +211,7 @@ bench-naive: $(B)/run_naive $(NAIVE_WASM)
 
 # Everything that is a plain "build it, run it in test/, expect exit 0" gate.
 PLAIN_TESTS := $(IMMIX_TESTS) $(TESTS) $(CLITE_TESTS) test_align test_module_struct $(OWNING_TESTS) \
-               test_instr test_wat test_water $(WATOUT_TESTS) $(CAPI_TESTS) test_bench_naive
+               test_instr test_wat test_water $(WATOUT_TESTS) test_wat_emit $(CAPI_TESTS) test_bench_naive
 # ...minus the few that take an argument, handled by name below.
 ARGV_add_wasm := test_skeleton test_load test_roundtrip test_func
 

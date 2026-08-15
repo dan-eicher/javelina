@@ -1039,6 +1039,33 @@ int main(void) {
                            b_lget2, sizeof b_lget2));
     printf("OK  test_wat: locals vec (RLE) + local.get $id resolution\n");
 
+    // §6.4.15's echo against non-plain types: the typeuse constraint compares
+    // against the type's EXPANSION, so an inline (param …)/(result …) beside
+    // `(type x)` is well-formed when x is a sub type whose comptype is a func,
+    // and when x is a member of a multi-member rec group — both forms the
+    // disassembler emits. The rec member's functype must stay READABLE for
+    // this check even though §6.4.15's find-or-insert dedup may never resolve
+    // an inline typeuse INTO a rec group (a member's identity is its whole
+    // group) — which the third case pins from the other side: the inserted
+    // type for the bare signature is a NEW index, so the module has two types
+    // and funcs 0 and 1 get different type indices in the binary.
+    {
+        assert(parse_ok("(module (type (sub (func (result f32))))"
+                        " (func (type 0) (result f32) f32.const 0))")
+               && "echo against a sub-func type");
+        assert(parse_ok("(module"
+                        " (rec (type (func (param i32) (param (ref 0))))"
+                        "      (type (func (param i32) (param (ref 1)))))"
+                        " (func (type 0) (param i32) (param (ref 0))))")
+               && "echo against a rec-group member");
+        assert(parse_ok("(module"
+                        " (rec (type (func (param i32))) (type (func (param i64))))"
+                        " (func (type 0) (param i32))"
+                        " (func (param i32)))")
+               && "bare typeuse never dedups into a rec group");
+        printf("OK  test_wat: §6.4.15 echoes against sub-func and rec-member types\n");
+    }
+
     test_idresolve();
     test_literals();
     test_structured();

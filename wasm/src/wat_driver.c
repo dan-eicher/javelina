@@ -25,6 +25,7 @@ static void wat_ctx_teardown(wat_ctx_t *c) {
         free(c->xtypes[i].results.items);
     }
     bbq_vec_free(c->xtypes);
+    bbq_vec_free(c->xtype_rec);
     wat_type_fields_free(c);                /* §6.6.2 per-type struct field-name space */
     for (int i = 0; i < (int)bbq_vec_len(c->locals); i++) free(c->locals[i]);
     bbq_vec_free(c->locals);

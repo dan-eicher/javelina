@@ -31,6 +31,9 @@
 #include <string.h>
 #include <ctype.h>
 
+#include "jav_reader.h"
+#include "wat_check.h"
+#include "wat_emit.h"
 #include "wat_tnode.h"
 #include "wat_render.h"
 
@@ -210,6 +213,61 @@ static void the_node_is_the_schema(void) {
     CK("row costs that are not their own literals", bad_cost, 0);
 }
 
+/* ── FlatWhenItFitsBrokenWhenItDoesnt ─────────────────────────────────────
+ * §3.4's claim, pinned as two exact renderings of ONE body: wide enough, the
+ * function is one line; one notch too narrow, it breaks at the OUTERMOST
+ * node that does not fit — the function — and nowhere else: the type entry
+ * stays flat, the typeuse line stays flat, and the fold stays flat. The
+ * expected strings are written out verbatim; any drift in either direction
+ * is a fail, not a style change. */
+static void flat_when_it_fits_broken_when_it_doesnt(void) {
+    printf("  | FlatWhenItFitsBrokenWhenItDoesnt\n");
+    static const uint8_t wasm[] = {
+        0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00,
+        0x01, 0x06, 0x01, 0x60, 0x01, 0x7f, 0x01, 0x7f,        /* (func (param i32) (result i32)) */
+        0x03, 0x02, 0x01, 0x00,
+        0x0a, 0x0c, 0x01, 0x0a, 0x00,
+              0x20, 0x00, 0x41, 0x02, 0x6a, 0x41, 0x03, 0x6c, 0x0b,
+    };
+    static const char* const want_wide =
+        "(module\n"
+        "  (type (func (param i32) (result i32)))\n"
+        "  (func (type 0) (param i32) (result i32) "
+        "(i32.mul (i32.add (local.get 0) (i32.const 2)) (i32.const 3)))\n"
+        ")\n";
+    static const char* const want_narrow =
+        "(module\n"
+        "  (type (func (param i32) (result i32)))\n"
+        "  (func\n"
+        "    (type 0) (param i32) (result i32)\n"
+        "    (i32.mul (i32.add (local.get 0) (i32.const 2)) (i32.const 3)))\n"
+        ")\n";
+
+    bbq_ctx_t c;
+    bbq_ctx_init(&c, wasm, sizeof wasm);
+    jav_module_t mod;
+    memset(&mod, 0, sizeof mod);
+    if (!jav_module_read(&c, &mod)) { printf("  |   read failed\n"); fails++; return; }
+    bbq_ctx_free(&c);
+    bbq_arena a;
+    bbq_arena_init(&a, 65536);
+    jav_err_t err = JAV_E_NONE;
+    wat_check_ctx_t* wcx = wat_check_ctx_build(&mod, &a, &err);
+    const char* txt = NULL;
+    size_t len = 0;
+    int ok = wcx && wat_emit_module(&mod, wcx, 120, &a, &txt, &len);
+    CK("renders at width 120", ok, 1);
+    if (ok) CK("one line, flat, verbatim", strcmp(txt, want_wide) == 0, 1);
+    if (ok && strcmp(txt, want_wide) != 0) printf("  |   got:\n%s", txt);
+    ok = wcx && wat_emit_module(&mod, wcx, 100, &a, &txt, &len);
+    CK("renders at width 100", ok, 1);
+    if (ok) CK("breaks at the func and nowhere else, verbatim",
+               strcmp(txt, want_narrow) == 0, 1);
+    if (ok && strcmp(txt, want_narrow) != 0) printf("  |   got:\n%s", txt);
+    bbq_arena_free(&a);
+    jav_module_free(&mod);
+}
+
 int main(void) {
     printf("── test_wat_layout ──────────────────────────────────────\n");
     scan_peg_heads();
@@ -218,6 +276,7 @@ int main(void) {
     every_production_has_a_rule();
     mnemonic_count_matches_toml();
     the_node_is_the_schema();
+    flat_when_it_fits_broken_when_it_doesnt();
     if (fails) printf("  | FAIL: %d failed\n", fails);
     else       printf("  | all green\n");
     return fails ? 1 : 0;

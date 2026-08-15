@@ -64,6 +64,11 @@ typedef struct {
     int bind_locals;             /* 1 inside a func (param/local bind ids), 0 in a bare type def */
     jav_rec_type_t* ins;        /* §6.4.15 typeuse-inserted types (funcs + blocktypes), module-global;
                                     appended after the explicit types at module end (a bbq_vec) */
+    uint8_t* xtype_rec;          /* parallel to xtypes: 1 = member of a >1 rec group. §6.4.15's
+                                    find-or-insert dedup must skip these (a rec member's identity is
+                                    its whole group, never a standalone functype), but the explicit
+                                    `(type x)` paths — echo verification, param-slot reservation —
+                                    still read the member's REAL functype from xtypes. */
     jav_func_type_t* xtypes;    /* explicit (type) functypes, captured in pass 1 so an inline typeuse
                                     can dedup against the FULL set (§6.4.15 smallest matching index) */
     char*** type_fields;         /* §6.6.2 per-type struct field-name space (bbq_vec aligned with type
@@ -457,7 +462,7 @@ static uint32_t wat_typeuse(wat_ctx_t* c, jav_func_type_t* ft) {
     if (c->pass != 2) { free(ft->params.items); free(ft->results.items); return 0; }
     int nx = (int)bbq_vec_len(c->xtypes), ni = (int)bbq_vec_len(c->ins);
     for (int i = 0; i < nx; i++)
-        if (wat_functype_eq(&c->xtypes[i], ft)) {
+        if (!c->xtype_rec[i] && wat_functype_eq(&c->xtypes[i], ft)) {
             free(ft->params.items); free(ft->results.items); return (uint32_t)i; }
     for (int i = 0; i < ni; i++)
         if (wat_functype_eq(&c->ins[i].body.u.case_5, ft)) {
@@ -469,33 +474,39 @@ static uint32_t wat_typeuse(wat_ctx_t* c, jav_func_type_t* ft) {
 }
 
 /* Pass-1 capture of an explicit type into c->xtypes (one entry per type, so indices
- * align). A singleton func comptype contributes its functype (so an inline typeuse can
- * dedup against it); any other type (struct/array/sub) contributes a sentinel that can
- * never match a function signature, and its parsed payload is freed. */
+ * align). A func comptype contributes its functype (so an inline typeuse can dedup
+ * against it) — including a func inside a `(sub …)`, because §6.4.15 constrains a
+ * typeuse against the type's EXPANSION and a subtype expands to its comptype, so
+ * `(func (type $t) (param …))` with $t a sub-func is well-formed text. Struct and
+ * array types contribute a sentinel that can never match a function signature, and
+ * their parsed payload is freed. */
 static void wat_xtypes_capture(wat_ctx_t* c, int issub, jav_comp_type_t* ct, jav_sub_type_t* st) {
     jav_func_type_t xt; memset(&xt, 0, sizeof xt);
     if (!issub && ct->head == 0x60) xt = ct->body.u.case_2;       /* keep the functype */
+    else if (issub && st->body.head == 0x60) {
+        xt = st->body.body.u.case_2;                              /* the expansion's functype */
+        free(st->supers.items);                                   /* keep the functype's arrays */
+    }
     else { xt.param_count = 0xFFFFFFFFu;                          /* sentinel: never matches */
            if (issub) jav_sub_type_free(st); else jav_comp_type_free(ct); }
     bbq_vec_push(c->xtypes, xt);
+    bbq_vec_push(c->xtype_rec, (uint8_t)0);
     bbq_vec_push(c->type_fields, c->cur_fields);                  /* hand off this type's field names */
     c->cur_fields = NULL;                                        /* (NULL for non-struct types) */
 }
 
 /* §6.4.15: a func type that is a member of a MULTI-member rec group has a defined type
  * distinct from any standalone func (its closure carries the whole group), so an inline
- * typeuse must not dedup against it. After a `(rec …)` of >1 member, re-mark the members
- * captured since `base` as non-matchable sentinels (a singleton rec group stays matchable,
- * being equivalent to the bare type). */
+ * typeuse must not dedup against it. After a `(rec …)` of >1 member, FLAG the members
+ * captured since `base` (a singleton rec group stays matchable, being equivalent to the
+ * bare type). A flag rather than a destroyed entry, because the explicit `(type x)`
+ * paths still need the member's real functype: §6.4.15's echo constraint compares
+ * against the type itself, and `(func (type x) (param …) …)` with x a rec member is
+ * well-formed text the disassembler emits. */
 static void wat_xtypes_seal_recgroup(wat_ctx_t* c, uint32_t base) {
     uint32_t n = (uint32_t)bbq_vec_len(c->xtypes);
     if (n - base <= 1) return;
-    for (uint32_t i = base; i < n; i++)
-        if (c->xtypes[i].param_count != 0xFFFFFFFFu) {
-            free(c->xtypes[i].params.items); free(c->xtypes[i].results.items);
-            memset(&c->xtypes[i], 0, sizeof c->xtypes[i]);
-            c->xtypes[i].param_count = 0xFFFFFFFFu;
-        }
+    for (uint32_t i = base; i < n; i++) c->xtype_rec[i] = 1;
 }
 
 /* Push a definition's collected inline-export names (§6.6) as exports with its index.

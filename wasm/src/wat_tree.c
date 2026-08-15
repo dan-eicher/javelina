@@ -677,21 +677,12 @@ static wat_tnode_t* build_instr(wb_t* w, const jav_instr_t* in, int depth) {
         set_ptxt(w, n);
         break;
     }
-    case WSH_V128: {   /* v128.const: four hex lanes read LE */
-        const uint8_t* b = in->body.u.case_31.body.u.case_1.bytes.data;
-        sc(w, "i32x4");
-        for (int k = 0; k < 4; k++) {
-            uint32_t lane = (uint32_t)b[4 * k] | ((uint32_t)b[4 * k + 1] << 8) |
-                            ((uint32_t)b[4 * k + 2] << 16) | ((uint32_t)b[4 * k + 3] << 24);
-            sc(w, " 0x%08x", lane);
-        }
-        set_ptxt(w, n);
-        break;
-    }
-    case WSH_LANE: {
+    case WSH_V128: {   /* both 16-byte immediates share the shape (the toml's
+                        * v128 rows): v128.const spells four hex lanes read LE,
+                        * i8x16.shuffle (sub 13) spells sixteen fill atoms. */
         const jav_simd_instr_t* si = &in->body.u.case_31;
-        if (si->sub == 13) {   /* i8x16.shuffle: sixteen fill atoms */
-            const uint8_t* b = si->body.u.case_1.bytes.data;
+        const uint8_t* b = si->body.u.case_1.bytes.data;
+        if (si->sub == 13) {
             n->av = (uint32_t)bbq_vec_len(w->atoms);
             for (int k = 0; k < 16; k++) {
                 sc(w, "%u", b[k]);
@@ -699,11 +690,20 @@ static wat_tnode_t* build_instr(wb_t* w, const jav_instr_t* in, int depth) {
             }
             n->nav = (uint32_t)bbq_vec_len(w->atoms) - n->av;
         } else {
-            sc(w, "%u", si->body.u.case_3.lane);
+            sc(w, "i32x4");
+            for (int k = 0; k < 4; k++) {
+                uint32_t lane = (uint32_t)b[4 * k] | ((uint32_t)b[4 * k + 1] << 8) |
+                                ((uint32_t)b[4 * k + 2] << 16) | ((uint32_t)b[4 * k + 3] << 24);
+                sc(w, " 0x%08x", lane);
+            }
             set_ptxt(w, n);
         }
         break;
     }
+    case WSH_LANE:
+        sc(w, "%u", in->body.u.case_31.body.u.case_3.lane);
+        set_ptxt(w, n);
+        break;
     case WSH_MEMLANE: {
         const jav_mem_lane_imm_t* ml = &in->body.u.case_31.body.u.case_5;
         sp_memarg(w, &ml->mem, mn);
@@ -899,6 +899,10 @@ static void build_funcs(wb_t* w, const jav_function_section_t* fs) {
         /* The body: §7.6's rows drive the folding. */
         wat_body_t rows;
         if (!wat_check_body(w->cx, base + (uint32_t)k, body, w->a, &rows)) {
+            if (getenv("WAT_TREE_VV"))
+                fprintf(stderr, "wat_tree: func %u refused op 0x%02x (err %d)\n",
+                        base + (uint32_t)k, rows.fail ? rows.fail->op : 0,
+                        (int)rows.err);
             fail(w, rows.err);
             return;
         }
