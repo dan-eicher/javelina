@@ -73,7 +73,7 @@ static void glob_lib_dir(const char* dir, ast_type_decl_t*** types,
  * calls. (Before this cache, re-globbing + re-parsing the lib per test dominated the run: ~6 min.)
  *
  * Sharing it is safe, but NOT because sema leaves the AST alone — it does not. Resolving a
- * constructor DESUGARS into the AST: JLS §8.8.7 prepends the implicit super(), allocating the
+ * constructor DESUGARS into the AST: JLS §8.6.5 prepends the implicit super(), allocating the
  * statement and a replacement statement array from ctx->arena and writing them back into the node.
  * The prepend is guarded (it re-reads stmts[0] and skips when a constructor call is already there),
  * so it happens exactly once — but every later pass DEREFERENCES stmts[0] to check.
@@ -305,7 +305,7 @@ int main(void) {
            * final cells kept no record of construction); this is the same
            * shape at its owning level. Three +1 passes leave every element 3,
            * so s = 3·(31³+31²+31+1) = 3·30784 = 92352. */
-          /* §15.26.2 / §15.14.1: a compound assignment or increment on an
+          /* §15.25.2 / §15.14.1: a compound assignment or increment on an
            * array component performs the SAME §15.12 checks as a plain access
            * — the write-back lowerings emitted none (no null check, no bounds
            * pair), so an OOB `a[i] += v` reached the VM's own trap instead of
@@ -1245,7 +1245,7 @@ int main(void) {
         bbq_vec_free(mod.code); bbq_arena_free(&a);
     }
 
-    /* §15.25 conditional numeric promotion: a `long ? : int` (mixed arms) promotes
+    /* §15.24 conditional numeric promotion: a `long ? : int` (mixed arms) promotes
      * BOTH arms to long — the int arm must widen (it was emitting i32 into the i64
      * result slot → validation "type mismatch"; surfaced by the Dragon4 overlay). */
     {
@@ -1358,7 +1358,7 @@ int main(void) {
             1, 20, "switch: case 1=20" },
           { "class T { static int f(int x){ switch(x){ case 0: return 10; case 1: return 20; default: return 30; } } }",
             9, 30, "switch: default=30" },
-          /* §14.10, the EMPTY-group axis. A group whose only statement is a jump has that jump's
+          /* §14.9, the EMPTY-group axis. A group whose only statement is a jump has that jump's
            * target as its case target, so the group is not a body at all — the backend must not
            * lay it out as one. Every case above has a statement in each group, which is exactly
            * what let `case 1: break;` reach the conformance corpus as a miscompile. Expected
@@ -1372,7 +1372,7 @@ int main(void) {
           { "class T { static int f(int x){ int r=0; switch(x){ case 1: break; case 2: r=2; } return r; } }",
             1, 0, "switch: empty break group with NO default label" },
           { "class T { static int f(int x){ int r=0; switch(x){ case 1: case 2: r=2; break; default: r=9; } return r; } }",
-            1, 2, "switch: an empty group falls THROUGH to the next group's body (§14.10)" },
+            1, 2, "switch: an empty group falls THROUGH to the next group's body (§14.9)" },
           { "class T { static int f(int x){ int r=0; switch(x){ default: r=9; break; case 3: } return r; } }",
             3, 0, "switch: an empty LAST group falls out of the switch" },
           { "class T { static int f(int n){ int r=0; for(int i=0;i<n;i=i+1){ switch(i){ case 1: continue; default: r=r+i; } r=r+10; } return r; } }",
@@ -1663,7 +1663,7 @@ int main(void) {
           { "class T { static int f(int x){ double d = x; return (int)(d * 2); } }",
             5, 10, "binary promotion: double * int literal == 10" },
           { "class T { static int f(int x){ long a = x; a += 1; return (int)a; } }",
-            10, 11, "compound assign: long += int (§15.26.2) == 11" },
+            10, 11, "compound assign: long += int (§15.25.2) == 11" },
           { "class T { static long s; static int f(int x){ s = x; s += 1; return (int)s; } }",
             20, 21, "compound assign: static long += int == 21" },
           { "class T { static int f(int x){ long[] a = new long[1]; a[0] = x; a[0] += 1; return (int)a[0]; } }",
@@ -1988,7 +1988,7 @@ int main(void) {
             0, 5, "instance field init, explicit ctor (int v=5) == 5" },
           { "class C { int v; C(){ v = 9; } } class T { static int f(int x){ C c=new C(); return c.v; } }",
             0, 9, "ISOLATE: explicit ctor body assigns v=9 == 9" },
-          /* JLS §8.8.9 default ctor synthesis: a class with NO ctor still runs its
+          /* JLS §8.6.7 default ctor synthesis: a class with NO ctor still runs its
            * field initializers (in the synthesized default ctor's step 4). */
           { "class C { int v = 7; } class T { static int f(int x){ C c=new C(); return c.v; } }",
             0, 7, "default ctor (no decl): field init v=7 runs == 7" },
@@ -2190,7 +2190,7 @@ int main(void) {
             "class T { static int f(int z){ H3 h = new H3(); V2 v = new V2(h); return h.r; } }",
             0, 55, "a mid-construction observer reads the §12.5 default: its guard "
                    "survives and the division throws catchably" },
-          /* §15.13.1 (E7): array access null-checks + bounds-checks throw CATCHABLE
+          /* §15.12.1 (E7): array access null-checks + bounds-checks throw CATCHABLE
            * NullPointerException / ArrayIndexOutOfBoundsException, not WASM traps. */
           { "class T { static int f(int z){ int[] a = null;"
             "  try { return a[0]; } catch (NullPointerException e) { return 11; } } }",
@@ -2201,7 +2201,7 @@ int main(void) {
           { "class T { static int f(int z){ int[] a = new int[3];"
             "  try { return a[-1]; } catch (ArrayIndexOutOfBoundsException e) { return 33; } } }",
             0, 33, "read negative index → ArrayIndexOutOfBoundsException" },
-          /* The index is UNKNOWN here, so the whole §15.13.1 pair survives the
+          /* The index is UNKNOWN here, so the whole §15.12.1 pair survives the
            * solve and (under -O) is merged into one unsigned compare — a
            * negative index must still raise the same catchable AIOOBE through
            * the merged test. The constant-index twins above never exercise the
@@ -2226,7 +2226,7 @@ int main(void) {
           { "class T { static int f(int z){ int[] a = new int[3];"    /* AIOOBE is a RuntimeException */
             "  try { return a[5]; } catch (RuntimeException e) { return 66; } } }",
             0, 66, "ArrayIndexOutOfBounds caught as RuntimeException (subtype dispatch)" },
-          /* §15.11 / §15.12 / §10.7 (E7): instance field access, method dispatch, and
+          /* §15.10 / §15.11 / §10.7 (E7): instance field access, method dispatch, and
            * array.length on a null receiver throw CATCHABLE NullPointerException. */
           { "class A { int x; int m(){ return 9; } }"
             "class T { static int f(int z){ A a = null;"
@@ -2254,7 +2254,7 @@ int main(void) {
             "class T { static int f(int z){ A a = null;"
             "  try { a.x += 5; return 0; } catch (NullPointerException e) { return 72; } } }",
             0, 72, "null.field op= → catchable NullPointerException" },
-          /* §15.10.1 (E7): a negative array size throws CATCHABLE NegativeArraySizeException. */
+          /* §15.9.1 (E7): a negative array size throws CATCHABLE NegativeArraySizeException. */
           { "class T { static int f(int z){"
             "  try { int[] a = new int[z]; return a.length; }"
             "  catch (NegativeArraySizeException e) { return 81; } } }",
@@ -2269,7 +2269,7 @@ int main(void) {
             -2, 83, "new int[-2][3] (multi-dim) → NegativeArraySizeException" },
           { "class T { static int f(int z){ int[] a = new int[z]; return a.length; } }",
             4, 4, "new int[4] (non-negative) undisturbed by the guard" },
-          /* §15.16 (E7): a bad reference cast throws CATCHABLE ClassCastException;
+          /* §15.15 (E7): a bad reference cast throws CATCHABLE ClassCastException;
            * a valid cast and a null cast do NOT throw ((T)null == null). */
           { "class A {} class B {}"
             "class T { static int f(int z){ Object o = new A();"
@@ -2435,7 +2435,7 @@ int main(void) {
             CHECK(ok && st == EXEC_TRAP, "uncaught (B not caught by A) → propagates/traps");
             bbq_vec_free(mod.code); bbq_arena_free(&a);
         }
-        /* finally runs on EVERY exit path (§14.20.2): the normal-completion path and
+        /* finally runs on EVERY exit path (§14.18.2): the normal-completion path and
          * the caught-exception path both inline the finally block. */
         struct { const char* src; int32_t arg; int32_t want; const char* label; } fin[] = {
           { "class Ex extends Exception {} class T { static int f(int x){ int r=0; "
@@ -2933,7 +2933,7 @@ int main(void) {
         }
     }
 
-    /* ── JLS §15.12 overload resolution × argument widening (the arg-widening change
+    /* ── JLS §15.11.2 overload resolution × argument widening (the arg-widening change
      * had zero coverage against overloads). Each picks the resolved overload's param
      * type — a wrong method index would mis-widen the arg. ── */
     {
@@ -2987,7 +2987,7 @@ int main(void) {
         }
     }
 
-    /* ── §15.18.1 string concatenation (the ddcg StringBuffer defunctionalization):
+    /* ── §15.17.1 string concatenation (the ddcg StringBuffer defunctionalization):
      * every operand type, chaining, and left-associativity vs numeric +. ── */
     {
         struct { const char* src; int32_t arg; int32_t want; const char* label; } cc[] = {
@@ -3144,7 +3144,7 @@ int main(void) {
             0, 9, "§14.18 throw from a call STATEMENT inside try → caught" },
           { "class T { static int g(int x){ if (x==0) throw new RuntimeException(\"b\"); return 1; }"
             " static int f(int x){ int r=0; try { return g(x); } finally { r=1; } } }",
-            1, 1, "§14.20 `return` expression inside try-finally: finally runs, value preserved" },
+            1, 1, "§14.18 `return` expression inside try-finally: finally runs, value preserved" },
           { "class T { static int g(int x){ if (x==0) throw new RuntimeException(\"b\"); return 1; }"
             " static int f(int x){ try { return g(x) + g(x); } catch (RuntimeException e) { return 5; } } }",
             0, 5, "§14.18 throw from a compound `return` expression inside try → caught" },
@@ -3152,7 +3152,7 @@ int main(void) {
         /* ── §14.19 "can complete normally". The values of expressions are NOT taken into account,
          * except for a while/do/for condition that is the constant `true`. So a `for` whose body
          * always returns still completes normally when it has a non-constant condition (the loop may
-         * run zero times) — and its update expression, which §14.14 makes a StatementExpressionList
+         * run zero times) — and its update expression, which §14.12 makes a StatementExpressionList
          * rather than a Statement, is not an "unreachable statement" even when it can never run. ── */
         struct { const char* src; int32_t arg; int32_t want; const char* label; } ccn[] = {
           { "class T { static int f(int x){ for (int i = 0; i < 10; i++) { return 1; } return 0; } }",
@@ -3171,7 +3171,7 @@ int main(void) {
             0, 8, "§14.19 ACTUAL if-then rule: `if (false) x = 3;` is reachable, not an error" },
           /* §15.27: a constant expression is not merely a literal. Each condition below is a
            * constant expression with value `true`, so §14.19 says the loop cannot complete
-           * normally — §8.4.7 is satisfied with no `return` after it, and no exit is built. */
+           * normally — §8.4.5 is satisfied with no `return` after it, and no exit is built. */
           { "class T { static int f(int x){ while (1 == 1) { return 1; } } }",
             0, 1, "§15.27 while(1==1): a relational operator over literals is constant-true" },
           { "class T { static int f(int x){ while (true && !false) { return 2; } } }",
@@ -3253,18 +3253,18 @@ int main(void) {
           { "class T { static int g(){ return 1; }"
             " static int f(int x){ int r=0; try { do { return g(); } while(true); } finally { r=g(); } } }",
             0, 1, "§14.19 do-while(true) in try-finally: no normal exit is built" },
-          /* §14.15: `break L` completes the labeled statement normally. For a labeled loop that
+          /* §14.13: `break L` completes the labeled statement normally. For a labeled loop that
            * program point IS the loop's exit (the compiler gives them one break target), so the
            * loop's exit is live even though no unlabeled break exits it. The correctly-rounded
            * decimal parser is written exactly this way. */
           { "class T { static int f(int x){ int i=0;"
             " outer: while (true) { i = i + 1; if (i > 3) break outer; }"
             " return i; } }",
-            0, 4, "§14.15/§14.19 labeled while(true) exited only by `break label` — exit is live" },
+            0, 4, "§14.13/§14.19 labeled while(true) exited only by `break label` — exit is live" },
           { "class T { static int f(int x){ int i=0;"
             " outer: for (;;) { i = i + 1; if (i > 2) break outer; }"
             " return i; } }",
-            0, 3, "§14.15/§14.19 labeled for(;;) exited only by `break label`" },
+            0, 3, "§14.13/§14.19 labeled for(;;) exited only by `break label`" },
           { "class T { static int f(int x){ int i=0;"
             " outer: while (true) { inner: { if (x == 0) break inner; } i = 1; break outer; }"
             " return i; } }",
@@ -3278,39 +3278,39 @@ int main(void) {
            * only as size — and they run under JAVELINA_CLICK=1 too, which is where a record the
            * optimizer retired while its label stayed live shows up. ── */
 
-          /* §15.25 in a boolean-control position. `if (b ? p : q)` gens the conditional with
+          /* §15.24 in a boolean-control position. `if (b ? p : q)` gens the conditional with
            * γ = pair(Lthen, Lelse); its arms inherit γ and each ends in its own branch to the
            * SHARED Lt/Lf. Treating pair as a value destination instead dropped the branch
            * entirely — the arm never ran, and the `while` form spun forever. */
           { "class T { static int f(int x){ boolean p = x > 0, q = x < 0, b = true;"
             " int r = 0; if (b ? p : q) r = 1; return r; } }",
-            5, 1, "§15.25 conditional as an if condition: the then-arm runs" },
+            5, 1, "§15.24 conditional as an if condition: the then-arm runs" },
           { "class T { static int f(int x){ boolean p = x > 0, q = x < 0, b = false;"
             " int r = 0; if (b ? p : q) r = 1; return r; } }",
-            5, 0, "§15.25 conditional as an if condition: the else operand decides" },
+            5, 0, "§15.24 conditional as an if condition: the else operand decides" },
           { "class T { static int f(int x){ int n = 0; boolean p = true;"
             " while (x > 0 ? p : false) { n = n + 1; if (n > 2) p = false; } return n; } }",
-            1, 3, "§15.25 conditional as a while condition terminates" },
+            1, 3, "§15.24 conditional as a while condition terminates" },
           { "class T { static int f(int x){ boolean t = true, f2 = false;"
             " return ((t ? f2 : t) || (t ? t : f2)) ? 1 : 0; } }",
-            0, 1, "§15.25 conditional on both sides of ||" },
+            0, 1, "§15.24 conditional on both sides of ||" },
           { "class T { static int f(int x){ boolean t = true, f2 = false;"
             " return (!(t ? f2 : t)) ? 1 : 0; } }",
-            0, 1, "§15.25 conditional under ! — the ! swaps the pair it inherits" },
+            0, 1, "§15.24 conditional under ! — the ! swaps the pair it inherits" },
 
-          /* §15.25 delivering a VALUE inside a comparison inside a condition. The conditional's
+          /* §15.24 delivering a VALUE inside a comparison inside a condition. The conditional's
            * own join and the enclosing if's join are both keyed on the conditional's Branch —
            * one node, two records — and both have to be resolvable. */
           { "class T { static int f(int x){ int y = x - 1, r = 0;"
             " if ((x > 0 ? x : y) > 0) r = r + 1; if ((x > 0 ? x : y) > 1) r = r + 2;"
             " if ((x > 0 ? x : y) > 2) r = r + 4; return r; } }",
-            3, 7, "§15.25 compared conditional in three successive if conditions" },
+            3, 7, "§15.24 compared conditional in three successive if conditions" },
           { "class T { static int f(int x){ int y = x - 1, r = 0;"
             " if ((x > 0 ? x : y) > 0 && x > 0) r = 1; return r; } }",
-            3, 1, "§15.25 compared conditional left of &&" },
+            3, 1, "§15.24 compared conditional left of &&" },
           { "class T { static int f(int x){ int y = x - 1, r = 0;"
             " if (x > (x > 0 ? x : y)) r = 1; else r = 2; return r; } }",
-            3, 2, "§15.25 conditional as the RHS of a compare (both operands spill)" },
+            3, 2, "§15.24 conditional as the RHS of a compare (both operands spill)" },
 
           /* Fig. 7's shared exit. In a ONE-ARMED `if (a && b)` that exit IS the if's join, so the
            * head carries a MERGE row and a BLOCK row naming one node; reading that as "just a
@@ -3326,59 +3326,59 @@ int main(void) {
             " static int f(int x){ return (p(x) || q(x)) ? 1 : 0; } }",
             5, 1, "Fig.7 || in RETURN position: both terms share Lt" },
 
-          /* §14.10 switch fall-through is the one exit from a case group that carries NO jump —
+          /* §14.9 switch fall-through is the one exit from a case group that carries NO jump —
            * break/continue/return all become a br the backend resolves by depth, but falling out
            * of one group into the next is pure layout adjacency. Laying the groups out in
            * ascending-value order (what the br_table wants) breaks exactly that edge. */
           { "class T { static int f(int x){ int r = 0;"
             " switch (x) { case 1: r = 1; case 2: r = r + 20; break; case 3: r = 3; } return r; } }",
-            1, 21, "§14.10 fall-through from case 1 into case 2" },
+            1, 21, "§14.9 fall-through from case 1 into case 2" },
           { "class T { static int f(int x){ int r = 0;"
             " switch (x) { case 1: r = 1; case 2: r = r + 20; break; case 3: r = 3; } return r; } }",
-            2, 20, "§14.10 the fallen-into group is reached by br_table too — emitted once" },
+            2, 20, "§14.9 the fallen-into group is reached by br_table too — emitted once" },
           { "class T { static int f(int x){ int r = 1;"
             " switch (x) { case 45: r = -1; case 43: r = r + 100; } return r; } }",
-            45, 99, "§14.10 fall-through where source order is DESCENDING by case value" },
+            45, 99, "§14.9 fall-through where source order is DESCENDING by case value" },
           { "class T { static int f(int x){ int r = 1;"
             " switch (x) { case 45: r = -1; case 43: r = r + 100; } return r; } }",
-            43, 101, "§14.10 the same switch entered at the lower-valued, later-in-source case" },
+            43, 101, "§14.9 the same switch entered at the lower-valued, later-in-source case" },
           { "class T { static int f(int x){ int r = 0;"
             " switch (x) { case 1: r = 1; break; default: r = 9; case 2: r = r + 20; break; } return r; } }",
-            7, 29, "§14.10 a `default:` that is not last falls through to the case after it" },
+            7, 29, "§14.9 a `default:` that is not last falls through to the case after it" },
           { "class T { static int f(int x){ int r = 0;"
             " switch (x) { case 1: r = 1; break; default: r = 9; case 2: r = r + 20; break; } return r; } }",
-            2, 20, "§14.10 the group after a mid-position default is its own br_table target" },
+            2, 20, "§14.9 the group after a mid-position default is its own br_table target" },
 
-          /* §14.7 a labeled BLOCK. `loop_frame` tells `break L` which node to jump to; without a
+          /* §14.6 a labeled BLOCK. `loop_frame` tells `break L` which node to jump to; without a
            * scope record the backend never framed it, so each break emitted the exit inline. */
           { "class T { static int f(int x){ int r = 0;"
             " L: { if (x == 0) break L; r = 1; if (x == 1) break L; r = 2; return r * 10; }"
             " return r * 100; } }",
-            1, 100, "§14.7 labeled block, two breaks: the exit is emitted once" },
+            1, 100, "§14.6 labeled block, two breaks: the exit is emitted once" },
           { "class T { static int f(int x){ int r = 0;"
             " L: { if (x == 0) break L; r = 1; if (x == 1) break L; r = 2; return r * 10; }"
             " return r * 100; } }",
-            5, 20, "§14.7 the same block completing normally through its own return" },
+            5, 20, "§14.6 the same block completing normally through its own return" },
           { "class T { static int g(int x){ return x; } static int f(int x){ int r = 0;"
             " L: try { if (x == 0) break L; r = g(2); return r * 10; }"
             "    catch (RuntimeException e) { } return r * 100; } }",
-            3, 20, "§14.7 a labeled TRY exited by `break L`" },
+            3, 20, "§14.6 a labeled TRY exited by `break L`" },
 
-          /* §14.16 a continue target — a `for`'s update, a do-while's tail test — is reached by
+          /* §14.14 a continue target — a `for`'s update, a do-while's tail test — is reached by
            * the body's fall-through AND by every continue. It is a label only when a continue
            * exists, which is a question only sema can answer. */
           { "class T { static int f(int x){ int s = 0;"
             " for (int i = 0; i < x; i++) { if (i == 2) continue; s = s + i; } return s; } }",
-            5, 8, "§14.16 for-update as a continue target" },
+            5, 8, "§14.14 for-update as a continue target" },
           { "class T { static int f(int x){ int s = 0;"
             " for (int i = 0; i < x; i++) { if (i == 2) continue; if (i == 4) break; s = s + i; } return s; } }",
-            6, 4, "§14.16 continue and break in one for body" },
+            6, 4, "§14.14 continue and break in one for body" },
           { "class T { static int f(int x){ int s = 0, i = 0;"
             " do { i++; if (i == 2) continue; s = s + i; } while (i < x); return s; } }",
-            4, 8, "§14.16 do-while tail test as a continue target" },
+            4, 8, "§14.14 do-while tail test as a continue target" },
           { "class T { static int f(int x){ int s = 0;"
             " for (int i = 0; i < x; i++) { s = s + i; } return s; } }",
-            4, 6, "§14.16 a for with NO continue needs no frame round its update" },
+            4, 6, "§14.14 a for with NO continue needs no frame round its update" },
 
           /* The breakable-block idiom the generated PEG parsers are written in. Its back edge is
            * never taken, so the optimizer removes the loop — but the REGION survives, still
@@ -3396,9 +3396,9 @@ int main(void) {
           { "class T { static int f(int x){"
             " return (!((1 > 0) & (1 <= 1) & (1 == 1) & !(false) & (true && true) & (false || true)))"
             "        ? 1 : 0; } }",
-            0, 0, "§15.28 a fully constant-folded &&/|| chain under !" },
+            0, 0, "§15.27 a fully constant-folded &&/|| chain under !" },
           { "class T { static int f(int x){ return ((1 > 0) & (true && true)) ? 1 : 0; } }",
-            0, 1, "§15.28 constant-folded && inside a non-short-circuit &" },
+            0, 1, "§15.27 constant-folded && inside a non-short-circuit &" },
 
           /* Click §4.8's 1-constant identity (x+0, x*1, x&-1, x|0) makes the node a
            * FOLLOWER of its other operand. Which operand is "the constant" was read
@@ -5279,7 +5279,7 @@ int main(void) {
                           "(no silently-untileable op)");
     }
 
-    /* ── §15.17.3 floating-point remainder. `%` on float/double is the TRUNCATED remainder
+    /* ── §15.16.3 floating-point remainder. `%` on float/double is the TRUNCATED remainder
      *    (C fmod), NOT Math.IEEEremainder: the result takes the sign of the DIVIDEND and
      *    r = a - (b * q) with q = a/b truncated toward zero. WASM has no f32.rem/f64.rem,
      *    so this lowers to the fdlibm fmod already in java.lang.Math. Every operand class
@@ -5308,7 +5308,7 @@ int main(void) {
         wasm_val_t res[1] = { WASM_INIT_VAL };
         exec_status stx = exec_call(mod.code, bbq_vec_len(mod.code), "TT.f", &arg, 1, res, 1);
         CHECK(ok && stx == EXEC_OK && res[0].of.i32 == 511,
-              "§15.17.3 float/double %% : truncated remainder, sign of dividend, "
+              "§15.16.3 float/double %% : truncated remainder, sign of dividend, "
               "NaN on zero/inf divisor (no ArithmeticException) (==511)");
         bbq_vec_free(mod.code); bbq_arena_free(&a);
     }

@@ -158,7 +158,7 @@ static void frame_pop(sema_ctx_t* ctx) {
     int n = bbq_vec_len(ctx->frames);
     if (n > 0) bbq__vec_hdr(ctx->frames)->len--;
 }
-/* JLS §14.15: unlabeled `break` targets the innermost enclosing
+/* JLS §14.13: unlabeled `break` targets the innermost enclosing
  * while/do/for/switch — NOT labeled blocks. */
 static int frame_find_innermost_break_target(const sema_ctx_t* ctx) {
     int n = bbq_vec_len(ctx->frames);
@@ -168,7 +168,7 @@ static int frame_find_innermost_break_target(const sema_ctx_t* ctx) {
     }
     return -1;
 }
-/* JLS §14.16: unlabeled `continue` targets the innermost enclosing
+/* JLS §14.14: unlabeled `continue` targets the innermost enclosing
  * loop only — switch and labeled blocks don't count. */
 static int frame_find_innermost_loop(const sema_ctx_t* ctx) {
     int n = bbq_vec_len(ctx->frames);
@@ -244,7 +244,7 @@ static void check_not_final_local(sema_ctx_t* ctx, ast_expr_t* target,
     }
 }
 
-/* JLS §15.26 / §15.14 / §15.15: an assignment or inc/dec target
+/* JLS §15.25 / §15.13 / §15.14: an assignment or inc/dec target
  * must be a variable — one of: simple name (AST_IDENT), field
  * access (AST_FIELDACCESS or AST_SUPERACCESS), or array access
  * (AST_ARRAYACCESS). Anything else (literal, call result, binary
@@ -532,10 +532,11 @@ bool sema_method_lowers_inline(const sema_method_t* m) {
               || m->class_kind != 0 || m->simd_id != 0);
 }
 
-/* JLS §15.12.4.4 step 1's predicate: is this declaration NON-ABSTRACT — the thing the
- * dynamic lookup stops at? §9.4 makes every interface method implicitly abstract. §8.4.3.4
- * makes `abstract native` a compile-time error, so a native declaration IS concrete and ends
- * the search, even though its body lives outside the module. */
+/* The dynamic lookup's stopping predicate: is this declaration NON-ABSTRACT — what
+ * §8.4.6.1 calls a declaration that *implements*? §9.4 makes every interface method
+ * implicitly abstract. §8.4.3.4 makes `abstract native` a compile-time error, so a
+ * native declaration IS concrete and ends the search, even though its body lives
+ * outside the module. */
 bool sema_method_is_concrete(const sema_ctx_t* ctx, int class_id, const sema_method_t* m) {
     const sema_class_t* c = sema_get_class(ctx, class_id);
     if (!c || !m || c->is_interface) return false;
@@ -548,8 +549,10 @@ bool sema_method_is_concrete(const sema_ctx_t* ctx, int class_id, const sema_met
  * super's). Fails (returns false) when the signature is nowhere concrete, and a caller
  * that cannot get an answer must not devirtualize.
  *
- * §15.12.4.4 step 1 stops at "a declaration for a NON-ABSTRACT method named m with the
- * same descriptor". Non-abstract is the whole test: a native method is non-abstract
+ * §15.11.4.4's dynamic lookup searches "class S, and then the superclasses of class S"
+ * for "a declaration for a method named m with the same descriptor"; the declaration
+ * that ends the search is the non-abstract one that *implements* (§8.4.6.1).
+ * Non-abstract is the whole test: a native method is non-abstract
  * (§8.4.3.4 makes `abstract native` a compile-time error) and so ends the lookup, even
  * though it has no Java body. Whether THIS module emits a body for it is a separate,
  * emission-side question (sema_method_is_defined) that a caller needing one — the
@@ -597,11 +600,11 @@ bool sema_class_overrides_finalize(const sema_ctx_t* ctx, int class_id) {
     return impl_class != ctx->wk.object_id;
 }
 
-/* JLS §4.10.2 between two class ids — the ONE place the rule is written. */
+/* JLS §5.1.4 between two class ids — the ONE place the rule is written. */
 bool sema_ref_is_subtype(const sema_ctx_t* ctx, int sub_id, int super_id) {
     if (!ctx || sub_id < 0 || super_id < 0) return false;
     if (sub_id == super_id) return true;
-    /* §5.1.4/§4.10.2: every reference type (incl. every interface) is a subtype of
+    /* §5.1.4: every reference type (incl. every interface) is a subtype of
      * Object — even though an interface is in nobody's extends chain. */
     if (super_id == ctx->wk.object_id) return true;
     if (is_subclass_of(ctx, sub_id, super_id)) return true;
@@ -644,7 +647,7 @@ static bool is_widening_ref(const sema_ctx_t* ctx, java_type_t from, java_type_t
  * and `bytes[i] = '\n';` are assignment conversions of a CHAR constant, and the
  * value is what the rule range-checks, not the tag. Restricting this to JT_INT
  * rejected them as incompatible. (is_const_integral_expr below already accepts
- * the four for §14.11 case labels; this is the same set for the same reason.) */
+ * the four for §14.9 case labels; this is the same set for the same reason.) */
 static bool is_const_int_expr(const sema_ctx_t* ctx, const ast_expr_t* e, int32_t* out) {
     if (!e) return false;
     jls_const_t c = jls_const_eval(ctx, e);
@@ -657,7 +660,7 @@ static bool is_const_int_expr(const sema_ctx_t* ctx, const ast_expr_t* e, int32_
     }
 }
 
-/* §14.11 case labels: a constant expression of any integral type, whose VALUE is then
+/* §14.9 case labels: a constant expression of any integral type, whose VALUE is then
  * range-checked against the selector. `case 'a':` on an `int` switch is legal, so this one
  * accepts every integral tag rather than int alone. */
 static bool is_const_integral_expr(const sema_ctx_t* ctx, const ast_expr_t* e, int32_t* out) {
@@ -1011,11 +1014,11 @@ static const sema_field_t* decode_field_loc(const sema_ctx_t* ctx, void* enc) {
     return &c->fields[idx];
 }
 
-/* JLS §15.8.2 / §15.11.2: constructor overload resolution. Constructors are not
+/* JLS §15.8 / §15.11.2: constructor overload resolution. Constructors are not
  * inherited, so the candidates are this class's own ctors; the SAME applicability +
  * most-specific rules apply (a `new T(args)` picks the ctor as a method call would).
  * Sets *has_explicit if the class declares any ctor (false ⇒ the default no-arg ctor
- * applies, §8.8.7). arg_types NULL → first arity match (e.g. the implicit super()). */
+ * applies, §8.6.5). arg_types NULL → first arity match (e.g. the implicit super()). */
 static const sema_method_t* find_constructor(const sema_ctx_t* ctx, int class_id,
                                            int arg_count, const java_type_t* arg_types,
                                            bool* has_explicit) {
@@ -1775,7 +1778,7 @@ static void register_members(sema_ctx_t* ctx) {
                         ast_param_t* p = m->constructor_decl.params[pi];
                         ptypes[pi] = resolve_type(ctx, p->ty, m->loc);
                         pnames[pi] = arena_strdup(ctx, p->name);
-                        /* JLS §8.8.1: constructor parameter names must be unique */
+                        /* JLS §8.6.1: constructor parameter names must be unique */
                         for (int pj = 0; pj < pi; pj++) {
                             if (strcmp(pnames[pj], pnames[pi]) == 0) {
                                 sema_error(ctx, m->loc,
@@ -1786,7 +1789,7 @@ static void register_members(sema_ctx_t* ctx) {
                         }
                     }
                 }
-                /* JLS §8.8.2: constructor signature must be unique */
+                /* JLS §8.6.2: constructor signature must be unique */
                 {
                     sema_method_t probe = {
                         .name = c->name,
@@ -1803,7 +1806,7 @@ static void register_members(sema_ctx_t* ctx) {
                         }
                     }
                 }
-                /* JLS §8.8.5: a constructor may declare a throws clause, exactly like a method —
+                /* JLS §8.6.4: a constructor may declare a throws clause, exactly like a method —
                  * capture it so a checked exception thrown in the body is covered (else "unhandled"). */
                 java_type_t* c_thrown = NULL;
                 int c_thrown_n = m->constructor_decl.throws__count;
@@ -1837,7 +1840,7 @@ static void register_members(sema_ctx_t* ctx) {
             }
         }
 
-        /* JLS §8.8.9: a class that declares NO constructors gets a default,
+        /* JLS §8.6.7: a class that declares NO constructors gets a default,
          * no-argument constructor with an empty body. (Interfaces get none.)
          * The implicit super() is prepended in pass 2 like any ctor, and the
          * instance-field-init prologue runs at compile. Marked synthetic so the
@@ -1855,7 +1858,7 @@ static void register_members(sema_ctx_t* ctx) {
                 sema_method_t sm; memset(&sm, 0, sizeof sm);
                 sm.name                 = arena_strdup(ctx, c->name);
                 sm.return_type          = jt_prim(JT_VOID);
-                sm.modifiers            = c->modifiers & ACC_PUBLIC;  /* §8.8.9: class's access */
+                sm.modifiers            = c->modifiers & ACC_PUBLIC;  /* §8.6.7: class's access */
                 sm.is_constructor       = true;
                 sm.is_synthetic_default = true;
                 sm.ast_node             = cd;
@@ -2896,7 +2899,7 @@ static java_type_t analyze_expr(sema_ctx_t* ctx, ast_expr_t* e) {
     case AST_NEWARRAY: {
         /* `element` is the base; `dims` is one entry per bracket level (rank =
          * dims_count), a NULL entry being an unsized `[]` (jagged) dim. Each sized
-         * dim must be numeric; per JLS §15.10.1 a sized dim may not follow an
+         * dim must be numeric; per JLS §15.9 a sized dim may not follow an
          * unsized one. Result type = base wrapped `rank` times. */
         java_type_t elem = resolve_type(ctx, e->new_array.element, e->loc);
         int rank = e->new_array.dims_count;
@@ -3041,7 +3044,7 @@ static java_type_t analyze_expr(sema_ctx_t* ctx, ast_expr_t* e) {
         if (jt_is_error(lhs) || jt_is_error(rhs)) break;
 
         switch (e->binary.op) {
-        /* JLS §15.18.1: `+` with a String operand is string concatenation (result
+        /* JLS §15.17.1: `+` with a String operand is string concatenation (result
          * String); the other operand undergoes §5.4 string conversion, so any
          * non-void type is legal. sema only assigns the type — the ddcg does the
          * defunctionalizing desugar into StringBuffer.append(...).toString(). */
@@ -3059,7 +3062,7 @@ static java_type_t analyze_expr(sema_ctx_t* ctx, ast_expr_t* e) {
                 break;
             }
             /* fall through to numeric add */
-        /* §15.17/§15.18 arithmetic: result type = §5.6.2 binary numeric promotion
+        /* §15.16/§15.17 arithmetic: result type = §5.6.2 binary numeric promotion
          * of the two operands (byte/short/char/int→int, long/float/double kept). */
         case AST_SUB: case AST_MUL:
         case AST_DIV: case AST_REM:
@@ -3067,14 +3070,14 @@ static java_type_t analyze_expr(sema_ctx_t* ctx, ast_expr_t* e) {
                 sema_error(ctx, e->loc, "arithmetic requires numeric operands");
             result = jt_prim(lat_promote(lhs, rhs));
             break;
-        /* §15.19 shift: result type = §5.6.1 unary numeric promotion of the LEFT
+        /* §15.18 shift: result type = §5.6.1 unary numeric promotion of the LEFT
          * operand only (the shift count's type is independent). */
         case AST_SHL: case AST_SHR: case AST_USHR:
             if (!jt_is_numeric(lhs) || !jt_is_numeric(rhs))
                 sema_error(ctx, e->loc, "shift requires numeric operands");
             result = jt_prim(lat_promote(lhs, jt_prim(JT_INT)));
             break;
-        /* §15.22 bitwise: numeric → §5.6.2 promotion; both boolean → boolean. */
+        /* §15.21 bitwise: numeric → §5.6.2 promotion; both boolean → boolean. */
         case AST_BITAND: case AST_BITOR: case AST_BITXOR:
             if (lhs.tag == JT_BOOL && rhs.tag == JT_BOOL)
                 result = jt_prim(JT_BOOL);
@@ -3119,13 +3122,13 @@ static java_type_t analyze_expr(sema_ctx_t* ctx, ast_expr_t* e) {
         case AST_POS: case AST_NEG:
             if (!jt_is_numeric(operand))
                 sema_error(ctx, e->loc, "unary +/- requires numeric operand");
-            /* §15.15.3/4 → §5.6.1 unary numeric promotion: byte/short/char/int→int, else keep. */
+            /* §15.14.3/4 → §5.6.1 unary numeric promotion: byte/short/char/int→int, else keep. */
             result = jt_prim(lat_promote(operand, jt_prim(JT_INT)));
             break;
         case AST_BITNOT:
             if (!jt_is_numeric(operand))
                 sema_error(ctx, e->loc, "~ requires numeric operand");
-            result = jt_prim(lat_promote(operand, jt_prim(JT_INT))); /* §15.15.5 → §5.6.1 */
+            result = jt_prim(lat_promote(operand, jt_prim(JT_INT))); /* §15.14.5 → §5.6.1 */
             break;
         case AST_LOGNOT:
             if (operand.tag != JT_BOOL)
@@ -3420,7 +3423,7 @@ static void analyze_stmt(sema_ctx_t* ctx, ast_stmt_t* s) {
 
     case AST_EXPRSTMT: {
         analyze_expr(ctx, s->expr_stmt.e);
-        /* JLS §14.8: an expression statement must be one of:
+        /* JLS §14.7: an expression statement must be one of:
          * assignment, pre/post inc/dec, method invocation, class
          * instance creation. A bare arithmetic expression like
          * `1 + 2;` is not a valid statement. */
@@ -3508,7 +3511,7 @@ static void analyze_stmt(sema_ctx_t* ctx, ast_stmt_t* s) {
         if (!jt_is_error(sel) && !jt_is_integral(sel))
             sema_error(ctx, s->loc, "switch selector must be integral");
 
-        /* JLS §14.11: case value must fit the promoted selector type.
+        /* JLS §14.9: case value must fit the promoted selector type.
          * Byte/bool selectors narrow to -128..127, short to the int16
          * range, int has no extra check. A case value outside its
          * selector's range can never match — the compiler should
@@ -3522,7 +3525,7 @@ static void analyze_stmt(sema_ctx_t* ctx, ast_stmt_t* s) {
 
         ctx->loop_depth++; /* for break */
         frame_push_switch(ctx, s);
-        /* JLS §14.11: at most one default; case values must be
+        /* JLS §14.9: at most one default; case values must be
          * compile-time constants and unique within the switch. */
         bool seen_default = false;
         for (int i = 0; i < s->switch_.cases_count; i++) {
@@ -3661,9 +3664,10 @@ static void analyze_stmt(sema_ctx_t* ctx, ast_stmt_t* s) {
                     "catch type '%s' is not a subclass of Throwable",
                     ctx->classes[ct.class_id].name);
             }
-            /* JLS §11.2.3: catch clauses must be ordered most-specific
-             * first. A clause is unreachable if a previous clause's
-             * type is a supertype. */
+            /* §14.18 considers handlers in left-to-right order — the
+             * first (leftmost) assignable clause catches — so a clause
+             * whose type is a subclass of an earlier clause's type can
+             * never be selected: unreachable (§14.19). */
             if (ct.tag == JT_CLASS) {
                 for (int j = 0; j < i; j++) {
                     ast_catch_clause_t* prev = s->try_.catches[j];
@@ -3732,7 +3736,7 @@ static void analyze_stmt(sema_ctx_t* ctx, ast_stmt_t* s) {
     case AST_RETURN:
         if (s->return_.value) {
             java_type_t t = analyze_expr(ctx, s->return_.value);
-            /* JLS §8.8.7: a constructor body may have `return;` but
+            /* JLS §8.6.5: a constructor body may have `return;` but
              * not `return expr;` — a constructor's return type is
              * implicitly void and the constructor returns an object
              * via the special initializer protocol. */
@@ -3962,16 +3966,13 @@ static void analyze_bodies(sema_ctx_t* ctx) {
 
             if (!body) continue; /* abstract or native */
 
-            /* JLS §8.8.7: if a constructor body does not begin with an
-             * explicit this(…) or super(…), prepend an implicit
-             * `super()` invocation so the parent chain is initialized.
-             * Without this the verifier (which now enforces §4.10.1.9
-             * uninitializedThis rules) correctly rejects the missing
-             * invokespecial, and the VM skips the parent's side
-             * effects (e.g. a superclass constructor's registration).
-             * Skipped for Object itself (no super). Synthesized into
-             * the same arena as the rest of the AST — downstream
-             * passes see it as an ordinary AST_CONSTRUCTORCALL. */
+            /* JLS §8.6.5: if a constructor body does not begin with an
+             * explicit this(…) or super(…), the compiler implicitly
+             * assumes a `super();` invocation, so the parent chain is
+             * initialized (§12.5) and no superclass constructor's side
+             * effects are skipped. Skipped for Object itself (no super).
+             * Synthesized into the same arena as the rest of the AST —
+             * downstream passes see it as an ordinary AST_CONSTRUCTORCALL. */
             if (m->is_constructor && body->tag == AST_BLOCK &&
                 c->super_id != -1) {
                 bool has_explicit = false;
@@ -4048,7 +4049,7 @@ static void analyze_bodies(sema_ctx_t* ctx) {
             m->max_user_slots = ctx->next_slot;
 
 
-            /* Constructor delegation order (JLS §8.8.7.1): if this
+            /* Constructor delegation order (JLS §8.6.5): if this
              * is a constructor whose body is a block, any
              * this()/super() must be at index 0. */
             if (m->is_constructor && body->tag == AST_BLOCK) {
@@ -4079,7 +4080,7 @@ static void analyze_bodies(sema_ctx_t* ctx) {
             members = td->interface_decl.members;
             member_count = td->interface_decl.members_count;
         }
-        /* Static initializer blocks (JLS §8.7): analyzed as a static-context
+        /* Static initializer blocks (JLS §8.5): analyzed as a static-context
          * body. All such blocks (across every class) fold into one synthesized
          * <clinit>, so their local slots draw from a single shared counter
          * (clinit_next_slot) to keep distinct ranges in that one function. */
@@ -4159,7 +4160,7 @@ void sema_init(sema_ctx_t* ctx, bbq_arena* arena) {
 }
 
 /* Detect cycles in constructor this()-delegation chains
- * (JLS §8.8.7). For each constructor whose body's first statement
+ * (JLS §8.6.5). For each constructor whose body's first statement
  * is a this(...) call, walk the target chain via resolved_ctors;
  * if we revisit the start, the chain is recursive. */
 static void validate_constructor_chains(sema_ctx_t* ctx) {
@@ -4477,7 +4478,7 @@ static void resolve_wellknown_methods(sema_ctx_t* ctx) {
         }
     }
 
-    /* §15.17.3: `%` on float/double is the truncated remainder (C fmod), and WASM has
+    /* §15.16.3: `%` on float/double is the truncated remainder (C fmod), and WASM has
      * no f32.rem/f64.rem opcode — so the ddcg desugars it to a call to Math's fdlibm
      * fmod, the way `+` on Strings desugars to StringBuffer calls. Bind both overloads
      * by parameter width. Soft (stays -1 if absent): the lowering only fires when the
@@ -4602,7 +4603,7 @@ bool sema_analyze_units(sema_ctx_t* ctx, ast_program_t** units, int n) {
         int base = (int)bbq_vec_len(ctx->vtargets);
         bbq_vec_push(ctx->vtarget_base, base);
         /* Every class ci is a subtype of — its super chain AND every interface reachable
-         * through it, at any depth. sema_ref_is_subtype (§4.10.2) is the one authority for
+         * through it, at any depth. sema_ref_is_subtype (§5.1.4) is the one authority for
          * that relation; walking `interface_ids` directly sees only the first level and misses
          * an interface that extends another. */
         for (int ai = 0; ai < ncls; ai++) {
@@ -4963,7 +4964,7 @@ int32_t sema_data_type(const sema_ctx_t* ctx, const ast_expr_t* expr) {
     return v ? (int32_t)((int)(uintptr_t)v - 1) : -1;
 }
 
-/* ── JLS §15.18.1 string concatenation: the well-known StringBuffer method
+/* ── JLS §15.17.1 string concatenation: the well-known StringBuffer method
  * identities the ddcg needs to defunctionalize `a + b` into
  * new StringBuffer().append(a).append(b).toString(). append/toString/<init> are
  * all declared in StringBuffer (the compiled overlay), so the target class is
@@ -4973,7 +4974,7 @@ static int sb_method_idx(const sema_ctx_t* ctx, const sema_method_t* m) {
     return (m->owner == ctx->wk.string_buffer_id) ? m->index : -1;   /* StringBuffer's own, else inherited */
 }
 
-/* §15.17.3: Math's class id, and the fmod overload matching the remainder's width. */
+/* §15.16.3: Math's class id, and the fmod overload matching the remainder's width. */
 int sema_frem_class(const sema_ctx_t* ctx) { return ctx->wk.math_id; }
 int sema_frem_method(const sema_ctx_t* ctx, int32_t dt) {
     if (dt == SIR_DTFLOAT)  return ctx->wk.fmod_float_id;
@@ -5270,40 +5271,6 @@ bool sema_uses_exceptions(const sema_ctx_t* ctx) {
     return ctx->uses_exceptions;
 }
 
-/* §6.14.2 Table 6-17 — class access flags: PUBLIC=0x01, FINAL=0x10,
- * INTERFACE=0x40, ABSTRACT=0x80. The low five bits (PUBLIC/PRIVATE/
- * PROTECTED/STATIC/FINAL) coincide with sema's internal bitset.
- * Sema tracks INTERFACE via a dedicated `is_interface` bool; ABSTRACT
- * lives at SEMA_ACC_ABSTRACT (0x20) internally. */
-uint8_t sema_class_access_flags(const sema_class_t* c) {
-    uint8_t acc = (uint8_t)(c->modifiers & 0x1F);
-    if (c->is_interface)                acc |= 0x40;
-    if (c->modifiers & SEMA_ACC_ABSTRACT) acc |= 0x80;
-    return acc;
-}
-
-/* §6.14.4 Table 6-20 — method access flags. ACC_INIT (0x80) is set
- * by callers from `is_constructor`, not from modifiers. */
-uint8_t sema_method_access_flags(const sema_method_t* m) {
-    uint8_t acc = (uint8_t)(m->modifiers & 0x1F);
-    if (m->modifiers & SEMA_ACC_ABSTRACT) acc |= 0x40;
-    return acc;
-}
-
-/* §6.14.3 Table 6-18 — field access flags use only the low five bits. */
-uint8_t sema_field_access_flags(const sema_field_t* f) {
-    return (uint8_t)(f->modifiers & 0x1F);
-}
-
-/* §6.15.2 Table 6-21 — debug-component class access flags use the
- * full JLS bit layout (u16), distinct from the §6.14 u8 encoding. */
-uint16_t sema_class_debug_access_flags(const sema_class_t* c) {
-    uint16_t f = (uint16_t)(c->modifiers & 0x001F);
-    if (c->modifiers & SEMA_ACC_ABSTRACT) f |= 0x0400;
-    if (c->is_interface)                  f |= 0x0200;
-    return f;
-}
-
 static int collect_interfaces_rec(const sema_ctx_t* ctx, const sema_class_t* c,
                                     const sema_class_t** out, int* n, int max_out) {
     /* DFS into super chain first (supers' interfaces come first). */
@@ -5330,7 +5297,8 @@ int sema_transitive_interfaces(const sema_ctx_t* ctx, const sema_class_t* c,
     return n;
 }
 
-/* §6.9.2.5 implementer lookup. Walks the receiver class's super chain
+/* §8.4.6.1 implementer lookup — the non-abstract declaration that
+ * *implements* an interface method. Walks the receiver class's super chain
  * (subclass first, then super) so a subclass override wins over an
  * inherited implementation. Full signature equality is required:
  * name + return type + parameter count + each parameter type. */

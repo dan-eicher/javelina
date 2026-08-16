@@ -37,4 +37,6 @@ not vendored: the Sun/Oracle *Java Language Specification 1.0*, the *WebAssembly
 Core Specification*, and the Alves-Foss/Frincke *Formal Grammar for Java* paper.
 Download your own copy if you need one — nothing in the build reads them
 (`spec/instructions.toml` is the committed artifact; `gen_instr_toml.py` re-derives
-it from the WebAssembly PDF only on demand, and is never a build step).
+it from the spec's reference interpreter and the WebAssembly PDF only on demand,
+and is never a build step). The full ideas ledger — every work the implementation
+answers to — is [BIBLIOGRAPHY.md](BIBLIOGRAPHY.md).

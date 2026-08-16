@@ -82,7 +82,7 @@ static sir_node_t* synth_instance_prologue(ddcg_ctx_t* yctx, int class_id, sir_n
 
 /* The leading explicit/implicit constructor-invocation statement of a ctor body
  * — this(...) or super(...) (sema prepends an implicit super() to every ctor of a
- * class with a superclass, JLS §8.8.7) — or NULL if there is none (only Object,
+ * class with a superclass, JLS §8.6.5) — or NULL if there is none (only Object,
  * which has no superclass). JLS §12.5 sequences it FIRST (step 2/3), before the
  * instance-field initializers (step 4) and the rest of the body (step 5). */
 static ast_stmt_t* ctor_leading_call(ast_stmt_t* body) {
@@ -423,7 +423,7 @@ static sir_method_t* compile_method(ddcg_ctx_t* yctx, int class_id,
             body = sm->ast_node->constructor_decl.body;
     }
 
-    /* The body's normal-completion edge. JLS §8.4.7/§14.21: a value-returning
+    /* The body's normal-completion edge. JLS §8.4.5/§14.19: a value-returning
      * method's body cannot complete normally (else a compile error), so its
      * fall-off point is unreachable and carries NO implicit return — javac emits
      * nothing there. Only a void method gets the implicit `return`. (When WASM's
@@ -473,7 +473,7 @@ static sir_method_t* compile_method(ddcg_ctx_t* yctx, int class_id,
     return sir_method(yctx->arena, sm->name, class_id, midx, max_locals, entry);
 }
 
-/* One <clinit> step, in textual order (JLS §8.7/§12.4.2): a static field's
+/* One <clinit> step, in textual order (JLS §8.5/§12.4.2): a static field's
  * declaration-site initializer (kind 0) or a static initializer block (kind 1). */
 typedef struct { int kind; int ci; const sema_field_t* fld; ast_stmt_t* block; } clinit_step_t;
 
@@ -622,7 +622,7 @@ int compiler_method_index(const compiler_ctx_t* ctx, int class_id, int method_id
  * A STATIC or SPECIAL call names its callee outright — special is JLS §15.11's
  * non-virtual invocation (ctor / super / private), so it does NOT dispatch.
  * A VIRTUAL or INTERFACE call fans out to its finite target set: every class in the
- * program that is a subtype of the declared receiver (§4.10.2), resolved by the ONE rule.
+ * program that is a subtype of the declared receiver (§5.1.4), resolved by the ONE rule.
  * A class that resolves to nothing (an abstract method with no implementation) contributes
  * no edge — fail-closed, and it is the same answer the devirtualizer gets. */
 static void cg_push_targets(compiler_ctx_t* ctx, bbq_hmap* midx,

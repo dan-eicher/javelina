@@ -781,7 +781,7 @@ int main(void) {
             " d = d + (b ? 0-2.0 : 2.0); d = d + (b ? 0-3.0 : 3.0);"
             " return (d > 0.0 ? 1 : 0) + x * 24680; } }" },
 
-          /* §14.10 SWITCH FALL-THROUGH. Of the four ways out of a case group only
+          /* §14.9 SWITCH FALL-THROUGH. Of the four ways out of a case group only
            * fall-through carries no jump: break/continue/return each become a `br`
            * the backend resolves by scope depth, while falling out of one group into
            * the next is pure layout adjacency on the chain the frontend built. So the
@@ -808,7 +808,7 @@ int main(void) {
             " switch (x) { case 1: r = 1; case 2: if (r > 0) break; r = 5; case 3: r = r + 8; }"
             " return r + x * 24680; } }" },
           /* …and the shape the fixtures above still cannot reach: a group whose ONLY statement
-           * is `break`. §14.10's four exits again — break carries a jump, so an empty group's
+           * is `break`. §14.9's four exits again — break carries a jump, so an empty group's
            * jump is its whole body, and the frontend elides a Goto whose target is the next node
            * on the chain. The case target is then the switch EXIT itself. An exit is not a group:
            * laying one out gives it a block and emits the switch's continuation as if it were a
@@ -884,7 +884,7 @@ int main(void) {
             " L: { switch (x) { case 1: break; case 2: r = r + 2; } }"
             " return r + x * 24680; } }" },
 
-          /* §14.7 a labelled BLOCK. The frontend's ρ frame tells `break L` which node
+          /* §14.6 a labelled BLOCK. The frontend's ρ frame tells `break L` which node
            * to transfer to; the backend needs a scope record for the same label or it
            * frames nothing, no br-depth resolves, and every break emits the exit's
            * code inline. Two breaks, two copies of the method tail. */
@@ -897,7 +897,7 @@ int main(void) {
             " L: try { if (x == 0) break L; r = 2; } catch (RuntimeException e) { }"
             " return r + x * 24680; } }" },
 
-          /* §14.16 the CONTINUE target — a for's update, a do-while's tail test — is
+          /* §14.14 the CONTINUE target — a for's update, a do-while's tail test — is
            * reached by the body's fall-through AND by every continue, so it is a label
            * and must be framed. It is one only when a continue exists; without one it
            * has a single reference and the paper emits no code for an unreferenced
@@ -920,7 +920,7 @@ int main(void) {
             "   if (j == 1) continue; s = s + j; } }"
             " return s + x * 24680; } }" },
 
-          /* §15.25 in a BOOLEAN-CONTROL position: the conditional inherits γ = pair,
+          /* §15.24 in a BOOLEAN-CONTROL position: the conditional inherits γ = pair,
            * so each arm ends in its own branch to the shared Lt/Lf. Those two shared
            * destinations are labels like any other (Fig. 7's Lf/Lt) and get records. */
           { "ternary IS the while condition",

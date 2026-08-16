@@ -180,7 +180,7 @@ typedef enum {
  * would not stabilize. Widening (cp_const_widen, applied at PHI meet)
  * snaps each new bound to a finite K-set (type boundaries plus the
  * method's integer literals), bounding stabilization to ≤ |K|+1
- * steps per vnode per Nielson & Nielson "Principles of Program
+ * steps per vnode per Nielson/Nielson/Hankin "Principles of Program
  * Analysis" §4.2's K-bounded widening theorem. Without widening, the
  * value lattice would lose the finite-height property the engine's
  * termination guarantee depends on. */
@@ -216,7 +216,7 @@ typedef enum {
  * a double carrier turns raw 0x7F800001 into 0x7FC00001 — and the raw payload is
  * observable (§20.9.18 Float.floatToRawIntBits, which — unlike floatToIntBits —
  * does not canonicalise). Arithmetic likewise computes in the operand's own
- * width: f32 division rounded through double can double-round (JLS §15.17). */
+ * width: f32 division rounded through double can double-round (JLS §15.16). */
 typedef enum {
     CP_W_UNSET = 0, CP_W_I32, CP_W_I64, CP_W_F32, CP_W_F64
 } cp_cwidth_t;
@@ -1170,7 +1170,7 @@ typedef struct {
     /* Widening K-set for cp_const_widen: static type-boundary
      * constants plus the method's integer literals (from LoadConst
      * vnodes), sorted ascending, deduplicated. K cardinality bounds
-     * widening chain length per Nielson & Nielson PoPA §4.2; per-
+     * widening chain length per Nielson/Nielson/Hankin PoPA §4.2; per-
      * method literals let loop-bound widening converge to the
      * method's actual `< N` constants instead of overshooting to
      * the next type boundary. Populated during cp_build. */

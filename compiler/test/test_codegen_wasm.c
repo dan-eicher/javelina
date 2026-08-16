@@ -404,7 +404,7 @@ int main(void) {
     TILE(RL(sir_mul(a,SIR_DTLONG,L0,LONE)), "l * 1 → l",  0x20,0, 0x0F);
     TILE(RL(sir_and(a,SIR_DTLONG,L0,KL(-1))), "l & -1 → l", 0x20,0, 0x0F);
 
-    /* §15.19 types a shift COUNT as int at every operand width, and cg_promote
+    /* §15.18 types a shift COUNT as int at every operand width, and cg_promote
      * widens it, so a long shift's count is I2L(LoadConst) — NEVER a
      * LoadLongConst. The first fixture here used to build the long-const shape
      * by hand, which kept a pattern-dead grammar rule green while shipped code
@@ -448,13 +448,13 @@ int main(void) {
     TILE(RL(sir_mul(a,SIR_DTLONG,KL(3),KL(4))), "3L * 4L → const 12L",0x42,0x0C, 0x0F);
     TILE(RL(sir_neg(a,SIR_DTLONG,KL(5))),       "-(5L) → const -5L",  0x42,0x7B, 0x0F);
 
-    /* §15.19: a shift count is MASKED to the operand's width, so folding must mask
+    /* §15.18: a shift count is MASKED to the operand's width, so folding must mask
      * too. `1 << 32` is 1, not 0 — a fold that used C's shift directly would be
      * undefined here and would disagree with the engine either way. */
     TILE(RI(sir_shl(a,SIR_DTINT,K(1),K(32))),  "1 << 32 → const 1 (count masked)", 0x41,0x01, 0x0F);
     TILE(RL(sir_shl(a,SIR_DTLONG,KL(1),sir_i2_l(a,K(64)))),"1L << 64 → const 1L (masked)", 0x42,0x01, 0x0F);
 
-    /* §15.17.2/§15.17.3: division by zero THROWS at run time, and MIN/-1 overflows
+    /* §15.16.2/§15.16.3: division by zero THROWS at run time, and MIN/-1 overflows
      * rather than trapping. Folding either would move a runtime exception to
      * compile time or compute UB, so both must be refused and emit as usual. */
     TILE(RI(sir_div(a,SIR_DTINT,K(7),Z)), "7 / 0 does NOT fold",
@@ -488,7 +488,7 @@ int main(void) {
 
     /* ── analysis-gated division: /2^k is shr_s when the dividend is ≥ 0 ───
      *
-     * §15.17.2 division truncates toward zero; for a non-negative dividend
+     * §15.16.2 division truncates toward zero; for a non-negative dividend
      * truncation and flooring agree, so x/2^k ≡ x>>k (arithmetic). The sign is
      * not in the tree — it is the optimizer's published §8.1.1 fact, installed
      * on the burg context and read by the rule's where-guard. No fact strip, a

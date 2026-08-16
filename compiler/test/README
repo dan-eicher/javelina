@@ -15,11 +15,11 @@ Where a new case goes
                             result. Reaches the VM only through the public
                             wasm.h (via test/exec.h) — no jav_* internals.
 
-  conformance/ (E7.4)       e2e breadth: real .java programs with expected
+  conformance/              e2e breadth: real .java programs with expected
                             stdout and exit code, driven through the SHIPPED
-                            javelinac + javelina binaries, both tiers. Not built
-                            yet; `make test-java-conformance` at the repo root
-                            reports its absence rather than passing quietly.
+                            javelinac + javelina binaries, both tiers — see
+                            conformance/README.md. Runs as the last leg of
+                            `make test` (`make test-java-conformance`).
 
   test/test_cli.sh          the shipped binaries end to end — argv, exit codes,
                             stderr diagnostics, -jit vs -nojit agreement. Runs

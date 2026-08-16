@@ -816,7 +816,7 @@ static void build_import_list(wasm_types_t* wt, const sema_ctx_t* s) {
 }
 
 /* (3) Every call the emitted code names, READ from the ddcg's recorded facts. The ddcg chose the
- * §15.12 dispatch form and said which (class, method) it chose; burg emits the funcidx from that
+ * §15.11 dispatch form and said which (class, method) it chose; burg emits the funcidx from that
  * same pair when it realizes the deferred jump. Nothing here inspects the graph. */
 void wasm_types_add_call_targets(wasm_types_t* wt, const sema_ctx_t* s,
                                  const sema_func_ent_t* targets, int count) {
@@ -1231,8 +1231,9 @@ static int class_id_of(const sema_ctx_t* s, int n, const sema_class_t* p) {
 /* A class's ClassDesc instance global: an immutable (ref null ClassDesc) initialized to
  * struct.new { i32 classId; super ClassDesc | null; (array i32) transitive interface ids;
  * the class's vtable global }. super is a global.get of the super's ClassDesc (topological
- * order guarantees it precedes); the interface ids come from sema_transitive_interfaces
- * (§6.9.2.3 — the authority), so the runtime subtype query mirrors sema_is_subclass_of. */
+ * order guarantees it precedes); the interface ids come from sema_transitive_interfaces,
+ * so the runtime subtype query answers §5.1.4 reference subtyping — the superclass chain
+ * plus the transitive interfaces — exactly as sema_ref_is_subtype does at compile time. */
 /* A class's Class-object singleton global (the unified runtime type). const-init the
  * value fields — name (char[] of the fq name), iface, vtable (global.get the vtable
  * global), ifaceIds ((array i32) transitive closure for instanceof) — and NULL the ref

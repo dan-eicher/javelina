@@ -1,20 +1,17 @@
 wasm/tools — offline tooling
 ============================
 
-*.ml — the WebAssembly spec authors' reference interpreter (OCaml).
-
-    Kept as the offline oracle. spec/instructions.toml was derived from it by
-    gen_instr_toml.py: the opcode table, immediate shapes, trap message text and
-    the `type` column all come from the reference implementation rather than
-    from anyone's reading of the prose.
-
-    NOT built and NOT linked — no Makefile rule references them. They are here
-    so the derivation can be re-run and checked against its source.
-
 gen_instr_toml.py — reference interpreter -> spec/instructions.toml.
-    Run once, offline; instructions.toml is a committed artifact, deliberately
-    not a build step (regenerating it is a spec-version decision, not something
-    a build should do silently).
+    Its inputs are the spec authors' OCaml reference interpreter (the
+    WebAssembly/spec repo's interpreter/ sources: decode.ml for opcodes and
+    immediate shapes, eval*.ml for trap messages, valid.ml as a typing
+    cross-check) joined on opcode with the spec PDF's §7.10 instruction
+    index for the canonical text mnemonics and Type column — so the table
+    comes from the reference implementation, not from anyone's reading of
+    the prose. Neither input lives in this tree: fetch both when
+    re-deriving. Run once, offline; instructions.toml is a committed
+    artifact, deliberately not a build step (regenerating it is a
+    spec-version decision, not something a build should do silently).
 
 gen_wasm_ops.py — instructions.toml -> the compiler's src/gen/wasm_ops.h.
     A real build step, driven from compiler/Makefile: the EMIT-side authority

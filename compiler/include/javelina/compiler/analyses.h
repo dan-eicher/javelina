@@ -65,7 +65,7 @@ typedef struct cfg {
 bool jls_can_complete_normally(const sema_ctx_t* ctx, const ast_stmt_t* s);
 
 /* Same rules, plus: an expression statement calling a method in `nrset` (one that provably never
- * returns) cannot complete normally. Not a JLS rule — the leniency §8.4.7 is applied with. */
+ * returns) cannot complete normally. Not a JLS rule — the leniency §8.4.5 is applied with. */
 bool jls_can_complete_normally_nr(const sema_ctx_t* ctx, const ast_stmt_t* s,
                                   const bbq_htree* nrset);
 

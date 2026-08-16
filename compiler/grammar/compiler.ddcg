@@ -257,7 +257,7 @@ AUXILIARIES
   // initializer is a `null` literal (which carries no descriptor of its own). nil for a primitive local.
   sema_var_ref      : (ast.var_decl) -> ir_root
 
-  // JLS §13.1: a use of a CONSTANT VARIABLE (§4.12.4) — a final variable whose initializer is a
+  // JLS §13.1: a use of a constant field — a static final field whose initializer is a
   // constant expression — is resolved to its VALUE at compile time. (folded, literal): the literal
   // node when the expression is a §15.27 constant, (false, nil) otherwise.
   //
@@ -397,9 +397,9 @@ AUXILIARIES
   // own — a `null` literal — from the param type (the one authority for the slot).
   sema_param_ref              : (int, int, int) -> ir_root
 
-  // JLS §15.18.1 string concatenation: sema types `a + b` as String; the ddcg
+  // JLS §15.17.1 string concatenation: sema types `a + b` as String; the ddcg
   // defunctionalizes it into new StringBuffer().append(a).append(b).toString().
-  // §15.17.3 float/double `%` → a call to Math's fdlibm fmod (WASM has no f32/f64.rem).
+  // §15.16.3 float/double `%` → a call to Math's fdlibm fmod (WASM has no f32/f64.rem).
   sema_frem_class             : ()              -> int
   sema_frem_method            : (ir.datatype)   -> int
 
@@ -543,7 +543,7 @@ AUXILIARIES
   record_alloc             : (ir_root, int) -> int
 
   // (the Invoke node, the class that DECLARES the target, its method index there). We pick the
-  // §15.12 dispatch form here, so we know the pair burg emits the funcidx from when it realizes
+  // §15.11 dispatch form here, so we know the pair burg emits the funcidx from when it realizes
   // the deferred jump. The backend reads these rather than re-deriving the call set.
   record_call_target       : (ir_root, int, int) -> int
 
@@ -574,7 +574,7 @@ PREDICATES
   // to `new String(new char[]{...})`.
   arrayinit_is_const       : (ast.expr) -> bool
 
-  // JLS §15.18.1: a `+` whose sema result type is String — string concatenation
+  // JLS §15.17.1: a `+` whose sema result type is String — string concatenation
   // (guards the string_concat rule; falls through to the numeric binary rules).
   sema_binary_is_concat    : (ast.expr) -> bool
 
@@ -627,14 +627,14 @@ PREDICATES
 
   // Dybvig §3.2 Figure 8 "simple expression" classifier — drives the
   // four-case binop fanout. Simple = side-effect-free leaf where
-  // JLS §15.7.1 left-first capture is trivially observed: literals,
+  // JLS §15.6.1 left-first capture is trivially observed: literals,
   // `this`, local/param ident, and `-literal`. Anything else is
   // complex and falls to the spill-via-temp path.
   is_simple_operand        : (ast.expr) -> bool
 
   // Tighter classifier for Figure 8 case 2 (LHS simple, RHS complex):
   // a complex RHS may have side effects that mutate the slot a simple
-  // LHS reads (e.g. `x + (x = 5)` — JLS §15.7.1 demands the LHS read
+  // LHS reads (e.g. `x + (x = 5)` — JLS §15.6.1 demands the LHS read
   // happens before the RHS assignment). Inlining an Ident LHS would
   // defer the slot read until after RHS runs, producing the wrong
   // value. Restrict case 2's LHS to side-effect-immutable shapes —
@@ -690,7 +690,7 @@ fun cg_store(value: ir_root,
       // γ=ret terminates the method. The value tree is the return
       // expression's result; δ is irrelevant. Use the method's
       // declared return dt (not the value's inferred dt) so BURS
-      // selects the right typed return opcode (JLS §14.17). Void
+      // selects the right typed return opcode (JLS §14.15). Void
       // returns never reach cg_store — the Return rule emits
       // ReturnVoid directly.
         ret => build ir.Return(value, current_return_dt())
@@ -760,7 +760,7 @@ fun vloc(slot: int, dt: ir.datatype, ref: ir_root) -> delta {
 // inserts S2I/I2S to ensure operand widths match). For Cmp the
 // result is always boolean → DtShort; the dt argument is ignored
 // for Cmp arms.
-// §15.17.3: `%` on float/double is the TRUNCATED remainder (C fmod — sign of the
+// §15.16.3: `%` on float/double is the TRUNCATED remainder (C fmod — sign of the
 // dividend, NaN on a zero/infinite divisor), and WASM has no f32.rem/f64.rem opcode.
 // Desugar it to a call to Math's fdlibm fmod, the same way `+` on Strings desugars to
 // StringBuffer calls. Integral `%` keeps its Rem node (and its §15.16.2 divisor guard).
@@ -853,7 +853,7 @@ fun cg_operand_tree(e: ast.expr, op_dt: ir.datatype) -> ir_root {
     };
 }
 
-// Spill path implementing JLS §15.7.1: capture LHS into t_lhs
+// Spill path implementing JLS §15.6.1: capture LHS into t_lhs
 // BEFORE evaluating RHS, so the binop reads pre-RHS LHS even when
 // RHS modifies a variable LHS depends on (e.g. `(i=3) * i` must
 // yield 9). RHS then spills to t_rhs, and the binop pulls both temps.
@@ -875,7 +875,7 @@ fun binop_spilled(op: ast.binop, l: ast.expr, r: ast.expr,
     gen(l, rho, vloc(t_lhs, lhs_dt, expr_ref(l)), single(rhs_chain), rhs_chain);
 }
 
-// Short-circuit And/Or in pair γ (test context) — JLS §15.23/15.24:
+// Short-circuit And/Or in pair γ (test context) — JLS §15.22/§15.23:
 // `a && b` evaluates a; if a is false, b is NOT evaluated. Per
 // Dybvig §0.2 Figure 7, recurse RHS first in the parent's full
 // pair, then recurse LHS with a composite γ that propagates the
@@ -901,7 +901,7 @@ fun shortcircuit_pair(op: ast.binop, l: ast.expr, r: ast.expr,
     head;
 }
 
-// Short-circuit And/Or in value/effect γ — JLS §15.23/15.24
+// Short-circuit And/Or in value/effect γ — JLS §15.22/§15.23
 // produce 1 or 0. Inline the pre-DDCG normalization
 // `Ebool ⇒ if Ebool 1 0`: synthesize labeled true_arm / false_arm
 // stores (each delivers the const to δ then jumps to γ), then
@@ -972,8 +972,8 @@ fun chain_block_stmts(stmts: list<ast.stmt>, idx: int, last: int,
 
 // LocalVarDecl chain — initialize each declarator with an init in
 // textual order (JLS §14.4). Skip declarators without init (locals
-// have no default value per JLS §14.4.2 — they must be definitely
-// assigned before any read). The LAST init-bearing declarator
+// have no default value per JLS §4.5.4 — they must be definitely
+// assigned (§16) before any read). The LAST init-bearing declarator
 // inherits parent (δ, γ); priors chain in effect / single(next).
 fun chain_decls(decls: list<ast.var_decl>, idx: int, last_init: int,
                  var_dt: ir.datatype,
@@ -1035,7 +1035,7 @@ fun cg_deliver_effectful(value: ir_root,
     };
 }
 
-// SEMA_IDENT_STATIC_FIELD case — JLS §15.28 inlines static-final
+// SEMA_IDENT_STATIC_FIELD case — JLS §15.27 inlines static-final
 // primitives whose initializer is a constant expression. sema does
 // the JLS check; we just consume the (inlinable, value) result.
 fun ident_static_field(node: ast.expr, rho: rho,
@@ -1115,7 +1115,7 @@ fun unary_op(op: ast.unop, inner: ast.expr,
     };
 }
 
-// Pre/Post Inc/Dec helpers — JLS §15.14, §15.15. The target's shape
+// Pre/Post Inc/Dec helpers — JLS §15.13, §15.14. The target's shape
 // drives the lowering: locals/params use SIR_INC; fields/arrays read
 // the old value, add the delta, and write back. Pre delivers the new
 // value; post delivers the old.
@@ -1358,7 +1358,7 @@ fun post_array_access(arr: ast.expr, idx: ast.expr, arr_dt: ir.datatype,
                         array_backing(t_a, array_elem_ref(arr), arr_dt),
                         build ir.LoadLocal(t_i, DtInt, nil), array_elem_ref(arr)),
                       astore);
-    // §15.15.1: same checks as a plain access, before the old value is read.
+    // §15.13.2: same checks as a plain access, before the old value is read.
     let bounds  = bounds_guard(t_a, t_i, array_elem_ref(arr), arr_dt,
                                store_old, rho);
     let checked = null_guard(t_a, bounds, rho);
@@ -1420,7 +1420,7 @@ fun assign_array(arr: ast.expr, idx: ast.expr, value: ast.expr,
                       build ir.LoadLocal(t_i, DtInt, nil),
                       build ir.LoadLocal(t_v, arr_dt, nil),
                       delivery, array_elem_ref(arr));
-    // §15.26.1 / §10.10 order: array ref (null-check), index, value, bounds-check, then
+    // §15.25.1 / §10.10 order: array ref (null-check), index, value, bounds-check, then
     // the ArrayStore check, then the store. The check applies only to a reference CLASS
     // (or interface) element — where the value is Object-representable and elementClass is
     // stamped; a nested/primitive-array element (int[][]) is the §10.8 array-Class case (later).
@@ -1438,7 +1438,7 @@ fun assign_array(arr: ast.expr, idx: ast.expr, value: ast.expr,
 }
 
 // ── CompoundAssign helpers (x op= e desugars to x = x op e) ────
-// Per JLS §15.26.2 left-first: x's old value captured BEFORE e
+// Per JLS §15.25.2 left-first: x's old value captured BEFORE e
 // evaluates, so a side-effect of e on x doesn't change the old
 // value. Spine: t_old=x → t_val=e → x = t_old op t_val → deliver.
 
@@ -1604,7 +1604,7 @@ fun compound_array(arr: ast.expr, idx: ast.expr, op: ast.binop,
                       array_backing(t_a, array_elem_ref(arr), arr_dt),
                       build ir.LoadLocal(t_i, DtInt, nil), array_elem_ref(arr)),
                     v_chain);
-    // §15.26.2: the compound access performs the same §15.12 checks as a
+    // §15.25.2: the compound access performs the same §15.12 checks as a
     // plain one — null on the array ref, then both index bounds, before the
     // old value is read. One guard set serves the load AND the write-back:
     // t_a/t_i are evaluated once, so the verdict cannot change between them.
@@ -1630,7 +1630,7 @@ fun assign_ident_target(target: ast.expr, value: ast.expr,
           : cg_jump(gamma, Lnext));
 }
 
-// Local/param assign — JLS §15.26.1 effect+single fast path stores
+// Local/param assign — JLS §15.25.1 effect+single fast path stores
 // directly into the destination slot. Value/test contexts spill into
 // the slot then deliver via a load.
 fun assign_local(target: ast.expr, value: ast.expr,
@@ -1784,7 +1784,7 @@ fun rho_in_loop(r: rho) -> int {
 // finally_frame bodies crossed (innermost-first, prepended onto tail).
 // Stops at the n-th loop_frame WITHOUT compiling that frame's payload —
 // the loop's break_target is the actual jump destination, emitted by
-// the caller into `tail`. JLS §14.20.2: every try-finally crossed by
+// the caller into `tail`. JLS §14.18.2: every try-finally crossed by
 // an abrupt completion runs its finally body first.
 fun walk_for_break(r: rho, n: int, tail: ir_root) -> ir_root {
     match (r) {
@@ -1800,7 +1800,7 @@ fun walk_for_break(r: rho, n: int, tail: ir_root) -> ir_root {
 }
 
 // Walk all of ρ to rho_root, compiling every finally_frame crossed.
-// Used by `return` — JLS §14.17 routes return through every pending
+// Used by `return` — JLS §14.15 routes return through every pending
 // finally before unwinding the call frame.
 fun walk_finally_for_return(r: rho, tail: ir_root) -> ir_root {
     match (r) {
@@ -1915,7 +1915,7 @@ fun chain_switch_cases(cases: list<ast.switch_case>, idx: int,
       : { let rest = chain_switch_cases(cases, idx + 1, after_last, rho);
           let next_head = rest.count == 0 ? after_last : rest[0];
           // LABEL each group head here, not at build_switch_node. A group is a
-          // br_table target AND, under §14.10 fall-through, the continuation of
+          // br_table target AND, under §14.9 fall-through, the continuation of
           // the group above it — and those have to be the SAME node. Labelling
           // later minted a fresh Nop for the br_table while the fall-through
           // edge still pointed at the raw head, so the backend's region bound
@@ -2007,7 +2007,7 @@ fun deliver_tree(kind: delivery_kind, value: ir_root,
 // temp of `op_dt`. Replaces 10+ duplicated helpers (array_length,
 // instance_field_acc, prim/ref-new_array, ref_cast, instance_of,
 // cast_to_byte/short/int) — each call site now passes a tree_op
-// tag plus delivery_kind. JLS §15.7.1 left-first ordering is
+// tag plus delivery_kind. JLS §15.6.1 left-first ordering is
 // trivially preserved (single-operand, no reorder risk).
 fun spill_or_simple(op: tree_op, kind: delivery_kind,
                      operand: ast.expr, op_dt: ir.datatype,
@@ -2044,7 +2044,7 @@ fun cg_deliver_conv(v: ast.expr, to_dt: ir.datatype, rho: rho,
     };
 }
 
-// A conditional arm (JLS §15.25): when the arms differ in numeric type, binary
+// A conditional arm (JLS §15.24): when the arms differ in numeric type, binary
 // numeric promotion converts BOTH to the result type. The ternary rule delivers
 // each arm straight to `delta`, so a narrower arm (e.g. the `0` in
 // `cond ? aLong : 0`) must widen to the destination's dt first; for a non-value
@@ -2072,7 +2072,7 @@ fun neg_one_const(dt: ir.datatype) -> ir_root {
     };
 }
 
-// The INT_MIN/-1 arm of a guarded integer division (JLS §15.17.2: `MIN_VALUE / -1`
+// The INT_MIN/-1 arm of a guarded integer division (JLS §15.16.2: `MIN_VALUE / -1`
 // WRAPS to MIN_VALUE, while WASM's i32.div_s TRAPS on it — so on `divisor == -1` we
 // compute `-a` instead of dividing). REM never traps on -1 and needs no such arm.
 //
@@ -2242,7 +2242,7 @@ fun mem_range_guard(t_base: int, t_len: int, ok: ir_root, r: rho) -> ir_root {
     lo;
 }
 
-// JLS §15.13.1 null-check: `if (t_a == null) throw new NullPointerException()` else
+// JLS §15.12.1 null-check: `if (t_a == null) throw new NullPointerException()` else
 // continue to `ok`. Emitted right after the receiver ref is spilled (before the
 // index/value), so a null array raises NPE without evaluating them.
 fun null_guard(t_a: int, ok: ir_root, r: rho) -> ir_root {
@@ -2254,7 +2254,7 @@ fun null_guard(t_a: int, ok: ir_root, r: rho) -> ir_root {
     br;
 }
 
-// JLS §15.13.1 bounds-check: `if (i < 0 || i >= a.length) throw new
+// JLS §15.12.1 bounds-check: `if (i < 0 || i >= a.length) throw new
 // ArrayIndexOutOfBoundsException()` else `ok`. a is known non-null here.
 fun bounds_guard(t_a: int, t_i: int, eref: ir_root, width: ir.datatype, ok: ir_root,
                  r: rho) -> ir_root {
@@ -2311,7 +2311,7 @@ fun spill_or_simple_nullck(op: tree_op, kind: delivery_kind,
     gen(operand, rho, locref(t, expr_ref(operand)), single(guarded), guarded);
 }
 
-// JLS §15.10.1 negative-size check: `if (n < 0) throw new NegativeArraySizeException()`
+// JLS §15.9.1 negative-size check: `if (n < 0) throw new NegativeArraySizeException()`
 // else continue to the allocation `ok`.
 fun neg_size_guard(t_n: int, ok: ir_root, r: rho) -> ir_root {
     let br = build ir.Branch(
@@ -2361,7 +2361,7 @@ fun arraycopy_bounds(t_src: int, t_so: int, t_dst: int, t_do: int, t_len: int,
 }
 
 // spill_or_simple for a single-dimension array SIZE: spill the size, guard it
-// negative (§15.10.1), then allocate (NewArray / NewRefArray).
+// negative (§15.9.1), then allocate (NewArray / NewRefArray).
 fun spill_or_simple_negsize(op: tree_op, operand: ast.expr, rho: rho,
                              delta: delta, gamma: gamma, Lnext: ir_root) -> ir_root {
     let t = ddcg_alloc_temp(DtInt);
@@ -2388,7 +2388,7 @@ fun array_length_acc(obj: ast.expr,
 }
 
 // JLS §15.11.1 — static field read. Inlines static-final primitives
-// (§15.28). When obj has side effects (`expr.STATIC_FIELD`), evaluate
+// (§15.27). When obj has side effects (`expr.STATIC_FIELD`), evaluate
 // obj first in effect context — the receiver's effects are observable
 // even though only the static field's value is delivered.
 // JLS §12.4.2 init barrier: before an active use of `cls`, ensure it is initialized. A void
@@ -2442,7 +2442,7 @@ fun instance_field_acc(obj: ast.expr, node: ast.expr,
 
 // Reference cast (class or array) — emits CheckCast(obj, atype, cp).
 // Spill obj if non-simple.
-// JLS §15.16 checked reference cast. CheckCast lowers to `ref.cast_null`, which
+// JLS §15.15 checked reference cast. CheckCast lowers to `ref.cast_null`, which
 // PASSES null (Java `(T)null` == null) and valid casts but TRAPS a bad cast — Java
 // throws a CATCHABLE ClassCastException. So guard first: throw only when the operand
 // is non-null AND not an instance of the target; otherwise the cast can't trap.
@@ -2598,7 +2598,7 @@ fun emit_array_instanceof(array_class: int, op: ast.expr,
     gen(op, rho, locref(t, expr_ref(op)), single(deliver), deliver);
 }
 
-// §5.5/§15.16 reference-array checkcast: null passes; otherwise the runtime element-precise
+// §5.5/§15.15 reference-array checkcast: null passes; otherwise the runtime element-precise
 // `arrayClass.isInstance(x)` guards a structural ref.cast to the RefArray overlay (which then
 // succeeds, x having been confirmed the right array type). A failure throws ClassCastException.
 fun emit_array_cast(array_class: int, op: ast.expr,
@@ -2628,11 +2628,11 @@ fun emit_array_cast(array_class: int, op: ast.expr,
         single(guard), guard);
 }
 
-// ── JLS §15.10 array creation (incl. multi-dimensional) ───────────────────
+// ── JLS §15.9 array creation (incl. multi-dimensional) ───────────────────
 // `dims` holds one entry per bracket level; the leading `sized` non-NULL entries
 // are allocated, trailing `[]` levels left null (jagged). A single sized dim is
 // one array.new_default. For multiple sized dims, the sizes are evaluated once
-// left-to-right (JLS §15.10.1) into temps, then each non-innermost level is
+// left-to-right (JLS §15.9.1) into temps, then each non-innermost level is
 // filled by a synthesized loop allocating the sub-array per slot.
 
 // Allocate `n` fresh int temps for the dimension sizes.
@@ -2640,7 +2640,7 @@ fun alloc_sz_temps(n: int) -> list<int> {
     n <= 0 ? [] : [ddcg_alloc_temp(DtInt)] + alloc_sz_temps(n - 1);
 }
 
-// §15.10.1: after all dimension sizes are evaluated, throw NegativeArraySizeException
+// §15.9.1: after all dimension sizes are evaluated, throw NegativeArraySizeException
 // if ANY is negative — chain a neg-size guard over t_sz[k..sized) before allocating.
 fun neg_size_guard_all(t_sz: list<int>, k: int, sized: int, ok: ir_root,
                        r: rho) -> ir_root {
@@ -2661,11 +2661,11 @@ fun array_backing(t_a: int, eref: ir_root, width: ir.datatype) -> ir_root {
                           refarray_class(), refarray_data_field());           // ref: RefArray.data
 }
 
-// §10.2 / §15.10: `new T[size]` for a REFERENCE element T — build the RefArray
+// §10.2 / §15.9: `new T[size]` for a REFERENCE element T — build the RefArray
 // wrapper: t_ra = new RefArray(); t_ra.data = new backing[size]. The backing is the
 // top-ref array (NewRefArray with nil eref → array.new_default of the anyref array).
 // elementClass stays null here (write-only until the §10.10 ArrayStore check). Mirrors
-// new_expr's spill-then-init shape. §15.10.1 negative-size check on the evaluated size.
+// new_expr's spill-then-init shape. §15.9.1 negative-size check on the evaluated size.
 // Build `t_ra = new RefArray(); [t_ra.elementClass = <elem_class>.class;] t_ra.data =
 // new backing[size]` (size an already-built i32 tree), chaining into `next`. Returns the
 // head. `elem_class` is the component type's class id for the §10.10 ArrayStore check, or
@@ -2837,7 +2837,7 @@ fun cg_alloc_level(node: ast.expr, level: int, sized: int, rank: int,
 }
 
 // Evaluate the sized dimension expressions into t_sz left-to-right, then run the
-// nested allocation (`alloc_head`). JLS §15.10.1: all dim exprs first, in order.
+// nested allocation (`alloc_head`). JLS §15.9.1: all dim exprs first, in order.
 fun cg_eval_dims(node: ast.expr, t_sz: list<int>, k: int, sized: int,
                  alloc_head: ir_root, rho: rho) -> ir_root {
     k >= sized
@@ -2865,7 +2865,7 @@ fun cg_new_array(node: ast.expr, rho: rho, delta: delta, gamma: gamma,
 
 
 
-// JLS §15.18.1 string concatenation, defunctionalized: `l + r` (both/either String) →
+// JLS §15.17.1 string concatenation, defunctionalized: `l + r` (both/either String) →
 //   new StringBuffer().append(l).append(r).toString()
 // as SIR — a fresh SB temp, the ctor, one append per operand (append returns `this`,
 // so the result is dropped via ExprEffect), then toString() delivered to (δ, γ).
@@ -2975,8 +2975,8 @@ rule this_or_super : ast.This(), ast.Super() {
     cg_store(build ir.LoadThis(DtRef, current_class_id()), delta, gamma, Lnext);
 }
 
-// JLS §15.23/§15.24 — short-circuit And/Or have a γ-aware emit path
-// in `binary_logical`. JLS §15.7.1 left-first ordering for the rest
+// JLS §15.22/§15.23 — short-circuit And/Or have a γ-aware emit path
+// in `binary_logical`. JLS §15.6.1 left-first ordering for the rest
 // is preserved by binop_spilled (LHS captures before RHS evaluates,
 // so `x + (x = 5)` reads pre-mod x).
 rule binary_and : ast.Binary(op: And, lhs: l, rhs: r) {
@@ -2986,7 +2986,7 @@ rule binary_or  : ast.Binary(op: Or,  lhs: l, rhs: r) {
     binary_logical(Or,  l, r, rho, delta, gamma, Lnext);
 }
 
-// JLS §15.18.1: `+` with a String operand is string concatenation. sema typed the
+// JLS §15.17.1: `+` with a String operand is string concatenation. sema typed the
 // node String; the ddcg DEFUNCTIONALIZES it (via build_concat, defined with the other
 // helpers) into new StringBuffer().append(l).append(r).toString(). The guard falls
 // through to the numeric binary rules when the `+` is not a concatenation.
@@ -3013,7 +3013,7 @@ rule binary_arith_ss : ast.Binary(op: op, lhs: l, rhs: r)
 // Dybvig §3.2 Figure 8 case 2: LHS constant-immutable, RHS complex —
 // spill RHS to a temp, inline LHS. The case-2 RHS-first evaluation
 // order would corrupt a slot-reading LHS if RHS mutates that slot
-// (`x + (x = 5)`, JLS §15.7.1); restrict LHS to is_constant_operand
+// (`x + (x = 5)`, JLS §15.6.1); restrict LHS to is_constant_operand
 // to keep the left-first capture observable.
 rule binary_arith_sc : ast.Binary(op: op, lhs: l, rhs: r)
                        where is_constant_operand(l) and not is_simple_operand(r)
@@ -3033,7 +3033,7 @@ rule binary_arith_sc : ast.Binary(op: op, lhs: l, rhs: r)
 }
 
 // Dybvig §3.2 Figure 8 case 3: LHS complex, RHS simple — spill LHS
-// to a temp so JLS §15.7.1 captures it BEFORE the binop reads it
+// to a temp so JLS §15.6.1 captures it BEFORE the binop reads it
 // (matters when LHS has side effects, e.g. `(i=3) * 2`); inline RHS.
 rule binary_arith_cs : ast.Binary(op: op, lhs: l, rhs: r)
                        where not is_simple_operand(l) and is_simple_operand(r)
@@ -3156,17 +3156,17 @@ rule block : ast.Block(stmts: ss) {
       : chain_block_stmts(ss, 0, ss.count - 1, rho, delta, gamma, Lnext);
 }
 
-// JLS §14.8 — expression statement evaluates its expression and
+// JLS §14.7 — expression statement evaluates its expression and
 // discards the result. δ=effect; parent γ flows through.
 rule expr_stmt : ast.ExprStmt(e: e) {
     gen(e, rho, effect, gamma, Lnext);
 }
 
-// JLS §14.17 — return without value (in void method) is a direct terminator.
+// JLS §14.15 — return without value (in void method) is a direct terminator.
 //
 // With a value, the choice is made by walking the WHOLE ρ chain, not by looking at the
 // innermost frame: a `return` deep inside a loop still has to run every pending finally
-// (§14.20.2), and still sits inside any enclosing try_table.
+// (§14.18.2), and still sits inside any enclosing try_table.
 //
 //   - Unprotected (no try_frame / finally_frame anywhere in ρ): deliver the value with
 //     γ=ret, so cg_store emits Return(value, dt) and burg may tile a direct
@@ -3207,7 +3207,7 @@ rule return_stmt : ast.Return(value: v) {
 rule unary_pos      : ast.Unary(op: Pos, e: inner) {
     gen(inner, rho, delta, gamma, Lnext);
 }
-// Pre/Post Inc/Dec — JLS §15.14, §15.15. Target dispatch via
+// Pre/Post Inc/Dec — JLS §15.13, §15.14. Target dispatch via
 // nested AST patterns + sema disambiguation (where-clauses for
 // ident sub-cases the AST tag can't distinguish — local vs
 // instance-field vs static-field). One rule per (op × target):
@@ -3385,17 +3385,17 @@ rule field_access_instance : ast.FieldAccess(obj: obj, field: f) {
     instance_field_acc(obj, node, rho, delta, gamma, Lnext);
 }
 
-// JLS §15.13 — array element read. Spills arr / idx to temps when
+// JLS §15.12 — array element read. Spills arr / idx to temps when
 // non-simple, JLS-order (arr first, then index). ArrayLoad is BURS-
 // dispatched on the element dt: aaload / baload / saload / iaload.
 
-// JLS §15.10 — array creation (incl. multi-dimensional). Lowering built by the
+// JLS §15.9 — array creation (incl. multi-dimensional). Lowering built by the
 // cg_new_array fun family (defined before the RULES section).
 rule new_array : ast.NewArray(element: el, dims: ds) {
     cg_new_array(node, rho, delta, gamma, Lnext);
 }
 
-// JLS §15.16 — cast. Sema's `sema_cast_kind` returns the
+// JLS §15.15 — cast. Sema's `sema_cast_kind` returns the
 // emission case directly (one variant per conv opcode + per atype/cp
 // combination). ddcgc enforces match exhaustiveness. The src_dt
 // lookup stays in the rule body since it's used by every numeric-
@@ -3460,7 +3460,7 @@ rule instance_of : ast.InstanceOf(e: inner, ty: ty) {
     };
 }
 
-// JLS §14.20 — try / catch / finally. The body executes under
+// JLS §14.18 — try / catch / finally. The body executes under
 // `body_rho` which wraps the parent ρ with a finally_frame when a
 // finally is present, so return/break/continue inside the body
 // automatically run the finally before transferring out. Each catch
@@ -3472,8 +3472,8 @@ rule instance_of : ast.InstanceOf(e: inner, ty: ty) {
 //
 // The catch-all rethrow (when finally exists) wraps everything in
 // an outer TryRegion: any uncaught exception lands in the catch-all,
-// runs finally, then re-throws. This matches §6.9.1's "catch_type=0"
-// finally sentinel.
+// runs finally, then re-throws. This is the classic catch-all finally
+// lowering — JVMS (1st ed.) §4.7.4's catch_type=0, its §7.13 scheme.
 //
 // TryRegion chain order: typed catches in source order (innermost-
 // first wraps body, getting smallest handler_pc); catch-all wraps
@@ -3592,7 +3592,7 @@ rule throw_stmt : ast.Throw(e: e) {
     gen(e, rho, locref(t_e, expr_ref(e)), single(fin_chain), fin_chain);
 }
 
-// JLS §15.12 — `super.m(args)`. invokespecial on parent class with
+// JLS §15.11 — `super.m(args)`. invokespecial on parent class with
 // `this` as receiver. SIR encodes the return type as DtShort
 // regardless of actual return (legacy convention), since cg_deliver
 // uses dt to drive the spine StoreLocal.
@@ -3663,10 +3663,10 @@ rule constructor_call : ast.ConstructorCall(args: as) {
           chain_call_args(as, as.count - 1, t_args, arg_dts, target_class, cp_safe, effect, rho); };
 }
 
-// JLS §15.9 — `new C(args)`. Allocates a fresh ref into t_obj, then
+// JLS §15.8 — `new C(args)`. Allocates a fresh ref into t_obj, then
 // (when sema resolved a constructor CP) invokes <init> with t_obj as
 // receiver and args, finally delivers t_obj as the value. Args
-// evaluate left-to-right per JLS §15.12.4.4. Constructors return
+// evaluate left-to-right per JLS §15.8.1. Constructors return
 // void → ExprEffect drops the result.
 rule new_expr : ast.New(class_: cls, args: as) {
     let target_class = sema_new_target_class(node);
@@ -3712,10 +3712,10 @@ rule new_expr : ast.New(class_: cls, args: as) {
           init_barrier(target_class, cons, rho); };   // §12.4.1: `new T` initializes T
 }
 
-// JLS §15.12 — method invocation. The §0.2 receiver-first lowering:
+// JLS §15.11 — method invocation. The §0.2 receiver-first lowering:
 //   evaluate receiver into t_recv, then args left-to-right into
 //   t_args[i], finally invoke. Spilling everything to temps preserves
-//   JLS §15.12.4.4 evaluation order under non-simple sub-expressions.
+//   JLS §15.11.4.1/§15.11.4.2 evaluation order under non-simple sub-expressions.
 // Static methods skip the receiver. Void methods drop the value via
 // ExprEffect; non-void deliver to (δ, γ) via cg_deliver_effectful.
 // §20.18.16 System.arraycopy(src, srcOff, dst, dstOff, len) → a `SIR_ARRAYCOPY` (WASM
@@ -3749,7 +3749,7 @@ rule math_intrinsic : ast.MethodCall(obj: rcvr, method: m, args: as)
 // javelina.simd — every generated intrinsic lowers inline to its SIMD family
 // node; the op payload is the WOP_* value off the generated table, the lane /
 // const / mask immediates were validated and stashed by sema (a constant has
-// no effects, so skipping its evaluation preserves JLS 15.12.4.4 order).
+// no effects, so skipping its evaluation preserves JLS §15.11.4.2 order).
 // Value args spill to temps left-to-right, mirroring spill_or_simple; Pure —
 // SIMD value ops cannot throw, so no exception region is recorded.
 rule simd_intrinsic : ast.MethodCall(obj: rcvr, method: m, args: as)
@@ -4067,7 +4067,10 @@ rule method_call : ast.MethodCall(obj: rcvr, method: m, args: as)
                 ? build ir.StoreLocal(t_recv, DtRef, build ir.ClassRef(current_class_id()),
                                       build ir.LoadThis(DtRef, current_class_id()),
                                       args_chain)
-                /* §15.12.4.4: a null receiver throws NPE before the args evaluate. */
+                /* NOTE: §15.11.4.4 throws the null-receiver NPE at dispatch, AFTER
+                 * §15.11.4.2 evaluates the args; this lowering checks BEFORE the
+                 * args — observable only for a null receiver with side-effecting
+                 * argument expressions. */
                 : { let checked = null_guard(t_recv, args_chain, rho);
                     gen(rcvr, rho, locref(t_recv, expr_ref(rcvr)),
                         single(checked), checked); })
@@ -4133,7 +4136,7 @@ rule super_access : ast.SuperAccess(field: f) {
               delta, gamma, Lnext));
 }
 
-// JLS §15.25 — conditional (?:). Same shape as if as statement, but
+// JLS §15.24 — conditional (?:). Same shape as if as statement, but
 // the value of the chosen arm is delivered to the parent (δ, γ). Both
 // arms inherit γ (Dybvig Fig.5); what that costs depends on which γ:
 //   ret          each arm terminates in its own Return — no join.
@@ -4149,7 +4152,7 @@ rule super_access : ast.SuperAccess(field: f) {
 // which drops the branch and leaves the if's arms unreachable.
 rule ternary : ast.Ternary(test: t, then: th, else_: el) {
     match (gamma) {
-        ret => { let rdt = current_return_dt();     // §15.25: arms promote to the return type
+        ret => { let rdt = current_return_dt();     // §15.24: arms promote to the return type
                  let Lthen = ddcg_label(cg_deliver_conv(th, rdt, rho, delta, gamma, Lnext));
                  let Lelse = ddcg_label(cg_deliver_conv(el, rdt, rho, delta, gamma, Lnext));
                  gen(t, rho, effect, pair(Lthen, Lelse), Lnext); }
@@ -4178,7 +4181,7 @@ rule array_access_read : ast.ArrayAccess(arr: arr, index: idx) {
                  array_backing(t_a, array_elem_ref(arr), dt),
                  build ir.LoadLocal(t_i, DtInt, nil), array_elem_ref(arr));
     let head = cg_deliver_effectful(tree, delta, gamma, Lnext);
-    // §15.13.1: bounds-check (array is non-null here), then the load. Null-check
+    // §15.12.1: bounds-check (array is non-null here), then the load. Null-check
     // fires earlier — right after the array ref is spilled, before the index.
     let bounds = bounds_guard(t_a, t_i, array_elem_ref(arr), dt, head, rho);
     let i_chain = gen(idx, rho, loc(t_i, DtInt), single(bounds), bounds);
@@ -4186,14 +4189,14 @@ rule array_access_read : ast.ArrayAccess(arr: arr, index: idx) {
     gen(arr, rho, locref(t_a, expr_ref(arr)), single(checked), checked);
 }
 
-// JLS §15.26 — assignment. Dispatches on the target's shape:
+// JLS §15.25 — assignment. Dispatches on the target's shape:
 //   Ident → local/param (gen-into-loc fast path) or field of current
 //           class (put_field/put_static via temp spill)
 //   FieldAccess → static (optional v-simple fast path) or instance
 //                 (obj+v simple fast path, otherwise spill both)
-//   ArrayAccess → spill a/i/v then ArrayStore (JLS §15.26.2 order)
+//   ArrayAccess → spill a/i/v then ArrayStore (JLS §15.25.2 order)
 //   SuperAccess → instance field on parent class with `this` receiver
-// JLS §15.26.2 — compound assignment `target op= value`. Desugars
+// JLS §15.25.2 — compound assignment `target op= value`. Desugars
 // to `target = target op value` with capture-LHS-first semantics.
 // Const fast path: `local += int_lit` / `local -= int_lit` (when
 // the delta fits in int16) emits a single Inc — that's inside
@@ -4241,7 +4244,7 @@ rule compound_other : ast.CompoundAssign(target: t, op: op, value: v) {
     panic_unreachable("compound_assign: invalid lvalue — sema gap");
 }
 
-// JLS §15.26 — assignment. Split into per-target-shape rules. The
+// JLS §15.25 — assignment. Split into per-target-shape rules. The
 // nested constructor patterns in the rule heads filter on target's
 // AST shape; field-access splits further (static vs instance) via
 // where-guard on a sema-side classifier. The outer head also binds
@@ -4280,7 +4283,7 @@ rule assign_other : ast.Assign(target: t, value: v) {
     panic_unreachable("assign: invalid lvalue — sema gap");
 }
 
-// JLS §14.12 — while loop. Per Dybvig §0.2 Figure 5, `while T B`
+// JLS §14.10 — while loop. Per Dybvig §0.2 Figure 5, `while T B`
 // desugars to `loop (if T B break)`. The SIR shape has a back-edge:
 //   Ltop:    test → Branch(true→body, false→Goto(Lbreak))
 //   body:    body's chain → Goto(Ltop)
@@ -4319,7 +4322,7 @@ rule while_stmt : ast.While(test: t, body: b) {
     Ltop;
 }
 
-// JLS §14.14 — for-loop. `for(init; test; update) body` lowers to
+// JLS §14.12 — for-loop. `for(init; test; update) body` lowers to
 //   init;
 //   loop (if test (sequence body update) break)
 //
@@ -4383,7 +4386,7 @@ rule for_stmt : ast.For(init: i, test: t, update: u, body: b) {
       : gen(i, rho, effect, single(Ltop), nil);
 }
 
-// JLS §14.11 — switch statement. Lowers to SIR_SWITCH which BURS
+// JLS §14.9 — switch statement. Lowers to SIR_SWITCH which BURS
 // emits as stableswitch / itableswitch / slookupswitch /
 // ilookupswitch based on selector width and case density.
 //   - Lbreak: parent's continuation; all `break;` and the default
@@ -4423,7 +4426,7 @@ rule switch_stmt : ast.Switch(selector: sel, cases: cs) {
               single(switch_node), switch_node); };
 }
 
-// JLS §14.13 — do-while loop. Test runs after body; continue targets
+// JLS §14.11 — do-while loop. Test runs after body; continue targets
 // Lcont (the test) so partial-iteration semantics match Java.
 //   Ltop:    body's chain → Lcont
 //   Lcont:   test → Branch(true→Goto(Ltop), false→Lbreak)
@@ -4473,7 +4476,7 @@ rule do_while_stmt : ast.DoWhile(test: t, body: b) {
     Ltop;
 }
 
-// JLS §14.9 — if-then-else statement. Per Dybvig §0.2 Figure 5
+// JLS §14.8 — if-then-else statement. Per Dybvig §0.2 Figure 5
 // adapted to a CPS graph + BURS layout:
 //   Ljoin = Nop(parent-continuation)
 //   Lthen = label(gen then  with γ=single(Ljoin), Lnext=nil)
@@ -4532,7 +4535,7 @@ rule local_var_decl : ast.LocalVarDecl(ty: t, decls: ds) {
       : chain_decls(ds, 0, last, var_dt, rho, delta, gamma, Lnext);
 }
 
-// JLS §14.15 — break. Sema resolved the loop-frame depth at analysis
+// JLS §14.13 — break. Sema resolved the loop-frame depth at analysis
 // (finally_frames between current point and target are crossed but
 // don't count toward depth). walk_for_break compiles each crossed
 // finally body before the Goto to the target's break_target.
@@ -4549,7 +4552,7 @@ rule break_stmt : ast.Break() {
         };
 }
 
-// JLS §14.16 — continue. Same depth-walk; uses continue_target
+// JLS §14.14 — continue. Same depth-walk; uses continue_target
 // instead. Labeled-block frames have nil continue_target — sema
 // rejects `continue label;` against them at analysis time, so we
 // only encounter loop frames here.
@@ -4568,7 +4571,7 @@ rule continue_stmt : ast.Continue() {
         };
 }
 
-// JLS §14.7 — labeled statement. Sema resolved labels to depths,
+// JLS §14.6 — labeled statement. Sema resolved labels to depths,
 // so the label string itself is unused at codegen time. For loop/
 // switch bodies, just delegate (the inner loop pushes its own
 // frame). For block bodies, push our own labeled-block frame so

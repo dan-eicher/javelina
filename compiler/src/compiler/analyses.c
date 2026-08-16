@@ -540,7 +540,7 @@ static bool has_break_exiting(const ast_stmt_t* s, const char* owner_label, int 
 }
 
 /* Does `s` contain a `break L` whose label L is bound OUTSIDE `s`? Such a break leaves `s`, so
- * for a loop it reaches the loop's exit or somewhere past it. §14.15: `break L` completes the
+ * for a loop it reaches the loop's exit or somewhere past it. §14.13: `break L` completes the
  * labeled statement named L normally — and when L labels this very loop (the common
  * `outer: while (true) { … break outer; }`), that program point IS the loop's exit, which the
  * compiler represents with the loop's own break target. We cannot tell from the loop node which
@@ -614,7 +614,7 @@ static bool switch_exit_reachable(const ast_stmt_t* s) {
  *   nrset == NULL — §14.19 exactly. Drives the "unreachable statement" compile-time error.
  *   nrset != NULL — the same rules, plus the knowledge that an expression statement calling a
  *                   method that never returns cannot complete normally. Not a JLS rule; it lets
- *                   `if (c) return 1; else fail();` pass §8.4.7 instead of demanding a throw.
+ *                   `if (c) return 1; else fail();` pass §8.4.5 instead of demanding a throw.
  * ONE set of rules, two readings — never two implementations. */
 static bool ccn(const sema_ctx_t* ctx, const ast_stmt_t* s, const bbq_htree* nrset);
 
@@ -744,7 +744,7 @@ static bool ccn(const sema_ctx_t* ctx, const ast_stmt_t* s, const bbq_htree* nrs
  * The reachability sentences are transcribed here, beside the completion rules they interlock with,
  * so that a statement's reachability and its ability to complete normally can never be decided by
  * two analyses that disagree. Note what is NOT a statement, and so can never be reported: a
- * ForUpdate expression (§14.14 makes it a StatementExpressionList) and a do-while's tail condition.
+ * ForUpdate expression (§14.12 makes it a StatementExpressionList) and a do-while's tail condition.
  * This walk simply never visits them.
  *
  * `sr` is reachability under §14.19 as written; `nr` is reachability under the noreturn-aware
@@ -1882,7 +1882,7 @@ static const da_state_t* da_mark_target(sema_ctx_t* ctx, bbq_arena* a,
 
 /* Mark every assignment / compound / ++/-- TARGET that DEFINITELY executes in `e`.
  * Recurses into a nested assignment's VALUE (which always evaluates) so a CHAINED
- * assignment `z = w = expr` marks BOTH w and z (JLS §16.2.3). Deliberately does NOT
+ * assignment `z = w = expr` marks BOTH w and z (JLS §16.1). Deliberately does NOT
  * descend into call args / ternary arms — those don't definitely assign, so marking
  * them would be unsound. */
 static const da_state_t* da_mark_expr_assigns(sema_ctx_t* ctx, bbq_arena* a,
@@ -2698,7 +2698,7 @@ static void run_on_method(sema_ctx_t* ctx, const sema_method_t* m,
     void** das = (void**)bbq_arena_alloc(ctx->arena, sizeof(void*) * n);
     cfg_fixpoint(&g, &da.ops, ctx->arena, da_initial, das);
 
-    /* §8.4.7: "If a method is declared to have a return type, then a compile-time error occurs if
+    /* §8.4.5: "A compile-time error occurs if
      * the body of the method can complete normally." That is §14.19's completion predicate, so it
      * is the SAME rules — read here with the noreturn extension, so `if (c) return 1; else fail();`
      * is accepted rather than demanding an explicit throw. */
@@ -2861,7 +2861,7 @@ static void ef_collect_expr(sema_ctx_t* ctx, const ef_builtins_t* b,
         return;
     case AST_BINARY:
         if (e->binary.op == AST_DIV || e->binary.op == AST_REM) {
-            /* §15.17.2/.3: INTEGER division/remainder throws on a zero
+            /* §15.16.2/.3: INTEGER division/remainder throws on a zero
              * divisor — int AND long (float/double yield NaN/∞). */
             java_type_t t = sema_type_of(ctx, e);
             if (t.tag == JT_BYTE || t.tag == JT_SHORT || t.tag == JT_CHAR

@@ -134,7 +134,7 @@ module sir {
         | Ge(node left, node right)
         // Unsigned ≥ (wasm i32.ge_u). No Java operator produces it — the
         // optimizer's application phase mints it when it merges a surviving
-        // §15.13.1 bounds pair (`i < 0 || i >= len` ⟺ `(u)i >= (u)len`), so
+        // §15.12.1 bounds pair (`i < 0 || i >= len` ⟺ `(u)i >= (u)len`), so
         // it is NOT in the six-cmp family the engine refines over.
         | GeU(node left, node right)
 

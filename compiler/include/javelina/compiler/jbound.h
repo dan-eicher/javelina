@@ -258,7 +258,7 @@ static inline bool jbound_contains(int64_t a_lo, int64_t a_hi,
     return a_lo >= b_lo && a_hi <= b_hi;
 }
 
-// Widening (Nielson & Nielson, PoPA §4.2). The DECISION is shared — a bound that
+// Widening (Nielson/Nielson/Hankin, PoPA §4.2). The DECISION is shared — a bound that
 // did not grow is kept, one that grew cannot be trusted to stabilise — while the
 // replacement is the consumer's policy: the SIR optimizer snaps to the next
 // element of its per-method K set, the linter jumps straight to ±∞. Both

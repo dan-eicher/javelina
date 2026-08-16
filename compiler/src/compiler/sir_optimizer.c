@@ -4032,7 +4032,7 @@ static cp_const_t cp_fold_wide(int tag, cp_const_t a, cp_const_t b) {
     }
 
     if (w == CP_W_F32) {
-        /* JLS §15.17: float arithmetic is float-precision. Computing in double
+        /* JLS §15.16: float arithmetic is float-precision. Computing in double
          * and rounding back double-rounds (e.g. division), and would launder a
          * NaN's payload through the wider format — so compute in float. */
         float x = cp_known_f32(a), y = cp_known_f32(b), r;
@@ -4473,7 +4473,7 @@ static bool cp_vinv_content_verdict(cp_engine_t* eng, int self, int idx_in,
     cp_record_premise(eng, self, 2, oc);
     cp_record_premise(eng, self, 3, od);
     if (p < 0 || !ctx->vinv_holds[p]) return false;
-    {   /* same receiver across the excepting element load: §15.8.3's this-
+    {   /* same receiver across the excepting element load: §15.7.2's this-
          * duality first, congruence for everything else */
         sir_node_t* br = sir_child((sir_node_t*)bf, 0);
         sir_node_t* dr = sir_child((sir_node_t*)df, 0);
@@ -4709,7 +4709,7 @@ static cp_const_t cp_node_const(cp_engine_t* eng, int v_idx) {
                      * for δ < 0, so `x < B` still holds — this is the `i--` half
                      * of the down-count chain (the Sub half lives in the EXPR
                      * fold). Same wrap fence as there: requires x.lo + δ not to
-                     * wrap below the width MIN (§15.18.2 wraps, and the claim is
+                     * wrap below the width MIN (§15.17.2 wraps, and the claim is
                      * false across the wrap). The body's read is the REFINED i
                      * (the `i >= 0` edge), so lo is 0 in the shape this serves. */
                     if (v->inc_delta < 0 && r.state == CP_C_RANGE
@@ -4891,7 +4891,7 @@ static cp_const_t cp_node_const(cp_engine_t* eng, int v_idx) {
                              .dvalue = e->load_double_const.value };
     if (e->tag == SIR_LOADLOCAL)
         return v->input_count > 0 ? cp_input_const(eng, v->inputs[0]) : bot;
-    /* An array's length is never negative (§15.10.1 traps a negative dimension
+    /* An array's length is never negative (§15.9.1 traps a negative dimension
      * before the array exists), so `a.length` is [0, INT_MAX] — carrying ITSELF
      * as an INCLUSIVE symbolic upper bound (x ≤ x, trivially). The identity is
      * what seeds `len = a.length; … len = len - 1` (trim's shape): the Sub
@@ -5106,7 +5106,7 @@ static cp_const_t cp_node_const(cp_engine_t* eng, int v_idx) {
              * keeps the header φ's two inputs AGREEING on the same bound), else
              * MINT `< x` itself for k ≥ 1 (`i = a.length - 1` is the seed the
              * φ meets against). Wrap is the soundness fence: Java ints wrap
-             * (§15.18.2), and `x - k < x` is false across the wrap, so both
+             * (§15.17.2), and `x - k < x` is false across the wrap, so both
              * arms require x.lo - k ≥ width-MIN — arraylength's [0, MAX]
              * satisfies it always; an unbounded operand refuses. Reads only
              * this node's def-use inputs (a, b) — the stored vn is resolved and
@@ -5119,7 +5119,7 @@ static cp_const_t cp_node_const(cp_engine_t* eng, int v_idx) {
              * t + i ≤ (L − p) + (p − 1) = L − 1. Exact integer arithmetic — no
              * sign condition is needed for the INEQUALITY; the fence is that
              * the 32-bit add itself must not wrap, so both operands are
-             * required non-negative (§15.18.2, the D-class fence family).
+             * required non-negative (§15.17.2, the D-class fence family).
              * `p` is matched by ID AGREEMENT — the same-value authority, which
              * unifies copies and refines and, since the join's rule widened,
              * two congruent reads of one value. Reads this node's own def-use
@@ -5226,7 +5226,7 @@ static cp_const_t cp_node_const(cp_engine_t* eng, int v_idx) {
              * here composes two of them.
              *
              * The wrap fence is the interval fold's OWN overflow verdict: a
-             * product that wraps is not ≥ its operand (§15.18.2), and the range
+             * product that wraps is not ≥ its operand (§15.17.2), and the range
              * fold returns BOTTOM exactly when the operand box can overflow, so
              * a RANGE result IS the no-wrap proof — read from the authority
              * that owns it instead of recomputed here. `x ≥ 0` is the
@@ -5426,7 +5426,7 @@ static int cp_array_component_of(const cp_engine_t* eng, int o) {
  *    0  provably NOT  an instance of τ   → the cast, and the ISA arm, may drop it
  *   -1  unknown                          → NOBODY may drop it
  *
- * The subtype question is JLS §4.10.2 and goes to sema_ref_is_subtype, the one place
+ * The subtype question is JLS §5.1.4 and goes to sema_ref_is_subtype, the one place
  * that knows the class table. Asking the EXTENDS CHAIN instead (sema_is_subclass_of)
  * answers "not a subtype" for every interface — and this filter DROPS on that answer,
  * so a cast to an interface would delete every object that implements it.
@@ -5758,7 +5758,7 @@ int cp_obj_of(const cp_engine_t* eng, const sir_node_t* alloc) {
  * FAIL-CLOSED: an object whose class we do not know — a phantom, an `Oret`, the
  * catch-all — yields BOTTOM, the absorbing element, so one unknown in the set poisons
  * the whole join. Every consumer's `⊑ τ` question then answers NO and the guard stays.
- * ⊥null is TK_NULL, which JLS §4.10.2 makes a subtype of every reference type, so it
+ * ⊥null is TK_NULL, which JLS §5.1.4 makes a subtype of every reference type, so it
  * joins away: a maybe-null C is still a C. Its NPE guard is §4's business, not §3's.
  *
  * ∅ (nothing reaches here) is TOP, the join identity. TOP is the lattice MINIMUM, so
@@ -6608,7 +6608,7 @@ static void cp_follow_field(cp_engine_t* eng, int c, cp_pts_t from, cp_pts_t* ou
 }
 
 /* A callee with no compiled body whose behavior the TOOLCHAIN itself defines:
- * a §8.8.9 synthesized default constructor executes `super()` and this class's
+ * a §8.6.7 synthesized default constructor executes `super()` and this class's
  * instance-variable initializers — nothing else. With NO instance initializers
  * and a super chain of the same shape, the ctor writes nothing, calls nothing
  * observable, and does not retain its receiver — knowable from the DECLARATION
@@ -7198,7 +7198,7 @@ static bool cp_escape_update(cp_engine_t* eng) {
  * (plus null if a return could be null), not the opaque `Oret`. Virtual/interface: every target
  * must agree on the same formal, else conservative (false). A not-yet-summarized callee (bottom,
  * or a back-edge before convergence) has no summary ⟹ false ⟹ Oret, exactly as before. */
-/* E1 (JLS §15.9.4) — is EVERY target of this call a FRESH-returning callee? Then its result is
+/* E1 (JLS §15.8.1) — is EVERY target of this call a FRESH-returning callee? Then its result is
  * NonNull (a `new` never returns null), so the Oret result drops ⊥null. Static/special: one callee.
  * Virtual/interface: ALL targets must be FRESH, else conservative (keep maybe-null). A bottom /
  * not-yet-summarized callee has no summary ⟹ false ⟹ maybe-null, exactly as before. */
@@ -7457,7 +7457,7 @@ static cp_pts_t cp_node_pts(cp_engine_t* eng, int vi) {
             return s;
         /* Spec §2: `v ← ref.cast τ(u)` ⟹ `{ O ∈ pts(u) | classOf(O) ≤ τ }`. The cast
          * FILTERS: an object of a class that is not a τ cannot be here, because the
-         * cast would have thrown (JLS §15.16). ⊥null is the exception — `(τ) null`
+         * cast would have thrown (JLS §15.15). ⊥null is the exception — `(τ) null`
          * SUCCEEDS and yields null — so it passes, and the value stays Maybe-null. */
         case SIR_CHECKCAST: {
             if (v->input_count < 1 || v->inputs[0] < 0) return s;
@@ -7530,7 +7530,7 @@ static cp_pts_t cp_node_pts(cp_engine_t* eng, int vi) {
             cp_pts_t alias;
             if (v->expr && cp_invoke_return_alias(eng, v->expr, &alias)) return alias;
             cp_pts_add(eng, &s, o);
-            /* E1: a FRESH-returning callee's result is NonNull (JLS §15.9.4) — keep the Oret
+            /* E1: a FRESH-returning callee's result is NonNull (JLS §15.8.1) — keep the Oret
              * identity (its site is unmintable here) but do NOT add ⊥null. */
             if (!(v->expr && cp_invoke_ret_fresh(eng, v->expr)))
                 cp_pts_add(eng, &s, CP_OBJ_NULL);
@@ -8049,7 +8049,7 @@ static bool cp_apply_load_follower(cp_engine_t* eng, int v_idx) {
     return cp_become_follower(eng, v_idx, sval, CP_FK_LOAD);
 }
 
-/* `(new T[n]).length` IS `n` — §15.10.1 gives the array exactly the evaluated
+/* `(new T[n]).length` IS `n` — §15.9.1 gives the array exactly the evaluated
  * dimension and §10.7 makes the length final. Click's ArrayLengthNode::Identity.
  * The test is on the VALUE, not on points-to: the operand must BE the allocation
  * (through copies, which cp_ultimate_value follows — but never through a φ, so
@@ -9898,7 +9898,7 @@ static int cp_sr_slot_of(const cp_sr_slot_t* rows, int n, int obj, int cid, int 
 
 /* Spec §6.1 — a scalar-replaced object is TORN APART into per-field slots, so its constructor
  * has no `this` and no heap cell to write: its effect is its FIELD INITIALIZERS, materialized
- * onto those slots. A synthesized-default ctor (JLS §8.8.9) is `super();` then the class's
+ * onto those slots. A synthesized-default ctor (JLS §8.6.7) is `super();` then the class's
  * instance-field initializers in textual order (§12.5); the DDCG compiles that to a straight
  * line of `StoreLocal(t, E)` (its own temps) and `PutField(this, f, E)`. We INLINE that line:
  * `this.f = E` → `StoreLocal(slot_f, E')`, the ctor's own temps → fresh slots past
@@ -10289,7 +10289,7 @@ static void cp_scalar_probe(cp_engine_t* eng,
  * a field written in a try and read in the catch gets JLS §11.3.1's answer for free.
  * Nothing here places a φ, asks which store reaches a load, or wants a dominator. */
 
-/* JLS §4.12.5's initial value for a field of this type. */
+/* JLS §4.5.4's initial value for a field of this type. */
 static sir_node_t* cp_sr_default(bbq_arena* a, sir_datatype_t dt) {
     switch (dt) {
         case SIR_DTREF:    return sir_load_null(a);
@@ -10521,7 +10521,7 @@ static void cp_pea(cp_engine_t* eng, const bool* sr_cand) {
                     /* The candidate's OWN ctor is CTOR (its field inits replay onto the     \
                      * slots) or FATAL — never a sinkable escape: virtualizing the def       \
                      * while the ctor writes a real object leaves the slots holding the      \
-                     * §4.12.5 defaults (the src-1 slot-10 read-unwritten miscompile). */    \
+                     * §4.5.4 defaults (the src-1 slot-10 read-unwritten miscompile). */    \
                     _r = (_exact && cp_sr_ctor_materializable(eng, (par)))                  \
                         ? CP_SR_CTOR : CP_SR_D_OTHER;                                       \
                 }                                                                           \
@@ -10739,7 +10739,7 @@ static void cp_pea(cp_engine_t* eng, const bool* sr_cand) {
     }
 
     /* ── The per-visit reset condition (§5.4): a summary site's def re-runs each
-     * visit (LoadNull + §4.12.5 defaults + ctor replay re-initialize the slots), so
+     * visit (LoadNull + §4.5.4 defaults + ctor replay re-initialize the slots), so
      * virtualization is sound iff NO name of the previous visit's object is live
      * entering the def — a ref surviving the back edge would read the next visit's
      * slots. Names are static: the def slot + every copy target (scanned without
@@ -10924,7 +10924,7 @@ static void cp_pea(cp_engine_t* eng, const bool* sr_cand) {
                             (void*)(pea_of_obj[o] >= 0 ? pcs[pea_of_obj[o]].def_store : NULL));
                 }
 #endif
-                /* The def: §4.12.5 default-init chain onto the field slots, and the
+                /* The def: §4.5.4 default-init chain onto the field slots, and the
                  * object slot itself goes null until (unless) materialization. */
                 sir_node_t* next = n->store_local.next;
                 sir_node_t* head = next;
@@ -12605,7 +12605,7 @@ static void cp_vinv_collect_content(compiler_ctx_t* ctx, cp_engine_t* e) {
         if (bf->get_field.class_id != df->get_field.class_id) continue;
         if (bf->get_field.field_idx == df->get_field.field_idx) continue;
         /* Same receiver: the excepting element load sits between the two
-         * reads, so `this`-forms are identified by §15.8.3's unassignability
+         * reads, so `this`-forms are identified by §15.7.2's unassignability
          * (the rule the scalar readouts use); others by congruence. */
         sir_node_t* br = sir_child((sir_node_t*)bf, 0);
         sir_node_t* dr = sir_child((sir_node_t*)df, 0);
@@ -12642,7 +12642,7 @@ static int cp_field_cwidth(const sir_node_t* gf) {
 
 /* RANGE demand: a surviving DIV_ZERO / DIV_OVERFLOW guard whose DIVISOR
  * resolves (value authority) to an integer field read — or, for the overflow
- * arm, whose DIVIDEND does: the arm exists only for MIN/-1 (§15.17.2), so a
+ * arm, whose DIVIDEND does: the arm exists only for MIN/-1 (§15.16.2), so a
  * dividend hull excluding MIN serves it as well as a divisor hull excluding
  * -1. The candidate is the unary (class, field); whether it holds is the
  * writers' verdict, as for the other kinds. */
@@ -12694,9 +12694,9 @@ static void cp_vinv_collect_range(compiler_ctx_t* ctx, cp_engine_t* e) {
  *   - the leak: ANY ctor that hands `this` out mid-construction — an
  *     argument or virtual receiver whose pts names obj_this (pts, not a
  *     shape test: a spilled `this` is still `this`), or a store of `this`
- *     into the heap — marks its CLASS. The §8.8.7 super()/this() chain call
+ *     into the heap — marks its CLASS. The §8.6.5 super()/this() chain call
  *     is the one exemption (receiver `this`, callee a constructor;
- *     §8.8.7.1 keeps `this` out of its arguments), because the ancestor's
+ *     §8.6.5 keeps `this` out of its arguments), because the ancestor's
  *     ctor body is subject to the same readout on its own class — a RANGE
  *     row consults the whole ancestor chain at publish. */
 static void cp_vinv_range_base(compiler_ctx_t* ctx, cp_engine_t* e) {
@@ -12741,7 +12741,7 @@ static void cp_vinv_range_base(compiler_ctx_t* ctx, cp_engine_t* e) {
             int argc = sir_arity(call);
             int first_arg = 0;
             if (call->tag == SIR_INVOKESPECIAL) {
-                /* the §8.8.7 chain: receiver `this`, callee a constructor */
+                /* the §8.6.5 chain: receiver `this`, callee a constructor */
                 sir_node_t* r0 = sir_child(call, 0);
                 int rvn = r0 ? cp_vnode_of(e, r0) : -1;
                 bool recv_this = rvn >= 0
@@ -12951,7 +12951,7 @@ static int cp_vinv_pre_count_vn(cp_engine_t* e, int row, int cls, int count_fld,
          * form), each read sits under its own null-check whose Refine is a
          * Leader of its own with a per-site narrowed phantom — so neither
          * congruence nor pts identifies two this-reads across an excepting
-         * point. §15.8.3 makes `this` unassignable: every this-form in one
+         * point. §15.7.2 makes `this` unassignable: every this-form in one
          * body IS one object. Any other receiver falls to the value
          * authority, exactly as the crossed-check readouts compare theirs. */
         sir_node_t* crecv = sir_child(cv->expr, 0);
@@ -13233,8 +13233,8 @@ static void cp_vinv_writer_obligations(compiler_ctx_t* ctx, cp_engine_t* e) {
                  *   count            (§10.7 identity — the obligation verbatim)
                  *   count + k, k ≥ 0 (adding non-negative cannot decrease)
                  *   count·2 (+ 0|1)  (the doubling shapes)
-                 * Wrap (§15.18.2) is excluded by the size's own crossed
-                 * §15.10.1 check: this store is on the NegativeArraySize
+                 * Wrap (§15.17.2) is excluded by the size's own crossed
+                 * §15.9.1 check: this store is on the NegativeArraySize
                  * fall-through, so the size is ≥ 0 here, and for exactly these
                  * shapes a wrapped result stays negative — one non-negative Add
                  * of int operands wraps at most once, c = 2 keeps a wrapped
@@ -13369,7 +13369,7 @@ static void cp_vinv_writer_obligations(compiler_ctx_t* ctx, cp_engine_t* e) {
  *   PROVED — every element store into the held array fits the bound, from the
  *            §5 facts (the checked-setter refinement naming the data length,
  *            or a KNOWN below a KNOWN length at a compatible version); a
- *            fresh array's §15.10.2 zeros need the bound ≥ 1 at that row.
+ *            fresh array's §15.9.1 zeros need the bound ≥ 1 at that row.
  * Everything else — an ArrayCopy landing in the array, a φ carrying the value,
  * a shape outside these — kills the pair: an absent proof is BOTTOM. */
 static void cp_vinv_content_obligations(compiler_ctx_t* ctx, cp_engine_t* e) {
@@ -13444,7 +13444,7 @@ static void cp_vinv_content_obligations(compiler_ctx_t* ctx, cp_engine_t* e) {
             }
             if (!an || an->kind != CP_VN_EXPR || !an->expr
                     || an->expr->tag != SIR_NEWARRAY) { ok = false; continue; }
-            /* ESTABLISHMENT: the fresh array's §15.10.2 zeros are in range iff
+            /* ESTABLISHMENT: the fresh array's §15.9.1 zeros are in range iff
              * the pair's bound at THIS row is at least 1 — the data cell's
              * reaching version must be a store of a KNOWN-size allocation. */
             int cell = cp_cell_lookup(e, cp_cell_key_field(cls, dfld));
@@ -13765,7 +13765,7 @@ static void cp_summarize(compiler_ctx_t* ctx, int method_idx,
             sm->ret_maybe_null = maybe_null;
         }
     }
-    /* VFG Rule 1 return half / JLS §15.9.4 — a FRESH return: every reachable ref-`return` names only
+    /* VFG Rule 1 return half / JLS §15.8.1 — a FRESH return: every reachable ref-`return` names only
      * concrete allocation SITES this method owns (`o >= obj_first_site`) and never null. The object
      * identity is NOT mintable at the caller (Obj naming is per-site), so it stays `Oret`; but a `new`
      * never returns null, and THAT the caller can use (drop the NPE on the result). Sound: one Oext /
@@ -14567,7 +14567,7 @@ static void cp_licm_try_hoist(cp_licm_ctx_t* L, sir_node_t** slot, int depth) {
     }
 }
 
-/* §7.2's merged unsigned compare, on the recorded guard rows. A §15.13.1
+/* §7.2's merged unsigned compare, on the recorded guard rows. A §15.12.1
  * bounds pair the solve could NOT remove — the IDX_LOW branch (`i < 0`,
  * throws AIOOBE on true) whose fall-through reaches the IDX_HIGH branch
  * (`i >= a.length`, same subject slot, same arm shape) — is ONE test:
@@ -14613,7 +14613,7 @@ static int cp_collapse_bounds_pairs(const compiler_fact_t* facts, int nfacts,
 }
 
 /* The DIV_OVERFLOW arm's DIVIDEND route. The arm exists for exactly one
- * input (§15.17.2: MIN/-1 wraps in Java, traps in wasm), so when the
+ * input (§15.16.2: MIN/-1 wraps in Java, traps in wasm), so when the
  * dividend provably cannot be MIN the two arms compute the same value
  * everywhere — `a / -1 == -a` for every a ≠ MIN — and the branch is one
  * dead test. Reads the published facts (the divisor-excluding-(-1) route

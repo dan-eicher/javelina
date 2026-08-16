@@ -171,7 +171,7 @@ static java_type_tag_t prim_tag_of_type(const ast_type_t* t) {
     }
 }
 
-/* §15.17 multiplicative, §15.18 additive. */
+/* §15.16 multiplicative, §15.17 additive. */
 static jls_const_t arith(ast_binop_t op, jls_const_t a, jls_const_t b) {
     if (!is_numeric(a.tag) || !is_numeric(b.tag)) return NOT_CONSTANT;
     java_type_tag_t k = binary_promote(unary_promote(a.tag), unary_promote(b.tag));
@@ -182,7 +182,7 @@ static jls_const_t arith(ast_binop_t op, jls_const_t a, jls_const_t b) {
         case AST_SUB: return mk_double(x - y);
         case AST_MUL: return mk_double(x * y);
         case AST_DIV: return mk_double(x / y);              /* §15.16.2: no exception; ±inf / NaN */
-        /* §15.17.3: the floating remainder has the sign of the dividend and the magnitude of
+        /* §15.16.3: the floating remainder has the sign of the dividend and the magnitude of
          * x - (y * q) where q is x/y truncated toward zero — C's fmod, not IEEE remainder. */
         case AST_REM: return mk_double(fmod(x, y));
         default: return NOT_CONSTANT;
@@ -228,7 +228,7 @@ static jls_const_t arith(ast_binop_t op, jls_const_t a, jls_const_t b) {
     }
 }
 
-/* §15.19 shift: each operand is unary-promoted separately; the result has the promoted type of
+/* §15.18 shift: each operand is unary-promoted separately; the result has the promoted type of
  * the LEFT operand; only the low 5 (int) or 6 (long) bits of the distance are used. */
 static jls_const_t shift(ast_binop_t op, jls_const_t a, jls_const_t b) {
     if (!is_integral(a.tag) || !is_integral(b.tag)) return NOT_CONSTANT;
@@ -287,7 +287,7 @@ static jls_const_t compare(ast_binop_t op, jls_const_t a, jls_const_t b) {
     }
 }
 
-/* §15.22 bitwise and logical: on two booleans they are the logical operators; on two integral
+/* §15.21 bitwise and logical: on two booleans they are the logical operators; on two integral
  * operands they are bitwise, after binary numeric promotion. */
 static jls_const_t bitwise(ast_binop_t op, jls_const_t a, jls_const_t b) {
     if (a.tag == JT_BOOL || b.tag == JT_BOOL) {
@@ -349,7 +349,7 @@ static jls_const_t eval_final_field(const sema_ctx_t* ctx, const sema_field_t* f
     if (jt_is_reference(f->type)) return NOT_CONSTANT;    /* String constants: see the header note */
     jls_const_t c = eval(ctx, f->init_expr, depth + 1);
     if (c.tag == JT_VOID) return NOT_CONSTANT;
-    /* §4.12.4: the constant VARIABLE's type is the FIELD's declared type, not the
+    /* The constant field's type is the FIELD's declared type, not the
      * initializer's — `static final byte B = 1;` is a byte, though `1` is an int. §5.2's
      * assignment conversion already narrowed it at the declaration. */
     return is_numeric(f->type.tag) || f->type.tag == JT_BOOL ? cast_to(f->type.tag, c) : c;

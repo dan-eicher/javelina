@@ -277,7 +277,7 @@ MEMBERS (. emit_wasm_ctx emit; struct wasm_types_t* types;
    static inline int64_t jf_shl64(int64_t a, int64_t b) { return (int64_t)((uint64_t)a << (b & 63)); }
    static inline int64_t jf_shr64(int64_t a, int64_t b) { return (int64_t)(a < 0 ? ~(~(uint64_t)a >> (b & 63)) : (uint64_t)a >> (b & 63)); }
    static inline int64_t jf_ushr64(int64_t a, int64_t b) { return (int64_t)((uint64_t)a >> (b & 63)); }
-   /* §15.17.2/§15.17.3: `/` and `%` throw on a zero divisor, and MIN/-1 overflows
+   /* §15.16.2/§15.16.3: `/` and `%` throw on a zero divisor, and MIN/-1 overflows
     * to MIN rather than trapping. Folding either would move a runtime exception to
     * compile time or compute UB, so both are refused and the ops emit as usual. */
    #define JF_DIVOK32(a,b) ((b) != 0 && !((a) == INT32_MIN && (b) == -1))

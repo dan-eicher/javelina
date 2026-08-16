@@ -12,6 +12,9 @@
  *                            for tags without a single-char form
  *                            (NULL, ERROR).
  *
+ * "JVMS" here is the first edition (Lindholm & Yellin, Addison-Wesley,
+ * 1996) — the class-file spec of the JLS-1.0 era; see BIBLIOGRAPHY.md.
+ *
  * Indexed by `java_type_tag_t`. Out-of-enum indices are zero. */
 #ifndef JAVELINA_COMPILER_JTYPE_META_H
 #define JAVELINA_COMPILER_JTYPE_META_H

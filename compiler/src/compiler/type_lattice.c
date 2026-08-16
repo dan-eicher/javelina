@@ -106,7 +106,7 @@ static bool tk_is_ref(type_kind_t k) {
     return k == TK_REF || k == TK_ARRAY || k == TK_PRIM_ARRAY || k == TK_NULL;
 }
 
-/* Is `high` the type `Object`? Every reference type is a subtype of it (§4.10.2) — which
+/* Is `high` the type `Object`? Every reference type is a subtype of it (§5.1.4) — which
  * is what makes the reference kinds JOIN instead of collapsing to BOTTOM. */
 static bool tk_is_object(const sema_ctx_t* sema, const Type* high) {
     return sema && high->kind == TK_REF && high->ref.class_id == sema->wk.object_id;
@@ -139,7 +139,7 @@ const Type* type_meet(const sema_ctx_t* sema, const Type* a, const Type* b,
     if (type_leq(sema, a, b)) return b;
     if (type_leq(sema, b, a)) return a;
 
-    /* Two REFERENCE types always have an upper bound: Object (§4.10.2). Only the absence
+    /* Two REFERENCE types always have an upper bound: Object (§5.1.4). Only the absence
      * of a hierarchy (sema == NULL — the pure-algebra case) leaves them incomparable. This
      * covers the cross-kind reference joins too: an array and a class, or a reference array
      * and a primitive array, are both Objects. (Java's true LUB can be an intersection type
@@ -197,7 +197,7 @@ const Type* type_meet(const sema_ctx_t* sema, const Type* a, const Type* b,
     return pool->bottom;
 }
 
-/* The lattice's ⊑ IS JLS §4.10.2 reference subtyping. It asks sema_ref_is_subtype — the ONE
+/* The lattice's ⊑ IS JLS §5.1.4 reference subtyping. It asks sema_ref_is_subtype — the ONE
  * predicate — and never the extends chain, which answers "not a subtype" for every
  * interface (an interface is in nobody's `extends`), and which is how a consumer that DROPS
  * on "no" would delete every object implementing the interface it was asked about. */

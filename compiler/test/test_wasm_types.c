@@ -34,7 +34,7 @@ static int contains(const uint8_t* hay, int hn, const uint8_t* needle, int nn) {
     return 0;
 }
 
-/* JLS §15.12.4.4 steps 1-2, transcribed: "search class S, and then the superclasses of class
+/* JLS §15.11.4.4 steps 1-2, transcribed: "search class S, and then the superclasses of class
  * S" for "a declaration for a non-abstract method named m with the same descriptor". The
  * oracle deliberately does NOT call sema_resolve_virtual — that routine is what fills the
  * vtable, so using it here would make the check agree with the emitter by construction.
@@ -374,7 +374,7 @@ int main(void) {
             for (int s = 0; s < nslots; s++) rows[s] = -1;
             vtable_row_scan(g.code, glen, wasm_vtable_global_index(&vw, ci), -1, rows, nslots);
             /* Every declaration a call site can name on a `ci` receiver: any method of any
-             * supertype (sema owns §4.10.2 — the test does not re-walk the hierarchy). */
+             * supertype (sema owns §5.1.4 — the test does not re-walk the hierarchy). */
             for (int ai = 0; ai < ncls; ai++) {
                 if (!sema_ref_is_subtype(&vs, ci, ai)) continue;
                 const sema_class_t* a = sema_get_class(&vs, ai);

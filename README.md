@@ -113,7 +113,7 @@ compiler/      Java 1.0 -> wasm-GC
   lib/         the Java runtime library, compiled to wasm
   docs/        design specs (combined-analysis-spec.md, sema-contract.md, ...)
 docs/          host-abi.md (the imports an embedder must supply),
-               water.md (WATER(1)), test-baseline.md
+               water.md (WATER(1))
 BBQ/           the code-generation toolchain (submodule)
 testsuite/     the official WebAssembly conformance suite (submodule)
 ```
@@ -123,4 +123,7 @@ testsuite/     the official WebAssembly conformance suite (submodule)
 javelina's own sources are public domain (the Unlicense). The Java runtime
 library in `compiler/lib` is GPLv2 with the Classpath Exception, because it
 ports code from OpenJDK. See [LICENSE](LICENSE) for the split and
-[THIRD_PARTY.md](THIRD_PARTY.md) for the per-file credit ledger.
+[THIRD_PARTY.md](THIRD_PARTY.md) for the per-file credit ledger. The *ideas*
+have a ledger of their own: [BIBLIOGRAPHY.md](BIBLIOGRAPHY.md) records every
+specification, paper, thesis and book the implementation answers to, what is
+taken from each, and where in the tree it lives.

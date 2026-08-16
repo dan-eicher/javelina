@@ -60,7 +60,7 @@ static bbq_arena* sess_arena(void) {
 // it is parsed ONCE and shared.
 //
 // Sharing it takes one extra step, because sema DESUGARS into the AST it is
-// given: JLS §8.8.7 prepends the implicit super() into every constructor body
+// given: JLS §8.6.5 prepends the implicit super() into every constructor body
 // that lacks an explicit one, allocating the statement and a replacement
 // statement array from ctx->arena and writing them back into the node. The
 // prepend is guarded — it re-reads stmts[0] and skips when a constructor call
@@ -441,7 +441,7 @@ static bool any_branch_tests_rem(const sir_node_t* entry) {
     return false;
 }
 
-/* §4.12.5 oracle: the (single) Return's value is a LoadLocal of a slot whose def is
+/* §4.5.4 oracle: the (single) Return's value is a LoadLocal of a slot whose def is
  * `StoreLocal(slot, LoadConst 0)` — the default-init the scalar rewrite emits. */
 static bool retslot_defaults_to_zero(const sir_node_t* entry) {
     const sir_node_t* seen[1024]; int ns = 0;
@@ -791,7 +791,7 @@ static void collect_two(const sir_node_t* entry, int tag,
     }
 }
 
-/* The compiler lowers `(A) x` (JLS §5.5 + §15.16) as a GUARDED cast:
+/* The compiler lowers `(A) x` (JLS §5.5 + §15.15) as a GUARDED cast:
  *
  *      if (x == null)          -> checkcast x      // null passes any cast
  *      else if (x instanceof A)-> checkcast x      // the ok arm
@@ -1022,7 +1022,7 @@ int main(void) {
         "g") == 3,
         "cp_pack sema anchor: a long param occupies ONE slot (max_locals 3)");
 
-    // 8. §15.15.5 bitwise complement: ~x lowers to Xor(x, minus-one) and the
+    // 8. §15.14.5 bitwise complement: ~x lowers to Xor(x, minus-one) and the
     //    minus-one leaf must match the operand's WIDTH. The burg's only
     //    LoadConst tile is i32.const, so a long ~ needs a LoadLongConst leaf —
     //    a LoadConst(dt=long) makes the whole Xor spine uncoverable.
@@ -1147,7 +1147,7 @@ int main(void) {
         }
     }
 
-    // 13. §15.13.1 upper-bounds guard, spec §5: "array.len(a) ⟹ [0,∞) and BINDS
+    // 13. §15.12.1 upper-bounds guard, spec §5: "array.len(a) ⟹ [0,∞) and BINDS
     //     AN INDEX VAR TO THAT LENGTH; branch refinement on <, <=, == narrows the
     //     taken edge" ⟹ "drop ArrayIndexOutOfBounds when idx ⊑ [0, len)".
     //     No interval can express `i < a.length` — the bound is a VALUE — so the
@@ -1162,7 +1162,7 @@ int main(void) {
           { "class T { static int f(int[] a, int n) { int s = 0;"
             "  for (int i = 0; i < n; i++) s += a[i]; return s; } }",
             1, 0, "a loop bounded by an UNRELATED n keeps its bounds guard (fail-closed)" },
-          /* §15.10.1 + §10.7: (new T[n]).length IS n, so BOTH the read of `a` and the
+          /* §15.9.1 + §10.7: (new T[n]).length IS n, so BOTH the read of `a` and the
            * write into the fresh `r` are provably in bounds — the store's bound is the
            * allocation's own size operand, which is the loop bound. Needs the load to
            * forward to the stored value and the array length to be the allocation's
@@ -1363,7 +1363,7 @@ int main(void) {
     //     so it is pinned here and not in the partition suite (which hand-builds SIR with
     //     no sema, and therefore cannot answer `classOf(O) ≤ τ` at all).
     //
-    //     `classOf(O) ≤ τ` is JLS §4.10.2 subtyping — sema_ref_is_subtype. Answering it
+    //     `classOf(O) ≤ τ` is JLS §5.1.4 subtyping — sema_ref_is_subtype. Answering it
     //     with the EXTENDS CHAIN (sema_is_subclass_of) says NO for an interface, and this
     //     filter DROPS on NO: casting to an interface would delete every object that
     //     implements it. The interface case below is that pin, and it is the reason the
@@ -1380,7 +1380,7 @@ int main(void) {
           { "interface I { } class A implements I { } class B implements I { }"
             " class T { static Object g(boolean c){ Object o;"
             "   if (c) o = new A(); else o = new B(); return (I) o; } }",
-            "a cast to an INTERFACE drops NOTHING that implements it — §4.10.2 subtyping, "
+            "a cast to an INTERFACE drops NOTHING that implements it — §5.1.4 subtyping, "
             "not the extends chain", true },
           /* FAIL-CLOSED: B extends A, so a cast to A keeps both. */
           { "class A { } class B extends A { }"
@@ -1527,7 +1527,7 @@ int main(void) {
     // 17. Spec §5's other consumer: "drop the INT_MIN/-1 overflow-wrap guard when the
     //     range excludes that pair."
     //
-    //     JLS §15.17.2 says `MIN_VALUE / -1` WRAPS to MIN_VALUE; WASM's i32.div_s TRAPS
+    //     JLS §15.16.2 says `MIN_VALUE / -1` WRAPS to MIN_VALUE; WASM's i32.div_s TRAPS
     //     on it. So the DDCG emits a `divisor == -1` arm that negates instead of
     //     dividing — a branch on every single integer division in the program, throwing
     //     nothing, and until now not recorded as a guard at all: not a guard KIND, not
@@ -1712,7 +1712,7 @@ int main(void) {
               "τ̂ of a PARAMETER is BOTTOM — its class is unknown, and an unknown class "
               "must never join to a concrete one (fail closed)");
 
-        /* 4. ⊥null joins AWAY: JLS §4.10.2 makes null a subtype of every reference type,
+        /* 4. ⊥null joins AWAY: JLS §5.1.4 makes null a subtype of every reference type,
          *    so `c ? new C() : null` is still exactly C. Its NPE guard is §4's business,
          *    not §3's — the two elements are independent. */
         CHECK(q[3].kind == TK_REF && q[3].cls >= 0 && q[3].cls == q[3].site_a,
@@ -1738,7 +1738,7 @@ int main(void) {
             1, "a cast whose object is provably an A drops its CLASS_CAST guard" },
           { "interface I { } class A implements I { }"
             " class T { static I g(){ Object o = new A(); return (I) o; } }",
-            1, "…and so does a cast to an INTERFACE the object implements (§4.10.2, not "
+            1, "…and so does a cast to an INTERFACE the object implements (§5.1.4, not "
                "the extends chain)" },
           { "class A { } class B extends A { }"
             " class T { static A g(){ Object o = new B(); return (A) o; } }",
@@ -2116,9 +2116,9 @@ int main(void) {
 
 
 
-    // 24. JLS §13.1 + §4.12.4: a use of a CONSTANT VARIABLE — a `final` field of primitive
-    //     type whose initializer is a constant expression — is resolved to its VALUE at
-    //     compile time. It must NOT reach the SIR as a GetStatic.
+    // 24. JLS §13.1: a use of a constant field — a `static final` field of primitive
+    //     type whose initializer is a §15.27 constant expression — is resolved to its
+    //     VALUE at compile time. It must NOT reach the SIR as a GetStatic.
     //
     //     The fold used to handle byte/short/int and give up on the other five, using its
     //     own int-only predicate rather than the ONE §15.27 evaluator. So a `static final
@@ -2187,7 +2187,7 @@ int main(void) {
     // 24d. The CALL TARGETS the ddcg records. burg emits a call's funcidx from the Invoke
     //      node's own (class, method) — codegen_wasm.burg's Invoke rules all read
     //      `wasm_func_index(node->invoke_*.class_id, ...)` — and the ddcg chose that pair when
-    //      it picked the §15.12 dispatch form. So it says so, and the backend looks it up
+    //      it picked the §15.11 dispatch form. So it says so, and the backend looks it up
     //      instead of re-deriving the set by walking the graph.
     //
     //      Both pipelines, because -O0 is the correctness base: a fact only the optimizer
@@ -2472,7 +2472,7 @@ int main(void) {
     {
         struct { const char* src; int want; const char* label; bool summarize; } es[] = {
           /* THE STANDING RED PIN, FLIPPED GREEN once the harness gained summaries (07-15). It was red, deliberately, from
-           * the day stage 4 landed: `new C()` calls the synthesized default ctor (JLS §8.8.9),
+           * the day stage 4 landed: `new C()` calls the synthesized default ctor (JLS §8.6.7),
            * so with no summaries the receiver is passed to a §7 BOTTOM METHOD and escapes. With
            * `summarize` set, this case runs the REAL path — the ctor chain summarized
            * supers-first, exactly as the reverse-topological driver orders it — and the CLEAN chain leaves the
@@ -2760,7 +2760,7 @@ int main(void) {
         int t_id = sema_find_class(&sctx, "T");
         CHECK(c_id >= 0 && d_id >= 0 && t_id >= 0, "C, D and T resolve");
         /* h()'s index, LOOKED UP — sema also synthesizes a default ctor into T's methods
-         * (JLS §8.8.9), so it is not 0 just because h is the only thing in the source. */
+         * (JLS §8.6.7), so it is not 0 just because h is the only thing in the source. */
         int h_idx = -1;
         const sema_class_t* tc = sema_get_class(&sctx, t_id);
         for (int k = 0; tc && k < (int)bbq_vec_len(tc->methods); k++)
@@ -3084,7 +3084,7 @@ int main(void) {
         sema_destroy(&sctx); bbq_arena_free(&a);
     }
     {
-        // §32.2 JLS §4.12.5 — a field READ BEFORE ANY STORE reads the DEFAULT (0), not
+        // §32.2 JLS §4.5.4 — a field READ BEFORE ANY STORE reads the DEFAULT (0), not
         //       whatever the fresh slot happened to hold.
         bbq_arena a; bbq_arena_init(&a, 1 << 16);
         int nlib = 0;
@@ -3109,11 +3109,11 @@ int main(void) {
         CHECK(count_tag(m->entry, SIR_NEW) == 0, "§32.2: the New is gone");
         CHECK(count_tag(m->entry, SIR_GETFIELD) == 0,
               "§32.2: the field read became a local read");
-        /* §4.12.5: the value returned is the field's slot, and that slot's def stores
+        /* §4.5.4: the value returned is the field's slot, and that slot's def stores
          * the DEFAULT (0). (Not a LoadConst at the Return — the solve ran before the
          * slot existed, so no fold; the def-init chain is the observable.) */
         CHECK(retslot_defaults_to_zero(m->entry),
-              "§32.2: JLS §4.12.5 — an unwritten field reads its DEFAULT (0): the "
+              "§32.2: JLS §4.5.4 — an unwritten field reads its DEFAULT (0): the "
               "returned slot is initialized with 0 AT the allocation");
         sema_destroy(&sctx); bbq_arena_free(&a);
     }
@@ -3246,7 +3246,7 @@ int main(void) {
         // §32.6 the SUMMARY site (the recorded ALLOC fact says the site can run more
         //       than once: a loop), BOTH halves of the §5.4 per-visit rule:
         //       (a) never-escaping, no name of the object live entering the def — the
-        //           def re-runs each visit (LoadNull + §4.12.5 defaults re-initialize
+        //           def re-runs each visit (LoadNull + §4.5.4 defaults re-initialize
         //           the slots: a per-visit RESET), so the slots stand for THE CURRENT
         //           visit's object only ⟹ fully virtualized;
         //       (b) FAIL-CLOSED — a name still live entering the def (a ref of the
@@ -4541,7 +4541,7 @@ int main(void) {
                   "§42f: o.v holds the node Statement 32 CREATED for the callee's allocation "
                   "(an object in the created-node id range, not a site and not the catch-all)");
 
-            /* JLS §4.12.5/§12.5, not Choi: `o` is a `new C()`, so its fields hold their defaults
+            /* JLS §4.5.4/§12.5, not Choi: `o` is a `new C()`, so its fields hold their defaults
              * and its cell rows seed {null} — never the CELL PHANTOM, which means "whatever some
              * PRE-EXISTING object holds in cell v". A phantom here is ⊤ to every consumer, so it
              * costs exactly what CP_OBJ_EXT does and wastes the node Statement 32 created. */
@@ -5150,7 +5150,7 @@ int main(void) {
         sema_destroy(&sctx); bbq_arena_free(&a);
     }
     {
-        // §45p E1 / VFG Rule 1 return half / JLS §15.9.4 — PRODUCER. A factory `m(){ return new C(); }`
+        // §45p E1 / VFG Rule 1 return half / JLS §15.8.1 — PRODUCER. A factory `m(){ return new C(); }`
         //      classifies its return COMPILER_RET_FRESH: the Oret identity is NOT mintable at the caller
         //      (Obj naming is per-site), but a `new` never returns null, so the sound achievable fact —
         //      the result is NonNull — is recorded. Pinned at the producer before its consumer (L0→L1).
@@ -6073,7 +6073,7 @@ int main(void) {
               "divisor in [1,100]: by-zero AND -1-wrap guards fold");
         /* The by-zero guard MUST stay (x spans 0 — the §11 throw is real);
          * the -1-wrap arm folds on the DIVIDEND instead: 1000 is not MIN, so
-         * a/-1 == -a and the two arms compute the same value (§15.17.2 —
+         * a/-1 == -a and the two arms compute the same value (§15.16.2 —
          * the arm throws nothing, no behavior is lost). */
         const char* DK = "class T { static int g(int x){ if (x < -5 || x > 100) return 0; "
                          "return 1000 / x; } }";
@@ -6472,7 +6472,7 @@ int main(void) {
            *
            * Both addends must be provably non-negative before the difference
            * can be minted: `len − pn` bounds nothing when pn < 0, and the
-           * addition must not wrap (§15.18.2). The negatives below are that
+           * addition must not wrap (§15.17.2). The negatives below are that
            * requirement and the three ways the premise can fail to hold. */
           { "class T { static int f(char[] value, int toffset, int pn){ int s = 0;"
             "  if (toffset >= 0 && pn >= 0 && toffset + pn <= value.length)"
@@ -6794,7 +6794,7 @@ int main(void) {
      * and the readout composes exactly four facts. Each is pinned separately
      * HERE, because a red on the table's verdict says only "the pair died" and
      * cannot say WHICH fact is missing — and the shape has to be the one the
-     * lowering actually emits (the size is spilled to a temp, and §15.10.1's
+     * lowering actually emits (the size is spilled to a temp, and §15.9.1's
      * check tests that temp), so a hand-built method would pin a shape no Java
      * program produces. */
     {
@@ -6880,7 +6880,7 @@ int main(void) {
                         && e->vnodes[j]->expr->tag == SIR_GETFIELD
                         && e->vnodes[j]->expr->get_field.data_type == SIR_DTINT)
                     cntv = e->vnodes[j];
-            /* Through the REFINE, deliberately: §15.10.1's check has already
+            /* Through the REFINE, deliberately: §15.9.1's check has already
              * refined the size on this arm, and a Refine is a Leader of its own
              * — congruence must not merge a checked value with an unchecked one.
              * So the walk descends leaders AND refine inputs, which is the same
@@ -6906,7 +6906,7 @@ int main(void) {
                   "FACT 2: the allocation's SIZE resolves to the count read "
                   "(§10.7), through the check's refine");
 
-            /* FACT 3 — the wrap fence's second form: §15.10.1's negative-size
+            /* FACT 3 — the wrap fence's second form: §15.9.1's negative-size
              * check has fallen through at the allocation, so the size carries a
              * non-negative floor THERE. A wrapped product is negative, so this
              * is what excludes it. */
@@ -6943,7 +6943,7 @@ int main(void) {
              * per-site phantom, so those authorities correctly refuse across
              * the excepting allocation. The rule that holds is the receiver's
              * own duality: `this` has two lowered forms (LoadThis, and the
-             * synthesized slot-0 LoadLocal), §15.8.3 makes it unassignable,
+             * synthesized slot-0 LoadLocal), §15.7.2 makes it unassignable,
              * and both reads here ARE this-forms — one object. */
             sir_node_t* sro = (srow >= 0) ? e->spine[srow]->put_field.obj : NULL;
             sir_node_t* cro = cntv ? sir_child((sir_node_t*)cntv->expr, 0) : NULL;
@@ -6957,7 +6957,7 @@ int main(void) {
                        sro ? (int)sro->tag : -1, cro ? (int)cro->tag : -1);
             CHECK(s_this && c_this,
                   "FACT 4b: the count read and the store name the SAME receiver "
-                  "— both are this-forms (§15.8.3: `this` is unassignable)");
+                  "— both are this-forms (§15.7.2: `this` is unassignable)");
 
             /* FACT 5 — the hypothesis is GONE once the table is published. The
              * assumption is what the obligations are verified UNDER; it is not a
@@ -7701,7 +7701,7 @@ int main(void) {
     {
         struct { const char* src; const char* cls; const char* m;
                  int want_surviving; int kind; const char* what; } icases[] = {
-          /* The positive: ctor establishes (fresh arrays, §15.10.2 zeros below
+          /* The positive: ctor establishes (fresh arrays, §15.9.1 zeros below
            * a KNOWN length), the setter is the paper's §4.3 checked set as a
            * guard, the reader guards k against indx.length (the INNER check —
            * out of scope by the paper's own p.3 — folds by the ordinary
@@ -7921,7 +7921,7 @@ int main(void) {
         }
         /* Five IDX_HIGH emitted (value[k], indx[k], jndx[k], and the two
          * indirect accesses — the write-back path guards too, since the
-         * §15.26.2 fix). value[k] folds on the loop bound (invariant-free),
+         * §15.25.2 fix). value[k] folds on the loop bound (invariant-free),
          * both INDIRECT checks fold on the content invariant, and only the
          * index-array checks stay: 2 surviving. */
         if (surviving != 2)
@@ -8235,7 +8235,7 @@ int main(void) {
     }
 
     /* ── The blessed no-op ctor is blessed from DECLARATIONS, and fails closed ─
-     * A §8.8.9 synthesized default constructor runs `super()` and this class's
+     * A §8.6.7 synthesized default constructor runs `super()` and this class's
      * instance-variable initializers and nothing else, so an imported one with
      * neither is a call the analysis knows is empty — that is what lets a user
      * ctor's `this` survive its own `super()` when the library is
@@ -8521,9 +8521,9 @@ int main(void) {
          * ORIGINAL reader is the invoke PEA deletes; the replay's bind is a NEW
          * reader, and every consumer of the row set (reachability, liveness,
          * DSE) must see it — or the temp's store looks dead, the add is deleted,
-         * and the field reads its §4.12.5 default. A constant arg cannot catch
+         * and the field reads its §4.5.4 default. A constant arg cannot catch
          * this: the solve folds the bind to the constant and nothing reads the
-         * temp. `q = 9` as the second arg FORCES the spill (§15.12.4.2
+         * temp. `q = 9` as the second arg FORCES the spill (§15.11.4.2
          * left-to-right evaluation: q + 1 must be captured before q is
          * clobbered) — an inline-arg shape can compile correctly by accident.
          * Same harness as §44 — the replay only fires under converged ctor
@@ -8582,7 +8582,7 @@ int main(void) {
      * carries the published hull, so `Eq(divisor, 0)` folds when the hull
      * excludes 0 (DIV_ZERO) and `Eq(divisor, -1)` when it excludes -1
      * (DIV_OVERFLOW); a dividend hull excluding INT_MIN collapses the
-     * overflow arm even with an unknown divisor (§15.17.2: a/-1 == -a
+     * overflow arm even with an unknown divisor (§15.16.2: a/-1 == -a
      * everywhere but MIN). The invariant is CLASS-level — obligations sweep
      * every writer program-wide — so consumption needs no object identity. */
     {
@@ -8632,7 +8632,7 @@ int main(void) {
             "  int f(int n){ return total / n; } }", "W", "f", 0,
             COMPILER_GUARD_DIV_OVERFLOW,
             "…but the DIVIDEND's hull excludes INT_MIN, and a/-1 == -a "
-            "everywhere but MIN (§15.17.2): DIV_OVERFLOW collapses" },
+            "everywhere but MIN (§15.16.2): DIV_OVERFLOW collapses" },
         };
         for (int t = 0; t < (int)(sizeof hcases / sizeof hcases[0]); t++) {
             bbq_arena a; bbq_arena_init(&a, 1 << 16);
@@ -8669,7 +8669,7 @@ int main(void) {
         }
     }
 
-    // §7.2's merged unsigned compare: a SURVIVING §15.13.1 bounds pair —
+    // §7.2's merged unsigned compare: a SURVIVING §15.12.1 bounds pair —
     // `i < 0 || i >= a.length`, spine-adjacent, same subject, both arms raising
     // AIOOBE — is ONE test: `(u)i >= (u)a.length` (a negative i is a huge
     // unsigned value). The application phase merges it after the solve, reading
@@ -8745,7 +8745,7 @@ int main(void) {
         sema_destroy(&sctx); bbq_arena_free(&arena);
     }
 
-    /* ── §15.26.2 compound assignment on a FLOATING-POINT local ───────────────
+    /* ── §15.25.2 compound assignment on a FLOATING-POINT local ───────────────
      *
      * `E1 op= E2` is `E1 = (T)((E1) op (E2))` with T the type of E1. Every
      * compound-assignment pin in the tree was on an integral type (long, byte,
@@ -8777,7 +8777,7 @@ int main(void) {
             CHECK_CASE(lbl, st != NULL);
             if (!st) continue;
             /* §sema_param_slot: a static method's first parameter is slot 0, so
-             * the write-back lands back in the LHS itself — the §15.7.1 spill
+             * the write-back lands back in the LHS itself — the §15.6.1 spill
              * temps the operands read from are slots past the user's. */
             snprintf(lbl, sizeof lbl, "%s: writes back to the LHS's own slot", cs[i].what);
             CHECK_CASE(lbl, st->store_local.slot == 0);

@@ -3527,7 +3527,7 @@ static void test_cp_c3_increment_lands_on_the_length(void) {
  * allocation provably big enough for the count it replaces.
  *
  * The fence is the interval, exactly as the D-class rows state it: x >= 0 for
- * the ordering itself, and x * c representable for the wrap (§15.18.2) — a
+ * the ordering itself, and x * c representable for the wrap (§15.17.2) — a
  * product that overflows is negative, and `x * c >= x` is false there.
  */
 static void test_cp_mul_carries_monotone_lower_bound(void) {
@@ -7091,7 +7091,7 @@ static void test_cp_array_load_does_not_forward_across_a_call(void) {
     bbq_arena_free(&a);
 }
 
-/* §15.10.1 + §10.7: `(new T[n]).length` IS `n` — the array is created with exactly
+/* §15.9.1 + §10.7: `(new T[n]).length` IS `n` — the array is created with exactly
  * the evaluated dimension, and the length is final. Click's ArrayLengthNode
  * ::Identity, pinned as a congruence. */
 static void test_cp_arraylen_of_fresh_array_is_its_size(void) {
@@ -7111,7 +7111,7 @@ static void test_cp_arraylen_of_fresh_array_is_its_size(void) {
     TEST_ASSERT_NOT_NULL(v_len);
     TEST_ASSERT_NOT_NULL(v_n);
     TEST_ASSERT_EQUAL_INT_MESSAGE(v_n->partition, v_len->partition,
-        "(new T[n]).length IS n — §15.10.1 gives the array exactly the evaluated "
+        "(new T[n]).length IS n — §15.9.1 gives the array exactly the evaluated "
         "dimension and §10.7 makes the length final");
     cp_free(e);
     bbq_arena_free(&a);
@@ -7420,7 +7420,7 @@ static void test_cp_f32_const_keeps_exact_bits(void) {
     bbq_arena_free(&a);
 }
 
-/* §15.15.5 long complement: `x & ~(1L << s)` — the XOR with -1L (the
+/* §15.14.5 long complement: `x & ~(1L << s)` — the XOR with -1L (the
  * lowering of ~) must survive. A wide constant keeps its payload in
  * .lvalue; any fold reading the i32 .value field sees 0 and treats
  * -1L as an XOR identity, silently deleting the NOT (BitSet.clear). */
@@ -7522,7 +7522,7 @@ static void test_cp_loop_accumulator_not_constant(void) {
     bbq_arena_free(&a);
 }
 
-/* §15.21.1 / §15.18.2: NaN breaks reflexivity — the §4.6 x⊙x folds
+/* §15.20.1 / §15.17.2: NaN breaks reflexivity — the §4.6 x⊙x folds
  * (NE(x,x)→0, EQ(x,x)→1, SUB(x,x)→0) are UNSOUND for float/double
  * operands (NaN != NaN is true; NaN - NaN is NaN). Float.isNaN is
  * exactly `v != v` and must survive. */

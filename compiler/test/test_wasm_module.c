@@ -351,16 +351,16 @@ int main(void) {
             "class M { static int f(int x){ return x + 1; } }",
             "class M { static int f(int x){ StringBuffer b = new StringBuffer(); b.append(x); return b.toString().length(); } }",
             "class M { int v; M(int x){ v = x; } static int f(int x){ return new M(x).v; } }",
-            /* the §15.10 index guard synthesizes `new IndexOutOfBoundsException()` */
+            /* the §15.12.1 index guard synthesizes `new IndexOutOfBoundsException()` */
             "class M { static int f(int[] a){ return a[0] + a.length; } }",
-            /* §15.16 and §15.19.2 both synthesize a Class.isInstance call, and they are
+            /* §15.15 and §15.19.2 both synthesize a Class.isInstance call, and they are
              * SEPARATE lowerings — kept in separate programs, because one records the same
              * (Class, isInstance) pair the other needs and would mask its omission. */
             "class M { static int f(Object o){ String[] s = (String[]) o; return s.length; } }",
             "class M { static int f(Object o){ return (o instanceof String[]) ? 1 : 0; } }",
             /* §12.4.1 the $ensure_init barrier on a cross-class static reference */
             "class A { static int x = 5; } class M { static int f(int y){ return A.x + y; } }",
-            /* §15.18.1 string concatenation synthesizes the StringBuffer chain */
+            /* §15.17.1 string concatenation synthesizes the StringBuffer chain */
             "class M { static int f(int x){ return (\"v=\" + x + \"!\").length(); } }",
         };
         static const int modes[] = { SEMA_MODE_WHOLE, SEMA_MODE_PLUGIN };

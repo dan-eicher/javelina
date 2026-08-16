@@ -207,7 +207,7 @@ int main(void) {
         bbq_arena_free(&a);
     }
 
-    /* §15.25 in a BOOLEAN-CONTROL position. `if (b ? p : q)` gens the conditional
+    /* §15.24 in a BOOLEAN-CONTROL position. `if (b ? p : q)` gens the conditional
      * with γ = pair(Lthen, Lelse); Fig. 5 hands that same γ to both arms, so each
      * ends in its OWN branch to the SHARED Lt and Lf — two shared destinations, two
      * MERGE records, and no value join (nothing converges to deliver a value). The
@@ -230,7 +230,7 @@ int main(void) {
         bbq_arena_free(&a);
     }
 
-    /* §14.7 a labelled BLOCK. `loop_frame` is the FRONTEND's break-target
+    /* §14.6 a labelled BLOCK. `loop_frame` is the FRONTEND's break-target
      * environment; the backend needs the same label as a scope row or it frames
      * nothing and each `break L` emits the exit inline. Keyed on the body head —
      * "the branch head the backend will encounter top-down" (§2.1). */
@@ -247,7 +247,7 @@ int main(void) {
         bbq_arena_free(&a);
     }
 
-    /* §14.16 the CONTINUE target. Two rows, two consumers: kind 4 keyed on the
+    /* §14.14 the CONTINUE target. Two rows, two consumers: kind 4 keyed on the
      * target itself is the OPTIMIZER's merge marker (nothing may be lifted across
      * the step), and a MERGE keyed on the BODY head is the structurer's emit-once
      * label. The second exists only when a `continue` actually reaches it — with no

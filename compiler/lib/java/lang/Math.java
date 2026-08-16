@@ -742,11 +742,11 @@ public final class Math {
     // unsigned 32-bit less-than (JLS 1.0 has no Integer.compareUnsigned).
     private static boolean ltu(int a, int b) { return (a ^ 0x80000000) < (b ^ 0x80000000); }
 
-    // §15.17.3 float remainder: the compiler lowers `float % float` here (WASM has no f32.rem).
+    // §15.16.3 float remainder: the compiler lowers `float % float` here (WASM has no f32.rem).
     // Computing through the double fmod is EXACT, not an approximation: the true remainder
     // r = x - y*trunc(x/y) of two binary32 values is itself exactly representable in binary32
     // (|r| < |y|, and r is computed without rounding), and float->double is exact both ways for
-    // such a value. NaN/infinity/zero operands widen and narrow unchanged, so §15.17.3's special
+    // such a value. NaN/infinity/zero operands widen and narrow unchanged, so §15.16.3's special
     // cases carry through untouched.
     private static float fmod(float x, float y) {
         return (float) fmod((double) x, (double) y);

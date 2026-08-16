@@ -965,7 +965,7 @@ int main(int argc, char **argv) {
         /* B3's quantity: stamps whose opcode lacked the rule's state, so the
          * stitcher descended and the bridge spilled slots the cover never
          * priced. Legal, so the exit-code gate is the meter's own identity;
-         * the VALUE is a recorded baseline (docs/test-baseline.md law). */
+         * the VALUE is a recorded baseline. */
         fprintf(sum, "wast tier-2 descend: %llu stamp(s) below the rule's state, "
                      "%llu unpriced slot(s)%s",
                 (unsigned long long)ts->descends,
@@ -1080,8 +1080,8 @@ int main(int argc, char **argv) {
     // validation gate, the reject-reason meter, the execution gate and the trap-reason
     // meter could all move without the suite failing — a regression that took text
     // validation from 5135/0 to 4928/74 still printed PASS. A number worth printing is a
-    // number worth failing on; if one is expected to be non-zero it belongs in
-    // docs/test-baseline.md as a committed figure, not silently ungated here.
+    // number worth failing on; one expected to be non-zero is a committed
+    // baseline figure, never silently ungated here.
     wat_emit_stats_t ws_gate;
     wat_emit_stats(&ws_gate);
     return (g_bad || g_wat_bad || g_val_bad || g_tval_bad || g_val_msgbad
@@ -1138,8 +1138,8 @@ int main(int argc, char **argv) {
              * tree the builder produced went through the rewrite), no cap
              * bound on this corpus, and the pass never disagreed with itself.
              * `rewritten` and `rebuild refusals` are printed BASELINES now
-             * that the axioms exist (docs/test-baseline.md law) — a rewrite
-             * is the tier working, and a refusal is a fence holding. */
+             * that the axioms exist — a rewrite is the tier working, and a
+             * refusal is a fence holding. */
             || (tier == WAST_TIER_3
                 && (es->bodies != ts->bodies_built
                     || es->cap_refusals || es->identity_fails

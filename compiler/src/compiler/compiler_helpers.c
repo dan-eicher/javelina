@@ -321,8 +321,8 @@ int ddcg_array_elem_class_at(ddcg_ctx_t* ctx, ast_expr_t* node, int comp_dims) {
     return sema_array_class_id(ctx->sema, cur);
 }
 
-/* JLS §13.1: a use of a CONSTANT VARIABLE (§4.12.4 — a final variable of primitive or
- * String type whose initializer is a constant expression) is resolved to its VALUE at
+/* JLS §13.1: a use of a constant field (static final, of primitive or
+ * String type, initialized with a §15.27 constant expression) is resolved to its VALUE at
  * compile time. So is any other constant expression (§15.27). Returns (folded, literal);
  * the literal node is meaningful only when `folded`.
  *
@@ -432,7 +432,7 @@ sir_node_t* ddcg_sema_param_ref(ddcg_ctx_t* ctx, int class_id, int method_idx, i
     return NULL;
 }
 
-/* JLS §15.18.1 string-concatenation — the ddcg reads these to defunctionalize a
+/* JLS §15.17.1 string-concatenation — the ddcg reads these to defunctionalize a
  * String `+` into new StringBuffer().append(..).toString() at SIR level. */
 bool ddcg_sema_binary_is_concat(ddcg_ctx_t* ctx, ast_expr_t* e) { return sema_binary_is_concat(ctx->sema, e); }
 int  ddcg_sema_string_buffer_id(ddcg_ctx_t* ctx)                { return sema_string_buffer_id(ctx->sema); }
@@ -710,7 +710,7 @@ int ddcg_const_string_length(ddcg_ctx_t* ctx, const char* s) {
     (void)ctx; return (int)strlen(s);
 }
 
-/* JLS §15.17.3: `%` on float/double is the truncated remainder and WASM has no
+/* JLS §15.16.3: `%` on float/double is the truncated remainder and WASM has no
  * f32.rem/f64.rem — the ddcg desugars it to a call to Math's fdlibm fmod. */
 int ddcg_sema_frem_class(ddcg_ctx_t* ctx) {
     return sema_frem_class(ctx->sema);
@@ -1296,7 +1296,7 @@ sir_datatype_t ddcg_sema_switch_selector_dt(ddcg_ctx_t* ctx, ast_stmt_t* stmt) {
  *
  * The node carries them back in SOURCE order. Sema's sort serves the
  * br_table, whose target vector is indexed by value over [low..high];
- * the layout is a different question, and §14.10 fall-through — the one
+ * the layout is a different question, and §14.9 fall-through — the one
  * exit from a case group that is not a jump — only works if adjacent
  * groups are adjacent in the layout. `case_ast_indices` is what turns
  * one order back into the other. default_index is the default label's

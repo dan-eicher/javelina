@@ -145,5 +145,5 @@ wasm/src/wat_emit.[ch]       the engine: label, record, print; width memo
 ## SEE ALSO
 
 pegc(1), bbqc(1), burgc(1), asdl(1), opgen(1) — the BBQ toolchain pieces the
-two directions are generated with. The design record lives with the plan
-that built it; the §-anchored contracts live in the file headers above.
+two directions are generated with. The §-anchored contracts live in the file
+headers above.

@@ -657,7 +657,7 @@ static bool emit_spine(sir_node_t* node, sir_node_t* stop, int sd,
             bool inherit = has_exit && br_depth(se, sd, lbreak) >= 0 && def != lbreak;
             int sd0 = sd;
             /* The LAYOUT: the groups in source order, the `default:` label taking
-             * its place among them (§14.10 — `default:` is a label like any other
+             * its place among them (§14.9 — `default:` is a label like any other
              * and falls through to whatever follows it textually). A group reached
              * only by fall-through shares its head with no one, but a group that is
              * BOTH a case target and the default (`case 1: default:`) appears once.
@@ -848,7 +848,7 @@ static bool emit_spine(sir_node_t* node, sir_node_t* stop, int sd,
 /* Emit the source-order typed-catch `if`-chain for the TryRegion chain `tr` (each
  * TryRegion wraps the next-inner catch; the innermost wraps the body and is the
  * FIRST source catch). Recurses to the body first, so the `if`s emit on unwind in
- * source order — the JLS §14.19.1 leftmost-match order. Each is a sibling
+ * source order — the JLS §14.18.1 leftmost-match order. Each is a sibling
  * `if (ref.test (ref $Ci)) { ref.cast; local.set <catch var>; <handler body> }`;
  * the caught Throwable lives in `ex_tmp`, re-tested per arm. A matching arm's body
  * branches to the join (`ljoin`); a non-match falls through to the next arm, and
@@ -917,7 +917,7 @@ void codegen_method_structured(sir_method_t* method, const compiler_fact_t* fact
     /* A non-void method whose body leaves WASM control live at the function end
      * (a synthetic merge after an if/switch all of whose arms returned — §7.6
      * resets reachability after every `end`) would meet the terminating `end`
-     * with an empty operand stack but a declared result. JLS §8.4.7 guarantees
+     * with an empty operand stack but a declared result. JLS §8.4.5 guarantees
      * the point is unreachable, so cap it with `unreachable`: the validator
      * accepts the end and the op never executes. */
     if (live && method_returns_value(ctx, method))

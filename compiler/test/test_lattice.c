@@ -113,7 +113,7 @@ int main(void) {
     CHECK(type_leq(NS, nul, parI2), "null <= int[][]");
     CHECK(type_meet(NS, nul, parI2, &pool) == parI2, "null meet int[][] = int[][]");
 
-    /* ── The order WITH a class hierarchy (JLS §4.10.2) ───────────────────────
+    /* ── The order WITH a class hierarchy (JLS §5.1.4) ───────────────────────
      *
      * Everything above runs with sema = NULL — pure algebra, no hierarchy. That is why
      * the lattice's REFERENCE order was never tested at all, and why it was WRONG: its
@@ -122,7 +122,7 @@ int main(void) {
      * to BOTTOM although JLS §10.7 makes every array an Object.
      *
      * The lattice is the type AUTHORITY (spec §10: "consulted, never duplicated"), so its
-     * ⊑ must BE §4.10.2 — one predicate, `sema_ref_is_subtype`. A hierarchy built by hand
+     * ⊑ must BE §5.1.4 — one predicate, `sema_ref_is_subtype`. A hierarchy built by hand
      * here: 0=Object, 1=I (interface), 2=A implements I, 3=B extends A, 4=C (unrelated). */
     {
         sema_ctx_t s;
@@ -159,14 +159,14 @@ int main(void) {
         CHECK(!type_leq(&s, tA, tB), "…and not the other way");
         CHECK(!type_leq(&s, tA, tC), "unrelated classes are incomparable (fail closed)");
 
-        /* §4.10.2 — an INTERFACE is a supertype nobody's extends chain mentions. This is
+        /* §5.1.4 — an INTERFACE is a supertype nobody's extends chain mentions. This is
          * the one the old predicate got wrong, and it is the same bug that would have
          * deleted every object implementing an interface from a cast's points-to set. */
         CHECK(type_leq(&s, tA, tI), "A implements I ⟹ A ⊑ I");
         CHECK(type_leq(&s, tB, tI), "…and B, which inherits the implements from A");
         CHECK(!type_leq(&s, tC, tI), "…but not C, which does not implement it");
 
-        /* §4.10.2 — EVERY reference type is a subtype of Object, including an interface
+        /* §5.1.4 — EVERY reference type is a subtype of Object, including an interface
          * (which no extends chain records) and including arrays (§10.7). */
         CHECK(type_leq(&s, tA, tObj) && type_leq(&s, tI, tObj), "every ref ⊑ Object");
         CHECK(type_leq(&s, aA, tObj), "every ARRAY is an Object (§10.7)");

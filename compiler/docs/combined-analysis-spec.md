@@ -10,19 +10,20 @@ lattice elements, **with no dominator tree anywhere**.
 
 **Read the PAPERS, not this file.** This document is a derived summary; where it and a paper
 disagree, the paper wins, and quoting a sentence of this file back at a design decision is not
-an argument. Everything cited here is on disk:
+an argument. Full citations for everything here are in
+[BIBLIOGRAPHY.md](../../BIBLIOGRAPHY.md):
 
-| what | paper | path (all under `~/Documents/`) |
-|---|---|---|
-| the combined fixpoint + how results are applied | Click, *Combining Analyses, Combining Optimizations* | `Combining Analyses, Combining Optimizations.pdf` — **PDF page = printed + 12** |
-| escape / connection graph / summaries | Choi et al., *Escape Analysis for Java* | `Escape Analysis for Java.pdf` |
-| the scalar-replacement consumer | Stadler et al., *Partial Escape Analysis…* | `Partial Escape Analysis and Scalar Replacement for Java.pdf` |
-| **why the SIR is a functional term, and why dominance is structural** | Appel, *SSA is Functional Programming* | `SSA is Functional Programming.pdf` |
-| **SSA↔ANF, and the dominator tree as scope nesting** | Chakravarty/Keller/Zadarnowski | `A Functional Perspective on SSA Optimisation Algorithms.pdf` |
-| ANF itself | Flanagan et al., *The Essence of Compiling with Continuations* | `The Essence of Compiling with Continuations.pdf` |
-| CPS as an IR, and its costs | Kennedy, *Compiling with Continuations, Continued* | `Compiling with Continuations, Continued.pdf` |
-| the `call_ref` target set | Danvy & Nielsen, *Defunctionalization at Work* | `Defunctionalization at Work.pdf` |
-| how the SIR is emitted | Dybvig/Hieb/Bruggeman, *Destination-Driven Code Generation* | `Destination-Driven Code Generation.pdf` |
+| what | paper |
+|---|---|
+| the combined fixpoint + how results are applied | Click, *Combining Analyses, Combining Optimizations* |
+| escape / connection graph / summaries | Choi et al., *Escape Analysis for Java* |
+| the scalar-replacement consumer | Stadler et al., *Partial Escape Analysis…* |
+| **why the SIR is a functional term, and why dominance is structural** | Appel, *SSA is Functional Programming* |
+| **SSA↔ANF, and the dominator tree as scope nesting** | Chakravarty/Keller/Zadarnowski, *A Functional Perspective on SSA Optimisation Algorithms* |
+| ANF itself | Flanagan et al., *The Essence of Compiling with Continuations* |
+| CPS as an IR, and its costs | Kennedy, *Compiling with Continuations, Continued* |
+| the `call_ref` target set | Danvy & Nielsen, *Defunctionalization at Work* |
+| how the SIR is emitted | Dybvig/Hieb/Butler, *Destination-Driven Code Generation* |
 
 The SIR is the functional form those middle papers describe: values are SSA names, merges are
 φ/γ, control edges are calls to continuations, and the DDCG emits it from the CPS structure
@@ -241,7 +242,7 @@ the class hierarchy + array collapse. Derived, so it's free once `pts` runs.
 ### 6.1 The scalar-replacement model (Stadler et al., CGO'14 — the ONE consumer authority)
 
 The consumer's design authority is *"Partial Escape Analysis and Scalar Replacement for
-Java"* (Stadler/Würthinger/Mössenböck; on disk beside the Choi paper). Its model, §4/§5:
+Java"* (Stadler/Würthinger/Mössenböck, CGO'14). Its model, §4/§5:
 
 - A replaced allocation becomes a **virtual object**: an Id plus a per-field **state**,
   *"initialized with default values"* (= JLS §12.5's defaults). A field **store** *"sets the
@@ -262,7 +263,7 @@ into the virtual state like any other store. **We have no inliner**, so the ctor
 the object must come from the §7 summary instead, and the JLS says exactly what that effect
 is: a constructor body = the explicit/implicit `super(...)` chain, then the class's instance
 **field initializers in textual order**, then the ctor's own statements (§12.5 steps 3–5); a
-**default constructor** (§8.8.9) is compiler-synthesized with *body = `super();` only* — plus
+**default constructor** (§8.6.7) is compiler-synthesized with *body = `super();` only* — plus
 those compiled-in field initializers. Hence:
 
 - The ctor chain's effect **on the object** IS its **transitive §7.2 write set on `this`**
@@ -338,10 +339,9 @@ graph — the summary is a compile artifact, exactly like the type section.
 ## 8. Why there is no dominator tree (the whole point)
 
 **THE REASON, from the literature, because "we don't need one" is not a reason and has not
-stopped anyone.** The papers are on disk; read them before arguing with this section.
+stopped anyone.** Read the papers before arguing with this section.
 
-Appel, *SSA is Functional Programming* (`~/Documents/SSA is Functional Programming.pdf`),
-final section, verbatim:
+Appel, *SSA is Functional Programming*, final section, verbatim:
 
 > *"An important property of SSA form is that the definition of a variable dominates every
 > use (or, in the case of a uses within a φ-function, dominates the a predecessor of the use
@@ -349,8 +349,8 @@ final section, verbatim:
 > with nested scope, this restriction is explicitly and statically encoded into the structure
 > of function nesting.**"*
 
-Chakravarty, Keller & Zadarnowski, *A Functional Perspective on SSA Optimisation Algorithms*
-(`~/Documents/A Functional Perspective on SSA Optimisation Algorithms.pdf`), §2.1, verbatim:
+Chakravarty, Keller & Zadarnowski, *A Functional Perspective on SSA Optimisation
+Algorithms*, §2.1, verbatim:
 
 > *"Figure 1 presents an abstract syntax of the **structured SSA form**; i.e., to our variant
 > of SSA in which **the dominator tree is explicitly encoded in the block structure**… the
@@ -398,9 +398,8 @@ with the source text, so the next reader does not have to reconstruct it.
 
 **The analysis is PURE. The application is a CONSTRUCTION. Nothing else is a phase.**
 
-Click, *Combining Analyses, Combining Optimizations*
-(`~/Documents/Combining Analyses, Combining Optimizations.pdf`, **PDF page = printed + 12**),
-§4.10 "Using the Results", printed p.64, verbatim:
+Click, *Combining Analyses, Combining Optimizations*, §4.10 "Using the Results",
+printed p.64, verbatim:
 
 > *"**When the algorithm stops**, we have a partitioning over our Nodes. All Nodes in a
 > partition are congruent and compute the same value. The algorithm replaces such Nodes by a
@@ -426,8 +425,7 @@ Three obligations follow, and they are not negotiable by convenience:
    transformed early can be transformed on a fact that later turns out false.
 
 **The summary is a function of the ANALYSIS, not of the transformed code.** Choi et al.,
-*Escape Analysis for Java* (`~/Documents/Escape Analysis for Java.pdf`), §4.2 "Connection
-Graph at Method Exit", verbatim:
+*Escape Analysis for Java*, §4.2 "Connection Graph at Method Exit", verbatim:
 
 > *"**After completing intraprocedural escape analysis for a method**, we use the ByPass
 > function… to eliminate all the deferred edges in the CG… We then do reachability analysis on
@@ -570,18 +568,18 @@ substitute for it.
   the *expected* outcome and the gate would demand reverting it. Use: suite green, four-config
   agreement, and the guard/scalar censuses to show the direction of the change.
 
-## 9. Staging (each step gate-verified, suite green)
+## 9. Layering (the order the elements landed, each step gate-verified)
 
 1. **Memory-SSA overlay** for `struct.*`/`array.*` (the one real modeling add) + `pts`
-   (lattice A) intra-procedurally, in the Click combined pass. No consumer yet — verify pts
-   against hand cases.
-2. **Nullability (C) + range (D)** — cheapest, biggest payoff: wire to the §15 guard emitter
-   as an *elimination* (never weaken the guard where unproven — a guard stays when the
-   lattice is `Maybe`/`⊤`; see `feedback_no_spec_carveouts_ever`, this is fail-**closed**).
+   (lattice A) intra-procedurally, in the Click combined pass.
+2. **Nullability (C) + range (D)** — cheapest, biggest payoff: wired to the §15 guard
+   emitter as an *elimination* (never weakening a guard where unproven — a guard stays
+   when the lattice is `Maybe`/`⊤`; fail-**closed**, no carve-outs).
 3. **class/type (B)** → devirtualization + ClassCast/ArrayStore guard drop.
 4. **escape (E)** intra-procedural → scalar replacement of `NoEscape` allocs.
 5. **Interprocedural summaries** (§7), reverse-topological over the defunctionalized call
-   graph; then jre-summary artifacts for the module-split bottom methods.
+   graph. (The per-export jre-summary artifact for module-split bottom methods remains
+   §7's named extension, not yet built.)
 
 Each lattice is added as an element of the *same* fixpoint (Click's "combining" thesis: they
 mutually enable — devirt → constant → NonNull → dead branch → SCCP prunes a region → tighter
@@ -594,5 +592,5 @@ A SIR/Click-level analysis (allocations + field ops must be explicit nodes first
 sema, which stays the AST-level authority (types, definite assignment, statement
 reachability). This consumes the lowered value graph + the defunctionalized call graph and
 feeds back three decisions: (1) drop a §15 guard, (2) devirtualize a `call_ref`, (3)
-scalar-replace an allocation. The type lattice is consulted, never duplicated
-(`feedback_lattice_is_the_representation_authority`).
+scalar-replace an allocation. The type lattice is consulted, never duplicated — it is
+the representation authority.

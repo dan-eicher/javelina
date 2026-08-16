@@ -248,7 +248,7 @@ int main(void) {
     int builtin_errors = analyze(NULL, true);
     CHECK(builtin_errors == 0, "java.lang environment type-checks with 0 errors");
 
-    // 1a2. Constructor throws clause (JLS §8.8.5): a checked exception thrown in a ctor body is
+    // 1a2. Constructor throws clause (JLS §8.6.4): a checked exception thrown in a ctor body is
     // covered by the ctor's OWN throws clause; without it, it's an "unhandled checked exception".
     printf("== constructor throws clause ==\n");
     CHECK(analyze("class C { C() throws Exception { throw new Exception(); } }", false) == 0,
@@ -256,7 +256,7 @@ int main(void) {
     CHECK(analyze("class C { C() { throw new Exception(); } }", false) > 0,
           "ctor throwing a checked exception WITHOUT a throws clause is rejected");
 
-    // 1a2b. §14.15/§14.16 — a break or continue that cannot resolve its target is
+    // 1a2b. §14.13/§14.14 — a break or continue that cannot resolve its target is
     // a COMPILE ERROR, not something a later stage has to cope with. This matters
     // beyond sema: the ddcg's break rule reads `sema_break_target_depth(node)` and
     // treats a negative answer as "fall through to the next statement"
@@ -267,13 +267,13 @@ int main(void) {
     // what nothing here asserted.
     printf("== break/continue target resolution ==\n");
     CHECK(analyze("class C { void f(){ while (true) { break foo; } } }", false) > 0,
-          "§14.15 break to an undeclared label is rejected");
+          "§14.13 break to an undeclared label is rejected");
     CHECK(analyze("class C { void f(){ break; } }", false) > 0,
-          "§14.15 break with no enclosing breakable statement is rejected");
+          "§14.13 break with no enclosing breakable statement is rejected");
     CHECK(analyze("class C { void f(){ continue; } }", false) > 0,
-          "§14.16 continue with no enclosing loop is rejected");
+          "§14.14 continue with no enclosing loop is rejected");
     CHECK(analyze("class C { void f(){ lbl: { continue lbl; } } }", false) > 0,
-          "§14.16 continue to a label that is not a loop is rejected");
+          "§14.14 continue to a label that is not a loop is rejected");
     CHECK(analyze("class C { int f(int x){ lbl: while (true) { if (x > 0) break lbl; }"
                   " return x; } }", false) == 0,
           "a labelled break that DOES resolve still type-checks (control)");
@@ -510,7 +510,7 @@ int main(void) {
     CHECK(analyze("class T { void f() { byte b = '\\u0100'; } }", false) > 0,
           "out-of-range char constant to byte rejected (JLS 5.2)");
 
-    // 9c. JLS §15.18.1: `+` with a String operand is string concatenation → String;
+    // 9c. JLS §15.17.1: `+` with a String operand is string concatenation → String;
     // the other operand (any non-void type) undergoes string conversion.
     CHECK(analyze("class T { void f() { String s = \"a\" + 1; } }", false) == 0,
           "String + int is String (JLS 15.18.1)");
@@ -591,7 +591,7 @@ int main(void) {
               "enclosing catch of a fully-inner-caught type is unreachable "
               "past 64 caught types (no silent to_remove cap)");
     }
-    // (c) §15.17.2: long division can throw ArithmeticException; the catch is
+    // (c) §15.16.2: long division can throw ArithmeticException; the catch is
     //     legal (confirms the thrown-set seed covers JT_LONG).
     CHECK(analyze("class T { long f(long x) { try { return 5L / x; } "
                   "catch (ArithmeticException e) { return 0L; } } }", false) == 0,
@@ -605,7 +605,7 @@ int main(void) {
     //   approximating exactly what you already have."
     //
     //   The paper (Li/Cifuentes/Keynes, ISMM'13, "Precise and Scalable Context-Sensitive
-    //   Pointer Analysis via Value Flow Graph" — ~/Documents) analyzes C, where a call
+    //   Pointer Analysis via Value Flow Graph") analyzes C, where a call
     //   target is a pointer VALUE: its call graph is an OUTPUT of the pointer analysis the
     //   call graph itself feeds — a cycle. Its own words: it computes "full points-to sets
     //   for FUNCTION POINTERS only" (the one query it cannot defer), and its clone-repair
@@ -655,8 +655,10 @@ int main(void) {
               "call graph: an ABSTRACT method with no impl is NOT RESOLVABLE — spec §7's "
               "bottom-method boundary, fail-closed (the devirtualizer declines on this)");
 
-        /* §15.12.4.4 step 1 searches for "a declaration for a NON-ABSTRACT method named m
-         * with the same descriptor". §8.4.3.4: "A compile-time error occurs if a native
+        /* §15.11.4.4's dynamic lookup searches class S, then its superclasses, for "a
+         * declaration for a method named m with the same descriptor" — and the declaration
+         * that ends the search is the NON-ABSTRACT one that *implements* (§8.4.6.1).
+         * §8.4.3.4: "A compile-time error occurs if a native
          * method is declared abstract" — so a native declaration is non-abstract, it ENDS
          * the lookup, and it is what dispatch lands on. Having no body in THIS module is an
          * emission fact (sema_method_is_defined), not the lookup's predicate: reading it as
@@ -669,12 +671,12 @@ int main(void) {
             CHECK(sema_resolve_virtual(&ctx, obj, obj, gc, &rc, &rm) && rc == obj && rm == gc,
                   "call graph: a NATIVE declaration is non-abstract (§8.4.3.4) and resolves");
             CHECK(sema_resolve_virtual(&ctx, a, obj, gc, &rc, &rm) && rc == obj && rm == gc,
-                  "call graph: a subclass inherits the native — §15.12.4.4 step 2 finds it");
+                  "call graph: a subclass inherits the native — §15.11.4.4 step 2 finds it");
         }
 
         /* THE SET: the complete target set of `((A)r).m()`, enumerated from the class
          * table ALONE — every class in the program (java.lang included), filtered by JLS
-         * §4.10.2 subtyping, resolved by the one rule. No engine, no pts, no fixpoint
+         * §5.1.4 subtyping, resolved by the one rule. No engine, no pts, no fixpoint
          * anywhere in this block. This enumeration IS the thing the VFG paper's
          * function-pointer points-to sets exist to approximate. */
         int set_c[8], set_m[8], nset = 0; bool overflow = false;
@@ -699,7 +701,7 @@ int main(void) {
               "closed, computed from the class table with no analysis in sight");
         CHECK(!has_e,
               "E.m (same signature, UNRELATED class) is NOT a target — membership is "
-              "receiver subtyping (§4.10.2), not signature match");
+              "receiver subtyping (§5.1.4), not signature match");
         sema_destroy(&ctx); bbq_arena_free(&arena);
     }
 

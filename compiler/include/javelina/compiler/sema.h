@@ -188,7 +188,7 @@ typedef struct {
     int param_count;
     int modifiers;
     bool is_constructor;
-    bool is_synthetic_default;    /* JLS §8.8.9 compiler-provided default ctor (no source decl) */
+    bool is_synthetic_default;    /* JLS §8.6.7 compiler-provided default ctor (no source decl) */
     bool is_synthetic_clone;      /* §20.1.5 compiler-synthesized internalClone override (per-type shallow copy) */
     bool is_synthetic_ensure_init; /* JLS §12.4.2 compiler-synthesized `$ensure_init` (lazy class-init barrier target) */
     bool is_synthetic_main;       /* E7.1a compiler-synthesized `$main(argc,base)->int` program-entry wrapper */
@@ -302,7 +302,7 @@ typedef struct {
     int arraycopy_method_id;     /* System.arraycopy(Object,int,Object,int,int)'s index (§20.18.16) */
     int float_id;                /* java.lang.Float — the raw bit-accessor Move* intrinsics' target */
     int double_id;               /* java.lang.Double — likewise (doubleToRawLongBits/longBitsToDouble) */
-    int math_id;                 /* java.lang.Math — also the §15.17.3 float-remainder helper's home */
+    int math_id;                 /* java.lang.Math — also the §15.16.3 float-remainder helper's home */
     int fmod_float_id;           /* Math.fmod(float,float)   — `float % float`  (WASM has no f32.rem) */
     int fmod_double_id;          /* Math.fmod(double,double) — `double % double` (no f64.rem either) */
     /* §15 implicit-exception classes the compiler emits as catchable throws */
@@ -429,7 +429,7 @@ typedef struct {
     int current_class_id;
     int loop_depth;
     bool in_static_context;
-    bool in_static_init;  /* true only inside a static-initializer block (JLS §8.7):
+    bool in_static_init;  /* true only inside a static-initializer block (JLS §8.5):
                            * where a blank `static final` may be definitely assigned. */
     sema_label_t* labels; /* bbq_vec */
     sema_frame_t* frames; /* bbq_vec — ρ-frame stack mirroring codegen */
@@ -597,10 +597,11 @@ bool sema_method_is_defined(const sema_ctx_t* ctx, int class_id, const sema_meth
  * only the import set consults this. */
 bool sema_method_lowers_inline(const sema_method_t* m);
 
-/* Is `m` (declared in `class_id`) NON-ABSTRACT — §15.12.4.4 step 1's predicate, what the
- * dynamic method lookup stops at, and what makes a vtable slot occupied? A native method
- * qualifies (§8.4.3.4); an interface's does not (§9.4). Distinct from is_defined above,
- * which asks whether THIS module emits the body — an emission fact, not a JLS one. */
+/* Is `m` (declared in `class_id`) NON-ABSTRACT — what §15.11.4.4's dynamic method
+ * lookup stops at (§8.4.6.1's *implements*), and what makes a vtable slot occupied? A
+ * native method qualifies (§8.4.3.4); an interface's does not (§9.4). Distinct from
+ * is_defined above, which asks whether THIS module emits the body — an emission fact,
+ * not a JLS one. */
 bool sema_method_is_concrete(const sema_ctx_t* ctx, int class_id, const sema_method_t* m);
 
 /* The emitted-function table (ctx->functions), built by sema_analyze. */
@@ -620,7 +621,7 @@ java_type_t sema_instanceof_type(const sema_ctx_t* ctx, const ast_expr_t* expr);
  * not in the data_types side table (not analyzed). */
 int32_t sema_data_type(const sema_ctx_t* ctx, const ast_expr_t* expr);
 
-/* JLS §15.17.3 floating-point remainder. `%` on float/double is the TRUNCATED remainder
+/* JLS §15.16.3 floating-point remainder. `%` on float/double is the TRUNCATED remainder
  * (C fmod, sign of the dividend) — not Math.IEEEremainder — and WASM has no f32.rem /
  * f64.rem opcode, so the ddcg desugars it to a call to Math's fdlibm fmod (the same shape
  * as the String-concat desugar below). Returns Math's class id and the fmod overload for
@@ -628,7 +629,7 @@ int32_t sema_data_type(const sema_ctx_t* ctx, const ast_expr_t* expr);
 int  sema_frem_class(const sema_ctx_t* ctx);
 int  sema_frem_method(const sema_ctx_t* ctx, int32_t dt);
 
-/* JLS §15.18.1 string-concatenation support (well-known StringBuffer identities for
+/* JLS §15.17.1 string-concatenation support (well-known StringBuffer identities for
  * the ddcg's defunctionalizing desugar). */
 bool sema_binary_is_concat(const sema_ctx_t* ctx, const ast_expr_t* node);
 int  sema_string_buffer_id(const sema_ctx_t* ctx);
@@ -834,7 +835,7 @@ const char* sema_name_to_str(const sema_ctx_t* ctx, const ast_name_t* n);
  * implemented interfaces. Returns false for invalid ids.
  *
  * This is the EXTENDS-CHAIN question (what §11.2 exception matching asks), NOT
- * JLS §4.10.2 subtyping. For "is a value of class S assignable to type T" — what
+ * JLS §5.1.4 reference subtyping. For "is a value of class S assignable to type T" — what
  * a cast, an `instanceof` and the points-to filter ask — use
  * sema_ref_is_subtype: an interface and `Object` are subtypes nobody's extends
  * chain mentions, and answering with this one says NO where the truth is YES. */
@@ -870,7 +871,7 @@ bool sema_resolve_virtual(const sema_ctx_t* ctx, int exact_class_id,
                           int decl_class_id, int decl_method_idx,
                           int* out_class_id, int* out_method_idx);
 
-/* JLS §4.10.2 reference subtyping between two CLASS ids: identity, the extends
+/* JLS §5.1.4 reference subtyping between two CLASS ids: identity, the extends
  * chain, an implemented interface (transitively, including interface-extends-
  * interface), and `Object`, which every reference type is a subtype of — including
  * every interface, which no extends chain records.
@@ -918,58 +919,20 @@ int sema_continue_target_depth(const sema_ctx_t* ctx, const ast_stmt_t* stmt);
 /* Does any `continue` in this loop's body resolve to this loop? */
 bool sema_loop_has_continue(const sema_ctx_t* ctx, const ast_stmt_t* stmt);
 
-/* ── Spec-facing predicates / translations ─────────────────────────
- * These live on sema because sema owns modifier semantics. Downstream
- * stages (assembler, debug emit) consume them instead of re-deriving
- * — see [[feedback_pass_info_forward]]. */
-
-/* "Externally visible" — class/method/field is reachable from another
- * package (PUBLIC or PROTECTED). Used by §6.14 descriptor token rules
- * (token == 0xFF iff not externally visible) and by Export emission. */
-static inline bool sema_class_is_exported(const sema_class_t* c) {
-    return (c->modifiers & (ACC_PUBLIC | ACC_PROTECTED)) != 0;
-}
-static inline bool sema_method_is_exported(const sema_method_t* m) {
-    return (m->modifiers & (ACC_PUBLIC | ACC_PROTECTED)) != 0;
-}
-static inline bool sema_field_is_exported(const sema_field_t* f) {
-    return (f->modifiers & (ACC_PUBLIC | ACC_PROTECTED)) != 0;
-}
-
-/* §6.14.2: static-final primitive fields with an initializer are
- * compile-time constants; codegen inlines references and the field is
- * excluded from descriptor.fields[] and the static_field_image. */
-static inline bool sema_field_is_inlined_constant(const sema_field_t* f) {
-    if (!f->init_expr) return false;
-    if ((f->modifiers & (ACC_STATIC | ACC_FINAL)) != (ACC_STATIC | ACC_FINAL))
-        return false;
-    return f->type.tag == JT_BYTE || f->type.tag == JT_SHORT
-        || f->type.tag == JT_INT  || f->type.tag == JT_BOOL;
-}
-
-/* Spec→sema modifier-bit translations. The CAP §6.14 tables use a
- * different bit layout from sema's internal modifier set, and each of
- * class/method/field has its own bit assignment (Tables 6-17/6-20/6-18). */
-uint8_t  sema_class_access_flags(const sema_class_t* c);      /* §6.14.2 Table 6-17 */
-uint8_t  sema_method_access_flags(const sema_method_t* m);    /* §6.14.4 Table 6-20 */
-uint8_t  sema_field_access_flags(const sema_field_t* f);      /* §6.14.3 Table 6-18 */
-uint16_t sema_class_debug_access_flags(const sema_class_t* c); /* §6.15.2 Table 6-21 */
-
 bool sema_uses_exceptions(const sema_ctx_t* ctx);
 
-/* §6.9.2.3: collect the transitive set of interfaces implemented by
+/* Collect the transitive set of interfaces implemented by
  * `c` — direct interfaces, their superinterfaces, and the closure
  * walked through `c`'s super-classes. Order is super-before-sub by
  * insertion. Returns count written to `out` (caller-allocated). */
 int sema_transitive_interfaces(const sema_ctx_t* ctx, const sema_class_t* c,
                                  const sema_class_t** out, int max_out);
 
-/* §6.9.2.5: find the concrete method on `cls` (or any superclass)
- * that implements `iface_method`, by full signature match
+/* §8.4.6.1: find the concrete method on `cls` (or any superclass)
+ * that *implements* `iface_method`, by full signature match
  * (name + return type + parameter type sequence). Returns NULL if no
  * implementer is found — sema reports the missing-impl error
- * elsewhere; this resolver is for assembler consumption of the
- * implemented_interface_info.index[] mapping. */
+ * elsewhere; this resolver is what itable emission consumes. */
 const sema_method_t* sema_implementing_method(const sema_ctx_t* ctx,
                                                 const sema_class_t* cls,
                                                 const sema_method_t* iface_method);

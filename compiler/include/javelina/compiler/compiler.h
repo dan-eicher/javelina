@@ -146,7 +146,7 @@ typedef enum {
     COMPILER_GUARD_NEG_ARRAY_SIZE,   /* subject: the requested size          */
     COMPILER_GUARD_DIV_ZERO,         /* subject: the divisor                 */
     COMPILER_GUARD_CLASS_CAST,       /* subject: the object being cast       */
-    /* The INT_MIN/-1 arm. JLS §15.17.2 says `MIN_VALUE / -1` WRAPS to MIN_VALUE, but
+    /* The INT_MIN/-1 arm. JLS §15.16.2 says `MIN_VALUE / -1` WRAPS to MIN_VALUE, but
      * WASM's i32.div_s/i64.div_s TRAP on it, so the DDCG emits a `divisor == -1` arm
      * that computes `-a` instead. It is a branch the LOWERING inserted and a proof can
      * remove — a guard in every sense that matters here — and the only one that THROWS
@@ -220,7 +220,7 @@ typedef enum {
  * (conservative, exactly as before). The factory case (`return new C()`) cannot MINT a fresh owned
  * object at the caller (Obj naming is per-SITE; the callee's site is outside the caller's Obj space),
  * so the OBJECT identity stays `Oret` — but the achievable, sound fact IS carried: a `new` never
- * returns null (JLS §15.9.4), so COMPILER_RET_FRESH marks the result **NonNull** while keeping Oret. */
+ * returns null (JLS §15.8.1), so COMPILER_RET_FRESH marks the result **NonNull** while keeping Oret. */
 typedef enum {
     COMPILER_RET_UNKNOWN = 0,   /* keep Oret — field/mixed/global/void */
     COMPILER_RET_FORMAL,        /* every return is `ret_param` (this=-1 else param idx) */
@@ -396,7 +396,7 @@ typedef struct {
      * approximating exactly what you already have."
      *
      * Java 1.0 has no function values, so a call site's COMPLETE target set is enumerable
-     * from the class table alone: the §4.10.2 subtype filter + sema_resolve_virtual, the
+     * from the class table alone: the §5.1.4 subtype filter + sema_resolve_virtual, the
      * ONE dispatch rule the vtable rows also materialize. Nothing the analysis learns can
      * ADD an edge — pts can only shrink a site toward a singleton (§3's devirt). Contrast
      * the VFG paper, whose call graph is a fixpoint OUTPUT co-evolving with points-to
@@ -503,7 +503,7 @@ typedef struct {
     bool*    vinv_established; /* bbq_vec */
     /* Set-only, [class count], arena-allocated at first use (zeroed): this
      * class has a constructor that lets `this` escape before construction
-     * completes — a call handed `this` (other than the §8.8.7 super()/this()
+     * completes — a call handed `this` (other than the §8.6.5 super()/this()
      * chain), a virtual dispatch on `this`, or a store of `this` into the
      * heap. While an ancestor's ctor runs, `this` IS the subclass object, so
      * a RANGE row consults the whole ancestor chain. */
