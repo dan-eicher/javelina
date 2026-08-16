@@ -193,6 +193,19 @@ $(B)/libjavelina.a: $(LIB_OBJS) | $(B)
 .PHONY: lib
 lib: $(B)/libjavelina.a
 
+# The conformance story on its own: the pinned official testsuite through the
+# interpreter and every JIT tier, with the runner's full output on the terminal
+# — the numbers the README quotes. The `test` gate below runs the same legs,
+# logged and summarized; this target exists so `make conformance` at the root
+# reproduces the README's table without running everything else.
+.PHONY: conformance
+conformance: $(B)/test_wast
+	@( cd test && ../$(B)/test_wast ../../testsuite/*.wast regress_*.wast ) || exit 1
+	@for jt in $(JIT_TIERS); do \
+	  echo ""; echo "── tier-$$jt ──"; \
+	  ( cd test && ../$(B)/test_wast --tier=$$jt ../../testsuite/*.wast regress_*.wast ) || exit 1; \
+	done
+
 # embed.c links THE ARCHIVE + wasm.h and nothing else — it demonstrates the
 # actual artifact an embedder consumes, and the test gate builds it this way.
 $(B)/embed: examples/embed.c $(B)/libjavelina.a | $(B)

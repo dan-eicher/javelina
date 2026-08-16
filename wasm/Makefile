@@ -333,7 +333,11 @@ $(GEN)/wat_mnemonics.h: spec/instructions.toml tools/gen_wat_mnemonics.py
 
 # pegc: the §6 text grammar -> the .wat reader, building the SAME jav_module_t
 # the binary reader produces (struct is the contract; oracle = struct-equivalence).
-$(GEN)/wat_parser.c $(GEN)/wat_parser.h: spec/wat.peg $(PEGC) $(GEN)/wat_mnemonics.h
+# The frame files are real inputs — pegc splices them into the emitted parser —
+# so a frame edit regenerates it (a frame/runtime API drift once surfaced only
+# as a build break on the NEXT unrelated regeneration).
+$(GEN)/wat_parser.c $(GEN)/wat_parser.h: spec/wat.peg $(PEGC) $(GEN)/wat_mnemonics.h \
+                                         $(wildcard spec/peg_frames/*.frame)
 	$(PEGC) spec/wat.peg -lang c -frames $(PEG_FRAMES) -prefix wat -o $(GEN)/
 
 # jitterator: compiled stencils -> the copy-and-patch stencil table. opgen emits

@@ -98,8 +98,11 @@ EXEC_SRCS       = $(SEMA_SRCS) $(DDCG_SRCS) $(CLICK_SRCS) src/compiler/codegen_s
                   $(GEN)/codegen_matcher.c $(GEN)/java_parser.c $(CRT)/bbq_htree.c $(CRT)/bbq_hmap.c $(CRT)/bbq_buf.c
 
 # ── Generated frontend (section 1: parser) ──────────────────────────────────
+# `all` builds the project: both shipped binaries and the jre.wasm runtime
+# artifact. Each is a real file target below, so an up-to-date tree is a no-op
+# and a stale one rebuilds exactly what changed.
 .PHONY: all generate-parser
-all: generate-parser
+all: tools
 
 # ── the BBQ toolchain, built on demand ──────────────────────────────────────
 # Every generator is a prerequisite of a generation rule, so make needs a rule
@@ -242,16 +245,33 @@ $(GEN)/java_parser.h $(GEN)/java_parser.c &: grammar/Java.peg $(GEN)/java_ast.h 
 # ── Shipped CLI: javelinac (Java → .wasm). Compile+serialize only, no VM engine —
 # the object set mirrors test_wasm_module (EXEC_SRCS + the shared reader/writer +
 # jav_utf8 + bbq_arena). Produces plugin/whole modules and, with --mode jre, the
-# jre.wasm runtime. ──
-.PHONY: javelinac
-javelinac: generate-parser generate-ddcg generate-codegen | $(B)
+# jre.wasm runtime.
+#
+# Each shipped artifact is a REAL file target: the ONE source list feeds both
+# the prerequisites and the link line, the generated headers the closure
+# includes are explicit prerequisites (their grouped rules fire first), and
+# every header the wildcard can see is a prerequisite too — generated headers
+# join the wildcard once they exist, and their .c siblings carry the first
+# build. The familiar phony names remain as aliases, so `make javelinac`
+# still means what it always meant; it just stopped meaning "relink no
+# matter what". ──
+JAVELINAC_SRCS = driver/javelinac.c $(EXEC_SRCS) $(VM_RW_SRCS) $(VM)/src/jav_utf8.c \
+                 $(VM)/src/jav_load.c $(VM)/src/jav_view_nav.c $(VM)/src/jav_module_index.c \
+                 $(VM)/src/jav_module_struct.c \
+                 $(VM)/src/jav_module_validate.c $(VM)/src/jav_subtype.c $(VM)/src/validate.c \
+                 $(VM)/src/jav_error.c $(VM)/src/gen/jav_view_reader.c $(RT)/bbq_lite.c \
+                 $(CRT)/bbq_arena.c
+JAVELINAC_GEN  = $(GEN)/java_ast.h $(GEN)/sir_ast.h $(GEN)/wasm_ops.h $(GEN)/simd_intrinsics.h
+JAVELINAC_HDRS = $(wildcard include/javelina/*.h include/javelina/compiler/*.h \
+                   src/compiler/*.h driver/*.h $(GEN)/*.h \
+                   $(VM)/include/*.h $(VM)/src/*.h $(VM)/src/gen/*.h \
+                   $(CRT)/*.h $(RT)/*.h $(PEGRT)/*.h)
+
+$(B)/javelinac: $(JAVELINAC_SRCS) $(JAVELINAC_GEN) $(JAVELINAC_HDRS) | $(B)
 	$(CC) $(CFLAGS) -Wno-parentheses-equality -Iinclude $(INCLUDES) $(VM_INCLUDES) \
-	    driver/javelinac.c $(EXEC_SRCS) $(VM_RW_SRCS) $(VM)/src/jav_utf8.c \
-	    $(VM)/src/jav_load.c $(VM)/src/jav_view_nav.c $(VM)/src/jav_module_index.c \
-	    $(VM)/src/jav_module_struct.c \
-	    $(VM)/src/jav_module_validate.c $(VM)/src/jav_subtype.c $(VM)/src/validate.c \
-	    $(VM)/src/jav_error.c $(VM)/src/gen/jav_view_reader.c $(RT)/bbq_lite.c \
-	    $(CRT)/bbq_arena.c -lm -o $(B)/javelinac
+	    $(JAVELINAC_SRCS) -lm -o $@
+.PHONY: javelinac
+javelinac: $(B)/javelinac
 
 # ── javelinac under AddressSanitizer, for chasing memory-safety and runaway-
 # allocation bugs. javelinac is a single compiler invocation over sources, so this
@@ -262,31 +282,39 @@ javelinac: generate-parser generate-ddcg generate-codegen | $(B)
 # Cap it by RSS, not `ulimit -v`: ASAN reserves a very large shadow mapping up
 # front and a virtual-size limit kills it before the program under test misbehaves.
 #   ASAN_OPTIONS=hard_rss_limit_mb=4000:allocator_may_return_null=0 build/javelinac.asan ...
-.PHONY: javelinac-asan
-javelinac-asan: generate-parser generate-ddcg generate-codegen | $(B)
+$(B)/javelinac.asan: $(JAVELINAC_SRCS) $(JAVELINAC_GEN) $(JAVELINAC_HDRS) | $(B)
 	$(CC) $(CFLAGS) -fsanitize=address -fno-omit-frame-pointer \
 	    -Wno-parentheses-equality -Iinclude $(INCLUDES) $(VM_INCLUDES) \
-	    driver/javelinac.c $(EXEC_SRCS) $(VM_RW_SRCS) $(VM)/src/jav_utf8.c \
-	    $(VM)/src/jav_load.c $(VM)/src/jav_view_nav.c $(VM)/src/jav_module_index.c \
-	    $(VM)/src/jav_module_struct.c \
-	    $(VM)/src/jav_module_validate.c $(VM)/src/jav_subtype.c $(VM)/src/validate.c \
-	    $(VM)/src/jav_error.c $(VM)/src/gen/jav_view_reader.c $(RT)/bbq_lite.c \
-	    $(CRT)/bbq_arena.c -lm -o $(B)/javelinac.asan
+	    $(JAVELINAC_SRCS) -lm -o $@
+.PHONY: javelinac-asan
+javelinac-asan: $(B)/javelinac.asan
 
-# ── The jre.wasm runtime artifact: the prelude compiled once in RUNTIME mode. ──
+# ── The jre.wasm runtime artifact: the prelude compiled once in RUNTIME mode.
+# Depends on the compiler that emits it and on every library source it globs
+# (lib/java plus the generated lib/javelina classes), so an edited Math.java —
+# or a rebuilt javelinac — re-emits it, and nothing else does. ──
+JRE_SRCS = $(wildcard lib/java/*/*.java lib/java/*/*/*.java lib/javelina/*/*.java) \
+           $(PEG_NODES) $(REGEX_PARSER) $(SIMD_JAVA)
+$(B)/jre.wasm: $(B)/javelinac $(JRE_SRCS)
+	$(B)/javelinac --mode jre --libdir lib/java -o $@
+	@echo "  built $@ ($$(wc -c < $@) bytes)"
 .PHONY: jre
-jre: javelinac $(PEG_NODES) $(REGEX_PARSER)
-	$(B)/javelinac --mode jre --libdir lib/java -o $(B)/jre.wasm
-	@echo "  built $(B)/jre.wasm ($$(wc -c < $(B)/jre.wasm) bytes)"
+jre: $(B)/jre.wasm
 
 # ── Shipped runner: javelina (load a plugin, link it against jre.wasm, run it).
 # The production embedder — VM through wasm.h ONLY (no compiler). Shares the host-
 # native floor (driver/host_io.h) with the test harness; supplies real std streams.
-# Reuses the VM's PREBUILT engine objects (run `make -C ../wasm` if stale). ──
-.PHONY: javelina
-javelina: | $(B)
+# The VM's engine objects are real prerequisites, refreshed through the same
+# order-only `vm-objs` delegation the VM-reaching tests use (test.mk). ──
+JAVELINA_SRCS = driver/javelina.c $(VM_RW_SRCS) $(VM_CAPI_SRCS) \
+                $(CRT)/bbq_htree.c $(CRT)/bbq_hmap.c
+$(B)/javelina: $(JAVELINA_SRCS) $(VM_ENGINE_OBJS) \
+               $(wildcard driver/*.h $(VM)/include/*.h $(VM)/src/*.h $(VM)/src/gen/*.h \
+                 $(CRT)/*.h $(RT)/*.h) | vm-objs $(B)
 	$(CC) $(CFLAGS) -D_POSIX_C_SOURCE=200809L -Idriver -I$(RT) -I$(CRT) $(VM_INCLUDES) \
-	    driver/javelina.c $(VM_RW_SRCS) $(VM_CAPI_SRCS) $(CRT)/bbq_htree.c $(CRT)/bbq_hmap.c $(VM_ENGINE_OBJS) -lm -o $(B)/javelina
+	    $(JAVELINA_SRCS) $(VM_ENGINE_OBJS) -lm -o $@
+.PHONY: javelina
+javelina: $(B)/javelina
 
 # ── Both shipped binaries. ──
 .PHONY: tools

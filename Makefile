@@ -28,20 +28,20 @@ help:
 	@echo "  make test-compiler     the compiler's suites"
 	@echo "  make lib               build/libjavelina.a — the embeddable engine archive"
 	@echo "  make conformance       the official WebAssembly testsuite, executed at every tier"
-	@echo "  make test-java-conformance  the Java e2e corpus (E7.4 — not built yet)"
+	@echo "  make test-java-conformance  the Java e2e corpus (conformance/)"
 	@echo "  make test-cli          the shipped javelinac/javelina binaries, end to end"
 	@echo "  make test-bench        the benchmark checksum gate"
 	@echo ""
 	@echo "  make test-one T=<name> one suite, either project, built incrementally"
 	@echo "      e.g. T=test_gc_los, T=test_sema"
 	@echo ""
-	@echo "  make baseline          re-measure and print what docs/test-baseline.md pins"
+	@echo "  make baseline          both suites, timed, with peak RSS"
 
 all:
 	$(MAKE) -C wasm
 	$(MAKE) -C compiler
 
-# The explicit toolchain rebuild, for after you edit BBQ itself. A plain `make`
+# The explicit toolchain rebuild, for after you edit BBQ itself. `make all`
 # already builds it when it is MISSING (see the grouped toolchain rule in each
 # sub-makefile); this is how you pick up changes to a toolchain that is already
 # built, since that rule deliberately won't rebuild behind your back.
@@ -73,22 +73,12 @@ test:
 	@$(MAKE) --no-print-directory test-java-conformance
 
 # The e2e layer: real .java programs with expected stdout and exit code, driven
-# through the SHIPPED javelinac + javelina binaries, every tier. E7.4 builds it;
-# the slot is reserved here so it is part of the default gate the day it lands.
-#
-# Until then this REPORTS its absence and does not fail. It must never pass
-# silently: a missing gate that prints nothing is indistinguishable from a
-# passing one, which is the same defect as an exclusion counter stuck at zero.
-# test/test_cli.sh (in the gate above) is the seed — it already drives both
-# binaries end to end for argv, exit codes and -jit/-nojit agreement.
+# through the SHIPPED javelinac + javelina binaries, every tier — see
+# conformance/README.md. run.sh builds its own binaries and its exit code is
+# the whole contract, so it stands alone.
 .PHONY: test-java-conformance
 test-java-conformance:
-	@if [ -d conformance ]; then \
-	    sh conformance/run.sh; \
-	else \
-	    echo "  SKIP  conformance/ not built yet (E7.4) — e2e breadth is NOT covered."; \
-	    echo "        Seeded by compiler/test/test_cli.sh, which runs in the gate above."; \
-	fi
+	@sh conformance/run.sh
 
 # The embeddable library artifact: build/libjavelina.a + the public wasm.h.
 lib:
@@ -102,12 +92,12 @@ test-compiler:
 	@$(MAKE) --no-print-directory -C compiler test
 
 # The conformance story, surfaced: run the official testsuite (the pinned
-# submodule) at every tier and print the per-gate summary lines — the numbers the
-# README quotes. `test-conformance` stays as an alias.
+# submodule) at every tier and print the runner's own output — the numbers the
+# README quotes. The tier legs live beside the VM's other gates (wasm/test.mk),
+# where JIT_TIERS is defined. `test-conformance` stays as an alias.
 conformance test-conformance:
-	@$(MAKE) --no-print-directory -C wasm test-one T=test_wast || true
 	@echo "── WebAssembly conformance (testsuite $$(git -C testsuite rev-parse --short HEAD), every tier) ──"
-	@cd wasm/test && ../build/test_wast ../../testsuite/*.wast regress_*.wast
+	@$(MAKE) --no-print-directory -C wasm conformance
 
 test-cli:
 	@$(MAKE) --no-print-directory -C compiler test-cli
@@ -121,10 +111,10 @@ test-one:
 	elif [ -f compiler/test/$(T).c ]; then $(MAKE) --no-print-directory -C compiler test-one T=$(T); \
 	else echo "no such suite: $(T)"; exit 2; fi
 
-# Re-measure what docs/test-baseline.md pins, so a claim about the numbers is
-# always something that was just run rather than something remembered.
+# Time both suites, so a claim about the numbers is always something that was
+# just run rather than something remembered.
 baseline:
-	@echo "Re-running both suites with timing. Compare against docs/test-baseline.md."
+	@echo "Re-running both suites with timing."
 	@/usr/bin/time -f "VM:       WALL %e s  PEAK %M KB" $(MAKE) --no-print-directory -C wasm test
 	@/usr/bin/time -f "compiler: WALL %e s  PEAK %M KB" $(MAKE) --no-print-directory -C compiler test
 
