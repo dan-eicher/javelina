@@ -1180,10 +1180,10 @@ sir_node_t* ddcg_assign_array(ddcg_ctx_t* ctx, ast_expr_t* arr, ast_expr_t* idx,
     sir_node_t* astore = sir_array_store(ctx->arena, arr_dt, ddcg_array_backing(ctx, t_a, ddcg_array_elem_ref(ctx, arr), arr_dt), sir_load_local(ctx->arena, t_i, SIR_DTINT, NULL), sir_load_local(ctx->arena, t_v, arr_dt, NULL), delivery, ddcg_array_elem_ref(ctx, arr));
     sir_node_t* store_head = ((arr_dt == SIR_DTREF) ? (sir_node_t*)((ddcg_array_elem_class(ctx, arr) >= 0) ? (sir_node_t*)ddcg_arraystore_guard(ctx, t_a, t_v, astore, rho) : (sir_node_t*)astore) : (sir_node_t*)astore);
     sir_node_t* bounds = ddcg_bounds_guard(ctx, t_a, t_i, ddcg_array_elem_ref(ctx, arr), arr_dt, store_head, rho);
-    sir_node_t* v_chain = ddcg_cg_deliver_conv(ctx, value, arr_dt, rho, ddcg_vloc(ctx, t_v, arr_dt, ddcg_array_elem_ref(ctx, arr)), single(ctx, bounds), bounds);
+    sir_node_t* checked = ddcg_null_guard(ctx, t_a, bounds, rho);
+    sir_node_t* v_chain = ddcg_cg_deliver_conv(ctx, value, arr_dt, rho, ddcg_vloc(ctx, t_v, arr_dt, ddcg_array_elem_ref(ctx, arr)), single(ctx, checked), checked);
     sir_node_t* i_chain = ddcg_compile_expr(ctx, idx, rho, loc(ctx, t_i, SIR_DTINT), single(ctx, v_chain), v_chain);
-    sir_node_t* checked = ddcg_null_guard(ctx, t_a, i_chain, rho);
-    return ddcg_compile_expr(ctx, arr, rho, locref(ctx, t_a, ddcg_expr_ref(ctx, arr)), single(ctx, checked), checked);
+    return ddcg_compile_expr(ctx, arr, rho, locref(ctx, t_a, ddcg_expr_ref(ctx, arr)), single(ctx, i_chain), i_chain);
 }
 
 /* fun narrow_to_dt */
@@ -4181,11 +4181,9 @@ sir_node_t* ddcg_compile_expr(ddcg_ctx_t* ctx, ast_expr_t* node, rho_t rho, delt
                     }
                     sir_node_t* invoke_node = ddcg_build_invoke_node(ctx, kind, target_class, cp, recv_load, arg_loads, dt, rho);
                     sir_node_t* delivery = ddcg_call_delivery(ctx, invoke_node, is_void, dt, delta, gamma, Lnext);
-                    sir_node_t* args_chain = ddcg_chain_call_args(ctx, as, (as.count - 1), t_args, arg_dts, target_class, cp, delivery, rho);
-                    (has_receiver ? ((rcvr == NULL) ? (sir_node_t*)sir_store_local(ctx->arena, t_recv, SIR_DTREF, sir_class_ref(ctx->arena, ddcg_current_class_id(ctx)), sir_load_this(ctx->arena, SIR_DTREF, ddcg_current_class_id(ctx)), args_chain) : (sir_node_t*)({
-                        sir_node_t* checked = ddcg_null_guard(ctx, t_recv, args_chain, rho);
-                        ddcg_compile_expr(ctx, rcvr, rho, locref(ctx, t_recv, ddcg_expr_ref(ctx, rcvr)), single(ctx, checked), checked);
-                    })) : ddcg_init_barrier(ctx, target_class, args_chain, rho));
+                    sir_node_t* invoke_tail = (has_receiver ? ((rcvr == NULL) ? delivery : ddcg_null_guard(ctx, t_recv, delivery, rho)) : delivery);
+                    sir_node_t* args_chain = ddcg_chain_call_args(ctx, as, (as.count - 1), t_args, arg_dts, target_class, cp, invoke_tail, rho);
+                    (has_receiver ? ((rcvr == NULL) ? (sir_node_t*)sir_store_local(ctx->arena, t_recv, SIR_DTREF, sir_class_ref(ctx->arena, ddcg_current_class_id(ctx)), sir_load_this(ctx->arena, SIR_DTREF, ddcg_current_class_id(ctx)), args_chain) : (sir_node_t*)ddcg_compile_expr(ctx, rcvr, rho, locref(ctx, t_recv, ddcg_expr_ref(ctx, rcvr)), single(ctx, args_chain), args_chain)) : ddcg_init_barrier(ctx, target_class, args_chain, rho));
                 }));
                 break;
             }
@@ -4292,9 +4290,9 @@ sir_node_t* ddcg_compile_expr(ddcg_ctx_t* ctx, ast_expr_t* node, rho_t rho, delt
             sir_node_t* tree = sir_array_load(ctx->arena, dt, ddcg_array_backing(ctx, t_a, ddcg_array_elem_ref(ctx, arr), dt), sir_load_local(ctx->arena, t_i, SIR_DTINT, NULL), ddcg_array_elem_ref(ctx, arr));
             sir_node_t* head = ddcg_cg_deliver_effectful(ctx, tree, delta, gamma, Lnext);
             sir_node_t* bounds = ddcg_bounds_guard(ctx, t_a, t_i, ddcg_array_elem_ref(ctx, arr), dt, head, rho);
-            sir_node_t* i_chain = ddcg_compile_expr(ctx, idx, rho, loc(ctx, t_i, SIR_DTINT), single(ctx, bounds), bounds);
-            sir_node_t* checked = ddcg_null_guard(ctx, t_a, i_chain, rho);
-            _result = ddcg_compile_expr(ctx, arr, rho, locref(ctx, t_a, ddcg_expr_ref(ctx, arr)), single(ctx, checked), checked);
+            sir_node_t* checked = ddcg_null_guard(ctx, t_a, bounds, rho);
+            sir_node_t* i_chain = ddcg_compile_expr(ctx, idx, rho, loc(ctx, t_i, SIR_DTINT), single(ctx, checked), checked);
+            _result = ddcg_compile_expr(ctx, arr, rho, locref(ctx, t_a, ddcg_expr_ref(ctx, arr)), single(ctx, i_chain), i_chain);
             break;
         }
         break;

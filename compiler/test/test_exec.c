@@ -2254,6 +2254,63 @@ int main(void) {
             "class T { static int f(int z){ A a = null;"
             "  try { a.x += 5; return 0; } catch (NullPointerException e) { return 72; } } }",
             0, 72, "null.field op= → catchable NullPointerException" },
+          /* ── WHEN the null check fires, not just whether ──────────────────────────
+           * A guard that throws the right exception at the wrong TIME is still a
+           * miscompile: the operands the spec evaluates first must have run, and
+           * their side effects must be observable, before the NPE.
+           *
+           * §15.11.4 numbers the steps: "First, a target reference may be computed.
+           * Second, the argument expressions are evaluated. … Fourth, the actual code
+           * for the method to be executed is located." §15.11.4.4 puts the throw in
+           * step FOUR: "If the target reference is null, a NullPointerException is
+           * thrown at this point." So a null receiver does NOT excuse the arguments
+           * from running. */
+          { "class A { static int t; int m(int x){ return x; } static int bump(){ t = 7; return 1; } }"
+            "class T { static int f(int z){ A a = null;"
+            "  try { a.m(A.bump()); } catch (NullPointerException e) { }"
+            "  return A.t; } }",
+            0, 7, "§15.11.4.4 the receiver NPE fires at DISPATCH — the argument "
+                  "expression already ran (§15.11.4.2) and its side effect stands" },
+          /* The same rule read from the other side: if an argument completes abruptly,
+           * §15.11.4.2 says "the method invocation completes abruptly for the same
+           * reason" — step 2 finishes the invocation, so step 4's NPE never happens. */
+          { "class A { int m(int x){ return x; } }"
+            "class T { static int f(int z){ A a = null;"
+            "  try { a.m(5 / z); return 1; }"
+            "  catch (ArithmeticException e) { return 2; }"
+            "  catch (NullPointerException e) { return 3; } } }",
+            0, 2, "§15.11.4.2 an argument's own exception wins over the receiver NPE" },
+          /* §15.12.1's bullets are an order: array ref, then index, THEN "if the value
+           * of the array reference expression is null, then a NullPointerException is
+           * thrown". The index runs first even when the array is null. */
+          { "class A { static int t; static int idx(){ t = 7; return 0; } }"
+            "class T { static int f(int z){ int[] a = null;"
+            "  try { return a[A.idx()]; } catch (NullPointerException e) { return A.t; } } }",
+            0, 7, "§15.12.1 a null array read evaluates the INDEX before the NPE" },
+          /* §15.25.1's array-access branch goes further — array ref, index, "Otherwise,
+           * the right-hand operand is evaluated", and only THEN "if the value of the
+           * array reference subexpression is null … a NullPointerException is thrown". */
+          { "class A { static int t; static int val(){ t = 7; return 1; } }"
+            "class T { static int f(int z){ int[] a = null;"
+            "  try { a[0] = A.val(); return 0; } catch (NullPointerException e) { return A.t; } } }",
+            0, 7, "§15.25.1 a null array store evaluates the VALUE before the NPE" },
+          { "class T { static int f(int z){ int[] a = null;"
+            "  try { a[0] = 5 / z; return 1; }"
+            "  catch (ArithmeticException e) { return 2; }"
+            "  catch (NullPointerException e) { return 3; } } }",
+            0, 2, "§15.25.1 the stored value's own exception wins over the array NPE" },
+          /* THE SOUNDNESS NEGATIVE, and the reason this is an order and not a blanket
+           * "check late" rule. §15.25.2's array branch says the index subexpression runs
+           * "and the right-hand operand is not evaluated", then the NPE — because a
+           * compound assignment must FETCH the component before it can combine, and the
+           * fetch is what dereferences. So `a[0] += val()` throws BEFORE val() runs, the
+           * opposite of `a[0] = val()` directly above. Moving this guard to match its
+           * simple-assignment twin would be over-applying the fix. */
+          { "class A { static int t; static int val(){ t = 7; return 1; } }"
+            "class T { static int f(int z){ int[] a = null;"
+            "  try { a[0] += A.val(); return 0; } catch (NullPointerException e) { return A.t; } } }",
+            0, 0, "§15.25.2 a null COMPOUND array assign throws BEFORE the right-hand "
+                  "operand — the fetch dereferences first" },
           /* §15.9.1 (E7): a negative array size throws CATCHABLE NegativeArraySizeException. */
           { "class T { static int f(int z){"
             "  try { int[] a = new int[z]; return a.length; }"

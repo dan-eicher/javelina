@@ -1250,7 +1250,7 @@ fun pre_field_instance(obj: ast.expr, target: ast.expr, dt: ir.datatype,
                       build ir.LoadLocal(t_obj, DtRef, nil), sema_field_decl_class(target), cp,
                       build ir.LoadLocal(t_new, dt, nil), delivery);
     let store_new = build ir.StoreLocal(t_new, dt, nil, new_val, writeback);
-    let checked   = null_guard(t_obj, store_new, rho);   // §15.11: null.field++ → NPE
+    let checked   = null_guard(t_obj, store_new, rho);   // §15.10.1: null.field++ → NPE
     gen(obj, rho, locref(t_obj, expr_ref(obj)), single(checked), checked);
 }
 
@@ -1290,7 +1290,7 @@ fun post_field_instance(obj: ast.expr, target: ast.expr, dt: ir.datatype,
                       build ir.GetField(dt,
                         build ir.LoadLocal(t_obj, DtRef, nil), sema_field_decl_class(target), cp),
                       writeback);
-    let checked = null_guard(t_obj, store_old, rho);     // §15.11: null.field-- → NPE
+    let checked = null_guard(t_obj, store_old, rho);     // §15.10.1: null.field-- → NPE
     gen(obj, rho, locref(t_obj, expr_ref(obj)), single(checked), checked);
 }
 
@@ -1401,7 +1401,11 @@ fun assign_instance_field(obj: ast.expr, target: ast.expr, value: ast.expr,
                       build ir.LoadLocal(t_v, dt, nil), delivery);
     let v_chain   = cg_deliver_conv(value, dt, rho, vloc(t_v, dt, expr_ref(target)),
                          single(writeback), writeback);
-    let checked = null_guard(t_obj, v_chain, rho);   // §15.11: null.field = v → NPE (before value eval)
+    // §15.25.1's NON-array branch evaluates the left-hand operand "to produce a
+    // variable" and only then the right-hand operand, so for a field target the
+    // deref precedes the value — the opposite of the array-access branch below,
+    // which names the RHS explicitly as running first.
+    let checked = null_guard(t_obj, v_chain, rho);   // §15.25.1: null.field = v → NPE
     gen(obj, rho, locref(t_obj, expr_ref(obj)), single(checked), checked);
 }
 
@@ -1420,21 +1424,28 @@ fun assign_array(arr: ast.expr, idx: ast.expr, value: ast.expr,
                       build ir.LoadLocal(t_i, DtInt, nil),
                       build ir.LoadLocal(t_v, arr_dt, nil),
                       delivery, array_elem_ref(arr));
-    // §15.25.1 / §10.10 order: array ref (null-check), index, value, bounds-check, then
-    // the ArrayStore check, then the store. The check applies only to a reference CLASS
-    // (or interface) element — where the value is Object-representable and elementClass is
-    // stamped; a nested/primitive-array element (int[][]) is the §10.8 array-Class case (later).
+    // §15.25.1 / §10.10 order, and §15.25.1's array-access branch spells it out: array
+    // ref, index, "Otherwise, the right-hand operand is evaluated", and only THEN "if
+    // the value of the array reference subexpression is null … a NullPointerException
+    // is thrown", the bounds test, the ArrayStore check, the store. The null guard
+    // therefore sits BEHIND the value chain — the stored expression runs, and its own
+    // exception ends the assignment, before a null array is ever reported.
+    // (§15.25.2 compound assignment is deliberately the opposite: its fetch
+    // dereferences before the right-hand operand, so that path guards earlier.)
+    // The ArrayStore check applies only to a reference CLASS (or interface) element —
+    // where the value is Object-representable and elementClass is stamped; a
+    // nested/primitive-array element (int[][]) is the §10.8 array-Class case (later).
     let store_head = arr_dt == DtRef
         ? (array_elem_class(arr) >= 0 ? arraystore_guard(t_a, t_v, astore, rho) : astore)
         : astore;
     let bounds   = bounds_guard(t_a, t_i, array_elem_ref(arr), arr_dt, store_head, rho);
+    let checked  = null_guard(t_a, bounds, rho);
     let v_chain  = cg_deliver_conv(value, arr_dt, rho,
                         vloc(t_v, arr_dt, array_elem_ref(arr)),
-                        single(bounds), bounds);
+                        single(checked), checked);
     let i_chain  = gen(idx, rho, loc(t_i, DtInt),
                         single(v_chain), v_chain);
-    let checked  = null_guard(t_a, i_chain, rho);
-    gen(arr, rho, locref(t_a, expr_ref(arr)), single(checked), checked);
+    gen(arr, rho, locref(t_a, expr_ref(arr)), single(i_chain), i_chain);
 }
 
 // ── CompoundAssign helpers (x op= e desugars to x = x op e) ────
@@ -1573,7 +1584,7 @@ fun compound_field_instance(obj: ast.expr, target: ast.expr, op: ast.binop,
                       build ir.GetField(dt,
                         build ir.LoadLocal(t_obj, DtRef, nil), sema_field_decl_class(target), cp),
                       v_chain);
-    let checked = null_guard(t_obj, save_old, rho);      // §15.11: null.field op= v → NPE
+    let checked = null_guard(t_obj, save_old, rho);      // §15.25.2: null.field op= → NPE (the fetch derefs first)
     gen(obj, rho, locref(t_obj, expr_ref(obj)), single(checked), checked);
 }
 
@@ -4056,8 +4067,21 @@ rule method_call : ast.MethodCall(obj: rcvr, method: m, args: as)
                                                 recv_load, arg_loads, dt, rho);
           let delivery   = call_delivery(invoke_node, is_void, dt,
                                           delta, gamma, Lnext);
+          /* §15.11.4 runs five steps in order: the target reference is computed
+           * (§15.11.4.1), the arguments are evaluated (§15.11.4.2), and only at
+           * §15.11.4.4 — "Locate Method to Invoke" — does a null receiver throw:
+           * "If the target reference is null, a NullPointerException is thrown at
+           * this point." So the guard is the invoke's immediate PREDECESSOR, behind
+           * the argument chain rather than in front of it: a null receiver does not
+           * excuse the arguments from running, and an argument that completes
+           * abruptly ends the invocation for its own reason (§15.11.4.2) before the
+           * NPE can happen. `this` is never null (§15.7.2) and a static call has no
+           * target reference, so neither takes a guard. */
+          let invoke_tail = has_receiver
+              ? (rcvr == nil ? delivery : null_guard(t_recv, delivery, rho))
+              : delivery;
           let args_chain = chain_call_args(as, as.count - 1,
-                                            t_args, arg_dts, target_class, cp, delivery, rho);
+                                            t_args, arg_dts, target_class, cp, invoke_tail, rho);
           has_receiver
             ? (rcvr == nil
                 /* Unqualified `m(...)` = `this.m(...)`. In a VIRTUAL method `this`
@@ -4067,13 +4091,8 @@ rule method_call : ast.MethodCall(obj: rcvr, method: m, args: as)
                 ? build ir.StoreLocal(t_recv, DtRef, build ir.ClassRef(current_class_id()),
                                       build ir.LoadThis(DtRef, current_class_id()),
                                       args_chain)
-                /* NOTE: §15.11.4.4 throws the null-receiver NPE at dispatch, AFTER
-                 * §15.11.4.2 evaluates the args; this lowering checks BEFORE the
-                 * args — observable only for a null receiver with side-effecting
-                 * argument expressions. */
-                : { let checked = null_guard(t_recv, args_chain, rho);
-                    gen(rcvr, rho, locref(t_recv, expr_ref(rcvr)),
-                        single(checked), checked); })
+                : gen(rcvr, rho, locref(t_recv, expr_ref(rcvr)),
+                      single(args_chain), args_chain))
             : init_barrier(target_class, args_chain, rho); };   // §12.4.1: a static call initializes the declaring class
 }
 
@@ -4181,12 +4200,15 @@ rule array_access_read : ast.ArrayAccess(arr: arr, index: idx) {
                  array_backing(t_a, array_elem_ref(arr), dt),
                  build ir.LoadLocal(t_i, DtInt, nil), array_elem_ref(arr));
     let head = cg_deliver_effectful(tree, delta, gamma, Lnext);
-    // §15.12.1: bounds-check (array is non-null here), then the load. Null-check
-    // fires earlier — right after the array ref is spilled, before the index.
+    // §15.12.1's bullets are an ORDER: the array reference is evaluated, then the
+    // index, and only then "if the value of the array reference expression is null,
+    // then a NullPointerException is thrown", then the bounds test, then the load.
+    // So the index runs even when the array is null, and the guard sits between the
+    // index chain and the bounds test — the same shape pre_array_access already has.
     let bounds = bounds_guard(t_a, t_i, array_elem_ref(arr), dt, head, rho);
-    let i_chain = gen(idx, rho, loc(t_i, DtInt), single(bounds), bounds);
-    let checked = null_guard(t_a, i_chain, rho);
-    gen(arr, rho, locref(t_a, expr_ref(arr)), single(checked), checked);
+    let checked = null_guard(t_a, bounds, rho);
+    let i_chain = gen(idx, rho, loc(t_i, DtInt), single(checked), checked);
+    gen(arr, rho, locref(t_a, expr_ref(arr)), single(i_chain), i_chain);
 }
 
 // JLS §15.25 — assignment. Dispatches on the target's shape:
