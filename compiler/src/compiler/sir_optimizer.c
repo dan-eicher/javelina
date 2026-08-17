@@ -11141,9 +11141,19 @@ void cp_rewrite(cp_engine_t* eng) {
  * throw cannot depend on the fixpoint. WHICH of them actually catches it does — that is
  * the transfer, and it reads pts (cp_throw_is_caught). */
 static void cp_index_try_regions(cp_engine_t* eng) {
+    /* Idempotent: the outer array is arena and is simply replaced, but the rows are
+     * heap, so a second call on the same engine would orphan them. MEASURED ZERO on
+     * conformance/src — the three call sites are each once-per-engine on their own
+     * build path, and a row only exists for a SIR_THROW node, so there is usually
+     * nothing to orphan. Kept because a rebuild-shaped function that leaks on
+     * rebuild is a trap for the next caller, not because it recovered bytes.
+     * Bounded by the recorded count, for the reason on the field. */
+    if (eng->throw_catches)
+        for (int i = 0; i < eng->throw_catches_rows; i++) bbq_vec_free(eng->throw_catches[i]);
     int sn = eng->spine_count;
     eng->throw_catches = (int**)bbq_arena_alloc(eng->arena,
                              (size_t)(sn > 0 ? sn : 1) * sizeof(int*));
+    eng->throw_catches_rows = sn;
     for (int i = 0; i < sn; i++) eng->throw_catches[i] = NULL;
 
     for (int i = 0; i < sn; i++) {
@@ -11834,6 +11844,31 @@ void cp_free(cp_engine_t* eng) {
             bbq_vec_free(eng->esc_call_cells[k]);
         }
     }
+    /* These three were pushed to and never released. The engine is METHOD
+     * lifetime (§8.1.2: an allocation belongs to the arena of its last reader,
+     * and this teardown is where that lifetime ends), but a bbq_vec is heap, not
+     * arena, so adding a field to the engine means adding it here — and three
+     * additions did not. Over the conformance corpus at -O that was 1.4 MB of the
+     * 3.2 MB javelinac leaked. The audit that finds this is mechanical: every
+     * `bbq_vec_push(eng->x)` in this file must have a `bbq_vec_free(eng->x)`
+     * below. */
+    bbq_vec_free(eng->cprop_worklist);
+    bbq_vec_free(eng->fallen);
+    /* throw_catches straddles the split: the OUTER array is bbq_arena_alloc'd and
+     * dies with the method arena, while each row is a heap bbq_vec. Freeing the
+     * outer as a vec is a bad free on arena memory — ASAN says so immediately,
+     * which is the argument for running it rather than reasoning about it. */
+    /* Bounded by throw_catches_rows, NOT the live spine_count: the array is sized
+     * when cp_index_try_regions runs and the spine GROWS afterwards as the graph is
+     * rewritten, so spine_count here walks off the end. That segfaulted test_sir. */
+    if (eng->throw_catches)
+        for (int i = 0; i < eng->throw_catches_rows; i++) bbq_vec_free(eng->throw_catches[i]);
+    /* Same shape, and it hides better: cp_hoist_exc_edges pushes through a LOCAL
+     * alias (`exc[i]`, where exc is *out == &eng->exc_succ), so grepping this file
+     * for `bbq_vec_push(eng->…)` does not find it. The sanitizer does. Rows are
+     * bounded by exc_succ_rows, which is spine_count as of the build. */
+    if (eng->exc_succ)
+        for (int i = 0; i < eng->exc_succ_rows; i++) bbq_vec_free(eng->exc_succ[i]);
     type_pool_destroy(&eng->pool);
 }
 
@@ -12212,6 +12247,15 @@ void cp_pack(sir_method_t* method, const sema_ctx_t* sema,
 
     bbq_vec_free(nodes);
     cp_pmap_free(node_idx);
+    /* The two heap-backed locals this function builds. ref_pool interns Types into
+     * bbq_vecs; cp_hoist_exc_edges hands back an arena outer array whose ROWS are
+     * heap (the same straddle as eng->exc_succ). On the whole-RTL compile these
+     * were 84 KB in 1167 objects and 23 KB in 574 — the two largest leaks left in
+     * javelinac, and invisible on conformance/src, which is why one corpus is not a
+     * measurement. `nn` is assigned once at the top and is the count `exc` was
+     * built with. */
+    type_pool_destroy(&ref_pool);
+    if (exc) for (int i = 0; i < nn; i++) bbq_vec_free(exc[i]);
 }
 
 /* ── Public entry point ──────────────────────────────────────────
@@ -14136,6 +14180,14 @@ void cp_publish_facts(compiler_ctx_t* ctx, int method_idx, cp_engine_t* eng) {
                (size_t)(nv > 0 ? nv : 1) * sizeof *f->v);
     memset(f->v, 0, (size_t)(nv > 0 ? nv : 1) * sizeof *f->v);
 
+    /* Facts are REPUBLISHED, not published once: compiler_summarize_to_convergence
+     * re-runs sir_summarize per method until the summaries stop moving, and
+     * sir_optimize publishes again after it. Every publish re-inits this map, so
+     * the previous one has to go first or each round after the first abandons an
+     * hmap — one per method per round. The facts struct around it is COMPILE arena
+     * memory (§8.1.2) and is simply overwritten; the heap map is the part that
+     * needs saying out loud. Free on a never-initialised (zeroed) pmap is a no-op. */
+    cp_pmap_free(&f->expr_idx);
     cp_pmap_init(&f->expr_idx);
     for (int i = 0; i < nv; i++) {
         const cp_vnode_t* vn = eng->vnodes[i];

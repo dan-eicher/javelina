@@ -31,9 +31,17 @@ below.
 
 ## Fail-closed
 
-`exec_host_for` resolves an import by method name. **A name it does not know gets a stub that traps**,
-naming the method — never a zero, never an echo of its argument. A silently wrong native is
+`exec_host_for` resolves an import by its **qualified** name — the module and the field, both halves,
+as WebAssembly declares them (§5.5.5). The tables below are the key: `HostIO.open` is one import and
+`Whatever.open` is a different one that this floor does not answer. **A name it does not know gets a
+stub that traps**, naming it — never a zero, never an echo of its argument. A silently wrong native is
 indistinguishable from a working one; a trap is not.
+
+**The declared signature is checked, not adopted.** `wasm_func_new` is handed the functype the *guest*
+declared, so a disagreement would otherwise link and go wrong at call time — WASI preview1's
+`fd_write` is `(fd, iovs, iovs_len, nwritten) → errno`, four arguments, and would have bound straight
+onto this floor's three-argument `HostIO.fd_write` and read an iovec pointer as a buffer offset. An
+import whose declared type is not the one tabulated below falls through to the trapping stub.
 
 This is also the security model. **Withholding a capability is how you sandbox.** An embedder that
 declines to supply `open` (or supplies a trapping stub for it) has denied the guest the filesystem:
@@ -41,8 +49,23 @@ the module either fails to link, or the call traps. It cannot silently succeed. 
 is a smaller `exec_host_for`, not a patched `jre.wasm`.
 
 An embedder may add natives of its own — an application exposing its functions to the guest — through
-the `g_io_host_extra` hook. Returning `NULL` from it falls through to the trapping stub, so
-registering application natives never reopens the hole.
+the `g_io_host_extra` hook:
+
+```c
+wasm_func_t* (*g_io_host_extra)(wasm_store_t*, const wasm_functype_t*,
+                                const wasm_name_t* mod, const wasm_name_t* fld);
+```
+
+It receives **both** halves of the name, so an application owns a module namespace of its own —
+answer for `App.*` and return `NULL` for everything else. It is consulted for every import this
+contract does not claim, so an application native never has to contend with a java.lang method that
+happens to share its field name: `App.open` and `HostIO.open` are different imports and both resolve.
+Returning `NULL` falls through to the trapping stub, so registering application natives never reopens
+the hole.
+
+A module name is *not* a capability boundary by itself — withholding is still the sandbox. What the
+qualified key buys is that a guest cannot reach a native by asking for its field name under some other
+module, and that an application's namespace is its own.
 
 ---
 

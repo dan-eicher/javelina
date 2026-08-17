@@ -28,7 +28,9 @@ static wasm_trap_t* harness_identity(const wasm_val_vec_t* args, wasm_val_vec_t*
     }
     return NULL;
 }
-static wasm_func_t* harness_host_for(wasm_store_t* store, const wasm_functype_t* ft, const wasm_name_t* nm) {
+static wasm_func_t* harness_host_for(wasm_store_t* store, const wasm_functype_t* ft,
+                                     const wasm_name_t* mod, const wasm_name_t* nm) {
+    (void)mod;   /* the harness's echoes are declared by the test fixtures' own module names */
     static const char* const echoes[] = { "identity", "self", "ext", NULL };
     for (int i = 0; echoes[i]; i++)
         if (nm->size == strlen(echoes[i]) && !memcmp(nm->data, echoes[i], nm->size))
@@ -115,7 +117,8 @@ static inline exec_status exec_call(const uint8_t* mod, size_t modlen, const cha
     for (size_t i = 0; i < imptypes.size; i++) {
         const wasm_functype_t* ft = wasm_externtype_as_functype_const(wasm_importtype_type(imptypes.data[i]));
         imports.data[i] = ft ? wasm_func_as_extern(
-            exec_host_for(store, ft, wasm_importtype_name(imptypes.data[i]))) : NULL;
+            exec_host_for(store, ft, wasm_importtype_module(imptypes.data[i]),
+                                     wasm_importtype_name(imptypes.data[i]))) : NULL;
     }
 
     wasm_trap_t* trap = NULL;
@@ -192,6 +195,11 @@ static struct {
     wasm_byte_vec_t bin;
     wasm_importtype_vec_t impt;   wasm_extern_vec_t imp;    /* jre's host imports (kept to free at teardown) */
     wasm_exporttype_vec_t expt;   wasm_extern_vec_t exp;    /* jre's exports (the plugin link target) */
+    /* export name -> index + 1, so linking a plugin does not scan `expt` per
+     * import. jre.wasm exports 2060 names and a plugin imports several hundred,
+     * which made the nested scan the harness's own n*m — the same shape the
+     * driver had (driver/javelina.c). */
+    bbq_dict* expidx;
 } g_jre;
 
 /* Build jre ONCE on a fresh shared store and capture its exports. Returns false on failure. */
@@ -210,13 +218,20 @@ static bool exec_jre_init(const uint8_t* jre, size_t jrelen) {
     wasm_extern_vec_new_uninitialized(&g_jre.imp, g_jre.impt.size);
     for (size_t i = 0; i < g_jre.impt.size; i++) {
         const wasm_functype_t* ft = wasm_externtype_as_functype_const(wasm_importtype_type(g_jre.impt.data[i]));
-        g_jre.imp.data[i] = ft ? wasm_func_as_extern(exec_host_for(g_jre.store, ft, wasm_importtype_name(g_jre.impt.data[i]))) : NULL;
+        g_jre.imp.data[i] = ft ? wasm_func_as_extern(exec_host_for(g_jre.store, ft,
+                                     wasm_importtype_module(g_jre.impt.data[i]),
+                                     wasm_importtype_name(g_jre.impt.data[i]))) : NULL;
     }
     wasm_trap_t* trap = NULL;
     g_jre.inst = wasm_instance_new(g_jre.store, g_jre.mod, &g_jre.imp, &trap);
     if (!g_jre.inst) { fprintf(stderr, "  [jre] instantiation failed: %s\n", jav_err_str(jav_capi_last_error(g_jre.store)));
                        if (trap) wasm_trap_delete(trap); return false; }
     wasm_module_exports(g_jre.mod, &g_jre.expt); wasm_instance_exports(g_jre.inst, &g_jre.exp);
+    g_jre.expidx = bbq_dict_create();
+    for (size_t i = 0; i < g_jre.expt.size && i < g_jre.exp.size; i++) {
+        const wasm_name_t* en = wasm_exporttype_name(g_jre.expt.data[i]);
+        bbq_dict_put(g_jre.expidx, en->data, en->size, (void*)(uintptr_t)(i + 1));
+    }
     for (size_t i = 0; i < g_jre.expt.size && i < g_jre.exp.size; i++) {   /* the ONE shared I/O staging memory */
         const wasm_name_t* en = wasm_exporttype_name(g_jre.expt.data[i]);
         if (en->size == 6 && !memcmp(en->data, "memory", 6)) { g_io_mem = wasm_extern_as_memory(g_jre.exp.data[i]); break; }
@@ -237,6 +252,8 @@ static void exec_jre_teardown(void) {
     if (g_jre.impt.size) wasm_importtype_vec_delete(&g_jre.impt);
     if (g_jre.exp.size)  wasm_extern_vec_delete(&g_jre.exp);
     if (g_jre.expt.size) wasm_exporttype_vec_delete(&g_jre.expt);
+    if (g_jre.expidx) { bbq_dict_destroy(g_jre.expidx); g_jre.expidx = NULL; }
+    exec_host_release();
     if (g_jre.inst) wasm_instance_delete(g_jre.inst);
     if (g_jre.mod)  wasm_module_delete(g_jre.mod);
     wasm_byte_vec_delete(&g_jre.bin);
@@ -273,17 +290,13 @@ static exec_status exec_call_shared(const uint8_t* mod, size_t modlen, const cha
         const wasm_name_t* im = wasm_importtype_module(pimpt.data[i]);
         const wasm_name_t* fl = wasm_importtype_name(pimpt.data[i]);
         if (im->size == 3 && !memcmp(im->data, "jre", 3)) {
-            int fi = -1;
-            for (size_t j = 0; j < g_jre.expt.size && j < g_jre.exp.size; j++) {
-                const wasm_name_t* en = wasm_exporttype_name(g_jre.expt.data[j]);
-                if (en->size == fl->size && !memcmp(en->data, fl->data, en->size)) { fi = (int)j; break; }
-            }
-            if (fi < 0) { fprintf(stderr, "  [plugin:%s] unresolved jre import %.*s\n", name, (int)fl->size, fl->data);
-                          st = EXEC_NO_INSTANCE; goto done; }
-            pimp.data[i] = g_jre.exp.data[fi];            /* borrowed — owned by g_jre.exp */
+            size_t slot = (size_t)(uintptr_t)bbq_dict_get(g_jre.expidx, fl->data, fl->size);
+            if (!slot) { fprintf(stderr, "  [plugin:%s] unresolved jre import %.*s\n", name, (int)fl->size, fl->data);
+                         st = EXEC_NO_INSTANCE; goto done; }
+            pimp.data[i] = g_jre.exp.data[slot - 1];      /* borrowed — owned by g_jre.exp */
         } else {
             const wasm_functype_t* ft = wasm_externtype_as_functype_const(wasm_importtype_type(pimpt.data[i]));
-            pimp.data[i] = ft ? wasm_func_as_extern(exec_host_for(store, ft, fl)) : NULL;
+            pimp.data[i] = ft ? wasm_func_as_extern(exec_host_for(store, ft, im, fl)) : NULL;
         }
     }
     pinst = wasm_instance_new(store, pmod, &pimp, &trap);

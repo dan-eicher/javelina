@@ -142,10 +142,29 @@ static ast_program_t* parse_src(const char* src, int len, const char* file, java
  * run — and the only alternative is rationing individual phases, which is a bandaid for a
  * missing lifetime rather than a memory design. `sctx` may be NULL (failure before sema).
  * Order matters: sema_destroy reads arena-backed memory, so it runs before the arena dies. */
-static void release_compile(bbq_arena* arena, java_parse_ctx_t** ctxs, sema_ctx_t* sctx) {
+static void release_compile(bbq_arena* arena, java_parse_ctx_t** ctxs, sema_ctx_t* sctx,
+                            emit_wasm_ctx* out, const char** inputs) {
+    /* `inputs` is the driver's own argv array rather than compile state, and it is
+     * here for the same reason `out` is: there are seven ways out of main once it is
+     * live, none of them freed it, and a free repeated at seven call sites is a free
+     * that will be missing from the eighth. */
+    free((void*)inputs);
+    /* The emitted module bytes. §8.1.2 files them under the COMPILE lifetime, and
+     * this is where that lifetime ends — but they live in a bbq_vec, so the arena
+     * free below does not reach them. `out` may be NULL (a failure before the
+     * assembler ran) and out->code may be NULL (it never emitted). */
+    if (out) { bbq_vec_free(out->code); out->code = NULL; }
     if (sctx) { sema_destroy(sctx); free(sctx); }
     for (int i = 0; i < (int)bbq_vec_len(ctxs); i++) {
         if (!ctxs[i]) continue;
+        /* pc->file is OWNED — both callers hand parse_src storage of their own
+         * (glob_dir its malloc'd path, the input walk a str_dup) precisely
+         * because the ctx outlives the caller's frame and diagnostics read the
+         * name late. Nothing freed it, which leaked one string per source file:
+         * 134 blocks compiling a hello-world against the prelude. Freeing it in
+         * glob_dir instead would have left this pointer dangling, which is the
+         * trap in a leak that is holding something alive. */
+        free((void*)ctxs[i]->file);
         bbq_arena_free(&ctxs[i]->arena);
         free(ctxs[i]);
     }
@@ -167,7 +186,10 @@ static void glob_dir(const char* dir, ast_type_decl_t*** types, java_parse_ctx_t
         int slen = 0;
         char* s = read_file(path, &slen);
         if (s) {
-            ast_program_t* p = parse_src(s, slen, path, ctxs);   /* path outlives via the ctx list? no — dup */
+            /* `path` is handed over: the parse ctx owns it from here and
+             * release_compile frees it. It cannot be freed in this loop —
+             * pc->file borrows it for diagnostics emitted after we return. */
+            ast_program_t* p = parse_src(s, slen, path, ctxs);
             free(s);
             if (p) for (int i = 0; i < p->types_count; i++) bbq_vec_push(*types, p->types[i]);
         }
@@ -259,6 +281,11 @@ int main(int argc, char** argv) {
      * host/library. ── */
     bbq_arena arena; bbq_arena_init(&arena, 1 << 20);
     java_parse_ctx_t** ctxs = NULL;
+    /* Declared here rather than beside its first use so that EVERY exit path
+     * releases it: `out.code` is a heap bbq_vec, release_compile is the one
+     * teardown, and there are six ways out of this function after the assembler
+     * fills it. Freeing at each of them is how the seventh gets missed. */
+    emit_wasm_ctx out = {0};
     ast_type_decl_t**  types = NULL;
 
     char pkgdir[512];
@@ -279,13 +306,13 @@ int main(int argc, char** argv) {
     int nlib = (int)bbq_vec_len(types);
     if (nlib == 0) {
         fprintf(stderr, "%s: no prelude classes found under '%s' (wrong --libdir?)\n", prog_name, libdir);
-        bbq_vec_free(types); release_compile(&arena, ctxs, NULL); free(inputs); return 2;
+        bbq_vec_free(types); release_compile(&arena, ctxs, NULL, &out, inputs); return 2;
     }
 
     bool parse_ok = true;
     for (int i = 0; i < ninputs; i++)
         if (!add_input(inputs[i], &types, &ctxs)) parse_ok = false;   /* file or directory tree */
-    if (!parse_ok) { bbq_vec_free(types); release_compile(&arena, ctxs, NULL); free(inputs); return 2; }
+    if (!parse_ok) { bbq_vec_free(types); release_compile(&arena, ctxs, NULL, &out, inputs); return 2; }
 
     int tc = (int)bbq_vec_len(types);
     ast_type_decl_t** arr = bbq_arena_alloc(&arena, (size_t)tc * sizeof(*arr));
@@ -317,7 +344,7 @@ int main(int argc, char** argv) {
     if (sema_error_count(sctx) > 0) {
         fprintf(stderr, "%s: compilation failed (%d error%s)\n",
                 prog_name, sema_error_count(sctx), sema_error_count(sctx) == 1 ? "" : "s");
-        release_compile(&arena, ctxs, sctx); return 1;
+        release_compile(&arena, ctxs, sctx, &out, inputs); return 1;
     }
 
     /* ── Compile + assemble. ── */
@@ -329,14 +356,13 @@ int main(int argc, char** argv) {
     int nct = 0; sema_func_ent_t* cts = compiler_call_targets(cctx, mc, &nct);
     wasm_types_t wt; wasm_types_build(&wt, sctx, cts, nct);
     bbq_vec_free(cts);
-    emit_wasm_ctx out = {0};
     bool ok = wasm_assemble_program(cctx, sctx, &wt, methods, mc, &out);
     wasm_types_free(&wt);
     compiler_destroy(cctx); free(cctx);
 
     if (!ok) {
         fprintf(stderr, "%s: assembly failed (backend produced an invalid module)\n", prog_name);
-        release_compile(&arena, ctxs, sctx); return 1;
+        release_compile(&arena, ctxs, sctx, &out, inputs); return 1;
     }
 
     /* ── Fail-closed §7 gate: run the VM's OWN validator over the bytes
@@ -356,7 +382,7 @@ int main(int argc, char** argv) {
                     vst == JAV_MALFORMED ? "MALFORMED (does not decode)"
                                          : vst == JAV_INVALID ? "INVALID (§7)" : "rejected",
                     verr != JAV_E_NONE ? jav_err_str(verr) : "no §7 reason (decode stage)");
-            release_compile(&arena, ctxs, sctx); return 1;
+            release_compile(&arena, ctxs, sctx, &out, inputs); return 1;
         }
     }
     char derived[512] = {0};
@@ -377,20 +403,20 @@ int main(int argc, char** argv) {
     FILE* of;
     if (!strcmp(out_path, "-")) {
         if (isatty(1)) { fprintf(stderr, "%s: refusing to write a module to a terminal\n", prog_name);
-                         release_compile(&arena, ctxs, sctx); return 2; }
+                         release_compile(&arena, ctxs, sctx, &out, inputs); return 2; }
         of = stdout;
     } else {
         of = fopen(out_path, "wb");
         if (!of) { fprintf(stderr, "%s: cannot write '%s'\n", prog_name, out_path);
-                   release_compile(&arena, ctxs, sctx); return 2; }
+                   release_compile(&arena, ctxs, sctx, &out, inputs); return 2; }
     }
     if (len && fwrite(out.code, 1, len, of) != len) {
         fprintf(stderr, "%s: short write to '%s'\n", prog_name, out_path);
         if (of != stdout) fclose(of);
-        release_compile(&arena, ctxs, sctx); return 2;
+        release_compile(&arena, ctxs, sctx, &out, inputs); return 2;
     }
     if (of != stdout) fclose(of);
 
-    release_compile(&arena, ctxs, sctx);
+    release_compile(&arena, ctxs, sctx, &out, inputs);
     return 0;
 }

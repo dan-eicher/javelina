@@ -1060,6 +1060,11 @@ typedef struct {
      * region encloses it). The EXTENT of a region is codegen's rule read off the recorded
      * scopes — never derived here. Sized spine_count. */
     int**     throw_catches;
+    int       throw_catches_rows;  /* spine_count when throw_catches was built —
+                                    * NOT the live spine_count, which grows as the
+                                    * graph is rewritten. Sized-then-grown is the
+                                    * over-read this field exists to prevent, the
+                                    * same way exc_succ_rows does below. */
 
     /* THE EXCEPTIONAL SUCCESSOR EDGES — spec §1 / JLS §11.3.1.
      *

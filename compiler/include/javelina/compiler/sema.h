@@ -14,6 +14,7 @@
 #include "bbq_arena.h"
 #include "bbq_htree.h"
 #include "bbq_hmap.h"
+#include "bbq_dict.h"
 #include "bbq_vec.h"
 
 /* ── ast_type_t representation ──────────────────────────────────── */
@@ -422,7 +423,12 @@ typedef struct {
 
     /* Class table (bbq_vec of sema_class_t) */
     sema_class_t* classes;
-    bbq_htree* class_by_name;   /* name hash → class index */
+    /* Simple name AND fully-qualified name → class index, both keys living in
+     * the one table. bbq_dict, not bbq_htree: this was keyed on str_hash(name)
+     * and answered on the digest alone, so two classes whose names collided
+     * were one entry — `class CXte {} class CXuD {}` (both 0x7c835299) was a
+     * "duplicate declaration of type". The dict compares the whole name. */
+    bbq_dict* class_by_name;
 
     /* Per-function state */
     java_type_t current_return_type;
@@ -449,7 +455,7 @@ typedef struct {
                                   * restriction (method body context) */
 
     /* Scope stack (bbq_vec of bbq_htree*) */
-    bbq_htree** scopes;
+    bbq_dict** scopes;          /* one per open scope; see class_by_name on why dict */
 
     /* Side tables (output) — keyed by (uint32_t)(uintptr_t)ptr */
     bbq_htree* expr_types;       /* ast_expr_t* → java_type_t* */

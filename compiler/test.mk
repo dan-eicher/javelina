@@ -48,7 +48,7 @@ CLICK_OBJS := $(call src2obj,$(CLICK_SRCS))
 PARSER_OBJ := $(OBJ)/$(GEN)/java_parser.o
 MATCHER_OBJ:= $(OBJ)/$(GEN)/codegen_matcher.o
 ARENA_OBJ  := $(OBJ)/crt/bbq_arena.o
-CRT_OBJS   := $(ARENA_OBJ) $(OBJ)/crt/bbq_htree.o $(OBJ)/crt/bbq_hmap.o $(OBJ)/crt/bbq_buf.o
+CRT_OBJS   := $(ARENA_OBJ) $(OBJ)/crt/bbq_htree.o $(OBJ)/crt/bbq_hmap.o $(OBJ)/crt/bbq_buf.o $(OBJ)/crt/bbq_dict.o
 
 WASM_TYPES_OBJ := $(OBJ)/src/compiler/wasm_types.o
 CODEGEN_STRUCTURED_OBJ := $(OBJ)/src/compiler/codegen_structured.o
@@ -77,7 +77,7 @@ COMPILER_TESTS := test_parse test_jint test_jbound test_lattice test_sema test_s
                   test_codegen_wasm test_scope_sidecar test_codegen_structured \
                   test_control_audit test_wasm_module test_wasm_types \
                   test_codegen_object test_click_backend test_exec \
-                  test_simd_ledger
+                  test_simd_ledger test_host_abi
 
 OBJS_test_parse              := $(PARSER_OBJ) $(ARENA_OBJ)
 OBJS_test_jint               :=   # header-only core (jint.h) — no object deps
@@ -97,7 +97,7 @@ OBJS_test_control_audit      := $(OBJS_test_codegen_structured)
 OBJS_test_wasm_module        := $(OBJ)/src/compiler/wasm_module.o $(WASM_TYPES_OBJ) $(CODEGEN_STRUCTURED_OBJ) \
                                 $(MATCHER_OBJ) $(SEMA_OBJS) $(DDCG_OBJS) $(CLICK_OBJS) \
                                 $(VM_RW_OBJS) $(PARSER_OBJ) \
-                                $(OBJ)/crt/bbq_htree.o $(OBJ)/crt/bbq_hmap.o $(OBJ)/crt/bbq_buf.o \
+                                $(OBJ)/crt/bbq_htree.o $(OBJ)/crt/bbq_hmap.o $(OBJ)/crt/bbq_buf.o $(OBJ)/crt/bbq_dict.o \
                                 $(VM_CAPI_OBJS) $(VM_ENGINE_OBJS)
 OBJS_test_wasm_types         := $(WASM_TYPES_OBJ) $(SEMA_OBJS) $(PARSER_OBJ) $(CRT_OBJS)
 OBJS_test_codegen_object     := $(OBJS_test_codegen_structured)
@@ -106,9 +106,15 @@ OBJS_test_click_backend      := $(CODEGEN_STRUCTURED_OBJ) $(WASM_TYPES_OBJ) $(MA
 OBJS_test_exec               := $(call src2obj,$(EXEC_SRCS)) $(VM_RW_OBJS) $(VM_CAPI_OBJS) $(VM_ENGINE_OBJS)
 # The simd ledger re-reads the spec toml with the generator's own reader pair.
 OBJS_test_simd_ledger        := $(OBJ)/vmgen/toml_parser.o $(OBJ)/vm/toml/toml_doc.o $(ARENA_OBJ)
+# The →HOST resolution rule is embedder-side: host_io.h over the public c-api,
+# no compiler in the picture.
+OBJS_test_host_abi           := $(VM_CAPI_OBJS) $(VM_ENGINE_OBJS) \
+                                $(OBJ)/crt/bbq_htree.o $(OBJ)/crt/bbq_hmap.o $(OBJ)/crt/bbq_dict.o \
+                                $(OBJ)/crt/bbq_buf.o
+# (no $(ARENA_OBJ): VM_ENGINE_OBJS already carries the VM's bbq_arena.o)
 
 # test_exec and test_wasm_module reach the VM; everything else is compiler-only.
-$(B)/test_exec $(B)/test_wasm_module: | vm-objs
+$(B)/test_exec $(B)/test_wasm_module $(B)/test_host_abi: | vm-objs
 
 # Test objects are built by a pattern rule, which make would treat as an
 # intermediate and delete after linking — recompiling every suite's own .c on

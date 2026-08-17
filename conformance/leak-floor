@@ -1,0 +1,73 @@
+# The DEFINITE-LEAK ceiling for javelinac, in distinct valgrind loss records.
+# conformance/gates fails if the count RISES above it — and also if it FALLS,
+# because a lifetime that got fixed should be recorded here rather than pocketed.
+#
+# 0
+#
+# ZERO, and it is measured, not aspirational. Both shipped binaries free everything
+# they allocate, over real inputs:
+#
+#   javelinac  -O conformance/src   10,106,916 allocs / 10,106,916 frees, 0 errors
+#   javelinac  --mode jre           the whole RTL compile, in use at exit: 0
+#   javelinac  -O0 (both of those)  in use at exit: 0
+#   javelina   gc-torture, tiers 0-3  118,571 allocs / 118,571 frees, 0 errors
+#   water      .wat->.wasm and -d   all heap blocks freed
+#
+# Why gate it at all, when it is zero: a heap that is never emptied cannot be
+# checked. A use-after-free is undetectable while nothing is released, so this zero
+# is not tidiness — it is the instrument that makes valgrind's and ASAN's verdicts
+# over these binaries mean something. An instrument nobody reads stops working
+# quietly, which is exactly what happened before this commit.
+#
+# WHY IT WAS 3.2 MB UNTIL NOW, in three individually-reasonable decisions:
+#   1. compiler/test.mk's test-exec-asan sets detect_leaks=0 — legitimately: that
+#      suite shares one process-lifetime prelude AST across cases.
+#   2. javelinac-asan DOES detect leaks, catches all of this, and was in no gate.
+#   3. this valgrind leg ran without --leak-check.
+# None of them wrong on its own; together, no leak coverage at all.
+#
+# RAISE it only when the count rose because hidden work became VISIBLE — a corpus
+# addition reaching an allocation path never exercised before. Never to accommodate
+# a new leak, and never to turn a red gate green: a raise carries its reason here or
+# it is not a raise.
+#
+# 31 -> 7 -> 0. Every one was a violation of combined-analysis-spec.md §8.1.2 —
+# "an allocation belongs to the arena of its last reader" — in the case where the
+# allocation is a bbq_vec or bbq_hmap: heap behind an arena-allocated struct, so
+# freeing the arena never reaches it. Every teardown already existed; fields had
+# been added without extending them.
+#
+#   cp_free              eng->cprop_worklist, eng->fallen; the ROWS of
+#                        eng->throw_catches and eng->exc_succ (outer arrays are
+#                        arena, only rows are heap).
+#   cp_pack              its two heap-backed LOCALS — a type_pool_t never
+#                        destroyed and a cp_hoist_exc_edges vec-of-vecs. 107 KB on
+#                        the RTL compile and INVISIBLE on conformance/src, which is
+#                        why one corpus is not a measurement.
+#   cp_publish_facts     f->expr_idx was re-inited on every publish, and
+#                        summarize-to-convergence republishes per method per round.
+#   compiler_destroy     the final expr_idx maps, ctx->method_index,
+#                        ctx->const_data (whose comment claimed it was arena-backed
+#                        — a bbq_vec is heap whatever it holds), ctx->click_types.
+#   release_compile      out.code and inputs. Both moved INTO the teardown rather
+#                        than freed at each exit: there are seven ways out of main
+#                        and a free repeated seven times is one missing from the
+#                        eighth.
+#
+# THREE THINGS WORTH KEEPING about how it was done:
+#   - The first attempt was a BAD FREE (bbq_vec_free on an arena-allocated outer
+#     array). ASAN reported it immediately.
+#   - The second SEGFAULTED Click: it copied eng->exc_succ's fix shape without
+#     copying the recorded row count, so it indexed a build-time-sized array with a
+#     live, grown spine_count. Five targeted tests found it in under a minute; the
+#     full gate would have taken 45.
+#   - Grepping `bbq_vec_push(eng->…)` found three unfreed containers and MISSED
+#     eng->exc_succ, pushed through a local alias. The sanitizer is the audit; a
+#     pattern-match is not.
+#
+# Reproduce, with attribution (ASAN keeps allocation stacks; valgrind over -O2 does
+# not, and the plain binary must be REBUILT or you measure the old one):
+#   make -C compiler javelinac-asan
+#   ASAN_OPTIONS=hard_rss_limit_mb=6000 compiler/build/javelinac.asan \
+#       --libdir compiler/lib/java --mode jre -o /dev/null
+0

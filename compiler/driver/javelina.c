@@ -88,6 +88,11 @@ static struct {
     wasm_byte_vec_t bin;
     wasm_importtype_vec_t impt; wasm_extern_vec_t imp;
     wasm_exporttype_vec_t expt; wasm_extern_vec_t exp;
+    /* export name -> index + 1. Linking a plugin used to scan `expt` per import,
+     * and the product is not small: jre.wasm exports 2060 names and a hello-world
+     * plugin imports 467 of them, so startup did ~962k name compares and grew as
+     * n*m. Built once, queried once per import. */
+    bbq_dict* expidx;
 } jre;
 
 static bool jre_init(const uint8_t* bytes, size_t len, int tier, int verify_heap) {
@@ -118,7 +123,9 @@ static bool jre_init(const uint8_t* bytes, size_t len, int tier, int verify_heap
     wasm_extern_vec_new_uninitialized(&jre.imp, jre.impt.size);
     for (size_t i = 0; i < jre.impt.size; i++) {
         const wasm_functype_t* ft = wasm_externtype_as_functype_const(wasm_importtype_type(jre.impt.data[i]));
-        jre.imp.data[i] = ft ? wasm_func_as_extern(exec_host_for(jre.store, ft, wasm_importtype_name(jre.impt.data[i]))) : NULL;
+        jre.imp.data[i] = ft ? wasm_func_as_extern(exec_host_for(jre.store, ft,
+                                   wasm_importtype_module(jre.impt.data[i]),
+                                   wasm_importtype_name(jre.impt.data[i]))) : NULL;
     }
     wasm_trap_t* trap = NULL;
     jre.inst = wasm_instance_new(jre.store, jre.mod, &jre.imp, &trap);
@@ -148,6 +155,11 @@ static bool jre_init(const uint8_t* bytes, size_t len, int tier, int verify_heap
         return false;
     }
     wasm_module_exports(jre.mod, &jre.expt); wasm_instance_exports(jre.inst, &jre.exp);
+    jre.expidx = bbq_dict_create();
+    for (size_t i = 0; i < jre.expt.size && i < jre.exp.size; i++) {
+        const wasm_name_t* en = wasm_exporttype_name(jre.expt.data[i]);
+        bbq_dict_put(jre.expidx, en->data, en->size, (void*)(uintptr_t)(i + 1));
+    }
     for (size_t i = 0; i < jre.expt.size && i < jre.exp.size; i++) {   /* the shared I/O staging memory */
         const wasm_name_t* en = wasm_exporttype_name(jre.expt.data[i]);
         if (en->size == 6 && !memcmp(en->data, "memory", 6)) { g_io_mem = wasm_extern_as_memory(jre.exp.data[i]); break; }
@@ -155,8 +167,39 @@ static bool jre_init(const uint8_t* bytes, size_t len, int tier, int verify_heap
     return true;
 }
 
+/* Release the runtime. Safe on a partly-built jre, since jre_init can fail at any
+ * step and `out:` runs regardless.
+ *
+ * This exists for two reasons that have nothing to do with tidiness at exit.
+ * FIRST, javelina is the reference embedder for libjavelina.a, and an embedder
+ * that creates and destroys stores runs this path — code the driver had never
+ * executed once, because it relied on the process ending. SECOND, a heap that is
+ * never freed cannot be checked: a use-after-free is undetectable when nothing is
+ * ever released, so it waits for the first caller who does release. Freeing here
+ * is what makes valgrind's verdict over javelina mean something.
+ *
+ * `jre.imp` is all host natives from exec_host_for, all ours — unlike a plugin's,
+ * which mixes borrowed jre exports in (see plugin_free). Order: the exports go
+ * before the instance that owns them, the instance before its module, and both
+ * before the store. */
+static void jre_teardown(void) {
+    g_io_mem = NULL;                     /* borrowed from jre.exp, about to go */
+    for (size_t i = 0; i < jre.imp.size; i++)
+        if (jre.imp.data[i]) wasm_func_delete(wasm_extern_as_func(jre.imp.data[i]));
+    free(jre.imp.data); jre.imp.data = NULL; jre.imp.size = 0;
+    if (jre.impt.size) wasm_importtype_vec_delete(&jre.impt);
+    if (jre.exp.size)  wasm_extern_vec_delete(&jre.exp);
+    if (jre.expt.size) wasm_exporttype_vec_delete(&jre.expt);
+    if (jre.expidx) { bbq_dict_destroy(jre.expidx); jre.expidx = NULL; }
+    if (jre.inst) { wasm_instance_delete(jre.inst); jre.inst = NULL; }
+    if (jre.mod)  { wasm_module_delete(jre.mod);    jre.mod  = NULL; }
+    wasm_byte_vec_delete(&jre.bin);
+    if (jre.store)  { wasm_store_delete(jre.store);   jre.store  = NULL; }
+    if (jre.engine) { wasm_engine_delete(jre.engine); jre.engine = NULL; }
+}
+
 /* Link a plugin against jre + host natives, and hand back its instance + exports.
- * Returns NULL and prints why on failure. Caller frees via plugin_free. */
+ * Returns false and prints why on failure. Caller frees via plugin_free. */
 typedef struct { wasm_module_t* mod; wasm_instance_t* inst;
                  wasm_importtype_vec_t impt; wasm_extern_vec_t imp;
                  wasm_exporttype_vec_t expt; wasm_extern_vec_t exp;
@@ -176,16 +219,12 @@ static bool plugin_link(plugin_t* p, const uint8_t* bytes, size_t len) {
         const wasm_name_t* im = wasm_importtype_module(p->impt.data[i]);
         const wasm_name_t* fl = wasm_importtype_name(p->impt.data[i]);
         if (im->size == 3 && !memcmp(im->data, "jre", 3)) {
-            int fi = -1;
-            for (size_t j = 0; j < jre.expt.size && j < jre.exp.size; j++) {
-                const wasm_name_t* en = wasm_exporttype_name(jre.expt.data[j]);
-                if (en->size == fl->size && !memcmp(en->data, fl->data, en->size)) { fi = (int)j; break; }
-            }
-            if (fi < 0) { fprintf(stderr, "%s: unresolved jre import %.*s\n", prog_name, (int)fl->size, fl->data); return false; }
-            p->imp.data[i] = jre.exp.data[fi];               /* borrowed — owned by jre.exp */
+            size_t slot = (size_t)(uintptr_t)bbq_dict_get(jre.expidx, fl->data, fl->size);
+            if (!slot) { fprintf(stderr, "%s: unresolved jre import %.*s\n", prog_name, (int)fl->size, fl->data); return false; }
+            p->imp.data[i] = jre.exp.data[slot - 1];         /* borrowed — owned by jre.exp */
         } else {
             const wasm_functype_t* ft = wasm_externtype_as_functype_const(wasm_importtype_type(p->impt.data[i]));
-            p->imp.data[i] = ft ? wasm_func_as_extern(exec_host_for(jre.store, ft, fl)) : NULL;
+            p->imp.data[i] = ft ? wasm_func_as_extern(exec_host_for(jre.store, ft, im, fl)) : NULL;
         }
     }
     wasm_trap_t* trap = NULL;
@@ -197,6 +236,40 @@ static bool plugin_link(plugin_t* p, const uint8_t* bytes, size_t len) {
                     fprintf(stderr, "\n"); return false; }
     wasm_module_exports(p->mod, &p->expt); wasm_instance_exports(p->inst, &p->exp);
     return true;
+}
+
+/* Release everything plugin_link allocated. Safe on a zero-initialized plugin_t,
+ * because `goto out` can be taken before the plugin is linked at all.
+ *
+ * `p->imp` cannot go through wasm_extern_vec_delete. That delete recurses into
+ * every element, and this vector MIXES externs the link created (the host natives
+ * from exec_host_for) with ones BORROWED from the jre instance — freeing the
+ * borrowed half would take the jre's own exports with it, and skipping the whole
+ * vector leaks the natives. The import types record which is which (module "jre"
+ * is the borrowed half), so walk those and delete only ours, then release the
+ * array on its own.
+ *
+ * That asymmetry is why this function was easier to promise than to write: the
+ * comment above plugin_link claimed a plugin_free for a long time while valgrind
+ * reported five definite losses here — the module bytes, both type vectors and
+ * both extern vectors, 52 KB for a hello-world. */
+static void plugin_free(plugin_t* p) {
+    for (size_t i = 0; i < p->impt.size && i < p->imp.size; i++) {
+        const wasm_name_t* im = wasm_importtype_module(p->impt.data[i]);
+        int borrowed = im->size == 3 && !memcmp(im->data, "jre", 3);
+        if (!borrowed && p->imp.data[i]) wasm_extern_delete(p->imp.data[i]);
+    }
+    free(p->imp.data); p->imp.data = NULL; p->imp.size = 0;
+    wasm_importtype_vec_delete(&p->impt);
+    /* The instance's exports ARE ours (wasm_instance_exports hands over owned
+     * externs), so this one deletes elements and array together. It invalidates
+     * anything plugin_export handed out, which is why it runs at `out:` and not
+     * before the entry point returns. */
+    wasm_extern_vec_delete(&p->exp);
+    wasm_exporttype_vec_delete(&p->expt);
+    if (p->inst) { wasm_instance_delete(p->inst); p->inst = NULL; }
+    if (p->mod)  { wasm_module_delete(p->mod);    p->mod  = NULL; }
+    wasm_byte_vec_delete(&p->bin);
 }
 
 static wasm_func_t* plugin_export(plugin_t* p, const char* name, size_t nlen) {
@@ -322,7 +395,9 @@ int main(int argc, char** argv) {
     int rc = 1;
     if (!jre_init(jbytes, jlen, want_tier, want_verify)) goto out;
 
-    plugin_t p;
+    /* Zeroed at declaration, not by plugin_link: `goto out` above this line is
+     * reachable (a failed jre_init), and plugin_free runs at the label. */
+    plugin_t p = {0};
     if (!plugin_link(&p, pbytes, plen)) goto out;
 
     if (call_spec) {
@@ -442,6 +517,12 @@ out:
             fprintf(stderr, "%s\n", any ? "" : " (none fired)");
         }
     }
+    /* The lookup indexes are the driver's, not the engine's, so they are released
+     * here rather than left for exit: a leak checker over javelinac/javelina
+     * should have nothing of ours to report. */
+    plugin_free(&p);            /* borrows jre exports, so it goes first */
+    jre_teardown();
+    exec_host_release();
     free(jbytes); free(pbytes);
     return rc;
 }

@@ -107,18 +107,41 @@ $B/javelinac --libdir $LIBDIR -O  conformance/jls -o $B/conf-jls-O.wasm
 # Skipped (loudly) when valgrind is absent, so the gate still runs on a machine
 # without it — but never silently, because a check that quietly does nothing is
 # indistinguishable from one that passes.
+# LEAKS ARE GATED TOO, and that is not tidiness. javelinac reached `in use at exit:
+# 0 bytes` only once release_compile started freeing the source path each parse ctx
+# owns; before that it leaked one string per file and the heap was never emptied.
+# A heap that is never emptied cannot be checked — a use-after-free is undetectable
+# when nothing is released — so the zero IS the instrument, and an ungated zero is
+# one nobody notices leaving. Definite only: `possibly lost` is interior pointers
+# into the arenas and would make this a noise generator.
+VG_LEAK="--leak-check=full --show-leak-kinds=definite"
 if command -v valgrind > /dev/null 2>&1; then
-    if valgrind --error-exitcode=9 --quiet \
-                $B/javelinac --libdir $LIBDIR -O $SRC -o /dev/null > /dev/null 2>&1; then
-        echo "  ....  javelinac -O under valgrind (the corpus, non-RTL)"
+    VGOUT=$(mktemp)
+    # Memory ERRORS still fail outright — those are never acceptable. Definite
+    # LEAKS are ratcheted against conformance/leak-floor: the standing count is
+    # recorded there with its owners, and any rise is a new leak.
+    valgrind --error-exitcode=9 --errors-for-leak-kinds=none $VG_LEAK \
+             $B/javelinac --libdir $LIBDIR -O $SRC -o /dev/null > /dev/null 2> "$VGOUT"
+    VGRC=$?
+    LEAKS=$(grep -c "definitely lost in loss record" "$VGOUT" || true)
+    FLOOR=$(grep -vE '^[[:space:]]*#|^[[:space:]]*$' conformance/leak-floor | tail -1)
+    if [ "$VGRC" -ne 0 ]; then
+        echo "  FAIL  javelinac -O under valgrind — MEMORY ERROR compiling conformance/src"
+        grep -E "Invalid|Mismatched|uninitialised|Conditional" "$VGOUT" | sed 's/^/        | /' | head -30
+        rm -f "$VGOUT"; echo "java e2e conformance: 0 passed, 1 failed"; exit 1
+    elif [ "$LEAKS" -gt "$FLOOR" ]; then
+        echo "  FAIL  javelinac leaks: $LEAKS definite loss record(s), ceiling $FLOOR"
+        echo "        A NEW leak. Fix the lifetime; do not raise conformance/leak-floor."
+        grep -A5 "definitely lost in loss record" "$VGOUT" | sed 's/^/        | /' | head -40
+        rm -f "$VGOUT"; echo "java e2e conformance: 0 passed, 1 failed"; exit 1
+    elif [ "$LEAKS" -lt "$FLOOR" ]; then
+        echo "  FAIL  javelinac leaks: $LEAKS < ceiling $FLOOR — LOWER conformance/leak-floor to $LEAKS"
+        echo "        A lifetime was fixed; record it, so the ceiling cannot drift up again."
+        rm -f "$VGOUT"; echo "java e2e conformance: 0 passed, 1 failed"; exit 1
     else
-        echo "  FAIL  javelinac -O under valgrind — memory error compiling conformance/src"
-        valgrind --error-exitcode=9 --num-callers=10 \
-                 $B/javelinac --libdir $LIBDIR -O $SRC -o /dev/null 2>&1 >/dev/null \
-            | sed 's/^/        | /' | head -40
-        echo "java e2e conformance: 0 passed, 1 failed"
-        exit 1
+        echo "  ....  javelinac -O under valgrind (the corpus, non-RTL; 0 errors, $LEAKS leak(s) at ceiling)"
     fi
+    rm -f "$VGOUT"
 else
     echo "  SKIP  valgrind not installed — the compiler's own memory is NOT checked"
 fi

@@ -95,7 +95,8 @@ VM_CAPI_SRCS   := $(VM)/src/wasm_capi.c $(VM)/src/jav_load.c \
 # Deferred (=) so SEMA_SRCS/DDCG_SRCS (defined later in this file) expand at use.
 EXEC_SRCS       = $(SEMA_SRCS) $(DDCG_SRCS) $(CLICK_SRCS) src/compiler/codegen_structured.c \
                   src/compiler/wasm_types.c src/compiler/wasm_module.c \
-                  $(GEN)/codegen_matcher.c $(GEN)/java_parser.c $(CRT)/bbq_htree.c $(CRT)/bbq_hmap.c $(CRT)/bbq_buf.c
+                  $(GEN)/codegen_matcher.c $(GEN)/java_parser.c $(CRT)/bbq_htree.c $(CRT)/bbq_hmap.c $(CRT)/bbq_buf.c \
+                  $(CRT)/bbq_dict.c
 
 # ── Generated frontend (section 1: parser) ──────────────────────────────────
 # `all` builds the project: both shipped binaries and the jre.wasm runtime
@@ -307,7 +308,7 @@ jre: $(B)/jre.wasm
 # The VM's engine objects are real prerequisites, refreshed through the same
 # order-only `vm-objs` delegation the VM-reaching tests use (test.mk). ──
 JAVELINA_SRCS = driver/javelina.c $(VM_RW_SRCS) $(VM_CAPI_SRCS) \
-                $(CRT)/bbq_htree.c $(CRT)/bbq_hmap.c
+                $(CRT)/bbq_htree.c $(CRT)/bbq_hmap.c $(CRT)/bbq_dict.c
 $(B)/javelina: $(JAVELINA_SRCS) $(VM_ENGINE_OBJS) \
                $(wildcard driver/*.h $(VM)/include/*.h $(VM)/src/*.h $(VM)/src/gen/*.h \
                  $(CRT)/*.h $(RT)/*.h) | vm-objs $(B)

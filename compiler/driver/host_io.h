@@ -17,6 +17,7 @@
 #define JAVELINA_HOST_IO_H
 
 #include "wasm.h"
+#include "bbq_dict.h"   /* the →HOST resolution index (qualified name -> row) */
 #include <stdint.h>
 #include <stddef.h>
 #include <string.h>
@@ -54,7 +55,8 @@ static int64_t (*g_io_clock)(void)  = NULL;   /* epoch milliseconds */
 /* ── Application natives: an embedder may answer imports this contract does not name (the
  * host_plugin shape — an app exposing its own functions to the guest). Returning NULL falls
  * through to the fail-closed stub, so registering a hook never re-opens the silent-echo hole. ── */
-static wasm_func_t* (*g_io_host_extra)(wasm_store_t*, const wasm_functype_t*, const wasm_name_t*) = NULL;
+static wasm_func_t* (*g_io_host_extra)(wasm_store_t*, const wasm_functype_t*,
+                                       const wasm_name_t* mod, const wasm_name_t* fld) = NULL;
 
 static byte_t* io_membytes(void) { return g_io_mem ? wasm_memory_data(g_io_mem) : NULL; }
 static size_t  io_memsize(void)  { return g_io_mem ? wasm_memory_data_size(g_io_mem) : 0; }
@@ -314,66 +316,187 @@ static wasm_trap_t* hio_null_ref(const wasm_val_vec_t* a, wasm_val_vec_t* r) {
     (void)a; r->data[0] = (wasm_val_t)WASM_INIT_VAL; return NULL;   /* a null externref */
 }
 
-/* Resolve the embedder host function for an import by its method name — the way a real embedder
+/* ── the →HOST table ─────────────────────────────────────────────────────────
+ * One row per import in docs/host-abi.md, keyed on the QUALIFIED name and
+ * carrying the contract's functype. Both halves are load-bearing:
+ *
+ * THE MODULE NAME IS PART OF THE KEY. A WASM import is a two-part name
+ * (§5.5.5) and jre.wasm declares both — `HostIO.open`, `System.exit`,
+ * `F32x4.ceil`. Matching on the field alone let any module claim any native
+ * (`Whatever.open` reached the real filesystem open) and made the
+ * g_io_host_extra hook unable to own a namespace: consulted last and handed
+ * only the field name, an application's `open` was shadowed by this table's,
+ * silently. The hook now receives both names and is asked about every name
+ * this table does not claim, so an app owns `App.*` outright.
+ *
+ * THE SIGNATURE IS CHECKED, NOT ADOPTED. wasm_func_new is handed the type the
+ * GUEST declared, so a disagreement used to link and go wrong at call time —
+ * `wasi_snapshot_preview1.fd_write` is (fd, iovs, iovs_len, nwritten) → errno
+ * and bound straight onto this floor's three-argument (fd, off, len) → i32,
+ * reading an iovec pointer as a buffer offset. A row only answers when the
+ * declared type is the contract's; otherwise the import falls through to the
+ * fail-closed stub, which traps naming the qualified name.
+ *
+ * `sig` is "params:results", one character per value — i=i32 I=i64 f=f32
+ * F=f64 r=any reference — or NULL where the contract admits several shapes
+ * (Object.wait has three overloads, and every one of them traps anyway).
+ *
+ * A name absent from this table is NOT an error: sema emits an import for
+ * every `native` declaration, so jre.wasm imports the whole Mem/V128/I8x16../
+ * Math intrinsic surface that the compiler lowers to instructions and never
+ * calls (host-abi.md, "Imports that are not host calls"). Those bind to the
+ * trapping stub, which is what makes a lowering that stopped firing go red
+ * instead of quietly returning its own argument. */
+#define HIO_PLAIN   (-1)
+#define HIO_MONITOR (-2)
+typedef struct { const char* mod; const char* fld; const char* sig;
+                 wasm_func_callback_t fn; int op; } hio_row_t;
+
+static const hio_row_t hio_table[] = {
+    /* §17 monitors on a threadless target: no monitor exists. */
+    { "Object", "wait",      NULL,     NULL, HIO_MONITOR },
+    { "Object", "notify",    NULL,     NULL, HIO_MONITOR },
+    { "Object", "notifyAll", NULL,     NULL, HIO_MONITOR },
+
+    /* The fd + filesystem floor. */
+    { "HostIO", "checksum",     "ii:i",   hio_checksum,      HIO_PLAIN },
+    { "HostIO", "fd_open_temp", ":i",     hio_fd_open_temp,  HIO_PLAIN },
+    { "HostIO", "open",         "iii:i",  hio_open,          HIO_PLAIN },
+    { "HostIO", "fd_write",     "iii:i",  hio_fd_write,      HIO_PLAIN },
+    { "HostIO", "fd_read",      "iii:i",  hio_fd_read,       HIO_PLAIN },
+    { "HostIO", "fd_seek",      "ii:",    hio_fd_seek,       HIO_PLAIN },
+    { "HostIO", "fd_close",     "i:",     hio_fd_close,      HIO_PLAIN },
+    { "HostIO", "fd_size",      "i:I",    hio_fd_size,       HIO_PLAIN },
+    { "HostIO", "stat",         "ii:i",   hio_stat,          HIO_PLAIN },
+    { "HostIO", "fileSize",     "ii:I",   hio_file_size,     HIO_PLAIN },
+    { "HostIO", "fileModified", "ii:I",   hio_file_modified, HIO_PLAIN },
+    { "HostIO", "unlink",       "ii:i",   hio_unlink,        HIO_PLAIN },
+    { "HostIO", "mkdir",        "ii:i",   hio_mkdir,         HIO_PLAIN },
+    { "HostIO", "rename",       "iiii:i", hio_rename,        HIO_PLAIN },
+    { "HostIO", "list",         "iii:i",  hio_list,          HIO_PLAIN },
+
+    /* The system-property source (bytes through the staging memory). */
+    { "HostIO", "getprop",      "iii:i",  hio_getprop,       HIO_PLAIN },
+    { "HostIO", "propnames",    "i:i",    hio_propnames,     HIO_PLAIN },
+
+    /* IEEE bit reinterprets: no WASM-GC primitive reinterprets a float's bits. */
+    { "Float",  "floatToIntBits",       "f:i", hio_f2i, HIO_PLAIN },
+    { "Float",  "floatToRawIntBits",    "f:i", hio_f2i, HIO_PLAIN },
+    { "Float",  "intBitsToFloat",       "i:f", hio_i2f, HIO_PLAIN },
+    { "Double", "doubleToLongBits",     "F:I", hio_d2l, HIO_PLAIN },
+    { "Double", "doubleToRawLongBits",  "F:I", hio_d2l, HIO_PLAIN },
+    { "Double", "longBitsToDouble",     "I:F", hio_l2d, HIO_PLAIN },
+
+    /* §20.18 no-ops + the absent security manager. */
+    { "System", "gc",                 ":",   hio_noop,     HIO_PLAIN },
+    { "System", "runFinalization",    ":",   hio_noop,     HIO_PLAIN },
+    { "System", "load",               "r:",  hio_noop,     HIO_PLAIN },
+    { "System", "loadLibrary",        "r:",  hio_noop,     HIO_PLAIN },
+    { "System", "setSecurityManager", "r:",  hio_noop,     HIO_PLAIN },
+    { "System", "setProperties",      "r:",  hio_noop,     HIO_PLAIN },
+    { "Object", "finalize",           "r:",  hio_noop,     HIO_PLAIN },
+    { "System", "getSecurityManager", ":r",  hio_null_ref, HIO_PLAIN },
+
+    /* The clock / exit / identity-hash sources. */
+    { "System", "currentTimeMillis", ":I", NULL, HOP_CTM },
+    { "System", "exit",              "i:", NULL, HOP_EXIT },
+    { "System", "identityHashCode",  ":i", NULL, HOP_IDHASH },
+};
+
+/* The resolution index: qualified name -> row + 1, built from hio_table on first
+ * use. A dict rather than a scan of the rows because the rows are a CONTRACT, and
+ * an embedder with a real API surface has hundreds of them — the shape should not
+ * have to change when the table grows. bbq_dict compares the whole name on every
+ * hit, so a digest collision costs a hop and can never bind a guest to a host
+ * function it did not name (see bbq_dict.h for what that mistake looked like in
+ * sema). */
+static bbq_dict* g_hio_index = NULL;
+
+/* Longest row is "HostIO.fileModified" — 19. A guest may declare names of any
+ * length, and one longer than this matches no row, so it needs no buffer. */
+#define HIO_QNAME_MAX 64
+
+static int hio_qname(char* buf, const wasm_name_t* mod, const wasm_name_t* fld) {
+    size_t n = mod->size + 1 + fld->size;
+    if (n > HIO_QNAME_MAX) return -1;
+    memcpy(buf, mod->data, mod->size);
+    buf[mod->size] = '.';
+    memcpy(buf + mod->size + 1, fld->data, fld->size);
+    return (int)n;
+}
+
+static void hio_index_build(void) {
+    if (g_hio_index) return;
+    g_hio_index = bbq_dict_create();
+    char q[HIO_QNAME_MAX];
+    for (size_t i = 0; i < sizeof hio_table / sizeof hio_table[0]; i++) {
+        int n = snprintf(q, sizeof q, "%s.%s", hio_table[i].mod, hio_table[i].fld);
+        if (n > 0 && n <= (int)sizeof q)
+            bbq_dict_put(g_hio_index, q, (size_t)n, (void*)(uintptr_t)(i + 1));
+    }
+}
+
+/* Release the index. One allocation for the process, not a growing leak, but an
+ * embedder that tears its engine down has somewhere to put this. */
+static inline void exec_host_release(void) {
+    if (g_hio_index) { bbq_dict_destroy(g_hio_index); g_hio_index = NULL; }
+}
+
+/* Does `ft` — the type the GUEST declared — match the contract's `sig`? */
+static int hio_sig_ok(const wasm_functype_t* ft, const char* sig) {
+    if (!sig) return 1;                       /* the contract admits several shapes */
+    const wasm_valtype_vec_t* p = wasm_functype_params(ft);
+    const wasm_valtype_vec_t* r = wasm_functype_results(ft);
+    const char* colon = strchr(sig, ':');
+    size_t np = (size_t)(colon - sig), nr = strlen(colon + 1);
+    if (p->size != np || r->size != nr) return 0;
+    for (size_t i = 0; i < np + nr; i++) {
+        char c = i < np ? sig[i] : colon[1 + (i - np)];
+        wasm_valkind_t k = wasm_valtype_kind((i < np ? p : r)->data[i < np ? i : i - np]);
+        int ok = c == 'i' ? k == WASM_I32 : c == 'I' ? k == WASM_I64
+               : c == 'f' ? k == WASM_F32 : c == 'F' ? k == WASM_F64
+               : wasm_valkind_is_ref(k);      /* 'r': any reference type */
+        if (!ok) return 0;
+    }
+    return 1;
+}
+
+/* Resolve the embedder host function for an import by its QUALIFIED name — the way a real embedder
  * registers built-ins. This function IS the →HOST contract (docs/host-abi.md): every name it answers
  * is an environment edge the embedder owns. Anything else traps (hio_unimplemented).
  *
  * WITHHOLDING is the sandbox: an embedder that returns an unimplemented stub for `open`, or refuses
  * the import outright, denies the guest that capability — the module is then unlinkable or the call
  * traps, never silently succeeds. */
-static wasm_func_t* exec_host_for(wasm_store_t* store, const wasm_functype_t* ft, const wasm_name_t* nm) {
-    #define NAME_IS(s) (nm->size == strlen(s) && !memcmp(nm->data, s, nm->size))
-    /* §17 monitors on a threadless target: no monitor exists. */
-    if (NAME_IS("wait") || NAME_IS("notify") || NAME_IS("notifyAll"))
-        return wasm_func_new_with_env(store, ft, hio_monitor_trap, store, NULL);
+static wasm_func_t* exec_host_for(wasm_store_t* store, const wasm_functype_t* ft,
+                                  const wasm_name_t* mod, const wasm_name_t* fld) {
+    char q[HIO_QNAME_MAX];
+    int qn = hio_qname(q, mod, fld);
+    if (qn > 0) {
+        hio_index_build();
+        size_t slot = (size_t)(uintptr_t)bbq_dict_get(g_hio_index, q, (size_t)qn);
+        if (slot) {
+            const hio_row_t* row = &hio_table[slot - 1];
+            /* A declared type that is not the contract's falls through to the
+             * fail-closed stub rather than binding — the WASI fd_write shape. */
+            if (hio_sig_ok(ft, row->sig)) {
+                if (row->op == HIO_MONITOR)
+                    return wasm_func_new_with_env(store, ft, hio_monitor_trap, store, NULL);
+                if (row->op != HIO_PLAIN)
+                    return wasm_func_new_with_env(store, ft, hio_env, (void*)(intptr_t)row->op, NULL);
+                return wasm_func_new(store, ft, row->fn);
+            }
+        }
+    }
 
-    /* The fd + filesystem floor. */
-    if (NAME_IS("checksum"))        return wasm_func_new(store, ft, hio_checksum);
-    if (NAME_IS("fd_open_temp"))    return wasm_func_new(store, ft, hio_fd_open_temp);
-    if (NAME_IS("open"))            return wasm_func_new(store, ft, hio_open);
-    if (NAME_IS("fd_write"))        return wasm_func_new(store, ft, hio_fd_write);
-    if (NAME_IS("fd_read"))         return wasm_func_new(store, ft, hio_fd_read);
-    if (NAME_IS("fd_seek"))         return wasm_func_new(store, ft, hio_fd_seek);
-    if (NAME_IS("fd_close"))        return wasm_func_new(store, ft, hio_fd_close);
-    if (NAME_IS("fd_size"))         return wasm_func_new(store, ft, hio_fd_size);
-    if (NAME_IS("stat"))            return wasm_func_new(store, ft, hio_stat);
-    if (NAME_IS("fileSize"))        return wasm_func_new(store, ft, hio_file_size);
-    if (NAME_IS("fileModified"))    return wasm_func_new(store, ft, hio_file_modified);
-    if (NAME_IS("unlink"))          return wasm_func_new(store, ft, hio_unlink);
-    if (NAME_IS("mkdir"))           return wasm_func_new(store, ft, hio_mkdir);
-    if (NAME_IS("rename"))          return wasm_func_new(store, ft, hio_rename);
-    if (NAME_IS("list"))            return wasm_func_new(store, ft, hio_list);
+    /* Not ours: the application's hook gets the whole two-part name, so it can own a namespace
+     * of its own rather than race this table for a bare field name. */
+    if (g_io_host_extra) { wasm_func_t* f = g_io_host_extra(store, ft, mod, fld); if (f) return f; }
 
-    /* The system-property source (bytes through the staging memory). */
-    if (NAME_IS("getprop"))         return wasm_func_new(store, ft, hio_getprop);
-    if (NAME_IS("propnames"))       return wasm_func_new(store, ft, hio_propnames);
-
-    /* IEEE bit reinterprets: no WASM-GC primitive reinterprets a float's bits. */
-    if (NAME_IS("floatToIntBits"))      return wasm_func_new(store, ft, hio_f2i);
-    if (NAME_IS("intBitsToFloat"))      return wasm_func_new(store, ft, hio_i2f);
-    if (NAME_IS("doubleToLongBits"))    return wasm_func_new(store, ft, hio_d2l);
-    if (NAME_IS("longBitsToDouble"))    return wasm_func_new(store, ft, hio_l2d);
-    if (NAME_IS("floatToRawIntBits"))   return wasm_func_new(store, ft, hio_f2i);
-    if (NAME_IS("doubleToRawLongBits")) return wasm_func_new(store, ft, hio_d2l);
-
-    /* §20.18 no-ops + the absent security manager. */
-    if (NAME_IS("gc") || NAME_IS("runFinalization") || NAME_IS("load") || NAME_IS("loadLibrary") ||
-        NAME_IS("finalize") || NAME_IS("setSecurityManager") || NAME_IS("setProperties"))
-        return wasm_func_new(store, ft, hio_noop);
-    if (NAME_IS("getSecurityManager")) return wasm_func_new(store, ft, hio_null_ref);
-
-    /* The clock / exit / identity-hash sources. */
-    #define HOST_OP(s, op) if (NAME_IS(s)) return wasm_func_new_with_env(store, ft, hio_env, (void*)(intptr_t)(op), NULL)
-    HOST_OP("currentTimeMillis", HOP_CTM);
-    HOST_OP("exit", HOP_EXIT);  HOST_OP("identityHashCode", HOP_IDHASH);
-    #undef HOST_OP
-
-    if (g_io_host_extra) { wasm_func_t* f = g_io_host_extra(store, ft, nm); if (f) return f; }
-
-    char* owned = (char*)malloc(nm->size + 1);
-    memcpy(owned, nm->data, nm->size); owned[nm->size] = 0;
+    char* owned = (char*)malloc(mod->size + 1 + fld->size + 1);
+    memcpy(owned, mod->data, mod->size); owned[mod->size] = '.';
+    memcpy(owned + mod->size + 1, fld->data, fld->size); owned[mod->size + 1 + fld->size] = 0;
     return wasm_func_new_with_env(store, ft, hio_unimplemented, owned, free);
-    #undef NAME_IS
 }
 
 #endif /* JAVELINA_HOST_IO_H */

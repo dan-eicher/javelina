@@ -14,6 +14,7 @@
 #include "javelina/compiler/sema.h"
 #include "javelina/compiler/type_lattice.h"
 #include "javelina/compiler/sir_support.h"
+#include "javelina/compiler/sir_optimizer.h"   /* cp_release_published_facts, for compiler_destroy */
 #include "gen/compiler_compile.h"
 #include "gen/sir_ast.h"
 #include "bbq_vec.h"
@@ -561,11 +562,33 @@ void compiler_init(compiler_ctx_t* ctx, bbq_arena* arena, const sema_ctx_t* sema
 
 void compiler_destroy(compiler_ctx_t* ctx) {
     /* The constant-data index is NOT arena-backed — bbq_htree owns its own nodes — so it
-     * has to be released by hand. The pool it indexes is a bbq_vec on ctx->arena and goes
-     * with the compile. The cross-field invariant table's vecs are plain heap bbq_vecs. */
+     * has to be released by hand. Nor is the pool it indexes: this comment used to say
+     * "a bbq_vec on ctx->arena and goes with the compile", but a bbq_vec is heap
+     * whatever it holds, so const_data leaked one growable buffer per compile. The
+     * cross-field invariant table's vecs are plain heap bbq_vecs. */
     if (ctx && ctx->const_data_index) {
         bbq_htree_destroy(ctx->const_data_index);
         ctx->const_data_index = NULL;
+    }
+    /* Same rule, two more owners it was never extended to: the published Click
+     * facts each carry a cp_pmap, and the method index is a bbq_hmap. Both are
+     * heap behind arena-allocated structs, so the compile arena does not reach
+     * them. */
+    if (ctx) {
+        /* Freed through bbq_hmap directly rather than by calling into
+         * sir_optimizer: several test link sets take compiler.o WITHOUT
+         * sir_optimizer.o, and a teardown is a poor reason to make them link the
+         * optimizer. cp_pmap_t is public in sir_optimizer.h and is a bbq_hmap
+         * wrapper, so this is the same free by a shorter path. Zeroed rows (a
+         * method never analyzed) are a no-op. */
+        if (ctx->click_facts)
+            for (int i = 0; i < ctx->method_count; i++)
+                bbq_hmap_free(&ctx->click_facts[i].expr_idx.map);
+        bbq_hmap_free(&ctx->method_index);
+        bbq_vec_free(ctx->const_data);
+        /* The τ̂ intern pool published facts share. type_pool_init fills bbq_vecs, so
+         * like every other container here it outlives the arena unless said otherwise. */
+        if (ctx->click_types_init) type_pool_destroy(&ctx->click_types);
     }
     if (ctx) {
         bbq_vec_free(ctx->vinv_class);

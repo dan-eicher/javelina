@@ -1151,5 +1151,36 @@ int main(void) {
         sema_destroy(&s); bbq_arena_free(&a);
     }
 
+    /* ── name tables key on the NAME, not on a digest of it ────────────────
+     * The scope and class tables hashed the name to 32 bits and trusted the
+     * hit, so two distinct names that collided were one entry. djb2-33
+     * collides structurally on short strings — any pair whose deltas satisfy
+     * d1*33 + d2 == 0 — so these are constructed fixtures, not freak values:
+     *   "ar" / "c0"            both 0x00597738  ('c'-'a' == 2, 2*33 == 66 == 'r'-'0')
+     *   "CXte" / "CXuD" / "Byte" all 0x7c835299
+     * The first pair made `int ar; int c0;` a redeclaration error on a valid
+     * program. The second was worse and in the other direction: `Byte` is a
+     * Java 1.1 class and is correctly ABSENT from the §20 1.0 class set, but
+     * declaring `class CXte {}` made a reference to `Byte` compile — a user
+     * type silently standing in for one that does not exist. A digest is not
+     * an identity in either direction. */
+    printf("== name tables are keyed on names, not digests ==\n");
+    CHECK(analyze("class C { void f(){ int ar = 1; int c0 = 2; } }", false) == 0,
+          "two locals whose names hash-collide are two locals");
+    CHECK(analyze("class C { void f(){ int ar = 1; { int c0 = 2; } } }", false) == 0,
+          "...and the enclosing-scope redeclaration check does not confuse them");
+    CHECK(analyze("class C { void f(){ int ar = 1; int c0 = ar + 1; } }", false) == 0,
+          "...and each resolves to its own declaration");
+    /* "CXte" and "CXuD" also share 0x7c835299, and so does java.lang.Byte. */
+    CHECK(analyze("class CXte { int v; } class CXuD { int w; }"
+                  " class D { int f(){ return new CXte().v + new CXuD().w; } }", false) == 0,
+          "two user classes whose simple names hash-collide are two types");
+    CHECK(analyze("class CXte { int v; } class D { int f(){ return new CXte().v; } }", false) == 0,
+          "a class whose name hash-collides with an absent type is its own type");
+    CHECK(analyze("class D { Byte f(){ return null; } }", false) > 0,
+          "`Byte` is a Java 1.1 type and does not resolve (the control)");
+    CHECK(analyze("class CXte { } class D { Byte f(){ return null; } }", false) > 0,
+          "...and declaring CXte does not make `Byte` resolve to it");
+
     return TEST_SUMMARY("test_sema");
 }

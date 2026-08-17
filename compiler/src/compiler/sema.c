@@ -125,14 +125,14 @@ static int modifiers_to_flags(const ast_modifier_t* mods, int count) {
  * ═══════════════════════════════════════════════════════════════ */
 
 static void scope_push(sema_ctx_t* ctx) {
-    bbq_htree* scope = bbq_htree_create();
+    bbq_dict* scope = bbq_dict_create();
     bbq_vec_push(ctx->scopes, scope);
 }
 
 static void scope_pop(sema_ctx_t* ctx) {
     int n = bbq_vec_len(ctx->scopes);
     if (n > 0) {
-        bbq_htree_destroy(ctx->scopes[n - 1]);
+        bbq_dict_destroy(ctx->scopes[n - 1]);
         bbq__vec_hdr(ctx->scopes)->len--;
     }
 }
@@ -191,8 +191,7 @@ static int32_t scope_declare(sema_ctx_t* ctx, const char* name, java_type_t type
                               ast_srcloc loc) {
     int n = bbq_vec_len(ctx->scopes);
     if (n == 0) return -1;
-    bbq_htree* top = ctx->scopes[n - 1];
-    uint32_t key = str_hash(name);
+    bbq_dict* top = ctx->scopes[n - 1];
     /* §14.3.2: "The name of the local variable parameter may not be redeclared as a local
      * variable or exception parameter within its scope, or a compile-time error occurs; that
      * is, HIDING THE NAME OF A LOCAL VARIABLE IS NOT PERMITTED."
@@ -203,7 +202,7 @@ static int32_t scope_declare(sema_ctx_t* ctx, const char* name, java_type_t type
      * example depends on it — which is why this walks the local scope stack and never consults
      * the class's members. */
     for (int i = n - 1; i >= 0; i--) {
-        if (bbq_htree_search(ctx->scopes[i], key)) {
+        if (bbq_dict_gets(ctx->scopes[i], name)) {
             sema_error(ctx, loc, "redeclaration of '%s'", name);
             return -1;
         }
@@ -214,7 +213,7 @@ static int32_t scope_declare(sema_ctx_t* ctx, const char* name, java_type_t type
     v->is_param = ctx->declaring_params;
     v->init_expr = ctx->declaring_init;
     v->slot = ctx->next_slot++;
-    bbq_htree_insert(top, key, v);
+    bbq_dict_puts(top, name, v);
     return v->slot;
 }
 
@@ -222,9 +221,8 @@ static int32_t scope_declare(sema_ctx_t* ctx, const char* name, java_type_t type
  * Used by Phase B annotations to recover slot/is_param info, and by
  * AST_IDENT analysis to distinguish locals from fields. */
 static sema_var_t* scope_lookup_var(sema_ctx_t* ctx, const char* name) {
-    uint32_t key = str_hash(name);
     for (int i = bbq_vec_len(ctx->scopes) - 1; i >= 0; i--) {
-        sema_var_t* v = (sema_var_t*)bbq_htree_search(ctx->scopes[i], key);
+        sema_var_t* v = (sema_var_t*)bbq_dict_gets(ctx->scopes[i], name);
         if (v) return v;
     }
     return NULL;
@@ -1086,14 +1084,13 @@ static void register_class(sema_ctx_t* ctx, ast_type_decl_t* td, int unit_idx) {
     const char* pkg = (unit_idx >= 0) ? ctx->units[unit_idx].package : NULL;
     sc.fq_name = make_fq_name(ctx, pkg, sc.name);
 
-    uint32_t key = str_hash(sc.fq_name);
-    if (bbq_htree_contains(ctx->class_by_name, key)) {
+    if (bbq_dict_contains(ctx->class_by_name, sc.fq_name, strlen(sc.fq_name))) {
         sema_error(ctx, (ast_srcloc){0}, "duplicate declaration of type '%s'",
                    sc.fq_name);
         return;
     }
     int id = bbq_vec_len(ctx->classes);
-    bbq_htree_insert(ctx->class_by_name, key, (void*)(uintptr_t)id);
+    bbq_dict_puts(ctx->class_by_name, sc.fq_name, (void*)(uintptr_t)id);
     bbq_vec_push(ctx->classes, sc);
 }
 
@@ -1138,7 +1135,7 @@ static void synth_refarray_class(sema_ctx_t* ctx) {
     bbq_vec_push(sc.fields, dt);
 
     int id = (int)bbq_vec_len(ctx->classes);
-    bbq_htree_insert(ctx->class_by_name, str_hash(sc.name), (void*)(uintptr_t)id);
+    bbq_dict_puts(ctx->class_by_name, sc.name, (void*)(uintptr_t)id);
     bbq_vec_push(ctx->classes, sc);
     ctx->wk.refarray_id = id;
 }
@@ -1185,7 +1182,7 @@ static void synth_primarray_class(sema_ctx_t* ctx) {
         bbq_vec_push(sc.fields, dt);
 
         int id = (int)bbq_vec_len(ctx->classes);
-        bbq_htree_insert(ctx->class_by_name, str_hash(sc.name), (void*)(uintptr_t)id);
+        bbq_dict_puts(ctx->class_by_name, sc.name, (void*)(uintptr_t)id);
         bbq_vec_push(ctx->classes, sc);
         ctx->wk.primarray_ids[i] = id;
     }
@@ -4117,7 +4114,7 @@ void sema_init(sema_ctx_t* ctx, bbq_arena* arena) {
     memset(ctx, 0, sizeof(*ctx));
     ctx->arena = arena;
     ctx->classes = NULL; /* bbq_vec */
-    ctx->class_by_name = bbq_htree_create();
+    ctx->class_by_name = bbq_dict_create();
     ctx->scopes = NULL;
     ctx->expr_types = bbq_htree_create();
     ctx->resolved_methods = bbq_htree_create();
@@ -4780,11 +4777,11 @@ const sema_field_t* sema_resolved_field(const sema_ctx_t* ctx, const ast_expr_t*
 int sema_find_class(const sema_ctx_t* ctx, const char* name) {
     if (!name) return -1;
     /* FQN-keyed (§7.5.1: "the compiler keeps track of types by their fully
-     * qualified names"). Use htree_contains to distinguish "class_id = 0"
+     * qualified names"). Use dict_contains to distinguish "class_id = 0"
      * (the built-in Object) from "not in table." */
-    uint32_t key = str_hash(name);
-    if (!bbq_htree_contains(ctx->class_by_name, key)) return -1;
-    return (int)(uintptr_t)bbq_htree_search(ctx->class_by_name, key);
+    size_t nlen = strlen(name);
+    if (!bbq_dict_contains(ctx->class_by_name, name, nlen)) return -1;
+    return (int)(uintptr_t)bbq_dict_get(ctx->class_by_name, name, nlen);
 }
 
 /* §6.6 class-type accessibility from unit `ui`: public, or same package. */
@@ -5362,10 +5359,10 @@ int sema_diag_format(const sema_diag_t* d, char* buf, int bufsize) {
 void sema_destroy(sema_ctx_t* ctx) {
     /* Destroy scope stack */
     for (int i = 0; i < bbq_vec_len(ctx->scopes); i++)
-        bbq_htree_destroy(ctx->scopes[i]);
+        bbq_dict_destroy(ctx->scopes[i]);
     bbq_vec_free(ctx->scopes);
 
-    bbq_htree_destroy(ctx->class_by_name);
+    bbq_dict_destroy(ctx->class_by_name);
     bbq_htree_destroy(ctx->expr_types);
     bbq_htree_destroy(ctx->resolved_methods);
     bbq_htree_destroy(ctx->simd_imms);
