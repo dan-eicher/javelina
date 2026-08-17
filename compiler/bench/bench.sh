@@ -14,16 +14,23 @@
 # See bench/README.md for the kernel catalog, how to read the table, the sensitivity
 # floor, and the burg-cost-analysis workflow (diff build/bench-<config>.out across changes).
 #
-# SENSITIVITY FLOOR (measured 2026-07-20, do not claim past it): min-of-reps WITHIN one process is
-# tight, but BETWEEN-process variance is ~±7% — one matrix run supports the big ratios (jit x,
-# sieve-sized opt x) and does NOT support cross-config deltas under ~20%. The first matrix
-# "found" a 17% -O-under-JIT pessimization on arith/fib; opcode-stream dumps (identical code,
-# only slot numbers differed), isolated 50M-iteration runs, and rerun overlap all disproved it.
-# For a small-delta claim: rerun the matrix several times and compare distributions — or dump and
-# diff the opcode streams first, because identical streams mean there is nothing to measure.
+# SENSITIVITY FLOOR — unmeasured. min-of-reps WITHIN one process is tight; BETWEEN processes it is
+# not, and by how much nobody has established. This comment used to say ~±7% and call it measured;
+# it was an impression off a box with a browser playing video, so treat it as folklore.
+#
+# What the run does say about itself: tier-3-against-tier-2 on this compiler's output is a
+# KNOWN-NULL comparison (the burg already emits min-cost tiles, so both configs run the same code),
+# and across the matrix's 66 such cells it spans 0.92-1.08x. That is roughly the grain.
+#
+# So: one matrix run supports the big ratios (jit x, sieve-sized opt x) and does NOT support
+# cross-config deltas under ~20%. The first matrix "found" a 17% -O-under-JIT pessimization on
+# arith/fib; opcode-stream dumps (identical code, only slot numbers differed), isolated
+# 50M-iteration runs, and rerun overlap all disproved it. For a small-delta claim: rerun the matrix
+# several times and compare distributions — or dump and diff the opcode streams first, because
+# identical streams mean there is nothing to measure.
 set -e
 case "$1" in -h|--help)
-    sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'
+    sed -n '2,30p' "$0" | sed 's/^# \{0,1\}//'
     exit 0 ;;
 esac
 cd "$(dirname "$0")/.."           # compiler/

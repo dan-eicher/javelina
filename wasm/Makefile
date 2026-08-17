@@ -348,7 +348,32 @@ $(GEN)/jav_stencil_table.h: $(GEN)/jav_stencils.c src/jav_frame.h $(GEN)/gen_int
 	$(JITTERATOR) $(B)/jav_stencils.o -o $(GEN)/jav_stencil_table.h
 
 # ── objects ────────────────────────────────────────────────────────
+# The toolchain probe, run once per build tree (this recipe fires only when $(B)
+# is created, so it costs one compiler invocation per `make clean`).
+#
+# The interpreter and every copy-and-patch stencil are threaded: each handler
+# musttail-jumps to its successor, so `__attribute__((musttail))` is load-bearing
+# — without the guaranteed tail call the chain becomes ordinary calls and a long
+# function body overflows the C stack. GCC did not support the attribute until
+# 15, and what it emits instead is
+#
+#     src/interp.c:24:10: error: expected identifier or '(' before 'return'
+#
+# from inside a header chain, which reads as a corrupt source tree rather than as
+# a compiler that is missing a feature. Say the real thing instead.
+define TOOLCHAIN_PROBE
+printf '%s\n' 'void g(void);' 'void f(void){ __attribute__((musttail)) return g(); }' \
+  | $(CC) -std=c11 -xc - -c -o /dev/null 2>/dev/null \
+  || { echo ""; \
+       echo "  $(CC) does not support __attribute__((musttail))."; \
+       echo ""; \
+       echo "  javelina's interpreter and JIT stencils are threaded — each handler"; \
+       echo "  musttail-jumps to the next — so the attribute is required, not preferred."; \
+       echo "  Build with clang 13 or newer (or GCC 15+):   make CC=clang"; \
+       echo ""; exit 1; }
+endef
 $(B):
+	@$(TOOLCHAIN_PROBE)
 	mkdir -p $(B)
 $(B)/interp.o:       src/interp.c       $(GEN)/gen_interp.c $(GEN)/jav_trap_reason.h | $(B)
 	$(CC) $(CFLAGS) -c $< -o $@

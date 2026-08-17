@@ -1058,11 +1058,13 @@ SecName <. uint8_t* id .>
 .
 
 // §6.6.7 function definition: `( func typeuse local* instr* )`. One text func
-// emits into THREE binary sections: its type (appended here, deduplication TODO),
-// a function-section typeidx, and a code-section FuncBody. The body is TRANSLATED
+// emits into THREE binary sections: its type (through wat_typeuse, the §6.4.15
+// find-or-insert — two funcs with one signature share one type index), a
+// function-section typeidx, and a code-section FuncBody. The body is TRANSLATED
 // to binary bytes (locals vec + instruction encodings + 0x0B) and decoded back
 // via jav_func_body_read — so the bbq reader builds the tree (correct union
-// cases), and text→binary is one encoder. (locals declarations: next increment.)
+// cases), and text→binary is one encoder. Declared locals are collapsed to
+// §5.4.4 run-length groups on the way out.
 FuncField <. uint32_t** func_tidx, jav_code_entry_t** entries .>
     (. jav_func_type_t ft; jav_name_t nm;
        jav_name_t imod = {0}, ifld = {0}; int has_import = 0;
@@ -1440,7 +1442,9 @@ FloatOp <. bbq_write_ctx_t* w, int shape .>
          if (fw == 4) bbq_write_u32le(w, (uint32_t)b); else bbq_write_u64le(w, b); .)
 .
 
-// §6.6.2 type definition: `( type $id? comptype )` (singular; `(rec …)`, sub TODO).
+// §6.6.2 type definition: `( type $id? comptype )` — the SINGULAR form, whose body
+// is either a `(sub …)` (§6.4.6) or a bare comptype shorthand. The `(rec …)` group
+// is RecField below; both share RecMemberP's shape and wat_xtypes_capture.
 TypeField <. jav_rec_type_t** types .>
     (. jav_rec_type_t rt; memset(&rt, 0, sizeof rt); peg_span idsp = {0,0};
        jav_comp_type_t ct; memset(&ct, 0, sizeof ct);

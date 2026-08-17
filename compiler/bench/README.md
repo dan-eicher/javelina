@@ -16,9 +16,9 @@ tree shapes and leaves the rest still, which is what makes a delta attributable.
 The full matrix has a WALL-CLOCK BUDGET (600 s, printed and checked at the end
 of every run): a benchmark that takes half an hour stops being run, and a
 benchmark nobody runs measures nothing. Scales are calibrated to ~1 s per
-O0-interp rep (the slowest config), min-of-3 reps — the between-process ±7%
-floor below limits every claim anyway, so more reps or bigger scales buy
-precision the floor then eats. When compiler speedups drift the O0 floor, the
+O0-interp rep (the slowest config), min-of-3 reps — the between-process floor
+below limits every claim anyway, so more reps or bigger scales buy precision the
+floor then eats. When compiler speedups drift the O0 floor, the
 budget warning fires and the fix is re-deriving `full[]` in Bench.java by its
 documented formula — not deleting kernels, and not living with the warning.
 
@@ -53,10 +53,19 @@ Per config, one line per kernel:
 The final table adds ratios vs O0-interp: `jit×` (O0-jit), `opt×` (O-interp),
 `both×` (O-jit).
 
-SENSITIVITY FLOOR (measured 2026-07-20): between-process variance is ~±7%.
-One run supports the big ratios; it does NOT support cross-config deltas under
+SENSITIVITY FLOOR — unmeasured. This file used to say between-process variance
+was ~±7% and call it measured; it was an impression off a box with a browser
+playing video, so treat it as folklore rather than a figure.
+
+What the matrix says about itself: tier-3-against-tier-2 on this compiler's
+output is a KNOWN-NULL comparison — the burg already emits min-cost tiles, so
+both configs run the same code — and across its 66 such cells it spans
+0.92–1.08×. That is roughly the grain.
+
+So one run supports the big ratios and does NOT support cross-config deltas under
 ~20%. For a small-delta claim, rerun the matrix several times and compare
-distributions — or dump and diff the opcode streams first.
+distributions — or dump and diff the opcode streams first. To pin the floor
+properly, run one config N times on an idle box and report the distribution.
 
 ## Using it for backend (burg) cost analysis
 

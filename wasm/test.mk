@@ -254,6 +254,19 @@ test-one: $(B)/$(T)
 	    sed 's/^/      | /' $(LOGS)/$(T).log; exit 1; \
 	fi
 
+# The gate: every suite, then the legs that are not C programs — conformance at
+# each tier, the tier-3 size pin, the tree sweep, water and embed driven as a
+# user drives them, the public headers compiled standalone, and spec/ swept for
+# work markers.
+#
+# That last one is a documentation gate, and it is here because spec/ is not
+# documentation: wasm.def, wat.peg and the rest are the sources every generated
+# form is derived from, so a comment in them is read as the contract. Two sat in
+# wat.peg saying `deduplication TODO` and `(rec …), sub TODO` long after
+# wat_typeuse deduped and RecField parsed rec groups — each one an invitation to
+# reimplement something that was already there. A marker in spec/ is either work
+# that has not happened, in which case it belongs in a plan where it can be
+# scheduled, or work that has, in which case it is false. Neither belongs here.
 .PHONY: test
 test: $(ALL_TESTS:%=$(B)/%) $(B)/test_wast $(B)/embed water
 	@mkdir -p $(LOGS); pass=0; fail=0; failed=""; \
@@ -305,6 +318,11 @@ test: $(ALL_TESTS:%=$(B)/%) $(B)/test_wast $(B)/embed water
 	  else echo "  FAIL  public header not standalone ($$h)"; fail=$$((fail+1)); failed="$$failed hdr"; \
 	    sed 's/^/      | /' $(LOGS)/hdrsweep.log; fi; \
 	done; \
+	if grep -rnIE '\b(TODO|FIXME|XXX|HACK)\b' spec/ > $(LOGS)/specmarkers.log 2>&1; then \
+	  echo "  FAIL  spec/ carries a work marker — see below"; \
+	  sed 's/^/      | /' $(LOGS)/specmarkers.log; \
+	  fail=$$((fail+1)); \
+	else echo "  PASS  spec/ carries no work markers"; pass=$$((pass+1)); fi; \
 	for t in $$failed; do \
 	  echo ""; echo "── $$t ─────────────────────────────────────────"; \
 	  sed 's/^/  | /' $(LOGS)/$$t.log; \

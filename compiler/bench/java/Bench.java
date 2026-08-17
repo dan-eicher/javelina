@@ -660,7 +660,7 @@ public class Bench {
      * the test suite runs so this file cannot silently rot. */
     public static void main(String[] args) {
         boolean quick = args.length > 0;
-        /* min-of-3. The between-PROCESS ±7% floor (README) is what limits every
+        /* min-of-3. The between-PROCESS floor (README) is what limits every
          * claim; more within-process reps sharpen a min that floor then eats.
          * 7 reps + warmup was 8 executions per kernel-config and half of a
          * >30-minute matrix wall clock — a benchmark nobody re-runs. */
@@ -676,8 +676,10 @@ public class Bench {
          * rep there: scale_new = scale_old * 1000 / min_ms_old, rounded. That
          * puts the whole 4-config matrix under the ~10-minute budget bench.sh
          * enforces. The slowest config's rep stays ~1 s (clock grain well under
-         * 1%); the fastest jit cells land 25-50 ms — 2-4% grain, inside the ±7%
-         * floor everything is priced against. When compiler speedups drift the
+         * 1%); the fastest jit cells land 25-50 ms — 2-4% grain, well inside the
+         * between-process floor everything is priced against, whatever it turns
+         * out to be (README: it has never been measured on an idle box). When
+         * compiler speedups drift the
          * O0 floor again, re-run once and re-derive with the same formula. One
          * scale per workload, shared by every config — checksums must stay
          * comparable. sdot==dot (the referee needs identical inputs) and

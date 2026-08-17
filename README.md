@@ -1,63 +1,58 @@
 # javelina
 
-A WebAssembly engine and a Java compiler that targets it, in pure C11 with no
-runtime dependencies (the engine links only `libm`).
+An embeddable WebAssembly engine in C11, with no runtime dependencies — the
+library links only `libm`.
 
-- **The engine** (`wasm/`) runs WebAssembly Core 3.0. One declarative opcode
-  spec generates every execution form — the in-place interpreter and all of
-  the copy-and-patch JIT's stencils, register-cached variants included — so
-  every tier runs identical opcode semantics by construction. Execution is a
-  LEVEL chosen per engine at runtime (`jav_config_set_jit`, 0–3), all four in
-  one binary: **0** interprets; **1** compiles copy-and-patch, every operand
-  through the stack; **2** adds BURG-tiled static stack caching, so operands
-  ride a register file between instructions (Ertl's scheme, cache size fixed
-  at build); **3** runs an e-graph equality-saturation rewrite over each
-  region before the same tiling — an engine-side optimizer for wasm the
-  producer never cleaned up. It has an Immix garbage collector, a single-pass
-  §7.6 validator, exception handling, tail calls, the GC proposal
-  (struct/array/i31/ref types), and SIMD (v128). The embedding surface is the
-  standard [WebAssembly C API](https://github.com/WebAssembly/wasm-c-api)
-  (`wasm.h`).
+**The engine** (`wasm/`) runs WebAssembly Core 3.0. One declarative opcode spec
+generates every execution form — the in-place interpreter and all of the
+copy-and-patch JIT's stencils, register-cached variants included — so every tier
+runs identical opcode semantics by construction. Execution is a LEVEL chosen per
+engine at runtime (`jav_config_set_jit`, 0–3), all four in one binary: **0**
+interprets; **1** compiles copy-and-patch, every operand through the stack; **2**
+adds BURG-tiled static stack caching, so operands ride a register file between
+instructions (Ertl's scheme, cache size fixed at build); **3** runs an e-graph
+equality-saturation rewrite over each region before the same tiling — an
+engine-side optimizer for wasm the producer never cleaned up. It has an Immix
+garbage collector, a single-pass §7.6 validator, exception handling, tail calls,
+the GC proposal (struct/array/i31/ref types), and SIMD (v128). The embedding
+surface is the standard [WebAssembly C API](https://github.com/WebAssembly/wasm-c-api)
+(`wasm.h`).
 
-- **The converter** (`water`, in `wasm/`) goes both ways between the §6 text
-  and §5 binary formats, with opposite contracts by design: assembling is
+The rest of the repo exists to serve that engine:
+
+- **`water`** (in `wasm/`) converts between the §6 text and §5 binary formats,
+  both directions, with opposite contracts by design: assembling is
   transcribe-only (so deliberately-invalid fixtures reach the engine to be
-  rejected for the right reason), while rendering validates first and emits
-  only §6.5.11-folded, identifier-carrying, byte-round-trippable text —
-  custom sections and the name section included. See
-  [`docs/water.md`](docs/water.md) for the contracts and the corpus gates
-  that hold them.
+  rejected for the right reason), while rendering validates first and emits only
+  §6.5.11-folded, identifier-carrying, byte-round-trippable text — custom
+  sections and the name section included. See [`docs/water.md`](docs/water.md)
+  for the contracts and the corpus gates that hold them.
 
-- **The compiler** (`compiler/`) translates Java 1.0 (minus `synchronized`) to
-  WebAssembly-GC. `javelinac` compiles `.java` to a `.wasm` module; `javelina`
-  runs one. The runtime library it targets (`compiler/lib`) is real Java
-  compiled to wasm, not host shims — only genuine environment edges
-  (I/O, time, exit) cross to the host, through the ABI in
-  [`docs/host-abi.md`](docs/host-abi.md).
+- **The Java compiler** (`compiler/`) is a test instrument. It translates Java
+  1.0 (minus `synchronized`) to WebAssembly-GC, and it is here because of a
+  wager: if an entire garbage-collected language — real objects, real exception
+  handling, a real runtime library — can be overlaid on the engine and made to
+  run, that shakes out everything but the hardest-to-find bugs. It has paid off
+  repeatedly; every GC bug this project has found came from running Java, not
+  from the conformance suite. If you want to *put wasm into your program*, bring
+  your own producer — Rust, C, Go and the rest all emit wasm, and they are
+  better at it. The compiler is how the engine gets stressed, not a reason to
+  choose it.
 
-## Conformance
+## Requirements
 
-Executed against the official [WebAssembly test suite](https://github.com/WebAssembly/testsuite)
-(pinned at `0dc0343`), at every execution level — the interpreter and all
-three JIT tiers — on 2026-08-15:
-
-| gate | result |
-|---|---|
-| execution | **60113 ok, 0 mismatched** |
-| `.wat` text reader | 6364 ok, 0 mismatched, 3 excluded (non-core-3.0 text) |
-| §7 validation (text modules) | 5135 ok, 0 mismatched |
-| binary modules (260 files) | 810 ok, 0 mismatched |
-| §7 differential (water vs engine) | 5270 modules, 0 verdicts differ |
-| §7.6 producer edges (water vs JIT tree) | 19695 edges, 0 differ, 0 unaligned |
-| wat round-trip (wasm → wat → wasm) | **2522 modules, 0 bytes differ** |
-
-The three excluded cases are non-core-3.0 text-format fixtures; every executable
-assertion in the suite runs and agrees. The last three rows are the converter's:
-water re-implements §7 from the spec and must agree with the engine on every
-module in both directions, and every accepted module must survive the full trip
-through folded text byte-identically — with the rendering's width accounting,
-re-readability and custom-section placement each exit-coded in the same run.
-Reproduce with `make conformance`.
+- **A compiler with `__attribute__((musttail))`** — clang 13+ or GCC 15+, and
+  the gate runs clang 19. The interpreter and every JIT stencil are threaded:
+  each handler `musttail`-jumps to its successor, so the guaranteed tail call is
+  load-bearing rather than an optimization. Without it the chain becomes ordinary
+  calls and a long function body overflows the C stack. The build probes for the
+  attribute once per build tree and stops with that explanation rather than a
+  syntax error twelve includes deep.
+- **x86-64.** The copy-and-patch JIT extracts its stencils from compiled object
+  code, and the operand model assumes little-endian natural-width storage. The
+  interpreter itself is portable C, but the build pipeline is not yet.
+- **Linux.** Developed and gated there; nothing else is claimed.
+- **CMake**, to build the BBQ toolchain from the submodule on first use.
 
 ## Build
 
@@ -96,6 +91,140 @@ printf '(module
 The test gate builds the example the same way — against the archive, not loose
 objects — so the link line above is the one an embedder actually uses.
 
+## Conformance
+
+Executed against the official [WebAssembly test suite](https://github.com/WebAssembly/testsuite)
+(pinned at `0dc0343`), at every execution level — the interpreter and all
+three JIT tiers — on 2026-08-15:
+
+| gate | result |
+|---|---|
+| execution | **60113 ok, 0 mismatched** |
+| `.wat` text reader | 6364 ok, 0 mismatched, 3 excluded (non-core-3.0 text) |
+| §7 validation (text modules) | 5135 ok, 0 mismatched |
+| binary modules (260 files) | 810 ok, 0 mismatched |
+| §7 differential (water vs engine) | 5270 modules, 0 verdicts differ |
+| §7.6 producer edges (water vs JIT tree) | 19695 edges, 0 differ, 0 unaligned |
+| wat round-trip (wasm → wat → wasm) | **2522 modules, 0 bytes differ** |
+
+The three excluded cases are non-core-3.0 text-format fixtures; every executable
+assertion in the suite runs and agrees. The last three rows are the converter's:
+water re-implements §7 from the spec and must agree with the engine on every
+module in both directions, and every accepted module must survive the full trip
+through folded text byte-identically — with the rendering's width accounting,
+re-readability and custom-section placement each exit-coded in the same run.
+Reproduce with `make conformance`.
+
+The suite **confirms**; it does not **discover**. That is the argument for the
+Java corpus in `conformance/`, which compiles and runs real programs through the
+shipped binaries at both optimisation levels and every tier — see
+[`conformance/README.md`](conformance/README.md) for what it has caught.
+
+## Performance
+
+These are a general shape, not a study. Absolute times are one machine's (an AMD
+A12-9720P laptop, 4 cores) and mean nothing on yours; the ratios are the claim, and
+only the big ones. Method: min-of-reps on an idle box, with every configuration's
+checksums gated equal — a config that computes a different answer is wrong rather
+than fast.
+
+Run-to-run variance here is uncharacterized. For a sense of it: tier 3 against tier
+2 on the compiler's output should do nothing at all (the reason is under *On the
+compiler's output*), and across all 66 such cells it spans 0.92–1.08×. So nothing
+under roughly 20% is stated below as a finding. If the numbers matter to you, run
+them on your own hardware and compare — `make -C wasm bench-naive` and
+`compiler/bench/bench.sh`.
+
+### On wasm javelina did not produce
+
+This is the measurement that matters for an embedder, because your producer is not
+`javelinac`. `wasm/bench/naive` is five kernels — memory sums, Horner evaluation,
+width round-trips, an integer escape grid and its four-lane twin — each written
+twice in `.wat`: a **naive** lowering wearing a template producer's junk on every
+hot path, and a hand-**clean** twin. Every junk op is an identity, so all six
+configurations must agree on the checksum by construction.
+
+| kernel | naive t1 | naive t2 | naive t3 | clean t2 | cache | fold | vs clean |
+|---|---|---|---|---|---|---|---|
+| `k_addr`  |  509.0 | 161.2 | 131.8 |  97.5 | 0.32× | 0.82× | 1.35× |
+| `k_poly`  |  946.3 | 240.6 | 110.6 | 112.6 | 0.25× | 0.46× | **0.98×** |
+| `k_wide`  | 1415.7 | 364.8 | 164.0 | 107.5 | 0.26× | 0.45× | 1.53× |
+| `k_smand` |  727.4 | 208.3 | 150.0 | 124.0 | 0.29× | 0.72× | 1.21× |
+| `k_vmand` | 1497.5 | 567.7 | 243.2 | 153.6 | 0.38× | 0.43× | 1.58× |
+
+Milliseconds, lower is better. `cache` is what tier 2's stack cache absorbs on its
+own (naive t2/t1); `fold` is what only tier 3's rewrite removes (naive t3/t2); `vs
+clean` is the naive program at tier 3 against the hand-written one at tier 2, where
+1.00× means the engine recovered everything the naive lowering cost.
+
+On arithmetic-dense input the rewrite is a 2.2–2.3× lever, and `k_poly` comes back
+to its hand-clean ceiling outright — 0.98× is indistinguishable from 1.00× here, so
+the honest statement is that the fold recovered everything naivety cost, not that
+it recovered 102% of it. The two mechanisms compound: `k_vmand` goes
+1497 → 568 → 243 ms across the tiers. What survives elsewhere is the naive form's
+extra `local.set` round-trips — the fold turns them into self-stores, and deleting
+a store outright is whole-body liveness, a compiler's job, deliberately fenced out
+of a per-region rewriter that must not change what another region can observe.
+Reproduce with `make -C wasm bench-naive`.
+
+### On the compiler's output
+
+33 kernels × optimizer on/off × four tiers, all eight configurations agreeing on
+every checksum (`compiler/bench/bench.sh`). Tiers alone carry **2.0–15.9×** over
+the interpreter on optimized code; with the compiler's optimizer as well, the full
+stack is **2.2–20.7×**. The stack cache is the second-biggest lever: at its best
+(`arith`) tier 2 runs about 3.8× faster than tier 1, taking 167 ms down to 45 ms.
+
+Tier 3 does **nothing measurable here, and that is the correct answer.** `javelinac`'s burg
+picks min-cost tiles at emission, so its output carries no `x+0`/`x*1` junk to fold
+at any `-O` level — across 10,606 conformance bodies the rewrite respelled fifteen.
+The tier exists for producers that do leave it, which is what the corpus above
+measures. What this matrix proves is soundness at full volume: every rewrite rule
+live, all eight configurations agreeing.
+
+## Scope
+
+javelina is at 0.1.0, its first release; these are the edges worth knowing before
+you judge it.
+
+- **The JIT computes SIMD lanes scalar-ly.** v128 is correct at every tier and
+  gated as such, but a copy-and-patch stencil has to be position-independent and
+  relocation-free, and clang's vectorizer emits `.rodata` constant tables the
+  patcher cannot relocate. So the stencils keep the lane loops scalar. The
+  interpreter still vectorizes. Correctness is settled; hardware-SIMD codegen in
+  the JIT is not done.
+- **No threads.** Neither the engine (no shared memory, no atomics) nor the
+  language the compiler accepts (`synchronized` and JLS §20.15–21 are out of
+  scope, deliberately).
+- **The Java compiler targets Java 1.0**, and its runtime library is the JLS 1.0
+  §20 class set — not a JRE. It is a test instrument; see above.
+- **water's assembler is transcribe-only** and will happily encode an invalid
+  module. That is the contract, not a gap: it is how invalid fixtures reach the
+  engine's validator. The renderer is the direction that validates.
+
+## Running the Java side
+
+If you want to exercise the compiler — which is mostly useful for stressing the
+engine — the two CLIs are `javelinac` (compile) and `javelina` (run). `make all`
+builds both, plus `jre.wasm`: the Java runtime library, itself compiled to wasm.
+A compiled program is a *plugin* that imports `java.lang.*` from it rather than
+bundling it, so running one takes both modules. From `compiler/`:
+
+```sh
+build/javelinac --mode plugin examples/hello-java/Hello.java -o Hello.wasm
+build/javelina --jre build/jre.wasm Hello.wasm
+```
+```
+Hello from javelina!
+sum(1..10) = 55
+```
+
+[`compiler/examples/hello-java/`](compiler/examples/hello-java/) walks the same
+path from an embedder's side: the real `wasm.h` sequence that instantiates the
+runtime module, links a plugin's imports to its exports by name, and calls
+`main`. Only genuine environment edges (I/O, time, exit) cross to the host,
+through the ABI in [`docs/host-abi.md`](docs/host-abi.md).
+
 ## Layout
 
 ```
@@ -107,11 +236,12 @@ wasm/          the engine: interpreter + JIT, Immix GC, validator, the wasm-c-ap
                wasm_names.bbq (the name section)
   include/     the public headers (wasm.h)
   examples/    embed.c
-compiler/      Java 1.0 -> wasm-GC
+compiler/      Java 1.0 -> wasm-GC, the engine's test instrument
   driver/      the javelinac (compile) and javelina (run) CLIs
   grammar/     the Java grammar and the AST->SIR / codegen specs
   lib/         the Java runtime library, compiled to wasm
   docs/        design specs (combined-analysis-spec.md, sema-contract.md, ...)
+conformance/   the Java e2e corpus: real programs, expected output, every tier
 docs/          host-abi.md (the imports an embedder must supply),
                water.md (WATER(1))
 BBQ/           the code-generation toolchain (submodule)

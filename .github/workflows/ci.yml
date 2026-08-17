@@ -1,0 +1,99 @@
+# CI — the gate, run where nobody's dotfiles can help it.
+#
+# The README quotes conformance numbers with a date on them. This is what keeps
+# that date from being the only evidence: the same targets a contributor runs,
+# on a machine that has never built javelina before.
+#
+# Two jobs on purpose. `quickstart` runs exactly what the README's Build section
+# tells a newcomer to run and nothing else, so README drift shows up as a red
+# build rather than as an issue filed by someone who gave up. `gate` runs the
+# suites.
+#
+# No `-j`: the generation rules are grouped-target rules with hand-written
+# prerequisites, and a gate that is occasionally wrong about build order is worse
+# than a slow one. Speed is not this job's contribution.
+
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quickstart:
+    name: quickstart (the README's three commands)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install the toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build
+
+      - name: Toolchain versions
+        run: |
+          clang --version
+          cmake --version | head -1
+          uname -srm
+
+      - name: make all
+        run: make all
+
+      # The embedding surface, linked the way the README's Embedding section
+      # spells it: the archive plus the public header, nothing else.
+      - name: make lib, then link an embedder against it
+        run: |
+          make lib
+          cc wasm/examples/embed.c -Iwasm/include wasm/build/libjavelina.a -lm -o embed
+          make -C wasm water
+          printf '(module\n  (func (export "add") (param i32 i32) (result i32)\n    local.get 0 local.get 1 i32.add))\n' \
+            | wasm/build/water - > add.wasm
+          ./embed add.wasm
+
+  gate:
+    name: gate (VM, compiler, CLI, conformance)
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install the toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build valgrind
+
+      - name: Pinned testsuite revision
+        run: git -C testsuite rev-parse --short HEAD
+
+      - name: make all
+        run: make all
+
+      # Split rather than a single `make test`, so a red run names the layer
+      # instead of scrolling. The engine goes first: it is the compiler's
+      # execution oracle, and a broken engine should report as one.
+      - name: VM
+        run: make test-vm
+
+      - name: compiler
+        run: make test-compiler
+
+      - name: shipped binaries (CLI)
+        run: make test-cli
+
+      - name: benchmarks (checksum gate)
+        run: make test-bench
+
+      - name: Java e2e conformance
+        run: make test-java-conformance
