@@ -93,6 +93,14 @@ $(IMMIX_TESTS:%=$(B)/%): $(B)/%: test/%.c $(IMMIX_SRC) | $(B)
 $(TESTS:%=$(B)/%): $(B)/%: test/%.c $(OBJS) | $(B)
 	$(CC) $(CFLAGS) $(LINK) -lm -o $@
 
+# The stencil table's structural gate reads the generated HEADER and nothing else — no
+# engine, no jit meta. That is the point of it: test_jit_holes needs the meta tables to
+# decide whether a hole is patchable, so broken meta reds it for a reason that is not the
+# table, while this one still answers "is the committed table self-consistent". Linking the
+# engine into it would couple the two again.
+$(B)/test_jit_table: test/test_jit_table.c $(GEN)/jav_stencil_table.h | $(B)
+	$(CC) $(CFLAGS) test/test_jit_table.c -o $@
+
 # The c-lite load path: CLITE + engine, never the owning reader.
 CLITE_TESTS := test_skeleton test_div test_instantiate test_module_index \
                test_gc_funcref test_addrtype_spec test_gc_roots_real \
@@ -193,6 +201,22 @@ $(B)/libjavelina.a: $(LIB_OBJS) | $(B)
 .PHONY: lib
 lib: $(B)/libjavelina.a
 
+# `make PIC=1 lib-pic-check` — the archive really is position-independent.
+#
+# A host that is itself a shared library cannot link a non-PIC archive member; ld refuses
+# it with "relocation R_X86_64_32S ... recompile with -fPIC", and that refusal is what put
+# the PIC=1 variant in the Makefile (Inkscape links its core as libinkscape_base.so). The
+# check reads the ARCHIVE rather than trusting the flag, because -fPIC rides on CFLAGS and
+# an object built by some other recipe — STENCIL_CFLAGS, a hand-written rule — would not
+# carry it and would poison the archive for exactly one consumer: the one that is not us.
+# Run it against build/ and it SHOULD fail; that is the control, not a bug.
+.PHONY: lib-pic-check
+lib-pic-check: $(B)/libjavelina.a
+	@command -v readelf >/dev/null || { echo "  readelf not found — cannot verify $(B)/libjavelina.a is PIC"; exit 1; }
+	@n=$$(readelf -r $(B)/libjavelina.a | awk '/^Relocation section/{s=$$3} s !~ /debug/ && /R_X86_64_32S?[[:space:]]/{n++} END{print n+0}'); \
+	 echo "  $(B)/libjavelina.a: $$n absolute relocations in allocatable sections (a shared-library host requires 0)"; \
+	 [ "$$n" -eq 0 ] || { echo "  → rebuild with PIC=1"; exit 1; }
+
 # The conformance story on its own: the pinned official testsuite through the
 # interpreter and every JIT tier, with the runner's full output on the terminal
 # — the numbers the README quotes. The `test` gate below runs the same legs,
@@ -234,7 +258,7 @@ bench-naive: $(B)/run_naive $(NAIVE_WASM)
 # Everything that is a plain "build it, run it in test/, expect exit 0" gate.
 PLAIN_TESTS := $(IMMIX_TESTS) $(TESTS) $(CLITE_TESTS) test_align test_module_struct $(OWNING_TESTS) \
                test_instr test_wat test_water $(WATOUT_TESTS) test_wat_emit test_wat_custom \
-               test_wat_cli $(CAPI_TESTS) test_bench_naive
+               test_wat_cli $(CAPI_TESTS) test_bench_naive test_jit_table
 # ...minus the few that take an argument, handled by name below.
 ARGV_add_wasm := test_skeleton test_load test_roundtrip test_func
 

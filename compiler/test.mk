@@ -77,7 +77,7 @@ COMPILER_TESTS := test_parse test_jint test_jbound test_lattice test_sema test_s
                   test_codegen_wasm test_scope_sidecar test_codegen_structured \
                   test_control_audit test_wasm_module test_wasm_types \
                   test_codegen_object test_click_backend test_exec \
-                  test_simd_ledger test_host_abi
+                  test_simd_ledger test_host_abi test_host_memory
 
 OBJS_test_parse              := $(PARSER_OBJ) $(ARENA_OBJ)
 OBJS_test_jint               :=   # header-only core (jint.h) — no object deps
@@ -112,9 +112,11 @@ OBJS_test_host_abi           := $(VM_CAPI_OBJS) $(VM_ENGINE_OBJS) \
                                 $(OBJ)/crt/bbq_htree.o $(OBJ)/crt/bbq_hmap.o $(OBJ)/crt/bbq_dict.o \
                                 $(OBJ)/crt/bbq_buf.o
 # (no $(ARENA_OBJ): VM_ENGINE_OBJS already carries the VM's bbq_arena.o)
+# The staging-memory rule is the same floor over a real wasm_memory_t, so the same set.
+OBJS_test_host_memory        := $(OBJS_test_host_abi)
 
 # test_exec and test_wasm_module reach the VM; everything else is compiler-only.
-$(B)/test_exec $(B)/test_wasm_module $(B)/test_host_abi: | vm-objs
+$(B)/test_exec $(B)/test_wasm_module $(B)/test_host_abi $(B)/test_host_memory: | vm-objs
 
 # Test objects are built by a pattern rule, which make would treat as an
 # intermediate and delete after linking — recompiling every suite's own .c on

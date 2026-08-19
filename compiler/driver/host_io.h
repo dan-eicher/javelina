@@ -61,24 +61,48 @@ static wasm_func_t* (*g_io_host_extra)(wasm_store_t*, const wasm_functype_t*,
 static byte_t* io_membytes(void) { return g_io_mem ? wasm_memory_data(g_io_mem) : NULL; }
 static size_t  io_memsize(void)  { return g_io_mem ? wasm_memory_data_size(g_io_mem) : 0; }
 static int     io_fd_ok(int fd)  { return fd >= 0 && fd < IO_MAX_FDS && g_io_fds[fd]; }
-/* A staging-memory span the host may touch: [off, off+len) inside the memory. */
-static int     io_span_ok(int off, int len) {
+
+/* ── THE span check. A staging-memory span the host may touch: [off, off+len)
+ * wholly inside the memory. Every native that dereferences the staging pointer
+ * runs this first, and a span that fails it is REFUSED — never clamped, never
+ * partially serviced (docs/host-abi.md, "Spans are refused, not clamped").
+ *
+ * The arithmetic is written to be overflow-free rather than obviously-correct:
+ * `off + len <= n` would wrap for a hostile pair, so the length is compared
+ * against the room that remains. `io_membytes()` re-reads wasm_memory_data on
+ * every call, so a memory.grow between calls cannot leave a stale base behind.
+ *
+ * This is a contract obligation, not an implementation detail of this file. The
+ * guest chooses the offsets; a compiled Java program chooses them cooperatively,
+ * a third-party plugin chooses them adversarially, and the floor cannot tell the
+ * two apart — `javelina.c` binds a plugin's non-`jre` imports straight to these
+ * natives. Pinned by test_host_memory.c. ── */
+static int io_span_ok(int off, int len) {
     size_t n = io_memsize();
     return off >= 0 && len >= 0 && (size_t)off <= n && (size_t)len <= n - (size_t)off;
 }
 
+/* The composed host path buffer every path native declares. Both halves are
+ * bounded against it in io_hostpath: the guest's bytes AND the embedder's root,
+ * which arrives from `javelina --root DIR` and is not the guest's to shorten. */
+#define IO_PATH_MAX 512
+
 /* Map a guest path (staging bytes at off,len) to a host path under g_io_root,
  * PRESERVING '/' so directory nesting + File.list work. Rejects any ".." (no parent
- * escape). If g_io_root is NULL, a fresh per-run temp sandbox is created. */
+ * escape). If g_io_root is NULL, a fresh per-run temp sandbox is created.
+ * Answers 0 — which every caller already maps to its own "no such path" value —
+ * for a span outside the memory, and for a composed path that does not fit. */
 static int io_hostpath(int off, int len, char* out) {
     byte_t* m = io_membytes();
-    if (!m || len < 0 || len >= 400) return 0;
+    if (!m || !io_span_ok(off, len)) return 0;
     static char sandbox[64] = "";
     const char* root = g_io_root;
     if (!root) {
         if (!sandbox[0]) { snprintf(sandbox, sizeof sandbox, "/tmp/javio_%d", (int)getpid()); mkdir(sandbox, 0777); }
         root = sandbox;
     }
+    size_t rl = strlen(root);
+    if (rl + 1 + (size_t)len + 1 > IO_PATH_MAX) return 0;   /* root + '/' + path + NUL */
     for (int i = 0; i + 1 < len; i++)
         if (m[off + i] == '.' && m[off + i + 1] == '.') return 0;   /* reject parent-directory escape */
     int k = 0;
@@ -136,15 +160,14 @@ static wasm_trap_t* hio_env(void* env, const wasm_val_vec_t* a, wasm_val_vec_t* 
 static wasm_trap_t* hio_getprop(const wasm_val_vec_t* a, wasm_val_vec_t* r) {
     int koff = a->data[0].of.i32, klen = a->data[1].of.i32, ooff = a->data[2].of.i32;
     byte_t* m = io_membytes();
-    int n = -1;
+    int n = -1;                                        /* -1 is ABSENT, and only absent */
     if (m && io_span_ok(koff, klen)) {
         for (const hio_prop_t* p = g_io_props; p && p->key; p++) {
             size_t kl = strlen(p->key);
             if (kl != (size_t)klen || memcmp(m + koff, p->key, kl)) continue;
             size_t vl = strlen(p->val);
-            if (!io_span_ok(ooff, (int)vl)) break;      /* no room: report absent rather than corrupt memory */
-            memcpy(m + ooff, p->val, vl);
-            n = (int)vl;
+            n = (int)vl;                               /* the length the answer NEEDS */
+            if (io_span_ok(ooff, (int)vl)) memcpy(m + ooff, p->val, vl);   /* written only if it ALL fits */
             break;
         }
     }
@@ -153,11 +176,14 @@ static wasm_trap_t* hio_getprop(const wasm_val_vec_t* a, wasm_val_vec_t* r) {
 static wasm_trap_t* hio_propnames(const wasm_val_vec_t* a, wasm_val_vec_t* r) {
     int ooff = a->data[0].of.i32, total = 0;
     byte_t* m = io_membytes();
-    if (m) for (const hio_prop_t* p = g_io_props; p && p->key; p++) {
-        size_t kl = strlen(p->key);
-        if (!io_span_ok(ooff + total, (int)kl + 1)) { total = -1; break; }
-        memcpy(m + ooff + total, p->key, kl); total += (int)kl;
-        m[ooff + total++] = 0;
+    for (const hio_prop_t* p = g_io_props; p && p->key; p++) total += (int)strlen(p->key) + 1;
+    if (m && io_span_ok(ooff, total)) {                /* the WHOLE run or none of it */
+        int k = 0;
+        for (const hio_prop_t* p = g_io_props; p && p->key; p++) {
+            size_t kl = strlen(p->key);
+            memcpy(m + ooff + k, p->key, kl); k += (int)kl;
+            m[ooff + k++] = 0;
+        }
     }
     r->data[0] = (wasm_val_t)WASM_I32_VAL(total); return NULL;
 }
@@ -171,13 +197,15 @@ static wasm_trap_t* hio_monitor_trap(void* env, const wasm_val_vec_t* args, wasm
     return t;
 }
 
-/* Test-only: sum `len` staging bytes at `off` — proves the host can read the guest's memory. */
+/* A probe: sum `len` staging bytes at `off`, so a test can prove the host observes the
+ * guest's memory. A byte sum is never negative, so -1 is free to mean a refused span. */
 static wasm_trap_t* hio_checksum(const wasm_val_vec_t* a, wasm_val_vec_t* r) {
     int off = a->size > 0 ? a->data[0].of.i32 : 0;
     int len = a->size > 1 ? a->data[1].of.i32 : 0;
-    int sum = 0;
-    if (g_io_mem) { byte_t* m = wasm_memory_data(g_io_mem);
-                    for (int i = 0; i < len; i++) sum += (unsigned char)m[off + i]; }
+    byte_t* m = io_membytes();
+    int sum = -1;
+    if (m && io_span_ok(off, len)) { sum = 0;
+                                     for (int i = 0; i < len; i++) sum += (unsigned char)m[off + i]; }
     r->data[0] = (wasm_val_t)WASM_I32_VAL(sum); return NULL;
 }
 
@@ -188,7 +216,7 @@ static wasm_trap_t* hio_fd_open_temp(const wasm_val_vec_t* a, wasm_val_vec_t* r)
 }
 static wasm_trap_t* hio_open(const wasm_val_vec_t* a, wasm_val_vec_t* r) {
     int flags = a->data[2].of.i32, fd = -1;
-    char path[512];
+    char path[IO_PATH_MAX];
     if (io_hostpath(a->data[0].of.i32, a->data[1].of.i32, path)) {
         FILE* fp;
         if (flags == 2) { fp = fopen(path, "r+b"); if (!fp) fp = fopen(path, "w+b"); }  /* read+write: open else create */
@@ -198,17 +226,19 @@ static wasm_trap_t* hio_open(const wasm_val_vec_t* a, wasm_val_vec_t* r) {
     r->data[0] = (wasm_val_t)WASM_I32_VAL(fd); return NULL;
 }
 static wasm_trap_t* hio_fd_write(const wasm_val_vec_t* a, wasm_val_vec_t* r) {
-    int fd = a->data[0].of.i32, off = a->data[1].of.i32, len = a->data[2].of.i32, n = 0;
+    int fd = a->data[0].of.i32, off = a->data[1].of.i32, len = a->data[2].of.i32, n = -1;
     byte_t* m = io_membytes();
-    if (m && io_fd_ok(fd)) { n = (int)fwrite(m + off, 1, (size_t)len, g_io_fds[fd]);
-                             if (fd == 1 || fd == 2) fflush(g_io_fds[fd]); }   /* flush std streams promptly */
-    r->data[0] = (wasm_val_t)WASM_I32_VAL(n); return NULL;
+    if (m && io_fd_ok(fd) && io_span_ok(off, len)) {
+        n = (int)fwrite(m + off, 1, (size_t)len, g_io_fds[fd]);
+        if (fd == 1 || fd == 2) fflush(g_io_fds[fd]);   /* flush std streams promptly */
+    }
+    r->data[0] = (wasm_val_t)WASM_I32_VAL(n); return NULL;   /* -1 = refused (bad fd or span) */
 }
 static wasm_trap_t* hio_fd_read(const wasm_val_vec_t* a, wasm_val_vec_t* r) {
     int fd = a->data[0].of.i32, off = a->data[1].of.i32, len = a->data[2].of.i32, n = 0;
     byte_t* m = io_membytes();
-    if (m && io_fd_ok(fd)) n = (int)fread(m + off, 1, (size_t)len, g_io_fds[fd]);
-    r->data[0] = (wasm_val_t)WASM_I32_VAL(n > 0 ? n : -1);   /* -1 = EOF (InputStream.read) */
+    if (m && io_fd_ok(fd) && io_span_ok(off, len)) n = (int)fread(m + off, 1, (size_t)len, g_io_fds[fd]);
+    r->data[0] = (wasm_val_t)WASM_I32_VAL(n > 0 ? n : -1);   /* -1 = EOF (InputStream.read) or refused */
     return NULL;
 }
 static wasm_trap_t* hio_fd_seek(const wasm_val_vec_t* a, wasm_val_vec_t* r) {
@@ -235,7 +265,7 @@ static wasm_trap_t* hio_fd_size(const wasm_val_vec_t* a, wasm_val_vec_t* r) {
 
 /* ── §22.4 File stat/action floor. ── */
 static wasm_trap_t* hio_stat(const wasm_val_vec_t* a, wasm_val_vec_t* r) {
-    char path[512]; int flags = 0; struct stat st;
+    char path[IO_PATH_MAX]; int flags = 0; struct stat st;
     if (io_hostpath(a->data[0].of.i32, a->data[1].of.i32, path) && stat(path, &st) == 0) {
         flags |= 1;                                        /* exists */
         if (S_ISDIR(st.st_mode)) flags |= 2;               /* dir    */
@@ -246,35 +276,40 @@ static wasm_trap_t* hio_stat(const wasm_val_vec_t* a, wasm_val_vec_t* r) {
     r->data[0] = (wasm_val_t)WASM_I32_VAL(flags); return NULL;
 }
 static wasm_trap_t* hio_file_size(const wasm_val_vec_t* a, wasm_val_vec_t* r) {
-    char path[512]; long long sz = -1; struct stat st;
+    char path[IO_PATH_MAX]; long long sz = -1; struct stat st;
     if (io_hostpath(a->data[0].of.i32, a->data[1].of.i32, path) && stat(path, &st) == 0 && S_ISREG(st.st_mode))
         sz = (long long)st.st_size;
     r->data[0] = (wasm_val_t)WASM_I64_VAL(sz); return NULL;
 }
 static wasm_trap_t* hio_file_modified(const wasm_val_vec_t* a, wasm_val_vec_t* r) {
-    char path[512]; long long ms = 0; struct stat st;
+    char path[IO_PATH_MAX]; long long ms = 0; struct stat st;
     if (io_hostpath(a->data[0].of.i32, a->data[1].of.i32, path) && stat(path, &st) == 0)
         ms = (long long)st.st_mtime * 1000;
     r->data[0] = (wasm_val_t)WASM_I64_VAL(ms); return NULL;
 }
 static wasm_trap_t* hio_unlink(const wasm_val_vec_t* a, wasm_val_vec_t* r) {
-    char path[512]; int rc = -1;
+    char path[IO_PATH_MAX]; int rc = -1;
     if (io_hostpath(a->data[0].of.i32, a->data[1].of.i32, path)) rc = (remove(path) == 0) ? 0 : -1;
     r->data[0] = (wasm_val_t)WASM_I32_VAL(rc); return NULL;
 }
 static wasm_trap_t* hio_mkdir(const wasm_val_vec_t* a, wasm_val_vec_t* r) {
-    char path[512]; int rc = -1;
+    char path[IO_PATH_MAX]; int rc = -1;
     if (io_hostpath(a->data[0].of.i32, a->data[1].of.i32, path)) rc = (mkdir(path, 0777) == 0) ? 0 : -1;
     r->data[0] = (wasm_val_t)WASM_I32_VAL(rc); return NULL;
 }
 static wasm_trap_t* hio_rename(const wasm_val_vec_t* a, wasm_val_vec_t* r) {
-    char from[512], to[512]; int rc = -1;
+    char from[IO_PATH_MAX], to[IO_PATH_MAX]; int rc = -1;
     if (io_hostpath(a->data[0].of.i32, a->data[1].of.i32, from) &&
         io_hostpath(a->data[2].of.i32, a->data[3].of.i32, to)) rc = (rename(from, to) == 0) ? 0 : -1;
     r->data[0] = (wasm_val_t)WASM_I32_VAL(rc); return NULL;
 }
+/* The entry names, NUL-separated, at outoff — or, when they do not all fit, the total
+ * they need and nothing written. The total is COUNTED either way: a directory bigger
+ * than the staging memory is not "not a directory", and -1 is what File.list() turns
+ * into null, which §22.4 reserves for a path that is not a directory. A guest that
+ * gets a total larger than the room it left grows the memory and asks again. */
 static wasm_trap_t* hio_list(const wasm_val_vec_t* a, wasm_val_vec_t* r) {
-    char path[512]; int total = -1; byte_t* m = io_membytes();
+    char path[IO_PATH_MAX]; int total = -1; byte_t* m = io_membytes();
     int outoff = a->data[2].of.i32;
     if (m && io_hostpath(a->data[0].of.i32, a->data[1].of.i32, path)) {
         DIR* dp = opendir(path);
@@ -283,8 +318,20 @@ static wasm_trap_t* hio_list(const wasm_val_vec_t* a, wasm_val_vec_t* r) {
             while ((de = readdir(dp)) != NULL) {
                 const char* nm = de->d_name;
                 if (nm[0] == '.' && (nm[1] == 0 || (nm[1] == '.' && nm[2] == 0))) continue;   /* skip . and .. */
-                for (int i = 0; nm[i]; i++) m[outoff + total++] = (byte_t)nm[i];
-                m[outoff + total++] = 0;                    /* NUL separator */
+                total += (int)strlen(nm) + 1;               /* the name plus its NUL separator */
+            }
+            if (io_span_ok(outoff, total)) {                /* the WHOLE listing or none of it */
+                rewinddir(dp);
+                int k = 0;
+                while ((de = readdir(dp)) != NULL) {
+                    const char* nm = de->d_name;
+                    if (nm[0] == '.' && (nm[1] == 0 || (nm[1] == '.' && nm[2] == 0))) continue;
+                    size_t nl = strlen(nm);
+                    if (k + (int)nl + 1 > total) break;     /* the directory changed under us */
+                    memcpy(m + outoff + k, nm, nl); k += (int)nl;
+                    m[outoff + k++] = 0;
+                }
+                total = k;
             }
             closedir(dp);
         }
@@ -354,53 +401,53 @@ typedef struct { const char* mod; const char* fld; const char* sig;
 
 static const hio_row_t hio_table[] = {
     /* §17 monitors on a threadless target: no monitor exists. */
-    { "Object", "wait",      NULL,     NULL, HIO_MONITOR },
-    { "Object", "notify",    NULL,     NULL, HIO_MONITOR },
-    { "Object", "notifyAll", NULL,     NULL, HIO_MONITOR },
+    { "java.lang.Object", "wait",      NULL,     NULL, HIO_MONITOR },
+    { "java.lang.Object", "notify",    NULL,     NULL, HIO_MONITOR },
+    { "java.lang.Object", "notifyAll", NULL,     NULL, HIO_MONITOR },
 
     /* The fd + filesystem floor. */
-    { "HostIO", "checksum",     "ii:i",   hio_checksum,      HIO_PLAIN },
-    { "HostIO", "fd_open_temp", ":i",     hio_fd_open_temp,  HIO_PLAIN },
-    { "HostIO", "open",         "iii:i",  hio_open,          HIO_PLAIN },
-    { "HostIO", "fd_write",     "iii:i",  hio_fd_write,      HIO_PLAIN },
-    { "HostIO", "fd_read",      "iii:i",  hio_fd_read,       HIO_PLAIN },
-    { "HostIO", "fd_seek",      "ii:",    hio_fd_seek,       HIO_PLAIN },
-    { "HostIO", "fd_close",     "i:",     hio_fd_close,      HIO_PLAIN },
-    { "HostIO", "fd_size",      "i:I",    hio_fd_size,       HIO_PLAIN },
-    { "HostIO", "stat",         "ii:i",   hio_stat,          HIO_PLAIN },
-    { "HostIO", "fileSize",     "ii:I",   hio_file_size,     HIO_PLAIN },
-    { "HostIO", "fileModified", "ii:I",   hio_file_modified, HIO_PLAIN },
-    { "HostIO", "unlink",       "ii:i",   hio_unlink,        HIO_PLAIN },
-    { "HostIO", "mkdir",        "ii:i",   hio_mkdir,         HIO_PLAIN },
-    { "HostIO", "rename",       "iiii:i", hio_rename,        HIO_PLAIN },
-    { "HostIO", "list",         "iii:i",  hio_list,          HIO_PLAIN },
+    { "java.io.HostIO", "checksum",     "ii:i",   hio_checksum,      HIO_PLAIN },
+    { "java.io.HostIO", "fd_open_temp", ":i",     hio_fd_open_temp,  HIO_PLAIN },
+    { "java.io.HostIO", "open",         "iii:i",  hio_open,          HIO_PLAIN },
+    { "java.io.HostIO", "fd_write",     "iii:i",  hio_fd_write,      HIO_PLAIN },
+    { "java.io.HostIO", "fd_read",      "iii:i",  hio_fd_read,       HIO_PLAIN },
+    { "java.io.HostIO", "fd_seek",      "ii:",    hio_fd_seek,       HIO_PLAIN },
+    { "java.io.HostIO", "fd_close",     "i:",     hio_fd_close,      HIO_PLAIN },
+    { "java.io.HostIO", "fd_size",      "i:I",    hio_fd_size,       HIO_PLAIN },
+    { "java.io.HostIO", "stat",         "ii:i",   hio_stat,          HIO_PLAIN },
+    { "java.io.HostIO", "fileSize",     "ii:I",   hio_file_size,     HIO_PLAIN },
+    { "java.io.HostIO", "fileModified", "ii:I",   hio_file_modified, HIO_PLAIN },
+    { "java.io.HostIO", "unlink",       "ii:i",   hio_unlink,        HIO_PLAIN },
+    { "java.io.HostIO", "mkdir",        "ii:i",   hio_mkdir,         HIO_PLAIN },
+    { "java.io.HostIO", "rename",       "iiii:i", hio_rename,        HIO_PLAIN },
+    { "java.io.HostIO", "list",         "iii:i",  hio_list,          HIO_PLAIN },
 
     /* The system-property source (bytes through the staging memory). */
-    { "HostIO", "getprop",      "iii:i",  hio_getprop,       HIO_PLAIN },
-    { "HostIO", "propnames",    "i:i",    hio_propnames,     HIO_PLAIN },
+    { "java.io.HostIO", "getprop",      "iii:i",  hio_getprop,       HIO_PLAIN },
+    { "java.io.HostIO", "propnames",    "i:i",    hio_propnames,     HIO_PLAIN },
 
     /* IEEE bit reinterprets: no WASM-GC primitive reinterprets a float's bits. */
-    { "Float",  "floatToIntBits",       "f:i", hio_f2i, HIO_PLAIN },
-    { "Float",  "floatToRawIntBits",    "f:i", hio_f2i, HIO_PLAIN },
-    { "Float",  "intBitsToFloat",       "i:f", hio_i2f, HIO_PLAIN },
-    { "Double", "doubleToLongBits",     "F:I", hio_d2l, HIO_PLAIN },
-    { "Double", "doubleToRawLongBits",  "F:I", hio_d2l, HIO_PLAIN },
-    { "Double", "longBitsToDouble",     "I:F", hio_l2d, HIO_PLAIN },
+    { "java.lang.Float",  "floatToIntBits",       "f:i", hio_f2i, HIO_PLAIN },
+    { "java.lang.Float",  "floatToRawIntBits",    "f:i", hio_f2i, HIO_PLAIN },
+    { "java.lang.Float",  "intBitsToFloat",       "i:f", hio_i2f, HIO_PLAIN },
+    { "java.lang.Double", "doubleToLongBits",     "F:I", hio_d2l, HIO_PLAIN },
+    { "java.lang.Double", "doubleToRawLongBits",  "F:I", hio_d2l, HIO_PLAIN },
+    { "java.lang.Double", "longBitsToDouble",     "I:F", hio_l2d, HIO_PLAIN },
 
     /* §20.18 no-ops + the absent security manager. */
-    { "System", "gc",                 ":",   hio_noop,     HIO_PLAIN },
-    { "System", "runFinalization",    ":",   hio_noop,     HIO_PLAIN },
-    { "System", "load",               "r:",  hio_noop,     HIO_PLAIN },
-    { "System", "loadLibrary",        "r:",  hio_noop,     HIO_PLAIN },
-    { "System", "setSecurityManager", "r:",  hio_noop,     HIO_PLAIN },
-    { "System", "setProperties",      "r:",  hio_noop,     HIO_PLAIN },
-    { "Object", "finalize",           "r:",  hio_noop,     HIO_PLAIN },
-    { "System", "getSecurityManager", ":r",  hio_null_ref, HIO_PLAIN },
+    { "java.lang.System", "gc",                 ":",   hio_noop,     HIO_PLAIN },
+    { "java.lang.System", "runFinalization",    ":",   hio_noop,     HIO_PLAIN },
+    { "java.lang.System", "load",               "r:",  hio_noop,     HIO_PLAIN },
+    { "java.lang.System", "loadLibrary",        "r:",  hio_noop,     HIO_PLAIN },
+    { "java.lang.System", "setSecurityManager", "r:",  hio_noop,     HIO_PLAIN },
+    { "java.lang.System", "setProperties",      "r:",  hio_noop,     HIO_PLAIN },
+    { "java.lang.Object", "finalize",           "r:",  hio_noop,     HIO_PLAIN },
+    { "java.lang.System", "getSecurityManager", ":r",  hio_null_ref, HIO_PLAIN },
 
     /* The clock / exit / identity-hash sources. */
-    { "System", "currentTimeMillis", ":I", NULL, HOP_CTM },
-    { "System", "exit",              "i:", NULL, HOP_EXIT },
-    { "System", "identityHashCode",  ":i", NULL, HOP_IDHASH },
+    { "java.lang.System", "currentTimeMillis", ":I", NULL, HOP_CTM },
+    { "java.lang.System", "exit",              "i:", NULL, HOP_EXIT },
+    { "java.lang.System", "identityHashCode",  ":i", NULL, HOP_IDHASH },
 };
 
 /* The resolution index: qualified name -> row + 1, built from hio_table on first
@@ -412,27 +459,41 @@ static const hio_row_t hio_table[] = {
  * sema). */
 static bbq_dict* g_hio_index = NULL;
 
-/* Longest row is "HostIO.fileModified" — 19. A guest may declare names of any
- * length, and one longer than this matches no row, so it needs no buffer. */
-#define HIO_QNAME_MAX 64
+/* The index key is the PAIR, length-prefixed — NOT `mod + '.' + fld`.
+ *
+ * A wasm import name is arbitrary UTF-8 (§5.5.5), so no byte is safe as a separator: any
+ * character a separator could use may appear inside a name. Flattening on '.' was injective
+ * only by accident, because module names were bare Java simple names and a Java simple name
+ * cannot contain a dot. §2e.1's move to fully-qualified module names removes that accident —
+ * ("java.io.HostIO","fd_write") and ("java.io","HostIO.fd_write") are two distinct imports
+ * that flatten to one key — so the key stops being a string. Prefixing the module's length
+ * is injective for every pair of byte strings.
+ *
+ * This is the sema scope-table collision one layer up, and the reason bbq_dict stores and
+ * memcmps the whole key rather than trusting a digest (bbq_dict.h). Pinned by
+ * test_host_abi.c case 7. */
+#define HIO_KEY_MAX 96
 
-static int hio_qname(char* buf, const wasm_name_t* mod, const wasm_name_t* fld) {
-    size_t n = mod->size + 1 + fld->size;
-    if (n > HIO_QNAME_MAX) return -1;
-    memcpy(buf, mod->data, mod->size);
-    buf[mod->size] = '.';
-    memcpy(buf + mod->size + 1, fld->data, fld->size);
+static int hio_key(char* buf, const wasm_name_t* mod, const wasm_name_t* fld) {
+    size_t n = 2 + mod->size + fld->size;
+    if (mod->size > 0xffff || n > HIO_KEY_MAX) return -1;
+    buf[0] = (char)(mod->size & 0xff);
+    buf[1] = (char)((mod->size >> 8) & 0xff);
+    memcpy(buf + 2, mod->data, mod->size);
+    memcpy(buf + 2 + mod->size, fld->data, fld->size);
     return (int)n;
 }
 
 static void hio_index_build(void) {
     if (g_hio_index) return;
     g_hio_index = bbq_dict_create();
-    char q[HIO_QNAME_MAX];
+    char q[HIO_KEY_MAX];
     for (size_t i = 0; i < sizeof hio_table / sizeof hio_table[0]; i++) {
-        int n = snprintf(q, sizeof q, "%s.%s", hio_table[i].mod, hio_table[i].fld);
-        if (n > 0 && n <= (int)sizeof q)
-            bbq_dict_put(g_hio_index, q, (size_t)n, (void*)(uintptr_t)(i + 1));
+        wasm_name_t m, f;                                   /* borrowed views of the row's literals */
+        m.size = strlen(hio_table[i].mod); m.data = (byte_t*)(uintptr_t)hio_table[i].mod;
+        f.size = strlen(hio_table[i].fld); f.data = (byte_t*)(uintptr_t)hio_table[i].fld;
+        int n = hio_key(q, &m, &f);
+        if (n > 0) bbq_dict_put(g_hio_index, q, (size_t)n, (void*)(uintptr_t)(i + 1));
     }
 }
 
@@ -470,8 +531,8 @@ static int hio_sig_ok(const wasm_functype_t* ft, const char* sig) {
  * traps, never silently succeeds. */
 static wasm_func_t* exec_host_for(wasm_store_t* store, const wasm_functype_t* ft,
                                   const wasm_name_t* mod, const wasm_name_t* fld) {
-    char q[HIO_QNAME_MAX];
-    int qn = hio_qname(q, mod, fld);
+    char q[HIO_KEY_MAX];
+    int qn = hio_key(q, mod, fld);
     if (qn > 0) {
         hio_index_build();
         size_t slot = (size_t)(uintptr_t)bbq_dict_get(g_hio_index, q, (size_t)qn);

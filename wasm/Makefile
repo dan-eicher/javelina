@@ -77,6 +77,17 @@ ifeq ($(SAN),1)
 CFLAGS += -fsanitize=address -fno-omit-frame-pointer
 B      := build-asan
 endif
+# PIC=1 — position-independent objects, its own build dir. libjavelina.a is what a
+# third-party embedder links, and a host that is itself a shared library (Inkscape links
+# its core as libinkscape_base.so) cannot take non-PIC members: ld rejects them with
+# "relocation R_X86_64_32S ... recompile with -fPIC". STENCIL_CFLAGS is deliberately
+# untouched — the stencils are extracted machine code, they are already PC-relative
+# throughout (PC32/PLT32 only, no absolute relocations), and changing how they are
+# compiled would change the bytes jitterator extracts.
+ifeq ($(PIC),1)
+CFLAGS += -fPIC
+B      := build-pic
+endif
 # PROFILE=1 — -O0 with frame pointers, its own build dir: the -O2 inliner
 # smears costs across callers and erases the call counts a recompute-vs-cache
 # question needs, so a profile of the optimized build attributes work to the

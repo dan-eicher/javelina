@@ -90,7 +90,13 @@ public class File {
     public String[] list() {
         int n = stagePath();
         int total = HostIO.list(0, n, n);   // entries written starting at offset n
-        if (total < 0) return null;         // not a directory
+        if (total < 0) return null;         // not a directory — and ONLY that
+        if (n + total > Mem.memory_size() * 65536) {   // answered the size, wrote nothing
+            if (!HostIO.ensureRoom(n, total)) return null;
+            n = stagePath();                           // grow may follow a re-stage; keep them together
+            total = HostIO.list(0, n, n);
+            if (total < 0) return null;
+        }
         int count = 0;
         for (int i = 0; i < total; i++) if (Mem.i32_load8_u(n + i) == 0) count++;
         String[] names = new String[count];

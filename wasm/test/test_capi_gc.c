@@ -11,6 +11,7 @@
 // FALSIFIED: with the s->gc_refs loop in capi_extra_roots disabled, the read-back rows go red
 // (wrong value / engine trap) while the module's own rows stay green; restored, all green.
 #include "wasm.h"
+#include "jav_extern.h"           // jav_config_set_jit — the tier is asked for, not inherited
 #include "wat_driver.h"
 #include "jav_writer.h"
 #include "bbq_runtime.h"
@@ -43,7 +44,10 @@ static int call1(wasm_func_t* f, const wasm_val_t* arg, wasm_val_t* res) {
 }
 
 int main(void) {
-    wasm_engine_t* engine = wasm_engine_new();
+    /* Explicit interpreter: the engine default is tier 2 (JAV_DEFAULT_TIER), and a GC
+     * surface test should red for GC reasons, not for JIT ones. */
+    wasm_config_t* cfg0 = wasm_config_new(); jav_config_set_jit(cfg0, 0);
+    wasm_engine_t* engine = wasm_engine_new_with_config(cfg0);
     wasm_store_t*  store  = wasm_store_new(engine);
 
     wasm_byte_vec_t bin; assemble(

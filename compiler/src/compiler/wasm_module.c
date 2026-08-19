@@ -702,8 +702,17 @@ bool wasm_assemble_program(compiler_ctx_t* cctx, const sema_ctx_t* sctx,
                 cl = 3; mb = (uint8_t*)malloc(3); memcpy(mb, "jre", 3);
                 uint32_t fl; fbn = canon_method_name(sctx, fe.class_id, im, &fl); ml = (int)fl;
             } else {
-                /* host natives: module = declaring class, field = method name. */
-                cl = (int)strlen(icls->name); mb = (uint8_t*)malloc((size_t)cl); memcpy(mb, icls->name, (size_t)cl);
+                /* host natives: module = declaring class's FULLY QUALIFIED name, field = method name.
+                 * Not `icls->name`. The ABI is primary — it specifies literal (module, name) strings,
+                 * and a binding must be able to EMIT them. Deriving the module from a Java simple name
+                 * cannot emit a dotted one at all, because a simple name cannot contain a dot, so the
+                 * old scheme could only ever target ABIs whose module string was a bare identifier —
+                 * `org.inkscape.Node` was not expressible. fq_name is dot-joined identifier segments,
+                 * which is the intersection of what Java, C and Zig can all spell.
+                 * It lands WITH pair-keyed resolution (host_io.h hio_key): flattening the two halves
+                 * into one string is injective only while module names cannot contain dots. */
+                const char* mn = icls->fq_name ? icls->fq_name : icls->name;
+                cl = (int)strlen(mn);         mb = (uint8_t*)malloc((size_t)cl); memcpy(mb, mn, (size_t)cl);
                 ml = (int)strlen(im->name);   fbn = (uint8_t*)malloc((size_t)ml); memcpy(fbn, im->name, (size_t)ml);
             }
             imps[i].module.count = (uint32_t)cl; imps[i].module.bytes.data = mb;  imps[i].module.bytes.length = (size_t)cl;

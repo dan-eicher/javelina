@@ -87,7 +87,11 @@ static uint8_t g_probe_ops[64]; static int g_probe_ops_n;
 static void probe_record(void* ctx, uint8_t op) { (void)ctx; if (g_probe_ops_n < 64) g_probe_ops[g_probe_ops_n++] = op; }
 
 int main(void) {
-    wasm_engine_t* engine = wasm_engine_new();
+    /* Explicit interpreter: the engine default is tier 2 (JAV_DEFAULT_TIER). This suite is
+     * about the C API's own behaviour, so it names its tier rather than inheriting one —
+     * the default is pinned separately, below. */
+    wasm_config_t* cfg0 = wasm_config_new(); jav_config_set_jit(cfg0, 0);
+    wasm_engine_t* engine = wasm_engine_new_with_config(cfg0);
     wasm_store_t* store = wasm_store_new(engine);
 
     // ── (4a) a host func imported as env.f, called from wasm: callit(41) → f(41) = 42 ──
@@ -1234,10 +1238,28 @@ int main(void) {
     // ── 6.0 coverage-floor closers: public wasm.h fns that had ZERO direct test (the remaining
     //    untested public symbols are upstream wasm.h inline/macro conveniences, not jav code) ──
     {
-        // config_new (spec: NULL — no standard fields) + engine_new_with_config (ignores it)
+        // config_new + engine_new_with_config, and THE DEFAULT TIER. Asking for nothing gets
+        // tier 2 (wasm_capi.c, JAV_DEFAULT_TIER) — the engine's claim about itself should not
+        // be something an embedder has to discover. Pinned by behaviour rather than by reading
+        // a field back: a default store must actually place functions on the compiled tier.
         wasm_engine_t* e2 = wasm_engine_new_with_config(wasm_config_new());
         CK(e2 != NULL);
         wasm_store_t* s2 = wasm_store_new(e2);
+        {
+            wasm_byte_vec_t db;
+            assemble("(module (func (export \"d\") (param i32) (result i32)"
+                     "  local.get 0 i32.const 3 i32.mul))", &db);
+            wasm_module_t* dm = wasm_module_new(s2, &db); CK(dm != NULL);
+            wasm_extern_vec_t dni = WASM_EMPTY_VEC; wasm_trap_t* dtr = NULL;
+            wasm_instance_t* di = wasm_instance_new(s2, dm, &dni, &dtr); CK(di != NULL);
+            wasm_extern_vec_t dex; wasm_instance_exports(di, &dex);
+            wasm_val_t da[1] = { WASM_I32_VAL(14) }, dr[1] = { WASM_INIT_VAL };
+            wasm_val_vec_t dav = WASM_ARRAY_VEC(da), drv = WASM_ARRAY_VEC(dr);
+            CK(wasm_func_call(wasm_extern_as_func(dex.data[0]), &dav, &drv) == NULL && dr[0].of.i32 == 42);
+            CK(jav_capi_jit_count(s2) > 0);   // a default engine COMPILES; it does not interpret
+            wasm_extern_vec_delete(&dex); wasm_instance_delete(di);
+            wasm_module_delete(dm); wasm_byte_vec_delete(&db);
+        }
 
         // val_copy: a num copies by value; valkind_is_ref classifies kinds
         CK(wasm_valkind_is_ref(WASM_EXTERNREF) && !wasm_valkind_is_ref(WASM_I32));

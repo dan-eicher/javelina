@@ -187,7 +187,11 @@ int main(void) {
             bool ok = assemble(&a, vc[i].src, &mod);
             bool valid = false;
             if (ok) {
-                wasm_engine_t* eng = wasm_engine_new();
+                /* Explicit interpreter: this asks whether the EMITTED MODULE validates, and
+                 * the engine's default is tier 2, which would also compile every body — a
+                 * JIT fault would then red an emitter test. */
+                wasm_config_t* c0 = wasm_config_new(); jav_config_set_jit(c0, 0);
+                wasm_engine_t* eng = wasm_engine_new_with_config(c0);
                 wasm_store_t* st = wasm_store_new(eng);
                 wasm_byte_vec_t bin;
                 wasm_byte_vec_new_uninitialized(&bin, bbq_vec_len(mod.code));
@@ -247,7 +251,8 @@ int main(void) {
 
         bool valid = false;
         if (ok) {
-            wasm_engine_t* eng = wasm_engine_new();
+            wasm_config_t* c0 = wasm_config_new(); jav_config_set_jit(c0, 0);   /* validation only — see above */
+            wasm_engine_t* eng = wasm_engine_new_with_config(c0);
             wasm_store_t* st = wasm_store_new(eng);
             wasm_byte_vec_t bin;
             wasm_byte_vec_new_uninitialized(&bin, bbq_vec_len(mod.code));
@@ -316,7 +321,8 @@ int main(void) {
 
         bool valid = false;
         if (magic) {
-            wasm_engine_t* eng = wasm_engine_new();
+            wasm_config_t* c0 = wasm_config_new(); jav_config_set_jit(c0, 0);   /* validation only — see above */
+            wasm_engine_t* eng = wasm_engine_new_with_config(c0);
             wasm_store_t* st = wasm_store_new(eng);
             wasm_byte_vec_t bin;
             wasm_byte_vec_new_uninitialized(&bin, (size_t)n);

@@ -3520,6 +3520,39 @@ int main(void) {
             " if (\"1.0\".equals(System.getProperty(\"java.version\",\"other\"))) r=r+16;"
             " return r; } }",
             0, 31, "§20.18.9/.10 System.getProperty: hit, miss→null, miss→default, hit-over-default" },
+          /* The →HOST three-way result, from Java. `test.big` (exec.h) is larger than the staging
+           * memory, so getprop answers a length that does not fit and writes nothing, and
+           * System.getProperty has to grow the memory and ask again. Answering null here would be a
+           * WRONG answer, not a degraded one: §20.18.9 gives null exactly one meaning, a property
+           * that is not defined.
+           *
+           * The case drives the seam directly rather than through System.getProperty, because the
+           * ambient staging size is not this case's to control: the memory is shared by every case
+           * in the process, jre declares one page but an earlier case had already grown it to five,
+           * and the FIRST property access in the process is what fetches `test.big` and grows it
+           * again. Growth is monotonic, so by the time any later case runs there is nothing left to
+           * observe — a version of this that asserted "System.getProperty grew the memory" could not
+           * fail for the right reason, and one that only checked the value came back could not fail
+           * at all once the memory was big enough to fit it.
+           *
+           * Choosing the offset makes it ambient-independent: whatever the memory size is, `tight`
+           * leaves sixteen bytes, and the value never fits in sixteen bytes. So all three legs of
+           * the three-way result are exercised on every run — the size is answered, the buffer is
+           * untouched, and the same call after ensureRoom delivers the bytes. */
+          { "class T { static int f(int x){ int r=0;"
+            " String k = \"test.big\"; int n = k.length();"
+            " for (int i = 0; i < n; i++) javelina.simd.Mem.i32_store8(i, k.charAt(i));"
+            " int tight = javelina.simd.Mem.memory_size() * 65536 - 16;"
+            " javelina.simd.Mem.i32_store8(tight, 90);"                      /* sentinel */
+            " int need = java.io.HostIO.getprop(0, n, tight);"
+            " if (need == 400000) r=r+1;"                                    /* the SIZE, not -1 */
+            " if (javelina.simd.Mem.i32_load8_u(tight) == 90) r=r+2;"        /* and wrote nothing */
+            " boolean grew = java.io.HostIO.ensureRoom(n, need);"
+            " int got = java.io.HostIO.getprop(0, n, n);"
+            " if (grew && got == 400000 && javelina.simd.Mem.i32_load8_u(n) == 'a'"
+            "          && javelina.simd.Mem.i32_load8_u(n + 399999) == (int)(char)('a'+(399999%26))) r=r+4;"
+            " return r; } }",
+            0, 7, "§20.18.9 three-way result: too small answers the SIZE, writes nothing, retries after ensureRoom" },
           { "class T { static int f(int x){ int r=0;"
             " java.util.Properties p = System.getProperties();"
             " if (p != null) r=r+1;"
@@ -3633,6 +3666,12 @@ int main(void) {
             wasm_val_t arg = (wasm_val_t)WASM_I32_VAL(prop[i].arg);
             wasm_val_t res[1] = { WASM_INIT_VAL };
             exec_status st = exec_call(mod.code, bbq_vec_len(mod.code), "T.f", &arg, 1, res, 1);
+            /* Each case sums one bit per claim, so the got value NAMES which claims held. Without
+             * it a red here says only "some bit of a five-part property is wrong", which is not
+             * something anyone can act on without re-deriving the case by hand. */
+            if (!(ok && st == EXEC_OK && res[0].of.i32 == prop[i].want))
+                printf("        assembled=%d status=%d got=%d want=%d\n",
+                       (int)ok, (int)st, res[0].of.i32, prop[i].want);
             CHECK(ok && st == EXEC_OK && res[0].of.i32 == prop[i].want, prop[i].label);
             bbq_vec_free(mod.code); bbq_arena_free(&a);
         }

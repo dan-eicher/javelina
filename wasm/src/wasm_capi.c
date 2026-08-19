@@ -547,7 +547,23 @@ static void exn_unroot(wasm_store_t* s, wasm_exception_t* e) {
         if (s->exn_roots[i] == e) { s->exn_roots[i] = s->exn_roots[n - 1]; bbq_vec_pop(s->exn_roots); return; }
 }
 
-wasm_config_t* wasm_config_new(void) { return calloc(1, sizeof(wasm_config_t)); }
+/* The tier an embedder gets without asking. Tier 2 — compiled and tiled — because the
+ * default is the engine's claim about itself, and an embedder who never finds
+ * jav_config_set_jit should be running the engine we would want measured, not the
+ * slowest thing that happens to be what calloc leaves behind. The interpreter is still
+ * reachable, but it is now something you ASK for.
+ *
+ * Every in-tree caller that wanted the interpreter says so explicitly, and one of them
+ * had to: wast_exec.c selected the interp leg of the interp==JIT differential by calling
+ * bare wasm_engine_new() and trusting this zero. Flipping the default under it would have
+ * left the differential comparing tier 2 against tier 2 — green, and proving nothing. */
+#define JAV_DEFAULT_TIER 2
+
+wasm_config_t* wasm_config_new(void) {
+    wasm_config_t* c = calloc(1, sizeof(wasm_config_t));
+    if (c) c->jit = JAV_DEFAULT_TIER;
+    return c;
+}
 void wasm_config_delete(wasm_config_t* c) { free(c); }
 /* A LEVEL, not a switch: 0 interprets, 1 compiles without caching operands in
  * registers, 2 compiles with the tier-2 tiling, 3 runs the eq-sat rewrite in
@@ -563,7 +579,11 @@ void jav_config_set_jit(wasm_config_t* c, int jit) {
 }
 void jav_config_set_verify_heap(wasm_config_t* c, int on) { if (c) c->verify_heap = on ? 1 : 0; }
 
-wasm_engine_t* wasm_engine_new(void) { return calloc(1, sizeof(wasm_engine_t)); }
+wasm_engine_t* wasm_engine_new(void) {
+    wasm_engine_t* e = calloc(1, sizeof(wasm_engine_t));
+    if (e) e->jit = JAV_DEFAULT_TIER;       /* see JAV_DEFAULT_TIER — asking for nothing gets tier 2 */
+    return e;
+}
 wasm_engine_t* wasm_engine_new_with_config(wasm_config_t* c) {   // consumes c (wasm.h: `own`)
     wasm_engine_t* e = wasm_engine_new();
     if (e && c) { e->jit = c->jit; e->verify_heap = c->verify_heap; }

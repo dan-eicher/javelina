@@ -101,8 +101,8 @@ int main(void) {
     wasm_store_t*  st  = wasm_store_new(eng);
 
     /* 1. The contract still works: a qualified name the floor names binds. */
-    CHECK(!traps(st, "System", "gc", ":", NULL, 0, NULL),
-          "System.gc resolves to the floor's no-op");
+    CHECK(!traps(st, "java.lang.System", "gc", ":", NULL, 0, NULL),
+          "java.lang.System/gc resolves to the floor's no-op");
 
     /* 2. The module name is load-bearing. A different module asking for the
      *    same field is NOT the same import, and must fail closed. */
@@ -126,8 +126,8 @@ int main(void) {
     }
 
     /* 4. ...and registering the hook does not let it steal java.lang's names. */
-    CHECK(!traps(st, "System", "gc", ":", NULL, 0, NULL),
-          "System.gc still reaches the floor with a hook registered");
+    CHECK(!traps(st, "java.lang.System", "gc", ":", NULL, 0, NULL),
+          "java.lang.System/gc still reaches the floor with a hook registered");
 
     /* 5. The intrinsic surface stays fail-closed: sema emits an import for every
      *    `native`, the compiler lowers these to instructions, and a call that
@@ -144,8 +144,8 @@ int main(void) {
     {
         wasm_val_t a[4] = { {.kind=WASM_I32,.of.i32=-1}, {.kind=WASM_I32,.of.i32=0},
                             {.kind=WASM_I32,.of.i32=0},  {.kind=WASM_I32,.of.i32=0} };
-        CHECK(traps(st, "HostIO", "fd_write", "iiii:i", a, 4, NULL),
-              "HostIO.fd_write at the wrong arity does NOT bind to the 3-arg native");
+        CHECK(traps(st, "java.io.HostIO", "fd_write", "iiii:i", a, 4, NULL),
+              "java.io.HostIO/fd_write at the wrong arity does NOT bind to the 3-arg native");
     }
     /*    The same rule on a native that ignores its arguments, so the check is
      *    the resolver's and not wasm_func_call's argument-kind check: hio_noop
@@ -154,9 +154,40 @@ int main(void) {
      *    ends the test process.) */
     {
         wasm_val_t a[1] = { {.kind=WASM_I32,.of.i32=0} };
-        CHECK(traps(st, "System", "gc", "i:", a, 1, NULL),
-              "System.gc declared (i32) does NOT bind to the ()-arity no-op");
+        CHECK(traps(st, "java.lang.System", "gc", "i:", a, 1, NULL),
+              "java.lang.System/gc declared (i32) does NOT bind to the ()-arity no-op");
     }
+
+    /* 7. The key is the PAIR, not a flattened string. A wasm import name is arbitrary
+     *    UTF-8 (§5.5.5), so no byte is safe as a separator: with the key built as
+     *    `mod + '.' + fld`, ("java.io.HostIO", "fd_seek") and ("java.io", "HostIO.fd_seek")
+     *    — two distinct imports — collapse onto one key, and whichever is asked for second
+     *    binds to the first's native. That was survivable only while module names were bare
+     *    Java simple names, which cannot contain a dot; §2e.1's move to fully-qualified
+     *    names removes the accident, so the key had to stop being a string.
+     *
+     *    This is the sema scope-table bug one layer up — the reason bbq_dict stores and
+     *    compares whole keys instead of trusting a digest. */
+    {
+        wasm_val_t a[2] = { {.kind=WASM_I32,.of.i32=0}, {.kind=WASM_I32,.of.i32=0} };
+        CHECK(!traps(st, "java.io.HostIO", "fd_seek", "ii:", a, 2, NULL),
+              "java.io.HostIO/fd_seek resolves at its fully-qualified module name");
+        CHECK(traps(st, "java.io", "HostIO.fd_seek", "ii:", a, 2, NULL),
+              "java.io/HostIO.fd_seek is a DIFFERENT import — the same bytes split elsewhere");
+        CHECK(traps(st, "java.io.HostIO.fd_seek", "", "ii:", a, 2, NULL),
+              "the whole name in the module half is a different import again");
+    }
+
+    /* 8. ...and the simple name is no longer the ABI. A Java simple name cannot contain a
+     *    dot, so while the emitter used `icls->name` javelina could only target ABIs whose
+     *    module string was a bare identifier — it could not have emitted `org.inkscape.Node`
+     *    at all. The old bare names must therefore NOT resolve, or both spellings would
+     *    work and the migration would be untestable. */
+    CHECK(traps(st, "HostIO", "fd_seek", "ii:",
+                (wasm_val_t[]){ {.kind=WASM_I32,.of.i32=0}, {.kind=WASM_I32,.of.i32=0} }, 2, NULL),
+          "the bare simple name HostIO is no longer the contract");
+    CHECK(traps(st, "System", "gc", ":", NULL, 0, NULL),
+          "the bare simple name System is no longer the contract");
 
     g_io_host_extra = NULL;
     if (g_hook_last_mod.data) wasm_name_delete(&g_hook_last_mod);

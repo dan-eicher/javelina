@@ -68,14 +68,15 @@ static void probe_cb(void* ctx, uint8_t op) { (void)ctx; (void)op; g_probe_ops++
 static run_t run_at_tier(const wasm_byte_vec_t* bin, int jit, const char* export_name, wasm_val_t arg) {
     run_t r; memset(&r, 0, sizeof r);
 
+    // Both tiers asked for explicitly: the engine's default is tier 2 now, and this test
+    // compares an interpreting store against a compiling one, so the interp side cannot
+    // be left to inherit whatever the default happens to be.
     wasm_engine_t* engine;
-    if (jit) {
+    {
         wasm_config_t* cfg = wasm_config_new();
         CK(cfg != NULL);                       // the extension point must be a real object now
-        jav_config_set_jit(cfg, 1);
+        jav_config_set_jit(cfg, jit ? 1 : 0);
         engine = wasm_engine_new_with_config(cfg);   // consumes cfg
-    } else {
-        engine = wasm_engine_new();
     }
     wasm_store_t* store = wasm_store_new(engine);
 

@@ -38,6 +38,27 @@ static wasm_func_t* harness_host_for(wasm_store_t* store, const wasm_functype_t*
     return NULL;   /* everything else: the shipped floor decides (and traps if unimplemented) */
 }
 
+/* One property value larger than the staging memory, so a Java program can reach the third case of
+ * the →HOST three-way result (docs/host-abi.md): getprop answers a length that does not fit, writes
+ * nothing, and System.getProperty must grow the memory and ask again. A cooperative caller cannot
+ * construct this case by choosing better offsets — the value is simply bigger than the memory — so it
+ * has to come from the environment, exactly as it would from an embedder publishing a long classpath.
+ * Before the three-way result this value read as ABSENT.
+ *
+ * The size is NOT "one page plus a bit". jre declares one page, but the memory is shared across every
+ * case in the process and any earlier case that calls Mem.memory_grow leaves it larger — measured at
+ * five pages by the time the property cases run. A value sized against the DECLARED page count fits
+ * on the first call, the retry never fires, and the test passes while proving nothing; that is what
+ * the first version of it did. Hence a size past any plausible ambient growth, AND a test that
+ * asserts the memory actually grew, so if the suite ever outgrows this number the case goes red and
+ * says so rather than going quietly green. */
+#define HARNESS_BIG_PROP_LEN 400000
+static char harness_big_prop[HARNESS_BIG_PROP_LEN + 1];
+static void harness_big_prop_init(void) {
+    for (int i = 0; i < HARNESS_BIG_PROP_LEN; i++) harness_big_prop[i] = (char)('a' + (i % 26));
+    harness_big_prop[HARNESS_BIG_PROP_LEN] = 0;
+}
+
 /* The property set the harness publishes: the fifteen §20.18.7 keys with FIXED values, so a test can
  * assert on them, plus two crafted entries that exercise Integer/Long.getInteger/getLong's radix rules. */
 static const hio_prop_t harness_props[] = {
@@ -52,6 +73,7 @@ static const hio_prop_t harness_props[] = {
     { "test.dec", "1234" },           { "test.hex", "0x2a" },
     { "test.hash", "#2a" },           { "test.oct", "052" },
     { "test.bad", "not-a-number" },   { "test.true", "TrUe" },
+    { "test.big", harness_big_prop },
     { NULL, NULL },
 };
 
@@ -82,19 +104,21 @@ static inline exec_status exec_call(const uint8_t* mod, size_t modlen, const cha
                                     const wasm_val_t* args, size_t nargs,
                                     wasm_val_t* results, size_t nres) {
     g_io_host_extra = harness_host_for;
+    harness_big_prop_init();
     g_io_props      = harness_props;
     wasm_byte_vec_t bin;
     wasm_byte_vec_new_uninitialized(&bin, modlen);
     memcpy(bin.data, mod, modlen);
 
+    /* The tier is asked for EXPLICITLY, interpreter included. The engine's default is now
+     * tier 2 (wasm_capi.c, JAV_DEFAULT_TIER), and a compiler suite that inherited it would
+     * start failing for JIT reasons — which is the wrong level to learn about a JIT bug. */
     wasm_engine_t* engine;
-    if (g_exec_jit) {                       /* the V-probe tier toggle: run the SAME
-                                             * module under the JIT for parity diffing */
+    {
         wasm_config_t* c = wasm_config_new();
-        jav_config_set_jit(c, 1);
+        jav_config_set_jit(c, g_exec_jit ? 1 : 0);   /* the V-probe tier toggle: run the SAME
+                                                      * module under the JIT for parity diffing */
         engine = wasm_engine_new_with_config(c);
-    } else {
-        engine = wasm_engine_new();
     }
     wasm_store_t*  store  = wasm_store_new(engine);
 
@@ -206,8 +230,12 @@ static struct {
 static bool exec_jre_init(const uint8_t* jre, size_t jrelen) {
     if (g_jre.inited) return true;
     g_io_host_extra = harness_host_for;
+    harness_big_prop_init();
     g_io_props      = harness_props;
-    g_jre.engine = wasm_engine_new();
+    /* Explicit interpreter — see exec_call above on why this suite does not inherit the
+     * engine's tier-2 default. */
+    { wasm_config_t* c = wasm_config_new(); jav_config_set_jit(c, 0);
+      g_jre.engine = wasm_engine_new_with_config(c); }
     g_jre.store  = wasm_store_new(g_jre.engine);
     jav_capi_set_probe(g_jre.store, jav_probe_cb, NULL);   /* record the last op for trap diagnosis */
     wasm_byte_vec_new_uninitialized(&g_jre.bin, jrelen); memcpy(g_jre.bin.data, jre, jrelen);

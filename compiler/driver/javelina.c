@@ -56,8 +56,8 @@ static int usage(FILE* f, int code) {
         "  --tier N          how guest code EXECUTES; the answer is identical at every\n"
         "                    level, traps included, so this is a speed/compile-time knob\n"
         "                      0  interpret\n"
-        "                      1  copy-and-patch JIT (default)\n"
-        "                      2  copy-and-patch JIT with operand-stack caching\n"
+        "                      1  copy-and-patch JIT\n"
+        "                      2  copy-and-patch JIT with operand-stack caching (default)\n"
         "                      3  tier 2 with the eq-sat rewrite in front\n"
         "  --jit-stats       after the run, report to stderr what the JIT compiled and\n"
         "                    what the operand cache did (functions, cached uses,\n"
@@ -333,7 +333,7 @@ int main(int argc, char** argv) {
     const char* root      = ".";
     const char* prog_path = NULL;
     int prog_argc = 0; char** prog_argv = NULL;
-    int want_tier = 1, want_verify = 0, want_stats = 0;
+    int want_tier = 2, want_verify = 0, want_stats = 0;   /* tier 2 — the engine's default (JAV_DEFAULT_TIER) */
 
     int i = 1;
     for (; i < argc; i++) {

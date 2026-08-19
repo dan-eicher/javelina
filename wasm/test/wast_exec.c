@@ -427,11 +427,14 @@ int wast_exec_store_init(wast_tier_t tier) {
     // That is not a mislabel now that the stitch meters are printed — they say
     // "0 cached states" plainly — and it is what lets the tree builder and the
     // tiling be swept on a build with the cache turned off.
-    if (tier == WAST_TIER_INTERP) {
-        g_engine = wasm_engine_new();
-    } else {
+    // Every tier is asked for EXPLICITLY, the interpreter included. It used to take the
+    // interp leg from bare wasm_engine_new()'s zero-initialised default, which made this
+    // baseline a hostage to that default: tier 2 is now what an embedder gets for asking
+    // nothing, and inheriting it here would have quietly turned interp==JIT into
+    // tier2==tier2 — a differential that cannot fail, on the corpus the README quotes.
+    {
         wasm_config_t *c = wasm_config_new();
-        jav_config_set_jit(c, (int)tier);   // 1 = compiled, no cache; 2 = compiled + tiled
+        jav_config_set_jit(c, tier == WAST_TIER_INTERP ? 0 : (int)tier);   // 0 = interp; 1 = compiled, no cache; 2 = compiled + tiled
         g_engine = wasm_engine_new_with_config(c);   // consumes c
     }
     if (!g_engine) return 0;

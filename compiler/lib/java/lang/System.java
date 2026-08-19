@@ -41,6 +41,11 @@ public final class System {
         Properties p = new Properties();
         int total = HostIO.propnames(0);
         if (total <= 0) return p;
+        if (total > Mem.memory_size() * 65536) {        // answered the size, wrote nothing
+            if (!HostIO.ensureRoom(0, total)) return p;
+            total = HostIO.propnames(0);
+            if (total <= 0) return p;
+        }
         int count = 0;
         for (int i = 0; i < total; i++) if (Mem.i32_load8_u(i) == 0) count++;
         String[] names = new String[count];
@@ -58,12 +63,20 @@ public final class System {
         return p;
     }
 
-    // Stage the key at offset 0; the host writes the value bytes just past it, or answers -1 (absent).
+    // Stage the key at offset 0; the host writes the value bytes just past it, answers the length the
+    // value NEEDS, or -1 for a property that is absent. A value too long for the room offered is a
+    // retry, not a miss: -1 is the answer §20.18.7 reserves for an undefined property, and returning
+    // it for a value that merely did not fit is a wrong answer, not a safe one.
     private static String hostProperty(String key) {
         int n = key.length();
         for (int i = 0; i < n; i++) Mem.i32_store8(i, key.charAt(i));
         int len = HostIO.getprop(0, n, n);
         if (len < 0) return null;
+        if (n + len > Mem.memory_size() * 65536) {      // answered the size, wrote nothing
+            if (!HostIO.ensureRoom(n, len)) return null;
+            len = HostIO.getprop(0, n, n);              // the key is still staged; now it fits
+            if (len < 0) return null;
+        }
         StringBuffer sb = new StringBuffer();
         for (int i = 0; i < len; i++) sb.append((char) Mem.i32_load8_u(n + i));
         return sb.toString();

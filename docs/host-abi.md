@@ -22,8 +22,36 @@ The module exports one linear memory, `memory`, used as a bounce buffer. When th
 hand the host bytes (a path, a property key, the contents of a `byte[]`), it copies them into that
 memory and passes an `(offset, length)` pair. When the host wants to hand the guest bytes, it writes
 them at an offset the guest chose and returns the length. `java.lang.System` and `java.io.*` own the
-copying; the host only ever touches `wasm_memory_data(memory)` within the span it was given, and a
-span that does not lie inside the memory is refused rather than clamped.
+copying; the host only ever touches `wasm_memory_data(memory)` within the span it was given.
+
+Two rules govern that span, and both are the **embedder's obligation**, not this implementation's
+convenience. A span is a pointer the *guest* chose. A compiled Java program chooses cooperatively; a
+third-party plugin does not, and the floor cannot tell them apart.
+
+**Spans are refused, not clamped.** A span that does not lie wholly inside the memory is refused —
+the native answers its documented refusal value and touches nothing. Never trimmed to fit, never
+partially serviced. The check is `io_span_ok` in `host_io.h`, and it is written to be overflow-free
+(`len <= size - off`, never `off + len <= size`); it re-reads `wasm_memory_data` on every call, so a
+`memory.grow` between calls cannot leave it holding a stale base. Every native that dereferences the
+staging pointer runs it first. `test_host_memory.c` calls each of them with hostile spans and is the
+gate.
+
+**A variable-length answer is three-way.** A native that writes an answer whose length the guest
+cannot know in advance — `list`, `getprop`, `propnames` — reports the length its answer **needs**,
+and writes only when the whole answer fits. So the guest reads the result as:
+
+| result | meaning |
+| --- | --- |
+| `-1` | **absent** — no such property, not a directory. Nothing else ever answers `-1`. |
+| `n` ≤ the room offered | the answer, `n` bytes, written |
+| `n` > the room offered | nothing was written; the answer needs `n` bytes — grow and ask again |
+
+`java.io.HostIO.ensureRoom(off, need)` is the retry, and the only place that arithmetic lives.
+Collapsing the third case into `-1` is what this convention replaced: a property value or a
+directory listing larger than the staging memory came back as *absent*, so `System.getProperty`
+answered `null` — which §20.18.7 reserves for a property that is not defined — and `File.list()`
+answered `null`, which §22.4 reserves for a path that is not a directory. Both are wrong answers a
+caller cannot detect, not degradations it can.
 
 This is why, for example, `System.getProperty` is **not** a native. It cannot be: a host function
 cannot build the `String` it would have to return. It is Java code over the `HostIO.getprop` native
@@ -31,9 +59,9 @@ below.
 
 ## Fail-closed
 
-`exec_host_for` resolves an import by its **qualified** name — the module and the field, both halves,
-as WebAssembly declares them (§5.5.5). The tables below are the key: `HostIO.open` is one import and
-`Whatever.open` is a different one that this floor does not answer. **A name it does not know gets a
+`exec_host_for` resolves an import by **both halves** of its name, as WebAssembly declares them
+(§5.5.5). The tables below are the key: module `java.io.HostIO` field `open` is one import, and
+module `Whatever` field `open` is a different one that this floor does not answer. **A name it does not know gets a
 stub that traps**, naming it — never a zero, never an echo of its argument. A silently wrong native is
 indistinguishable from a working one; a trap is not.
 
@@ -71,82 +99,97 @@ module, and that an application's namespace is its own.
 
 ## The contract
 
-Import names are `Class.method`, matching the `native` declaration in the library source. `i32`/`i64`
-are the WebAssembly scalar types; `externref` is an opaque GC handle.
+**An import is a PAIR, and this document never joins it.** WebAssembly names an import by two
+strings (§5.5.5) — a module and a field — and the module half is the declaring class's
+**fully-qualified** name: `java.io.HostIO`, not `HostIO`. Each section below names the module once;
+the tables name the field. They are written apart on purpose. A wasm name is arbitrary UTF-8, so
+there is no character that can safely join them: `("java.io.HostIO", "fd_write")` and
+`("java.io", "HostIO.fd_write")` are two different imports, and any spelling that renders both as
+`java.io.HostIO.fd_write` has thrown away the thing that tells them apart. The resolver keys on the
+pair for the same reason (`hio_key` in `host_io.h`).
 
-### `HostIO` — the file-descriptor and filesystem floor
+The module name is fully qualified because **the ABI is primary**: it fixes literal `(module, field)`
+strings, and every binding must be able to *emit* them. Java is the awkward one, because it derives
+the string from a language construct — and a Java simple name cannot contain a dot, so a scheme built
+on simple names cannot express a dotted module string at all. `fq_name` yields dot-joined identifier
+segments, which is the intersection of what Java, C and Zig can each spell.
+
+`i32`/`i64` are the WebAssembly scalar types; `externref` is an opaque GC handle.
+
+### module `java.io.HostIO` — the file-descriptor and filesystem floor
 
 Offsets and lengths index the staging memory. Paths are raw bytes, resolved under the embedder's
 root; a path containing `..` is refused.
 
-| Import | Functype | Semantics |
+| Field | Functype | Semantics |
 | --- | --- | --- |
-| `HostIO.open` | `(i32 nameoff, i32 namelen, i32 flags) → i32` | Open the path → fd, or `-1`. `flags`: 0 read, 1 write/truncate, 2 read+write (create, no truncate). |
-| `HostIO.fd_read` | `(i32 fd, i32 off, i32 len) → i32` | Read ≤ `len` bytes into memory at `off`. Returns the count, or `-1` at end of file (`InputStream.read`'s convention). |
-| `HostIO.fd_write` | `(i32 fd, i32 off, i32 len) → i32` | Write `len` bytes from memory at `off`. Returns the count written. |
-| `HostIO.fd_seek` | `(i32 fd, i32 pos) → ()` | Seek to absolute `pos`. |
-| `HostIO.fd_close` | `(i32 fd) → ()` | Close. fds 0/1/2 are never closed. |
-| `HostIO.fd_size` | `(i32 fd) → i64` | Current length in bytes (flushes buffered writes), or `-1`. Backs `RandomAccessFile.length`. |
-| `HostIO.fd_open_temp` | `() → i32` | Open a fresh anonymous read+write temp file → fd, or `-1`. |
-| `HostIO.stat` | `(i32 nameoff, i32 namelen) → i32` | A flags word, `0` if the path does not exist: `1` exists, `2` directory, `4` regular file, `8` readable, `16` writable. One call answers all of `File.exists/isDirectory/isFile/canRead/canWrite`. |
-| `HostIO.fileSize` | `(i32 nameoff, i32 namelen) → i64` | Length of a regular file, else `-1`. |
-| `HostIO.fileModified` | `(i32 nameoff, i32 namelen) → i64` | Last-modified time, epoch milliseconds; `0` if unknown. |
-| `HostIO.unlink` | `(i32 nameoff, i32 namelen) → i32` | Delete a file or empty directory. `0` ok, `-1` otherwise. |
-| `HostIO.mkdir` | `(i32 nameoff, i32 namelen) → i32` | Create a directory. `0` ok, `-1` otherwise. |
-| `HostIO.rename` | `(i32 fromoff, i32 fromlen, i32 tooff, i32 tolen) → i32` | Rename. `0` ok, `-1` otherwise. |
-| `HostIO.list` | `(i32 nameoff, i32 namelen, i32 outoff) → i32` | Write the directory's entries NUL-separated at `outoff`; return the total byte count, or `-1` if not a directory. `.` and `..` are omitted. |
-| `HostIO.checksum` | `(i32 off, i32 len) → i32` | Sum of `len` staging bytes at `off`. A probe: it exists so a test can prove the host observes the guest's memory. |
+| `open` | `(i32 nameoff, i32 namelen, i32 flags) → i32` | Open the path → fd, or `-1`. `flags`: 0 read, 1 write/truncate, 2 read+write (create, no truncate). |
+| `fd_read` | `(i32 fd, i32 off, i32 len) → i32` | Read ≤ `len` bytes into memory at `off`. Returns the count, or `-1` at end of file (`InputStream.read`'s convention) — and `-1` for a refused span or an unusable fd, which the caller sees as end of file. |
+| `fd_write` | `(i32 fd, i32 off, i32 len) → i32` | Write `len` bytes from memory at `off`. Returns the count written, or `-1` for a refused span or an unusable fd. |
+| `fd_seek` | `(i32 fd, i32 pos) → ()` | Seek to absolute `pos`. |
+| `fd_close` | `(i32 fd) → ()` | Close. fds 0/1/2 are never closed. |
+| `fd_size` | `(i32 fd) → i64` | Current length in bytes (flushes buffered writes), or `-1`. Backs `RandomAccessFile.length`. |
+| `fd_open_temp` | `() → i32` | Open a fresh anonymous read+write temp file → fd, or `-1`. |
+| `stat` | `(i32 nameoff, i32 namelen) → i32` | A flags word, `0` if the path does not exist: `1` exists, `2` directory, `4` regular file, `8` readable, `16` writable. One call answers all of `File.exists/isDirectory/isFile/canRead/canWrite`. |
+| `fileSize` | `(i32 nameoff, i32 namelen) → i64` | Length of a regular file, else `-1`. |
+| `fileModified` | `(i32 nameoff, i32 namelen) → i64` | Last-modified time, epoch milliseconds; `0` if unknown. |
+| `unlink` | `(i32 nameoff, i32 namelen) → i32` | Delete a file or empty directory. `0` ok, `-1` otherwise. |
+| `mkdir` | `(i32 nameoff, i32 namelen) → i32` | Create a directory. `0` ok, `-1` otherwise. |
+| `rename` | `(i32 fromoff, i32 fromlen, i32 tooff, i32 tolen) → i32` | Rename. `0` ok, `-1` otherwise. |
+| `list` | `(i32 nameoff, i32 namelen, i32 outoff) → i32` | Write the directory's entries NUL-separated at `outoff`; return the total byte count **needed** (written only if they all fit — the three-way result above), or `-1` if not a directory. `.` and `..` are omitted. |
+| `checksum` | `(i32 off, i32 len) → i32` | Sum of `len` staging bytes at `off`, or `-1` for a refused span. A probe: it exists so a test can prove the host observes the guest's memory. A byte sum is never negative, so `-1` is unambiguous. |
 
 fds 0, 1 and 2 are pre-opened by the embedder and are `System.in`, `System.out`, `System.err`. The
 runner maps them to the process's real standard streams; the test harness maps them to capture files.
 
-### `HostIO` — the system-property source (§20.18.7)
+### module `java.io.HostIO` — the system-property source (§20.18.7)
 
-| Import | Functype | Semantics |
+| Field | Functype | Semantics |
 | --- | --- | --- |
-| `HostIO.getprop` | `(i32 keyoff, i32 keylen, i32 outoff) → i32` | Look up the property named by the key bytes. On a hit, write the value bytes at `outoff` and return their length; on a miss (or no room at `outoff`), return `-1`. |
-| `HostIO.propnames` | `(i32 outoff) → i32` | Write every property name, NUL-separated, at `outoff`; return the total byte count. Backs `System.getProperties`. |
+| `getprop` | `(i32 keyoff, i32 keylen, i32 outoff) → i32` | Look up the property named by the key bytes. On a hit, return the value's length and write the bytes at `outoff` if they all fit; on a miss, return `-1`. |
+| `propnames` | `(i32 outoff) → i32` | Return the total byte count of every property name NUL-separated, and write them at `outoff` if they all fit. Backs `System.getProperties`. |
 
 An absent property is **not an error** — it is how an embedder withholds one. `System.getProperty`
-answers `null`, exactly as the specification requires for an undefined property.
+answers `null`, exactly as the specification requires for an undefined property. A value too long to
+stage is *not* that case: it answers its length, and the caller grows the memory and asks again.
 
 The runner publishes `java.version`, `java.vendor`, `java.vendor.url`, `java.class.version`,
 `os.name`, `os.arch`, `os.version`, `file.separator`, `path.separator`, `line.separator`, `user.dir`.
 
-### `System` — the process environment
+### module `java.lang.System` — the process environment
 
-| Import | Functype | Semantics |
+| Field | Functype | Semantics |
 | --- | --- | --- |
-| `System.currentTimeMillis` | `() → i64` | Milliseconds since the epoch. The runner reads `CLOCK_REALTIME`; the harness returns a deterministic counter, so tests are reproducible. |
-| `System.exit` | `(i32 status) → ()` | Terminate the process with `status`. **Does not return.** The runner flushes the standard streams first. An embedder that leaves this a no-op lets the guest run on past `System.exit`, which the specification forbids — so a real embedder must implement it. |
-| `System.gc` | `() → ()` | Advisory; the collector is not on-demand. No-op. |
-| `System.runFinalization` | `() → ()` | No-op — there are no finalizers to run (see `Object.finalize`). |
-| `System.load` | `(externref) → ()` | No-op. There is no dynamic-linking surface. |
-| `System.loadLibrary` | `(externref) → ()` | No-op, as above. |
-| `System.getSecurityManager` | `() → externref` | `null`. There is no security manager; capability restriction is done by withholding imports (above), not by an in-guest policy object. |
-| `System.setSecurityManager` | `(externref) → ()` | Accepts and discards, consistent with `getSecurityManager` answering `null`. |
-| `System.setProperties` | `(externref) → ()` | Accepts and discards; the property set is the host's. |
+| `currentTimeMillis` | `() → i64` | Milliseconds since the epoch. The runner reads `CLOCK_REALTIME`; the harness returns a deterministic counter, so tests are reproducible. |
+| `exit` | `(i32 status) → ()` | Terminate the process with `status`. **Does not return.** The runner flushes the standard streams first. An embedder that leaves this a no-op lets the guest run on past `System.exit`, which the specification forbids — so a real embedder must implement it. |
+| `gc` | `() → ()` | Advisory; the collector is not on-demand. No-op. |
+| `runFinalization` | `() → ()` | No-op — there are no finalizers to run (see `Object.finalize`). |
+| `load` | `(externref) → ()` | No-op. There is no dynamic-linking surface. |
+| `loadLibrary` | `(externref) → ()` | No-op, as above. |
+| `getSecurityManager` | `() → externref` | `null`. There is no security manager; capability restriction is done by withholding imports (above), not by an in-guest policy object. |
+| `setSecurityManager` | `(externref) → ()` | Accepts and discards, consistent with `getSecurityManager` answering `null`. |
+| `setProperties` | `(externref) → ()` | Accepts and discards; the property set is the host's. |
 
-### `Float` / `Double` — IEEE-754 bit reinterpretation
+### modules `java.lang.Float` / `java.lang.Double` — IEEE-754 bit reinterpretation
 
 No WebAssembly-GC primitive reinterprets a float's bits as an integer, so the embedder supplies the
 four casts. They are pure: the same input always gives the same output.
 
-| Import | Functype |
-| --- | --- |
-| `Float.floatToIntBits`, `Float.floatToRawIntBits` | `(f32) → i32` |
-| `Float.intBitsToFloat` | `(i32) → f32` |
-| `Double.doubleToLongBits`, `Double.doubleToRawLongBits` | `(f64) → i64` |
-| `Double.longBitsToDouble` | `(i64) → f64` |
+| Module | Field | Functype |
+| --- | --- | --- |
+| `java.lang.Float` | `floatToIntBits`, `floatToRawIntBits` | `(f32) → i32` |
+| `java.lang.Float` | `intBitsToFloat` | `(i32) → f32` |
+| `java.lang.Double` | `doubleToLongBits`, `doubleToRawLongBits` | `(f64) → i64` |
+| `java.lang.Double` | `longBitsToDouble` | `(i64) → f64` |
 
-### `Object` — the threadless exclusions
+### module `java.lang.Object` — the threadless exclusions
 
 Java 1.0 minus `synchronized` has no threads, so §17's monitors have no meaning on this target.
 
-| Import | Functype | Semantics |
+| Field | Functype | Semantics |
 | --- | --- | --- |
-| `Object.wait` (3 overloads), `Object.notify`, `Object.notifyAll` | `(externref, …) → ()` | **Trap.** There is no monitor to wait on or notify. This is a deliberate, documented exclusion, not an omission. |
-| `Object.finalize` | `(externref) → ()` | No-op — `Object.finalize`'s own body is empty, and the collector does not resurrect. |
+| `wait` (3 overloads), `notify`, `notifyAll` | `(externref, …) → ()` | **Trap.** There is no monitor to wait on or notify. This is a deliberate, documented exclusion, not an omission. |
+| `finalize` | `(externref) → ()` | No-op — `Object.finalize`'s own body is empty, and the collector does not resurrect. |
 
 ### Reserved
 
