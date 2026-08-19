@@ -22,6 +22,7 @@ const char* jav_err_str(jav_err_t e) {
     case JAV_E_OOB_TABLE:                     return "out of bounds table access";
     case JAV_E_INCOMPATIBLE_IMPORT:           return "incompatible import type";
     case JAV_E_UNKNOWN_IMPORT:                return "unknown import";
+    case JAV_E_ALLOCATION_FAILED:             return "allocation failed";
     case JAV_E_UNKNOWN_LOCAL:                 return "unknown local";
     case JAV_E_UNKNOWN_LABEL:                 return "unknown label";
     case JAV_E_UNKNOWN_DATA:                  return "unknown data segment";

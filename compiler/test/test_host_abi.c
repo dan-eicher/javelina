@@ -8,7 +8,7 @@
  *   1. ANY module could claim ANY host function. `Whatever.open` reached
  *      HostIO's real filesystem open, because nothing compared "HostIO".
  *
- *   2. An application native registered through the documented g_io_host_extra
+ *   2. An application native registered through the documented host_extra
  *      hook was SHADOWED by a built-in of the same field name — silently, since
  *      the hook is consulted last. An app exposing its own `open`/`read`/`gc`
  *      never got called and never learned why. The hook could not even work
@@ -33,6 +33,9 @@
 #include <string.h>
 
 /* ── helpers ─────────────────────────────────────────────────────────────── */
+
+/* The suite's embedder context — the floor's state, reaching each native as the §7.1.8 env. */
+static jav_host_t g_host;
 
 static wasm_functype_t* ft_of(const char* sig) {
     /* "params:results", one char per value: i=i32 I=i64 f=f32 F=f64 r=externref */
@@ -61,13 +64,14 @@ static int traps(wasm_store_t* st, const char* mod, const char* fld, const char*
     wasm_name_new_from_string(&m, mod);
     wasm_name_new_from_string(&f, fld);
     wasm_functype_t* ft = ft_of(sig);
-    wasm_func_t* fn = exec_host_for(st, ft, &m, &f);
+    wasm_func_t* fn = exec_host_for(&g_host, st, ft, &m, &f);
     wasm_val_t rbuf[4]; memset(rbuf, 0, sizeof rbuf);
     wasm_val_vec_t args = { argc, argv }, res = { out ? 1u : 0u, rbuf };
     wasm_trap_t* t = wasm_func_call(fn, &args, &res);
     if (out) *out = rbuf[0];
     int trapped = t != NULL;
     if (t) wasm_trap_delete(t);
+    wasm_func_delete(fn);        /* resolution mints a func per call; the env goes with it */
     wasm_functype_delete(ft);
     wasm_name_delete(&m); wasm_name_delete(&f);
     return trapped;
@@ -84,9 +88,11 @@ static wasm_trap_t* app_gc(const wasm_val_vec_t* a, wasm_val_vec_t* r) {
 
 /* Answers ONLY for module "App" — which is the whole point: a hook that cannot
  * see the module name cannot scope itself, and must either grab every field
- * name it recognises or none. */
-static wasm_func_t* app_host_for(wasm_store_t* st, const wasm_functype_t* ft,
+ * name it recognises or none. It receives the embedder CONTEXT too, so an
+ * application's natives reach their own state the same way the floor's do. */
+static wasm_func_t* app_host_for(jav_host_t* h, wasm_store_t* st, const wasm_functype_t* ft,
                                  const wasm_name_t* mod, const wasm_name_t* fld) {
+    (void)h;
     g_hook_calls++;
     if (g_hook_last_mod.data) wasm_name_delete(&g_hook_last_mod);
     wasm_name_new(&g_hook_last_mod, mod->size, mod->data);
@@ -117,7 +123,7 @@ int main(void) {
 
     /* 3. An application native is reachable even when its field name collides
      *    with a built-in — the hook owns its own module. */
-    g_io_host_extra = app_host_for;
+    g_host.host_extra = app_host_for;
     {
         wasm_val_t out;
         int t = traps(st, "App", "gc", ":i", NULL, 0, &out);
@@ -189,7 +195,7 @@ int main(void) {
     CHECK(traps(st, "System", "gc", ":", NULL, 0, NULL),
           "the bare simple name System is no longer the contract");
 
-    g_io_host_extra = NULL;
+    g_host.host_extra = NULL;
     if (g_hook_last_mod.data) wasm_name_delete(&g_hook_last_mod);
     wasm_store_delete(st); wasm_engine_delete(eng);
     return TEST_SUMMARY("host abi resolution");

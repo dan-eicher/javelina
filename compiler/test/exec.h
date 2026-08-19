@@ -28,9 +28,9 @@ static wasm_trap_t* harness_identity(const wasm_val_vec_t* args, wasm_val_vec_t*
     }
     return NULL;
 }
-static wasm_func_t* harness_host_for(wasm_store_t* store, const wasm_functype_t* ft,
+static wasm_func_t* harness_host_for(jav_host_t* h, wasm_store_t* store, const wasm_functype_t* ft,
                                      const wasm_name_t* mod, const wasm_name_t* nm) {
-    (void)mod;   /* the harness's echoes are declared by the test fixtures' own module names */
+    (void)h; (void)mod;  /* the harness's echoes are declared by the test fixtures' own module names */
     static const char* const echoes[] = { "identity", "self", "ext", NULL };
     for (int i = 0; echoes[i]; i++)
         if (nm->size == strlen(echoes[i]) && !memcmp(nm->data, echoes[i], nm->size))
@@ -100,12 +100,19 @@ typedef enum { EXEC_OK, EXEC_INVALID, EXEC_NO_INSTANCE, EXEC_NO_EXPORT, EXEC_TRA
 /* `static inline`, not plain `static`: this header is included by TUs that use only the
  * jre helpers below, and a plain static definition they never call is an unused-function
  * error under -Werror. */
+/* The harness's embedder context — the →HOST floor's state, held the way an application holds it. */
+static jav_host_t g_harness_host;
+
+static inline void harness_host_init(void) {
+    g_harness_host.host_extra = harness_host_for;
+    harness_big_prop_init();
+    g_harness_host.props = harness_props;
+}
+
 static inline exec_status exec_call(const uint8_t* mod, size_t modlen, const char* name,
                                     const wasm_val_t* args, size_t nargs,
                                     wasm_val_t* results, size_t nres) {
-    g_io_host_extra = harness_host_for;
-    harness_big_prop_init();
-    g_io_props      = harness_props;
+    harness_host_init();
     wasm_byte_vec_t bin;
     wasm_byte_vec_new_uninitialized(&bin, modlen);
     memcpy(bin.data, mod, modlen);
@@ -130,19 +137,21 @@ static inline exec_status exec_call(const uint8_t* mod, size_t modlen, const cha
     wasm_importtype_vec_t imptypes = WASM_EMPTY_VEC;
     wasm_extern_vec_t imports = WASM_EMPTY_VEC;
 
-    if (!wasm_module_validate(store, &bin)) {
+    /* One decode, one validate: §7.1.6 has module_decode then module_validate, and
+     * wasm_module_new is the two fused, so validating the bytes separately first would decode
+     * them a second time for nothing. The verdict is on the store either way. */
+    module = wasm_module_new(store, &bin);
+    if (!module) {
         fprintf(stderr, "  [exec:%s] module rejected: %s\n", name, jav_err_str(jav_capi_last_error(store)));
         st = EXEC_INVALID; goto done; }
-    module = wasm_module_new(store, &bin);
-    if (!module) { st = EXEC_INVALID; goto done; }
 
     wasm_module_imports(module, &imptypes);
     wasm_extern_vec_new_uninitialized(&imports, imptypes.size);
     for (size_t i = 0; i < imptypes.size; i++) {
         const wasm_functype_t* ft = wasm_externtype_as_functype_const(wasm_importtype_type(imptypes.data[i]));
         imports.data[i] = ft ? wasm_func_as_extern(
-            exec_host_for(store, ft, wasm_importtype_module(imptypes.data[i]),
-                                     wasm_importtype_name(imptypes.data[i]))) : NULL;
+            exec_host_for(&g_harness_host, store, ft, wasm_importtype_module(imptypes.data[i]),
+                                                      wasm_importtype_name(imptypes.data[i]))) : NULL;
     }
 
     wasm_trap_t* trap = NULL;
@@ -219,19 +228,12 @@ static struct {
     wasm_byte_vec_t bin;
     wasm_importtype_vec_t impt;   wasm_extern_vec_t imp;    /* jre's host imports (kept to free at teardown) */
     wasm_exporttype_vec_t expt;   wasm_extern_vec_t exp;    /* jre's exports (the plugin link target) */
-    /* export name -> index + 1, so linking a plugin does not scan `expt` per
-     * import. jre.wasm exports 2060 names and a plugin imports several hundred,
-     * which made the nested scan the harness's own n*m — the same shape the
-     * driver had (driver/javelina.c). */
-    bbq_dict* expidx;
 } g_jre;
 
 /* Build jre ONCE on a fresh shared store and capture its exports. Returns false on failure. */
 static bool exec_jre_init(const uint8_t* jre, size_t jrelen) {
     if (g_jre.inited) return true;
-    g_io_host_extra = harness_host_for;
-    harness_big_prop_init();
-    g_io_props      = harness_props;
+    harness_host_init();
     /* Explicit interpreter — see exec_call above on why this suite does not inherit the
      * engine's tier-2 default. */
     { wasm_config_t* c = wasm_config_new(); jav_config_set_jit(c, 0);
@@ -239,14 +241,15 @@ static bool exec_jre_init(const uint8_t* jre, size_t jrelen) {
     g_jre.store  = wasm_store_new(g_jre.engine);
     jav_capi_set_probe(g_jre.store, jav_probe_cb, NULL);   /* record the last op for trap diagnosis */
     wasm_byte_vec_new_uninitialized(&g_jre.bin, jrelen); memcpy(g_jre.bin.data, jre, jrelen);
-    if (!wasm_module_validate(g_jre.store, &g_jre.bin)) {
+    /* One decode, one validate (§7.1.6) — see exec_call. */
+    g_jre.mod = wasm_module_new(g_jre.store, &g_jre.bin);
+    if (!g_jre.mod) {
         fprintf(stderr, "  [jre] rejected: %s\n", jav_err_str(jav_capi_last_error(g_jre.store))); return false; }
-    g_jre.mod = wasm_module_new(g_jre.store, &g_jre.bin); if (!g_jre.mod) return false;
     wasm_module_imports(g_jre.mod, &g_jre.impt);
     wasm_extern_vec_new_uninitialized(&g_jre.imp, g_jre.impt.size);
     for (size_t i = 0; i < g_jre.impt.size; i++) {
         const wasm_functype_t* ft = wasm_externtype_as_functype_const(wasm_importtype_type(g_jre.impt.data[i]));
-        g_jre.imp.data[i] = ft ? wasm_func_as_extern(exec_host_for(g_jre.store, ft,
+        g_jre.imp.data[i] = ft ? wasm_func_as_extern(exec_host_for(&g_harness_host, g_jre.store, ft,
                                      wasm_importtype_module(g_jre.impt.data[i]),
                                      wasm_importtype_name(g_jre.impt.data[i]))) : NULL;
     }
@@ -255,20 +258,18 @@ static bool exec_jre_init(const uint8_t* jre, size_t jrelen) {
     if (!g_jre.inst) { fprintf(stderr, "  [jre] instantiation failed: %s\n", jav_err_str(jav_capi_last_error(g_jre.store)));
                        if (trap) wasm_trap_delete(trap); return false; }
     wasm_module_exports(g_jre.mod, &g_jre.expt); wasm_instance_exports(g_jre.inst, &g_jre.exp);
-    g_jre.expidx = bbq_dict_create();
+    /* The ONE shared I/O staging memory. Borrowed out of g_jre.exp rather than taken through
+     * wasm_instance_export because wasm_extern_as_memory aliases the handle's storage, so the
+     * memory pointer is only valid while some extern denoting it is alive — and g_jre.exp is. */
     for (size_t i = 0; i < g_jre.expt.size && i < g_jre.exp.size; i++) {
         const wasm_name_t* en = wasm_exporttype_name(g_jre.expt.data[i]);
-        bbq_dict_put(g_jre.expidx, en->data, en->size, (void*)(uintptr_t)(i + 1));
-    }
-    for (size_t i = 0; i < g_jre.expt.size && i < g_jre.exp.size; i++) {   /* the ONE shared I/O staging memory */
-        const wasm_name_t* en = wasm_exporttype_name(g_jre.expt.data[i]);
-        if (en->size == 6 && !memcmp(en->data, "memory", 6)) { g_io_mem = wasm_extern_as_memory(g_jre.exp.data[i]); break; }
+        if (en->size == 6 && !memcmp(en->data, "memory", 6)) { g_harness_host.mem = wasm_extern_as_memory(g_jre.exp.data[i]); break; }
     }
     /* Preopen the three standard fds (System.in/out/err = fd 0/1/2). Here they're capture temp files so
      * tests can read back what was written; the runner maps them to real stdin/stdout/stderr. */
-    if (!g_io_fds[0]) g_io_fds[0] = tmpfile();
-    if (!g_io_fds[1]) g_io_fds[1] = tmpfile();
-    if (!g_io_fds[2]) g_io_fds[2] = tmpfile();
+    if (!g_harness_host.fds[0]) g_harness_host.fds[0] = tmpfile();
+    if (!g_harness_host.fds[1]) g_harness_host.fds[1] = tmpfile();
+    if (!g_harness_host.fds[2]) g_harness_host.fds[2] = tmpfile();
     g_jre.inited = true;
     return true;
 }
@@ -280,7 +281,6 @@ static void exec_jre_teardown(void) {
     if (g_jre.impt.size) wasm_importtype_vec_delete(&g_jre.impt);
     if (g_jre.exp.size)  wasm_extern_vec_delete(&g_jre.exp);
     if (g_jre.expt.size) wasm_exporttype_vec_delete(&g_jre.expt);
-    if (g_jre.expidx) { bbq_dict_destroy(g_jre.expidx); g_jre.expidx = NULL; }
     exec_host_release();
     if (g_jre.inst) wasm_instance_delete(g_jre.inst);
     if (g_jre.mod)  wasm_module_delete(g_jre.mod);
@@ -309,22 +309,24 @@ static exec_status exec_call_shared(const uint8_t* mod, size_t modlen, const cha
     wasm_extern_vec_t pexp = WASM_EMPTY_VEC;
     wasm_trap_t* trap = NULL;
 
-    if (!wasm_module_validate(store, &pbin)) {
-        fprintf(stderr, "  [plugin:%s] rejected: %s\n", name, jav_err_str(jav_capi_last_error(store))); st = EXEC_INVALID; goto done; }
-    pmod = wasm_module_new(store, &pbin); if (!pmod) { st = EXEC_INVALID; goto done; }
+    pmod = wasm_module_new(store, &pbin);
+    if (!pmod) {
+        fprintf(stderr, "  [plugin:%s] rejected: %s\n", name, jav_err_str(jav_capi_last_error(store)));
+        st = EXEC_INVALID; goto done; }
     wasm_module_imports(pmod, &pimpt);
     wasm_extern_vec_new_uninitialized(&pimp, pimpt.size);
     for (size_t i = 0; i < pimpt.size; i++) {
         const wasm_name_t* im = wasm_importtype_module(pimpt.data[i]);
         const wasm_name_t* fl = wasm_importtype_name(pimpt.data[i]);
         if (im->size == 3 && !memcmp(im->data, "jre", 3)) {
-            size_t slot = (size_t)(uintptr_t)bbq_dict_get(g_jre.expidx, fl->data, fl->size);
-            if (!slot) { fprintf(stderr, "  [plugin:%s] unresolved jre import %.*s\n", name, (int)fl->size, fl->data);
-                         st = EXEC_NO_INSTANCE; goto done; }
-            pimp.data[i] = g_jre.exp.data[slot - 1];      /* borrowed — owned by g_jre.exp */
+            /* §7.1.7 instance_export. Owned, and dropped in `done` once instantiation has copied
+             * what it needs — marshal_import takes a value, not the handle. */
+            pimp.data[i] = wasm_instance_export(g_jre.inst, fl);
+            if (!pimp.data[i]) { fprintf(stderr, "  [plugin:%s] unresolved jre import %.*s\n", name, (int)fl->size, fl->data);
+                                 st = EXEC_NO_INSTANCE; goto done; }
         } else {
             const wasm_functype_t* ft = wasm_externtype_as_functype_const(wasm_importtype_type(pimpt.data[i]));
-            pimp.data[i] = ft ? wasm_func_as_extern(exec_host_for(store, ft, im, fl)) : NULL;
+            pimp.data[i] = ft ? wasm_func_as_extern(exec_host_for(&g_harness_host, store, ft, im, fl)) : NULL;
         }
     }
     pinst = wasm_instance_new(store, pmod, &pimp, &trap);
@@ -354,10 +356,13 @@ static exec_status exec_call_shared(const uint8_t* mod, size_t modlen, const cha
                   if (msg.size) wasm_byte_vec_delete(&msg); wasm_trap_delete(trap); trap = NULL; st = EXEC_TRAP; goto done; } }
 
 done:
+    /* Every element is ours, but the two halves free differently: a host func from exec_host_for
+     * carries a §7.1.8 env finalizer that only wasm_func_delete runs. */
     for (size_t i = 0; i < pimp.size && i < pimpt.size; i++) {
         const wasm_name_t* im = wasm_importtype_module(pimpt.data[i]);
-        if (pimp.data[i] && !(im->size == 3 && !memcmp(im->data, "jre", 3)))
-            wasm_func_delete(wasm_extern_as_func(pimp.data[i]));
+        if (!pimp.data[i]) continue;
+        if (im->size == 3 && !memcmp(im->data, "jre", 3)) wasm_extern_delete(pimp.data[i]);
+        else                                              wasm_func_delete(wasm_extern_as_func(pimp.data[i]));
     }
     if (pimp.data)  free(pimp.data);
     if (pimpt.size) wasm_importtype_vec_delete(&pimpt);

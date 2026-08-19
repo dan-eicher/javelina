@@ -331,11 +331,11 @@ test: $(ALL_TESTS:%=$(B)/%) $(B)/test_wast $(B)/embed water
 	       && ../$(B)/test_roundtrip ../$(B)/.water_smoke.wasm ) > $(LOGS)/water.log 2>&1; then \
 	  echo "  PASS  water (cli → round-trippable .wasm)"; pass=$$((pass+1)); \
 	else echo "  FAIL  water (cli → round-trippable .wasm)"; fail=$$((fail+1)); failed="$$failed water"; fi; \
-	if ( cd test && printf '(module (func (export "add") (param i32 i32) (result i32) local.get 0 local.get 1 i32.add))' \
+	if ( cd test && printf '(module (import "env" "add1" (func $$a (param i32) (result i32)))\n  (func (export "run") (param i32) (result i32) local.get 0 call $$a call $$a))' \
 	       | ../$(B)/water - > ../$(B)/.embed.wasm 2>/dev/null \
 	       && ../$(B)/embed ../$(B)/.embed.wasm ) > $(LOGS)/embed.log 2>&1; then \
-	  echo "  PASS  embed (public wasm.h → instantiate + call)"; pass=$$((pass+1)); \
-	else echo "  FAIL  embed (public wasm.h → instantiate + call)"; fail=$$((fail+1)); failed="$$failed embed"; fi; \
+	  echo "  PASS  embed (host imports + instance_export, through public wasm.h)"; pass=$$((pass+1)); \
+	else echo "  FAIL  embed (host imports + instance_export, through public wasm.h)"; fail=$$((fail+1)); failed="$$failed embed"; fi; \
 	for h in include/*.h; do \
 	  if $(CC) -std=c11 -Wall -Wextra -Werror -Iinclude -c -x c -include "$$h" /dev/null -o /dev/null > $(LOGS)/hdrsweep.log 2>&1; then \
 	    echo "  PASS  public header compiles standalone ($$h)"; pass=$$((pass+1)); \

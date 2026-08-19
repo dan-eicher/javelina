@@ -43,16 +43,18 @@
 #define PAGE 0x10000
 #define SENTINEL 0xA5
 
+/* The suite's embedder context — the floor's state, held the way an application holds it. */
+static jav_host_t     g_host;
 static wasm_memory_t* g_mem;
 static int            g_membytes;
 
 static void staging_new(wasm_store_t* st, uint32_t pages) {
-    wasm_limits_t lim = { pages, wasm_limits_max_default };
-    wasm_memorytype_t* mt = wasm_memorytype_new(&lim);
+    wasm_limits_t lim = { pages, 0, true };
+    wasm_memorytype_t* mt = wasm_memorytype_new(WASM_I32, &lim);
     g_mem = wasm_memory_new(st, mt);
     wasm_memorytype_delete(mt);
     g_membytes = (int)wasm_memory_data_size(g_mem);
-    g_io_mem = g_mem;
+    g_host.mem = g_mem;
 }
 
 static void staging_fill(void) { memset(wasm_memory_data(g_mem), SENTINEL, (size_t)g_membytes); }
@@ -100,13 +102,13 @@ static wasm_functype_t* ft_of(const char* sig) {
  * A trap answers TRAPPED — no native here is allowed to trap, so it reads as a
  * failure at every call site rather than being silently folded into a value. */
 #define TRAPPED (-999999)
-static int64_t call_n(const char* mod, const char* fld, const char* sig,
-                      const int* argv, size_t argc) {
+static int64_t call_on(jav_host_t* h, const char* mod, const char* fld, const char* sig,
+                       const int* argv, size_t argc) {
     wasm_name_t m, f;
     wasm_name_new_from_string(&m, mod);
     wasm_name_new_from_string(&f, fld);
     wasm_functype_t* ft = ft_of(sig);
-    wasm_func_t* fn = exec_host_for(g_st, ft, &m, &f);
+    wasm_func_t* fn = exec_host_for(h, g_st, ft, &m, &f);
 
     wasm_val_t a[6];
     for (size_t i = 0; i < argc; i++) { a[i].kind = WASM_I32; a[i].of.i32 = argv[i]; }
@@ -123,6 +125,10 @@ static int64_t call_n(const char* mod, const char* fld, const char* sig,
     wasm_name_delete(&m); wasm_name_delete(&f);
     return out;
 }
+static int64_t call_n(const char* mod, const char* fld, const char* sig,
+                      const int* argv, size_t argc) {
+    return call_on(&g_host, mod, fld, sig, argv, argc);
+}
 #define CALL2(mod, fld, sig, a0, a1)         call_n(mod, fld, sig, (const int[]){a0, a1}, 2)
 #define CALL3(mod, fld, sig, a0, a1, a2)     call_n(mod, fld, sig, (const int[]){a0, a1, a2}, 3)
 #define CALL4(mod, fld, sig, a0, a1, a2, a3) call_n(mod, fld, sig, (const int[]){a0, a1, a2, a3}, 4)
@@ -134,7 +140,7 @@ static char g_root[256];
 static void root_new(void) {
     snprintf(g_root, sizeof g_root, "/tmp/javhostmem_%d", (int)getpid());
     mkdir(g_root, 0777);
-    g_io_root = g_root;
+    g_host.root = g_root;
 }
 
 int main(void) {
@@ -216,13 +222,13 @@ int main(void) {
         char deep[400];
         memset(deep, 'd', sizeof deep - 1); deep[sizeof deep - 1] = 0;
         deep[0] = '/';
-        const char* saved = g_io_root;
-        g_io_root = deep;
+        const char* saved = g_host.root;
+        g_host.root = deep;
         int n = stage(0, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
                          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
         CHECK(CALL2("java.io.HostIO", "stat", "ii:i", 0, n) == 0,
               "a root too deep to compose with the guest path is refused, not overflowed");
-        g_io_root = saved;
+        g_host.root = saved;
     }
 
     /* ── 5. The three-way result: getprop. The value is longer than the room the
@@ -233,7 +239,7 @@ int main(void) {
         memset(big, 'v', sizeof big - 1); big[sizeof big - 1] = 0;
         static hio_prop_t props[] = { { "big.value", NULL }, { "small.value", "ok" }, { NULL, NULL } };
         props[0].val = big;
-        g_io_props = props;
+        g_host.props = props;
 
         staging_fill();
         int klen = stage(0, "big.value");
@@ -260,7 +266,7 @@ int main(void) {
         klen = stage(0, "no.such.property");
         CHECK(CALL3("java.io.HostIO", "getprop", "iii:i", 0, klen, klen) == -1,
               "getprop answers -1 only for a property that is absent");
-        g_io_props = NULL;
+        g_host.props = NULL;
     }
 
     /* ── 6. The three-way result: propnames and list, which write a NUL-separated
@@ -269,7 +275,7 @@ int main(void) {
      *      into null, so a large directory must NOT reach it. ── */
     {
         static hio_prop_t props[] = { { "one", "1" }, { "two", "2" }, { "three", "3" }, { NULL, NULL } };
-        g_io_props = props;
+        g_host.props = props;
         int need = 4 + 4 + 6;                     /* each name plus its NUL */
 
         staging_fill();
@@ -283,7 +289,7 @@ int main(void) {
               "propnames answers the same total when the names fit");
         CHECK(!untouched(0, need) && untouched(need, 16),
               "propnames wrote exactly the names and no more");
-        g_io_props = NULL;
+        g_host.props = NULL;
     }
     {
         /* A directory with entries whose names are known, so the needed total is
@@ -331,6 +337,56 @@ int main(void) {
         CHECK(CALL3("java.io.HostIO", "fd_read", "iii:i", fd, 64, 3) == 3, "fd_read reads into an in-bounds span");
         CHECK(CALL2("java.io.HostIO", "checksum", "ii:i", 64, 3) == 230, "the bytes made the round trip intact");
         CHECK(call_n("java.io.HostIO", "fd_close", "i:", (const int[]){fd}, 1) == 0, "fd_close closes");
+    }
+
+    /* ── 8. Two contexts in one process, each seeing only its own state ────────────────
+     * §7.1.5 makes the store the unit of state and §7.1.8 allocates a host function in one, so
+     * a floor whose state is process-scoped cannot serve two stores. Every assertion here is
+     * about that: two contexts, two staging memories, two filesystem roots, two fd tables. An
+     * application holding two documents is exactly this shape. */
+    {
+        jav_host_t a, b;
+        memset(&a, 0, sizeof a); memset(&b, 0, sizeof b);
+
+        char ra[300], rb[300];
+        snprintf(ra, sizeof ra, "%s/ctxA", g_root); mkdir(ra, 0777); a.root = ra;
+        snprintf(rb, sizeof rb, "%s/ctxB", g_root); mkdir(rb, 0777); b.root = rb;
+
+        wasm_limits_t lim = { 1, 0, true };
+        wasm_memorytype_t* mt = wasm_memorytype_new(WASM_I32, &lim);
+        wasm_memory_t* ma = wasm_memory_new(g_st, mt);
+        wasm_memory_t* mb = wasm_memory_new(g_st, mt);
+        wasm_memorytype_delete(mt);
+        a.mem = ma; b.mem = mb;
+
+        /* Distinct staging memories: what A stages is not what B reads. */
+        memset(wasm_memory_data(ma), 0, 16); memset(wasm_memory_data(mb), 0, 16);
+        memcpy(wasm_memory_data(ma), "kid", 3);
+        memcpy(wasm_memory_data(mb), "kid", 3);
+        ((byte_t*)wasm_memory_data(ma))[3] = (byte_t)7;
+        CHECK(call_on(&a, "java.io.HostIO", "checksum", "ii:i", (const int[]){3, 1}, 2) == 7,
+              "context A reads its OWN staging memory");
+        CHECK(call_on(&b, "java.io.HostIO", "checksum", "ii:i", (const int[]){3, 1}, 2) == 0,
+              "context B does not see what A staged");
+
+        /* Distinct roots: a directory created through A is not visible through B. */
+        CHECK(call_on(&a, "java.io.HostIO", "mkdir", "ii:i", (const int[]){0, 3}, 2) == 0,
+              "mkdir through context A succeeds under A's root");
+        CHECK(call_on(&a, "java.io.HostIO", "stat",  "ii:i", (const int[]){0, 3}, 2) != 0,
+              "and A sees it");
+        CHECK(call_on(&b, "java.io.HostIO", "stat",  "ii:i", (const int[]){0, 3}, 2) == 0,
+              "while B, rooted elsewhere, does not");
+
+        /* Distinct fd tables: each context numbers its own descriptors from zero. */
+        int fa = (int)call_on(&a, "java.io.HostIO", "fd_open_temp", ":i", NULL, 0);
+        int fb = (int)call_on(&b, "java.io.HostIO", "fd_open_temp", ":i", NULL, 0);
+        CHECK(fa == 0 && fb == 0, "each context numbers its own fds from zero");
+        CHECK(a.fds[0] && b.fds[0] && a.fds[0] != b.fds[0],
+              "and fd 0 in one is not fd 0 in the other");
+        call_on(&a, "java.io.HostIO", "fd_close", "i:", (const int[]){fa}, 1);
+        call_on(&b, "java.io.HostIO", "fd_close", "i:", (const int[]){fb}, 1);
+
+        wasm_memory_delete(ma); wasm_memory_delete(mb);
     }
 
     exec_host_release();

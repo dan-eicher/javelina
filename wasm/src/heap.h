@@ -21,7 +21,9 @@
 typedef struct {
     u1* data;     /* the memory's bytes (owned; realloc'd by memory.grow) */
     u8  size;     /* current size in bytes */
-    u8  max;      /* maximum size in bytes (the memtype limit) — meaningful only when has_max */
+    u8  max;      /* maximum size in PAGES (the memtype limit) — meaningful only when has_max.
+                   * Pages, not bytes: §3.2.15 admits 2^48 pages for a 64-bit addrtype, whose
+                   * byte count is 2^64 and does not fit here. */
     u1  has_max;  /* 1 ⇒ the memtype declared a max; 0 ⇒ unbounded (grow caps at the §3.2.15 addrtype ceiling) */
     u1  is64;     /* 1 ⇒ a 64-bit memory (memory64) */
 } jav_mem_t;
@@ -64,7 +66,7 @@ jav_typereg_t* jav_heap_typereg(heap_t* heap);
 /* Append a zero-initialized linear memory of `pages` × 64KiB; returns its memidx. `maxpages`
  * is the declared limit, meaningful only when `has_max` (else grow caps at the addrtype ceiling).
  * The heap owns the bytes — freed by jav_heap_free_mems. */
-int  jav_mem_add(heap_t* heap, u4 pages, u4 maxpages, int has_max, int is64);
+int  jav_mem_add(heap_t* heap, u8 pages, u8 maxpages, int has_max, int is64);   /* -1 = cannot back it */
 /* Free every memory's bytes and the vector (the GC is freed separately). */
 void jav_heap_free_mems(heap_t* heap);
 

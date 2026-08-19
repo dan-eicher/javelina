@@ -55,6 +55,18 @@ endif
 GEN := src/gen
 B   := build
 
+# SAN=1 — the compiler, the embedder floor and every test under AddressSanitizer, in their
+# own build dir, linked against the VM's asan objects rather than the plain ones. The floor
+# (driver/host_io.h) writes into a guest's linear memory on the host's behalf, so its bounds
+# checks are exactly the kind a sanitizer decides; running the suites without it leaves the
+# staging paths unchecked.
+VM_B := build
+ifeq ($(SAN),1)
+CFLAGS += -fsanitize=address -fno-omit-frame-pointer
+B      := build-asan
+VM_B   := build-asan
+endif
+
 # The shared test convention (testkit/javelina_test.h) lives above both projects
 # so the compiler and the VM assert the same way.
 TESTKIT := ../testkit
@@ -72,12 +84,12 @@ INCLUDES := -I$(GEN) -Isrc -I$(PEGRT) -I$(RT) -I$(CRT) -I$(TESTKIT) -I../wasm/in
 VM             := ../wasm
 JITRT          := $(BBQ)/jitterator/runtime
 VM_INCLUDES    := -I$(VM)/include -I$(VM)/src -I$(VM)/src/gen -I$(VM)/src/immix -I$(JITRT)
-VM_ENGINE_OBJS := $(VM)/build/interp.o $(VM)/build/jav_runtime.o $(VM)/build/gen_interp.o \
-                  $(VM)/build/validate.o $(VM)/build/jav_subtype.o $(VM)/build/jit_driver.o \
-                  $(VM)/build/jav_ttree.o $(VM)/build/jav_tile.o \
-                  $(VM)/build/jav_eqsat.o $(VM)/build/egraph.o \
-                  $(VM)/build/bbq_arena.o $(VM)/build/immix_line_map.o $(VM)/build/immix_block.o \
-                  $(VM)/build/immix_block_allocator.o $(VM)/build/immix_space.o $(VM)/build/jav_gc.o
+VM_ENGINE_OBJS := $(VM)/$(VM_B)/interp.o $(VM)/$(VM_B)/jav_runtime.o $(VM)/$(VM_B)/gen_interp.o \
+                  $(VM)/$(VM_B)/validate.o $(VM)/$(VM_B)/jav_subtype.o $(VM)/$(VM_B)/jit_driver.o \
+                  $(VM)/$(VM_B)/jav_ttree.o $(VM)/$(VM_B)/jav_tile.o \
+                  $(VM)/$(VM_B)/jav_eqsat.o $(VM)/$(VM_B)/egraph.o \
+                  $(VM)/$(VM_B)/bbq_arena.o $(VM)/$(VM_B)/immix_line_map.o $(VM)/$(VM_B)/immix_block.o \
+                  $(VM)/$(VM_B)/immix_block_allocator.o $(VM)/$(VM_B)/immix_space.o $(VM)/$(VM_B)/jav_gc.o
 # The shared owning reader+writer (what `water` uses): the compiler assembles a
 # jav_module_t and serializes via jav_module_write, decoding each func body via
 # jav_func_body_read (the spec-grammar gate). Single binary-layout authority.

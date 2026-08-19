@@ -24,7 +24,7 @@ void jav_project_export(heap_t* heap, const jav_instance_t* inst, const jav_modi
               out->u.table.has_max = ti->has_max; out->u.table.max = ti->max; break; }
     case 2: { out->kind = 2; uint32_t memaddr = inst->mem_addrs[index]; jav_mem_t* mm = &heap->mems[memaddr];
               out->u.mem.memidx = memaddr; out->u.mem.min = mm->size / STORE_PAGE;
-              out->u.mem.has_max = mm->has_max; out->u.mem.max = mm->max / STORE_PAGE;
+              out->u.mem.has_max = mm->has_max; out->u.mem.max = mm->max;
               out->u.mem.is64 = mm->is64; break; }
     case 3: { out->kind = 3; out->u.global.slot = inst->globals[index];   // export the slot itself (mutable share)
               out->u.global.type = gm->global_types[index];

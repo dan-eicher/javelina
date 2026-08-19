@@ -27,40 +27,68 @@
 #include <unistd.h>     /* access() for canRead/canWrite */
 #include <dirent.h>     /* opendir/readdir for File.list */
 
-/* ── The GC↔host bridge: the executing module's exported I/O staging memory, captured
- * at instantiation. Host I/O natives read/write the guest's bytes here via
- * wasm_memory_data. Set before each call. ── */
-static wasm_memory_t* g_io_mem = NULL;
-
-/* ── The filesystem root every guest path resolves under. NULL ⇒ a lazily-created
- * per-process temp sandbox (the test default); the runner sets it to a real directory. ── */
-static const char* g_io_root = NULL;
-
-/* ── The fd table: a small fd → FILE* map. fds 0/1/2 are preopened by the embedder
- * (test: capture temp files; runner: real std streams). ── */
 #define IO_MAX_FDS 16
-static FILE* g_io_fds[IO_MAX_FDS];
 
 /* ── The system-property source (§20.18.7). Properties cross as BYTES, never as Strings: a
  * host function cannot construct a GC String (§7.1 — aggregates are opaque to the host), so
  * `java.lang.System` asks for a value through the staging memory and builds the String itself.
  * A NULL table (or a key not in it) is an ABSENT property, not an error. ── */
 typedef struct { const char* key; const char* val; } hio_prop_t;
-static const hio_prop_t* g_io_props = NULL;   /* terminated by a NULL key */
 
-/* ── The environment sources the embedder owns. NULL ⇒ the reproducible defaults below, which is
- * what the test harness wants; the runner installs the real clock/PRNG/exit. ── */
-static int64_t (*g_io_clock)(void)  = NULL;   /* epoch milliseconds */
+typedef struct jav_host_s jav_host_t;
 
-/* ── Application natives: an embedder may answer imports this contract does not name (the
- * host_plugin shape — an app exposing its own functions to the guest). Returning NULL falls
- * through to the fail-closed stub, so registering a hook never re-opens the silent-echo hole. ── */
-static wasm_func_t* (*g_io_host_extra)(wasm_store_t*, const wasm_functype_t*,
-                                       const wasm_name_t* mod, const wasm_name_t* fld) = NULL;
+/* ── THE embedder context: everything the →HOST floor needs, in ONE object the embedder owns.
+ *
+ * State here is per-context, never per-process, and that is a spec requirement rather than a
+ * preference: §7.1.5 makes the STORE the unit of state, and §7.1.8 allocates a host function IN
+ * a store (`func_alloc(store, deftype, hostfunc)`). Two stores in one process must therefore not
+ * share a staging memory, an fd table or a filesystem root — an application holding two
+ * documents is the case that breaks if they do.
+ *
+ * The store is opaque to embedders and carries no host_info slot (it is WASM_DECLARE_OWN; only
+ * WASM_DECLARE_REF_BASE types get one), so the carrier is §7.1.8's `hostfunc` closure —
+ * wasm_func_new_with_env. Every native below is registered with it and reaches this object
+ * through its env. ── */
+struct jav_host_s {
+    /* The GC↔host bridge: the executing module's exported I/O staging memory, captured at
+     * instantiation. Natives read/write the guest's bytes here via wasm_memory_data. */
+    wasm_memory_t* mem;
 
-static byte_t* io_membytes(void) { return g_io_mem ? wasm_memory_data(g_io_mem) : NULL; }
-static size_t  io_memsize(void)  { return g_io_mem ? wasm_memory_data_size(g_io_mem) : 0; }
-static int     io_fd_ok(int fd)  { return fd >= 0 && fd < IO_MAX_FDS && g_io_fds[fd]; }
+    /* The filesystem root every guest path resolves under. NULL ⇒ a lazily-created per-context
+     * temp sandbox (the test default); the runner sets it to a real directory. */
+    const char* root;
+    char        sandbox[64];        /* the lazily-created default, per context, not per process */
+
+    /* The fd table: a small fd → FILE* map. fds 0/1/2 are preopened by the embedder
+     * (test: capture temp files; runner: real std streams). */
+    FILE* fds[IO_MAX_FDS];
+
+    const hio_prop_t* props;        /* terminated by a NULL key; NULL ⇒ no properties */
+
+    /* The environment sources the embedder owns. NULL ⇒ the reproducible defaults, which is what
+     * the test harness wants; the runner installs the real clock and exit. */
+    int64_t (*clock)(void);         /* epoch milliseconds */
+    void    (*exit_fn)(int);        /* non-NULL ⇒ terminate with the guest's code */
+    int64_t ctm_ticks;              /* the deterministic clock's counter, per context */
+    int32_t next_id;                /* identity-hash source, per context */
+
+    /* Application natives: an embedder may answer imports this contract does not name (an app
+     * exposing its own functions to the guest). Returning NULL falls through to the fail-closed
+     * stub, so registering a hook never re-opens the silent-echo hole. */
+    wasm_func_t* (*host_extra)(jav_host_t*, wasm_store_t*, const wasm_functype_t*,
+                               const wasm_name_t* mod, const wasm_name_t* fld);
+};
+
+/* What a registered native receives as its env: the context, plus the per-row detail a few rows
+ * need (the op tag, the store a trap is built on, the qualified name the unimplemented stub
+ * reports). One allocation per registered function, released by hio_bind_free. */
+typedef struct { jav_host_t* h; wasm_store_t* store; int op; char* name; } hio_bind_t;
+
+static void hio_bind_free(void* p) { hio_bind_t* b = (hio_bind_t*)p; if (b) { free(b->name); free(b); } }
+
+static byte_t* io_membytes(jav_host_t* h) { return h && h->mem ? wasm_memory_data(h->mem) : NULL; }
+static size_t  io_memsize(jav_host_t* h)  { return h && h->mem ? wasm_memory_data_size(h->mem) : 0; }
+static int     io_fd_ok(jav_host_t* h, int fd) { return h && fd >= 0 && fd < IO_MAX_FDS && h->fds[fd]; }
 
 /* ── THE span check. A staging-memory span the host may touch: [off, off+len)
  * wholly inside the memory. Every native that dereferences the staging pointer
@@ -77,8 +105,8 @@ static int     io_fd_ok(int fd)  { return fd >= 0 && fd < IO_MAX_FDS && g_io_fds
  * a third-party plugin chooses them adversarially, and the floor cannot tell the
  * two apart — `javelina.c` binds a plugin's non-`jre` imports straight to these
  * natives. Pinned by test_host_memory.c. ── */
-static int io_span_ok(int off, int len) {
-    size_t n = io_memsize();
+static int io_span_ok(jav_host_t* h, int off, int len) {
+    size_t n = io_memsize(h);
     return off >= 0 && len >= 0 && (size_t)off <= n && (size_t)len <= n - (size_t)off;
 }
 
@@ -87,19 +115,22 @@ static int io_span_ok(int off, int len) {
  * which arrives from `javelina --root DIR` and is not the guest's to shorten. */
 #define IO_PATH_MAX 512
 
-/* Map a guest path (staging bytes at off,len) to a host path under g_io_root,
+/* Map a guest path (staging bytes at off,len) to a host path under the context's root,
  * PRESERVING '/' so directory nesting + File.list work. Rejects any ".." (no parent
- * escape). If g_io_root is NULL, a fresh per-run temp sandbox is created.
+ * escape). If the root is NULL, a fresh temp sandbox is created FOR THIS CONTEXT —
+ * per-context, not per-process, so two embeddings do not share a directory.
  * Answers 0 — which every caller already maps to its own "no such path" value —
  * for a span outside the memory, and for a composed path that does not fit. */
-static int io_hostpath(int off, int len, char* out) {
-    byte_t* m = io_membytes();
-    if (!m || !io_span_ok(off, len)) return 0;
-    static char sandbox[64] = "";
-    const char* root = g_io_root;
+static int io_hostpath(jav_host_t* h, int off, int len, char* out) {
+    byte_t* m = io_membytes(h);
+    if (!m || !io_span_ok(h, off, len)) return 0;
+    const char* root = h->root;
     if (!root) {
-        if (!sandbox[0]) { snprintf(sandbox, sizeof sandbox, "/tmp/javio_%d", (int)getpid()); mkdir(sandbox, 0777); }
-        root = sandbox;
+        if (!h->sandbox[0]) {
+            snprintf(h->sandbox, sizeof h->sandbox, "/tmp/javio_%d_%p", (int)getpid(), (void*)h);
+            mkdir(h->sandbox, 0777);
+        }
+        root = h->sandbox;
     }
     size_t rl = strlen(root);
     if (rl + 1 + (size_t)len + 1 > IO_PATH_MAX) return 0;   /* root + '/' + path + NUL */
@@ -117,39 +148,39 @@ static int io_hostpath(int off, int len, char* out) {
 
 /* IEEE-754 bit reinterprets — Float/Double.{floatToIntBits,doubleToLongBits} + inverses.
  * No WASM-GC primitive reinterprets a float's bits; the embedder supplies them. */
-static wasm_trap_t* hio_f2i(const wasm_val_vec_t* a, wasm_val_vec_t* r) {
-    float f = a->data[0].of.f32; int32_t i; memcpy(&i, &f, 4);
+/* Every native takes the §7.1.8 hostfunc env. HOST_H unwraps the context from it; the few that
+ * need the per-row detail read the binding's other fields directly. */
+#define HOST_H(env) (((hio_bind_t*)(env))->h)
+
+static wasm_trap_t* hio_f2i(void* env, const wasm_val_vec_t* a, wasm_val_vec_t* r) {
+    (void)env; float f = a->data[0].of.f32; int32_t i; memcpy(&i, &f, 4);
     r->data[0] = (wasm_val_t)WASM_I32_VAL(i); return NULL;
 }
-static wasm_trap_t* hio_i2f(const wasm_val_vec_t* a, wasm_val_vec_t* r) {
-    int32_t i = a->data[0].of.i32; float f; memcpy(&f, &i, 4);
+static wasm_trap_t* hio_i2f(void* env, const wasm_val_vec_t* a, wasm_val_vec_t* r) {
+    (void)env; int32_t i = a->data[0].of.i32; float f; memcpy(&f, &i, 4);
     r->data[0] = (wasm_val_t)WASM_F32_VAL(f); return NULL;
 }
-static wasm_trap_t* hio_d2l(const wasm_val_vec_t* a, wasm_val_vec_t* r) {
-    double d = a->data[0].of.f64; int64_t l; memcpy(&l, &d, 8);
+static wasm_trap_t* hio_d2l(void* env, const wasm_val_vec_t* a, wasm_val_vec_t* r) {
+    (void)env; double d = a->data[0].of.f64; int64_t l; memcpy(&l, &d, 8);
     r->data[0] = (wasm_val_t)WASM_I64_VAL(l); return NULL;
 }
-static wasm_trap_t* hio_l2d(const wasm_val_vec_t* a, wasm_val_vec_t* r) {
-    int64_t l = a->data[0].of.i64; double d; memcpy(&d, &l, 8);
+static wasm_trap_t* hio_l2d(void* env, const wasm_val_vec_t* a, wasm_val_vec_t* r) {
+    (void)env; int64_t l = a->data[0].of.i64; double d; memcpy(&d, &l, 8);
     r->data[0] = (wasm_val_t)WASM_F64_VAL(d); return NULL;
 }
 
-/* The clock/exit/identity-hash source — the genuine environment floor. One with-env callback
- * dispatches on an op tag. Deterministic here (reproducible); the runner wires the real clock.
+/* The clock/exit/identity-hash source — the genuine environment floor. One callback dispatches
+ * on the binding's op tag. Deterministic by default and per context, so two embeddings do not
+ * share a counter and each is reproducible on its own; the runner wires the real clock.
  * (Math.random is NOT here: it is java.util.Random over this clock, §20.11.20.) */
 typedef enum { HOP_CTM, HOP_EXIT, HOP_IDHASH } host_op;
-static int64_t  hio_ctm_ticks = 0;
-static int32_t  hio_next_id    = 1;
-
-/* Set by the embedder: HOP_EXIT terminates the process with the guest's code when
- * non-NULL (the runner); NULL ⇒ the test no-op. */
-static void (*g_io_exit)(int) = NULL;
 
 static wasm_trap_t* hio_env(void* env, const wasm_val_vec_t* a, wasm_val_vec_t* r) {
-    switch ((host_op)(intptr_t)env) {
-    case HOP_CTM:    r->data[0] = (wasm_val_t)WASM_I64_VAL(g_io_clock ? g_io_clock() : ++hio_ctm_ticks); break;
-    case HOP_IDHASH: r->data[0] = (wasm_val_t)WASM_I32_VAL(hio_next_id++);   break;
-    case HOP_EXIT:   if (g_io_exit) g_io_exit(a->size > 0 ? a->data[0].of.i32 : 0); break;
+    hio_bind_t* b = (hio_bind_t*)env; jav_host_t* h = b->h;
+    switch ((host_op)b->op) {
+    case HOP_CTM:    r->data[0] = (wasm_val_t)WASM_I64_VAL(h->clock ? h->clock() : ++h->ctm_ticks); break;
+    case HOP_IDHASH: r->data[0] = (wasm_val_t)WASM_I32_VAL(h->next_id++);   break;
+    case HOP_EXIT:   if (h->exit_fn) h->exit_fn(a->size > 0 ? a->data[0].of.i32 : 0); break;
     }
     return NULL;
 }
@@ -157,29 +188,31 @@ static wasm_trap_t* hio_env(void* env, const wasm_val_vec_t* a, wasm_val_vec_t* 
 /* ── §20.18.7 system properties, over the staging memory (see hio_prop_t).
  * getprop(keyoff, keylen, outoff) → value length written at outoff, or -1 if the key is absent.
  * propnames(outoff)              → total bytes of the NUL-separated key list written at outoff. ── */
-static wasm_trap_t* hio_getprop(const wasm_val_vec_t* a, wasm_val_vec_t* r) {
+static wasm_trap_t* hio_getprop(void* env, const wasm_val_vec_t* a, wasm_val_vec_t* r) {
+    jav_host_t* h = HOST_H(env);
     int koff = a->data[0].of.i32, klen = a->data[1].of.i32, ooff = a->data[2].of.i32;
-    byte_t* m = io_membytes();
+    byte_t* m = io_membytes(h);
     int n = -1;                                        /* -1 is ABSENT, and only absent */
-    if (m && io_span_ok(koff, klen)) {
-        for (const hio_prop_t* p = g_io_props; p && p->key; p++) {
+    if (m && io_span_ok(h, koff, klen)) {
+        for (const hio_prop_t* p = h->props; p && p->key; p++) {
             size_t kl = strlen(p->key);
             if (kl != (size_t)klen || memcmp(m + koff, p->key, kl)) continue;
             size_t vl = strlen(p->val);
             n = (int)vl;                               /* the length the answer NEEDS */
-            if (io_span_ok(ooff, (int)vl)) memcpy(m + ooff, p->val, vl);   /* written only if it ALL fits */
+            if (io_span_ok(h, ooff, (int)vl)) memcpy(m + ooff, p->val, vl); /* written only if it ALL fits */
             break;
         }
     }
     r->data[0] = (wasm_val_t)WASM_I32_VAL(n); return NULL;
 }
-static wasm_trap_t* hio_propnames(const wasm_val_vec_t* a, wasm_val_vec_t* r) {
+static wasm_trap_t* hio_propnames(void* env, const wasm_val_vec_t* a, wasm_val_vec_t* r) {
+    jav_host_t* h = HOST_H(env);
     int ooff = a->data[0].of.i32, total = 0;
-    byte_t* m = io_membytes();
-    for (const hio_prop_t* p = g_io_props; p && p->key; p++) total += (int)strlen(p->key) + 1;
-    if (m && io_span_ok(ooff, total)) {                /* the WHOLE run or none of it */
+    byte_t* m = io_membytes(h);
+    for (const hio_prop_t* p = h->props; p && p->key; p++) total += (int)strlen(p->key) + 1;
+    if (m && io_span_ok(h, ooff, total)) {             /* the WHOLE run or none of it */
         int k = 0;
-        for (const hio_prop_t* p = g_io_props; p && p->key; p++) {
+        for (const hio_prop_t* p = h->props; p && p->key; p++) {
             size_t kl = strlen(p->key);
             memcpy(m + ooff + k, p->key, kl); k += (int)kl;
             m[ooff + k++] = 0;
@@ -192,69 +225,76 @@ static wasm_trap_t* hio_propnames(const wasm_val_vec_t* a, wasm_val_vec_t* r) {
 static wasm_trap_t* hio_monitor_trap(void* env, const wasm_val_vec_t* args, wasm_val_vec_t* results) {
     (void)args; (void)results;
     wasm_message_t msg; wasm_name_new_from_string_nt(&msg, "monitor op on threadless target");
-    wasm_trap_t* t = wasm_trap_new((wasm_store_t*)env, &msg);
+    wasm_trap_t* t = wasm_trap_new(((hio_bind_t*)env)->store, &msg);
     wasm_byte_vec_delete(&msg);
     return t;
 }
 
 /* A probe: sum `len` staging bytes at `off`, so a test can prove the host observes the
  * guest's memory. A byte sum is never negative, so -1 is free to mean a refused span. */
-static wasm_trap_t* hio_checksum(const wasm_val_vec_t* a, wasm_val_vec_t* r) {
+static wasm_trap_t* hio_checksum(void* env, const wasm_val_vec_t* a, wasm_val_vec_t* r) {
+    jav_host_t* h = HOST_H(env);
     int off = a->size > 0 ? a->data[0].of.i32 : 0;
     int len = a->size > 1 ? a->data[1].of.i32 : 0;
-    byte_t* m = io_membytes();
+    byte_t* m = io_membytes(h);
     int sum = -1;
-    if (m && io_span_ok(off, len)) { sum = 0;
-                                     for (int i = 0; i < len; i++) sum += (unsigned char)m[off + i]; }
+    if (m && io_span_ok(h, off, len)) { sum = 0;
+                                        for (int i = 0; i < len; i++) sum += (unsigned char)m[off + i]; }
     r->data[0] = (wasm_val_t)WASM_I32_VAL(sum); return NULL;
 }
 
-static wasm_trap_t* hio_fd_open_temp(const wasm_val_vec_t* a, wasm_val_vec_t* r) {
-    (void)a; int fd = -1;
-    for (int i = 0; i < IO_MAX_FDS; i++) if (!g_io_fds[i]) { g_io_fds[i] = tmpfile(); if (g_io_fds[i]) fd = i; break; }
+static wasm_trap_t* hio_fd_open_temp(void* env, const wasm_val_vec_t* a, wasm_val_vec_t* r) {
+    jav_host_t* h = HOST_H(env); (void)a; int fd = -1;
+    for (int i = 0; i < IO_MAX_FDS; i++) if (!h->fds[i]) { h->fds[i] = tmpfile(); if (h->fds[i]) fd = i; break; }
     r->data[0] = (wasm_val_t)WASM_I32_VAL(fd); return NULL;
 }
-static wasm_trap_t* hio_open(const wasm_val_vec_t* a, wasm_val_vec_t* r) {
+static wasm_trap_t* hio_open(void* env, const wasm_val_vec_t* a, wasm_val_vec_t* r) {
+    jav_host_t* h = HOST_H(env);
     int flags = a->data[2].of.i32, fd = -1;
     char path[IO_PATH_MAX];
-    if (io_hostpath(a->data[0].of.i32, a->data[1].of.i32, path)) {
+    if (io_hostpath(h, a->data[0].of.i32, a->data[1].of.i32, path)) {
         FILE* fp;
         if (flags == 2) { fp = fopen(path, "r+b"); if (!fp) fp = fopen(path, "w+b"); }  /* read+write: open else create */
         else fp = fopen(path, (flags & 1) ? "wb" : "rb");                                /* 1 = write/truncate, 0 = read */
-        if (fp) for (int i = 0; i < IO_MAX_FDS; i++) if (!g_io_fds[i]) { g_io_fds[i] = fp; fd = i; break; }
+        if (fp) for (int i = 0; i < IO_MAX_FDS; i++) if (!h->fds[i]) { h->fds[i] = fp; fd = i; break; }
     }
     r->data[0] = (wasm_val_t)WASM_I32_VAL(fd); return NULL;
 }
-static wasm_trap_t* hio_fd_write(const wasm_val_vec_t* a, wasm_val_vec_t* r) {
+static wasm_trap_t* hio_fd_write(void* env, const wasm_val_vec_t* a, wasm_val_vec_t* r) {
+    jav_host_t* h = HOST_H(env);
     int fd = a->data[0].of.i32, off = a->data[1].of.i32, len = a->data[2].of.i32, n = -1;
-    byte_t* m = io_membytes();
-    if (m && io_fd_ok(fd) && io_span_ok(off, len)) {
-        n = (int)fwrite(m + off, 1, (size_t)len, g_io_fds[fd]);
-        if (fd == 1 || fd == 2) fflush(g_io_fds[fd]);   /* flush std streams promptly */
+    byte_t* m = io_membytes(h);
+    if (m && io_fd_ok(h, fd) && io_span_ok(h, off, len)) {
+        n = (int)fwrite(m + off, 1, (size_t)len, h->fds[fd]);
+        if (fd == 1 || fd == 2) fflush(h->fds[fd]);   /* flush std streams promptly */
     }
     r->data[0] = (wasm_val_t)WASM_I32_VAL(n); return NULL;   /* -1 = refused (bad fd or span) */
 }
-static wasm_trap_t* hio_fd_read(const wasm_val_vec_t* a, wasm_val_vec_t* r) {
+static wasm_trap_t* hio_fd_read(void* env, const wasm_val_vec_t* a, wasm_val_vec_t* r) {
+    jav_host_t* h = HOST_H(env);
     int fd = a->data[0].of.i32, off = a->data[1].of.i32, len = a->data[2].of.i32, n = 0;
-    byte_t* m = io_membytes();
-    if (m && io_fd_ok(fd) && io_span_ok(off, len)) n = (int)fread(m + off, 1, (size_t)len, g_io_fds[fd]);
+    byte_t* m = io_membytes(h);
+    if (m && io_fd_ok(h, fd) && io_span_ok(h, off, len)) n = (int)fread(m + off, 1, (size_t)len, h->fds[fd]);
     r->data[0] = (wasm_val_t)WASM_I32_VAL(n > 0 ? n : -1);   /* -1 = EOF (InputStream.read) or refused */
     return NULL;
 }
-static wasm_trap_t* hio_fd_seek(const wasm_val_vec_t* a, wasm_val_vec_t* r) {
+static wasm_trap_t* hio_fd_seek(void* env, const wasm_val_vec_t* a, wasm_val_vec_t* r) {
+    jav_host_t* h = HOST_H(env);
     (void)r; int fd = a->data[0].of.i32, pos = a->data[1].of.i32;
-    if (io_fd_ok(fd)) fseek(g_io_fds[fd], pos, SEEK_SET);
+    if (io_fd_ok(h, fd)) fseek(h->fds[fd], pos, SEEK_SET);
     return NULL;
 }
-static wasm_trap_t* hio_fd_close(const wasm_val_vec_t* a, wasm_val_vec_t* r) {
+static wasm_trap_t* hio_fd_close(void* env, const wasm_val_vec_t* a, wasm_val_vec_t* r) {
+    jav_host_t* h = HOST_H(env);
     (void)r; int fd = a->data[0].of.i32;
-    if (io_fd_ok(fd) && fd > 2) { fclose(g_io_fds[fd]); g_io_fds[fd] = NULL; }   /* never close std streams */
+    if (io_fd_ok(h, fd) && fd > 2) { fclose(h->fds[fd]); h->fds[fd] = NULL; }   /* never close std streams */
     return NULL;
 }
-static wasm_trap_t* hio_fd_size(const wasm_val_vec_t* a, wasm_val_vec_t* r) {
+static wasm_trap_t* hio_fd_size(void* env, const wasm_val_vec_t* a, wasm_val_vec_t* r) {
+    jav_host_t* h = HOST_H(env);
     int fd = a->data[0].of.i32; long long sz = -1;
-    if (io_fd_ok(fd)) {
-        FILE* fp = g_io_fds[fd];
+    if (io_fd_ok(h, fd)) {
+        FILE* fp = h->fds[fd];
         fflush(fp);
         long cur = ftell(fp);
         if (fseek(fp, 0, SEEK_END) == 0) { long end = ftell(fp); if (end >= 0) sz = (long long)end; }
@@ -264,9 +304,10 @@ static wasm_trap_t* hio_fd_size(const wasm_val_vec_t* a, wasm_val_vec_t* r) {
 }
 
 /* ── §22.4 File stat/action floor. ── */
-static wasm_trap_t* hio_stat(const wasm_val_vec_t* a, wasm_val_vec_t* r) {
+static wasm_trap_t* hio_stat(void* env, const wasm_val_vec_t* a, wasm_val_vec_t* r) {
+    jav_host_t* h = HOST_H(env);
     char path[IO_PATH_MAX]; int flags = 0; struct stat st;
-    if (io_hostpath(a->data[0].of.i32, a->data[1].of.i32, path) && stat(path, &st) == 0) {
+    if (io_hostpath(h, a->data[0].of.i32, a->data[1].of.i32, path) && stat(path, &st) == 0) {
         flags |= 1;                                        /* exists */
         if (S_ISDIR(st.st_mode)) flags |= 2;               /* dir    */
         if (S_ISREG(st.st_mode)) flags |= 4;               /* file   */
@@ -275,32 +316,37 @@ static wasm_trap_t* hio_stat(const wasm_val_vec_t* a, wasm_val_vec_t* r) {
     }
     r->data[0] = (wasm_val_t)WASM_I32_VAL(flags); return NULL;
 }
-static wasm_trap_t* hio_file_size(const wasm_val_vec_t* a, wasm_val_vec_t* r) {
+static wasm_trap_t* hio_file_size(void* env, const wasm_val_vec_t* a, wasm_val_vec_t* r) {
+    jav_host_t* h = HOST_H(env);
     char path[IO_PATH_MAX]; long long sz = -1; struct stat st;
-    if (io_hostpath(a->data[0].of.i32, a->data[1].of.i32, path) && stat(path, &st) == 0 && S_ISREG(st.st_mode))
+    if (io_hostpath(h, a->data[0].of.i32, a->data[1].of.i32, path) && stat(path, &st) == 0 && S_ISREG(st.st_mode))
         sz = (long long)st.st_size;
     r->data[0] = (wasm_val_t)WASM_I64_VAL(sz); return NULL;
 }
-static wasm_trap_t* hio_file_modified(const wasm_val_vec_t* a, wasm_val_vec_t* r) {
+static wasm_trap_t* hio_file_modified(void* env, const wasm_val_vec_t* a, wasm_val_vec_t* r) {
+    jav_host_t* h = HOST_H(env);
     char path[IO_PATH_MAX]; long long ms = 0; struct stat st;
-    if (io_hostpath(a->data[0].of.i32, a->data[1].of.i32, path) && stat(path, &st) == 0)
+    if (io_hostpath(h, a->data[0].of.i32, a->data[1].of.i32, path) && stat(path, &st) == 0)
         ms = (long long)st.st_mtime * 1000;
     r->data[0] = (wasm_val_t)WASM_I64_VAL(ms); return NULL;
 }
-static wasm_trap_t* hio_unlink(const wasm_val_vec_t* a, wasm_val_vec_t* r) {
+static wasm_trap_t* hio_unlink(void* env, const wasm_val_vec_t* a, wasm_val_vec_t* r) {
+    jav_host_t* h = HOST_H(env);
     char path[IO_PATH_MAX]; int rc = -1;
-    if (io_hostpath(a->data[0].of.i32, a->data[1].of.i32, path)) rc = (remove(path) == 0) ? 0 : -1;
+    if (io_hostpath(h, a->data[0].of.i32, a->data[1].of.i32, path)) rc = (remove(path) == 0) ? 0 : -1;
     r->data[0] = (wasm_val_t)WASM_I32_VAL(rc); return NULL;
 }
-static wasm_trap_t* hio_mkdir(const wasm_val_vec_t* a, wasm_val_vec_t* r) {
+static wasm_trap_t* hio_mkdir(void* env, const wasm_val_vec_t* a, wasm_val_vec_t* r) {
+    jav_host_t* h = HOST_H(env);
     char path[IO_PATH_MAX]; int rc = -1;
-    if (io_hostpath(a->data[0].of.i32, a->data[1].of.i32, path)) rc = (mkdir(path, 0777) == 0) ? 0 : -1;
+    if (io_hostpath(h, a->data[0].of.i32, a->data[1].of.i32, path)) rc = (mkdir(path, 0777) == 0) ? 0 : -1;
     r->data[0] = (wasm_val_t)WASM_I32_VAL(rc); return NULL;
 }
-static wasm_trap_t* hio_rename(const wasm_val_vec_t* a, wasm_val_vec_t* r) {
+static wasm_trap_t* hio_rename(void* env, const wasm_val_vec_t* a, wasm_val_vec_t* r) {
+    jav_host_t* h = HOST_H(env);
     char from[IO_PATH_MAX], to[IO_PATH_MAX]; int rc = -1;
-    if (io_hostpath(a->data[0].of.i32, a->data[1].of.i32, from) &&
-        io_hostpath(a->data[2].of.i32, a->data[3].of.i32, to)) rc = (rename(from, to) == 0) ? 0 : -1;
+    if (io_hostpath(h, a->data[0].of.i32, a->data[1].of.i32, from) &&
+        io_hostpath(h, a->data[2].of.i32, a->data[3].of.i32, to)) rc = (rename(from, to) == 0) ? 0 : -1;
     r->data[0] = (wasm_val_t)WASM_I32_VAL(rc); return NULL;
 }
 /* The entry names, NUL-separated, at outoff — or, when they do not all fit, the total
@@ -308,10 +354,11 @@ static wasm_trap_t* hio_rename(const wasm_val_vec_t* a, wasm_val_vec_t* r) {
  * than the staging memory is not "not a directory", and -1 is what File.list() turns
  * into null, which §22.4 reserves for a path that is not a directory. A guest that
  * gets a total larger than the room it left grows the memory and asks again. */
-static wasm_trap_t* hio_list(const wasm_val_vec_t* a, wasm_val_vec_t* r) {
-    char path[IO_PATH_MAX]; int total = -1; byte_t* m = io_membytes();
+static wasm_trap_t* hio_list(void* env, const wasm_val_vec_t* a, wasm_val_vec_t* r) {
+    jav_host_t* h = HOST_H(env);
+    char path[IO_PATH_MAX]; int total = -1; byte_t* m = io_membytes(h);
     int outoff = a->data[2].of.i32;
-    if (m && io_hostpath(a->data[0].of.i32, a->data[1].of.i32, path)) {
+    if (m && io_hostpath(h, a->data[0].of.i32, a->data[1].of.i32, path)) {
         DIR* dp = opendir(path);
         if (dp) {
             total = 0; struct dirent* de;
@@ -320,7 +367,7 @@ static wasm_trap_t* hio_list(const wasm_val_vec_t* a, wasm_val_vec_t* r) {
                 if (nm[0] == '.' && (nm[1] == 0 || (nm[1] == '.' && nm[2] == 0))) continue;   /* skip . and .. */
                 total += (int)strlen(nm) + 1;               /* the name plus its NUL separator */
             }
-            if (io_span_ok(outoff, total)) {                /* the WHOLE listing or none of it */
+            if (io_span_ok(h, outoff, total)) {             /* the WHOLE listing or none of it */
                 rewinddir(dp);
                 int k = 0;
                 while ((de = readdir(dp)) != NULL) {
@@ -342,14 +389,16 @@ static wasm_trap_t* hio_list(const wasm_val_vec_t* a, wasm_val_vec_t* r) {
 /* A native the embedder does not implement. Calling it TRAPS, naming the method — the engine's
  * fail-closed answer to an unsatisfied environment edge. It is never an echo or a zero: a silently
  * wrong native is indistinguishable from a working one, and every native this floor does not name
- * is, by definition, either compiler-lowered (never called) or not yet implemented. `env` is the
- * method name, owned here and freed with the func. */
+ * is, by definition, either compiler-lowered (never called) or not yet implemented. The binding
+ * carries the method name, owned there and freed with the func. */
 static wasm_trap_t* hio_unimplemented(void* env, const wasm_val_vec_t* args, wasm_val_vec_t* results) {
     (void)args; (void)results;
+    hio_bind_t* b = (hio_bind_t*)env;
     char buf[256];
-    snprintf(buf, sizeof buf, "unimplemented native '%s' (not part of the javelina host contract)", (const char*)env);
+    snprintf(buf, sizeof buf, "unimplemented native '%s' (not part of the javelina host contract)",
+             b->name ? b->name : "?");
     wasm_message_t msg; wasm_name_new_from_string_nt(&msg, buf);
-    wasm_trap_t* t = wasm_trap_new(NULL, &msg);
+    wasm_trap_t* t = wasm_trap_new(b->store, &msg);
     wasm_byte_vec_delete(&msg);
     return t;
 }
@@ -358,9 +407,11 @@ static wasm_trap_t* hio_unimplemented(void* env, const wasm_val_vec_t* args, was
  * `gc`/`runFinalization` are advisory (the collector is not on-demand); `load`/`loadLibrary` have
  * no dynamic-linking surface; `finalize` is Object's empty body; `setSecurityManager`/`setProperties`
  * accept and discard (there is no security manager — getSecurityManager answers null, §20.18.4). */
-static wasm_trap_t* hio_noop(const wasm_val_vec_t* a, wasm_val_vec_t* r) { (void)a; (void)r; return NULL; }
-static wasm_trap_t* hio_null_ref(const wasm_val_vec_t* a, wasm_val_vec_t* r) {
-    (void)a; r->data[0] = (wasm_val_t)WASM_INIT_VAL; return NULL;   /* a null externref */
+static wasm_trap_t* hio_noop(void* env, const wasm_val_vec_t* a, wasm_val_vec_t* r) {
+    (void)env; (void)a; (void)r; return NULL;
+}
+static wasm_trap_t* hio_null_ref(void* env, const wasm_val_vec_t* a, wasm_val_vec_t* r) {
+    (void)env; (void)a; r->data[0] = (wasm_val_t)WASM_INIT_VAL; return NULL;   /* a null externref */
 }
 
 /* ── the →HOST table ─────────────────────────────────────────────────────────
@@ -371,7 +422,7 @@ static wasm_trap_t* hio_null_ref(const wasm_val_vec_t* a, wasm_val_vec_t* r) {
  * (§5.5.5) and jre.wasm declares both — `HostIO.open`, `System.exit`,
  * `F32x4.ceil`. Matching on the field alone let any module claim any native
  * (`Whatever.open` reached the real filesystem open) and made the
- * g_io_host_extra hook unable to own a namespace: consulted last and handed
+ * host_extra hook unable to own a namespace: consulted last and handed
  * only the field name, an application's `open` was shadowed by this table's,
  * silently. The hook now receives both names and is asked about every name
  * this table does not claim, so an app owns `App.*` outright.
@@ -397,7 +448,7 @@ static wasm_trap_t* hio_null_ref(const wasm_val_vec_t* a, wasm_val_vec_t* r) {
 #define HIO_PLAIN   (-1)
 #define HIO_MONITOR (-2)
 typedef struct { const char* mod; const char* fld; const char* sig;
-                 wasm_func_callback_t fn; int op; } hio_row_t;
+                 wasm_func_callback_with_env_t fn; int op; } hio_row_t;
 
 static const hio_row_t hio_table[] = {
     /* §17 monitors on a threadless target: no monitor exists. */
@@ -529,7 +580,17 @@ static int hio_sig_ok(const wasm_functype_t* ft, const char* sig) {
  * WITHHOLDING is the sandbox: an embedder that returns an unimplemented stub for `open`, or refuses
  * the import outright, denies the guest that capability — the module is then unlinkable or the call
  * traps, never silently succeeds. */
-static wasm_func_t* exec_host_for(wasm_store_t* store, const wasm_functype_t* ft,
+/* Bind one native to a §7.1.8 hostfunc closure carrying the context. Every row goes through
+ * wasm_func_new_with_env: a callback registered without an env has nowhere to reach its state
+ * from, which is the whole reason that state would otherwise have to be process-scoped. */
+static wasm_func_t* hio_bind(jav_host_t* h, wasm_store_t* store, const wasm_functype_t* ft,
+                             wasm_func_callback_with_env_t cb, int op, char* owned_name) {
+    hio_bind_t* b = (hio_bind_t*)calloc(1, sizeof *b);
+    b->h = h; b->store = store; b->op = op; b->name = owned_name;
+    return wasm_func_new_with_env(store, ft, cb, b, hio_bind_free);
+}
+
+static wasm_func_t* exec_host_for(jav_host_t* h, wasm_store_t* store, const wasm_functype_t* ft,
                                   const wasm_name_t* mod, const wasm_name_t* fld) {
     char q[HIO_KEY_MAX];
     int qn = hio_key(q, mod, fld);
@@ -541,23 +602,21 @@ static wasm_func_t* exec_host_for(wasm_store_t* store, const wasm_functype_t* ft
             /* A declared type that is not the contract's falls through to the
              * fail-closed stub rather than binding — the WASI fd_write shape. */
             if (hio_sig_ok(ft, row->sig)) {
-                if (row->op == HIO_MONITOR)
-                    return wasm_func_new_with_env(store, ft, hio_monitor_trap, store, NULL);
-                if (row->op != HIO_PLAIN)
-                    return wasm_func_new_with_env(store, ft, hio_env, (void*)(intptr_t)row->op, NULL);
-                return wasm_func_new(store, ft, row->fn);
+                if (row->op == HIO_MONITOR) return hio_bind(h, store, ft, hio_monitor_trap, 0, NULL);
+                if (row->op != HIO_PLAIN)   return hio_bind(h, store, ft, hio_env, row->op, NULL);
+                return hio_bind(h, store, ft, row->fn, 0, NULL);
             }
         }
     }
 
-    /* Not ours: the application's hook gets the whole two-part name, so it can own a namespace
-     * of its own rather than race this table for a bare field name. */
-    if (g_io_host_extra) { wasm_func_t* f = g_io_host_extra(store, ft, mod, fld); if (f) return f; }
+    /* Not ours: the application's hook gets the context AND the whole two-part name, so it can
+     * own a namespace of its own rather than race this table for a bare field name. */
+    if (h && h->host_extra) { wasm_func_t* f = h->host_extra(h, store, ft, mod, fld); if (f) return f; }
 
     char* owned = (char*)malloc(mod->size + 1 + fld->size + 1);
     memcpy(owned, mod->data, mod->size); owned[mod->size] = '.';
     memcpy(owned + mod->size + 1, fld->data, fld->size); owned[mod->size + 1 + fld->size] = 0;
-    return wasm_func_new_with_env(store, ft, hio_unimplemented, owned, free);
+    return hio_bind(h, store, ft, hio_unimplemented, 0, owned);
 }
 
 #endif /* JAVELINA_HOST_IO_H */

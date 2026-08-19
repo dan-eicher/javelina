@@ -88,12 +88,11 @@ static struct {
     wasm_byte_vec_t bin;
     wasm_importtype_vec_t impt; wasm_extern_vec_t imp;
     wasm_exporttype_vec_t expt; wasm_extern_vec_t exp;
-    /* export name -> index + 1. Linking a plugin used to scan `expt` per import,
-     * and the product is not small: jre.wasm exports 2060 names and a hello-world
-     * plugin imports 467 of them, so startup did ~962k name compares and grew as
-     * n*m. Built once, queried once per import. */
-    bbq_dict* expidx;
 } jre;
+
+/* The runner's embedder context — the →HOST floor's state, reaching every native as the §7.1.8
+ * hostfunc env. */
+static jav_host_t host;
 
 static bool jre_init(const uint8_t* bytes, size_t len, int tier, int verify_heap) {
     if (tier || verify_heap) {
@@ -123,7 +122,7 @@ static bool jre_init(const uint8_t* bytes, size_t len, int tier, int verify_heap
     wasm_extern_vec_new_uninitialized(&jre.imp, jre.impt.size);
     for (size_t i = 0; i < jre.impt.size; i++) {
         const wasm_functype_t* ft = wasm_externtype_as_functype_const(wasm_importtype_type(jre.impt.data[i]));
-        jre.imp.data[i] = ft ? wasm_func_as_extern(exec_host_for(jre.store, ft,
+        jre.imp.data[i] = ft ? wasm_func_as_extern(exec_host_for(&host, jre.store, ft,
                                    wasm_importtype_module(jre.impt.data[i]),
                                    wasm_importtype_name(jre.impt.data[i]))) : NULL;
     }
@@ -155,14 +154,12 @@ static bool jre_init(const uint8_t* bytes, size_t len, int tier, int verify_heap
         return false;
     }
     wasm_module_exports(jre.mod, &jre.expt); wasm_instance_exports(jre.inst, &jre.exp);
-    jre.expidx = bbq_dict_create();
+    /* The shared I/O staging memory. Borrowed out of jre.exp rather than taken through
+     * wasm_instance_export because wasm_extern_as_memory aliases the handle's storage, so the
+     * memory pointer is valid only while some extern denoting it is alive — and jre.exp is. */
     for (size_t i = 0; i < jre.expt.size && i < jre.exp.size; i++) {
         const wasm_name_t* en = wasm_exporttype_name(jre.expt.data[i]);
-        bbq_dict_put(jre.expidx, en->data, en->size, (void*)(uintptr_t)(i + 1));
-    }
-    for (size_t i = 0; i < jre.expt.size && i < jre.exp.size; i++) {   /* the shared I/O staging memory */
-        const wasm_name_t* en = wasm_exporttype_name(jre.expt.data[i]);
-        if (en->size == 6 && !memcmp(en->data, "memory", 6)) { g_io_mem = wasm_extern_as_memory(jre.exp.data[i]); break; }
+        if (en->size == 6 && !memcmp(en->data, "memory", 6)) { host.mem = wasm_extern_as_memory(jre.exp.data[i]); break; }
     }
     return true;
 }
@@ -183,14 +180,13 @@ static bool jre_init(const uint8_t* bytes, size_t len, int tier, int verify_heap
  * before the instance that owns them, the instance before its module, and both
  * before the store. */
 static void jre_teardown(void) {
-    g_io_mem = NULL;                     /* borrowed from jre.exp, about to go */
+    host.mem = NULL;                     /* borrowed from jre.exp, about to go */
     for (size_t i = 0; i < jre.imp.size; i++)
         if (jre.imp.data[i]) wasm_func_delete(wasm_extern_as_func(jre.imp.data[i]));
     free(jre.imp.data); jre.imp.data = NULL; jre.imp.size = 0;
     if (jre.impt.size) wasm_importtype_vec_delete(&jre.impt);
     if (jre.exp.size)  wasm_extern_vec_delete(&jre.exp);
     if (jre.expt.size) wasm_exporttype_vec_delete(&jre.expt);
-    if (jre.expidx) { bbq_dict_destroy(jre.expidx); jre.expidx = NULL; }
     if (jre.inst) { wasm_instance_delete(jre.inst); jre.inst = NULL; }
     if (jre.mod)  { wasm_module_delete(jre.mod);    jre.mod  = NULL; }
     wasm_byte_vec_delete(&jre.bin);
@@ -219,12 +215,13 @@ static bool plugin_link(plugin_t* p, const uint8_t* bytes, size_t len) {
         const wasm_name_t* im = wasm_importtype_module(p->impt.data[i]);
         const wasm_name_t* fl = wasm_importtype_name(p->impt.data[i]);
         if (im->size == 3 && !memcmp(im->data, "jre", 3)) {
-            size_t slot = (size_t)(uintptr_t)bbq_dict_get(jre.expidx, fl->data, fl->size);
-            if (!slot) { fprintf(stderr, "%s: unresolved jre import %.*s\n", prog_name, (int)fl->size, fl->data); return false; }
-            p->imp.data[i] = jre.exp.data[slot - 1];         /* borrowed — owned by jre.exp */
+            /* §7.1.7 instance_export. Owned, and released in plugin_free once instantiation has
+             * copied what it needs. */
+            p->imp.data[i] = wasm_instance_export(jre.inst, fl);
+            if (!p->imp.data[i]) { fprintf(stderr, "%s: unresolved jre import %.*s\n", prog_name, (int)fl->size, fl->data); return false; }
         } else {
             const wasm_functype_t* ft = wasm_externtype_as_functype_const(wasm_importtype_type(p->impt.data[i]));
-            p->imp.data[i] = ft ? wasm_func_as_extern(exec_host_for(jre.store, ft, im, fl)) : NULL;
+            p->imp.data[i] = ft ? wasm_func_as_extern(exec_host_for(&host, jre.store, ft, im, fl)) : NULL;
         }
     }
     wasm_trap_t* trap = NULL;
@@ -241,23 +238,21 @@ static bool plugin_link(plugin_t* p, const uint8_t* bytes, size_t len) {
 /* Release everything plugin_link allocated. Safe on a zero-initialized plugin_t,
  * because `goto out` can be taken before the plugin is linked at all.
  *
- * `p->imp` cannot go through wasm_extern_vec_delete. That delete recurses into
- * every element, and this vector MIXES externs the link created (the host natives
- * from exec_host_for) with ones BORROWED from the jre instance — freeing the
- * borrowed half would take the jre's own exports with it, and skipping the whole
- * vector leaks the natives. The import types record which is which (module "jre"
- * is the borrowed half), so walk those and delete only ours, then release the
- * array on its own.
+ * `p->imp` does not go through wasm_extern_vec_delete. Every element is ours, but the
+ * two halves free differently: a host func from exec_host_for carries a §7.1.8 env
+ * finalizer that only wasm_func_delete runs, while a jre extern from §7.1.7
+ * instance_export is released with wasm_extern_delete.
  *
- * That asymmetry is why this function was easier to promise than to write: the
- * comment above plugin_link claimed a plugin_free for a long time while valgrind
- * reported five definite losses here — the module bytes, both type vectors and
- * both extern vectors, 52 KB for a hello-world. */
+ * This function was easier to promise than to write: the comment above plugin_link
+ * claimed a plugin_free for a long time while valgrind reported five definite losses
+ * here — the module bytes, both type vectors and both extern vectors, 52 KB for a
+ * hello-world. */
 static void plugin_free(plugin_t* p) {
     for (size_t i = 0; i < p->impt.size && i < p->imp.size; i++) {
         const wasm_name_t* im = wasm_importtype_module(p->impt.data[i]);
-        int borrowed = im->size == 3 && !memcmp(im->data, "jre", 3);
-        if (!borrowed && p->imp.data[i]) wasm_extern_delete(p->imp.data[i]);
+        if (!p->imp.data[i]) continue;
+        if (im->size == 3 && !memcmp(im->data, "jre", 3)) wasm_extern_delete(p->imp.data[i]);
+        else                                              wasm_func_delete(wasm_extern_as_func(p->imp.data[i]));
     }
     free(p->imp.data); p->imp.data = NULL; p->imp.size = 0;
     wasm_importtype_vec_delete(&p->impt);
@@ -386,11 +381,11 @@ int main(int argc, char** argv) {
 
     /* Real environment: fds 0/1/2 = stdin/stdout/stderr; guest paths resolve under root; a real
      * clock and a clock-seeded PRNG; System.exit terminates the process with the guest's code. */
-    g_io_root = root;
-    g_io_fds[0] = stdin; g_io_fds[1] = stdout; g_io_fds[2] = stderr;
-    g_io_exit   = runner_exit;
-    g_io_clock  = runner_clock;
-    g_io_props  = runner_props;
+    host.root = root;
+    host.fds[0] = stdin; host.fds[1] = stdout; host.fds[2] = stderr;
+    host.exit_fn = runner_exit;
+    host.clock   = runner_clock;
+    host.props   = runner_props;
 
     int rc = 1;
     if (!jre_init(jbytes, jlen, want_tier, want_verify)) goto out;
@@ -431,7 +426,7 @@ int main(int argc, char** argv) {
         goto out;
     }
     const int ARGV_OFF = 4096;                       /* argv staging base (above the I/O bounce region) */
-    byte_t* mem = io_membytes();
+    byte_t* mem = io_membytes(&host);
     int w = ARGV_OFF;
     if (mem) for (int k = 0; k < prog_argc; k++) { const char* s = prog_argv[k];
                  while (*s) mem[w++] = (byte_t)*s++; mem[w++] = 0; }

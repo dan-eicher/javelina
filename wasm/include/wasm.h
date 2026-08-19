@@ -161,12 +161,16 @@ enum wasm_mutability_enum {
   WASM_VAR,
 };
 
+// 3.0 §2.3.12 limits ::= [ u64 .. u64? ] — the size range of the resizeable storage in a memory
+// type or a table type. The maximum is OPTIONAL, and `unbounded` is which: when it is set, `max`
+// carries no meaning and the storage "can grow to any valid size". No value of `max` can stand in
+// for absence, because §3.2.16 bounds a table at 2^|addrtype| − 1, so every u64 is a legal
+// maximum for a 64-bit addrtype.
 typedef struct wasm_limits_t {
-  uint32_t min;
-  uint32_t max;
+  uint64_t min;
+  uint64_t max;
+  bool     unbounded;
 } wasm_limits_t;
-
-static const uint32_t wasm_limits_max_default = 0xffffffff;
 
 
 // Generic
@@ -255,10 +259,14 @@ WASM_API_EXTERN wasm_mutability_t wasm_globaltype_mutability(const wasm_globalty
 
 WASM_DECLARE_TYPE(tabletype)
 
+// 3.0 §2.3.16 tabletype ::= addrtype limits reftype. The addrtype is WASM_I32 or WASM_I64
+// (§2.3.11: address types are a subset of number types) and decides the width of every index the
+// table accepts, so it is part of the type rather than a property of the instance.
 WASM_API_EXTERN own wasm_tabletype_t* wasm_tabletype_new(
-  own wasm_valtype_t*, const wasm_limits_t*);
+  own wasm_valtype_t*, wasm_valkind_t addrtype, const wasm_limits_t*);
 
 WASM_API_EXTERN const wasm_valtype_t* wasm_tabletype_element(const wasm_tabletype_t*);
+WASM_API_EXTERN wasm_valkind_t wasm_tabletype_addrtype(const wasm_tabletype_t*);
 WASM_API_EXTERN const wasm_limits_t* wasm_tabletype_limits(const wasm_tabletype_t*);
 
 
@@ -266,8 +274,14 @@ WASM_API_EXTERN const wasm_limits_t* wasm_tabletype_limits(const wasm_tabletype_
 
 WASM_DECLARE_TYPE(memorytype)
 
-WASM_API_EXTERN own wasm_memorytype_t* wasm_memorytype_new(const wasm_limits_t*);
+// 3.0 §2.3.15 memtype ::= addrtype limits page. The addrtype is WASM_I32 or WASM_I64 and decides
+// the width of every address the memory accepts; the limits are in units of page size. The page
+// size is not a parameter: this engine implements only the 64 Ki default, and a module declaring
+// any other page size is rejected at decode rather than silently given the default.
+WASM_API_EXTERN own wasm_memorytype_t* wasm_memorytype_new(
+  wasm_valkind_t addrtype, const wasm_limits_t*);
 
+WASM_API_EXTERN wasm_valkind_t wasm_memorytype_addrtype(const wasm_memorytype_t*);
 WASM_API_EXTERN const wasm_limits_t* wasm_memorytype_limits(const wasm_memorytype_t*);
 
 
@@ -411,6 +425,10 @@ WASM_API_EXTERN own wasm_valtype_t* wasm_ref_type(const wasm_store_t*, const was
 // the closed-type context). The bare wasm-c-api omits these; §7.1 mandates them.
 WASM_API_EXTERN bool wasm_match_valtype(const wasm_store_t*, const wasm_valtype_t* t1, const wasm_valtype_t* t2);
 WASM_API_EXTERN bool wasm_match_externtype(const wasm_store_t*, const wasm_externtype_t* et1, const wasm_externtype_t* et2);
+// 3.0 §7.1.14 val_default: the default value of a value type — "If default_valtype is not defined,
+// then return error." False for a non-nullable reference type, which has no default; `out` is
+// untouched in that case.
+WASM_API_EXTERN bool wasm_val_default(const wasm_valtype_t*, own wasm_val_t* out);
 
 
 // Frames
@@ -453,6 +471,16 @@ WASM_API_EXTERN own wasm_foreign_t* wasm_foreign_new(wasm_store_t*);
 
 
 // Modules
+//
+// Two §7.1.6 operations are not exposed. §7.1's Note permits this — "an embedder does not need to
+// provide the host environment with access to all functionality defined in this interface. For
+// example, an implementation may not support parsing of the text format."
+//
+//   module_parse(char*)  — the text format is not read here. Convert .wat to bytes with `water`
+//                          (or wat2wasm) and hand those to wasm_module_new.
+//   module_decode and module_validate as SEPARABLE operations — wasm_module_new is the two fused,
+//                          so it yields one decode and one validate. Calling
+//                          wasm_module_validate on the same bytes beforehand repeats both.
 
 WASM_DECLARE_SHARABLE_REF(module)
 
@@ -501,21 +529,27 @@ WASM_API_EXTERN own wasm_global_t* wasm_global_new(
 WASM_API_EXTERN own wasm_globaltype_t* wasm_global_type(const wasm_global_t*);
 
 WASM_API_EXTERN void wasm_global_get(const wasm_global_t*, own wasm_val_t* out);
-WASM_API_EXTERN void wasm_global_set(wasm_global_t*, const wasm_val_t*);
+// 3.0 §7.1.13 global_write : store | error. False if the global is immutable — step 3, "If mut is
+// empty, then return error" — or if the value's type does not match the global's.
+WASM_API_EXTERN bool wasm_global_set(wasm_global_t*, const wasm_val_t*);
 
 
 // Table Instances
 
 WASM_DECLARE_REF(table)
 
-typedef uint32_t wasm_table_size_t;
+// 3.0 §7.1.9: every table index, size and delta is u64 — the width a table64 table needs.
+typedef uint64_t wasm_table_size_t;
 
 WASM_API_EXTERN own wasm_table_t* wasm_table_new(
   wasm_store_t*, const wasm_tabletype_t*, wasm_ref_t* init);
 
 WASM_API_EXTERN own wasm_tabletype_t* wasm_table_type(const wasm_table_t*);
 
-WASM_API_EXTERN own wasm_ref_t* wasm_table_get(const wasm_table_t*, wasm_table_size_t index);
+// 3.0 §7.1.9 table_read : ref | error. The reference cannot carry the error, because a table
+// legitimately holds null references: `out` receives the reference (itself NULL for the null
+// reference), and the return is false only when `index` is out of range.
+WASM_API_EXTERN bool wasm_table_read(const wasm_table_t*, wasm_table_size_t index, own wasm_ref_t** out);
 WASM_API_EXTERN bool wasm_table_set(wasm_table_t*, wasm_table_size_t index, wasm_ref_t*);
 
 WASM_API_EXTERN wasm_table_size_t wasm_table_size(const wasm_table_t*);
@@ -526,7 +560,8 @@ WASM_API_EXTERN bool wasm_table_grow(wasm_table_t*, wasm_table_size_t delta, was
 
 WASM_DECLARE_REF(memory)
 
-typedef uint32_t wasm_memory_pages_t;
+// 3.0 §7.1.10: every memory index, size and delta is u64 — a memory64 memory spans 2^48 pages.
+typedef uint64_t wasm_memory_pages_t;
 
 static const size_t MEMORY_PAGE_SIZE = 0x10000;
 
@@ -536,6 +571,12 @@ WASM_API_EXTERN own wasm_memorytype_t* wasm_memory_type(const wasm_memory_t*);
 
 WASM_API_EXTERN byte_t* wasm_memory_data(wasm_memory_t*);
 WASM_API_EXTERN size_t wasm_memory_data_size(const wasm_memory_t*);
+
+// 3.0 §7.1.10 mem_read / mem_write: single-byte access, bounds-checked — false when "i is larger
+// than or equal to the length of mi.bytes". wasm_memory_data above is the unchecked bulk form,
+// where the span check is the caller's.
+WASM_API_EXTERN bool wasm_memory_read(const wasm_memory_t*, uint64_t index, byte_t* out);
+WASM_API_EXTERN bool wasm_memory_write(wasm_memory_t*, uint64_t index, byte_t);
 
 WASM_API_EXTERN wasm_memory_pages_t wasm_memory_size(const wasm_memory_t*);
 WASM_API_EXTERN bool wasm_memory_grow(wasm_memory_t*, wasm_memory_pages_t delta);
@@ -601,6 +642,13 @@ WASM_API_EXTERN own wasm_instance_t* wasm_instance_new(
 );
 
 WASM_API_EXTERN void wasm_instance_exports(const wasm_instance_t*, own wasm_extern_vec_t* out);
+// 3.0 §7.1.7 instance_export: the external address an instance exports under `name`, or NULL if
+// no export carries it. A valid module instance's export names are all distinct (§7.1.7 step 1),
+// so the answer is unique. `own`: the result is a handle onto the externaddr, minted per call and
+// released with wasm_extern_delete. Two handles for one export are distinct pointers denoting one
+// address, and wasm_extern_same reports them the same. The bare wasm-c-api omits this operation;
+// §7.1 mandates it.
+WASM_API_EXTERN own wasm_extern_t* wasm_instance_export(const wasm_instance_t*, const wasm_name_t*);
 
 
 ///////////////////////////////////////////////////////////////////////////////

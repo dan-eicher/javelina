@@ -24,4 +24,15 @@
  * validator — nothing in §7.6 bounds the count — so it is checked when the frame is carved. */
 #define MAX_LOCALS 1024
 
+/* Maximum pages of a single linear memory: 2^20 pages = 64 GiB, backed by one allocation.
+ *
+ * §3.2.15 bounds a memory type at 2^(|addrtype|-16) pages, which for a 64-bit addrtype is 2^48
+ * — 2^64 bytes, an amount no host can back and a byte count that does not fit a u64 at all.
+ * Enforced at ALLOCATION rather than validation, so a module carrying such a type still decodes
+ * and validates exactly as §3.2.15 says it must: instantiation reports JAV_E_ALLOCATION_FAILED,
+ * and memory.grow answers -1 as §4.5.3.8 already permits.
+ *
+ * Every memory32 is admitted unchanged — its own ceiling is 65536 pages. */
+#define JAV_MAX_MEMORY_PAGES (UINT64_C(1) << 20)
+
 #endif /* JAV_LIMITS_H */

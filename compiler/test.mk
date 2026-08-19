@@ -69,7 +69,7 @@ VM_CAPI_OBJS := $(OBJ)/vm/wasm_capi.o $(OBJ)/vm/jav_load.o $(OBJ)/vm/jav_view_na
 # silently linked into a compiler test is a bug that costs an afternoon.
 .PHONY: vm-objs
 vm-objs:
-	@$(MAKE) --no-print-directory -C $(VM) $(patsubst $(VM)/%,%,$(VM_ENGINE_OBJS))
+	@$(MAKE) --no-print-directory -C $(VM) SAN=$(SAN) $(patsubst $(VM)/%,%,$(VM_ENGINE_OBJS))
 
 # ── per-test link sets ──────────────────────────────────────────────────────
 COMPILER_TESTS := test_parse test_jint test_jbound test_lattice test_sema test_sir test_gamma \

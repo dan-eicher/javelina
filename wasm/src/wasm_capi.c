@@ -86,8 +86,8 @@ struct wasm_valtype_t { wasm_valkind_t kind; };
 
 struct wasm_functype_t   { wasm_externkind_t ek; wasm_valtype_vec_t params, results; };
 struct wasm_globaltype_t { wasm_externkind_t ek; wasm_valtype_t* content; wasm_mutability_t mut; };
-struct wasm_tabletype_t  { wasm_externkind_t ek; wasm_valtype_t* element; wasm_limits_t limits; };
-struct wasm_memorytype_t { wasm_externkind_t ek; wasm_limits_t limits; };
+struct wasm_tabletype_t  { wasm_externkind_t ek; wasm_valtype_t* element; wasm_valkind_t at; wasm_limits_t limits; };
+struct wasm_memorytype_t { wasm_externkind_t ek; wasm_valkind_t at; wasm_limits_t limits; };
 struct wasm_tagtype_t    { wasm_externkind_t ek; wasm_functype_t* type; };
 struct wasm_externtype_t { wasm_externkind_t ek; };
 
@@ -134,23 +134,27 @@ void wasm_globaltype_delete(wasm_globaltype_t* t) { wasm_valtype_delete(t->conte
 DEFINE_VEC_PTR(globaltype)
 
 // — tabletype —
-wasm_tabletype_t* wasm_tabletype_new(wasm_valtype_t* element, const wasm_limits_t* limits) {
-    wasm_tabletype_t* t = malloc(sizeof *t); t->ek = WASM_EXTERN_TABLE; t->element = element; t->limits = *limits; return t;
+wasm_tabletype_t* wasm_tabletype_new(wasm_valtype_t* element, wasm_valkind_t addrtype, const wasm_limits_t* limits) {
+    wasm_tabletype_t* t = malloc(sizeof *t);
+    t->ek = WASM_EXTERN_TABLE; t->element = element; t->at = addrtype; t->limits = *limits; return t;
 }
 const wasm_valtype_t* wasm_tabletype_element(const wasm_tabletype_t* t) { return t->element; }
+wasm_valkind_t wasm_tabletype_addrtype(const wasm_tabletype_t* t) { return t->at; }
 const wasm_limits_t* wasm_tabletype_limits(const wasm_tabletype_t* t) { return &t->limits; }
 wasm_tabletype_t* wasm_tabletype_copy(const wasm_tabletype_t* t) {
-    return wasm_tabletype_new(wasm_valtype_copy(t->element), &t->limits);
+    return wasm_tabletype_new(wasm_valtype_copy(t->element), t->at, &t->limits);
 }
 void wasm_tabletype_delete(wasm_tabletype_t* t) { wasm_valtype_delete(t->element); free(t); }
 DEFINE_VEC_PTR(tabletype)
 
 // — memorytype —
-wasm_memorytype_t* wasm_memorytype_new(const wasm_limits_t* limits) {
-    wasm_memorytype_t* t = malloc(sizeof *t); t->ek = WASM_EXTERN_MEMORY; t->limits = *limits; return t;
+wasm_memorytype_t* wasm_memorytype_new(wasm_valkind_t addrtype, const wasm_limits_t* limits) {
+    wasm_memorytype_t* t = malloc(sizeof *t);
+    t->ek = WASM_EXTERN_MEMORY; t->at = addrtype; t->limits = *limits; return t;
 }
+wasm_valkind_t wasm_memorytype_addrtype(const wasm_memorytype_t* t) { return t->at; }
 const wasm_limits_t* wasm_memorytype_limits(const wasm_memorytype_t* t) { return &t->limits; }
-wasm_memorytype_t* wasm_memorytype_copy(const wasm_memorytype_t* t) { return wasm_memorytype_new(&t->limits); }
+wasm_memorytype_t* wasm_memorytype_copy(const wasm_memorytype_t* t) { return wasm_memorytype_new(t->at, &t->limits); }
 void wasm_memorytype_delete(wasm_memorytype_t* t) { free(t); }
 DEFINE_VEC_PTR(memorytype)
 
@@ -559,6 +563,30 @@ static void exn_unroot(wasm_store_t* s, wasm_exception_t* e) {
  * left the differential comparing tier 2 against tier 2 — green, and proving nothing. */
 #define JAV_DEFAULT_TIER 2
 
+// §7.1.14 val_default(valtype) : val — "If default_valtype is not defined, then return error."
+// §4.2.1: "it is the respective value 0 for number types, 0 for vector types, and null for
+// nullable reference types. For other references, no default value is defined" — so a
+// non-nullable reference type is the error case, and it is the one a caller must not be able to
+// mistake for a null. At wasm.h granularity a valkind is nullable iff it is one of the reference
+// kinds (the non-nullable forms are not expressible as a bare valkind), so what reaches the error
+// arm here is a valtype that is not a value type at all.
+bool wasm_val_default(const wasm_valtype_t* vt, wasm_val_t* out) {
+    if (!vt || !out) return false;
+    memset(out, 0, sizeof *out);
+    switch (wasm_valtype_kind(vt)) {
+    case WASM_I32: out->kind = WASM_I32; out->of.i32 = 0;   return true;   // §4.2.1 default_iN
+    case WASM_I64: out->kind = WASM_I64; out->of.i64 = 0;   return true;
+    case WASM_F32: out->kind = WASM_F32; out->of.f32 = 0.f; return true;   // §4.2.1 default_fN = +0
+    case WASM_F64: out->kind = WASM_F64; out->of.f64 = 0.0; return true;
+    case WASM_V128: out->kind = WASM_V128; memset(&out->of.v128, 0, sizeof out->of.v128); return true;  // default_vN
+    default:
+        if (wasm_valkind_is_ref(wasm_valtype_kind(vt))) {                  // §4.2.1 default_ref-null-ht
+            out->kind = wasm_valtype_kind(vt); out->of.ref = NULL; return true;
+        }
+        return false;
+    }
+}
+
 wasm_config_t* wasm_config_new(void) {
     wasm_config_t* c = calloc(1, sizeof(wasm_config_t));
     if (c) c->jit = JAV_DEFAULT_TIER;
@@ -672,7 +700,7 @@ struct wasm_module_t {
     HOST_INFO_FIELDS
 };
 
-// §7.1.4 module_decode then §7.1.5 module_validate over `bytes`, recording the §5/§4.5 verdict on
+// §7.1.6 module_decode then §7.1.6 module_validate over `bytes`, recording the §5/§4.5 verdict on
 // the store for the sanctioned readout (decode failure → MALFORMED, type-check failure → INVALID
 // with the precise jav_err_t reason, success → OK). On JAV_OK the freshly built {arena, mod, root}
 // belong to the caller (handed back via *root); on failure the caller frees the arena. ONE path so
@@ -747,15 +775,14 @@ static wasm_externtype_t* externtype_of(const jav_modidx_t* m, uint8_t kind, uin
     switch (kind) {
     case 0:                                            // func
         return wasm_functype_as_externtype(functype_new_from(&m->func_sigs[idx]));
-    case 1: {                                          // table
-        wasm_limits_t lim = { (uint32_t)m->table_min[idx],
-                              m->table_has_max[idx] ? (uint32_t)m->table_max[idx] : wasm_limits_max_default };
-        return wasm_tabletype_as_externtype(wasm_tabletype_new(wasm_valtype_new(valkind_of_wvt(m->table_reftype[idx], m->table_tidx ? (int32_t)m->table_tidx[idx] : 0)), &lim));
+    case 1: {                                          // table (§2.3.16 addrtype limits reftype)
+        wasm_limits_t lim = { m->table_min[idx], m->table_max[idx], !m->table_has_max[idx] };
+        return wasm_tabletype_as_externtype(wasm_tabletype_new(wasm_valtype_new(valkind_of_wvt(m->table_reftype[idx], m->table_tidx ? (int32_t)m->table_tidx[idx] : 0)),
+                                                               m->table_is64[idx] ? WASM_I64 : WASM_I32, &lim));
     }
-    case 2: {                                          // memory
-        wasm_limits_t lim = { (uint32_t)m->mem_min[idx],
-                              m->mem_has_max[idx] ? (uint32_t)m->mem_max[idx] : wasm_limits_max_default };
-        return wasm_memorytype_as_externtype(wasm_memorytype_new(&lim));
+    case 2: {                                          // memory (§2.3.15 addrtype limits page)
+        wasm_limits_t lim = { m->mem_min[idx], m->mem_max[idx], !m->mem_has_max[idx] };
+        return wasm_memorytype_as_externtype(wasm_memorytype_new(m->mem_is64[idx] ? WASM_I64 : WASM_I32, &lim));
     }
     case 3:                                            // global
         return wasm_globaltype_as_externtype(
@@ -1067,7 +1094,7 @@ static int marshal_import(const wasm_extern_t* e, jav_extern_t* out) {
         out->kind = 2;
         out->u.mem.memidx = cm->memaddr;
         out->u.mem.min = m->size / MEMORY_PAGE_SIZE;
-        out->u.mem.has_max = m->has_max; out->u.mem.max = m->max / MEMORY_PAGE_SIZE;
+        out->u.mem.has_max = m->has_max; out->u.mem.max = m->max;
         out->u.mem.is64 = m->is64;
         return 1;
     }
@@ -1150,6 +1177,27 @@ void wasm_instance_exports(const wasm_instance_t* in, wasm_extern_vec_t* out) {
         x->index = e->index;
         out->data[i] = x;
     }
+}
+
+// §7.1.7 instance_export(moduleinst, name) : externaddr | error. The instance already carries the
+// export map (jav_inst_export_t: name → kind+index), so this is a direct lookup — the zip over
+// wasm_module_exports/wasm_instance_exports that every embedder was writing existed only because
+// this operation was missing, and it depended on an export ordering the header never guaranteed.
+// §7.1.7 step 1 (export names are distinct in a valid module instance) is what makes first-match
+// total rather than a policy choice.
+wasm_extern_t* wasm_instance_export(const wasm_instance_t* in, const wasm_name_t* name) {
+    if (!in || !name) return NULL;
+    for (size_t i = 0, n = (size_t)bbq_vec_len(in->inst.exports); i < n; i++) {
+        const jav_inst_export_t* e = &in->inst.exports[i];
+        if ((size_t)e->name_len != name->size) continue;
+        if (name->size && memcmp(e->name, name->data, name->size) != 0) continue;
+        wasm_extern_t* x = calloc(1, sizeof *x);
+        x->kind  = externkind_of_jav_export(e->kind);
+        x->inst  = (wasm_instance_t*)in;
+        x->index = e->index;
+        return x;
+    }
+    return NULL;                                   // no export of that name → §7.1.3 error
 }
 
 void wasm_instance_delete(wasm_instance_t* in) {
@@ -1522,17 +1570,44 @@ const wasm_exception_t* wasm_ref_as_exception_const(const wasm_ref_t* r) { retur
 // The ref ops minus delete (some types supply their own delete, e.g. instance frees the
 // owned jav_instance_t; the view handles free only their wrapper). A copy is a fresh
 // handle with NO host-info (host-info is per-object, never shared, to avoid double-finalize).
-#define REF_OPS_NO_DELETE(name) \
+/* What `same` compares. §7.1.7 returns "the external address exportinst_i.addr" — the ADDRESS is
+ * the identity, and two handles obtained for one export denote one address. A handle is a wrapper
+ * minted per lookup (wasm_instance_exports and wasm_instance_export both allocate, and _copy
+ * allocates by definition), so comparing wrappers answers "is this the same pointer", which is not
+ * the question. It also made same(o, copy(o)) false. Compare what the wrapper DENOTES: an
+ * instance-export view is (instance, index, kind); a host-created object is its closure. */
+static bool view_same(const void* pa, const void* pb) {
+    const struct wasm_extern_t* a = (const struct wasm_extern_t*)pa;
+    const struct wasm_extern_t* b = (const struct wasm_extern_t*)pb;
+    if (a == b)   return true;
+    if (!a || !b) return false;
+    if (a->host || b->host) return a->host == b->host;
+    if (a->inst || b->inst) return a->inst == b->inst && a->index == b->index && a->kind == b->kind;
+    return false;                       /* neither a view nor host-created: distinct wrappers only */
+}
+
+/* An owned object IS its handle — one allocation, one identity — so pointer equality is the right
+ * comparison for module, instance, trap and foreign. Only the view handles need view_same. */
+static bool ptr_same(const void* a, const void* b) { return a == b; }
+
+#define REF_OPS_NO_DELETE_SAME(name, samefn) \
   wasm_##name##_t* wasm_##name##_copy(const wasm_##name##_t* o) { \
     wasm_##name##_t* c = malloc(sizeof *c); *c = *o; c->host_info = NULL; c->host_fin = NULL; return c; } \
-  bool wasm_##name##_same(const wasm_##name##_t* a, const wasm_##name##_t* b) { return a == b; } \
+  bool wasm_##name##_same(const wasm_##name##_t* a, const wasm_##name##_t* b) { return samefn(a, b); } \
   void* wasm_##name##_get_host_info(const wasm_##name##_t* o) { return o->host_info; } \
   void wasm_##name##_set_host_info(wasm_##name##_t* o, void* i) { o->host_info = i; o->host_fin = NULL; } \
   void wasm_##name##_set_host_info_with_finalizer(wasm_##name##_t* o, void* i, void (*f)(void*)) { o->host_info = i; o->host_fin = f; }
 
+#define REF_OPS_NO_DELETE(name)    REF_OPS_NO_DELETE_SAME(name, view_same)   /* instance-export views */
+#define REF_OPS_NO_DELETE_ID(name) REF_OPS_NO_DELETE_SAME(name, ptr_same)    /* owned objects */
+
 #define REF_BASE_OPS(name) \
   void wasm_##name##_delete(wasm_##name##_t* o) { RUN_HOST_FIN(o); free(o); } \
   REF_OPS_NO_DELETE(name)
+
+#define REF_BASE_OPS_ID(name) \
+  void wasm_##name##_delete(wasm_##name##_t* o) { RUN_HOST_FIN(o); free(o); } \
+  REF_OPS_NO_DELETE_ID(name)
 
 // func: a host-created handle owns its wasm_func_new closure; free it on delete.
 void wasm_func_delete(wasm_func_t* f) { RUN_HOST_FIN(f); if (f && f->host && f->owns_host) hostfn_delete(f->host); free(f); }
@@ -1540,9 +1615,9 @@ REF_OPS_NO_DELETE(func)
 REF_BASE_OPS(global)
 REF_BASE_OPS(table)
 REF_BASE_OPS(memory)
-REF_OPS_NO_DELETE(instance)
-REF_OPS_NO_DELETE(extern)   // extern has its own (wrapper-only) delete, above
-REF_OPS_NO_DELETE(trap)     // trap has its own (message-freeing) delete, above
+REF_OPS_NO_DELETE_ID(instance)
+REF_OPS_NO_DELETE(extern)      // extern has its own (wrapper-only) delete, above
+REF_OPS_NO_DELETE_ID(trap)     // trap has its own (message-freeing) delete, above
 
 ///////////////////////////////////////////////////////////////////////////////
 // Frames — captured at trap time: jav_call records the func-index unwind chain into vm->trap_trace
@@ -1753,14 +1828,19 @@ void wasm_global_get(const wasm_global_t* g, wasm_val_t* out) {
     val_of_slot(out, *g->inst->inst.globals[g->index], valkind_of_wvt(m->global_types[g->index], m->global_tidx ? (int32_t)m->global_tidx[g->index] : 0),
                 (wasm_instance_t*)g->inst, g->inst->inst.global_types[g->index], g->inst->store);
 }
-void wasm_global_set(wasm_global_t* g, const wasm_val_t* v) {
+// §7.1.13 global_write : store | error. Step 3 is "If mut is empty, then return error", so a
+// write to an immutable global is a REFUSAL the caller is told about — the classic wasm-c-api
+// returns void here and drops it silently.
+bool wasm_global_set(wasm_global_t* g, const wasm_val_t* v) {
     if (g->host) { capi_global_t* cg = g->host;
-        if (cg->mut) cg->val = slot_of_val(v, &cg->tag, &cg->store->vm);
-        return; }
-    if (!g->inst || !g->inst->module->mod.global_mut[g->index]) return;  // immutable → §7.1.13 error
+        if (!cg->mut) return false;                                      // immutable → §7.1.13 error
+        cg->val = slot_of_val(v, &cg->tag, &cg->store->vm);
+        return true; }
+    if (!g->inst || !g->inst->module->mod.global_mut[g->index]) return false;  // immutable → §7.1.13 error
     uint8_t tag;
     *g->inst->inst.globals[g->index] = slot_of_val(v, &tag, &g->inst->store->vm);
     g->inst->inst.global_types[g->index] = tag;   // keep the runtime tag in sync (GC root scan)
+    return true;
 }
 
 // Slot-sized tables: a T_GCREF entry holds a gc box pointer (externref), a T_REF entry a
@@ -1783,33 +1863,42 @@ wasm_table_t* wasm_table_new(wasm_store_t* s, const wasm_tabletype_t* tt, wasm_r
     const wasm_limits_t* lim = wasm_tabletype_limits(tt);
     wasm_valkind_t ek = wasm_valtype_kind(wasm_tabletype_element(tt));
     ct->tab.reftype = (uint8_t)wvt_of_valkind(ek); ct->tab.reftype_ht = ht_of_valkind(ek);
-    ct->tab.has_max = (lim->max != wasm_limits_max_default); ct->tab.max = ct->tab.has_max ? lim->max : 0;
+    ct->tab.is64 = wasm_tabletype_addrtype(tt) == WASM_I64;
+    ct->tab.has_max = !lim->unbounded; ct->tab.max = ct->tab.has_max ? lim->max : 0;
     bbq_vec_push(s->host_tables, ct);                 // register BEFORE filling (boxes become roots)
     s8 v; u1 ty; ref_to_entry(s, init, &v, &ty);      // one init box, reused across the min slots
-    for (uint32_t i = 0; i < lim->min; i++) { bbq_vec_push(ct->tab.refs, v); bbq_vec_push(ct->tab.types, ty); }
+    for (uint64_t i = 0; i < lim->min; i++) { bbq_vec_push(ct->tab.refs, v); bbq_vec_push(ct->tab.types, ty); }
     wasm_table_t* h = calloc(1, sizeof *h); h->kind = WASM_EXTERN_TABLE; h->host = ct;
     return h;
 }
 wasm_tabletype_t* wasm_table_type(const wasm_table_t* t) {
     jav_tableinst_t* ti = table_of(t);
     if (t->host) {
-        wasm_limits_t lim = { (uint32_t)bbq_vec_len(ti->refs),
-                              ti->has_max ? ti->max : wasm_limits_max_default };
-        return wasm_tabletype_new(wasm_valtype_new(valkind_of_wvt(ti->reftype, ti->reftype_ht)), &lim);
+        wasm_limits_t lim = { (uint64_t)bbq_vec_len(ti->refs), ti->max, !ti->has_max };
+        return wasm_tabletype_new(wasm_valtype_new(valkind_of_wvt(ti->reftype, ti->reftype_ht)),
+                                  ti->is64 ? WASM_I64 : WASM_I32, &lim);
     }
     if (!t->inst) return NULL;
     const jav_modidx_t* m = &t->inst->module->mod;
-    wasm_limits_t lim = { (uint32_t)m->table_min[t->index],
-                          m->table_has_max[t->index] ? (uint32_t)m->table_max[t->index] : wasm_limits_max_default };
-    return wasm_tabletype_new(wasm_valtype_new(valkind_of_wvt(m->table_reftype[t->index], m->table_tidx ? (int32_t)m->table_tidx[t->index] : 0)), &lim);
+    wasm_limits_t lim = { m->table_min[t->index], m->table_max[t->index], !m->table_has_max[t->index] };
+    return wasm_tabletype_new(wasm_valtype_new(valkind_of_wvt(m->table_reftype[t->index], m->table_tidx ? (int32_t)m->table_tidx[t->index] : 0)),
+                              m->table_is64[t->index] ? WASM_I64 : WASM_I32, &lim);
 }
-wasm_ref_t* wasm_table_get(const wasm_table_t* t, wasm_table_size_t i) {
+// §7.1.9 table_read : ref | error. The two outcomes are distinct and a table legitimately holds
+// null references, so the reference cannot carry the error: `out` takes the reference (possibly
+// NULL, the null reference) and the return says whether the index was in range.
+bool wasm_table_read(const wasm_table_t* t, wasm_table_size_t i, wasm_ref_t** out) {
+    if (out) *out = NULL;
     jav_tableinst_t* ti = table_of(t);
     s8 raw; u1 tag;
-    if (!ti || !jav_tableinst_read(ti, (u8)i, &raw, &tag)) return NULL;   // §7.1.9 table_read; OOB → null
-    if (tag == T_GCREF) return externref_make(jav_host_box_get((gc_obj_t*)(uintptr_t)raw));
-    // §4.2.1 a T_REF entry is a funcinst pointer (JAV_NULLREF = null)
-    return funcref_make(table_store_of(t), JAV_REF_ISNULL(raw) ? NULL : (const jav_func_t*)(uintptr_t)raw);
+    if (!ti || !jav_tableinst_read(ti, (u8)i, &raw, &tag)) return false;  // out of range → error
+    if (out) {
+        *out = (tag == T_GCREF)
+             ? externref_make(jav_host_box_get((gc_obj_t*)(uintptr_t)raw))
+             // §4.2.1 a T_REF entry is a funcinst pointer (JAV_NULLREF = null)
+             : funcref_make(table_store_of(t), JAV_REF_ISNULL(raw) ? NULL : (const jav_func_t*)(uintptr_t)raw);
+    }
+    return true;
 }
 bool wasm_table_set(wasm_table_t* t, wasm_table_size_t i, wasm_ref_t* r) {
     jav_tableinst_t* ti = table_of(t);
@@ -1844,27 +1933,46 @@ static jav_mem_t* mem_of(const wasm_memory_t* mo) {
 }
 wasm_memory_t* wasm_memory_new(wasm_store_t* s, const wasm_memorytype_t* mt) {
     const wasm_limits_t* lim = wasm_memorytype_limits(mt);
-    int has_max = (lim->max != wasm_limits_max_default);
-    uint32_t maxp = has_max ? lim->max : 0;
+    int has_max = !lim->unbounded;
+    int is64 = wasm_memorytype_addrtype(mt) == WASM_I64;
+    // §3.2.15 admits up to 2^48 pages for a 64-bit addrtype, which no host can back. jav_mem_add
+    // answers -1 rather than narrowing the count, so a memory this store cannot create is an
+    // error the caller sees instead of a small memory reported as the one it asked for.
+    int addr = jav_mem_add(&s->heap, lim->min, has_max ? lim->max : 0, has_max, is64);
+    if (addr < 0) { s->last_status = JAV_UNINSTANTIABLE; s->last_err = JAV_E_ALLOCATION_FAILED; return NULL; }
     capi_memory_t* cm = calloc(1, sizeof *cm);
-    cm->store = s; cm->memaddr = (uint32_t)jav_mem_add(&s->heap, lim->min, maxp, has_max, 0);
+    cm->store = s; cm->memaddr = (uint32_t)addr;
     bbq_vec_push(s->host_mems, cm);                   // store-owned: freed at store_delete
     wasm_memory_t* h = calloc(1, sizeof *h); h->kind = WASM_EXTERN_MEMORY; h->host = cm;
     return h;
 }
 wasm_memorytype_t* wasm_memory_type(const wasm_memory_t* mo) {
     if (mo->host) { jav_mem_t* m = mem_of(mo);
-        wasm_limits_t lim = { (uint32_t)(m->size / MEMORY_PAGE_SIZE),
-                              m->has_max ? (uint32_t)(m->max / MEMORY_PAGE_SIZE) : wasm_limits_max_default };
-        return wasm_memorytype_new(&lim); }
+        wasm_limits_t lim = { m->size / MEMORY_PAGE_SIZE, m->max, !m->has_max };
+        return wasm_memorytype_new(m->is64 ? WASM_I64 : WASM_I32, &lim); }
     if (!mo->inst) return NULL;
     const jav_modidx_t* m = &mo->inst->module->mod;
-    wasm_limits_t lim = { (uint32_t)m->mem_min[mo->index],
-                          m->mem_has_max[mo->index] ? (uint32_t)m->mem_max[mo->index] : wasm_limits_max_default };
-    return wasm_memorytype_new(&lim);
+    wasm_limits_t lim = { m->mem_min[mo->index], m->mem_max[mo->index], !m->mem_has_max[mo->index] };
+    return wasm_memorytype_new(m->mem_is64[mo->index] ? WASM_I64 : WASM_I32, &lim);
 }
 byte_t* wasm_memory_data(wasm_memory_t* mo) { jav_mem_t* m = mem_of(mo); return m ? (byte_t*)m->data : NULL; }
 size_t wasm_memory_data_size(const wasm_memory_t* mo) { jav_mem_t* m = mem_of(mo); return m ? (size_t)m->size : 0; }
+// §7.1.10 mem_read / mem_write — the spec's bounds-checked accessors: "If i is larger than or
+// equal to the length of mi.bytes, then return error." wasm_memory_data hands out a raw pointer,
+// which is the hot-path form but leaves the span check to the embedder; these are the conformant
+// safe path, and they re-read the base each call so a memory.grow cannot leave a stale pointer.
+bool wasm_memory_read(const wasm_memory_t* mo, uint64_t i, byte_t* out) {
+    jav_mem_t* m = mem_of((wasm_memory_t*)mo);
+    if (!m || i >= (uint64_t)m->size) return false;
+    if (out) *out = ((const byte_t*)m->data)[i];
+    return true;
+}
+bool wasm_memory_write(wasm_memory_t* mo, uint64_t i, byte_t b) {
+    jav_mem_t* m = mem_of(mo);
+    if (!m || i >= (uint64_t)m->size) return false;
+    ((byte_t*)m->data)[i] = b;
+    return true;
+}
 wasm_memory_pages_t wasm_memory_size(const wasm_memory_t* mo) { jav_mem_t* m = mem_of(mo); return m ? (wasm_memory_pages_t)(m->size / MEMORY_PAGE_SIZE) : 0; }
 bool wasm_memory_grow(wasm_memory_t* mo, wasm_memory_pages_t delta) {
     jav_mem_t* m = mem_of(mo);                       // the host holds a memaddr → grow the meminst directly (§7.1)
@@ -1895,7 +2003,7 @@ struct wasm_foreign_t { wasm_store_t* store; HOST_INFO_FIELDS };
 wasm_foreign_t* wasm_foreign_new(wasm_store_t* s) {
     wasm_foreign_t* f = calloc(1, sizeof *f); f->store = s; return f;
 }
-REF_BASE_OPS(foreign)
+REF_BASE_OPS_ID(foreign)
 wasm_ref_t* wasm_foreign_as_ref(wasm_foreign_t* f) { return f ? externref_make(f) : NULL; }
 wasm_foreign_t* wasm_ref_as_foreign(wasm_ref_t* r) { return (r && r->is_extern) ? (wasm_foreign_t*)r->host : NULL; }
 const wasm_ref_t* wasm_foreign_as_ref_const(const wasm_foreign_t* f) { return wasm_foreign_as_ref((wasm_foreign_t*)f); }
@@ -1910,7 +2018,7 @@ void wasm_module_serialize(const wasm_module_t* m, wasm_byte_vec_t* out) {
 wasm_module_t* wasm_module_deserialize(wasm_store_t* s, const wasm_byte_vec_t* b) {
     return wasm_module_new(s, b);
 }
-REF_OPS_NO_DELETE(module)   // module has its own (arena-freeing) delete, above
+REF_OPS_NO_DELETE_ID(module)   // module has its own (arena-freeing) delete, above
 struct wasm_shared_module_t { uint8_t* bytes; size_t n; };
 void wasm_shared_module_delete(wasm_shared_module_t* m) { if (m) { free(m->bytes); free(m); } }
 wasm_shared_module_t* wasm_module_share(const wasm_module_t* m) {

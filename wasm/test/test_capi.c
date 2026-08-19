@@ -329,11 +329,11 @@ int main(void) {
         // table.get(0) yields the elem-installed funcref; slot 1 is null; set + read back.
         wasm_table_t* t = wasm_extern_as_table(ex.data[et]);
         CK(wasm_table_size(t) == 2);
-        wasm_ref_t* g0 = wasm_table_get(t, 0); CK(g0 != NULL);
-        CK(wasm_table_get(t, 1) == NULL);                          // null slot
+        wasm_ref_t* g0 = NULL; CK(wasm_table_read(t, 0, &g0) && g0 != NULL);
+        wasm_ref_t* gn = NULL; CK(wasm_table_read(t, 1, &gn) && gn == NULL);   // in range, null slot
         CK(wasm_table_set(t, 1, g0) == true);                      // copy the funcref into slot 1
-        wasm_ref_t* g1 = wasm_table_get(t, 1); CK(g1 != NULL && wasm_ref_same(g0, g1));
-        CK(wasm_table_get(t, 9) == NULL);                          // OOB
+        wasm_ref_t* g1 = NULL; CK(wasm_table_read(t, 1, &g1) && g1 != NULL && wasm_ref_same(g0, g1));
+        wasm_ref_t* goob = NULL; CK(!wasm_table_read(t, 9, &goob));            // OOB is an ERROR
         wasm_ref_delete(g0); wasm_ref_delete(g1);
 
         wasm_extern_vec_delete(&ex);
@@ -446,7 +446,7 @@ int main(void) {
             wasm_val_delete(&gr[0]);
 
             // the c-api reads the same wasm-set externref by identity.
-            wasm_ref_t* c0 = wasm_table_get(tab, 1);
+            wasm_ref_t* c0 = NULL; CK(wasm_table_read(tab, 1, &c0));
             CK(c0 && wasm_ref_same(c0, e1) && wasm_ref_as_foreign(c0) == f1);
             wasm_ref_delete(c0);
 
@@ -469,7 +469,7 @@ int main(void) {
             // c-api grow with an externref init, then read the new slot.
             CK(wasm_table_grow(tab, 2, e2) == true);
             CK(wasm_table_size(tab) == 5);
-            wasm_ref_t* g4 = wasm_table_get(tab, 4);
+            wasm_ref_t* g4 = NULL; CK(wasm_table_read(tab, 4, &g4));
             CK(g4 && wasm_ref_same(g4, e2));
             wasm_ref_delete(g4);
 
@@ -483,7 +483,7 @@ int main(void) {
                 wasm_func_call(set, &tav, &no_res);   // overwrite slot 1 with churn
                 wasm_ref_delete(te); wasm_foreign_delete(tmp);
             }
-            wasm_ref_t* survive = wasm_table_get(tab, 4);
+            wasm_ref_t* survive = NULL; CK(wasm_table_read(tab, 4, &survive));
             CK(survive && wasm_ref_same(survive, e2));   // slot 4's externref survived GC churn
             wasm_ref_delete(survive);
 
@@ -508,18 +508,19 @@ int main(void) {
         wasm_val_t gv1 = WASM_I32_VAL(99); wasm_global_set(hg, &gv1);
         wasm_global_get(hg, &gg); CK(gg.of.i32 == 99);
 
-        wasm_limits_t mlim = { 1, 4 };
-        wasm_memorytype_t* mt = wasm_memorytype_new(&mlim);
+        wasm_limits_t mlim = { 1, 4, false };
+        wasm_memorytype_t* mt = wasm_memorytype_new(WASM_I32, &mlim);
         wasm_memory_t* hm = wasm_memory_new(store, mt);
         wasm_memorytype_delete(mt);
         CK(wasm_memory_size(hm) == 1 && wasm_memory_data(hm) != NULL);
         CK(wasm_memory_grow(hm, 1) == true && wasm_memory_size(hm) == 2);
 
-        wasm_limits_t tlim = { 2, wasm_limits_max_default };
-        wasm_tabletype_t* tt2 = wasm_tabletype_new(wasm_valtype_new_funcref(), &tlim);
+        wasm_limits_t tlim = { 2, 0, true };
+        wasm_tabletype_t* tt2 = wasm_tabletype_new(wasm_valtype_new_funcref(), WASM_I32, &tlim);
         wasm_table_t* ht = wasm_table_new(store, tt2, NULL);
         wasm_tabletype_delete(tt2);
-        CK(wasm_table_size(ht) == 2 && wasm_table_get(ht, 0) == NULL);
+        { wasm_ref_t* h0 = NULL;
+          CK(wasm_table_size(ht) == 2 && wasm_table_read(ht, 0, &h0) && h0 == NULL); }
 
         // link the host global as an import; the module reads it back.
         wasm_byte_vec_t bin; assemble(
@@ -876,49 +877,75 @@ int main(void) {
         wasm_module_delete(mod); wasm_byte_vec_delete(&bin);
     }
 
-    // ── (A-limits) explicit has_max: grow caps at the declared max (fail-closed past it), an unbounded
-    //    limit grows freely, max==0 forbids ALL growth (the old fail-open footgun), and the limit
-    //    round-trips through wasm_memory_type/wasm_table_type WITHOUT a sentinel (no max ⇒ the public
-    //    wasm_limits_max_default, never a ceiling value). Guards §3.2.15/§3.2.16 vs the 0/0xFFFFFFFF/65536
-    //    sentinel overloading the corpus can't distinguish (pure-wasm never re-reads a host limit). ──
+    // ── (A-limits) §2.3.12's optional maximum, and what it costs to encode as a sentinel: grow caps
+    //    at the declared max (fail-closed past it), an unbounded limit grows freely, max==0 forbids
+    //    ALL growth (the fail-open footgun), and each round-trips through wasm_memory_type /
+    //    wasm_table_type as the same KIND of limit it was built from. Guards §3.2.15/§3.2.16 against
+    //    the 0/0xFFFFFFFF/65536 sentinel overloading the corpus can't distinguish — pure-wasm never
+    //    re-reads a host limit, so only a C-API pin can see it. ──
     {
-        wasm_limits_t l2 = { 1, 2 };                                      // memory, declared max 2 pages
-        wasm_memorytype_t* mt = wasm_memorytype_new(&l2);
+        wasm_limits_t l2 = { 1, 2, false };                               // memory, declared max 2 pages
+        wasm_memorytype_t* mt = wasm_memorytype_new(WASM_I32, &l2);
         wasm_memory_t* m = wasm_memory_new(store, mt); wasm_memorytype_delete(mt);
         CK(wasm_memory_grow(m, 1) == true && wasm_memory_size(m) == 2);   // 1 → 2 ok
         CK(wasm_memory_grow(m, 1) == false && wasm_memory_size(m) == 2);  // past max → fail-closed
         wasm_memorytype_t* rt = wasm_memory_type(m);
-        CK(wasm_memorytype_limits(rt)->max == 2);                         // declared max round-trips
+        CK(wasm_memorytype_limits(rt)->max == 2 && !wasm_memorytype_limits(rt)->unbounded);
+        CK(wasm_memorytype_addrtype(rt) == WASM_I32);
         wasm_memorytype_delete(rt); wasm_memory_delete(m);
 
-        wasm_limits_t l0 = { 0, 0 };                                      // memory, max 0 — the fail-open footgun
-        wasm_memorytype_t* mt0 = wasm_memorytype_new(&l0);
+        wasm_limits_t l0 = { 0, 0, false };                               // memory, max 0 — the fail-open footgun
+        wasm_memorytype_t* mt0 = wasm_memorytype_new(WASM_I32, &l0);
         wasm_memory_t* m0 = wasm_memory_new(store, mt0); wasm_memorytype_delete(mt0);
         CK(wasm_memory_grow(m0, 1) == false);                            // max 0 ⇒ NO growth (not "unlimited")
         wasm_memory_delete(m0);
 
-        wasm_limits_t lu = { 1, wasm_limits_max_default };               // memory, no max
-        wasm_memorytype_t* mtu = wasm_memorytype_new(&lu);
+        wasm_limits_t lu = { 1, 0, true };                               // memory, no max
+        wasm_memorytype_t* mtu = wasm_memorytype_new(WASM_I32, &lu);
         wasm_memory_t* mu = wasm_memory_new(store, mtu); wasm_memorytype_delete(mtu);
         CK(wasm_memory_grow(mu, 5) == true && wasm_memory_size(mu) == 6);     // unbounded grow
         wasm_memorytype_t* rtu = wasm_memory_type(mu);
-        CK(wasm_memorytype_limits(rtu)->max == wasm_limits_max_default);      // no max ⇒ default, NOT a ceiling value
+        CK(wasm_memorytype_limits(rtu)->unbounded);                          // absence is a FLAG, not a value
         wasm_memorytype_delete(rtu); wasm_memory_delete(mu);
 
-        wasm_limits_t t3 = { 1, 3 };                                      // table, declared max 3
-        wasm_tabletype_t* tt = wasm_tabletype_new(wasm_valtype_new_funcref(), &t3);
+        // The value that used to mean "absent" is an ordinary maximum, and must cap growth like
+        // any other. Under a sentinel this memory grew without limit.
+        wasm_limits_t lsent = { 1, 0xffffffffull, false };
+        wasm_memorytype_t* mts = wasm_memorytype_new(WASM_I32, &lsent);
+        wasm_memory_t* ms = wasm_memory_new(store, mts); wasm_memorytype_delete(mts);
+        wasm_memorytype_t* rts = wasm_memory_type(ms);
+        CK(!wasm_memorytype_limits(rts)->unbounded && wasm_memorytype_limits(rts)->max == 0xffffffffull);
+        wasm_memorytype_delete(rts); wasm_memory_delete(ms);
+
+        wasm_limits_t t3 = { 1, 3, false };                               // table, declared max 3
+        wasm_tabletype_t* tt = wasm_tabletype_new(wasm_valtype_new_funcref(), WASM_I32, &t3);
         wasm_table_t* tb = wasm_table_new(store, tt, NULL); wasm_tabletype_delete(tt);
         CK(wasm_table_grow(tb, 2, NULL) == true && wasm_table_size(tb) == 3);   // 1 → 3 ok
         CK(wasm_table_grow(tb, 1, NULL) == false && wasm_table_size(tb) == 3);  // past max → fail-closed
         wasm_table_delete(tb);
 
-        wasm_limits_t tu = { 0, wasm_limits_max_default };               // table, no max
-        wasm_tabletype_t* ttu = wasm_tabletype_new(wasm_valtype_new_funcref(), &tu);
+        wasm_limits_t tu = { 0, 0, true };                               // table, no max
+        wasm_tabletype_t* ttu = wasm_tabletype_new(wasm_valtype_new_funcref(), WASM_I32, &tu);
         wasm_table_t* tbu = wasm_table_new(store, ttu, NULL); wasm_tabletype_delete(ttu);
         CK(wasm_table_grow(tbu, 4, NULL) == true && wasm_table_size(tbu) == 4);   // unbounded grow
         wasm_tabletype_t* rtt = wasm_table_type(tbu);
-        CK(wasm_tabletype_limits(rtt)->max == wasm_limits_max_default);
+        CK(wasm_tabletype_limits(rtt)->unbounded && wasm_tabletype_addrtype(rtt) == WASM_I32);
         wasm_tabletype_delete(rtt); wasm_table_delete(tbu);
+
+        // A host-created table64: the addrtype is part of the type (§2.3.16) and must survive the
+        // instance, or an embedder cannot tell what width of index the table accepts.
+        wasm_limits_t t64 = { 1, 4, false };
+        wasm_tabletype_t* tt64 = wasm_tabletype_new(wasm_valtype_new_funcref(), WASM_I64, &t64);
+        wasm_table_t* tb64 = wasm_table_new(store, tt64, NULL); wasm_tabletype_delete(tt64);
+        wasm_tabletype_t* rt64 = wasm_table_type(tb64);
+        CK(wasm_tabletype_addrtype(rt64) == WASM_I64);
+        wasm_tabletype_delete(rt64); wasm_table_delete(tb64);
+
+        // ...and a page count no host can back is REFUSED, not narrowed into a small memory.
+        wasm_limits_t lhuge = { 4294967296ull, 0, true };
+        wasm_memorytype_t* mth = wasm_memorytype_new(WASM_I64, &lhuge);
+        CK(wasm_memory_new(store, mth) == NULL);
+        wasm_memorytype_delete(mth);
     }
 
     // ── (A1) funcref encoding unification: a funcref the HOST writes into a guest table must dispatch
@@ -1268,8 +1295,8 @@ int main(void) {
         CK(v1.kind == WASM_I32 && v1.of.i32 == 7);
 
         // tabletype_element reads back the element valtype
-        wasm_limits_t lim = { 1, 10 };
-        wasm_tabletype_t* tt = wasm_tabletype_new(wasm_valtype_new(WASM_FUNCREF), &lim);
+        wasm_limits_t lim = { 1, 10, false };
+        wasm_tabletype_t* tt = wasm_tabletype_new(wasm_valtype_new(WASM_FUNCREF), WASM_I32, &lim);
         CK(wasm_valtype_kind(wasm_tabletype_element(tt)) == WASM_FUNCREF);
         wasm_tabletype_delete(tt);
 
@@ -1314,6 +1341,252 @@ int main(void) {
 
         wasm_store_delete(s2);
         wasm_engine_delete(e2);
+    }
+
+    // ── §7.1.7 instance_export(moduleinst, name) : externaddr | error ──────────────────
+    //
+    //   1. Assert: due to validity of the module instance, all its export names are different.
+    //   2. If there exists an exportinst whose name equals name, return its addr.
+    //   3. Else, return error.
+    //
+    // Absent until now, so every embedder hand-rolled it: driver/javelina.c and test/exec.h
+    // each build a bbq_dict over the zipped export vectors, and the plan for the Inkscape
+    // backend documented the zip as a property of the C API rather than as our omission.
+    // Step 1's assertion is what makes a by-name lookup total — export names are distinct by
+    // module-instance validity, so first match is the only match.
+    {
+        wasm_byte_vec_t bin;
+        assemble("(module (func (export \"alpha\") (result i32) i32.const 11)"
+                 "        (func (export \"beta\")  (result i32) i32.const 22)"
+                 "        (global (export \"g\") i32 (i32.const 33)))", &bin);
+        wasm_module_t* mod = wasm_module_new(store, &bin); CK(mod != NULL);
+        wasm_extern_vec_t ni = WASM_EMPTY_VEC; wasm_trap_t* tr = NULL;
+        wasm_instance_t* i1 = wasm_instance_new(store, mod, &ni, &tr); CK(i1 != NULL);
+
+        // The by-name answer must denote the same externaddr the zip yields at that index — the
+        // two cannot drift, which is the whole reason the hand-rolled indices existed.
+        wasm_exporttype_vec_t et; wasm_module_exports(mod, &et);
+        wasm_extern_vec_t    ex; wasm_instance_exports(i1, &ex);
+        int agreed = 1, checked = 0;
+        for (size_t i = 0; i < et.size && i < ex.size; i++) {
+            const wasm_name_t* nm = wasm_exporttype_name(et.data[i]);
+            wasm_extern_t* byname = wasm_instance_export(i1, nm);
+            if (!byname || wasm_extern_kind(byname) != wasm_extern_kind(ex.data[i])) agreed = 0;
+            wasm_extern_delete(byname);
+            checked++;
+        }
+        CK(checked == 3 && agreed);   // §7.1.7 by-name agrees with the zip on every export
+
+        // §7.1.7 step 2a returns "the external address exportinst_i.addr" — the ADDRESS is the
+        // identity, so two handles obtained for one export must compare same, and a handle must
+        // compare same with its own copy. Comparing wrappers instead answered no to both, which
+        // is the shape of bug an embedder trips over first and cannot work around.
+        {
+            wasm_name_t na; wasm_name_new_from_string(&na, "alpha");
+            wasm_extern_t* x1 = wasm_instance_export(i1, &na);
+            wasm_extern_t* x2 = wasm_instance_export(i1, &na);
+            wasm_extern_t* xc = wasm_extern_copy(x1);
+            CK(x1 != x2 && wasm_extern_same(x1, x2));   // distinct handles, one externaddr
+            CK(xc != x1 && wasm_extern_same(x1, xc));   // a copy denotes what it copied
+            CK(!wasm_extern_same(x1, ex.data[1]));      // and a DIFFERENT export is not the same
+            // the typed views agree with the extern they came from
+            CK(wasm_func_same(wasm_extern_as_func(x1), wasm_extern_as_func(x2)));
+            wasm_extern_delete(xc); wasm_extern_delete(x2); wasm_extern_delete(x1);
+            wasm_name_delete(&na);
+        }
+
+        // ...and it resolves each name to the RIGHT export, which a kind check alone would not
+        // show: three exports, two of them funcs of the same type.
+        {
+            wasm_name_t na, nb; wasm_val_vec_t none = WASM_EMPTY_VEC;
+            wasm_val_t r[1] = { WASM_INIT_VAL }; wasm_val_vec_t rv = WASM_ARRAY_VEC(r);
+            wasm_name_new_from_string(&na, "alpha"); wasm_name_new_from_string(&nb, "beta");
+            wasm_extern_t* ea = wasm_instance_export(i1, &na);
+            wasm_extern_t* eb = wasm_instance_export(i1, &nb);
+            CK(wasm_func_call(wasm_extern_as_func(ea), &none, &rv) == NULL && r[0].of.i32 == 11);
+            CK(wasm_func_call(wasm_extern_as_func(eb), &none, &rv) == NULL && r[0].of.i32 == 22);
+            wasm_extern_delete(ea); wasm_extern_delete(eb);
+            wasm_name_delete(&na); wasm_name_delete(&nb);
+        }
+
+        // Step 3: a name no export carries is an error, not a near miss.
+        wasm_name_t absent; wasm_name_new_from_string(&absent, "gamma");
+        CK(wasm_instance_export(i1, &absent) == NULL);
+        wasm_name_delete(&absent);
+
+        // The handle stays good after the caller drops the vector it could also have found the
+        // export in — the externaddr belongs to the instance, not to that vector.
+        wasm_name_t alpha; wasm_name_new_from_string(&alpha, "alpha");
+        wasm_extern_vec_delete(&ex);
+        wasm_extern_t* a = wasm_instance_export(i1, &alpha);
+        CK(a != NULL);
+        {   // and it is callable, so "valid" means valid
+            wasm_val_vec_t none = WASM_EMPTY_VEC;
+            wasm_val_t r[1] = { WASM_INIT_VAL }; wasm_val_vec_t rv = WASM_ARRAY_VEC(r);
+            CK(wasm_func_call(wasm_extern_as_func(a), &none, &rv) == NULL && r[0].of.i32 == 11);
+        }
+
+        // Two instances of one module: each name resolves within ITS OWN instance. A lookup
+        // keyed on the module rather than the instance would collapse these.
+        wasm_instance_t* i2 = wasm_instance_new(store, mod, &ni, &tr); CK(i2 != NULL);
+        wasm_extern_t* a2 = wasm_instance_export(i2, &alpha);
+        CK(a2 != NULL && a2 != a && !wasm_extern_same(a2, a));   // different instance ⇒ different addr
+        wasm_extern_delete(a2); wasm_extern_delete(a);
+        wasm_name_delete(&alpha);
+
+        wasm_exporttype_vec_delete(&et);
+        wasm_instance_delete(i2); wasm_instance_delete(i1);
+        wasm_module_delete(mod); wasm_byte_vec_delete(&bin);
+    }
+
+    // ── §7.1.10 mem_read / mem_write — bounds-checked by construction ──────────────────
+    // "If i is larger than or equal to the length of mi.bytes, then return error." The raw
+    // wasm_memory_data pointer cannot express that, which is why every embedder was left to
+    // reinvent the span check and why one of them shipped without it.
+    {
+        wasm_limits_t lim = { 1, 0, true };
+        wasm_memorytype_t* mt = wasm_memorytype_new(WASM_I32, &lim);
+        wasm_memory_t* mem = wasm_memory_new(store, mt); wasm_memorytype_delete(mt);
+        CK(mem != NULL);
+        size_t n = wasm_memory_data_size(mem);
+
+        byte_t got = 0;
+        CK(wasm_memory_write(mem, 0, (byte_t)0x5A));
+        CK(wasm_memory_read(mem, 0, &got) && (unsigned char)got == 0x5A);
+        CK(wasm_memory_write(mem, n - 1, (byte_t)0x3C));
+        CK(wasm_memory_read(mem, n - 1, &got) && (unsigned char)got == 0x3C);
+
+        CK(!wasm_memory_read(mem, n, &got));            // i == length → error, step 2
+        CK(!wasm_memory_write(mem, n, (byte_t)1));
+        CK(!wasm_memory_read(mem, (uint64_t)-1, &got)); // and a wild index is refused, not wrapped
+        CK(!wasm_memory_write(mem, (uint64_t)-1, (byte_t)1));
+        wasm_memory_delete(mem);
+    }
+
+    // ── §2.3.12 limits: [ u64 .. u64? ] ────────────────────────────────────────────────
+    // A memtype (§2.3.15 `addrtype limits page`) and a tabletype (§2.3.16 `addrtype limits
+    // reftype`) carry u64 bounds. §3.2.15 bounds a memory at k = 2^(|addrtype|−16), so a 64-bit
+    // addrtype admits up to 2^48 pages; §3.2.16 bounds a table at 2^|addrtype| − 1. A u32
+    // rendering of the bounds cannot carry either, and truncation is silent — the embedder reads
+    // a plausible small number instead of an error. Read through the module's own import types,
+    // which is the path an embedder walks to decide what to hand instantiation.
+    {
+        wasm_byte_vec_t bin; assemble(
+            "(module (import \"env\" \"bigmem\" (memory i64 4294967296 4294967297))"
+            "        (import \"env\" \"bigtab\" (table i64 4294967296 4294967297 funcref)))", &bin);
+        wasm_module_t* m64 = wasm_module_new(store, &bin); CK(m64 != NULL);
+        wasm_importtype_vec_t it; wasm_module_imports(m64, &it);
+        CK(it.size == 2);
+
+        const wasm_memorytype_t* mt = wasm_externtype_as_memorytype_const(wasm_importtype_type(it.data[0]));
+        CK(mt != NULL);
+        const wasm_limits_t* ml = wasm_memorytype_limits(mt);
+        CK(ml->min == 4294967296ull);            // 2^32 pages: 0 once truncated to u32
+        CK(ml->max == 4294967297ull && !ml->unbounded);
+        CK(wasm_memorytype_addrtype(mt) == WASM_I64);
+
+        const wasm_tabletype_t* tt = wasm_externtype_as_tabletype_const(wasm_importtype_type(it.data[1]));
+        CK(tt != NULL);
+        const wasm_limits_t* tl = wasm_tabletype_limits(tt);
+        CK(tl->min == 4294967296ull);
+        CK(tl->max == 4294967297ull && !tl->unbounded);
+        CK(wasm_tabletype_addrtype(tt) == WASM_I64);
+
+        wasm_importtype_vec_delete(&it);
+        wasm_module_delete(m64); wasm_byte_vec_delete(&bin);
+
+        // ...and the i32 case is not merely the absence of the i64 case: a plain memory reports
+        // WASM_I32 and an absent maximum, which a memory64 with a declared max must not.
+        wasm_byte_vec_t b32; assemble(
+            "(module (import \"env\" \"m\" (memory 1))"
+            "        (import \"env\" \"t\" (table 1 funcref)))", &b32);
+        wasm_module_t* m32 = wasm_module_new(store, &b32); CK(m32 != NULL);
+        wasm_importtype_vec_t it32; wasm_module_imports(m32, &it32);
+        CK(it32.size == 2);
+        const wasm_memorytype_t* mt32 = wasm_externtype_as_memorytype_const(wasm_importtype_type(it32.data[0]));
+        CK(wasm_memorytype_addrtype(mt32) == WASM_I32 && wasm_memorytype_limits(mt32)->unbounded);
+        const wasm_tabletype_t* tt32 = wasm_externtype_as_tabletype_const(wasm_importtype_type(it32.data[1]));
+        CK(wasm_tabletype_addrtype(tt32) == WASM_I32 && wasm_tabletype_limits(tt32)->unbounded);
+        wasm_importtype_vec_delete(&it32);
+        wasm_module_delete(m32); wasm_byte_vec_delete(&b32);
+
+        // A module DEFINING a memory no host can back: the type is valid (§3.2.15 admits 2^48
+        // pages for a 64-bit addrtype), so it decodes — and instantiation must fail rather than
+        // narrow the page count, which produced a 0-page memory and reported success.
+        wasm_byte_vec_t bdef; assemble("(module (memory i64 4294967296))", &bdef);
+        wasm_module_t* md = wasm_module_new(store, &bdef); CK(md != NULL);
+        wasm_extern_vec_t noimp = WASM_EMPTY_VEC; wasm_trap_t* trd = NULL;
+        wasm_instance_t* bad = wasm_instance_new(store, md, &noimp, &trd);
+        CK(bad == NULL);
+        if (bad) wasm_instance_delete(bad);
+        if (trd) wasm_trap_delete(trd);
+        wasm_module_delete(md); wasm_byte_vec_delete(&bdef);
+    }
+
+    // ── §7.1.14 val_default ────────────────────────────────────────────────────────────
+    // "If default_valtype is not defined, then return error. Else, return the value."
+    {
+        wasm_val_t v;
+        wasm_valtype_t* t;
+        t = wasm_valtype_new(WASM_I32); CK(wasm_val_default(t, &v) && v.kind == WASM_I32 && v.of.i32 == 0); wasm_valtype_delete(t);
+        t = wasm_valtype_new(WASM_I64); CK(wasm_val_default(t, &v) && v.kind == WASM_I64 && v.of.i64 == 0); wasm_valtype_delete(t);
+        t = wasm_valtype_new(WASM_F32); CK(wasm_val_default(t, &v) && v.kind == WASM_F32 && v.of.f32 == 0.f); wasm_valtype_delete(t);
+        t = wasm_valtype_new(WASM_F64); CK(wasm_val_default(t, &v) && v.kind == WASM_F64 && v.of.f64 == 0.0); wasm_valtype_delete(t);
+        t = wasm_valtype_new(WASM_EXTERNREF);                       // §4.2.1 nullable ref → null
+        CK(wasm_val_default(t, &v) && wasm_valkind_is_ref(v.kind) && v.of.ref == NULL); wasm_valtype_delete(t);
+        CK(!wasm_val_default(NULL, &v));
+    }
+
+    // ── §7.1.9 table_read / §7.1.13 global_write — the two dropped error outcomes ──────
+    {
+        // table_read : ref | error. A table holds null references legitimately, so the NULL
+        // One answer cannot mean both "the null reference" and "out of range".
+        wasm_limits_t tl = { 2, 2, false };
+        wasm_tabletype_t* tt = wasm_tabletype_new(wasm_valtype_new(WASM_FUNCREF), WASM_I32, &tl);
+        wasm_table_t* tab = wasm_table_new(store, tt, NULL); wasm_tabletype_delete(tt);
+        CK(tab != NULL);
+        wasm_ref_t* r = (wasm_ref_t*)(uintptr_t)1;
+        CK(wasm_table_read(tab, 0, &r) && r == NULL);   // in range, and the entry IS the null ref
+        CK(!wasm_table_read(tab, 2, &r));               // out of range → error, distinguishable
+        CK(!wasm_table_read(tab, (wasm_table_size_t)-1, &r));
+        wasm_table_delete(tab);
+
+        // global_write : store | error — "If mut is empty, then return error."
+        wasm_val_t init = WASM_I32_VAL(7), rd;
+        wasm_globaltype_t* gi = wasm_globaltype_new(wasm_valtype_new(WASM_I32), WASM_CONST);
+        wasm_global_t* gc_ = wasm_global_new(store, gi, &init); wasm_globaltype_delete(gi);
+        wasm_val_t nv = WASM_I32_VAL(9);
+        CK(gc_ != NULL && !wasm_global_set(gc_, &nv));  // immutable → refused, and SAID so
+        wasm_global_get(gc_, &rd); CK(rd.of.i32 == 7);  // and unchanged
+        wasm_global_delete(gc_);
+
+        wasm_globaltype_t* gm = wasm_globaltype_new(wasm_valtype_new(WASM_I32), WASM_VAR);
+        wasm_global_t* gv = wasm_global_new(store, gm, &init); wasm_globaltype_delete(gm);
+        CK(gv != NULL && wasm_global_set(gv, &nv));     // mutable → accepted
+        wasm_global_get(gv, &rd); CK(rd.of.i32 == 9);
+        wasm_global_delete(gv);
+
+        // The same rule on a MODULE's own globals, which reach a different branch than the
+        // host-created ones above — an immutable global exported by an instance must refuse a
+        // write just as loudly.
+        wasm_byte_vec_t gb;
+        assemble("(module (global (export \"k\") i32 (i32.const 5))"
+                 "        (global (export \"m\") (mut i32) (i32.const 6)))", &gb);
+        wasm_module_t* gmod = wasm_module_new(store, &gb); CK(gmod != NULL);
+        wasm_extern_vec_t gni = WASM_EMPTY_VEC; wasm_trap_t* gtr = NULL;
+        wasm_instance_t* gin = wasm_instance_new(store, gmod, &gni, &gtr); CK(gin != NULL);
+        wasm_name_t nk, nm2;
+        wasm_name_new_from_string(&nk, "k"); wasm_name_new_from_string(&nm2, "m");
+        wasm_extern_t* ek = wasm_instance_export(gin, &nk);
+        wasm_extern_t* em = wasm_instance_export(gin, &nm2);
+        CK(ek && em);
+        CK(!wasm_global_set(wasm_extern_as_global(ek), &nv));   // immutable module global → error
+        wasm_global_get(wasm_extern_as_global(ek), &rd); CK(rd.of.i32 == 5);
+        CK(wasm_global_set(wasm_extern_as_global(em), &nv));    // mutable module global → accepted
+        wasm_global_get(wasm_extern_as_global(em), &rd); CK(rd.of.i32 == 9);
+        wasm_extern_delete(ek); wasm_extern_delete(em);
+        wasm_name_delete(&nk); wasm_name_delete(&nm2);
+        wasm_instance_delete(gin); wasm_module_delete(gmod); wasm_byte_vec_delete(&gb);
     }
 
     wasm_store_delete(store);

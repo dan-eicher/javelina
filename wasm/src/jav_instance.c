@@ -345,9 +345,13 @@ jav_status_t jav_instantiate(vm_t* vm, const bbq_field_capture* root, const uint
     const bbq_field_capture* ms = jav_view_section_array(root, 5, "mems", base);
     for (uint32_t d = 0; d < jav_view_nchild(ms); d++) {
         uint32_t mi = mod->nimport_mems + d;
-        uint32_t maxp = mod->mem_has_max[mi] ? (uint32_t)mod->mem_max[mi] : 0;
-        out->mem_addrs[mi] = (uint32_t)jav_mem_add(vm->heap, (u4)mod->mem_min[mi], maxp,
-                                                   mod->mem_has_max[mi], mod->mem_is64[mi]);
+        uint64_t maxp = mod->mem_has_max[mi] ? mod->mem_max[mi] : 0;
+        int addr = jav_mem_add(vm->heap, mod->mem_min[mi], maxp,
+                               mod->mem_has_max[mi], mod->mem_is64[mi]);
+        // A memory64 may validly declare more pages than any host can back (§3.2.15 admits 2^48).
+        // Narrowing the count would allocate a small memory and report success.
+        if (addr < 0) { if (err) *err = JAV_E_ALLOCATION_FAILED; return JAV_UNINSTANTIABLE; }
+        out->mem_addrs[mi] = (uint32_t)addr;
     }
     // Defined tables (§4.5.3): allocate each one's refs to its minimum size. The default is the null
     // reference (−1/T_REF); the §5.5.7 `0x40 0x00 …` form carries an explicit init const-expr — eval

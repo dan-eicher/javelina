@@ -33,6 +33,7 @@ typedef enum {
     JAV_E_OOB_TABLE,                      // §4.5.7 active element segment out of table bounds
     JAV_E_INCOMPATIBLE_IMPORT,            // §4.5.2 a supplied import's type does not match the declared one
     JAV_E_UNKNOWN_IMPORT,                 // §4.5.2 import arity mismatch / a declared import has no supplied value
+    JAV_E_ALLOCATION_FAILED,              // §4.5.5/.7 a valid memory or table the host cannot back
     // §7.6 body-typecheck reasons — threaded out of jav_typecheck so a rejection carries the
     // specific testsuite vocabulary instead of collapsing to "type mismatch".
     JAV_E_UNKNOWN_LOCAL,                  // localidx out of range

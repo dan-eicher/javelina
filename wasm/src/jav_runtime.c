@@ -10,6 +10,7 @@
 #include "jav_mem.h"     /* §4.6.8 linear-memory access: MEM_TRAP/mem_at/mem_ok + the inline-native i32 load/store */
 #include "validate.h"    /* jav_functype_t — call_indirect's dynamic type match */
 #include "bbq_vec.h"     /* the growable vector backing heap_t.mems */
+#include "jav_limits.h"  /* JAV_MAX_MEMORY_PAGES — the §A bound on one memory's backing store */
 #include <string.h>
 #include <stdlib.h>
 
@@ -367,14 +368,19 @@ int jav_tableinst_write(jav_tableinst_t* t, u8 i, s8 raw, u1 tag) {
  * i32 load/store live in jav_mem.h now (folded into the handler/stencil); the remaining width variants
  * below are still natives sharing those helpers. */
 
-/* The heap owns each memory's bytes; an out-of-range memidx or OOB access traps. */
-int jav_mem_add(heap_t* heap, u4 pages, u4 maxpages, int has_max, int is64) {
+/* The heap owns each memory's bytes; an out-of-range memidx or OOB access traps.
+ * Page counts are u8 because §3.2.15 admits up to 2^48 pages for a 64-bit addrtype — far past
+ * what any host can back. Returns -1 when the memory cannot be created, which the caller must
+ * report as a failure: a memory carrying a size it has no bytes for faults on first access. */
+int jav_mem_add(heap_t* heap, u8 pages, u8 maxpages, int has_max, int is64) {
     jav_mem_t m;
-    m.size = (u8)pages * 65536;
+    if (pages > JAV_MAX_MEMORY_PAGES) return -1;   /* past what one allocation can back */
+    m.size = pages * 65536;
     m.has_max = (u1)(has_max != 0);
-    m.max  = (u8)maxpages * 65536;   /* meaningful only when has_max */
+    m.max  = maxpages;   /* as DECLARED — the engine bound is a growth ceiling, not a retyping */
     m.is64 = (u1)(is64 != 0);
     m.data = m.size ? (u1*)calloc(1, m.size) : NULL;
+    if (m.size && !m.data) return -1;
     int idx = bbq_vec_len(heap->mems);
     bbq_vec_push(heap->mems, m);
     return idx;
@@ -398,8 +404,11 @@ s8   mem_grow_inst(jav_mem_t* m, s8 delta) {
     u8 oldpages = m->size / 65536;
     u8 newpages = oldpages + (u8)delta;
     /* §4.5.3.8: cap at the declared max if any, else at the §3.2.15 addrtype ceiling (2^16 pages for
-     * memory32, 2^48 for memory64). No sentinel: an unbounded memory is has_max==0, NOT max==ceiling. */
-    u8 maxpages = m->has_max ? m->max / 65536 : (m->is64 ? (UINT64_C(1) << 48) : 65536u);
+     * memory32, 2^48 for memory64). No sentinel: an unbounded memory is has_max==0, NOT max==ceiling.
+     * The engine's own bound applies on top: at 2^48 pages `newpages * 65536` is 2^64, which wraps
+     * to a zero byte count and turns the memset below into a ~2^64-byte write. */
+    u8 maxpages = m->has_max ? m->max : (m->is64 ? (UINT64_C(1) << 48) : 65536u);
+    if (maxpages > JAV_MAX_MEMORY_PAGES) maxpages = JAV_MAX_MEMORY_PAGES;
     if (newpages > maxpages) return -1;
     u8 newsize = newpages * 65536;
     u1* nd = (u1*)realloc(m->data, newsize ? newsize : 1);
