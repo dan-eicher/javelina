@@ -199,23 +199,25 @@ LIB_OBJS := $(B)/wasm_capi.o $(CLITE_OBJS) $(B)/jav_load.o $(ENGINE_OBJS)
 $(B)/libjavelina.a: $(LIB_OBJS) | $(B)
 	ar rcs $@ $(LIB_OBJS)
 .PHONY: lib
-lib: $(B)/libjavelina.a
+lib: $(B)/libjavelina.a $(B)/libjavelina.so
 
-# `make PIC=1 lib-pic-check` — the archive really is position-independent.
-#
-# A host that is itself a shared library cannot link a non-PIC archive member; ld refuses
-# it with "relocation R_X86_64_32S ... recompile with -fPIC", and that refusal is what put
-# the PIC=1 variant in the Makefile (Inkscape links its core as libinkscape_base.so). The
-# check reads the ARCHIVE rather than trusting the flag, because -fPIC rides on CFLAGS and
-# an object built by some other recipe — STENCIL_CFLAGS, a hand-written rule — would not
-# carry it and would poison the archive for exactly one consumer: the one that is not us.
-# Run it against build/ and it SHOULD fail; that is the control, not a bug.
-.PHONY: lib-pic-check
-lib-pic-check: $(B)/libjavelina.a
-	@command -v readelf >/dev/null || { echo "  readelf not found — cannot verify $(B)/libjavelina.a is PIC"; exit 1; }
-	@n=$$(readelf -r $(B)/libjavelina.a | awk '/^Relocation section/{s=$$3} s !~ /debug/ && /R_X86_64_32S?[[:space:]]/{n++} END{print n+0}'); \
-	 echo "  $(B)/libjavelina.a: $$n absolute relocations in allocatable sections (a shared-library host requires 0)"; \
-	 [ "$$n" -eq 0 ] || { echo "  → rebuild with PIC=1"; exit 1; }
+# --whole-archive so every member is linked, not just the ones a caller's graph reaches.
+$(B)/libjavelina.so: $(B)/libjavelina.a
+	$(CC) -shared -Wl,--whole-archive $(B)/libjavelina.a -Wl,--no-whole-archive -lm -o $@
+
+# Which declarations carry WASM_API_EXTERN — ours to get wrong, and nothing else notices. An
+# internal marked by accident enters every host's namespace under a name that is not the C
+# API's. The oracle is the `wasm_` prefix and not "declared in include/wasm.h", since most of
+# the API arrives through the WASM_DECLARE_* macros and a literal grep of the header calls 200
+# real operations undeclared. The linker's own symbols are excluded by name.
+.PHONY: lib-check
+lib-check: $(B)/libjavelina.so
+	@command -v nm >/dev/null || { echo "  nm not found — cannot read $(B)/libjavelina.so's exports"; exit 1; }
+	@syms=$$(nm -D --defined-only $(B)/libjavelina.so | awk '$$2 ~ /^[TDBRWi]$$/ {print $$3}' \
+	           | grep -vE '^(_init|_fini|_end|_edata|__bss_start)$$' | sort -u); \
+	 n=$$(echo "$$syms" | grep -c .); ours=$$(echo "$$syms" | grep -v '^wasm_' | tr '\n' ' '); \
+	 echo "  libjavelina exports $$n symbols, all wasm_*"; \
+	 [ -z "$$ours" ] || { echo "  → and these, which are ours and nobody else's to call: $$ours"; exit 1; }
 
 # The conformance story on its own: the pinned official testsuite through the
 # interpreter and every JIT tier, with the runner's full output on the terminal
@@ -264,6 +266,10 @@ ARGV_add_wasm := test_skeleton test_load test_roundtrip test_func
 
 ALL_TESTS := $(ROOT_TESTS) $(PLAIN_TESTS)
 
+# Generated sources and objects survive a run rather than being deleted as intermediates.
+# Consequence worth knowing: a MISSING intermediate is not rebuilt while its consumer is up
+# to date, so deleting one object and re-running make does nothing. Touch the source or the
+# flags stamp instead.
 .SECONDARY:
 
 # ── running ─────────────────────────────────────────────────────────────────
@@ -292,7 +298,7 @@ test-one: $(B)/$(T)
 # that has not happened, in which case it belongs in a plan where it can be
 # scheduled, or work that has, in which case it is false. Neither belongs here.
 .PHONY: test
-test: $(ALL_TESTS:%=$(B)/%) $(B)/test_wast $(B)/embed water
+test: $(ALL_TESTS:%=$(B)/%) $(B)/test_wast $(B)/embed $(B)/libjavelina.so water
 	@mkdir -p $(LOGS); pass=0; fail=0; failed=""; \
 	for t in $(ROOT_TESTS); do \
 	  if ./$(B)/$$t > $(LOGS)/$$t.log 2>&1; then echo "  PASS  $$t"; pass=$$((pass+1)); \
@@ -336,6 +342,11 @@ test: $(ALL_TESTS:%=$(B)/%) $(B)/test_wast $(B)/embed water
 	       && ../$(B)/embed ../$(B)/.embed.wasm ) > $(LOGS)/embed.log 2>&1; then \
 	  echo "  PASS  embed (host imports + instance_export, through public wasm.h)"; pass=$$((pass+1)); \
 	else echo "  FAIL  embed (host imports + instance_export, through public wasm.h)"; fail=$$((fail+1)); failed="$$failed embed"; fi; \
+	if $(MAKE) --no-print-directory lib-check > $(LOGS)/lib_check.log 2>&1; then \
+	  grep -E "libjavelina exports" $(LOGS)/lib_check.log; \
+	  echo "  PASS  libjavelina exports the wasm.h surface and nothing else"; pass=$$((pass+1)); \
+	else echo "  FAIL  libjavelina exports the wasm.h surface and nothing else"; \
+	  fail=$$((fail+1)); failed="$$failed lib_check"; sed 's/^/      | /' $(LOGS)/lib_check.log; fi; \
 	for h in include/*.h; do \
 	  if $(CC) -std=c11 -Wall -Wextra -Werror -Iinclude -c -x c -include "$$h" /dev/null -o /dev/null > $(LOGS)/hdrsweep.log 2>&1; then \
 	    echo "  PASS  public header compiles standalone ($$h)"; pass=$$((pass+1)); \

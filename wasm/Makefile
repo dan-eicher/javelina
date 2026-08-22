@@ -57,12 +57,23 @@ CC      := clang
 # inside this engine: callgrind collapses the static functions of a TU onto
 # whichever symbol is nearest, so `jit_compile` appears to call functions its
 # source never mentions. The compiler's own TUs already build this way.
-CFLAGS  := -g -O2 -std=c11 -Wall -Werror -MMD -MP -Isrc -Isrc/gen -Isrc/immix -Iinclude -I$(RT) -I$(JITRT) -I$(CRT)
+#
+# ABI_CFLAGS is what every object in the shipped library must carry: -fPIC so a host that is
+# itself a shared library can link the archive, -fvisibility=hidden so that WASM_API_EXTERN
+# (wasm.h) is the whole exported surface. Separate from CFLAGS because a few objects are
+# compiled by hand-written rules with their own flag lists, and those rules have to carry it
+# too — bbq_arena/hmap/htree did not, and kept exporting after everything else had stopped.
+ABI_CFLAGS := -fPIC -fvisibility=hidden
+CFLAGS  := -g -O2 -std=c11 -Wall -Werror $(ABI_CFLAGS) -MMD -MP -Isrc -Isrc/gen -Isrc/immix -Iinclude -I$(RT) -I$(JITRT) -I$(CRT)
 # -fno-vectorize/-fno-slp-vectorize: a copy-and-patch stencil must be position-independent
 # and relocation-free, but clang's auto-vectorizer emits .rodata vector constants (mask
 # tables) the JIT can't relocate (jitterator rejects them). Keeping the SIMD lane loops
 # SCALAR in the stencils is the "supported" tier — correct, both tiers; hardware-SIMD
 # codegen (the "optimized" tier) is deferred. The interp (gen_interp.c) still vectorizes.
+#
+# It deliberately omits ABI_CFLAGS: the stencils are extracted machine code, already
+# PC-relative throughout (PC32/PLT32 only, no absolute relocations), and recompiling them
+# under other flags changes the bytes jitterator extracts.
 STENCIL_CFLAGS := -O2 -Wall -Werror -fno-stack-protector -fno-asynchronous-unwind-tables -fno-vectorize -fno-slp-vectorize -MMD -MP -Isrc -Isrc/gen -Isrc/immix -Iinclude -I$(RT) -I$(CRT)
 
 GEN     := src/gen
@@ -77,17 +88,6 @@ ifeq ($(SAN),1)
 CFLAGS += -fsanitize=address -fno-omit-frame-pointer
 B      := build-asan
 endif
-# PIC=1 — position-independent objects, its own build dir. libjavelina.a is what a
-# third-party embedder links, and a host that is itself a shared library (Inkscape links
-# its core as libinkscape_base.so) cannot take non-PIC members: ld rejects them with
-# "relocation R_X86_64_32S ... recompile with -fPIC". STENCIL_CFLAGS is deliberately
-# untouched — the stencils are extracted machine code, they are already PC-relative
-# throughout (PC32/PLT32 only, no absolute relocations), and changing how they are
-# compiled would change the bytes jitterator extracts.
-ifeq ($(PIC),1)
-CFLAGS += -fPIC
-B      := build-pic
-endif
 # PROFILE=1 — -O0 with frame pointers, its own build dir: the -O2 inliner
 # smears costs across callers and erases the call counts a recompute-vs-cache
 # question needs, so a profile of the optimized build attributes work to the
@@ -96,6 +96,20 @@ ifeq ($(PROFILE),1)
 CFLAGS := $(filter-out -O2,$(CFLAGS)) -O0 -fno-omit-frame-pointer
 B      := build-prof
 endif
+
+# CFLAGS is a prerequisite of every object and nothing in the graph says so — an object
+# records the flags it was built with nowhere, so make calls a tree built under other flags
+# up to date. Same defect as the tier-2 stamp below, one layer lower, and the same fix: a
+# phony driver rewrites the file ONLY when the flags differ, so the mtime moves when — and
+# only when — the objects are stale. It covers the objects that EXIST, which are the only
+# ones that can be; anything compiled afterwards carries these flags by construction.
+# Deleting them instead would do nothing: `.SECONDARY` (test.mk) makes every object
+# intermediate, and make will not recreate a missing intermediate whose consumer is current.
+.PHONY: cflags-stamp
+cflags-stamp: | $(B)
+	@[ "$$(cat $(B)/.cflags 2>/dev/null)" = "$(CFLAGS)" ] || printf '%s' "$(CFLAGS)" > $(B)/.cflags
+$(B)/.cflags: cflags-stamp ;
+$(wildcard $(B)/*.o): $(B)/.cflags
 GC_OBJS := $(B)/immix_line_map.o $(B)/immix_block.o $(B)/immix_block_allocator.o \
            $(B)/immix_space.o $(B)/jav_gc.o
 # The VM engine — the runtime, with NO owning reader/writer: the VM loads via the c-lite
@@ -399,15 +413,15 @@ $(B)/gen_interp.o:   $(GEN)/gen_interp.c $(GEN)/jav_trap_reason.h | $(B)
 # gen_trap_reasons only RUNS when it is relinked — the stale pair segfaulted the
 # generator the first time a rebuild happened to trigger it.
 $(B)/toml_parser.o:  src/gen/toml_parser.c | $(B)
-	$(CC) -O2 -std=c11 -Wall -Werror -MMD -MP $(TOML_INC) -c $< -o $@
+	$(CC) -O2 -std=c11 -Wall -Werror $(ABI_CFLAGS) -MMD -MP $(TOML_INC) -c $< -o $@
 $(B)/toml_doc.o:     src/toml/toml_doc.c | $(B)
-	$(CC) -O2 -std=c11 -Wall -Werror -MMD -MP $(TOML_INC) -c $< -o $@
+	$(CC) -O2 -std=c11 -Wall -Werror $(ABI_CFLAGS) -MMD -MP $(TOML_INC) -c $< -o $@
 $(B)/bbq_arena.o:    $(CRT)/bbq_arena.c | $(B)
-	$(CC) -O2 -std=c11 -Wall -Werror $(TOML_INC) -c $< -o $@
+	$(CC) -O2 -std=c11 -Wall -Werror $(ABI_CFLAGS) $(TOML_INC) -c $< -o $@
 $(B)/bbq_hmap.o:     $(CRT)/bbq_hmap.c | $(B)   # jit_driver's footer-pool dedup map
-	$(CC) -O2 -std=c11 -Wall -Werror $(TOML_INC) -c $< -o $@
+	$(CC) -O2 -std=c11 -Wall -Werror $(ABI_CFLAGS) $(TOML_INC) -c $< -o $@
 $(B)/bbq_htree.o:    $(CRT)/bbq_htree.c | $(B)   # burgc's matcher state cache (jav_tile.c)
-	$(CC) -O2 -std=c11 -Wall -Werror $(TOML_INC) -c $< -o $@
+	$(CC) -O2 -std=c11 -Wall -Werror $(ABI_CFLAGS) $(TOML_INC) -c $< -o $@
 $(B)/jav_reader.o:  $(GEN)/jav_reader.c | $(B)
 	$(CC) $(CFLAGS) -c $< -o $@
 $(B)/jav_writer.o:  $(GEN)/jav_writer.c | $(B)

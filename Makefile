@@ -80,14 +80,15 @@ test:
 test-java-conformance:
 	@sh conformance/run.sh
 
-# The embeddable library artifact: build/libjavelina.a + the public wasm.h.
-# `make lib PIC=1` builds it position-independent into wasm/build-pic/ instead, which is
-# what a host that is itself a shared library needs; `make -C wasm PIC=1 lib-pic-check`
-# verifies the archive really is (the flag riding on CFLAGS is not the same as every
-# member carrying it). The echo follows PIC so it never names a file that was not built.
+# The embeddable library artifact: build/libjavelina.a + the public wasm.h. It is
+# position-independent and hidden-visibility with no flag to remember, because an archive
+# that links only into an executable is not an embeddable library and a host that is itself
+# a shared library is the case this exists for. `make -C wasm lib-check` links it into a
+# real shared object and reads what that object exports; the VM gate runs the same check.
 lib:
 	@$(MAKE) --no-print-directory -C wasm lib
-	@echo "  built wasm/$(if $(filter 1,$(PIC)),build-pic,build)/libjavelina.a  (link with -Iwasm/include)"
+	@echo "  built wasm/build/libjavelina.a  (link with -Iwasm/include)"
+	@echo "        wasm/build/libjavelina.so  (the same engine shared, for whoever wants it)"
 
 test-vm:
 	@$(MAKE) --no-print-directory -C wasm test

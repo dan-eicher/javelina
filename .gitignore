@@ -1,11 +1,10 @@
 # Build trees — every artifact under here is reproducible from `make`.
 # The variant trees are the same thing under a different CFLAGS: SAN=1 builds
-# into build-asan/, PIC=1 into build-pic/, PROFILE=1 into build-prof/
-# (wasm/Makefile). `build/` does not match those names, so they are listed
-# rather than inferred.
+# into build-asan/, PROFILE=1 into build-prof/ (wasm/Makefile). `build/` does
+# not match those names, so they are listed rather than inferred. There is no
+# PIC variant: the shipped archive is position-independent in the one build.
 build/
 build-asan/
-build-pic/
 build-prof/
 
 # Reference specs (Sun/Oracle JLS 1.0, the WebAssembly Core spec, the Alves-Foss

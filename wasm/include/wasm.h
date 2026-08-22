@@ -15,9 +15,13 @@
 #include <string.h>
 #include <assert.h>
 
+// The engine is built -fvisibility=hidden, so WASM_API_EXTERN is what exports an operation:
+// a declaration missing it is not visible to a host that links javelina into a shared object.
 #ifndef WASM_API_EXTERN
 #if defined(_WIN32) && !defined(__MINGW32__) && !defined(LIBWASM_STATIC)
 #define WASM_API_EXTERN __declspec(dllimport)
+#elif defined(__GNUC__)
+#define WASM_API_EXTERN __attribute__((visibility("default")))
 #else
 #define WASM_API_EXTERN
 #endif

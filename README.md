@@ -91,6 +91,14 @@ printf '(module
 The test gate builds the example the same way — against the archive, not loose
 objects — so the link line above is the one an embedder actually uses.
 
+The archive is position-independent and hidden-visibility, with no flag to pass:
+a host that is itself a shared library can link it — and what javelina publishes
+into that host is the `wasm.h` surface and nothing else, no `jav_*` or `bbq_*`
+name of ours to collide with one of theirs.
+
+`make lib` also writes `wasm/build/libjavelina.so` for anyone who wants the
+engine shared instead.
+
 ## Conformance
 
 Executed against the official [WebAssembly test suite](https://github.com/WebAssembly/testsuite)
