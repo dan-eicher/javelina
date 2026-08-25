@@ -139,7 +139,12 @@ TESTS   := test_ops test_locals test_control test_brtable test_globals_mem test_
            test_struct test_struct_gc test_array test_array_gc test_refcast test_br_on_cast test_gc_ctors test_gc_packed test_gc_segments test_refmore test_bulk_mem test_subword_memops test_select test_call_ref test_simd_loadext test_simd_compute test_typemodel test_exceptions test_depth test_tailcall test_simd test_multimem test_memory64 test_carrier_addr_tag
 
 .PHONY: all test clean gen water
-all: $(OBJS) water
+# The default goal by NAME, not by position: cflags-stamp above is a rule too, and
+# being the first one in the file made it the default — `make -C wasm` then built
+# nothing at all, and the engine came out only as a side effect of the compiler's
+# recursion into this directory.
+.DEFAULT_GOAL := all
+all: gen $(OBJS) water
 
 # ── the BBQ toolchain, built on demand ─────────────────────────────
 # Every generator below is a prerequisite of a generation rule, so make needs a
@@ -154,8 +159,14 @@ $(OPGEN) $(JITTERATOR) $(BBQC) $(PEGC) $(ASDL) $(BURGC) &:
 	cmake --build $(BBQ)/build -j$$(nproc)
 
 # ── code generation ────────────────────────────────────────────────
+# gen: the generated sources, one entry point per generator. `all` depends on it
+# because the c-lite view reader is reached by nothing else — its consumers compile
+# it straight from source (CLITE_SRCS, and the compiler's driver link), so no object
+# in $(OBJS) names it and a newer toolchain leaves the copy in the tree stale.
+gen: $(GEN)/gen_interp.c $(GEN)/jav_reader.c $(GEN)/jav_view_reader.c \
+     $(GEN)/jav_trap_reason.h
+
 # opgen: one declarative spec -> interpreter handlers + stencils + JIT metadata.
-gen: $(GEN)/gen_interp.c $(GEN)/jav_reader.c $(GEN)/jav_trap_reason.h
 # opgen writes ALL of these from one invocation — a GROUPED target (&:) so make knows every
 # one derives from wasm.def and regenerates them together. Without this, only gen_interp.c
 # was a known output, so jav_stencils.c / runtime_api.h / jav_jit_meta.h changes after a
