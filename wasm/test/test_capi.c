@@ -946,6 +946,23 @@ int main(void) {
         wasm_memorytype_t* mth = wasm_memorytype_new(WASM_I64, &lhuge);
         CK(wasm_memory_new(store, mth) == NULL);
         wasm_memorytype_delete(mth);
+
+        // The table twin of the two memory refusals above. §3.2.16 admits up to 2^32-1 slots
+        // (2^64-1 for table64), so a valid type — or a guest table.grow toward that ceiling — asks
+        // for tens of GiB one slot at a time, and past 2^31 slots the bbq_vec int cap wraps into a
+        // heap overrun. Both paths refuse past JAV_MAX_TABLE_ELEMS instead of narrowing or overrunning.
+        // RED before the fix: wasm_table_new returned a handle (having tried the whole push loop) and
+        // wasm_table_grow returned true — this pin then reads == NULL / == false as a clean failure.
+        wasm_limits_t thuge = { (1ull << 24) + 1, 0, true };             // min just past the engine bound
+        wasm_tabletype_t* tth = wasm_tabletype_new(wasm_valtype_new_funcref(), WASM_I32, &thuge);
+        CK(wasm_table_new(store, tth, NULL) == NULL);
+        wasm_tabletype_delete(tth);
+
+        wasm_limits_t tgrow = { 0, 0, true };                           // unbounded table
+        wasm_tabletype_t* ttg = wasm_tabletype_new(wasm_valtype_new_funcref(), WASM_I32, &tgrow);
+        wasm_table_t* tbg = wasm_table_new(store, ttg, NULL); wasm_tabletype_delete(ttg);
+        CK(wasm_table_grow(tbg, (1ull << 24) + 1, NULL) == false && wasm_table_size(tbg) == 0);
+        wasm_table_delete(tbg);
     }
 
     // ── (A1) funcref encoding unification: a funcref the HOST writes into a guest table must dispatch
@@ -1587,6 +1604,51 @@ int main(void) {
         wasm_extern_delete(ek); wasm_extern_delete(em);
         wasm_name_delete(&nk); wasm_name_delete(&nm2);
         wasm_instance_delete(gin); wasm_module_delete(gmod); wasm_byte_vec_delete(&gb);
+    }
+
+    // ── §4.2.4 tables are STORE objects: a table shared across the host↔guest boundary has ONE
+    //    storage identity, so a grow that reallocs it is seen by every holder and no holder is left
+    //    with a stale pointer. A host table imported into a module and grown BY THE GUEST past its
+    //    capacity forces several bbq_vec reallocs; the host handle must then report the grown size
+    //    and read the new storage. Before tables were store objects each importer COPIED the raw
+    //    refs pointer, so the guest's realloc dangled the host's (a UAF ASAN catches, plus a wrong
+    //    size) and store teardown double-freed. table_grow.wast never triggers it — it grows a
+    //    shared table by 1, inside bbq_vec's doubling slack — so only this pin covers the realloc. ──
+    {
+        wasm_byte_vec_t bin; assemble(
+            "(module (import \"env\" \"t\" (table $t 1 funcref))"
+            "        (func (export \"grow\") (param i32) (result i32) (table.grow $t (ref.null func) (local.get 0)))"
+            "        (func (export \"sz\") (result i32) (table.size $t)))", &bin);
+        wasm_module_t* mod = wasm_module_new(store, &bin); CK(mod != NULL);
+
+        wasm_limits_t tl = { 1, 0, true };                 // host table: min 1, unbounded → grow reallocs
+        wasm_tabletype_t* tt = wasm_tabletype_new(wasm_valtype_new_funcref(), WASM_I32, &tl);
+        wasm_table_t* htab = wasm_table_new(store, tt, NULL); wasm_tabletype_delete(tt);
+        CK(htab != NULL && wasm_table_size(htab) == 1);
+
+        wasm_extern_t* imports[1] = { wasm_table_as_extern(htab) };
+        wasm_extern_vec_t iv = WASM_ARRAY_VEC(imports); wasm_trap_t* tr = NULL;
+        wasm_instance_t* inst = wasm_instance_new(store, mod, &iv, &tr); CK(inst != NULL && tr == NULL);
+
+        wasm_extern_vec_t ex; wasm_instance_exports(inst, &ex);
+        wasm_func_t* grow = wasm_extern_as_func(ex.data[0]);   // export order: grow, then sz
+        wasm_func_t* szf  = wasm_extern_as_func(ex.data[1]);
+        wasm_val_t ga[1] = { WASM_I32_VAL(50) }, gr[1] = { WASM_INIT_VAL };
+        wasm_val_vec_t gav = WASM_ARRAY_VEC(ga), grv = WASM_ARRAY_VEC(gr);
+        CK(wasm_func_call(grow, &gav, &grv) == NULL && gr[0].of.i32 == 1);   // returns the OLD size (1)
+
+        CK(wasm_table_size(htab) == 51);                   // the host handle sees the ONE store table's new size
+        wasm_ref_t* got = (wasm_ref_t*)1;
+        CK(wasm_table_read(htab, 50, &got) && got == NULL); // reads the NEW storage (stale pointer → UAF)
+        CK(!wasm_table_read(htab, 51, &got));               // past the grown end
+
+        wasm_val_t sr[1] = { WASM_INIT_VAL }; wasm_val_vec_t none2 = WASM_EMPTY_VEC, srv = WASM_ARRAY_VEC(sr);
+        CK(wasm_func_call(szf, &none2, &srv) == NULL && sr[0].of.i32 == 51);   // guest agrees (same store table)
+
+        wasm_extern_vec_delete(&ex);
+        wasm_instance_delete(inst);                        // delete the importer — the store table survives it
+        CK(wasm_table_size(htab) == 51);                   // still valid after the instance is gone
+        wasm_table_delete(htab); wasm_module_delete(mod); wasm_byte_vec_delete(&bin);
     }
 
     wasm_store_delete(store);

@@ -35,4 +35,16 @@
  * Every memory32 is admitted unchanged — its own ceiling is 65536 pages. */
 #define JAV_MAX_MEMORY_PAGES (UINT64_C(1) << 20)
 
+/* Maximum elements of a single table: 2^24 = 16,777,216 slots, backed by one bbq_vec.
+ *
+ * §3.2.16 bounds a table type at 2^|addrtype| − 1 elements — 2^32 − 1 for table32, 2^64 − 1 for a
+ * 64-bit addrtype — so a VALID module may declare `(table 4000000000 funcref)` and a running guest
+ * may `table.grow` toward that ceiling. Each slot costs a ref word plus a tag byte, so the ceiling
+ * is tens of gigabytes the engine would try to touch a slot at a time, and past 2^31 slots the
+ * bbq_vec length/capacity (int) wraps — a heap overrun, not a clean failure. This is the table
+ * analogue of JAV_MAX_MEMORY_PAGES, and enforced the same way: at ALLOCATION, never at validation,
+ * so a module carrying such a type still decodes and validates exactly as §3.2.16 requires —
+ * instantiation reports JAV_E_ALLOCATION_FAILED and table.grow answers -1 as §4.5.3.10 permits. */
+#define JAV_MAX_TABLE_ELEMS (UINT64_C(1) << 24)
+
 #endif /* JAV_LIMITS_H */

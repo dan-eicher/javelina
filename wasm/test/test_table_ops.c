@@ -23,13 +23,14 @@ static const uint8_t f_target[] = { 0x20,0x00, 0x41,0xe4,0x00, 0x6a, 0x0b };   /
  * table 0's maximum is `max0`) and one passive element segment holding funcidx 1
  * (f_target). Everything is rebuilt per run because the bulk ops mutate it. */
 static jav_status_t run(const uint8_t* code, size_t n, int jit, int* out, unsigned max0){
-    jav_tableinst_t* tabs=NULL;
+    jav_tableinst_t tinst[2]; memset(tinst, 0, sizeof tinst);   // §4.2.4 tables are shared by pointer now
+    jav_tableinst_t** tabs=NULL;
     for (int ti=0; ti<2; ti++){
         s8* refs=NULL; u1* rtys=NULL;
         for (int i=0;i<4;i++){ bbq_vec_push(refs,(s8)-1); bbq_vec_push(rtys,(u1)T_REF); }
-        jav_tableinst_t tt={0}; tt.refs=refs; tt.types=rtys; tt.reftype=WVT_REF; tt.reftype_ht=(int32_t)HT_FUNC;
-        if (ti==0 && max0 != HUGE_MAX) { tt.has_max = 1; tt.max = max0; }   // table 1 + the HUGE_MAX param = unbounded (has_max 0)
-        bbq_vec_push(tabs, tt);
+        tinst[ti].refs=refs; tinst[ti].types=rtys; tinst[ti].reftype=WVT_REF; tinst[ti].reftype_ht=(int32_t)HT_FUNC;
+        if (ti==0 && max0 != HUGE_MAX) { tinst[ti].has_max = 1; tinst[ti].max = max0; }   // table 1 + the HUGE_MAX param = unbounded (has_max 0)
+        bbq_vec_push(tabs, &tinst[ti]);
     }
     s8 elemvals[1];                                      /* element segment 0 = [ funcref f_target ]; filled once f exists */
     u1 elemtags[1] = { T_REF };                          /* funcref handles — not GC-traced (§4.2.12 tag row) */
@@ -44,7 +45,7 @@ static jav_status_t run(const uint8_t* code, size_t n, int jit, int* out, unsign
     if (!jav_typecheck(code,n,&cm,&s0,&k) ||
         !jav_typecheck(f_target,sizeof f_target,&ct,&s1,&k)) {
         *out=-1;
-        for (int ti=0; ti<2; ti++){ bbq_vec_free(tabs[ti].refs); bbq_vec_free(tabs[ti].types); }
+        for (int ti=0; ti<2; ti++){ bbq_vec_free(tinst[ti].refs); bbq_vec_free(tinst[ti].types); }
         bbq_vec_free(tabs); return JAV_TRAP;
     }
     f[0]=(jav_func_t){.code=code,.code_len=n,.num_results=1,.type_index=0,.sig=&SIGS[0],.sidetable=s0};
@@ -57,7 +58,7 @@ static jav_status_t run(const uint8_t* code, size_t n, int jit, int* out, unsign
     bbq_ctx_init(&vm.frame.code,code,n); vm.frame.sidetable=s0; vm.frame.num_locals=0;
     jav_status_t st = jit ? jav_jit_run(&vm) : interp_run(&vm,NULL);
     *out=jav_tos(&vm).i;
-    for (int ti=0; ti<2; ti++) bbq_vec_free(tabs[ti].refs);
+    for (int ti=0; ti<2; ti++) { bbq_vec_free(tinst[ti].refs); bbq_vec_free(tinst[ti].types); }
     bbq_vec_free(tabs); free(s0); free(s1); return st;
 }
 

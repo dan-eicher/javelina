@@ -18,7 +18,7 @@ static const uint8_t f_target[] = { 0x20,0x00, 0x41,0xe4,0x00, 0x6a, 0x0b };   /
 static jav_status_t run(const uint8_t* code, size_t n, int jit, int* out){
     s8* refs=NULL; u1* rtys=NULL;                                      /* fresh per run (table.set mutates) */
     for (int i=0;i<4;i++){ bbq_vec_push(refs,(s8)(u4)JAV_NULLREF); bbq_vec_push(rtys,(u1)T_REF); }   /* null funcref slots (the authority, not a literal) */
-    jav_tableinst_t tt={0}; tt.refs=refs; tt.types=rtys; tt.max=4; jav_tableinst_t* tabs=NULL; bbq_vec_push(tabs, tt);
+    jav_tableinst_t tt={0}; tt.refs=refs; tt.types=rtys; tt.max=4; jav_tableinst_t** tabs=NULL; bbq_vec_push(tabs, &tt);
     jav_func_t f[2]; memset(f,0,sizeof f);
     jav_st_entry_t *s0,*s1; unsigned k;
     jav_vctx_t cm={0}; cm.results=I32; cm.nresults=1; cm.types=TYPES; cm.ntypes=1;

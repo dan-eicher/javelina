@@ -32,7 +32,7 @@ static int run(const uint8_t* code, size_t n, int jit){
     s8* refs=NULL; u1* rtys=NULL;                         /* one-entry table64 (the lone slot is null) */
     bbq_vec_push(refs,(s8)-1); bbq_vec_push(rtys,(u1)T_REF);
     jav_tableinst_t tt={0}; tt.refs=refs; tt.types=rtys; tt.reftype=WVT_REF; tt.is64=1;
-    jav_tableinst_t* tabs=NULL; bbq_vec_push(tabs, tt); vm.cluster.tables=tabs;
+    jav_tableinst_t** tabs=NULL; bbq_vec_push(tabs, &tt); vm.cluster.tables=tabs;
     bbq_ctx_init(&vm.frame.code,code,n); vm.frame.sidetable=st;
     if (jit) jav_jit_run(&vm); else interp_run(&vm,&heap);
     int r = vm.trapped ? TRAP : jav_tos(&vm).i;

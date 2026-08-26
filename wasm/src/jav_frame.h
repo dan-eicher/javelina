@@ -222,7 +222,9 @@ struct instctx {
     const jav_func_t* functions;          u4 num_functions;
     slot_t**          globals;            u1* global_types;   /* §4.2.5 globalinst by REFERENCE: globals[i] aliases the
                                                               * defining instance's slot, so a mutable imported global is shared */
-    jav_tableinst_t*  tables;
+    jav_tableinst_t** tables;             /* §4.2.4 tables are STORE objects: an array of pointers into
+                                           * heap->tables (imports share the exporter's pointer), so a
+                                           * shared table's grow/realloc is seen by every referrer */
     const struct jav_functype* types;     u4 num_types;
     const struct gc_rtt* const* struct_rtts;  u4 num_struct_rtts;
     const u1* const*  type_field_packs;   /* typeidx → per-field/elem storage width (0/1/2); NULL row = unpacked */
@@ -417,16 +419,16 @@ static inline u1 jav_tos_type(const vm_t* vm) {
 /* §7.1.9 tableinst access through the active instance context (§8), OVERRIDING opgen's TABLE_* defaults.
  * The element entry + its parallel runtime tag ride an any_t; the grow/realloc boundary stays a native
  * (jav_tableinst_grow) — so table.get/set inline in the stencil with no extern. */
-#define TABLE_LEN(t)        ((u8)bbq_vec_len(vm->frame.ctx->tables[(t)].refs))
+#define TABLE_LEN(t)        ((u8)bbq_vec_len(vm->frame.ctx->tables[(t)]->refs))
 /* §7.1.9 the ONE table-entry storage access, over a tableinst. Both callers go through it: the
  * opcodes via TABLE_GET/SET (by table index, bounds already proved by their declared guard) and
  * the c-api via jav_tableinst_read/write (which add the bounds check the embedder has not had
  * validated). One authority for the (refs, types) pair — the layout is stated once. */
 #define TABLEINST_GET(ti, i)     ((any_t){ .bits = (ti)->refs[(i)], .kind = (ti)->types[(i)] })
 #define TABLEINST_SET(ti, i, v)  do { (ti)->refs[(i)] = (v).bits; (ti)->types[(i)] = (v).kind; } while (0)
-#define TABLE_GET(t, i)     TABLEINST_GET(&vm->frame.ctx->tables[(t)], (i))
-#define TABLE_SET(t, i, v)  TABLEINST_SET(&vm->frame.ctx->tables[(t)], (i), (v))
-#define TABLE_IS64(t)       (vm->frame.ctx->tables[(t)].is64)   /* table64 addrtype: the size result rides i64, else i32 */
+#define TABLE_GET(t, i)     TABLEINST_GET(vm->frame.ctx->tables[(t)], (i))
+#define TABLE_SET(t, i, v)  TABLEINST_SET(vm->frame.ctx->tables[(t)], (i), (v))
+#define TABLE_IS64(t)       (vm->frame.ctx->tables[(t)]->is64)   /* table64 addrtype: the size result rides i64, else i32 */
 /* GC array length (§4.6): the u4 element count at the start of the object payload (the layout authority is
  * jav_gc.h). The caller guards null; a non-null gc ref's bits ARE the gc_obj pointer. */
 /* A managed ref is null if it is the JAV_NULLREF sentinel (explicit ref.null) OR 0 (a zero-initialised

@@ -7,6 +7,7 @@
 #include "heap.h"           // heap_t / jav_mem_t / jav_mem_add (linear memory)
 #include "jit_driver.h"     // jit_compile / jit_invoke / jit_free (the tier-1 seam)
 #include "bbq_vec.h"        // bbq_vec_len (the heap's memory vector)
+#include "jav_limits.h"     // JAV_MAX_TABLE_ELEMS — the §A bound on one table's backing store
 #include <stdlib.h>
 #include <string.h>
 
@@ -98,17 +99,17 @@ static jav_status_t link_imports(jav_instance_t* out, const jav_modidx_t* mod,
             out->funcs[fi] = x->u.func.func;   // §4.7.1 the funcinst keeps its DEFINER's {type, module}:
             fi++; break; }                     // type_index must index inst_ctx->types, so do NOT rewrite it
         case 0x01: {                                   // table (§3.3.15): addrtype match + reftype INVARIANT + limits <:
+            jav_tableinst_t* pt = x->u.table.tab;                                                  // the SHARED store table (§4.2.4)
             int32_t rrt = mod->table_tidx ? (int32_t)mod->table_tidx[ti] : 0;
-            if (x->u.table.is64 != mod->table_is64[ti] ||                                          // addrtype (i32 vs i64) must match
-                !imp_vt_sub_g(reg, x->u.table.reftype, x->u.table.reftype_ht, x->u.table.gcanon,   // provided reftype ≤ import
+            if (pt->is64 != mod->table_is64[ti] ||                                                 // addrtype (i32 vs i64) must match
+                !imp_vt_sub_g(reg, pt->reftype, pt->reftype_ht, x->u.table.gcanon,                 // provided reftype ≤ import
                                    mod->table_reftype[ti], rrt, out->gcanon) ||
                 !imp_vt_sub_g(reg, mod->table_reftype[ti], rrt, out->gcanon,                       // ... AND import ≤ provided (invariant)
-                                   x->u.table.reftype, x->u.table.reftype_ht, x->u.table.gcanon) ||
-                x->u.table.size < mod->table_min[ti] ||
-                (mod->table_has_max[ti] && (!x->u.table.has_max || x->u.table.max > mod->table_max[ti])))
+                                   pt->reftype, pt->reftype_ht, x->u.table.gcanon) ||
+                (u8)bbq_vec_len(pt->refs) < mod->table_min[ti] ||
+                (mod->table_has_max[ti] && (!pt->has_max || pt->max > mod->table_max[ti])))
                 goto incompatible;
-            out->tables[ti].refs = x->u.table.data; out->tables[ti].types = x->u.table.types;
-            out->table_borrowed[ti] = 1;   // borrow the exporter's slot-sized refs + tags
+            out->tables[ti] = pt;   // SHARE the exporter's store table by pointer (grow is seen by both)
             ti++; break; }
         case 0x02:                                     // memory (§3.3.14): limits <: + addrtype match
             if (x->u.mem.is64 != mod->mem_is64[mi] ||
@@ -203,17 +204,12 @@ jav_status_t jav_instantiate(vm_t* vm, const bbq_field_capture* root, const uint
     }
     if (mod->nmems) { bbq_vec_reserve(out->mem_addrs, mod->nmems);
                       for (uint32_t i = 0; i < mod->nmems; i++) { uint32_t z = 0; bbq_vec_push(out->mem_addrs, z); } }
-    // Tables (imports low, then defined): one jav_tableinst_t per tableidx, type set now; refs are
-    // filled by link_imports (imported → borrowed) and the defined-table build below.
+    // Tables (imports low, then defined): §4.2.4 store objects, one POINTER per tableidx — set by
+    // link_imports (imported → the exporter's pointer) and the defined-table build below. NULL
+    // placeholders here so both can index by tableidx.
     if (mod->ntables) {
-        bbq_vec_reserve(out->tables, mod->ntables); bbq_vec_reserve(out->table_borrowed, mod->ntables);
-        for (uint32_t ti = 0; ti < mod->ntables; ti++) {
-            jav_tableinst_t t = {0};
-            t.reftype = (uint8_t)mod->table_reftype[ti]; t.is64 = mod->table_is64[ti];
-            t.reftype_ht = mod->table_tidx ? (int32_t)mod->table_tidx[ti] : 0;
-            t.has_max = mod->table_has_max[ti]; t.max = t.has_max ? (uint32_t)mod->table_max[ti] : 0;
-            bbq_vec_push(out->tables, t); uint8_t z = 0; bbq_vec_push(out->table_borrowed, z);
-        }
+        bbq_vec_reserve(out->tables, mod->ntables);
+        for (uint32_t ti = 0; ti < mod->ntables; ti++) { jav_tableinst_t* z = NULL; bbq_vec_push(out->tables, z); }
     }
     // Tags (imports low, then defined): §4.2 each tag has a store identity. A DEFINED tag gets a
     // fresh session-unique id; an IMPORTED tag inherits the exporter's (filled by link_imports).
@@ -358,7 +354,7 @@ jav_status_t jav_instantiate(vm_t* vm, const bbq_field_capture* root, const uint
     // it (imports + earlier globals/funcs are in scope) and fill every element with that ref value.
     const bbq_field_capture* tsec = jav_view_section_array(root, 4, "tables", base);
     for (uint32_t ti = mod->nimport_tables; ti < mod->ntables; ti++) {
-        uint32_t sz = (uint32_t)mod->table_min[ti];
+        uint64_t sz = mod->table_min[ti];
         s8 fill = (s8)(u4)JAV_NULLREF; u1 ft = T_REF;             // default: the null reference (ONE authority — not a literal)
         uint32_t d = ti - mod->nimport_tables;
         const bbq_field_capture* tinit = NULL;                   // present only for the §5.5.7 TableInit (0x40) form
@@ -370,10 +366,14 @@ jav_status_t jav_instantiate(vm_t* vm, const bbq_field_capture* root, const uint
             interp_run(vm, vm->heap);
             fill = (s8)jav_tos(vm).l; ft = jav_tos_type(vm);
         }
-        for (uint32_t i = 0; i < sz; i++) {
-            bbq_vec_push(out->tables[ti].refs, fill);
-            bbq_vec_push(out->tables[ti].types, ft);
-        }
+        // §4.2.4 a store-owned table: jav_table_add refuses a min past JAV_MAX_TABLE_ELEMS (or OOM)
+        // rather than narrowing it. Widened to u64 — the old (uint32_t) cast under-allocated a
+        // table64 min ≥ 2^32 below its declared minimum.
+        s4 rht = mod->table_tidx ? (int32_t)mod->table_tidx[ti] : 0;
+        jav_tableinst_t* tp = jav_table_add(vm->heap, (u1)mod->table_reftype[ti], rht, mod->table_is64[ti],
+                                            mod->table_has_max[ti], (u4)mod->table_max[ti], sz, fill, ft);
+        if (!tp) { if (err) *err = JAV_E_ALLOCATION_FAILED; return JAV_UNINSTANTIABLE; }
+        out->tables[ti] = tp;
     }
     // §4.7.2 step 23 (allocmodule) is now complete — snapshot the structural facets (funcs/
     // globals/tables/types/rtts/mem_addrs) into out->ctx so EVERY funcinst carries its full
@@ -438,8 +438,8 @@ jav_status_t jav_instantiate(vm_t* vm, const bbq_field_capture* root, const uint
         if (!off) continue;                                   // passive / declarative
         const bbq_field_capture* tn = jav_view_field(b, "table");
         uint32_t tx = tn ? (uint32_t)bbq_node_int(tn, base) : 0;   // active elem's target table (default 0); §5.5.12 flag 2/6 carry it
-        s8* refs = out->tables[tx].refs;
-        u1* rtys = out->tables[tx].types;
+        s8* refs = out->tables[tx]->refs;
+        u1* rtys = out->tables[tx]->types;
         slot_t o = eval_const(vm, base, off);
         uint64_t addr = mod->table_is64[tx] ? (uint64_t)o.l : (uint32_t)o.i;   // §3.3.16 active-elem offset is the table's addrtype (i64 for table64)
         uint64_t tlen = bbq_vec_len(refs);                    // overflow-safe (subtract): a table64 offset ≥ 2⁶⁴⁻ⁿ traps, not wraps
@@ -522,9 +522,11 @@ void jav_instance_bind(vm_t* vm, const jav_instance_t* inst) {
 void jav_instance_visit_roots(jav_instance_t* in, jav_root_visit_fn visit, void* ctx) {
     for (size_t g = 0, n = bbq_vec_len(in->globals); g < n; g++)
         if (in->global_types[g] == T_GCREF) visit((struct gc_obj**)&in->globals[g]->l, ctx);
-    for (size_t t = 0, nt = bbq_vec_len(in->tables); t < nt; t++)
-        for (size_t e = 0, ne = bbq_vec_len(in->tables[t].refs); e < ne; e++)
-            if (in->tables[t].types[e] == T_GCREF) visit((struct gc_obj**)&in->tables[t].refs[e], ctx);
+    for (size_t t = 0, nt = bbq_vec_len(in->tables); t < nt; t++) {
+        jav_tableinst_t* tb = in->tables[t];   // §4.2.4 a store table shared by pointer
+        for (size_t e = 0, ne = bbq_vec_len(tb->refs); e < ne; e++)
+            if (tb->types[e] == T_GCREF) visit((struct gc_obj**)&tb->refs[e], ctx);
+    }
     /* §4.2.12 eleminst holds refs: a GC-allocated const-expr item parked in a LIVE (non-dropped)
      * segment is reachable — table.init / array.new_elem can still materialize it — so it is a
      * root. A dropped segment is ε: its values are unreachable and must NOT be kept alive. The
@@ -547,9 +549,9 @@ int32_t jav_instance_export(const jav_instance_t* inst, const char* name, uint8_
 }
 
 void jav_instance_free(jav_instance_t* inst) {
-    /* The tables themselves are the MODULE's — validation built them and every
-     * instance of that module borrows the same ones, like func_sigs. Only the
-     * arrays of pointers are this instance's. */
+    /* The side-tables are the MODULE's — validation built them and every instance of that module
+     * borrows the same ones, like func_sigs. Only the arrays of pointers are this instance's.
+     * (Tables are the STORE's — freed with the heap; see below.) */
     bbq_vec_free(inst->sidetabs); bbq_vec_free(inst->trytabs);
     bbq_vec_free(inst->funcs); bbq_vec_free(inst->exports);
     bbq_vec_free(inst->globals); bbq_vec_free(inst->global_store); bbq_vec_free(inst->global_types);
@@ -558,11 +560,9 @@ void jav_instance_free(jav_instance_t* inst) {
     bbq_vec_free(inst->data_segs); bbq_vec_free(inst->data_dropped);
     bbq_vec_free(inst->elem_segs); bbq_vec_free(inst->elem_dropped); bbq_vec_free(inst->elem_pool);
     bbq_vec_free(inst->elem_tag_pool);
-    for (size_t t = 0, n = bbq_vec_len(inst->tables); t < n; t++)
-        if (!inst->table_borrowed[t]) {                                     // imported tables' storage is the exporter's
-            bbq_vec_free(inst->tables[t].refs); bbq_vec_free(inst->tables[t].types);
-        }
-    bbq_vec_free(inst->tables); bbq_vec_free(inst->table_borrowed);
+    // §4.2.4 tables are STORE objects (heap->tables) — freed with the store, never here (a table this
+    // instance defined may still be held by an importer). Free only this instance's POINTER array.
+    bbq_vec_free(inst->tables);
     for (size_t d = 0, n = bbq_vec_len(inst->jitfns); d < n; d++) jit_free(inst->jitfns[d]);
     bbq_vec_free(inst->jitfns);
     // mod->rtts are module-level (the module arena owns them) — nothing per-instance to free.

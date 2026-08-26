@@ -89,7 +89,7 @@ int main(void) {
         CK(inst.globals[1]->l == 7);                       // defined (mut i64) (i64.const 7)
         CK(heap.mems[0].size == 65536);                   // (memory 1 4) → 1 page
         CK(memcmp(heap.mems[0].data, "hi", 2) == 0);      // active (data (i32.const 0) "hi")
-        CK((uint32_t)bbq_vec_len(inst.tables[0].refs) == 2 && inst.tables[0].refs[0] == (s8)(uintptr_t)&inst.funcs[1]); // active (elem func 1) — funcref = &funcinst
+        CK((uint32_t)bbq_vec_len(inst.tables[0]->refs) == 2 && inst.tables[0]->refs[0] == (s8)(uintptr_t)&inst.funcs[1]); // active (elem func 1) — funcref = &funcinst
         CK((uint32_t)bbq_vec_len(inst.data_segs) == 1 && inst.data_dropped[0] == 1); // active data dropped post-init
 
         jav_instance_bind(&vm, &inst);
@@ -99,7 +99,7 @@ int main(void) {
         vm.frame.stack[1].i = 5; vm.frame.stack_types[1] = T_INT;
         vm.frame.sp = 2; vm.frame.num_locals = 0;
         CK(jav_call(&vm, vm.heap, (u4)add) == JAV_OK && jav_tos(&vm).i == 8);
-        jav_vm_free(&vm); jav_instance_free(&inst); jav_heap_free_mems(&heap); bbq_arena_free(&a); free(buf);
+        jav_vm_free(&vm); jav_instance_free(&inst); jav_modidx_free_bodies(&mod); jav_heap_free_mems(&heap); bbq_arena_free(&a); free(buf);
     }
     // ── rich.wasm with a TYPE-MISMATCHED func import → JAV_UNLINKABLE ("incompatible import
     // type"). The supplied func is a global instead — wrong kind at position 0. ──
@@ -112,7 +112,7 @@ int main(void) {
         jav_status_t s = JAV_OK;
         CK(load_inst("rich.wasm", &a, &buf, &mod, &inst, &vm, imps, 2, &s));
         CK(s == JAV_UNLINKABLE);
-        jav_vm_free(&vm); jav_instance_free(&inst); jav_heap_free_mems(&heap); bbq_arena_free(&a); free(buf);
+        jav_vm_free(&vm); jav_instance_free(&inst); jav_modidx_free_bodies(&mod); jav_heap_free_mems(&heap); bbq_arena_free(&a); free(buf);
     }
     // ── arity mismatch: rich declares 2 imports, supply 1 → JAV_UNLINKABLE ──
     {
@@ -123,7 +123,7 @@ int main(void) {
         jav_status_t s = JAV_OK;
         CK(load_inst("rich.wasm", &a, &buf, &mod, &inst, &vm, imps, 1, &s));
         CK(s == JAV_UNLINKABLE);
-        jav_vm_free(&vm); jav_instance_free(&inst); jav_heap_free_mems(&heap); bbq_arena_free(&a); free(buf);
+        jav_vm_free(&vm); jav_instance_free(&inst); jav_modidx_free_bodies(&mod); jav_heap_free_mems(&heap); bbq_arena_free(&a); free(buf);
     }
     // ── import_call.wasm: an exported func that CALLS the imported host func — exercises
     // the host invoke seam through a linked import ──
@@ -141,7 +141,7 @@ int main(void) {
         vm.frame.stack[0].i = 41; vm.frame.stack_types[0] = T_INT;
         vm.frame.sp = 1; vm.frame.num_locals = 0;
         CK(jav_call(&vm, vm.heap, (u4)callit) == JAV_OK && jav_tos(&vm).i == 42);  // host_inc(41)
-        jav_vm_free(&vm); jav_instance_free(&inst); jav_heap_free_mems(&heap); bbq_arena_free(&a); free(buf);
+        jav_vm_free(&vm); jav_instance_free(&inst); jav_modidx_free_bodies(&mod); jav_heap_free_mems(&heap); bbq_arena_free(&a); free(buf);
     }
     // ── import_memtab.wasm: imports a memory + a table; active data/elem write into the
     //    embedder-owned (borrowed) storage, reached through mem_addrs / a borrowed table 0 ──
@@ -153,17 +153,18 @@ int main(void) {
         int64_t* htab = NULL; uint8_t* htty = NULL;   // slot-sized refs + parallel tags (T_REF funcref slots)
         { int64_t nul = -1; uint8_t ty = T_REF;
           bbq_vec_push(htab, nul); bbq_vec_push(htty, ty); bbq_vec_push(htab, nul); bbq_vec_push(htty, ty); }
+        jav_tableinst_t host_ti; memset(&host_ti, 0, sizeof host_ti);   // §4.2.4 the imported table IS a store object
+        host_ti.refs = htab; host_ti.types = htty; host_ti.reftype = WVT_REF; host_ti.reftype_ht = (int32_t)HT_FUNC;
         jav_extern_t imps[2]; memset(imps, 0, sizeof imps);
         imps[0].kind = 2; imps[0].u.mem.memidx = hmem; imps[0].u.mem.min = 1; imps[0].u.mem.is64 = 0;
-        imps[1].kind = 1; imps[1].u.table.data = htab; imps[1].u.table.types = htty; imps[1].u.table.size = 2;
-        imps[1].u.table.reftype = WVT_REF; imps[1].u.table.reftype_ht = (int32_t)HT_FUNC;
+        imps[1].kind = 1; imps[1].u.table.tab = &host_ti;   // share the host table by pointer
         jav_status_t s;
         CK(load_inst("import_memtab.wasm", &a, &buf, &mod, &inst, &vm, imps, 2, &s));
         CK(s == JAV_OK);
-        CK(inst.table_borrowed[0] && inst.tables[0].refs == htab);  // table 0 borrowed from the import (not owned)
+        CK(inst.tables[0] == &host_ti && inst.tables[0]->refs == htab);  // table 0 IS the imported store table (shared)
         CK(memcmp(heap.mems[hmem].data, "yo", 2) == 0);   // active data into the imported memory
         CK(htab[0] == (s8)(uintptr_t)&inst.funcs[0]);      // active elem (func 0) into the imported table — funcref = &funcinst
-        jav_vm_free(&vm); jav_instance_free(&inst); bbq_vec_free(htab); bbq_vec_free(htty); jav_heap_free_mems(&heap); bbq_arena_free(&a); free(buf);
+        jav_vm_free(&vm); jav_instance_free(&inst); jav_modidx_free_bodies(&mod); bbq_vec_free(htab); bbq_vec_free(htty); jav_heap_free_mems(&heap); bbq_arena_free(&a); free(buf);
     }
     // ── refs.wasm: imports an i32 global (low slot 0); global.get chaining + ref.func init
     //   + active elem (func 0 1). g1 $a=(i32.const 1); g2 $b=(global.get 1)->$a=1; g3 $c=(ref.func 0)
@@ -179,11 +180,11 @@ int main(void) {
         CK(inst.globals[1]->i == 1);                        // (i32.const 1)
         CK(inst.globals[2]->i == 1);                        // (global.get 1) sees $a
         CK(inst.globals[3]->l == (s8)(uintptr_t)&inst.funcs[0]);  // (ref.func 0) -> &funcinst (word-sized ref)
-        CK((uint32_t)bbq_vec_len(inst.tables[0].refs) == 4);                 // (table 4 funcref)
-        CK(inst.tables[0].refs[0] == (s8)(uintptr_t)&inst.funcs[0] && inst.tables[0].refs[1] == (s8)(uintptr_t)&inst.funcs[1]);  // funcref = &funcinst (func 0 1)
+        CK((uint32_t)bbq_vec_len(inst.tables[0]->refs) == 4);                 // (table 4 funcref)
+        CK(inst.tables[0]->refs[0] == (s8)(uintptr_t)&inst.funcs[0] && inst.tables[0]->refs[1] == (s8)(uintptr_t)&inst.funcs[1]);  // funcref = &funcinst (func 0 1)
         CK((uint32_t)bbq_vec_len(inst.elem_segs) == 2);    // active + the passive (ref.func 1)(ref.null) stashed
         CK(inst.elem_segs[1].len == 2 && inst.elem_segs[1].values[0] == (s8)(uintptr_t)&inst.funcs[1] && inst.elem_segs[1].values[1] == (s8)JAV_NULLREF);  // (ref.func 1)(ref.null)
-        jav_vm_free(&vm); jav_instance_free(&inst); jav_heap_free_mems(&heap); bbq_arena_free(&a); free(buf);
+        jav_vm_free(&vm); jav_instance_free(&inst); jav_modidx_free_bodies(&mod); jav_heap_free_mems(&heap); bbq_arena_free(&a); free(buf);
     }
     // ── passive_segs.wasm: passive + active data/elem segments — the instantiator stashes every
     //    segment (memory.init / array.new_* reach passive ones); active ones applied then dropped ──
@@ -199,8 +200,8 @@ int main(void) {
         CK(inst.data_dropped[1] == 1 && memcmp(heap.mems[0].data, "XY", 2) == 0);       // active applied + dropped
         CK((uint32_t)bbq_vec_len(inst.elem_segs) == 2);
         CK(inst.elem_segs[0].len == 1 && inst.elem_segs[0].values[0] == (s8)(uintptr_t)&inst.funcs[0]);  // passive elem stashed (funcref = &funcinst)
-        CK(inst.tables[0].refs[0] == (s8)(uintptr_t)&inst.funcs[0]);                      // active elem applied (funcref = &funcinst)
-        jav_vm_free(&vm); jav_instance_free(&inst); jav_heap_free_mems(&heap); bbq_arena_free(&a); free(buf);
+        CK(inst.tables[0]->refs[0] == (s8)(uintptr_t)&inst.funcs[0]);                      // active elem applied (funcref = &funcinst)
+        jav_vm_free(&vm); jav_instance_free(&inst); jav_modidx_free_bodies(&mod); jav_heap_free_mems(&heap); bbq_arena_free(&a); free(buf);
     }
     // ── start_ok.wasm (§4.5.10): no imports; start runs at instantiate, sets global 0 = 42 ──
     {
@@ -211,7 +212,7 @@ int main(void) {
         CK(load_inst("start_ok.wasm", &a, &buf, &mod, &inst, &vm, NULL, 0, &s));
         CK(s == JAV_OK);
         CK(vm.frame.ctx->globals[0]->i == 42);                      // §8: start ran — read via the bound context
-        jav_vm_free(&vm); jav_instance_free(&inst); jav_heap_free_mems(&heap); bbq_arena_free(&a); free(buf);
+        jav_vm_free(&vm); jav_instance_free(&inst); jav_modidx_free_bodies(&mod); jav_heap_free_mems(&heap); bbq_arena_free(&a); free(buf);
     }
     // ── start_trap.wasm: start traps (unreachable) → JAV_UNINSTANTIABLE ──
     {
@@ -221,7 +222,7 @@ int main(void) {
         jav_status_t s = JAV_OK;
         CK(load_inst("start_trap.wasm", &a, &buf, &mod, &inst, &vm, NULL, 0, &s));
         CK(s == JAV_UNINSTANTIABLE);                       // instantiate failed via the start trap
-        jav_vm_free(&vm); jav_instance_free(&inst); jav_heap_free_mems(&heap); bbq_arena_free(&a); free(buf);
+        jav_vm_free(&vm); jav_instance_free(&inst); jav_modidx_free_bodies(&mod); jav_heap_free_mems(&heap); bbq_arena_free(&a); free(buf);
     }
     // ── import subtyping (§3.3.16): import_gsub imports an IMMUTABLE (global funcref) [nullable].
     //    A provided NON-NULL (ref func) global links by subtyping — exact-match would reject it. ──
@@ -234,7 +235,7 @@ int main(void) {
         jav_status_t s = JAV_OK;
         CK(load_inst("import_gsub.wasm", &a, &buf, &mod, &inst, &vm, &g, 1, &s));
         CK(s == JAV_OK);                                   // (ref func) <: (ref null func)
-        jav_vm_free(&vm); jav_instance_free(&inst); jav_heap_free_mems(&heap); bbq_arena_free(&a); free(buf);
+        jav_vm_free(&vm); jav_instance_free(&inst); jav_modidx_free_bodies(&mod); jav_heap_free_mems(&heap); bbq_arena_free(&a); free(buf);
     }
     // ── the verifier is not nerfed: an externref global for a funcref import → distinct
     //    hierarchy → not a subtype → JAV_UNLINKABLE. ──
@@ -247,7 +248,7 @@ int main(void) {
         jav_status_t s = JAV_OK;
         CK(load_inst("import_gsub.wasm", &a, &buf, &mod, &inst, &vm, &g, 1, &s));
         CK(s == JAV_UNLINKABLE);                           // externref ≰ funcref
-        jav_vm_free(&vm); jav_instance_free(&inst); jav_heap_free_mems(&heap); bbq_arena_free(&a); free(buf);
+        jav_vm_free(&vm); jav_instance_free(&inst); jav_modidx_free_bodies(&mod); jav_heap_free_mems(&heap); bbq_arena_free(&a); free(buf);
     }
     // Cross-module concrete (ref $func) GLOBAL subtyping matches through the §4.5.2 session
     // registry, which reads the provider's gcanon off a REAL instance — so it is exercised
@@ -290,8 +291,8 @@ int main(void) {
         vmb.frame.sp = 0; vmb.frame.num_locals = 0;
         CK(jav_call(&vmb, vmb.heap, (u4)peek) == JAV_OK && jav_tos(&vmb).i == 42);
 
-        jav_vm_free(&vma); jav_instance_free(&insta); bbq_arena_free(&aa); free(bufa);
-        jav_vm_free(&vmb); jav_instance_free(&instb); bbq_arena_free(&ab); free(bufb);
+        jav_vm_free(&vma); jav_instance_free(&insta); jav_modidx_free_bodies(&moda); bbq_arena_free(&aa); free(bufa);
+        jav_vm_free(&vmb); jav_instance_free(&instb); jav_modidx_free_bodies(&modb); bbq_arena_free(&ab); free(bufb);
         jav_heap_free_mems(&heap);
     }
 
@@ -322,8 +323,8 @@ int main(void) {
         vmb.frame.sp = 0; vmb.frame.num_locals = 0;
         CK(jav_call(&vmb, vmb.heap, (u4)callg) == JAV_OK && jav_tos(&vmb).i == 111);  // A's global, not B's 222
 
-        jav_vm_free(&vma); jav_instance_free(&insta); jav_heap_free_mems(&heapa); bbq_arena_free(&aa); free(bufa);
-        jav_vm_free(&vmb); jav_instance_free(&instb); jav_heap_free_mems(&heapb); bbq_arena_free(&ab); free(bufb);
+        jav_vm_free(&vma); jav_instance_free(&insta); jav_modidx_free_bodies(&moda); jav_heap_free_mems(&heapa); bbq_arena_free(&aa); free(bufa);
+        jav_vm_free(&vmb); jav_instance_free(&instb); jav_modidx_free_bodies(&modb); jav_heap_free_mems(&heapb); bbq_arena_free(&ab); free(bufb);
     }
 
     printf("loader: instantiate + imports/host-call + export-call + global/segment/start + import-subtyping + cross-module-concrete + cross-instance-mem + cross-instance-call  [%s]\n", fails ? "FAIL" : "PASS");

@@ -25,9 +25,8 @@ typedef struct jav_extern {
     uint8_t kind;
     union {
         struct { jav_func_t func; const jav_functype_t* type; } func;   // 0: an external function
-        struct { int64_t* data; uint8_t* types; uint32_t size;          // 1: a table (slot-sized refs +
-                 uint8_t has_max; uint32_t max; jav_valtype_t reftype;  //  parallel tags, shared w/ exporter)
-                 int32_t reftype_ht; const int32_t* gcanon; uint8_t is64; } table;  // element heaptype; gcanon: typeidx→global id; is64: §3.3.15 addrtype
+        struct { jav_tableinst_t* tab;                                  // 1: a table — the SHARED store instance
+                 const int32_t* gcanon; } table;                        //  (§4.2.4); gcanon: provider typeidx→global id (concrete reftype match)
         struct { uint32_t memidx;                                       // 2: a memory (a store memidx)
                  uint64_t min; uint8_t has_max; uint64_t max; uint8_t is64; } mem;
         struct { slot_t* slot; jav_valtype_t type; int32_t type_ht; uint8_t mut;  // 3: a global BY REFERENCE — the
@@ -52,8 +51,8 @@ typedef struct {
                                      //   defining instance's slot — defined → &global_store[d], imported → exporter's slot
     slot_t*           global_store;  // backing slots for THIS instance's defined globals (the pointees for defined entries)
     uint8_t*          global_types;  // parallel runtime type tag (T_INT/T_LONG/…)
-    jav_tableinst_t*      tables;        // module tables (imports low, then defined), indexed by tableidx
-    uint8_t*          table_borrowed; // [ntables] per-table: refs owned by an importing exporter
+    jav_tableinst_t**     tables;        // module tables (imports low, then defined), indexed by tableidx:
+                                         // pointers into the store's heap->tables (imports share the exporter's)
     jav_inst_export_t* exports;      // the export map (name → kind+index)
     uint32_t*         mem_addrs;     // module memidx → store-heap memidx (imports + defined)
     int32_t*          gcanon;        // §4.5.2 [ntypes] module typeidx → session-global canonical id (bbq_vec; the heap registry's id space)

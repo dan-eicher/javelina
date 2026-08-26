@@ -70,7 +70,7 @@ static int run(const uint8_t* rec, size_t rlen, variant_t v, int jit, jav_status
 
     s8* refs=NULL; u1* rtys=NULL;                                       /* slot 1 -> funcinst &f[1] (the recursive fn) */
     bbq_vec_push(refs,(s8)-1); bbq_vec_push(rtys,(u1)T_REF); bbq_vec_push(refs,(s8)(uintptr_t)&f[1]); bbq_vec_push(rtys,(u1)T_REF);
-    jav_tableinst_t tt={0}; tt.refs=refs; tt.types=rtys; tt.max=2; jav_tableinst_t* tabs=NULL; bbq_vec_push(tabs, tt);
+    jav_tableinst_t tt={0}; tt.refs=refs; tt.types=rtys; tt.max=2; jav_tableinst_t** tabs=NULL; bbq_vec_push(tabs, &tt);
 
     vm_t vm; memset(&vm, 0, sizeof vm); jav_vm_init(&vm);
     vm.cluster.functions = f; vm.cluster.num_functions = 2;

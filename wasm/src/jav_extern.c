@@ -15,13 +15,10 @@ void jav_project_export(heap_t* heap, const jav_instance_t* inst, const jav_modi
     memset(out, 0, sizeof *out);
     switch (kind) {
     case 0: out->kind = 0; out->u.func.type = &gm->func_sigs[index]; out->u.func.func = inst->funcs[index]; break;
-    case 1: { out->kind = 1; jav_tableinst_t* ti = &inst->tables[index];
-              out->u.table.data = ti->refs; out->u.table.types = ti->types;
-              out->u.table.size = (uint32_t)bbq_vec_len(ti->refs);
-              out->u.table.reftype = ti->reftype; out->u.table.reftype_ht = ti->reftype_ht;
-              out->u.table.gcanon = inst->gcanon;   // §4.5.2 provider typeidx→global id (concrete reftype matching)
-              out->u.table.is64 = ti->is64;         // §3.3.15 addrtype
-              out->u.table.has_max = ti->has_max; out->u.table.max = ti->max; break; }
+    case 1: { out->kind = 1;
+              out->u.table.tab = inst->tables[index];   // §4.2.4 export the SHARED store table by pointer
+              out->u.table.gcanon = inst->gcanon;       // §4.5.2 provider typeidx→global id (concrete reftype matching)
+              break; }
     case 2: { out->kind = 2; uint32_t memaddr = inst->mem_addrs[index]; jav_mem_t* mm = &heap->mems[memaddr];
               out->u.mem.memidx = memaddr; out->u.mem.min = mm->size / STORE_PAGE;
               out->u.mem.has_max = mm->has_max; out->u.mem.max = mm->max;

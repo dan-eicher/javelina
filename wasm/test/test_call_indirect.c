@@ -52,7 +52,7 @@ static jav_status_t run(int32_t arg, int32_t slot, int jit, int* out){
     // collapsed when §2.3.4's reserved i31 tag bit forced null to be even. Both entries still trap.
     for (int i=0;i<5;i++){ s8 r = TABLE[i] < 0 ? (s8)(u4)JAV_NULLREF : (s8)(uintptr_t)&f[TABLE[i]];
                            bbq_vec_push(refs,r); bbq_vec_push(rtys,(u1)T_REF); }
-    jav_tableinst_t tt={0}; tt.refs=refs; tt.types=rtys; tt.max=5; jav_tableinst_t* tabs=NULL; bbq_vec_push(tabs, tt);
+    jav_tableinst_t tt={0}; tt.refs=refs; tt.types=rtys; tt.max=5; jav_tableinst_t** tabs=NULL; bbq_vec_push(tabs, &tt);
     vm.cluster.tables=tabs; vm.cluster.types=TYPES; vm.cluster.num_types=2;
     bbq_ctx_init(&vm.frame.code, main_code, sizeof main_code); vm.frame.sidetable=s0;
     vm.frame.locals[0].i=arg; vm.frame.locals[1].i=slot; vm.frame.num_locals=2;

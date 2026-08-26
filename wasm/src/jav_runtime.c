@@ -385,9 +385,27 @@ int jav_mem_add(heap_t* heap, u8 pages, u8 maxpages, int has_max, int is64) {
     bbq_vec_push(heap->mems, m);
     return idx;
 }
+/* §4.2.4 append a store-owned table instance (stable address; the heap owns it). Page/entry bound
+ * and OOM answered as NULL, like jav_mem_add — a table the store cannot back is a failure the caller
+ * reports, never a silently smaller table. */
+jav_tableinst_t* jav_table_add(heap_t* heap, u1 reftype, s4 reftype_ht, u1 is64,
+                               u1 has_max, u4 max, u8 minsize, s8 fill, u1 filltag) {
+    if (minsize > JAV_MAX_TABLE_ELEMS) return NULL;   /* past what one allocation can back */
+    jav_tableinst_t* t = (jav_tableinst_t*)calloc(1, sizeof *t);
+    if (!t) return NULL;
+    t->reftype = reftype; t->reftype_ht = reftype_ht; t->is64 = is64;
+    t->has_max = has_max; t->max = max;
+    for (u8 i = 0; i < minsize; i++) { bbq_vec_push(t->refs, fill); bbq_vec_push(t->types, filltag); }
+    bbq_vec_push(heap->tables, t);
+    return t;
+}
 void jav_heap_free_mems(heap_t* heap) {
     for (int i = 0; i < bbq_vec_len(heap->mems); i++) free(heap->mems[i].data);
     bbq_vec_free(heap->mems);
+    for (int i = 0; i < bbq_vec_len(heap->tables); i++) {   // §4.2.4 store tables outlive any one instance
+        bbq_vec_free(heap->tables[i]->refs); bbq_vec_free(heap->tables[i]->types); free(heap->tables[i]);
+    }
+    bbq_vec_free(heap->tables);
     if (heap->typereg_free) heap->typereg_free(heap->typereg);   // loader-set destructor; no engine→loader symbol dep
     heap->typereg = NULL; heap->typereg_free = NULL;
 }
@@ -463,8 +481,12 @@ void jav_data_drop(vm_t* vm, heap_t* h, s4 seg) { (void)h;
  * table.grow opcode and the c-api wasm_table_grow. */
 s8 jav_tableinst_grow(jav_tableinst_t* t, u8 delta, s8 raw, u1 tag) {
     u8 oldsize = bbq_vec_len(t->refs), newsize = oldsize + delta;
-    /* §4.5.3.10: cap at the declared max if any, else at the §3.2.16 addrtype ceiling. */
+    /* §4.5.3.10: cap at the declared max if any, else at the §3.2.16 addrtype ceiling. The engine's
+     * own bound applies on top: the addrtype ceiling is 2^32-1/2^64-1 slots — far past what one
+     * allocation can back, and past 2^31 the bbq_vec int cap wraps into a heap overrun rather than
+     * a clean failure — so JAV_MAX_TABLE_ELEMS clamps it, exactly as mem_grow_inst clamps pages. */
     u8 maxcap = t->has_max ? (u8)t->max : (t->is64 ? UINT64_MAX : 0xFFFFFFFFu);
+    if (maxcap > JAV_MAX_TABLE_ELEMS) maxcap = JAV_MAX_TABLE_ELEMS;
     if (newsize > maxcap) return -1;
     for (u8 k = 0; k < delta; k++) { bbq_vec_push(t->refs, raw); bbq_vec_push(t->types, tag); }
     return (s8)oldsize;
@@ -473,11 +495,11 @@ s8 jav_tableinst_grow(jav_tableinst_t* t, u8 delta, s8 raw, u1 tag) {
  * (any) and pushes the old size via push_addr in the .def body; this native does the bounds/cap + append. */
 s8 jav_table_grow(vm_t* vm, heap_t* h, s4 tbl, s8 delta, any_t initref) { (void)h;
     if ((u4)tbl >= bbq_vec_len(vm->frame.ctx->tables) || delta < 0) return -1;
-    return jav_tableinst_grow(&vm->frame.ctx->tables[tbl], (u8)delta, initref.bits, initref.kind);
+    return jav_tableinst_grow(vm->frame.ctx->tables[tbl], (u8)delta, initref.bits, initref.kind);
 }
 /* table.fill x (§4.6): opgen pops index i, the fill ref v (any_t), and count n; fill [i,i+n) with v. */
 void jav_table_init(vm_t* vm, heap_t* h, s4 tbl, s4 seg, s8 d, s4 s, s4 n) { (void)h;
-    jav_tableinst_t* t = (u4)tbl < bbq_vec_len(vm->frame.ctx->tables) ? &vm->frame.ctx->tables[tbl] : NULL;
+    jav_tableinst_t* t = (u4)tbl < bbq_vec_len(vm->frame.ctx->tables) ? vm->frame.ctx->tables[tbl] : NULL;
     if (!t || (u4)seg >= vm->frame.ctx->num_elem_segs) { JAV_TRAP_WITH(vm, JAV_TRAP_OutOfBoundsTableAccess); return; }
     const jav_elem_seg_t* es = &vm->frame.ctx->elem_segs[seg];
     u8 seglen = vm->frame.ctx->elem_dropped[seg] ? 0 : es->len;   // §4.6.7: a dropped elem segment is ε (length 0)
@@ -692,7 +714,7 @@ static void jav_gc_enum_roots(gc_heap_t* gch, gc_root_visit_fn visit, void* ctx)
     /* table entries: a managed-ref table (externref/struct/array/exn) holds gc pointers in
      * its T_GCREF-tagged slots — scan those (funcref/i31/null entries are T_REF, skipped). */
     for (size_t ti = 0, nt = bbq_vec_len(vm->frame.ctx->tables); ti < nt; ti++) {
-        jav_tableinst_t* t = &vm->frame.ctx->tables[ti];
+        jav_tableinst_t* t = vm->frame.ctx->tables[ti];   // a store table shared by pointer (§4.2.4)
         for (size_t i = 0, n = bbq_vec_len(t->refs); i < n; i++)
             if (t->types[i] == T_GCREF) visit((gc_obj_t**)&t->refs[i], ctx);
     }

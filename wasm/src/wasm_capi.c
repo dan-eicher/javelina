@@ -25,6 +25,7 @@
 #include "jav_instance.h"        // jav_instantiate / jav_instance_*
 #include "jav_extern.h"           // jav_project_export — the ONE externval projection (shared with the loader)
 #include "heap.h"                // heap_t / jav_heap_free_mems / jav_heap_gc_init
+#include "jav_limits.h"          // JAV_MAX_TABLE_ELEMS — the §A bound on one table's backing store
 #include "jav_hostref.h"         // host externref boxing (jav_host_box_new/_get)
 #include "interp.h"              // vm_t / jav_vm_init / jav_vm_free
 #include "jav_ttree.h"           // jav_ttree_stats — what the stitcher did, for the readout
@@ -1079,13 +1080,9 @@ static int marshal_import(const wasm_extern_t* e, jav_extern_t* out) {
     }
     case WASM_EXTERN_TABLE: {
         capi_table_t* ct = e->host; if (!ct) return 0;
-        jav_tableinst_t* ti = &ct->tab;
         out->kind = 1;
-        out->u.table.data = ti->refs; out->u.table.types = ti->types;
-        out->u.table.size = (uint32_t)bbq_vec_len(ti->refs);
-        out->u.table.reftype = ti->reftype; out->u.table.reftype_ht = ti->reftype_ht;
-        out->u.table.is64 = ti->is64;                                  // §3.3.15 addrtype
-        out->u.table.has_max = ti->has_max; out->u.table.max = ti->max;
+        out->u.table.tab = &ct->tab;   // §4.2.4 the host table IS a store table (capi_table_t is stable in host_tables)
+        out->u.table.gcanon = NULL;    // host table: abstract reftype only, no session typeidx space
         return 1;
     }
     case WASM_EXTERN_MEMORY: {
@@ -1851,7 +1848,7 @@ static void ref_to_entry(wasm_store_t* s, wasm_ref_t* r, s8* out_v, u1* out_ty) 
 }
 // The underlying table inst + owning store, whether an instance-export view or a host table.
 static jav_tableinst_t* table_of(const wasm_table_t* t) {
-    return t->inst ? &t->inst->inst.tables[t->index] : (t->host ? &((capi_table_t*)t->host)->tab : NULL);
+    return t->inst ? t->inst->inst.tables[t->index] : (t->host ? &((capi_table_t*)t->host)->tab : NULL);   // inst tables are pointers (§4.2.4)
 }
 static wasm_store_t* table_store_of(const wasm_table_t* t) {
     return t->inst ? t->inst->store : (t->host ? ((capi_table_t*)t->host)->store : NULL);
@@ -1859,8 +1856,11 @@ static wasm_store_t* table_store_of(const wasm_table_t* t) {
 
 // — Tables (§7.1.9): instance-export view OR a host-created (standalone) table. —
 wasm_table_t* wasm_table_new(wasm_store_t* s, const wasm_tabletype_t* tt, wasm_ref_t* init) {
-    capi_table_t* ct = calloc(1, sizeof *ct); ct->store = s;
     const wasm_limits_t* lim = wasm_tabletype_limits(tt);
+    // §7.1.9 table_alloc can fail. A min past what one allocation can back is refused, never
+    // narrowed — NULL + the sanctioned verdict, exactly as wasm_memory_new refuses via jav_mem_add.
+    if (lim->min > JAV_MAX_TABLE_ELEMS) { s->last_status = JAV_UNINSTANTIABLE; s->last_err = JAV_E_ALLOCATION_FAILED; return NULL; }
+    capi_table_t* ct = calloc(1, sizeof *ct); ct->store = s;
     wasm_valkind_t ek = wasm_valtype_kind(wasm_tabletype_element(tt));
     ct->tab.reftype = (uint8_t)wvt_of_valkind(ek); ct->tab.reftype_ht = ht_of_valkind(ek);
     ct->tab.is64 = wasm_tabletype_addrtype(tt) == WASM_I64;

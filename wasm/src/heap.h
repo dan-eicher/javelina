@@ -33,8 +33,14 @@ typedef struct {
  * import matching. Forward-declared (opaque here); created lazily by jav_heap_typereg. */
 typedef struct jav_typereg jav_typereg_t;
 
+/* §4.2.4 table instances are STORE objects too, individually allocated (stable address) and owned
+ * by the heap — imports SHARE one by pointer, so a shared table's grow is seen by every referrer
+ * and no instance frees a table another still holds. Defined in jav_frame.h; opaque here. */
+struct jav_tableinst;
+
 struct heap_t {
     jav_mem_t* mems;    /* bbq_vec of linear memories, indexed by memidx */
+    struct jav_tableinst** tables;  /* bbq_vec of store-owned table instances (pointers; freed with the heap) */
     jav_collector_t gc; /* the SWAPPABLE collector — every managed alloc/collect dispatches through here */
     jav_typereg_t* typereg;            /* the shared closed-type registry (lazily allocated by the loader) */
     void (*typereg_free)(jav_typereg_t*); /* set by the loader's jav_heap_typereg; the engine teardown calls it
@@ -67,7 +73,12 @@ jav_typereg_t* jav_heap_typereg(heap_t* heap);
  * is the declared limit, meaningful only when `has_max` (else grow caps at the addrtype ceiling).
  * The heap owns the bytes — freed by jav_heap_free_mems. */
 int  jav_mem_add(heap_t* heap, u8 pages, u8 maxpages, int has_max, int is64);   /* -1 = cannot back it */
-/* Free every memory's bytes and the vector (the GC is freed separately). */
+/* Append a store-owned table instance of `minsize` entries (each filled with (fill, filltag)); returns
+ * the (stable) instance pointer, or NULL when it cannot be backed (minsize past JAV_MAX_TABLE_ELEMS,
+ * or OOM) — the caller reports JAV_E_ALLOCATION_FAILED. The heap owns it (freed by jav_heap_free_mems). */
+struct jav_tableinst* jav_table_add(heap_t* heap, u1 reftype, s4 reftype_ht, u1 is64,
+                                    u1 has_max, u4 max, u8 minsize, s8 fill, u1 filltag);
+/* Free every memory's bytes AND every store table's entries + the two vectors (the GC is freed separately). */
 void jav_heap_free_mems(heap_t* heap);
 
 /* Grow a memory instance by `delta` pages, reallocating its owned buffer (zero-filled new pages);
