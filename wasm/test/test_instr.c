@@ -76,6 +76,7 @@ static int roundtrip_one(const iop_t *op) {
         else {
             uint8_t out[64]; bbq_write_ctx_t w; bbq_write_ctx_init(&w, out, sizeof out);
             r = jav_expr_write(&w, &e) && w.pos == n && memcmp(in, out, n) == 0;
+            bbq_write_ctx_free(&w);   // the writer's internal length-backpatch stack
         }
     }
     jav_expr_free(&e);
@@ -122,6 +123,7 @@ static void test_nested(int *fails) {
     uint8_t out[128]; bbq_write_ctx_t w; bbq_write_ctx_init(&w, out, sizeof out);
     ok = ok && jav_expr_write(&w, &e) && w.pos == sizeof NESTED &&
          memcmp(out, NESTED, sizeof NESTED) == 0;
+    bbq_write_ctx_free(&w);   // the writer's internal length-backpatch stack
     printf("  nested/structured round-trip + structure          [%s]\n", ok ? "PASS" : "FAIL");
     if (!ok) (*fails)++;
     jav_expr_free(&e);

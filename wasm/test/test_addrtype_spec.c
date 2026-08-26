@@ -88,6 +88,7 @@ int main(void) {
     printf("\naddrtype is declared, not tagged: %s\n", fails ? "FAIL" : "ALL PASS");
 
     jav_heap_gc_destroy(&HEAP); jav_instance_free(&INST); jav_vm_free(&VM);
+    jav_modidx_free_bodies(&MOD); jav_heap_free_mems(&HEAP);   // store tables + §7.6 body-tables
     bbq_arena_free(&A); free(BUF);
     return fails ? 1 : 0;
 }

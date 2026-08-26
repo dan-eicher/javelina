@@ -55,8 +55,10 @@ static jav_err_t validate(const uint8_t *bytes, int len) {
     jav_err_t err = JAV_E_NONE;
     if (cm.success) {
         jav_modidx_t mod;
-        if (jav_module_index(cm.root, (uint8_t *)bytes, &a, &mod))
+        if (jav_module_index(cm.root, (uint8_t *)bytes, &a, &mod)) {
             jav_module_validate(cm.root, (uint8_t *)bytes, &mod, &err);
+            jav_modidx_free_bodies(&mod);   // §7.6 side-tables (freed by the C-API's module_delete)
+        }
     }
     bbq_arena_free(&a);
     return err;
@@ -135,6 +137,7 @@ int main(int argc, char **argv) {
     }
     printf("\n%d memarg instructions checked against the spec `align` column, %d wrong\n",
            checked, bad);
+    free(src); bbq_arena_free(&arena);   // the toml doc AST + its source
     if (!checked) { printf("natural alignment: FAIL (no rows checked)\n"); return 1; }
     printf("natural alignment: %s\n", bad ? "FAIL" : "PASS");
     return bad ? 1 : 0;

@@ -60,6 +60,7 @@ static int body_roundtrips(const char* inner, const uint8_t* expect, size_t en) 
         bbq_write_set_endian(&w, true);
         ok = jav_func_body_write(&w, &cs->body.u.case_10.entries.items[0].body)
              && w.pos == en && memcmp(out, expect, en) == 0;
+        bbq_write_ctx_free(&w);   // the writer's internal length-backpatch stack
     }
     jav_module_free(m); free(m);
     return ok;
@@ -72,8 +73,10 @@ static int body_bytes_eq(const jav_module_t* m, size_t entry, const uint8_t* exp
     if (!cs || entry >= cs->body.u.case_10.entries.count) return 0;
     uint8_t out[256]; bbq_write_ctx_t w; bbq_write_ctx_init(&w, out, sizeof out);
     bbq_write_set_endian(&w, true);
-    return jav_func_body_write(&w, &cs->body.u.case_10.entries.items[entry].body)
-           && w.pos == en && memcmp(out, expect, en) == 0;
+    int r = jav_func_body_write(&w, &cs->body.u.case_10.entries.items[entry].body)
+            && w.pos == en && memcmp(out, expect, en) == 0;
+    bbq_write_ctx_free(&w);   // the writer's internal length-backpatch stack
+    return r;
 }
 
 // $id resolution + §6.4.15 typeuse: forward refs, (type $x) reuse, insert ordering.

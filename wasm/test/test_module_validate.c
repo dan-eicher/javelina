@@ -22,8 +22,10 @@ static jav_status_t validate_file(const char* path, jav_err_t* err) {
     jav_status_t r = JAV_MALFORMED; *err = JAV_E_NONE;
     if (m.success) {
         jav_modidx_t mod;
-        r = jav_module_index(m.root, buf, &a, &mod) ? jav_module_validate(m.root, buf, &mod, err)
-                                                    : JAV_INVALID;
+        if (jav_module_index(m.root, buf, &a, &mod)) {
+            r = jav_module_validate(m.root, buf, &mod, err);
+            jav_modidx_free_bodies(&mod);   // §7.6 side-tables stored in mod (freed by the C-API's module_delete)
+        } else r = JAV_INVALID;
     }
     bbq_arena_free(&a); free(buf);
     return r;

@@ -65,5 +65,6 @@ int main(void) {
        "struct {funcref, anyref} — funcref skipped, anyref traced");
 
     printf("%s: %s\n", "test_gc_funcref", fails ? "FAIL" : "OK");
+    jav_modidx_free_bodies(&mod); bbq_arena_free(&a);   // release the c-lite index arena
     return fails ? 1 : 0;
 }

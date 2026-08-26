@@ -59,6 +59,7 @@ int main(int argc, char **argv) {
     int rt = jav_func_body_write(&w, fn) &&
              w.pos == sizeof expect && memcmp(out, expect, sizeof expect) == 0;
     check("func tree round-trips to the body bytes", rt);
+    bbq_write_ctx_free(&w);   // the writer's internal length-backpatch stack
     jav_module_free(&mod);
     free(buf);
     printf("\nP2 code-body tree: %s\n", fails == 0 ? "ALL PASS" : "FAILURES");

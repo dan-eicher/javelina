@@ -78,7 +78,7 @@ static void dead_code_is_still_typed(void) {
         CK("(unreachable (i32.const) i64.add) is REJECTED", run(wasm, sizeof wasm, &mod, &a, &r), 0);
         CK("...and the walk names where", r.fail != NULL, 1);
         if (r.fail) CK("...at the i64.add", r.fail->op, 0x7c);
-        bbq_arena_free(&a);
+        jav_module_free(&mod); bbq_arena_free(&a);
     }
 
     // (b) the polymorphic stack does not underflow — ACCEPTED.
@@ -99,7 +99,7 @@ static void dead_code_is_still_typed(void) {
         // on its own it is a green for the wrong reason.
         CK("unreachable satisfies an i32 result (Bot), no failure site",
            ok == 1 && r.fail == NULL, 1);
-        bbq_arena_free(&a);
+        jav_module_free(&mod); bbq_arena_free(&a);
     }
 }
 

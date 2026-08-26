@@ -38,7 +38,9 @@ static const uint8_t TS[] = {
 static int reject(const uint8_t *buf, size_t n) {
     bbq_ctx_t c; bbq_ctx_init(&c, buf, n);
     jav_type_section_t ts; memset(&ts, 0, sizeof ts);
-    return jav_type_section_read(&c, &ts) == false;   // must fail-closed
+    int r = jav_type_section_read(&c, &ts) == false;   // must fail-closed
+    jav_type_section_free(&ts);                        // a partial parse still allocated rows
+    return r;
 }
 
 int main(void) {
@@ -116,6 +118,7 @@ int main(void) {
     int rt = jav_type_section_write(&w, &ts) &&
              w.pos == sizeof TS && memcmp(out, TS, sizeof TS) == 0;
     check("round-trip read->write == identity", rt);
+    bbq_write_ctx_free(&w);   // the writer's internal length-backpatch stack
 
     // ── Fail-closed negatives (each must be rejected) ─────────────────────
     check("reject: invalid valtype byte 0x00",

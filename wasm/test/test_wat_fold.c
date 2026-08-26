@@ -84,7 +84,7 @@ static void spec_fold_example_is_a_tree(void) {
     const jav_func_body_t *b = body0(&mod);
     if (!b || b->body.instrs.count != 5) {
         CK("five instructions decoded", b ? (long)b->body.instrs.count : -1, 5);
-        bbq_arena_free(&a); return;
+        jav_module_free(&mod); bbq_arena_free(&a); return;
     }
     const jav_instr_t *get = &b->body.instrs.items[0];   // local.get 0
     const jav_instr_t *c2  = &b->body.instrs.items[1];   // i32.const 2
@@ -111,7 +111,7 @@ static void spec_fold_example_is_a_tree(void) {
     const wat_info_t *ig = wat_info(&r, get);
     CK("local.get pops nothing", ig ? (long)ig->noperands : -1, 0);
     CK("local.get folds nothing", ig ? (long)ig->fold : -1, 0);
-    bbq_arena_free(&a);
+    jav_module_free(&mod); bbq_arena_free(&a);
 }
 
 /* ── PIN A-3 — AdmissibilityStopsAtANonOperand ──────────────────────────────────
@@ -145,7 +145,7 @@ static void admissibility_stops_at_a_non_operand(void) {
     const jav_func_body_t *b = body0(&mod);
     if (!b || b->body.instrs.count != 5) {
         CK("five instructions decoded", b ? (long)b->body.instrs.count : -1, 5);
-        bbq_arena_free(&a); return;
+        jav_module_free(&mod); bbq_arena_free(&a); return;
     }
     const jav_instr_t *c1  = &b->body.instrs.items[0];   // i32.const 1
     const jav_instr_t *c2  = &b->body.instrs.items[2];   // i32.const 2
@@ -161,7 +161,7 @@ static void admissibility_stops_at_a_non_operand(void) {
         CK("operand 1 is still the i32.const 2", ia->noperands == 2 && ia->producer[1] == c2, 1);
         CK("the nop bounds the fold to 1", ia->fold, 1);
     }
-    bbq_arena_free(&a);
+    jav_module_free(&mod); bbq_arena_free(&a);
 }
 
 /* ── PIN A-6 — BlockOperandsAreItsOwn ───────────────────────────────────────────
@@ -235,7 +235,7 @@ static void block_operands_are_its_own(void) {
     const jav_func_body_t *b = body0(&mod);
     if (!b || b->body.instrs.count != 6) {
         CK("six top-level instructions decoded", b ? (long)b->body.instrs.count : -1, 6);
-        bbq_arena_free(&a); return;
+        jav_module_free(&mod); bbq_arena_free(&a); return;
     }
     const jav_instr_t *c7  = &b->body.instrs.items[0];   // i32.const 7
     const jav_instr_t *blk = &b->body.instrs.items[1];   // block (type 1)
@@ -260,7 +260,7 @@ static void block_operands_are_its_own(void) {
     const jav_block_t *ob = &out->body.u.case_1;
     if (ob->instrs.count != 3) {
         CK("the outer block holds three instructions", (long)ob->instrs.count, 3);
-        bbq_arena_free(&a); return;
+        jav_module_free(&mod); bbq_arena_free(&a); return;
     }
     const jav_instr_t *c6 = &ob->instrs.items[0];        // i32.const 6
     const jav_instr_t *tt = &ob->instrs.items[1];        // try_table (type 1)
@@ -271,7 +271,7 @@ static void block_operands_are_its_own(void) {
         CK("try_table operand 0 is the i32.const 6", it->noperands == 1 && it->producer[0] == c6, 1);
         CK("try_table admits no fold (§6.5.11 has no slot)", it->fold, 0);
     }
-    bbq_arena_free(&a);
+    jav_module_free(&mod); bbq_arena_free(&a);
 }
 
 int main(void) {
